@@ -1,0 +1,18 @@
+*.py[cod]
+
+# Generated
+build
+doc
+dist
+*.egg*
+
+# Temporary files
+*~
+*.h5
+*.nx5
+*.hdf5
+log.*
+
+# Generated data
+testresults
+testdata

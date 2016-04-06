@@ -1,0 +1,125 @@
+# -*- coding: utf-8 -*-
+#
+#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#
+#   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+import os
+import h5py
+import numpy as np
+import fabio
+
+from .Enum import DataType
+
+class alignSource(object):
+    """Interface to data stacks with images as a function of energy, rotation angle, ...
+    """
+
+    def __init__(self,source,sublist,stackdim=None):
+        """HDF5:
+            source: file name or hdf5 object
+            sublist: dataset names
+           Files:
+            source: base directory
+            sublist: file names
+           numpy array or external hdf5:
+            source: list of ndarray or dataset
+            sublist: None
+        """
+
+        if stackdim is None:
+            stackdim = 2
+        elif stackdim < 0 or stackdim > 2:
+            raise ValueError("Stack dimension must be 0, 1 or 2.")
+
+        self.stackdim = stackdim
+
+        if isinstance(source,str):
+            tmp, ext = os.path.splitext(source)
+            if ext == '.h5':
+                self.handle = h5py.File(source, "r")
+                self.datasets = [self.handle[name] for name in sublist]
+                s = self.datasets[0].shape
+                if len(s) != 3:
+                    raise ValueError("Datasets should have 3 dimensions.")
+                if not all(set.shape == s for set in self.datasets):
+                    raise ValueError("Datasets don't have the same size.")
+
+                self.sourcetype = DataType.h5
+                self.nimages = s[stackdim]
+                self.imgsize = tuple(np.delete(s,stackdim))
+                self.nsets = len(self.datasets)
+
+            elif ext == '':
+                n = len(sublist[0])
+                if not all(len(files) == n for files in sublist):
+                    raise ValueError("Datasets don't have the same size.")
+                self.datasets = [[os.path.join(source,f) for f in files] for files in sublist]
+
+                self.sourcetype = DataType.singlefile
+                self.nimages = n
+                f = fabio.open(self.datasets[0][0])
+                self.imgsize = (f.dim2,f.dim1)
+                self.nsets = len(self.datasets)
+
+            else:
+                raise ValueError("Source type is not implemented.")
+        elif isinstance(source,h5py.File) or isinstance(source,h5py.Group):
+            self.handle = source
+            self.datasets = [self.handle[name] for name in sublist]
+            s = self.datasets[0].shape
+            if len(s) != 3:
+                raise ValueError("Datasets should have 3 dimensions.")
+            if not all(set.shape == s for set in self.datasets):
+                raise ValueError("Datasets don't have the same size.")
+
+            self.sourcetype = DataType.h5
+            self.nimages = s[stackdim]
+            self.imgsize = tuple(np.delete(s,stackdim))
+            self.nsets = len(self.datasets)
+        elif isinstance(source,list):
+            if isinstance(source[0],(np.ndarray,h5py.Dataset)):
+                
+                s = source[0].shape
+                if len(s) != 3:
+                    raise ValueError("Datasets should have 3 dimensions.")
+                self.datasets = source
+
+                self.sourcetype = DataType.nparray if isinstance(source[0],np.ndarray) else DataType.h5ext
+                self.nimages = s[stackdim]
+                self.imgsize = tuple(np.delete(s,stackdim))
+                self.nsets = len(self.datasets)
+
+            else:
+                raise ValueError("Source type is not implemented.")
+        else:
+            raise ValueError("Source type is not implemented.")
+
+    def readimg(self,datasetindex,imageindex):
+        if self.sourcetype==DataType.h5 or self.sourcetype==DataType.h5ext or self.sourcetype==DataType.nparray:
+            return np.take(self.datasets[datasetindex],imageindex,axis=self.stackdim)
+        elif self.sourcetype==DataType.singlefile:
+            return fabio.open(self.datasets[datasetindex][imageindex]).data
+        else:
+            raise ValueError("Source type is not implemented.")
+
+    def readimgas(self,datasetindex,imageindex,dtype):
+        return self.readimg(datasetindex,imageindex).astype(dtype)
