@@ -29,7 +29,7 @@ import fabio
 import glob
 import sys
 
-from .Enum import DataType
+from .types import dataType
 
 class alignDest(object):
     """Interface for storing Elastix alignment results (list of image stacks).
@@ -61,7 +61,7 @@ class alignDest(object):
         if isinstance(dest,str):
             tmp, ext = os.path.splitext(dest)
             if ext == '.h5':
-                self.desttype = DataType.h5
+                self.desttype = dataType.h5
                 self.handle = h5py.File(dest, "a")
                 self.dir = "/"
                 self.names = [s.strip("\/") for s in names]
@@ -69,7 +69,7 @@ class alignDest(object):
                 # Datasets: self.dir+self.names[i]+self.ext
                 self.datasets = []
             elif ext == '':
-                self.desttype = DataType.singlefile
+                self.desttype = dataType.singlefile
                 self.dir = dest
                 self.names = [s.strip("\/") for s in names]
                 self.ext = extension
@@ -78,7 +78,7 @@ class alignDest(object):
             else:
                 raise ValueError("Destination type is not implemented.")
         elif isinstance(dest,h5py.File) or isinstance(dest,h5py.Group):
-            self.desttype = DataType.h5
+            self.desttype = dataType.h5
             self.handle = dest
             self.dir = "/"
             self.names = [s.strip("\/") for s in names]
@@ -87,14 +87,14 @@ class alignDest(object):
             self.datasets = []
         elif isinstance(dest,list):
             if isinstance(dest[0],np.ndarray):
-                self.desttype = DataType.nparray
+                self.desttype = dataType.nparray
                 # Copy to transfer ownership
                 #self.datasets = dest
                 self.datasets = [d.copy() for d in dest]
                 for i in range(len(dest)):
                     dest[i] = self.datasets[i]
             elif isinstance(dest[0],h5py.Dataset):
-                self.desttype = DataType.h5ext
+                self.desttype = dataType.h5ext
                 self.datasets = dest
             else:
                 raise ValueError("Destination type is not implemented.")
@@ -203,15 +203,15 @@ class alignDest(object):
                 raise ValueError("Destination should have shape (%d,%d,%d) and type %s."%(shape+(dtype,)))
 
     def prepare(self,nimages,imgsize,dtype):
-        if self.desttype == DataType.h5:
+        if self.desttype == dataType.h5:
             shape = self.destshape(nimages,imgsize)
             self.h5_prepare(shape,dtype)
-        elif self.desttype == DataType.singlefile:
+        elif self.desttype == dataType.singlefile:
             self.singlefile_prepare(nimages)
-        elif self.desttype == DataType.nparray:
+        elif self.desttype == dataType.nparray:
             shape = self.destshape(nimages,imgsize)
             self.nparray_prepare(shape,dtype)
-        elif self.desttype == DataType.h5ext:
+        elif self.desttype == dataType.h5ext:
             shape = self.destshape(nimages,imgsize)
             self.h5ext_prepare(shape,dtype)
         else:
@@ -229,14 +229,14 @@ class alignDest(object):
         return klass(data=img)
 
     def writeimg(self,img,datasetindex,imageindex):
-        if self.desttype == DataType.h5 or self.desttype == DataType.nparray or self.desttype == DataType.h5ext:
+        if self.desttype == dataType.h5 or self.desttype == dataType.nparray or self.desttype == dataType.h5ext:
             if self.stackdim == 0:
                 self.datasets[datasetindex][imageindex,...] = img
             elif self.stackdim == 1:
                 self.datasets[datasetindex][:,imageindex,:] = img
             else:
                 self.datasets[datasetindex][...,imageindex] = img
-        elif self.desttype == DataType.singlefile:
+        elif self.desttype == dataType.singlefile:
             h = self.singlefile_getfabiohandle(img)
             filename = self.singlefile_composefilename(datasetindex,imageindex)
             h.write(filename)

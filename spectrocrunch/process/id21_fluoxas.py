@@ -30,11 +30,20 @@ from spectrocrunch.xrf.get_hdf5_imagestacks import get_hdf5_imagestacks as getst
 from spectrocrunch.xrf.math_hdf5_imagestacks import fluxnorm_hdf5_imagestacks as fluxnormstacks
 from spectrocrunch.xrf.math_hdf5_imagestacks import copy_hdf5_imagestacks as copystacks
 from spectrocrunch.xrf.align_hdf5_imagestacks import align_hdf5_imagestacks as alignstacks
+import spectrocrunch.common.timing as timing
+import spectrocrunch.io.nexus as nexus
 
-def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile):
+def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim):
     bfit = cfgfile is not None
     if not bfit:
         cfgfile = os.path.join(destpath,scanname[0]+".cfg")
+
+    if not isinstance(sourcepath,list):
+        sourcepath = [sourcepath]
+    if not isinstance(scanname,list):
+        scanname = [scanname]
+    if not isinstance(scannumbers,list):
+        scannumbers = [scannumbers]
 
     config = {
             # Input
@@ -51,7 +60,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile):
             "coordinates": ["samy", "samz", "samx", "sampy", "sampz"],
 
             # Deadtime correction
-            "dtcor": True,
+            "dtcor": dtcor,
 
             # Configuration for fitting
             "detectorcfg": [cfgfile],
@@ -64,7 +73,8 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile):
             # Output directories
             "outdatapath": os.path.join(destpath,scanname[0]+"_data"),
             "outfitpath": os.path.join(destpath,scanname[0]+"_fit"),
-            "hdf5output": os.path.join(destpath,scanname[0]+".h5")
+            "hdf5output": os.path.join(destpath,scanname[0]+".h5"),
+            "stackdim": stackdim
     }
 
     # Create configuration file
@@ -74,20 +84,42 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile):
     with open(jsonfile,'w') as f:
         json.dump(config,f,indent=2)
 
-    return jsonfile,config["hdf5output"] 
+    return jsonfile,config["hdf5output"]
 
-def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,refimageindex=None,skippre=False,skipnormalization=False):
+def isgroup(name,reference):
+    return name.split(".")[0].endswith(reference)
+
+def defaultstack(f,stacks,plotreference):
+    if plotreference is None:
+        reference = []
+    else:
+        reference = [s for s in stacks if isgroup(s,plotreference)]
+    if len(reference)!=1:
+        return
+    nexus.defaultstack(f,reference[0])
+
+def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None):
+    T0 = timing.taketimestamp()
+
+    stackdim = 2
+    bsamefile = False
+
     # Image stack
     if skippre:
         filein = os.path.join(destpath,scanname[0]+".h5")
         stacks, axes = getstacks(filein,["counters","detector0"])
     else:
-        jsonfile, filein = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile)
+        jsonfile, filein = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim)
         stacks, axes = makestacks(jsonfile)
 
         #stacks2, axes2 = getstacks(filein,["counters","detector0"])
         #assert(axes == axes2)
         #assert(stacks == stacks2)
+
+    # Default
+    defaultstack(filein,stacks["counters"].values(),default)
+    if "detector0" in stacks:
+        defaultstack(filein,stacks["detector0"].values(),default)
 
     # Groups that don't change and need to be copied
     copygroups = ["coordinates"]
@@ -95,33 +127,57 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
     # I0 normalization
     base,ext = os.path.splitext(filein)
     if "detector0" in stacks and "arr_iodet" in stacks["counters"] and skipnormalization==False:
-        fileout = base+".norm"+ext
+        if bsamefile:
+            fileout = filein
+        else:
+            fileout = base+".norm"+ext
+
+        # normalization stacks
         I0stack = stacks["counters"]["arr_iodet"]
 
-        innames = [s for s in stacks["detector0"].values()]
-        innames += [stacks["counters"]["arr_idet"]]
+        # stacks to be normalized
+        innames = stacks["detector0"].values()
+        notnormalize = ["arr_absorp1","arr_absorp2","arr_absorp3"]
+        for ctr in stacks["counters"]:
+            if not any(isgroup(ctr,s) for s in notnormalize):
+                innames += [stacks["counters"][ctr]]
+
+        # normalize
         Ifn_stacks, Ifn_axes = fluxnormstacks(filein,fileout,axes,I0stack,innames,innames,overwrite=True,info={"normalization":"arr_iodet"},copygroups=copygroups)
 
-        if filein != fileout:
-            innames = [s for s in stacks["counters"].values() if "arr_idet" not in s]
-            
+        # copy unnormalized stacks when new file
+        innames = [ctr for ctr in stacks["counters"].values() if any(isgroup(ctr,s) for s in notnormalize)]
+        if filein==fileout:
+            Ifn_stacks += innames
+        else:
             tmp_stacks, tmp = copystacks(filein,fileout,axes,innames,innames,overwrite=False)
             Ifn_stacks += tmp_stacks
 
         filein = fileout
+
+        # Default
+        defaultstack(fileout,Ifn_stacks,default)
+
     else:
-        Ifn_stacks = [s for s in stacks["counters"].values()]
+        Ifn_stacks = stacks["counters"].values()
         if "detector0" in stacks:
             Ifn_stacks += [s for s in stacks["detector0"].values()]
         Ifn_axes = [dict(a) for a in axes]
 
     # Alignment
     if alignmethod is not None and alignreference is not None:
-        fileout = base+".align"+ext
+        if bsamefile:
+            fileout = filein
+        else:
+            fileout = base+".align"+ext
+
         info = {"method":alignmethod,"pairwise":refimageindex==None,"reference set":alignreference,"reference image":"None" if refimageindex==None else refimageindex}
-        aligned_stacks, aligned_axes = alignstacks(filein,Ifn_stacks,Ifn_axes,fileout,alignmethod,
+        aligned_stacks, aligned_axes = alignstacks(filein,Ifn_stacks,Ifn_axes,stackdim,fileout,alignmethod,
                                         alignreference,refimageindex=refimageindex,overwrite=True,
                                         info=info,copygroups=copygroups)
+        # Default
+        defaultstack(fileout,aligned_stacks,default)
 
-    
+
+    timing.printtimeelapsed(T0)
 

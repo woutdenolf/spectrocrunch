@@ -34,7 +34,7 @@ class alignSift(align):
         super(alignSift,self).__init__(*args,**kwargs)
 
         # pyopencl stuff
-        device = sift.opencl.ocl.select_device(type="CPU", best=True)
+        device = sift.opencl.ocl.select_device(type="GPU", best=True)
         self.ctx = sift.opencl.pyopencl.Context(devices=[sift.opencl.pyopencl.get_platforms()[device[0]].get_devices()[device[1]]])
         self.queue = sift.opencl.pyopencl.CommandQueue(self.ctx)
         

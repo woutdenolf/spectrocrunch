@@ -24,13 +24,26 @@
 
 import unittest
 from spectrocrunch.align.tests import test_all as test_align
-#from spectrocrunch.subpackage.tests import test_all as test_subpackage
+from spectrocrunch.common.tests import test_all as test_common
+from spectrocrunch.io.tests import test_all as test_io
+from spectrocrunch.materials.tests import test_all as test_materials
+from spectrocrunch.math.tests import test_all as test_math
+from spectrocrunch.process.tests import test_all as test_process
+from spectrocrunch.visualization.tests import test_all as test_visualization
+from spectrocrunch.xrf.tests import test_all as test_xrf
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_align.test_suite_all())
-    #testSuite.addTest(test_subpackage.test_suite_all())
+    testSuite.addTest(test_common.test_suite_all())
+    testSuite.addTest(test_io.test_suite_all())
+    testSuite.addTest(test_materials.test_suite_all())
+    testSuite.addTest(test_math.test_suite_all())
+    testSuite.addTest(test_process.test_suite_all())
+    testSuite.addTest(test_visualization.test_suite_all())
+    testSuite.addTest(test_xrf.test_suite_all())
+
     return testSuite
 
 if __name__ == '__main__':

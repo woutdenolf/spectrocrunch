@@ -28,17 +28,17 @@ import pylab
 
 from .alignSource import alignSource
 from .alignDest import alignDest
-from .Enum import AlignType
+from .types import alignType
 
 class align(object):
 
-    def __init__(self,source,sourcelist,dest,destlist,extension,stackdim=None,overwrite=False,cval=np.nan):
+    def __init__(self,source,sourcelist,dest,destlist,extension,stackdim=None,overwrite=False,cval=0):
         # Data IO
         self.source = alignSource(source,sourcelist,stackdim=stackdim)
         self.dest = alignDest(dest,destlist,extension,stackdim=stackdim,overwrite=overwrite)
     
         # Missing data
-        self.cval = cval
+        self.cval = cval #TODO: use nan's as default but pymca can't handle them
 
         # Transformation settings (set before actual transformation)
         self.dtype = np.float32
@@ -204,17 +204,18 @@ class align(object):
 
         if self.source.stackdim==2:
             ind = [0,1]
-            iE = 2
         elif self.source.stackdim==1:
             ind = [0,2]
         else:
             ind = [1,2]
 
         for i in range(len(ind)):
+            j = ind[i]
+
             nleft = self.padding[i][0]
             nright = self.padding[i][1]
-            naxis = len(axes[ind[i]])
-            newaxis = np.empty(naxis + nleft + nright,dtype = axes[ind[i]].dtype)
+            naxis = len(axes[j])
+            newaxis = np.empty(naxis + nleft + nright,dtype = axes[j].dtype)
 
             off0 = 0
             axis0 = 0
@@ -228,16 +229,16 @@ class align(object):
             offn = off0 + axisn - axis0
 
             if nleft > 0:
-                delta = axes[ind[i]][1]-axes[ind[i]][0]
-                newaxis[0:nleft] = (axes[ind[i]][0] - delta*nleft) + delta*np.arange(nleft)
+                delta = axes[j][1]-axes[j][0]
+                newaxis[0:nleft] = (axes[j][0] - delta*nleft) + delta*np.arange(nleft)
 
-            newaxis[off0:offn] = axes[ind[i]][axis0:axisn]
+            newaxis[off0:offn] = axes[j][axis0:axisn]
 
             if nright > 0:
-                delta = axes[ind[i]][-1]-axes[ind[i]][-2]
-                newaxis[offn:] = (axes[ind[i]][-1] + delta) + delta*np.arange(nright)
+                delta = axes[j][-1]-axes[j][-2]
+                newaxis[offn:] = (axes[j][-1] + delta) + delta*np.arange(nright)
 
-            axes[i] = newaxis
+            axes[j] = newaxis
 
     def preparedestination(self):
         nimages = self.source.nimages
@@ -250,6 +251,8 @@ class align(object):
         self.dest.prepare(nimages,imgsize,self.dtype)
 
     def align(self,refdatasetindex,refimageindex = None,onraw = False,extend = False,redo = False):
+        """Alignment function that needs to be called 
+        """
         pairwise = refimageindex is None
         if pairwise:
             self.alignonraw = onraw
@@ -260,16 +263,16 @@ class align(object):
         self.extended_dimensions_initialtransform = extend
 
         if redo:
-            self.doalign(refdatasetindex,aligntype=AlignType.usetransfo)
+            self.doalign(refdatasetindex,aligntype=alignType.usetransfo)
         else:
             if extend:
-                self.doalign(refdatasetindex,refimageindex=refimageindex,aligntype=AlignType.calctransfo)
+                self.doalign(refdatasetindex,refimageindex=refimageindex,aligntype=alignType.calctransfo)
                 self.parsetransformation_beforeapplication()
-                self.doalign(refdatasetindex,refimageindex=refimageindex,aligntype=AlignType.usetransfo)
+                self.doalign(refdatasetindex,refimageindex=refimageindex,aligntype=alignType.usetransfo)
             else:
                 self.doalign(refdatasetindex,refimageindex=refimageindex)
 
-    def doalign(self,refdatasetindex,refimageindex=None,aligntype=AlignType.full):
+    def doalign(self,refdatasetindex,refimageindex=None,aligntype=alignType.full):
         """Align datasets and save the result.
            Calculate transformation:
             fixed image: raw -> align prep
@@ -277,17 +280,14 @@ class align(object):
            Apply transformation:
             aligned image: raw -> initialtransform -> aligntransform
         """
-
-        import sift_pyocl as sift
-
         pairwise = refimageindex is None
 
         # Prepare destination
-        if aligntype!=AlignType.calctransfo:
+        if aligntype!=alignType.calctransfo:
             self.preparedestination()
 
         # First reference image
-        if aligntype!=AlignType.usetransfo:
+        if aligntype!=alignType.usetransfo:
             if pairwise:
                 # Pair-wise alignment: first image is the first reference
                 imgref = self.readimgrawprep(refdatasetindex,0)
@@ -302,7 +302,7 @@ class align(object):
 
         # Loop over the images
         for i in range(self.source.nimages):
-            if aligntype!=AlignType.usetransfo:
+            if aligntype!=alignType.usetransfo:
                 # Image i
                 rawprep = self.readimgrawprep(refdatasetindex,i)
 
@@ -316,10 +316,10 @@ class align(object):
                     imgaligned = rawprep
                 else:
                     # Align image i to reference
-                    imgaligned = self.execute_alignkernel(rawprep)
-                    self.gettransformation(i,pairwise)
-                    self.plot(imgaligned,2,"Aligned %d"%i)
                     self.plot(rawprep,3,"To align %d"%i)
+                    imgaligned = self.execute_alignkernel(rawprep)
+                    self.plot(imgaligned,2,"Aligned %d"%i)
+                    self.gettransformation(i,pairwise)
 
                 # Reference for the next image
                 if pairwise:
@@ -330,7 +330,7 @@ class align(object):
                     iref = i
 
                 # Only need transformation, not the aligned result
-                if aligntype==AlignType.calctransfo:
+                if aligntype==alignType.calctransfo:
                     continue
 
             # Save the transformed image i of all datasets
@@ -338,11 +338,11 @@ class align(object):
                 for j in range(self.source.nsets):
                     self.copyimg(j,i)
             else:
-                if aligntype==AlignType.usetransfo:
+                if aligntype==alignType.usetransfo:
                     self.update_transformation(i,True)
 
                 for j in range(self.source.nsets):
-                    if j==refdatasetindex and self.alignprepidentity() and self.initialidentity() and aligntype!=AlignType.usetransfo:
+                    if j==refdatasetindex and self.alignprepidentity() and self.initialidentity() and aligntype!=alignType.usetransfo:
                         img = imgaligned
                     else:
                         img = self.readimgraw(j,i)

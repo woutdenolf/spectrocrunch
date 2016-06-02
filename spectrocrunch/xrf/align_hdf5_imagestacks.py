@@ -25,19 +25,42 @@
 from spectrocrunch.align.alignElastix import alignElastix
 from spectrocrunch.align.alignSift import alignSift
 from spectrocrunch.align.alignFFT import alignFFT
-from . import preparenexus_hdf5_imagestacks as nexus
+from spectrocrunch.align.alignSimple import alignMax
+from spectrocrunch.align.alignSimple import alignMin
+from spectrocrunch.align.alignSimple import alignCentroid
+import spectrocrunch.io.nexus as nexus
 
 import h5py
 
-def align_hdf5_imagestacks(filein,stacks,axes,fileout,alignmethod,refdataset,refimageindex=None,overwrite=False,info=None,copygroups=None):
+def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refdataset,refimageindex=None,overwrite=False,info=None,copygroups=None):
+    """
+    Args:
+        filein
+        stacks
+        axes
+        stackdim
+        fileout
+        alignmethod
+        refdataset
+        refimageindex
+        overwrite
+        info
+        copygroups
+    """
 
     # Alignment method
     if alignmethod=="sift":
         alignclass = alignSift
     elif alignmethod=="elastix":
         alignclass = alignElastix
-    else:
+    elif alignmethod=="fft":
         alignclass = alignFFT
+    elif alignmethod=="min":
+        alignclass = alignMin
+    elif alignmethod=="centroid":
+        alignclass = alignCentroid
+    else:
+        alignclass = alignMax
     extend = True
     onraw = True
 
@@ -45,7 +68,6 @@ def align_hdf5_imagestacks(filein,stacks,axes,fileout,alignmethod,refdataset,ref
     reference = [s for s in stacks if s.endswith(refdataset)]
     if len(reference)==0:
         reference = [s for s in stacks if refdataset in s]
-
     if len(reference)==0:
         raise ValueError("Reference dataset doesn't exist.")
     elif len(reference)!=1:
@@ -55,15 +77,15 @@ def align_hdf5_imagestacks(filein,stacks,axes,fileout,alignmethod,refdataset,ref
     # Open source and destination
     bsamefile = filein==fileout
     if bsamefile:
-        fin = h5py.File(filein,'r+')
+        fin = nexus.File(filein,mode='r+')
         fout = fin
         extension = "align"
 
         if info is not None:
             nexus.addinfogroup(fout,"align",info)
     else:
-        fin = h5py.File(filein,'r')
-        fout = h5py.File(fileout,'w' if overwrite else 'a')
+        fin = nexus.File(filein,mode='r')
+        fout = nexus.File(fileout,mode='w' if overwrite else 'a')
         extension = ""
 
         if info is not None:
@@ -77,14 +99,18 @@ def align_hdf5_imagestacks(filein,stacks,axes,fileout,alignmethod,refdataset,ref
     datasets = [fin[name][fin[name].attrs["signal"]] for name in stacks]
 
     # Create NXdata groups
-    alignedstacks = nexus.newgroups(fout,stacks,extension)
+    alignedstacks = [nexus.newNXdata(fout,s,extension) for s in stacks]
 
     # Output dataset names (don't exist yet)
     destlist = [grp.name+"/"+grp.attrs["signal"] for grp in alignedstacks]
 
     # Align
-    o = alignclass(datasets,None,fout,destlist,"",stackdim=2)
+    o = alignclass(datasets,None,fout,destlist,"",stackdim=stackdim)
     o.align(reference,onraw = onraw,extend = extend,refimageindex=refimageindex)
+
+    # Data sets are the default in their NXdata group
+    for s in destlist:
+        fout[s].attrs["signal"]=1
 
     # New axes
     if bsamefile:

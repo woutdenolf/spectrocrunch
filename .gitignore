@@ -12,6 +12,8 @@ dist
 *.nx5
 *.hdf5
 log.*
+*.png
+*.txt
 
 # Generated data
 testresults

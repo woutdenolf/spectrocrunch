@@ -23,13 +23,15 @@
 # THE SOFTWARE.
 
 from PyMca5.PyMcaCore import XiaCorrect
-import glob
+from PyMca5.PyMcaCore import XiaEdf
+from glob import glob
 import os
+import numpy as np
 
 def log_dummy(message, verbose_level=None, verbose_ask=None):
     pass
 
-def parse_xia_esrf(datadir,scanname,scannumber,outdir,outname,exclude_detectors=[],deadtime=True,add=True):
+def parse_xia_esrf(datadir,scanname,scannumber,outdir,outname,exclude_detectors=[],deadtime=True,add=True,onlycountdetectors=False):
     """Parse an XIA XRF scan with ESRF naming
         Input files:
             [scanname]_xia[xianum]_[scannumber]_0000_[linenumber].edf
@@ -37,14 +39,27 @@ def parse_xia_esrf(datadir,scanname,scannumber,outdir,outname,exclude_detectors=
         Output files:
             [scanname]_[outname]_xia[xianum]_[scannumber]_0000_[linenumber].edf
             xianum = detector number or "S1" for sum
+
+    Args:
+        datadir(str)
+        scanname(str)
+        scannumber(int)
+        outdir(str)
+        outname(str)
+        exclude_detectors(Optional(list[int]))
+        deadtime(Optional(bool))
+        add(Optional(bool))
+        onlycountdetectors(Optional(bool))
     """
 
     # Raw data
     filemask = os.path.join(datadir,"%s_xia*_%04d_0000_*.edf"%(scanname,scannumber))
-    files_raw = sorted(glob.glob(filemask))
+    files_raw = sorted(glob(filemask))
     
     # Check files
-    xiafiles = XiaCorrect.parseFiles(files_raw) # list of list
+    xiafiles = XiaCorrect.parseFiles(files_raw,log_cb=log_dummy)
+    # - files with only differ by their xianum are grouped together (i.e. each linescan or ct)
+    # - missing but existing xianum's are added
     if xiafiles is None:
         return [[]],[]
 
@@ -57,25 +72,29 @@ def parse_xia_esrf(datadir,scanname,scannumber,outdir,outname,exclude_detectors=
     tmp.append(None) # exclude "st" detector
     detnums = [f.getDetector() for f in xiafiles[0] if f.getDetector() not in tmp]
     ndet = len(detnums)
-    if ndet <= 0:
+    if ndet == 0 or onlycountdetectors:
         return [[]],detnums
     if ndet == 1:
         add = False
 
     # DT correction and optional summation
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-    sums = [detnums] if add else None
-    XiaCorrect.correctFiles(xiafiles, deadtime=deadtime, livetime=0, sums=sums, 
-                            avgflag=0, outdir=outdir, outname=outname, force=1,
-                            log_cb=None)
+    if add or deadtime:
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+        sums = [detnums] if add else None
 
-    # Output files
-    if add:
-        filemask = os.path.join(outdir,"%s_%s_xiaS1_%04d_0000_*.edf"%(scanname,outname,scannumber))
+        XiaCorrect.correctFiles(xiafiles, deadtime=deadtime, livetime=0, sums=sums, 
+                                avgflag=0, outdir=outdir, outname=outname, force=1,
+                                log_cb=None)
+
+        # Output files
+        if add:
+            filemask = os.path.join(outdir,"%s_%s_xiaS1_%04d_0000_*.edf"%(scanname,outname,scannumber))
+        else:
+            filemask = os.path.join(outdir,"%s_%s_xia[0-9]*_%04d_0000_*.edf"%(scanname,outname,scannumber))
+        files_out = sorted(glob(filemask))
     else:
-        filemask = os.path.join(outdir,"%s_%s_xia[0-9]*_%04d_0000_*.edf"%(scanname,outname,scannumber))
-    files_out = sorted(glob.glob(filemask))
+        files_out = sorted([file.get() for detfiles in xiafiles for file in detfiles if not file.isStat()])
 
     # Group according to detector
     if add:

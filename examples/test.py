@@ -22,9 +22,23 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-class Enum(set):
-    def __getattr__(self, name):
-        if name in self:
-            return name
-        raise AttributeError
+import os, sys
+sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from spectrocrunch.io.spec import spec
+import glob
+
+if __name__ == '__main__':
+    filename = '/data/visitor/hg79/id21/spec/16050901.dat'
+    sf = spec(filename)
+
+    data,info = sf.getdata(268,['arr_energyM'])
+    print(data)
+    data,info = sf.getdata(269,['arr_energyM'])
+    print(data)
+    data,info = sf.getdata(270,['arr_energyM'])
+    print(data)
+
+
+    
+    

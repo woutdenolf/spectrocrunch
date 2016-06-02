@@ -67,6 +67,8 @@ class alignFFT(align):
         return (row_kernel.dot(imgft).dot(col_kernel))
 
     def plot2(self,img):
+        """For testing purposes
+        """
         import pylab
         fig = pylab.figure(2)
         if 0:

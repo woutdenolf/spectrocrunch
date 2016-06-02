@@ -29,7 +29,7 @@ import operator
 import numpy as np
 import scipy.ndimage.filters as filters
 import h5py
-from . import preparenexus_hdf5_imagestacks as nexus
+import spectrocrunch.io.nexus as nexus
 
 class StringParser(object):
     '''
@@ -56,6 +56,8 @@ class StringParser(object):
         term    :: factor [ multop factor ]*
         expr    :: term [ addop term ]*
         """
+        self.exprStack = []
+
         point = pyparsing.Literal( "." )
         
         e     = pyparsing.CaselessLiteral( "E" )
@@ -83,11 +85,13 @@ class StringParser(object):
                  (pi|e|fnumber|ident+lpar+expr+rpar|var).setParseAction(self.pushFirst))
                 | pyparsing.Optional(pyparsing.oneOf("- +")) + pyparsing.Group(lpar+expr+rpar)
                 ).setParseAction(self.pushUMinus)       
+
         # by defining exponentiation as "atom [ ^ factor ]..." instead of 
         # "atom [ ^ atom ]...", we get right-to-left exponents, instead of left-to-right
         # that is, 2^3^2 = 2^(3^2), not (2^3)^2.
         factor = pyparsing.Forward()
         factor << atom + pyparsing.ZeroOrMore( ( expop + factor ).setParseAction( self.pushFirst ) )
+
         term = factor + pyparsing.ZeroOrMore( ( multop + factor ).setParseAction( self.pushFirst ) )
         expr << term + pyparsing.ZeroOrMore( ( addop + term ).setParseAction( self.pushFirst ) )
         # addop_term = ( addop + term ).setParseAction( self.pushFirst )
@@ -155,23 +159,27 @@ class StringParser(object):
 
 def math_hdf5_imagestacks(filein,fileout,axes,expression,varargs,fixedargs,ret,extension="",overwrite=False,info=None,copygroups=None):
     """Perform some operations on hdf5 imagestacks
-        varargs: list of dictionaries
-        fixedargs: dictionary
-        ret: list of strings
+
+    Args:
+        varargs(list(dist)): list of dictionaries
+        fixedargs(dict): dictionary
+
+    Returns:
+        tuple(list,list)
     """
 
     bsame = filein==fileout
 
     # Open files
     if bsame:
-        fin = h5py.File(filein,'r+')
+        fin = nexus.File(filein,mode='r+')
         fout = fin
     
         if info is not None:
             nexus.addinfogroup(fout,"math",info)
     else:
-        fin = h5py.File(filein,'r')
-        fout = h5py.File(fileout,'w' if overwrite else 'a')
+        fin = nexus.File(filein,mode='r')
+        fout = nexus.File(fileout,mode='w' if overwrite else 'a')
         extension = ""
 
         if info is not None:
@@ -181,16 +189,15 @@ def math_hdf5_imagestacks(filein,fileout,axes,expression,varargs,fixedargs,ret,e
             for grp in copygroups:
                 fin.copy(fin[grp],fout)
                 
-    # New axes (just a copy)
+    # New axes (just a copy, for clarity because other processes like alignment do change the axes)
     if bsame:
         axesdata = [fin[a["fullname"]] for a in axes]
     else:
         axesdata = [fin[a["fullname"]][:] for a in axes]
     retaxes = nexus.newaxes(fout,axes,axesdata,extension)
 
-    # Create NXdata groups linked to the new axes
-    retstack = nexus.newgroups(fout,ret,extension)
-    nexus.linkaxes(fout,retaxes,retstack)
+    # Create NXdata groups
+    retstack = [nexus.newNXdata(fout,s,extension) for s in ret]
 
     # Loop over variable arguments
     mathparser = StringParser()
@@ -207,9 +214,15 @@ def math_hdf5_imagestacks(filein,fileout,axes,expression,varargs,fixedargs,ret,e
         data = mathparser.eval(expression,variables=variables)
 
         # Add data to the NXdata group
-        dset = retstack[icalc].create_dataset(retstack[icalc].attrs["signal"],data=data,chunks = True)
-        retstack[icalc] = retstack[icalc].name
+        dset = nexus.createNXdataSignal(retstack[icalc],data=data,chunks = True)
 
+    # Link groups to axes
+    nexus.linkaxes(fout,retaxes,retstack)
+
+    # Keep only names
+    retstack = [dset.name for dset in retstack]
+
+    # Return
     fin.close()
     if not bsame:
         fout.close()

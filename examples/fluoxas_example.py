@@ -27,26 +27,38 @@ import os, sys
 sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from spectrocrunch.process.id21_fluoxas import process
-import spectrocrunch
+from spectrocrunch.process.id21_fluoxas import defaultstack
 
 if __name__ == '__main__':
+    defaultstack('/mntdirect/_data_id21_inhouse/wout/dev/SpectroCrunch/scripts/testresults/fXANES5/fXANES5.norm.h5',['/detector0/Ca-K'],'Ca-K')
+    exit
+    a[0]=10
+
     path = os.path.dirname(os.path.abspath(__file__))
 
-    example = "example4"
+    example = "example1"
+
+    cfgfile = None
+    skippreprocessing = False
+    skipnormalization = False
+    dtcor = False
+    default = None
 
     if example=="example1":
         scanname = ["fXANES5"]
-        scannumbers = [range(1,3)]#range(1,173)
+        scannumbers = [range(1,173)]
         sourcepath = [os.path.join(path,"testdata","xrfxanes","id21",scanname[0])]
         destpath = os.path.join(path,"testresults",scanname[0])
         cfgfile = os.path.join(path,"testdata","xrfxanes","id21",scanname[0]+".cfg")
 
-        skippreprocessing = False
-        skipnormalization = False
+        skippreprocessing = True
+        skipnormalization = True
 
-        alignmethod = None #None, fft, sift, elastix
+        alignmethod = "elastix" #None, fft, sift, elastix
         alignreference = "Ca-K"
         refimageindex = 0 # None for pair-wise alignment
+
+        default = "Ca-K"
 
     elif example=="example2":
         scanname = ["saphir"]
@@ -100,5 +112,6 @@ if __name__ == '__main__':
     else:
         sys.exit()
 
-    process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,refimageindex=refimageindex,skippre=skippreprocessing,skipnormalization=skipnormalization)
+    process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,default=default, \
+            refimageindex=refimageindex,skippre=skippreprocessing,skipnormalization=skipnormalization,dtcor=dtcor)
 

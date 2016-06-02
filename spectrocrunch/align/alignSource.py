@@ -27,7 +27,7 @@ import h5py
 import numpy as np
 import fabio
 
-from .Enum import DataType
+from .types import dataType
 
 class alignSource(object):
     """Interface to data stacks with images as a function of energy, rotation angle, ...
@@ -63,7 +63,7 @@ class alignSource(object):
                 if not all(set.shape == s for set in self.datasets):
                     raise ValueError("Datasets don't have the same size.")
 
-                self.sourcetype = DataType.h5
+                self.sourcetype = dataType.h5
                 self.nimages = s[stackdim]
                 self.imgsize = tuple(np.delete(s,stackdim))
                 self.nsets = len(self.datasets)
@@ -74,7 +74,7 @@ class alignSource(object):
                     raise ValueError("Datasets don't have the same size.")
                 self.datasets = [[os.path.join(source,f) for f in files] for files in sublist]
 
-                self.sourcetype = DataType.singlefile
+                self.sourcetype = dataType.singlefile
                 self.nimages = n
                 f = fabio.open(self.datasets[0][0])
                 self.imgsize = (f.dim2,f.dim1)
@@ -91,7 +91,7 @@ class alignSource(object):
             if not all(set.shape == s for set in self.datasets):
                 raise ValueError("Datasets don't have the same size.")
 
-            self.sourcetype = DataType.h5
+            self.sourcetype = dataType.h5
             self.nimages = s[stackdim]
             self.imgsize = tuple(np.delete(s,stackdim))
             self.nsets = len(self.datasets)
@@ -103,7 +103,7 @@ class alignSource(object):
                     raise ValueError("Datasets should have 3 dimensions.")
                 self.datasets = source
 
-                self.sourcetype = DataType.nparray if isinstance(source[0],np.ndarray) else DataType.h5ext
+                self.sourcetype = dataType.nparray if isinstance(source[0],np.ndarray) else dataType.h5ext
                 self.nimages = s[stackdim]
                 self.imgsize = tuple(np.delete(s,stackdim))
                 self.nsets = len(self.datasets)
@@ -114,9 +114,9 @@ class alignSource(object):
             raise ValueError("Source type is not implemented.")
 
     def readimg(self,datasetindex,imageindex):
-        if self.sourcetype==DataType.h5 or self.sourcetype==DataType.h5ext or self.sourcetype==DataType.nparray:
+        if self.sourcetype==dataType.h5 or self.sourcetype==dataType.h5ext or self.sourcetype==dataType.nparray:
             return np.take(self.datasets[datasetindex],imageindex,axis=self.stackdim)
-        elif self.sourcetype==DataType.singlefile:
+        elif self.sourcetype==dataType.singlefile:
             return fabio.open(self.datasets[datasetindex][imageindex]).data
         else:
             raise ValueError("Source type is not implemented.")

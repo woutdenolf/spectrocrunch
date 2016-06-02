@@ -119,7 +119,8 @@ classifiers = [get_devstatus(),
                "Topic :: Software Development :: Libraries :: Python Modules",
                ]
 
-install_requires = ["numpy", "scipy", "h5py", "fabio", "SimpleITK", "testfixtures", "sift_pyocl", "pyparsing"]
+install_requires = ["numpy", "scipy", "h5py", "fabio", "SimpleITK", "testfixtures", "sift_pyocl", "pyparsing", "fdmnes", "PyMca5"]
+# , "xraylib", "cctbx"
 setup_requires = []
 
 setup(name='SpectroCrunch',
@@ -133,6 +134,7 @@ setup(name='SpectroCrunch',
       packages=find_packages(),
       install_requires=install_requires,
       setup_requires=setup_requires,
+      include_package_data=True,
       license="MIT",
       cmdclass=cmdclass
       )

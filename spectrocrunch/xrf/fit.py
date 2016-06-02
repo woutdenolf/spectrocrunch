@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2016 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,9 +22,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from PyMca5.PyMcaCore import XiaEdf
 from PyMca5.PyMcaPhysics.xrf import McaAdvancedFitBatch
 from PyMca5.PyMcaPhysics.xrf import FastXRFLinearFit
+from PyMca5.PyMcaPhysics.xrf import ClassMcaTheory
 from PyMca5.PyMca import EDFStack
 from PyMca5.PyMca import ArraySave
 from PyMca5.PyMcaIO import EdfFile
@@ -39,6 +39,11 @@ import warnings
 warnings.filterwarnings("ignore")
 
 def AdaptEnergy(cfg,energy):
+    """
+    Args:
+        cfg(str): pymca config file
+        energy(float): primary beam energy in keV
+    """
     # Read the configuration
     if not os.path.exists(cfg):
         raise IOError("File <%s> does not exists" % cfg)
@@ -53,7 +58,7 @@ def AdaptEnergy(cfg,energy):
     # Adapt energy
     sourcelines = [None]*n
     sourcelines[0] = ftype(energy)
-    sourcelines[1] = ftype(2*energy)
+    sourcelines[1] = ftype(3*energy)
     configuration["fit"]["energy"] = sourcelines
 
     sourcelines = [ftype(0)]*n
@@ -81,14 +86,118 @@ def AdaptEnergy(cfg,energy):
     # Write the configuration
     configuration.write(cfg)
 
+def PerformFit(filelist,cfg,energies,norm=None,fast=True,prog=None):
+    """Fit XRF spectra in batch with changing primary beam energy.
+
+    Args:
+        filelist(list(str)|np.array): spectra to fit
+        cfg(str): configuration file to use
+        energies(np.array): primary beam energies
+
+        norm(np.array): normalization array
+        fast(Optional(bool)): fast fitting (linear)
+        prog(Optional(timing.progress)): progress object
+
+    Returns:
+        dict: {label:nenergies x nfiles,...}
+    """
+
+    # Load data
+    # Each spectrum (each row) in 1 edf file is acquired at a different energy
+    if isinstance(filelist,list):
+        dataStack = EDFStack.EDFStack(filelist, dtype=np.float32).data
+    else:
+        dataStack = filelist
+    nfiles,nenergies,nchannels = dataStack.shape
+
+    # MCA channels
+    xmin = 0
+    xmax = nchannels-1
+    x = np.arange(nchannels, dtype=np.float32)
+
+    # Energies
+    if hasattr(energies,"__iter__"):
+        if len(energies)==1:
+            energies = [energies[0]]*nenergies
+        elif len(energies)!=nenergies:
+            raise ValueError("Expected {} energies ({} given)".format(nenergies,len(energies)))
+    else:
+        energies = [energies]*nenergies
+
+    # Normalization
+    if norm is None:
+        norm = [1]*nenergies
+    else:
+        if hasattr(norm,"__iter__"):
+            if len(norm)==1:
+                norm = [norm[0]]*nenergies
+            elif len(norm)!=nenergies:
+                raise ValueError("Expected {} normalization values ({} given)".format(nenergies,len(norm)))
+        else:
+            norm = [norm]*nenergies
+
+    # Fit at each energy
+    if prog is not None:
+        prog.setnfine(nenergies*nfiles)
+
+    for j in range(nenergies):
+        # Prepare fit with this energy
+        AdaptEnergy(cfg,energies[j])
+        mcafit = ClassMcaTheory.McaTheory(cfg)
+        if fast:
+            mcafit.enableOptimizedLinearFit()
+        else:
+            mcafit.disableOptimizedLinearFit()
+        
+        # Fit all spectra with this energy
+        for i in range(nfiles):
+            # Data to fit
+            mcafit.setData(x,dataStack[i,j,:].flatten(),xmin=xmin,xmax=xmax)
+
+            # Initial parameter estimates
+            mcafit.estimate()
+            
+            # Fit
+            fitresult = mcafit.startfit(digest=0)
+
+            # Extract result
+            mcafitresult = mcafit.imagingDigestResult()
+            # mcafit.__niter
+            # mcafit.chisq
+            # mcafitresult[groupname]["fitarea"]: total peak area of the group
+            # mcafitresult[groupname]["sigmaarea"]: stdev on fitarea
+
+            if i==0 and j==0:
+                ret = {}
+                for k in mcafitresult["groups"]:
+                    ret[k] = np.empty((nenergies,nfiles),dtype=type(mcafitresult[k]["fitarea"]))
+
+            for k in mcafitresult["groups"]:
+                ret[k][j,i] = mcafitresult[k]["fitarea"]/norm[j]
+
+        # Print progress
+        if prog is not None:
+            prog.ndonefine(nfiles)
+            prog.printprogress()
+
+    return ret
+
 def PerformBatchFit(filelist,outdir,outname,cfg,energy,fast=True):
-    # Least-square fitting. If you intend a linear fit, modify the configuration:
-    #   - Get current energy calibration with "Load From Fit"
-    #   - Enable: Perform a Linear Fit
-    #   - Disable: Stripping
-    #   - Strip iterations = 0
-    # Fast linear least squares:
-    #   - Use SNIP instead of STRIP
+    """Fit XRF spectra in batch with one primary beam energy.
+
+        Least-square fitting. If you intend a linear fit, modify the configuration:
+          - Get current energy calibration with "Load From Fit"
+          - Enable: Perform a Linear Fit
+          - Disable: Stripping
+          - Strip iterations = 0
+        Fast linear least squares:
+          - Use SNIP instead of STRIP
+
+    Args:
+        filelist(list(str)): spectra to fit
+        outdir(str): directory for results
+        outname(str)
+    """
 
     if not os.path.exists(outdir):
         os.makedirs(outdir)
@@ -160,4 +269,7 @@ def PerformBatchFit(filelist,outdir,outname,cfg,energy,fast=True):
         labels = ["_".join(os.path.splitext(os.path.basename(f))[0].split("_")[-2:]) for f in files]
     
     return files,labels
+
+
+
 

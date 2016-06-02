@@ -107,7 +107,7 @@ def test_suite_all():
     testSuite.addTest(test_align("test_elastix"))
     testSuite.addTest(test_align("test_sift"))
     testSuite.addTest(test_align("test_fft"))
-    testSuite.addTest(test_align("test_min"))
+    #testSuite.addTest(test_align("test_min"))
     testSuite.addTest(test_align("test_max"))
     #testSuite.addTest(test_align("test_centroid"))
     return testSuite

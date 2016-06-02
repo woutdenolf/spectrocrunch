@@ -22,10 +22,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import h5py
+import spectrocrunch.io.nexus as nexus
 
 def get_hdf5_imagestacks(h5file,datagroupnames):
-    f = h5py.File(h5file,'r')
+    f = nexus.File(h5file,mode='r')
 
     # Get axes
     axesdict = {}
@@ -33,7 +33,8 @@ def get_hdf5_imagestacks(h5file,datagroupnames):
         if "." in k:
             continue
         name = str(k)
-        axesdict[name] = {"fullname":f["axes"][k].name,"name":name}
+        signal = f["axes"][k].attrs["signal"]
+        axesdict[name] = {"fullname":f["axes"][k][signal].name,"name":name}
     axes = None
 
     # Get data groups
@@ -42,7 +43,7 @@ def get_hdf5_imagestacks(h5file,datagroupnames):
     for grp in groups:
         stacks[grp] = {k:f[grp][k].name for k in f[grp].keys() if "." not in k}
         if axes is None:
-            names = f[stacks[grp].values()[0]].attrs["axes"]
+            names = f[stacks[grp].values()[0]].attrs["axes"].split(':')
             axes = [axesdict[name] for name in names]
 
     f.close()

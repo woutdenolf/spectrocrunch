@@ -70,7 +70,7 @@ def alignexample(t):
         nstack = len(source)
         refdatasetindex = 0
         refimageindex = 0
-        alignclass = alignSift
+        alignclass = alignElastix
         print(offsets)
     else:
         return
@@ -80,12 +80,7 @@ def alignexample(t):
 
     # Align
     o = alignclass(source,sourcelist,outputstack,None,None,stackdim=stackdim,overwrite=True)
-
-    #o.align_pairwise(refdatasetindex,onraw = False,extend = False)
-    #o.align_pairwise(refdatasetindex,onraw = True,extend = False)
-    #o.align_pairwise(refdatasetindex,onraw = False,extend = True)
-    o.align_pairwise(refdatasetindex,onraw = True,extend = True)
-    #o.align_fixed(refdatasetindex,refimageindex)
+    o.align(refdatasetindex,refimageindex = 0,onraw = True,extend = True)
 
     if t == "testdata":
         offsets2 = o.offsets
