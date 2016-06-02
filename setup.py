@@ -65,7 +65,6 @@ def get_readme():
         long_description = fp.read()
     return long_description
 
-
 # Command class for testing
 class TestAllPackages(Command):
     user_options = []
@@ -121,7 +120,7 @@ classifiers = [get_devstatus(),
 
 install_requires = ["numpy", "scipy", "h5py", "fabio", "SimpleITK", "testfixtures", "sift_pyocl", "pyparsing", "fdmnes", "PyMca5"]
 # , "xraylib", "cctbx"
-setup_requires = []
+setup_requires = ["setuptools_scm"]
 
 setup(name='SpectroCrunch',
       version=get_version(),
@@ -135,6 +134,7 @@ setup(name='SpectroCrunch',
       install_requires=install_requires,
       setup_requires=setup_requires,
       include_package_data=True,
+      use_scm_version=True,
       license="MIT",
       cmdclass=cmdclass
       )

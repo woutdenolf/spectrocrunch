@@ -30,9 +30,8 @@ from spectrocrunch.process.id21_fluoxas import process
 from spectrocrunch.process.id21_fluoxas import defaultstack
 
 if __name__ == '__main__':
-    defaultstack('/mntdirect/_data_id21_inhouse/wout/dev/SpectroCrunch/scripts/testresults/fXANES5/fXANES5.norm.h5',['/detector0/Ca-K'],'Ca-K')
-    exit
-    a[0]=10
+    #defaultstack('/mntdirect/_data_id21_inhouse/wout/dev/SpectroCrunch/examples/testresults/fXANES5/fXANES5.norm.h5',['/detector0/Ca-K'],'Ca-K')
+    #exit()
 
     path = os.path.dirname(os.path.abspath(__file__))
 
@@ -52,9 +51,9 @@ if __name__ == '__main__':
         cfgfile = os.path.join(path,"testdata","xrfxanes","id21",scanname[0]+".cfg")
 
         skippreprocessing = True
-        skipnormalization = True
+        skipnormalization = False
 
-        alignmethod = "elastix" #None, fft, sift, elastix
+        alignmethod = "max" #None, fft, sift, elastix
         alignreference = "Ca-K"
         refimageindex = 0 # None for pair-wise alignment
 

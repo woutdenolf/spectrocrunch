@@ -81,15 +81,11 @@ def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refda
         fout = fin
         extension = "align"
 
-        if info is not None:
-            nexus.addinfogroup(fout,"align",info)
+        # no need to copy groups (same file)
     else:
         fin = nexus.File(filein,mode='r')
         fout = nexus.File(fileout,mode='w' if overwrite else 'a')
         extension = ""
-
-        if info is not None:
-            nexus.copyaddinfogroup(fin,fout,"align",info)
 
         if copygroups is not None:
             for grp in copygroups:
@@ -105,7 +101,7 @@ def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refda
     destlist = [grp.name+"/"+grp.attrs["signal"] for grp in alignedstacks]
 
     # Align
-    o = alignclass(datasets,None,fout,destlist,"",stackdim=stackdim)
+    o = alignclass(datasets,None,fout,destlist,"",stackdim=stackdim,plot=True)
     o.align(reference,onraw = onraw,extend = extend,refimageindex=refimageindex)
 
     # Data sets are the default in their NXdata group
@@ -124,8 +120,19 @@ def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refda
     nexus.linkaxes(fout,alignedaxes,alignedstacks)
     alignedstack = [grp.name for grp in alignedstacks]
 
+    # Add processing info
+    if info is not None:
+        info["odim1"] = o.offsets[:,0]
+        info["odim2"] = o.offsets[:,1]
+        if bsamefile:
+            nexus.addinfogroup(fout,"align",info)
+        else:
+            nexus.copyaddinfogroup(fin,fout,"align",info)
+
+    # Close hdf5 files
     fin.close()
     if not bsamefile:
         fout.close()
 
+    # Return stacks and axes
     return alignedstack, alignedaxes
