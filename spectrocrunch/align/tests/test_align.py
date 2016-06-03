@@ -65,22 +65,22 @@ class test_align(unittest.TestCase):
         o = alignclass(inputstack,None,outputstack,None,None,stackdim=stackdim,overwrite=True)
 
         # Check alignment
-        o.align(refdatasetindex,onraw = False,extend = False)
+        o.align(refdatasetindex,onraw = False,extend = False,roi=((1,-1),(1,-1)))
         np.testing.assert_almost_equal(offsets_0,o.offsets,decimal=1)
 
-        o.align(refdatasetindex,onraw = True,extend = False)
+        o.align(refdatasetindex,onraw = True,extend = False,roi=((1,-1),(1,-1)))
         np.testing.assert_almost_equal(offsets_0,o.offsets,decimal=1)
 
-        o.align(refdatasetindex,onraw = False,extend = True)
+        o.align(refdatasetindex,onraw = False,extend = True,roi=((1,-1),(1,-1)))
         np.testing.assert_almost_equal(offsets_median,o.offsets,decimal=1)
 
-        o.align(refdatasetindex,onraw = True,extend = True)
+        o.align(refdatasetindex,onraw = True,extend = True,roi=((1,-1),(1,-1)))
         np.testing.assert_almost_equal(offsets_median,o.offsets,decimal=1)
 
-        o.align(refdatasetindex,refimageindex=refimageindex,extend = False)
+        o.align(refdatasetindex,refimageindex=refimageindex,extend = False,roi=((1,-1),(1,-1)))
         np.testing.assert_almost_equal(offsets_ref,o.offsets,decimal=1)
 
-        o.align(refdatasetindex,refimageindex=refimageindex,extend = True)
+        o.align(refdatasetindex,refimageindex=refimageindex,extend = True,roi=((1,-1),(1,-1)))
         np.testing.assert_almost_equal(offsets_median,o.offsets,decimal=1)
 
     def test_elastix(self):

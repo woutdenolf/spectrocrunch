@@ -83,7 +83,7 @@ class alignSift(align):
         self.transformixshape = tuple((int(i) + int(j) - 1) & ~(int(j) - 1) for i, j in zip(shape, self.workgroupshape))
 
     def changeshape(self,shape):
-        """Adapt shape dependent buffers and kernels
+        """Adapt shape dependent buffers and kernels for transformation
         """
         if self.inshape == shape:
             return
@@ -93,7 +93,7 @@ class alignSift(align):
         self.newtransformixshape()
 
     def changerefshape(self,shape):
-        """Adapt shape dependent buffers and kernels
+        """Adapt shape dependent buffers and kernels for alignment
         """
         if self.inshape == shape:
             return
@@ -147,7 +147,6 @@ class alignSift(align):
                 dy = matching[:, 1].y - matching[:, 0].y
                 self.offset[:] = (np.median(dy),np.median(dx)) # y is the first dimension in python
                 
-
         # Apply transformation
         if self.offset[0]==0 and self.offset[1]==0:
             return img
@@ -187,7 +186,8 @@ class alignSift(align):
         if previous:
             self.kp1 = self.kp2
         else:
-            self.kp1 = self.siftplan.keypoints(img)
+            self.kp1 = self.siftplan.keypoints(np.ascontiguousarray(img, self.dtype))
+
         self.buffers["ref_kp_gpu"] = sift.opencl.pyopencl.array.to_device(self.matchplan.queue, self.kp1)
 
     def get_transformation(self):
@@ -202,3 +202,4 @@ class alignSift(align):
             self.offset[:] = offset
             #cpy1 = sift.opencl.pyopencl.enqueue_copy(self.queue, self.buffers["matrix"].data, self.linear)
             cpy2 = sift.opencl.pyopencl.enqueue_copy(self.queue, self.buffers["offset"].data, self.offset)
+

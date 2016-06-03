@@ -22,9 +22,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+# Don't use the installed version
+import os, sys
+sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from spectrocrunch.align.alignElastix import alignElastix
 from spectrocrunch.align.alignFFT import alignFFT
 from spectrocrunch.align.alignSift import alignSift
+from spectrocrunch.align.alignSimple import alignMax
+from spectrocrunch.align.alignSimple import alignMin
+
 from spectrocrunch.align.tests.teststack import teststack
 
 import os
@@ -48,6 +55,7 @@ def alignexample(t):
     # Source data (several image stacks)
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)),"testdata")
 
+    roi = None
     if t=="xrfxanes":
         source = os.path.join(path,t,"h5","rape5_XANESfull.h5")
         stackdim = 2
@@ -66,12 +74,17 @@ def alignexample(t):
         alignclass = alignElastix
     elif t == "testdata":
         source,offsets,stackdim = teststack()
+        #source[0]=source[0][...,0:2]
+        #source[0][...,1] = source[0][...,0]
         sourcelist = None
         nstack = len(source)
         refdatasetindex = 0
         refimageindex = 0
-        alignclass = alignElastix
-        print(offsets)
+        alignclass = alignMax
+        roi = ((0,20),(60,79))
+        #roi = ((0,-2),(0,-2))
+        #alignclass = alignMin
+        #roi = ((10,30),(30,50))
     else:
         return
 
@@ -79,13 +92,14 @@ def alignexample(t):
     outputstack = [np.zeros(1,dtype=np.float32)]*nstack
 
     # Align
-    o = alignclass(source,sourcelist,outputstack,None,None,stackdim=stackdim,overwrite=True)
-    o.align(refdatasetindex,refimageindex = 0,onraw = True,extend = True)
+    o = alignclass(source,sourcelist,outputstack,None,None,stackdim=stackdim,overwrite=True,plot=True)
+    o.align(refdatasetindex,refimageindex = None,onraw = True,extend = True,roi = roi)
 
     if t == "testdata":
         offsets2 = o.offsets
         offsets2[:,0] -= offsets2[0,0]
         offsets2[:,1] -= offsets2[0,1]
+        print(offsets)
         print(offsets2)
 
     # Show result

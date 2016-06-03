@@ -113,7 +113,7 @@ def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refda
         axesdata = [fin[a["fullname"]] for a in axes]
     else:
         axesdata = [fin[a["fullname"]][:] for a in axes]
-    o.getaxesafteralignment(axesdata)
+    o.getaxesaftertransformation(axesdata)
     alignedaxes = nexus.newaxes(fout,axes,axesdata,extension)
 
     # Link new axes in new NXdata groups

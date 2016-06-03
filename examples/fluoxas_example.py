@@ -50,7 +50,7 @@ if __name__ == '__main__':
         destpath = os.path.join(path,"testresults",scanname[0])
         cfgfile = os.path.join(path,"testdata","xrfxanes","id21",scanname[0]+".cfg")
 
-        skippreprocessing = True
+        skippreprocessing = False
         skipnormalization = False
 
         alignmethod = "max" #None, fft, sift, elastix
@@ -67,7 +67,7 @@ if __name__ == '__main__':
         cfgfile = os.path.join(path,"testdata","xrfxanes","id21",scanname[0]+".cfg")
         scanname[0] += "1_xrf_ff"
 
-        skippreprocessing = False
+        skippreprocessing = True
         skipnormalization = False
 
         alignmethod = None #None, fft, sift, elastix

@@ -31,8 +31,13 @@ from .alignDest import alignDest
 from .types import alignType
 
 class align(object):
+    """Allows for the alignment of several stacks based on one stack.
+       "Alignment" is the process of determining a transformation between
+       two images that should represent the same thing but transformed/deformed.
+    """
 
-    def __init__(self,source,sourcelist,dest,destlist,extension,stackdim=None,overwrite=False,cval=0,plot=False):
+    def __init__(self,source,sourcelist,dest,destlist,extension,stackdim=None,overwrite=False,cval=np.nan,plot=False):
+
         # Data IO
         self.source = alignSource(source,sourcelist,stackdim=stackdim)
         self.dest = alignDest(dest,destlist,extension,stackdim=stackdim,overwrite=overwrite)
@@ -43,14 +48,15 @@ class align(object):
         # Transformation settings (set before actual transformation)
         self.dtype = np.float32
         self.alignonraw = True
-        self.usekernel = False
-        self.pre_align = {"extended_dimensions":False}
+        self.usekernel = False # Doesn't work well for Elastix!
+        self.pre_align = {"ROI":None}
         self.pre_transform = {"extended_dimensions":True}
         self.padding = ((0,0),(0,0))
 
         # Affine transformation (change of frame matrices, not change of coordinates!)
         self.offsets = np.zeros((self.source.nimages,2),dtype=self.dtype)
         self.linears = np.zeros((self.source.nimages,2,2),dtype=self.dtype)
+        self.origin = np.zeros(2,dtype = self.dtype)
 
         # Others
         self.idlinear = np.identity(2,dtype = self.dtype)
@@ -59,6 +65,8 @@ class align(object):
         self.doplot = plot
 
     def plot(self,img,index,title):
+        """Visualize alignment in progress
+        """
         if not self.doplot:
             return
         #pylab.figure(index)
@@ -73,17 +81,45 @@ class align(object):
         pylab.pause(0.01)
 
     def pad(self,img):
+        """Apply image padding.
+        """
         return np.pad(img,self.padding,'constant',constant_values=self.cval)
 
+    def roi(self,img,roi):
+        """Extract ROI
+        """
+        n1,n2 = img.shape
+        a1 = roi[0][0]
+        b1 = roi[0][1]
+        a2 = roi[1][0]
+        b2 = roi[1][1]
+        if a1 < 0:
+            a1 += n1
+        if b1 < 0:
+            b1 += n1
+        if a2 < 0:
+            a2 += n2
+        if b2 < 0:
+            b2 += n2
+        if b1 <= a1 or b2 <= a2 or \
+           a1 < 0 or a2 < 0 or b1 < 0 or b2 < 0 or \
+           a1 >= n1 or a2 >= n2 or b1 >= n1 or b2 >= n2:
+           raise ValueError("ROI is invalid.")
+        return img[a1:b1+1,a2:b2+1]
+
     def writeimg(self,img,datasetindex,imageindex):
+        """Save 1 image in 1 stack.
+        """
         self.dest.writeimg(img,datasetindex,imageindex)
 
     def copyimg(self,datasetindex,imageindex):
+        """Copy 1 image in 1 stack.
+        """
         img = self.readimgraw(datasetindex,imageindex)
         self.writeimg(img,datasetindex,imageindex)
 
     def readimgraw(self,datasetindex,imageindex):
-        """Get raw image
+        """Read 1 image in 1 stack.
         """
         return self.source.readimgas(datasetindex,imageindex,self.dtype)
 
@@ -99,11 +135,11 @@ class align(object):
         Returns:
             bool: True when alignment is done on the raw image
         """
-        return self.pre_align["extended_dimensions"] == False
+        return self.pre_align["ROI"] is None
 
     def dopre_align(self,img):
-        if self.pre_align["extended_dimensions"]:
-            img = self.pad(img)
+        if self.pre_align["ROI"] is not None:
+            img = self.roi(img,self.pre_align["ROI"])
         return img
 
     def nopre_transform(self):
@@ -120,13 +156,23 @@ class align(object):
             img = self.pad(img)
         return img
 
+    def execute_alignkernel(self,img):
+        raise NotImplementedError()
+
+    def execute_transformkernel(self,img):
+        raise NotImplementedError()
+
     def execute_transform_nokernel(self,img,offset,linear):
+        """Apply a transformation to an image
+        """
         # affine_transform: assumes "change of frame" matrices with coordinates (y,x)
         # shift: assumes "change of coordinates" matrices with coordinates (y,x)
         if np.array_equal(linear,self.idlinear):
             return scipy.ndimage.interpolation.shift(img,-offset,cval = self.cval,order=1,mode="constant")
         else:
-            return scipy.ndimage.interpolation.affine_transform(data,linear,offset=offset,cval = self.cval,order=1,mode="constant")
+            raise NotImplementedError()
+            # Use origin!
+            return scipy.ndimage.interpolation.affine_transform(img,linear,offset=offset,cval = self.cval,order=1,mode="constant")
 
     def execute_transform(self,img,i):
         """Transform according to the transformation extracted from an the transformation kernel (see gettransformation).
@@ -165,6 +211,24 @@ class align(object):
 
         return imgtransformed
 
+    def calculateorigin(self):
+        """Because the image has a different preprocessing for alignment and transformation,
+           the origin of the image used during alignment in the image used during transformation
+           must be calculated.
+        """
+        self.origin = np.copy(self.idoffset)
+
+        if self.pre_align["ROI"] is not None:
+            self.origin[0] += self.pre_align["ROI"][0][0]
+            self.origin[1] += self.pre_align["ROI"][1][0]
+
+        if self.pre_transform["extended_dimensions"]:
+            self.origin[0] += self.padding[0][0]
+            self.origin[1] += self.padding[1][0]
+
+    def get_transformation(self):
+        raise NotImplementedError()
+
     def gettransformation(self,i,pairwise):
         """Get transformation parameters
         """
@@ -181,23 +245,30 @@ class align(object):
 
         self.update_transformation(i,bchange)
 
+    def set_transformation(self,offset,changed):
+        raise NotImplementedError()
+
     def update_transformation(self,i,bchange):
         """Update transformation parameters
         """
         if self.usekernel:
             self.set_transformation(self.offsets[i,...],bchange)
 
-    def setaligntransformidentity(self,i):
+    def settransformidentity(self,i):
         """Make this transformation the identity
         """
         self.offsets[i,...] = self.idoffset
         self.linears[i,...] = self.idlinear
 
     def minimaltransformation(self):
+        """If all transformations are known, they can be reduced to minimize the difference with the original images
+        """
         self.offsets[:,0] -= np.median(self.offsets[:,0])
         self.offsets[:,1] -= np.median(self.offsets[:,1])
 
     def paddingfromtransformation(self):
+        """If all transformations are known, padding can be calculated so nothing goes out of the field of view
+        """
         paddim1before = np.ceil(max(np.max(self.offsets[:,0]),0)).astype(np.int)
         paddim1after = np.ceil(max(-np.min(self.offsets[:,0]),0)).astype(np.int)
         paddim2before = np.ceil(max(np.max(self.offsets[:,1]),0)).astype(np.int)
@@ -205,10 +276,14 @@ class align(object):
         self.padding = ((paddim1before,paddim1after),(paddim2before,paddim2after))
 
     def parsetransformation_beforeapplication(self):
+        """Adapt transformations before applying them
+        """
         self.minimaltransformation()
         self.paddingfromtransformation()
 
-    def getaxesafteralignment(self,axes):
+    def getaxesaftertransformation(self,axes):
+        """Image X and Y axes after transformation
+        """
         if not self.pre_transform["extended_dimensions"]:
             return
 
@@ -251,44 +326,27 @@ class align(object):
             axes[j] = newaxis
 
     def preparedestination(self):
+        """Allocate space for saving results
+        """
         nimages = self.source.nimages
         imgsize = self.source.imgsize
         
         if self.pre_transform["extended_dimensions"]:
             imgsize = (imgsize[0] + self.padding[0][0] + self.padding[0][1],
                        imgsize[1] + self.padding[1][0] + self.padding[1][1])
-
+            
         self.dest.prepare(nimages,imgsize,self.dtype)
 
-    def align(self,refdatasetindex,refimageindex = None,onraw = False,extend = False,redo = False):
-        """Alignment function that needs to be called 
-        """
-        pairwise = refimageindex is None
-        if pairwise:
-            self.alignonraw = onraw
-        else:
-            self.alignonraw = True
-
-        self.pre_align["extended_dimensions"] = extend and not self.alignonraw
-        self.pre_transform["extended_dimensions"] = extend
-
-        if redo:
-            self.doalign(refdatasetindex,aligntype=alignType.usetransfo)
-        else:
-            if extend:
-                self.doalign(refdatasetindex,refimageindex=refimageindex,aligntype=alignType.calctransfo)
-                self.parsetransformation_beforeapplication()
-                self.doalign(refdatasetindex,refimageindex=refimageindex,aligntype=alignType.usetransfo)
-            else:
-                self.doalign(refdatasetindex,refimageindex=refimageindex)
+    def set_reference(self,img,previous=False):
+        raise NotImplementedError()
 
     def doalign(self,refdatasetindex,refimageindex=None,aligntype=alignType.full):
         """Align datasets and save the result.
-           Calculate transformation:
+           Calculate transformation (alignment):
             fixed image: raw -> align prep
-            moving image: raw -> align prep -> aligntransform
+            moving image: raw -> align prep -> transformed
            Apply transformation:
-            aligned image: raw -> dopre_transform -> aligntransform
+            aligned image: raw -> transform prep -> transformed
         """
         pairwise = refimageindex is None
 
@@ -322,7 +380,7 @@ class align(object):
 
                 # Get align transformation
                 if i == iref:
-                    self.setaligntransformidentity(i)
+                    self.settransformidentity(i)
                     imgaligned = rawprep
                 else:
                     # Align image i to reference
@@ -359,4 +417,35 @@ class align(object):
                         img = self.transform(img,i)
 
                     self.writeimg(img,j,i)
+
+    def align(self,refdatasetindex,refimageindex = None,onraw = False,extend = False,redo = False,roi = None):
+        """Alignment function that needs to be called 
+        
+        Args:
+            refdatasetindex(int): stack to be used for alignment
+            refimageindex(Optional(int)): fixed reference to align on (pairwise alignment when None)
+            onraw(Optional(bool)): when doing pairwise alignment, use the previous raw or aligned images to align the next one on
+            extend(Optional(bool)): make sure nothing is transformed outside the field of view
+            redo(Optional(bool)): apply transformations without recalculating them
+        """
+
+        pairwise = refimageindex is None
+        if pairwise:
+            self.alignonraw = onraw
+        else:
+            self.alignonraw = True
+
+        self.pre_align["ROI"] = roi
+        self.pre_transform["extended_dimensions"] = extend
+        self.calculateorigin()
+
+        if redo:
+            self.doalign(refdatasetindex,aligntype=alignType.usetransfo)
+        else:
+            if extend:
+                self.doalign(refdatasetindex,refimageindex=refimageindex,aligntype=alignType.calctransfo)
+                self.parsetransformation_beforeapplication()
+                self.doalign(refdatasetindex,refimageindex=refimageindex,aligntype=alignType.usetransfo)
+            else:
+                self.doalign(refdatasetindex,refimageindex=refimageindex)
 
