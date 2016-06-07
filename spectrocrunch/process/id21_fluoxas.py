@@ -24,6 +24,7 @@
 
 import os
 import json
+import logging
 
 from spectrocrunch.xrf.create_hdf5_imagestacks import create_hdf5_imagestacks as makestacks
 from spectrocrunch.xrf.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
@@ -98,13 +99,16 @@ def defaultstack(f,stacks,plotreference):
         return
     nexus.defaultstack(f,reference[0])
 
-def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None):
+def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,crop=False):
+
+    logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
 
     stackdim = 2
     bsamefile = False
 
     # Image stack
+    logger.info("Creating image stacks ...")
     if skippre:
         filein = os.path.join(destpath,scanname[0]+".h5")
         stacks, axes = getstacks(filein,["counters","detector0"])
@@ -127,6 +131,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
     # I0 normalization
     base,ext = os.path.splitext(filein)
     if "detector0" in stacks and "arr_iodet" in stacks["counters"] and skipnormalization==False:
+        logger.info("I0 normalization ...")
         if bsamefile:
             fileout = filein
         else:
@@ -166,18 +171,21 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
 
     # Alignment
     if alignmethod is not None and alignreference is not None:
+        logger.info("Aligning image stacks ...")
         if bsamefile:
             fileout = filein
         else:
             fileout = base+".align"+ext
 
-        info = {"method":alignmethod,"pairwise":refimageindex==None,"reference set":alignreference,"reference image":"None" if refimageindex==None else refimageindex}
+        info = {"method":alignmethod,"pairwise":refimageindex==None,\
+                "reference set":alignreference,\
+                "reference image":"None" if refimageindex==None else refimageindex,\
+                "crop":crop}
         aligned_stacks, aligned_axes = alignstacks(filein,Ifn_stacks,Ifn_axes,stackdim,fileout,alignmethod,
-                                        alignreference,refimageindex=refimageindex,overwrite=True,
+                                        alignreference,refimageindex=refimageindex,overwrite=True,crop=crop,
                                         info=info,copygroups=copygroups)
         # Default
         defaultstack(fileout,aligned_stacks,default)
 
-
-    timing.printtimeelapsed(T0)
+    timing.printtimeelapsed(T0,logger)
 

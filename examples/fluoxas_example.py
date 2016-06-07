@@ -26,6 +26,9 @@
 import os, sys
 sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import logging
+logging.getLogger("spectrocrunch").setLevel(logging.INFO)
+
 from spectrocrunch.process.id21_fluoxas import process
 from spectrocrunch.process.id21_fluoxas import defaultstack
 
@@ -42,6 +45,7 @@ if __name__ == '__main__':
     skipnormalization = False
     dtcor = False
     default = None
+    crop = False
 
     if example=="example1":
         scanname = ["fXANES5"]
@@ -50,12 +54,13 @@ if __name__ == '__main__':
         destpath = os.path.join(path,"testresults",scanname[0])
         cfgfile = os.path.join(path,"testdata","xrfxanes","id21",scanname[0]+".cfg")
 
-        skippreprocessing = False
+        skippreprocessing = True
         skipnormalization = False
 
         alignmethod = "max" #None, fft, sift, elastix
         alignreference = "Ca-K"
         refimageindex = 0 # None for pair-wise alignment
+        crop = True
 
         default = "Ca-K"
 
@@ -112,5 +117,5 @@ if __name__ == '__main__':
         sys.exit()
 
     process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,default=default, \
-            refimageindex=refimageindex,skippre=skippreprocessing,skipnormalization=skipnormalization,dtcor=dtcor)
+            refimageindex=refimageindex,skippre=skippreprocessing,skipnormalization=skipnormalization,dtcor=dtcor,crop=crop)
 

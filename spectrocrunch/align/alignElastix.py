@@ -26,6 +26,7 @@
 from .align import align
 import SimpleITK as sitk
 import numpy as np
+from spectrocrunch.common.stdout import stdout_redirect
 
 class alignElastix(align):
 
@@ -55,7 +56,8 @@ class alignElastix(align):
         """
         self.changefortransform(img.shape)
         self.transformix.SetInputImage(sitk.GetImageFromArray(img))
-        self.transformix.Execute()
+        with stdout_redirect():
+            self.transformix.Execute()
         aligned = sitk.GetArrayFromImage(self.transformix.GetResultImage())
         if self.cval != self.defaultvalue:
             aligned[aligned==self.defaultvalue] = self.cval
@@ -68,7 +70,8 @@ class alignElastix(align):
         self.elastix.SetMovingImage(self.moving)
 
         try:
-            self.elastix.Execute()
+            with stdout_redirect():
+                self.elastix.Execute()
             aligned = sitk.GetArrayFromImage(self.elastix.GetResultImage())
             if self.cval != self.defaultvalue:
                 aligned[aligned==self.defaultvalue] = self.cval

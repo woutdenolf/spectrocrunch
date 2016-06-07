@@ -65,23 +65,21 @@ class test_align(unittest.TestCase):
         o = alignclass(inputstack,None,outputstack,None,None,stackdim=stackdim,overwrite=True)
 
         # Check alignment
-        o.align(refdatasetindex,onraw = False,extend = False,roi=((1,-1),(1,-1)))
-        np.testing.assert_almost_equal(offsets_0,o.offsets,decimal=1)
-
-        o.align(refdatasetindex,onraw = True,extend = False,roi=((1,-1),(1,-1)))
-        np.testing.assert_almost_equal(offsets_0,o.offsets,decimal=1)
-
-        o.align(refdatasetindex,onraw = False,extend = True,roi=((1,-1),(1,-1)))
-        np.testing.assert_almost_equal(offsets_median,o.offsets,decimal=1)
-
-        o.align(refdatasetindex,onraw = True,extend = True,roi=((1,-1),(1,-1)))
-        np.testing.assert_almost_equal(offsets_median,o.offsets,decimal=1)
-
-        o.align(refdatasetindex,refimageindex=refimageindex,extend = False,roi=((1,-1),(1,-1)))
-        np.testing.assert_almost_equal(offsets_ref,o.offsets,decimal=1)
-
-        o.align(refdatasetindex,refimageindex=refimageindex,extend = True,roi=((1,-1),(1,-1)))
-        np.testing.assert_almost_equal(offsets_median,o.offsets,decimal=1)
+        for i in range(4):
+            pad = (i & 1)==1
+            crop = (i & 2)==2
+            # Pairwise: align on aligned
+            o.align(refdatasetindex,onraw = False,pad = pad,crop = crop,roi=((1,-1),(1,-1)))
+            offsets_0b = self.getrelativeoffset(o.offsets,0)
+            np.testing.assert_almost_equal(offsets_0,offsets_0b,decimal=1)
+            # Pairwise: align on raw
+            o.align(refdatasetindex,onraw = True,pad = pad,crop = crop,roi=((1,-1),(1,-1)))
+            offsets_0b = self.getrelativeoffset(o.offsets,0)
+            np.testing.assert_almost_equal(offsets_0,offsets_0b,decimal=1)
+            # Fixed reference
+            o.align(refdatasetindex,refimageindex=refimageindex,pad = pad,crop = crop,roi=((1,-1),(1,-1)))
+            offsets_0b = self.getrelativeoffset(o.offsets,0)
+            np.testing.assert_almost_equal(offsets_0,offsets_0b,decimal=1)
 
     def test_elastix(self):
         self.test_align(alignElastix)
@@ -104,12 +102,12 @@ class test_align(unittest.TestCase):
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_align("test_elastix"))
-    testSuite.addTest(test_align("test_sift"))
-    testSuite.addTest(test_align("test_fft"))
     #testSuite.addTest(test_align("test_min"))
     testSuite.addTest(test_align("test_max"))
     #testSuite.addTest(test_align("test_centroid"))
+    testSuite.addTest(test_align("test_fft"))
+    testSuite.addTest(test_align("test_sift"))
+    testSuite.addTest(test_align("test_elastix"))
     return testSuite
     
 if __name__ == '__main__':

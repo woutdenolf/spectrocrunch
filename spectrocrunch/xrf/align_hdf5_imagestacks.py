@@ -32,7 +32,7 @@ import spectrocrunch.io.nexus as nexus
 
 import h5py
 
-def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refdataset,refimageindex=None,overwrite=False,info=None,copygroups=None):
+def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refdataset,refimageindex=None,overwrite=False,info=None,copygroups=None,crop=False):
     """
     Args:
         filein
@@ -46,6 +46,7 @@ def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refda
         overwrite
         info
         copygroups
+        crop (Optional(bool)): crop aligned images, padded otherwise
     """
 
     # Alignment method
@@ -61,7 +62,7 @@ def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refda
         alignclass = alignCentroid
     else:
         alignclass = alignMax
-    extend = True
+    pad = not crop
     onraw = True
 
     # Reference dataset
@@ -102,7 +103,7 @@ def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refda
 
     # Align
     o = alignclass(datasets,None,fout,destlist,"",stackdim=stackdim,plot=True)
-    o.align(reference,onraw = onraw,extend = extend,refimageindex=refimageindex)
+    o.align(reference,onraw = onraw,pad = pad,crop = crop,refimageindex=refimageindex)
 
     # Data sets are the default in their NXdata group
     for s in destlist:
