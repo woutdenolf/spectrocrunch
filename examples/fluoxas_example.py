@@ -46,6 +46,8 @@ if __name__ == '__main__':
     dtcor = False
     default = None
     crop = False
+    roi = None
+    plot = True
 
     if example=="example1":
         scanname = ["fXANES5"]
@@ -61,6 +63,7 @@ if __name__ == '__main__':
         alignreference = "Ca-K"
         refimageindex = 0 # None for pair-wise alignment
         crop = True
+        roi = ((10,60),(10,60))
 
         default = "Ca-K"
 
@@ -117,5 +120,5 @@ if __name__ == '__main__':
         sys.exit()
 
     process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,default=default, \
-            refimageindex=refimageindex,skippre=skippreprocessing,skipnormalization=skipnormalization,dtcor=dtcor,crop=crop)
+            refimageindex=refimageindex,skippre=skippreprocessing,skipnormalization=skipnormalization,dtcor=dtcor,crop=crop,roi=roi,plot=plot)
 

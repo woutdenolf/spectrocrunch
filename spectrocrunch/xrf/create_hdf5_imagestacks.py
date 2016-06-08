@@ -83,6 +83,8 @@ def getimagestacks(config):
             coordinates = {"varname1":value1, "varname2":value2, ...}
     """
 
+    logger = logging.getLogger(__name__)
+
     # Prepare data
     npaths = len(config["sourcepath"])
     if npaths != len(config["scanname"]):
@@ -117,8 +119,8 @@ def getimagestacks(config):
             stackvalue = np.nan
             for metacounter in config["metacounters"]:
                 try:
-                    metafile = filecounter(sourcepath,scanname,metacounter,scannumber,idet=0 if "xmap" in metacounter else None)
-                    metafile = EdfFile.EdfFile(metafile)
+                    metafilename = filecounter(sourcepath,scanname,metacounter,scannumber,idet=0 if "xmap" in metacounter else None)
+                    metafile = EdfFile.EdfFile(metafilename)
                     
                     if iscan == 0 and ipath == 0:
                         label = config["fastlabel"]
@@ -144,7 +146,7 @@ def getimagestacks(config):
                     stackvalue = np.float(metafile.Images[0].Header[config["stacklabel"]])
                     break
                 except:
-                    logging.exception("Something wrong with extracting info from metacounter.")
+                    logger.exception("Something wrong with extracting info from meta file {}.".format(metafilename))
             if stackaxes[stackdim] is None:
                 raise IOError("Metacounter files are not present, corrupted or not the right format.")
             stackaxes[stackdim]["data"][iscanoffset+iscan] = stackvalue
@@ -332,6 +334,21 @@ def create_hdf5_imagestacks(jsonfile):
     """Convert scanning data (XIA spectra + counters) to an HDF5 file:
         groups which contain NXdata classes
         3 axes datasets on the main level
+
+    Returns:
+        tuple
+
+        The first element contains the image stack:
+            stacks = {"counters":{"name1":lstack1,"name2":lstack2,...},
+                      "det0":{"name3":lstack3,"name4":lstack4,...},
+                      "det1":{"name3":lstack5,"name4":lstack6,...},...}
+            lstack: an image stack given as a list of strings (filenames)
+
+        The second element is a list with three elements which contains
+        the axis values of the stack:
+            stackaxes = [{"name":"name1","data":np.array},
+                         {"name":"name2","data":np.array},
+                         {"name":"name3","data":np.array}]
     """
     # Processing configuration
     with open(jsonfile,'r') as f:
@@ -348,6 +365,6 @@ def create_hdf5_imagestacks(jsonfile):
 if __name__ == '__main__':
     import sys
     if len(sys.argv)>=2:
-        process_esrf(sys.argv[1])
+        create_hdf5_imagestacks(sys.argv[1])
 
 

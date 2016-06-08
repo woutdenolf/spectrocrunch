@@ -27,10 +27,10 @@ import json
 import logging
 
 from spectrocrunch.xrf.create_hdf5_imagestacks import create_hdf5_imagestacks as makestacks
-from spectrocrunch.xrf.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
-from spectrocrunch.xrf.math_hdf5_imagestacks import fluxnorm_hdf5_imagestacks as fluxnormstacks
-from spectrocrunch.xrf.math_hdf5_imagestacks import copy_hdf5_imagestacks as copystacks
-from spectrocrunch.xrf.align_hdf5_imagestacks import align_hdf5_imagestacks as alignstacks
+from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
+from spectrocrunch.h5stacks.math_hdf5_imagestacks import fluxnorm_hdf5_imagestacks as fluxnormstacks
+from spectrocrunch.h5stacks.math_hdf5_imagestacks import copy_hdf5_imagestacks as copystacks
+from spectrocrunch.h5stacks.align_hdf5_imagestacks import align_hdf5_imagestacks as alignstacks
 import spectrocrunch.common.timing as timing
 import spectrocrunch.io.nexus as nexus
 
@@ -99,7 +99,7 @@ def defaultstack(f,stacks,plotreference):
         return
     nexus.defaultstack(f,reference[0])
 
-def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,crop=False):
+def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,crop=False,roi=None,plot=True):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
@@ -180,10 +180,11 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
         info = {"method":alignmethod,"pairwise":refimageindex==None,\
                 "reference set":alignreference,\
                 "reference image":"None" if refimageindex==None else refimageindex,\
-                "crop":crop}
+                "crop":crop,\
+                "roi":roi}
         aligned_stacks, aligned_axes = alignstacks(filein,Ifn_stacks,Ifn_axes,stackdim,fileout,alignmethod,
                                         alignreference,refimageindex=refimageindex,overwrite=True,crop=crop,
-                                        info=info,copygroups=copygroups)
+                                        roi=roi,plot=plot,info=info,copygroups=copygroups)
         # Default
         defaultstack(fileout,aligned_stacks,default)
 

@@ -32,21 +32,23 @@ import spectrocrunch.io.nexus as nexus
 
 import h5py
 
-def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refdataset,refimageindex=None,overwrite=False,info=None,copygroups=None,crop=False):
+def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refdataset,refimageindex=None,overwrite=False,info=None,copygroups=None,crop=False,roi=None,plot=True):
     """
     Args:
-        filein
-        stacks
-        axes
-        stackdim
-        fileout
-        alignmethod
-        refdataset
-        refimageindex
-        overwrite
-        info
-        copygroups
+        filein (str)
+        stacks (list(str)): list of nxdata paths
+        axes (dict)
+        stackdim (int)
+        fileout (str)
+        alignmethod (str)
+        refdataset (str)
+        refimageindex (Optional(int))
+        overwrite (Optional(bool))
+        info (dict)
+        copygroups (list(str)): hdf5 dataset paths
         crop (Optional(bool)): crop aligned images, padded otherwise
+        roi(Optional(array-like)): use ony part of the image to align
+        plot (Optional(bool))
     """
 
     # Alignment method
@@ -102,8 +104,8 @@ def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refda
     destlist = [grp.name+"/"+grp.attrs["signal"] for grp in alignedstacks]
 
     # Align
-    o = alignclass(datasets,None,fout,destlist,"",stackdim=stackdim,plot=True)
-    o.align(reference,onraw = onraw,pad = pad,crop = crop,refimageindex=refimageindex)
+    o = alignclass(datasets,None,fout,destlist,"",stackdim=stackdim,plot=plot)
+    o.align(reference,onraw = onraw,pad = pad,crop = crop,roi = roi,refimageindex=refimageindex)
 
     # Data sets are the default in their NXdata group
     for s in destlist:

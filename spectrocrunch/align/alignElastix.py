@@ -91,17 +91,17 @@ class alignElastix(align):
 
     def get_transformation(self):
         """Get transformation from alignment kernel.
-           Elastix takes x as the first dimension while Python needs y as the first dimension.
         """
         transformParameterMap = self.elastix.GetTransformParameterMap()
+        # Elastix takes x as the first dimension while Python needs y as the first dimension.
         return np.array(transformParameterMap[0]["TransformParameters"][::-1], self.dtype)
 
     def set_transformation(self,offset,changed):
         """Set the transformation kernel according to the alignment kernel and adapted transformation
-           Elastix takes x as the first dimension while Python needs y as the first dimension.
         """
         transformParameterMap = self.elastix.GetTransformParameterMap()
         if changed:
+            # Elastix takes x as the first dimension while Python needs y as the first dimension.
             transformParameterMap[0]["TransformParameters"] = (str(offset[1]),str(offset[0]))
         self.transformix.SetTransformParameterMap(transformParameterMap)
 

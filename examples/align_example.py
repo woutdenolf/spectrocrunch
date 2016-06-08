@@ -74,16 +74,14 @@ def alignexample(t):
         alignclass = alignElastix
     elif t == "testdata":
         source,offsets,stackdim = teststack()
-        print(source[0].shape)
         #source[0]=source[0][...,0:2]
         #source[0][...,1] = source[0][...,0]
         sourcelist = None
         nstack = len(source)
         refdatasetindex = 0
-        refimageindex = 0
+        refimageindex = None
         alignclass = alignElastix
         roi = ((0,20),(60,79))
-        #roi = ((0,-2),(0,-2))
         #alignclass = alignMin
         #roi = ((10,30),(30,50))
     else:
@@ -94,7 +92,7 @@ def alignexample(t):
 
     # Align
     o = alignclass(source,sourcelist,outputstack,None,None,stackdim=stackdim,overwrite=True,plot=True)
-    o.align(refdatasetindex,refimageindex = refimageindex,onraw = True,pad = True,crop = False,roi = roi)
+    o.align(refdatasetindex,refimageindex = refimageindex,onraw = True,pad = False,crop = True,roi = roi)
 
     if t == "testdata":
         offsets2 = o.offsets

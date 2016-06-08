@@ -155,7 +155,7 @@ def addinfogroup(fout,name,datadict):
             typ = "S%d"%len(asciilist[0])
             newgroup.create_dataset(k,(1,1),typ,asciilist)
 
-        elif isinstance(datadict[k],list):
+        elif isinstance(datadict[k],list) or isinstance(datadict[k],tuple):
             arr = np.array(datadict[k])
             if arr.size==0:
                 newgroup[k] = arr

@@ -49,7 +49,7 @@ class align(object):
         self.dtype = np.float32
         self.alignonraw = True
         self.usekernel = False # Doesn't work well for Elastix!
-        self.pre_align = {"ROI":None}
+        self.pre_align = {"roi":None}
         self.pre_transform = {"pad":False}
         self.post_transform = {"crop":False}
         self.extend = ((0,0),(0,0)) # negative: crop, positive: pad
@@ -152,11 +152,11 @@ class align(object):
         Returns:
             bool: True when alignment is done on the raw image
         """
-        return self.pre_align["ROI"] is None
+        return self.pre_align["roi"] is None
 
     def dopre_align(self,img):
-        if self.pre_align["ROI"] is not None:
-            img = self.roi(img,self.pre_align["ROI"])
+        if self.pre_align["roi"] is not None:
+            img = self.roi(img,self.pre_align["roi"])
         return img
 
     def nopre_transform(self):
@@ -202,7 +202,7 @@ class align(object):
             return scipy.ndimage.interpolation.shift(img,-offset,cval = self.cval,order=1,mode="constant")
         else:
             raise NotImplementedError()
-            # Use origin!
+            # Use self.origin as well!
             return scipy.ndimage.interpolation.affine_transform(img,linear,offset=offset,cval = self.cval,order=1,mode="constant")
 
     def execute_transform(self,img,i):
@@ -248,9 +248,9 @@ class align(object):
         """
         self.origin = np.copy(self.idoffset)
 
-        if self.pre_align["ROI"] is not None:
-            self.origin[0] += self.pre_align["ROI"][0][0]
-            self.origin[1] += self.pre_align["ROI"][1][0]
+        if self.pre_align["roi"] is not None:
+            self.origin[0] += self.pre_align["roi"][0][0]
+            self.origin[1] += self.pre_align["roi"][1][0]
 
         if self.pre_transform["pad"] or self.post_transform["crop"]:
             self.origin[0] += self.extend[0][0]
@@ -475,6 +475,7 @@ class align(object):
             pad(Optional(bool)): make sure nothing is transformed outside the field of view (has priority over crop)
             crop(Optional(bool)): make sure no missing data is added
             redo(Optional(bool)): apply transformations without recalculating them
+            roi(Optional(array-like)): use ony part of the image to align
         """
 
         pairwise = refimageindex is None
@@ -483,7 +484,7 @@ class align(object):
         else:
             self.alignonraw = True
 
-        self.pre_align["ROI"] = roi
+        self.pre_align["roi"] = roi
         self.pre_transform["pad"] = pad
         self.post_transform["crop"] = crop
         self.calculateorigin()

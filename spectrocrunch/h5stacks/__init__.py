@@ -21,31 +21,3 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
-import spectrocrunch.io.nexus as nexus
-
-def get_hdf5_imagestacks(h5file,datagroupnames):
-    f = nexus.File(h5file,mode='r')
-
-    # Get axes
-    axesdict = {}
-    for k in f["axes"].keys():
-        if "." in k:
-            continue
-        name = str(k)
-        signal = f["axes"][k].attrs["signal"]
-        axesdict[name] = {"fullname":f["axes"][k][signal].name,"name":name}
-    axes = None
-
-    # Get data groups
-    groups = [k for k in f.keys() if k in datagroupnames]
-    stacks = {}
-    for grp in groups:
-        stacks[grp] = {k:f[grp][k].name for k in f[grp].keys() if "." not in k}
-        if axes is None:
-            names = f[stacks[grp].values()[0]].attrs["axes"].split(':')
-            axes = [axesdict[name] for name in names]
-
-    f.close()
-
-    return stacks, axes
