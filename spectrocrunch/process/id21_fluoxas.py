@@ -25,11 +25,14 @@
 import os
 import json
 import logging
+import numpy as np
 
 from spectrocrunch.xrf.create_hdf5_imagestacks import create_hdf5_imagestacks as makestacks
 from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
 from spectrocrunch.h5stacks.math_hdf5_imagestacks import fluxnorm_hdf5_imagestacks as fluxnormstacks
 from spectrocrunch.h5stacks.math_hdf5_imagestacks import copy_hdf5_imagestacks as copystacks
+from spectrocrunch.h5stacks.math_hdf5_imagestacks import crop_hdf5_imagestacks as cropstacks
+from spectrocrunch.h5stacks.math_hdf5_imagestacks import replacevalue_hdf5_imagestacks as replacestacks
 from spectrocrunch.h5stacks.align_hdf5_imagestacks import align_hdf5_imagestacks as alignstacks
 import spectrocrunch.common.timing as timing
 import spectrocrunch.io.nexus as nexus
@@ -107,35 +110,39 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
     stackdim = 2
     bsamefile = False
 
+    cropalign = crop
+    cropafter = False
+    replacenan = False
+
     # Image stack
     logger.info("Creating image stacks ...")
     if skippre:
-        filein = os.path.join(destpath,scanname[0]+".h5")
-        stacks, axes = getstacks(filein,["counters","detector0"])
+        file_raw = os.path.join(destpath,scanname[0]+".h5")
+        stacks, axes = getstacks(file_raw,["counters","detector0"])
     else:
-        jsonfile, filein = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim)
+        jsonfile, file_raw = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim)
         stacks, axes = makestacks(jsonfile)
 
-        #stacks2, axes2 = getstacks(filein,["counters","detector0"])
+        #stacks2, axes2 = getstacks(file_raw,["counters","detector0"])
         #assert(axes == axes2)
         #assert(stacks == stacks2)
 
     # Default
-    defaultstack(filein,stacks["counters"].values(),default)
+    defaultstack(file_raw,stacks["counters"].values(),default)
     if "detector0" in stacks:
-        defaultstack(filein,stacks["detector0"].values(),default)
+        defaultstack(file_raw,stacks["detector0"].values(),default)
 
     # Groups that don't change and need to be copied
     copygroups = ["coordinates"]
 
-    # I0 normalization
-    base,ext = os.path.splitext(filein)
+    # I0 normalization and convert stack dictionary to stack list
+    base,ext = os.path.splitext(file_raw)
     if "detector0" in stacks and "arr_iodet" in stacks["counters"] and skipnormalization==False:
         logger.info("I0 normalization ...")
         if bsamefile:
-            fileout = filein
+            file_normalized = file_raw
         else:
-            fileout = base+".norm"+ext
+            file_normalized = base+".norm"+ext
 
         # normalization stacks
         I0stack = stacks["counters"]["arr_iodet"]
@@ -148,45 +155,87 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
                 innames += [stacks["counters"][ctr]]
 
         # normalize
-        Ifn_stacks, Ifn_axes = fluxnormstacks(filein,fileout,axes,I0stack,innames,innames,overwrite=True,info={"normalization":"arr_iodet"},copygroups=copygroups)
+        Ifn_stacks, Ifn_axes = fluxnormstacks(file_raw,file_normalized,axes,I0stack,innames,innames,overwrite=True,info={"normalization":"arr_iodet"},copygroups=copygroups)
 
         # copy unnormalized stacks when new file
         innames = [ctr for ctr in stacks["counters"].values() if any(isgroup(ctr,s) for s in notnormalize)]
-        if filein==fileout:
+        if file_raw==file_normalized:
             Ifn_stacks += innames
         else:
-            tmp_stacks, tmp = copystacks(filein,fileout,axes,innames,innames,overwrite=False)
+            tmp_stacks, tmp = copystacks(file_raw,file_normalized,axes,innames,innames,overwrite=False)
             Ifn_stacks += tmp_stacks
 
-        filein = fileout
-
         # Default
-        defaultstack(fileout,Ifn_stacks,default)
-
+        defaultstack(file_normalized,Ifn_stacks,default)
     else:
         Ifn_stacks = stacks["counters"].values()
         if "detector0" in stacks:
             Ifn_stacks += [s for s in stacks["detector0"].values()]
         Ifn_axes = [dict(a) for a in axes]
+        file_normalized = file_raw
 
     # Alignment
     if alignmethod is not None and alignreference is not None:
         logger.info("Aligning image stacks ...")
         if bsamefile:
-            fileout = filein
+            file_aligned = file_normalized
         else:
-            fileout = base+".align"+ext
+            file_aligned = base+".align"+ext
 
         info = {"method":alignmethod,"pairwise":refimageindex==None,\
                 "reference set":alignreference,\
                 "reference image":refimageindex,\
-                "crop":crop,\
+                "crop":cropalign,\
                 "roi":roi}
-        aligned_stacks, aligned_axes = alignstacks(filein,Ifn_stacks,Ifn_axes,stackdim,fileout,alignmethod,
-                                        alignreference,refimageindex=refimageindex,overwrite=True,crop=crop,
+        aligned_stacks, aligned_axes = alignstacks(file_normalized,Ifn_stacks,Ifn_axes,stackdim,file_aligned,alignmethod,
+                                        alignreference,refimageindex=refimageindex,overwrite=True,crop=cropalign,
                                         roi=roi,plot=plot,info=info,copygroups=copygroups)
-        # Default
-        defaultstack(fileout,aligned_stacks,default)
 
+        # Default
+        defaultstack(file_aligned,aligned_stacks,default)
+    else:
+        aligned_stacks = Ifn_stacks
+        aligned_axes = Ifn_axes
+        file_aligned = file_normalized
+
+    # Remove NaN's
+    if replacenan and alignmethod is not None and alignreference is not None:
+        logger.info("Replace NaN's ...")
+        if bsamefile:
+            file_nonan = file_aligned
+        else:
+            file_nonan = base+".nonan"+ext
+
+        orgvalue = np.nan
+        newvalue = 0
+        info = {"replaced value":orgvalue,"new value":newvalue}
+        replaced_stacks, replaced_axes = replacestacks(file_aligned,file_nonan,aligned_axes,aligned_stacks,aligned_stacks,orgvalue,newvalue,overwrite=True,info=info,copygroups=copygroups)
+
+        # Default
+        defaultstack(file_nonan,replaced_stacks,default)
+    else:
+        replaced_stacks = aligned_stacks
+        replaced_axes = aligned_axes
+        file_nonan = file_aligned
+
+    # Crop
+    if cropafter and alignreference is not None:
+        logger.info("Crop image stacks ...")
+        if bsamefile:
+            file_cropped = file_aligned
+        else:
+            file_cropped = base+".crop"+ext
+
+        info = {"crop value":np.nan,"reference set":alignreference}
+        cropinfo = {"nanval":np.nan,"stackdim":stackdim,"reference set":alignreference}
+        cropped_stacks, cropped_axes = cropstacks(file_aligned,file_cropped,aligned_axes,aligned_stacks,aligned_stacks,cropinfo,overwrite=True,info=info,copygroups=copygroups)
+
+        # Default
+        defaultstack(file_cropped,cropped_stacks,default)
+    else:
+        cropped_stacks = aligned_stacks
+        cropped_axes = aligned_axes
+        file_cropped = file_aligned
+    
     timing.printtimeelapsed(T0,logger)
 

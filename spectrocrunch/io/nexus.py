@@ -92,7 +92,7 @@ def createlink(f,dest,linkdir,linkname,soft=True):
         linkname (str): link name
     """
     bclose = False
-    if isinstance(f,h5py.File):
+    if isinstance(f,h5py.File) or isinstance(f,h5py.Group):
         hdf5FileObject = f
     elif isinstance(f,str):
         hdf5FileObject = h5py.File(f)
@@ -327,10 +327,20 @@ def createNXdataSignal(nxdatagrp,**kwargs):
 
     Args:
         nxdatagrp(h5py.Group): NXdata group
-
     Returns:
         h5py.Dataset
     """
+
+    if "data" in kwargs:
+        if isinstance(kwargs["data"],h5py.Dataset):
+            if kwargs["data"].file == nxdatagrp.file:
+                # Dataset and NXdata group in the same file: create link
+                createlink(nxdatagrp,kwargs["data"].name,nxdatagrp.name,nxdatagrp.attrs["signal"])
+                return
+            else:
+                kwargs["data"] = kwargs["data"].value
+
+    # Create dataset
     dset = nxdatagrp.create_dataset(nxdatagrp.attrs["signal"],**kwargs)
     dset.attrs["signal"] = 1
     return dset
