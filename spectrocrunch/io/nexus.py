@@ -150,11 +150,12 @@ def addinfogroup(fout,name,datadict):
     newgroup.attrs["date"] = timestamp()
 
     for k in datadict:
-        if isinstance(datadict[k],str):
+        if (datadict[k] is None):
+            continue    
+        elif isinstance(datadict[k],str):
             asciilist = [datadict[k].encode("ascii","ignore")]
             typ = "S%d"%len(asciilist[0])
             newgroup.create_dataset(k,(1,1),typ,asciilist)
-
         elif isinstance(datadict[k],list) or isinstance(datadict[k],tuple):
             arr = np.array(datadict[k])
             if arr.size==0:

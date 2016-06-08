@@ -179,7 +179,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
 
         info = {"method":alignmethod,"pairwise":refimageindex==None,\
                 "reference set":alignreference,\
-                "reference image":"None" if refimageindex==None else refimageindex,\
+                "reference image":refimageindex,\
                 "crop":crop,\
                 "roi":roi}
         aligned_stacks, aligned_axes = alignstacks(filein,Ifn_stacks,Ifn_axes,stackdim,fileout,alignmethod,
