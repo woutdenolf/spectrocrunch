@@ -40,9 +40,8 @@ class alignElastix(align):
         self.elastix.LogToConsoleOff()
 
         parameterMap = sitk.GetDefaultParameterMap('translation')
-        self.cval = 0
-        self.defaultvalue = 0
-        parameterMap["DefaultPixelValue"] = "0" # seems to accept only 0,1,... 9
+        self.defaultvalue = -999 # Elastix cannot handle NaN's!!!
+        parameterMap["DefaultPixelValue"] = (str(self.defaultvalue),)
         self.elastix.SetParameterMap(parameterMap)
 
         self.fixed = None
@@ -51,21 +50,30 @@ class alignElastix(align):
         # Prepare transformation kernel
         self.transformix = sitk.SimpleTransformix()
 
+    def replacecval(self,img):
+        if self.cval is not np.nan or self.defaultvalue is not np.nan:
+            if self.cval != self.defaultvalue:
+                if self.defaultvalue is np.nan:
+                    img[np.isnan(img)] = self.cval
+                else:
+                    img[img==self.defaultvalue] = self.cval
+
     def execute_transformkernel(self,img):
         """Transform image according with the transformation kernel
         """
         self.changefortransform(img.shape)
+        img[np.isnan(img)] = 0
         self.transformix.SetInputImage(sitk.GetImageFromArray(img))
         with stdout_redirect():
             self.transformix.Execute()
         aligned = sitk.GetArrayFromImage(self.transformix.GetResultImage())
-        if self.cval != self.defaultvalue:
-            aligned[aligned==self.defaultvalue] = self.cval
+        self.replacecval(aligned)
         return aligned
  
     def execute_alignkernel(self,img):
         """Align image on reference
         """
+        img[np.isnan(img)] = 0
         self.moving = sitk.GetImageFromArray(img)
         self.elastix.SetMovingImage(self.moving)
 
@@ -73,8 +81,7 @@ class alignElastix(align):
             with stdout_redirect():
                 self.elastix.Execute()
             aligned = sitk.GetArrayFromImage(self.elastix.GetResultImage())
-            if self.cval != self.defaultvalue:
-                aligned[aligned==self.defaultvalue] = self.cval
+            self.replacecval(aligned)
         except:
             aligned = img.copy()
 
@@ -86,6 +93,7 @@ class alignElastix(align):
         if previous:
             self.fixed = self.moving    
         else:
+            img[np.isnan(img)] = 0
             self.fixed = sitk.GetImageFromArray(img)
         self.elastix.SetFixedImage(self.fixed)
 

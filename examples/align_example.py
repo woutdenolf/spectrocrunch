@@ -92,7 +92,7 @@ def alignexample(t):
 
     # Align
     o = alignclass(source,sourcelist,outputstack,None,None,stackdim=stackdim,overwrite=True,plot=True)
-    o.align(refdatasetindex,refimageindex = refimageindex,onraw = True,pad = False,crop = True,roi = roi)
+    o.align(refdatasetindex,refimageindex = refimageindex,onraw = True,pad = True,crop = False,roi = roi)
 
     if t == "testdata":
         offsets2 = o.offsets
