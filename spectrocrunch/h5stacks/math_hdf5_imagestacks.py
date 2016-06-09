@@ -29,10 +29,12 @@ import operator
 import numpy as np
 import scipy.ndimage.filters as filters
 import h5py
+
 import spectrocrunch.io.nexus as nexus
+from spectrocrunch.common.integerbase import integerbase
 
 from spectrocrunch.common.Enum import Enum
-operationType = Enum(['expression','copy','crop','replace'])
+operationType = Enum(['expression','copy','crop','replace','slicedexpression'])
 
 class StringParser(object):
     '''
@@ -146,6 +148,8 @@ class StringParser(object):
                 var = self.variables[op]
                 if isinstance(var,h5py.Group):
                     return var[var.attrs["signal"]][:]
+                elif isinstance(var,h5py.Dataset):
+                    return var[:]
                 else:
                     return var
             return 0
@@ -221,6 +225,129 @@ def calccroproi(stack,nanval,stackdim):
                (0,nimg))
     return roi
     
+def math_hdf5_imagestacks_expression(operation,fin,varargs,fixedargs,retstacks):
+    expression = operation["value"]
+
+    mathparser = StringParser()
+    ncalc = len(varargs)
+
+    # Read fixed variables
+    fixedvariables = {}
+    for k in fixedargs:
+        fixedvariables[k] = fin[fixedargs[k]]
+        if isinstance(fixedvariables[k],h5py.Group):
+            fixedvariables[k] = fixedvariables[k][fixedvariables[k].attrs["signal"]][:]
+        if isinstance(fixedvariables[k],h5py.Dataset):
+            fixedvariables[k] = fixedvariables[k][:]
+
+    for i in range(ncalc):
+        # Variables in expression
+        variables = {}
+        for k in varargs[i]:
+            variables[k] = fin[varargs[i][k]]
+        for k in fixedargs:
+            variables[k] = fixedvariables[k]
+
+        # Evaluate expression
+        data = mathparser.eval(expression,variables=variables)
+
+        # Add data to the NXdata group
+        dset = nexus.createNXdataSignal(retstacks[i],data=data,chunks = True)
+
+def math_hdf5_imagestacks_slicedexpression(operation,fin,varargs,fixedargs,retstacks):
+    expression = operation["value"]
+    stackdim = operation["stackdim"]
+
+    # Loop over variable arguments
+    mathparser = StringParser()
+    ncalc = len(varargs)
+    for i in range(ncalc):
+        # Variables in expression
+        variables = {}
+        for k in varargs[i]:
+            variables[k] = fin[varargs[i][k]]
+        for k in fixedargs:
+            variables[k] = fin[fixedargs[k]]
+
+        # Allocate space  
+        shape = [0,0,0]
+        v = 1
+        for k in variables:
+            if isinstance(variables[k],h5py.Group):
+                variables[k] = variables[k][variables[k].attrs["signal"]]
+
+            if hasattr(variables[k],'shape'):
+                s = variables[k].shape
+                for j in range(min(len(s),3)):
+                    shape[j] = max(shape[j],s[j])
+                v *= variables[k][0,0,0]
+            else:
+                v *= variables[k]
+        
+        dset = nexus.createNXdataSignal(retstacks[i],shape=shape,dtype=type(v),chunks = True)
+
+        # Evaluate expression
+        for j in range(shape[stackdim]):
+            # New (sliced) variables
+            if stackdim==0:
+                sliced = {k:variables[k][i,...] for k in variables}
+            elif stackdim==1:
+                sliced = {k:variables[k][:,i,:] for k in variables}
+            else:
+                sliced = {k:variables[k][...,i] for k in variables}
+
+            data = mathparser.eval(expression,variables=sliced)
+
+            if stackdim==0:
+                dset[i,...] = data
+            elif stackdim==1:
+                dset[:,i,:] = data
+            else:
+                dset[...,i] = data
+
+def math_hdf5_imagestacks_crop(operation,fin,varargs,retstacks):
+    axesdata = []
+
+    reference = [s for s in varargs if s.endswith(operation["reference set"])]
+    iref = varargs.index(reference[0])
+
+    roi = calccroproi(fin[varargs[iref]],operation["nanval"],operation["stackdim"])
+
+    # Add (cropped) data to the NXdata group
+    if roi is None:
+        for i in range(len(varargs)):
+            grp = fin[varargs[i]]
+            data = grp[grp.attrs["signal"]]
+            dset = nexus.createNXdataSignal(retstacks[i],data=data,chunks = True)
+    else:
+        for i in range(len(varargs)):
+            grp = fin[varargs[i]]
+            data = grp[grp.attrs["signal"]][roi[0][0]:roi[0][1],roi[1][0]:roi[1][1],roi[2][0]:roi[2][1]]
+            dset = nexus.createNXdataSignal(retstacks[i],data=data,chunks = True)
+
+        axesdata = [None]*len(axes)
+        for i in range(len(axes)):
+            axesdata[i] = fin[axes[i]["fullname"]][roi[i][0]:roi[i][1]]
+
+    return axesdata
+
+def math_hdf5_imagestacks_copy(operation,fin,varargs,retstacks):
+    for i in range(len(varargs)):
+        grp = fin[varargs[i]]
+        data = grp[grp.attrs["signal"]]
+        dset = nexus.createNXdataSignal(retstacks[i],data=data,chunks = True)
+
+def math_hdf5_imagestacks_replace(operation,fin,varargs,retstacks):
+    v1 = operation["v1"]
+    v2 = operation["v2"]
+    for i in range(len(varargs)):
+        grp = fin[varargs[i]]
+        data = grp[grp.attrs["signal"]].value
+        if v1 is np.nan:
+            data[np.isnan(data)] = v2
+        else:
+            data[data==v1] = v2
+        dset = nexus.createNXdataSignal(retstacks[i],data=data,chunks = True)
 
 def math_hdf5_imagestacks(filein,fileout,axes,operation,varargs,fixedargs,ret,extension="",overwrite=False,info=None,copygroups=None):
     """Perform some operations on hdf5 imagestacks
@@ -268,62 +395,15 @@ def math_hdf5_imagestacks(filein,fileout,axes,operation,varargs,fixedargs,ret,ex
     # Operation
     axesdata = []
     if operation["type"]==operationType.expression:
-        expression = operation["value"]
-
-        # Loop over variable arguments
-        mathparser = StringParser()
-        ncalc = len(varargs)
-        for i in range(ncalc):
-            # Variables in expression
-            variables = {}
-            for k in varargs[i]:
-                variables[k] = fin[varargs[i][k]]
-            for k in fixedargs:
-                variables[k] = fin[fixedargs[k]]
-
-            # Evaluate expression
-            data = mathparser.eval(expression,variables=variables)
-
-            # Add data to the NXdata group
-            dset = nexus.createNXdataSignal(retstacks[i],data=data,chunks = True)
-
+        math_hdf5_imagestacks_expression(operation,fin,varargs,fixedargs,retstacks)
+    elif operation["type"]==operationType.slicedexpression:
+        math_hdf5_imagestacks_slicedexpression(operation,fin,varargs,fixedargs,retstacks)
     elif operation["type"]==operationType.crop:
-        reference = [s for s in varargs if s.endswith(operation["reference set"])]
-        iref = varargs.index(reference[0])
-
-        roi = calccroproi(fin[varargs[iref]],operation["nanval"],operation["stackdim"])
-
-        # Add (cropped) data to the NXdata group
-        if roi is None:
-            for i in range(len(varargs)):
-                grp = fin[varargs[i]]
-                data = grp[grp.attrs["signal"]]
-                dset = nexus.createNXdataSignal(retstacks[i],data=data,chunks = True)
-        else:
-            for i in range(len(varargs)):
-                grp = fin[varargs[i]]
-                data = grp[grp.attrs["signal"]][roi[0][0]:roi[0][1],roi[1][0]:roi[1][1],roi[2][0]:roi[2][1]]
-                dset = nexus.createNXdataSignal(retstacks[i],data=data,chunks = True)
-
-            axesdata = [None]*len(axes)
-            for i in range(len(axes)):
-                axesdata[i] = fin[axes[i]["fullname"]][roi[i][0]:roi[i][1]]
+        axesdata = math_hdf5_imagestacks_crop(operation,fin,varargs,retstacks)
     elif operation["type"]==operationType.copy:
-        for i in range(len(varargs)):
-            grp = fin[varargs[i]]
-            data = grp[grp.attrs["signal"]]
-            dset = nexus.createNXdataSignal(retstacks[i],data=data,chunks = True)
+        math_hdf5_imagestacks_copy(operation,fin,varargs,retstacks)
     elif operation["type"]==operationType.replace:
-        v1 = operation["v1"]
-        v2 = operation["v2"]
-        for i in range(len(varargs)):
-            grp = fin[varargs[i]]
-            data = grp[grp.attrs["signal"]].value
-            if v1 is np.nan:
-                data[np.isnan(data)] = v2
-            else:
-                data[data==v1] = v2
-            dset = nexus.createNXdataSignal(retstacks[i],data=data,chunks = True)
+        math_hdf5_imagestacks_replace(operation,fin,varargs,retstacks)
 
     # New axes
     if len(axesdata)==0:
@@ -347,10 +427,25 @@ def math_hdf5_imagestacks(filein,fileout,axes,operation,varargs,fixedargs,ret,ex
 
     return retstacks, retaxes
 
-def fluxnorm_hdf5_imagestacks(filein,fileout,axes,I0stack,stacks,retstack,overwrite=False,info=None,copygroups=None):
-    operation = {"type":operationType.expression,"value":"var_a/var_b"}
+def fluxnorm_hdf5_imagestacks(filein,fileout,axes,I0stacks,stacks,retstack,overwrite=False,info=None,copygroups=None,stackdim=None):
+    
+    nI0 = len(I0stacks)
+    if nI0 == 1:
+        fixedargs = {'b': I0stacks[0]}
+        expression = "var_a/var_b"
+    else:
+        digs = ['b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']
+        o = integerbase(digs = digs)
+        fixedargs = {o.int2base(i):I0stacks[i] for i in range(nI0)}
+        expression = "var_"+o.int2base(0)
+        for i in range(1,nI0):
+            expression += "+var_"+o.int2base(i)
+        expression = "{}*var_a/({})".format(nI0,expression)
 
-    fixedargs = {"b":I0stack}
+    if stackdim is None:
+        operation = {"type":operationType.expression,"value":expression}
+    else:
+        operation = {"type":operationType.slicedexpression,"value":expression,"stackdim":stackdim}
 
     nI = len(stacks)
     varargs = [None]*nI

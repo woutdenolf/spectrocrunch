@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2016 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,25 +22,33 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import os, sys
-sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+class integerbase:
 
-from spectrocrunch.common.integerbase import integerbase
-import numpy as np
+    def __init__(self,digs = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F']):
+        self.digs = digs
+        self.base = len(self.digs)
 
-if __name__ == '__main__':
+    def int2base(self,x):
+        if x < 0:
+            sign = -1
+        elif x == 0:
+            return self.digs[0]
+        else:
+            sign = 1
+        x *= sign
+        digits = []
+        while x:
+            digits.append(self.digs[x % self.base])
+            x /= self.base
+        if sign < 0:
+            digits.append('-')
+        digits.reverse()
+        return ''.join(digits)
 
-        I0stacks = [0,1,2,3]
+    def base2int(self,x):
+        y = x[::-1]
+        val = 0
+        for i in range(len(y)):
+            val += self.digs.index(y[i]) * self.base**i
+        return val
 
-        digs = ['b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
-        o = integerbase(digs = digs)
-        nI0 = len(I0stacks)
-        fixedargs = {"var_"+o.int2base(i):I0stacks[i] for i in range(nI0)}
-        expression = "var_"+o.int2base(0)
-        for i in range(1,nI0):
-            expression += "+var_"+o.int2base(i)
-        expression = "{}*var_a/({})".format(nI0,expression)
-
-        print(expression)
-
-    

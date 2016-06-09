@@ -338,7 +338,8 @@ def createNXdataSignal(nxdatagrp,**kwargs):
                 createlink(nxdatagrp,kwargs["data"].name,nxdatagrp.name,nxdatagrp.attrs["signal"])
                 return
             else:
-                kwargs["data"] = kwargs["data"].value
+                pass
+                #kwargs["data"] = kwargs["data"].value
 
     # Create dataset
     dset = nxdatagrp.create_dataset(nxdatagrp.attrs["signal"],**kwargs)

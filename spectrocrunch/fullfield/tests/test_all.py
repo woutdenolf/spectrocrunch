@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2016 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,25 +22,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import os, sys
-sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import unittest
 
-from spectrocrunch.common.integerbase import integerbase
-import numpy as np
-
-if __name__ == '__main__':
-
-        I0stacks = [0,1,2,3]
-
-        digs = ['b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
-        o = integerbase(digs = digs)
-        nI0 = len(I0stacks)
-        fixedargs = {"var_"+o.int2base(i):I0stacks[i] for i in range(nI0)}
-        expression = "var_"+o.int2base(0)
-        for i in range(1,nI0):
-            expression += "+var_"+o.int2base(i)
-        expression = "{}*var_a/({})".format(nI0,expression)
-
-        print(expression)
-
+def test_suite_all():
+    """Test suite including all test suites"""
+    testSuite = unittest.TestSuite()
+    return testSuite
     
+if __name__ == '__main__':
+    import sys
+
+    mysuite = test_suite_all()
+    runner = unittest.TextTestRunner()
+    if not runner.run(mysuite).wasSuccessful():
+        sys.exit(1)

@@ -145,7 +145,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
             file_normalized = base+".norm"+ext
 
         # normalization stacks
-        I0stack = stacks["counters"]["arr_iodet"]
+        I0stacks = [stacks["counters"]["arr_iodet"]]
 
         # stacks to be normalized
         innames = stacks["detector0"].values()
@@ -155,7 +155,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
                 innames += [stacks["counters"][ctr]]
 
         # normalize
-        Ifn_stacks, Ifn_axes = fluxnormstacks(file_raw,file_normalized,axes,I0stack,innames,innames,overwrite=True,info={"normalization":"arr_iodet"},copygroups=copygroups)
+        Ifn_stacks, Ifn_axes = fluxnormstacks(file_raw,file_normalized,axes,I0stacks,innames,innames,overwrite=True,info={"normalization":"arr_iodet"},copygroups=copygroups)
 
         # copy unnormalized stacks when new file
         innames = [ctr for ctr in stacks["counters"].values() if any(isgroup(ctr,s) for s in notnormalize)]

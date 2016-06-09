@@ -121,29 +121,29 @@ def getimagestacks(config):
                 try:
                     metafilename = filecounter(sourcepath,scanname,metacounter,scannumber,idet=0 if "xmap" in metacounter else None)
                     metafile = EdfFile.EdfFile(metafilename)
-                    
+                    header = metafile.GetHeader(0)
                     if iscan == 0 and ipath == 0:
                         label = config["fastlabel"]
-                        motfast = metafile.Images[0].Header[label+"_mot"]
-                        start = np.float(metafile.Images[0].Header[label+"_start"])
-                        end = np.float(metafile.Images[0].Header[label+"_end"])
-                        nbp = np.float(metafile.Images[0].Header[label+"_nbp"])
+                        motfast = header[label+"_mot"]
+                        start = np.float(header[label+"_start"])
+                        end = np.float(header[label+"_end"])
+                        nbp = np.float(header[label+"_nbp"])
                         stackaxes[imgdim[1]] = {"name":str(motfast),"data":np.linspace(start,end,nbp)}
 
                         label = config["slowlabel"]
-                        motslow = metafile.Images[0].Header[label+"_mot"]
-                        start = np.float(metafile.Images[0].Header[label+"_start"])
-                        end = np.float(metafile.Images[0].Header[label+"_end"])
-                        nbp = np.float(metafile.Images[0].Header[label+"_nbp"])
+                        motslow = header[label+"_mot"]
+                        start = np.float(header[label+"_start"])
+                        end = np.float(header[label+"_end"])
+                        nbp = np.float(header[label+"_nbp"])
                         end += (end-start)/(nbp-1)
                         nbp += 1
                         stackaxes[imgdim[0]] = {"name":str(motslow),"data":np.linspace(start,end,nbp)}
 
                         stackaxes[stackdim] = {"name":str(config["stacklabel"]),"data":np.full(nscanstot,np.nan,dtype=np.float32)}
 
-                        coordinates = {mot:np.float32(metafile.Images[0].Header[mot]) for mot in config["coordinates"] if mot != motfast and mot != motslow}
+                        coordinates = {mot:np.float32(header[mot]) for mot in config["coordinates"] if mot != motfast and mot != motslow}
 
-                    stackvalue = np.float(metafile.Images[0].Header[config["stacklabel"]])
+                    stackvalue = np.float(header[config["stacklabel"]])
                     break
                 except:
                     logger.exception("Something wrong with extracting info from meta file {}.".format(metafilename))
@@ -250,7 +250,7 @@ def exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=False):
             nscans = len(stacks[k1][k2])
             for iscan in range(nscans):
                 fdata = EdfFile.EdfFile(stacks[k1][k2][iscan])
-                if fdata.GetNumImages() <= 0:
+                if fdata.GetNumImages() == 0:
                     continue
 
                 data = fdata.GetData(0)
@@ -342,13 +342,13 @@ def create_hdf5_imagestacks(jsonfile):
             stacks = {"counters":{"name1":lstack1,"name2":lstack2,...},
                       "det0":{"name3":lstack3,"name4":lstack4,...},
                       "det1":{"name3":lstack5,"name4":lstack6,...},...}
-            lstack: an image stack given as a list of strings (filenames)
+            lstack: an image stack given as an NXdata path
 
         The second element is a list with three elements which contains
-        the axis values of the stack:
-            stackaxes = [{"name":"name1","data":np.array},
-                         {"name":"name2","data":np.array},
-                         {"name":"name3","data":np.array}]
+        the axis of the stack:
+            axes = [{"name":"name1","fullname":"/axes/name1/data"},
+                    {"name":"name2","fullname":"/axes/name2/data"},
+                    {"name":"name3","fullname":"/axes/name3/data"}]
     """
     # Processing configuration
     with open(jsonfile,'r') as f:
