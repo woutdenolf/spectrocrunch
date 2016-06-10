@@ -102,7 +102,8 @@ def defaultstack(f,stacks,plotreference):
         return
     nexus.defaultstack(f,reference[0])
 
-def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,crop=False,roi=None,plot=True):
+def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,\
+        refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,crop=False,roi=None,plot=True):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()

@@ -32,6 +32,7 @@ from spectrocrunch.fullfield.create_hdf5_imagestacks import create_hdf5_imagesta
 from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
 from spectrocrunch.h5stacks.math_hdf5_imagestacks import fluxnorm_hdf5_imagestacks as fluxnormstacks
 from spectrocrunch.h5stacks.math_hdf5_imagestacks import copy_hdf5_imagestacks as copystacks
+from spectrocrunch.h5stacks.align_hdf5_imagestacks import align_hdf5_imagestacks as alignstacks
 import spectrocrunch.io.nexus as nexus
 
 def createconfig_pre(sourcepath,destpath,radix,rebin,stackdim):
@@ -74,7 +75,8 @@ def createconfig_pre(sourcepath,destpath,radix,rebin,stackdim):
 
     return jsonfile,config["hdf5output"]
 
-def process(sourcepath,destpath,radix,rebin,skippre=False,skipnormalization=False):
+def process(sourcepath,destpath,radix,rebin,alignmethod,\
+        refimageindex=None,skippre=False,skipnormalization=False,crop=False,roi=None,plot=True):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
@@ -84,11 +86,10 @@ def process(sourcepath,destpath,radix,rebin,skippre=False,skipnormalization=Fals
 
     # Image stack
     logger.info("Creating image stacks ...")
+    jsonfile, file_raw = createconfig_pre(sourcepath,destpath,radix,rebin,stackdim)
     if skippre:
-        file_raw = os.path.join(destpath,radix[0]+".h5")
         stacks, axes = getstacks(file_raw,["detector0"])
     else:
-        jsonfile, file_raw = createconfig_pre(sourcepath,destpath,radix,rebin,stackdim)
         stacks, axes = makestacks(jsonfile)
         nexus.defaultstack(file_raw,stacks["detector0"]["sample"])
 
@@ -97,40 +98,65 @@ def process(sourcepath,destpath,radix,rebin,skippre=False,skipnormalization=Fals
         #assert(stacks == stacks2)
 
     # I0 normalization and convert stack dictionary to stack list
+    logger.info("I0 normalization ...")
     base,ext = os.path.splitext(file_raw)
-    if not skipnormalization:
-        logger.info("I0 normalization ...")
-        if bsamefile:
-            file_normalized = file_raw
-        else:
-            file_normalized = base+".norm"+ext
-
+    if bsamefile:
+        file_normalized = file_raw
+    else:
+        file_normalized = base+".norm"+ext
+    if skipnormalization:
+        Ifn_stacks, Ifn_axes = getstacks(file_normalized,["detector0"])
+        Ifn_stacks = Ifn_stacks["detector0"].values()
+    else:
         # normalization stacks
         if "flat2" in stacks["detector0"]:
             I0stacks = [stacks["detector0"]["flat1"],stacks["detector0"]["flat2"]]
+            info = {"normalization":"(flat1+flat2)/2"}
         else:
             I0stacks = [stacks["detector0"]["flat1"]]
+            info = {"normalization":"flat1"}
 
         # stacks to be normalized
         innames = [stacks["detector0"]["sample"]]
 
         # normalize
-        Ifn_stacks, Ifn_axes = fluxnormstacks(file_raw,file_normalized,axes,I0stacks,innames,innames,overwrite=True,info={"normalization":"arr_iodet"},stackdim=stackdim)
+        Ifn_stacks, Ifn_axes = fluxnormstacks(file_raw,file_normalized,axes,I0stacks,innames,innames,overwrite=True,info=info,stackdim=stackdim)
 
         # copy unnormalized stacks when new file
-        innames = [stacks["detector0"]["flat1"]]
-        if file_raw==file_normalized:
-            Ifn_stacks += innames
-        else:
-            tmp_stacks, tmp = copystacks(file_raw,file_normalized,axes,innames,innames,overwrite=False)
-            Ifn_stacks += tmp_stacks
+        #innames = I0stacks
+        #if file_raw==file_normalized:
+        #    Ifn_stacks += innames
+        #else:
+        #    tmp_stacks, tmp = copystacks(file_raw,file_normalized,axes,innames,innames,overwrite=False)
+        #    Ifn_stacks += tmp_stacks
 
         # Default
         nexus.defaultstack(file_normalized,stacks["detector0"]["sample"])
+
+    # Alignment
+    if alignmethod is not None:
+        logger.info("Aligning image stacks ...")
+        if bsamefile:
+            file_aligned = file_normalized
+        else:
+            file_aligned = base+".align"+ext
+
+        alignreference = "sample"
+        info = {"method":alignmethod,"pairwise":refimageindex==None,\
+                "reference set":alignreference,\
+                "reference image":refimageindex,\
+                "crop":crop,\
+                "roi":roi}
+        aligned_stacks, aligned_axes = alignstacks(file_normalized,Ifn_stacks,Ifn_axes,stackdim,file_aligned,alignmethod,
+                                        alignreference,refimageindex=refimageindex,overwrite=True,crop=crop,
+                                        roi=roi,plot=plot,info=info)
+
+        # Default
+        nexus.defaultstack(file_aligned,stacks["detector0"]["sample"])
     else:
-        Ifn_stacks = stacks["detector0"].values()
-        Ifn_axes = [dict(a) for a in axes]
-        file_normalized = file_raw
+        aligned_stacks = Ifn_stacks
+        aligned_axes = Ifn_axes
+        file_aligned = file_normalized
 
     timing.printtimeelapsed(T0,logger)
 

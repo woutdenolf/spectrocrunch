@@ -290,20 +290,20 @@ def math_hdf5_imagestacks_slicedexpression(operation,fin,varargs,fixedargs,retst
         for j in range(shape[stackdim]):
             # New (sliced) variables
             if stackdim==0:
-                sliced = {k:variables[k][i,...] for k in variables}
+                sliced = {k:variables[k][j,...] for k in variables}
             elif stackdim==1:
-                sliced = {k:variables[k][:,i,:] for k in variables}
+                sliced = {k:variables[k][:,j,:] for k in variables}
             else:
-                sliced = {k:variables[k][...,i] for k in variables}
+                sliced = {k:variables[k][...,j] for k in variables}
 
             data = mathparser.eval(expression,variables=sliced)
 
             if stackdim==0:
-                dset[i,...] = data
+                dset[j,...] = data
             elif stackdim==1:
-                dset[:,i,:] = data
+                dset[:,j,:] = data
             else:
-                dset[...,i] = data
+                dset[...,j] = data
 
 def math_hdf5_imagestacks_crop(operation,fin,varargs,retstacks):
     axesdata = []

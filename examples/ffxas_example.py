@@ -35,13 +35,27 @@ if __name__ == '__main__':
 
     path = os.path.dirname(os.path.abspath(__file__))
 
-    sourcepath = "/data/id21/inhouse/15sep/blc9406/fullfield/default/test1/"
-    radix = "test1"
-    skippreprocessing = False
-    skipnormalization = False
-    rebin = (4,4)
+    # Raw data
+    sourcepath = "/data/id21/store/backup_visitor/2015/hg32/id21/ff/data/default/default4/ScreamSample3ab/"
+    radix = "ScreamSample3ab"
+    rebin = (1,1)
+    skippreprocessing = True
 
+    # Result
     destpath = os.path.join(path,"testresults",radix)
 
-    process(sourcepath,destpath,radix,rebin,skippre=skippreprocessing,skipnormalization=skipnormalization)
+    # Normalization
+    skipnormalization = True
+
+    # Alignment
+    alignmethod = "fft"
+    refimageindex = 10
+    crop = True
+    roi = ((100,260),(160,350))
+    plot = True
+
+    # Process
+    process(sourcepath,destpath,radix,rebin,alignmethod,skippre=skippreprocessing,skipnormalization=skipnormalization,\
+            refimageindex=refimageindex,crop=crop,roi=roi,plot=plot)
+
 
