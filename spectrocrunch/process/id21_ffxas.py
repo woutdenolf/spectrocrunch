@@ -32,10 +32,11 @@ from spectrocrunch.fullfield.create_hdf5_imagestacks import create_hdf5_imagesta
 from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
 from spectrocrunch.h5stacks.math_hdf5_imagestacks import fluxnorm_hdf5_imagestacks as fluxnormstacks
 from spectrocrunch.h5stacks.math_hdf5_imagestacks import copy_hdf5_imagestacks as copystacks
+from spectrocrunch.h5stacks.math_hdf5_imagestacks import crop_hdf5_imagestacks as cropstacks
 from spectrocrunch.h5stacks.align_hdf5_imagestacks import align_hdf5_imagestacks as alignstacks
 import spectrocrunch.io.nexus as nexus
 
-def createconfig_pre(sourcepath,destpath,radix,rebin,stackdim):
+def createconfig_pre(sourcepath,destpath,radix,ext,rebin,stackdim):
 
     if not isinstance(sourcepath,list):
         sourcepath = [sourcepath]
@@ -63,7 +64,7 @@ def createconfig_pre(sourcepath,destpath,radix,rebin,stackdim):
         "beforeafter" : True,
 
         # Output
-        "hdf5output": os.path.join(destpath,radix[0]+".h5"),
+        "hdf5output": os.path.join(destpath,radix[0]+ext+".h5"),
         "rebin":rebin}
 
     # Create configuration file
@@ -75,8 +76,9 @@ def createconfig_pre(sourcepath,destpath,radix,rebin,stackdim):
 
     return jsonfile,config["hdf5output"]
 
-def process(sourcepath,destpath,radix,rebin,alignmethod,\
-        refimageindex=None,skippre=False,skipnormalization=False,crop=False,roi=None,plot=True):
+def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
+        skippre=False,skipnormalization=False,skipalign=False,\
+        refimageindex=None,crop=False,roialign=None,roiresult=None,plot=True):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
@@ -85,11 +87,11 @@ def process(sourcepath,destpath,radix,rebin,alignmethod,\
     bsamefile = False
 
     # Image stack
-    logger.info("Creating image stacks ...")
-    jsonfile, file_raw = createconfig_pre(sourcepath,destpath,radix,rebin,stackdim)
+    jsonfile, file_raw = createconfig_pre(sourcepath,destpath,radix,ext,rebin,stackdim)
     if skippre:
         stacks, axes = getstacks(file_raw,["detector0"])
     else:
+        logger.info("Creating image stacks ...")
         stacks, axes = makestacks(jsonfile)
         nexus.defaultstack(file_raw,stacks["detector0"]["sample"])
 
@@ -98,7 +100,6 @@ def process(sourcepath,destpath,radix,rebin,alignmethod,\
         #assert(stacks == stacks2)
 
     # I0 normalization and convert stack dictionary to stack list
-    logger.info("I0 normalization ...")
     base,ext = os.path.splitext(file_raw)
     if bsamefile:
         file_normalized = file_raw
@@ -108,6 +109,7 @@ def process(sourcepath,destpath,radix,rebin,alignmethod,\
         Ifn_stacks, Ifn_axes = getstacks(file_normalized,["detector0"])
         Ifn_stacks = Ifn_stacks["detector0"].values()
     else:
+        logger.info("I0 normalization ...")
         # normalization stacks
         if "flat2" in stacks["detector0"]:
             I0stacks = [stacks["detector0"]["flat1"],stacks["detector0"]["flat2"]]
@@ -131,32 +133,51 @@ def process(sourcepath,destpath,radix,rebin,alignmethod,\
         #    Ifn_stacks += tmp_stacks
 
         # Default
-        nexus.defaultstack(file_normalized,stacks["detector0"]["sample"])
+        nexus.defaultstack(file_normalized,Ifn_stacks[0])
 
     # Alignment
-    if alignmethod is not None:
-        logger.info("Aligning image stacks ...")
-        if bsamefile:
-            file_aligned = file_normalized
-        else:
-            file_aligned = base+".align"+ext
+    if bsamefile:
+        file_aligned = file_normalized
+    else:
+        file_aligned = base+".align"+ext
+    if skipalign:
+        aligned_stacks, aligned_axes = getstacks(file_normalized,["detector0"])
+        aligned_stacks = aligned_stacks["detector0"].values()
+    else:
+        if alignmethod is not None:
+            logger.info("Aligning image stack ...")
+            alignreference = "sample"
+            info = {"method":alignmethod,"pairwise":refimageindex==None,\
+                    "reference set":alignreference,\
+                    "reference image":refimageindex,\
+                    "crop":crop,\
+                    "roi":roialign}
+            aligned_stacks, aligned_axes = alignstacks(file_normalized,Ifn_stacks,Ifn_axes,stackdim,file_aligned,alignmethod,
+                                            alignreference,refimageindex=refimageindex,overwrite=True,crop=crop,
+                                            roi=roialign,plot=plot,info=info)
 
-        alignreference = "sample"
-        info = {"method":alignmethod,"pairwise":refimageindex==None,\
-                "reference set":alignreference,\
-                "reference image":refimageindex,\
-                "crop":crop,\
-                "roi":roi}
-        aligned_stacks, aligned_axes = alignstacks(file_normalized,Ifn_stacks,Ifn_axes,stackdim,file_aligned,alignmethod,
-                                        alignreference,refimageindex=refimageindex,overwrite=True,crop=crop,
-                                        roi=roi,plot=plot,info=info)
+            # Default
+            nexus.defaultstack(file_aligned,aligned_stacks[0])
+        else:
+            aligned_stacks = Ifn_stacks
+            aligned_axes = Ifn_axes
+            file_aligned = file_normalized
+
+    # Crop result
+    if roiresult is not None:
+        logger.info("Crop result ...")
+
+        if bsamefile:
+            file_cropped = file_aligned
+        else:
+            file_cropped = base+".crop"+ext
+
+        info = {"image roi":roiresult}
+        cropinfo = {"roi":roiresult,"stackdim":stackdim,"reference set":"sample"}
+        cropped_stacks, cropped_axes = cropstacks(file_aligned,file_cropped,aligned_axes,aligned_stacks,aligned_stacks,cropinfo,overwrite=True,info=info)
 
         # Default
-        nexus.defaultstack(file_aligned,stacks["detector0"]["sample"])
-    else:
-        aligned_stacks = Ifn_stacks
-        aligned_axes = Ifn_axes
-        file_aligned = file_normalized
+        nexus.defaultstack(file_cropped,cropped_stacks[0])
 
     timing.printtimeelapsed(T0,logger)
 

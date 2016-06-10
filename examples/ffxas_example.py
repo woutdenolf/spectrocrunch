@@ -56,6 +56,6 @@ if __name__ == '__main__':
 
     # Process
     process(sourcepath,destpath,radix,rebin,alignmethod,skippre=skippreprocessing,skipnormalization=skipnormalization,\
-            refimageindex=refimageindex,crop=crop,roi=roi,plot=plot)
+            refimageindex=refimageindex,crop=crop,roialign=roi,plot=plot)
 
 
