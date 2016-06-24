@@ -26,27 +26,28 @@ from spectrocrunch.common.Enum import Enum
 
 dataType = Enum(['h5','h5ext','singlefile','nparray'])
 alignType = Enum(['full','usetransfo','calctransfo'])
-transformationType = Enum(['translation','orthogonal','rigid','linear similarity','similarity','linear','affine','homography'])
+transformationType = Enum(['translation','rigid','similarity','affine','homography']) # B-spline, moving least-squares
 
 # Affine transformation:
 #   Coordinate transformation: X' = R.X + T
 #   Change of reference frame: X = R^-1.X' - R^-1.T
 #
+# Homogeneous coordinates: M = [[R,T],[P,1]]
+#   [[Y'],[1]] = M . [[X],[1]]
+#   X' = Y'/Z
+#
 # rotation: R = [[cos,-sin],[sin,cos]]
-# reflection: R = [[cos,sin],[sin,-cos]]
-# isotropic scaling: R = [[s,0],[0,s]]
-# scaling: R = [[sx,0],[0,sy]]
-# shear parallel to x-axis: R = [[1,sx],[0,1]]
-# shear parallel to y-axis: R = [[1,0],[sy,1]]
+# reflection: R = [[-1,0],[0,-1]]
+# scaling: R = [[s,0],[0,s]]
+# aspect: R = [[a,0],[1/a,0]]
+# shear: R = [[1,s],[s,1]]
+# homography: 
 #
-# orthogonal:           rotation + reflection
-# rigid:                rotation + reflection + translation
-# linear similarity:    rotation + reflection + isotropic scaling
-# similarity:           rotation + reflection + isotropic scaling + translation
-# linear:               rotation + reflection + scaling + shear
-# affine:               rotation + reflection + scaling + shear + translation
+# rigid(eucledian):        rotation + translation          dof = 3      R = [[a,sqrt(1-a^2)],[sqrt(1-a^2),a]]  T = [[tx],[ty]]
+# similarity:              rigid + scaling                 dof = 4      R = [[a,-b],[b,a]]  T = [[tx],[ty]]
+# affine:                  similarity + aspect + shear     dof = 6      R = [[a,b],[c,d]] T = [[tx],[ty]]
+# homography(projection):  affine + projection             dof = 8      R = [[a,b],[c,d]] T = [[tx],[ty]] P = [px,py]
 #
-# For an orthogonal basis:
-# orthogonal and rigid: R^T.R = id
-# rotation + reflection + isotropic scaling: R = s.[[cos,-r.sin],[sin,r.cos]] (with r=1 or -1)
+
+
 

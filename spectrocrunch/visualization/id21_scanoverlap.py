@@ -28,7 +28,7 @@ import numpy as np
 import pylab
 from scipy import interpolate
 
-def show(x,y,images,xp,yp,xlabel,ylabel,names):
+def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fliphor=False,color='#ffffff',defaultorigin=False):
     """
     Args:
         x(np.array): horizontal coordinates
@@ -66,21 +66,38 @@ def show(x,y,images,xp,yp,xlabel,ylabel,names):
     origin = "lower"
 
     # Transpose
-    extent = (extent[2],extent[3],extent[0],extent[1])
-    images = images.transpose((0,2,1))
-    xp,yp = yp,xp
-    xlabel,ylabel = ylabel,xlabel
+    if transpose:
+        extent = (extent[2],extent[3],extent[0],extent[1])
+        images = images.transpose((0,2,1))
+        xp,yp = yp,xp
+        xlabel,ylabel = ylabel,xlabel
 
     # Flip vertical
-    extent = (extent[0],extent[1],extent[3],extent[2])
-    images = images[:,::-1,:]
+    if flipvert:
+        extent = (extent[0],extent[1],extent[3],extent[2])
+        images = images[:,::-1,:]
 
     # Flip horizontal
-    #extent = (extent[1],extent[0],extent[2],extent[3])
-    #images = images[:,:,::-1]
+    if fliphor:
+        extent = (extent[1],extent[0],extent[2],extent[3])
+        images = images[:,:,::-1]
+
+    # Origin left bottom
+    if defaultorigin:
+        ind = [0,1,2,3]
+        if extent[1]<extent[0]:
+            ind[0] = 1
+            ind[1] = 0
+        if extent[3]<extent[2]:
+            ind[2] = 3
+            ind[3] = 2
+        extent = (extent[ind[0]],extent[ind[1]],extent[ind[2]],extent[ind[3]])
 
     # RGB for plotting
-    rgb = np.zeros((len(xnew),len(ynew),3))
+    if transpose:
+        rgb = np.zeros((len(xnew),len(ynew),3))
+    else:
+        rgb = np.zeros((len(ynew),len(xnew),3))
     for i in range(3):
         rgb[...,i] = images[i,...]
     #rgb = images[0:3,...].transpose((1,2,0))
@@ -96,20 +113,31 @@ def show(x,y,images,xp,yp,xlabel,ylabel,names):
 
     fontsize = 12
     s = fontsize/2
-    color = '#ffffff'
     axes.scatter(xp, yp, marker='o',s=s,color = color)
     for i in range(len(names)):
-        axes.annotate(names[i],xy=(xp[i],yp[i]),xytext=(xp[i]+dx,yp[i]),color = color)
+        #rgbi = rgb[int(np.round(xp[i])),int(np.round(yp[i])),:]*255
+        
+        #print(rgbi[0]*0.299 + rgbi[1]*0.587 + rgbi[2]*0.114)
+        #if (rgbi[0]*0.299 + rgbi[1]*0.587 + rgbi[2]*0.114) > 50:
+        #    color = '#000000'
+        #else:
+        #    color = '#ffffff'
+
+        #color = '#%02x%02x%02x' % tuple(255-rgbi)
+        #axes.scatter(xp[i], yp[i], marker='o',s=s,color = color)
+
+        if names[i] is not None:
+            axes.annotate(names[i],xy=(xp[i],yp[i]),xytext=(xp[i]+dx,yp[i]),color = color)
 
     axes.set_xlim(xlim)
     axes.set_ylim(ylim)
     pylab.show()
 
-def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz):
+def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=False,flipvert=True,fliphor=False,defaultorigin=False,showlabels=False,color='#ffffff'):
     """
     Args:
         hdf5filename(str)
-        grps(dict)
+        grps(dict): keys must be 0, 1 or 2 (r, g, b)
         specfilename(str)
         specnumbers(list(int))
         offhor(float)
@@ -143,13 +171,13 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz):
             dim2off = ocoord[f].value
             dim2name = "samy"
             dim2mult = 1000
-        
+
     # Get image with axes in micron
     for i in grps:
         ogrp = oh5[grps[i]["path"]]
         odset = ogrp[ogrp.attrs["signal"]]
-        dim1 = ogrp[dim1name].value*dim1mult
-        dim2 = ogrp[dim2name].value*dim2mult
+        dim1 = dim1off + ogrp[dim1name].value*dim1mult
+        dim2 = dim2off + ogrp[dim2name].value*dim2mult
         idim1 = ogrp.attrs[dim1name+"_indices"]
         idim2 = ogrp.attrs[dim2name+"_indices"]
         if idim2!=0 and idim1!=0:
@@ -161,7 +189,7 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz):
         if idim1 > idim2:
             img = img.T
         if i==0:
-            images = np.empty((len(grps),)+img.shape,dtype=img.dtype)
+            images = np.empty((3,)+img.shape,dtype=img.dtype)
 
         mi = np.min(img)
         ma = np.max(img)
@@ -195,6 +223,18 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz):
     pdim2 -= m2
 
     # Plot
-    names = [str(i) for i in specnumbers]
-    show(dim2,dim1,images,pdim2,pdim1,"y ($\mu$m)","z ($\mu$m)",names)
+    if showlabels:
+        names = [str(i) for i in specnumbers]
+    else:
+        names = [None]*n
+    if defaultorigin:
+        dim2label = "x ($\mu$m)"
+        dim1label = "y ($\mu$m)"
+    else:
+        dim2label = "y ($\mu$m)"
+        dim1label = "z ($\mu$m)"
+
+    show(dim2,dim1,images,pdim2,pdim1,dim2label,dim1label,names,\
+        transpose=transpose,flipvert=flipvert,fliphor=fliphor,color=color,\
+        defaultorigin=defaultorigin)
 

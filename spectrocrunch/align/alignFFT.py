@@ -37,8 +37,7 @@ class alignFFT(align):
         self.movingft = None
         
         # change of reference frame
-        self.offset = self.idoffset.copy()
-        self.linear = self.idlinear.copy()
+        self.cof = self.idcof.copy()
 
         # subpixel sampling factor > 1
         self.sampling = 20
@@ -46,7 +45,7 @@ class alignFFT(align):
     def execute_transformkernel(self,img):
         """Transform image according with the transformation kernel
         """
-        return self.execute_transform_nokernel(img,self.offset,self.linear)
+        return self.execute_transform_nokernel(img,self.cof)
  
     def ifft_interpolate(self,imgft,ROIoffset,ROIsize):
         """Sub-region inverse Fourier transform with subpixel interpolation using the matrix for of the 2D-DFT
@@ -175,7 +174,7 @@ class alignFFT(align):
 
         #shft,tmp1,tmp2 = skimage.feature.register_translation(self.fixedft, self.movingft, upsample_factor=self.sampling,space="fourier")
 
-        self.offset[:] = -shift
+        self.cof[0:2,2] = -shift[::-1]
         return self.execute_transformkernel(img)
 
     def set_reference(self,img,previous=False):
@@ -189,12 +188,12 @@ class alignFFT(align):
     def get_transformation(self):
         """Get transformation
         """
-        return self.offset
+        return self.cof
 
-    def set_transformation(self,offset,changed):
+    def set_transformation(self,cof,changed):
         """Set transformation
         """
         if changed:
-            self.offset[:] = offset
+            self.cof[:] = cof
 
 

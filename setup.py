@@ -119,7 +119,7 @@ classifiers = [get_devstatus(),
                ]
 
 install_requires = ["numpy", "scipy", "h5py", "fabio", "SimpleITK", "testfixtures", "sift_pyocl", "pyparsing", "fdmnes", "PyMca5"]
-# , "xraylib", "cctbx"
+# , "xraylib", "cctbx", "scikit-image" (skimage?)
 setup_requires = ["setuptools_scm"]
 
 setup(name='SpectroCrunch',

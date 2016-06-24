@@ -88,9 +88,9 @@ def getimagestacks(config):
     # Prepare data
     npaths = len(config["sourcepath"])
     if npaths != len(config["scanname"]):
-        raise ValueError("Number or scan names must be the same as number of source paths.")
+        raise ValueError("Number of scan names must be the same as number of source paths.")
     if npaths != len(config["scannumbers"]):
-        raise ValueError("Number or scan number sets must be the same as number of source paths.")
+        raise ValueError("Number of scan numbers must be the same as number of source paths.")
 
     stacks = {}
     auxstacks = {}
@@ -258,9 +258,10 @@ def exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=False):
                     nxdatagrp = nexus.newNXdata(grp,k2,"")
 
                     # Allocate dataset
-                    dim[imgdim[0]] = data.shape[0]
-                    dim[imgdim[1]] = data.shape[1]
-                    dim[stackdim] = nscans
+                    if dim==[0,0,0]:
+                        dim[imgdim[0]] = data.shape[0]
+                        dim[imgdim[1]] = data.shape[1]
+                        dim[stackdim] = nscans
                     dset = nexus.createNXdataSignal(nxdatagrp,shape=dim,chunks = True,dtype = np.float32)
                     if sumgroups:
                         dset[:] = 0
@@ -269,7 +270,7 @@ def exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=False):
 
                 # Some rows too much or rows missing:
                 if dim[imgdim[0]] > data.shape[0]:
-                    data = np.pad(data,((0,dim[imgdim[0]]-data.shape[0]),(0,0)),'constant',constant_values=self.cval)
+                    data = np.pad(data,((0,dim[imgdim[0]]-data.shape[0]),(0,0)),'constant',constant_values=0)
                 elif dim[imgdim[0]] < data.shape[0]:
                     data = data[0:dim[imgdim[0]],:]
 

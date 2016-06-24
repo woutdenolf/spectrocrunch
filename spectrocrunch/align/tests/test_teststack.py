@@ -24,18 +24,39 @@
 
 import unittest
 
+from ..types import transformationType
 from .teststack import teststack
 
 import numpy as np
+import pylab
 
 class test_teststack(unittest.TestCase):
 
     def test_data(self):
-        listofstacks,offsets,stackdim = teststack()
-        self.assertIsInstance(listofstacks,list)
-        self.assertIsInstance(listofstacks[0],np.ndarray)
-        self.assertEqual(len(listofstacks[0].shape),3)
-        self.assertTrue(all(s.shape==listofstacks[0].shape for s in listofstacks))
+        types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine, transformationType.homography]
+        for t in types:
+            listofstacks,COFrelative,stackdim = teststack(t)
+            self.assertIsInstance(listofstacks,list)
+            self.assertIsInstance(listofstacks[0],np.ndarray)
+            self.assertEqual(len(listofstacks[0].shape),3)
+            self.assertTrue(all(s.shape==listofstacks[0].shape for s in listofstacks))
+
+            if False:
+                for s in listofstacks:
+                    for i in range(s.shape[stackdim]):
+                        if stackdim==0:
+                            self.plot(s[i,...])
+                        elif stackdim==1:
+                            self.plot(s[:,i,:])
+                        else:
+                            self.plot(s[...,i])
+                    break # show only one
+
+    def plot(self,img):
+        pylab.figure(1)
+        pylab.subplot(111)
+        pylab.imshow(img,origin='lower',interpolation='nearest')
+        pylab.pause(0.1)
 
 def test_suite_all():
     """Test suite including all test suites"""

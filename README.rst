@@ -1,24 +1,4 @@
-This project contains the following (sub)packages:
-
-    ./
-    |-- spectrocrunch/
-    |   |-- align
-    |   |   |-- tests
-    |   |-- common
-    |   |   |-- tests
-    |   |-- io
-    |   |   |-- tests
-    |   |-- materials
-    |   |   |-- tests
-    |   |-- math
-    |   |   |-- tests
-    |   |-- process
-    |   |   |-- tests
-    |   |-- visualization
-    |   |   |-- tests
-    |   |-- xrf
-    |   |   |-- tests
-    |   |-- tests
+This project aims at processing spectrocopic imaging data (fluorescence and transmission).
 
 Version
 =======
@@ -51,44 +31,57 @@ to the top of your script
 import as follows:
     from spectrocrunch.align.alignElastix import alignElastix as align
 
+Subpackages
+===========
+
 align
-=====
+-----
 
     Aligning multiple image stacks with different alignment algorithms. One stack is the reference, the other stacks are aligned accordingly.
 
 common
-======
+------
 
     Subpackage used by the other subpackages.
 
+fullfield
+---------
+
+    Fullfield XAS data processing.
+
+h5stacks
+--------
+
+    Data processing organized in a software independent hdf5 pipeline.
+
 io
-==
+--
 
     Data I/O.
 
 materials
-=========
+---------
 
     Definition of compounds and mixtures with calculation of physical properties (database/calculation/simulation).
 
 math
-====
+----
 
     Another subpackage used by the other subpackages, more specifically grouping all math.
 
 process
-=======
+-------
 
     This subpackage connects beamline specific code to the other subpackages.
 
 visualization
-=============
+-------------
 
-    Plotting things
+    Plotting things.
 
 xrf
-===
+---
 
-    X-ray fluorescence data processing
+    X-ray fluorescence data processing.
 
 

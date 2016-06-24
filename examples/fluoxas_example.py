@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
     if example=="example1":
         scanname = ["fXANES5"]
-        scannumbers = [range(1,5)]#[range(1,173)]
+        scannumbers = [[1,50,100,170]]#[range(1,173)]
         sourcepath = [os.path.join(path,"testdata","xrfxanes","id21",scanname[0])]
         destpath = os.path.join(path,"testresults",scanname[0])
         cfgfile = os.path.join(path,"testdata","xrfxanes","id21",scanname[0]+".cfg")

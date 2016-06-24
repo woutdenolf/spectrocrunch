@@ -70,7 +70,7 @@ def createconfig_pre(sourcepath,destpath,radix,ext,rebin,stackdim):
     # Create configuration file
     if not os.path.exists(destpath):
         os.makedirs(destpath)
-    jsonfile = os.path.join(destpath,radix[0]+".json")
+    jsonfile = os.path.join(destpath,radix[0]+ext+".json")
     with open(jsonfile,'w') as f:
         json.dump(config,f,indent=2)
 

@@ -31,6 +31,7 @@ from spectrocrunch.align.alignFFT import alignFFT
 from spectrocrunch.align.alignSift import alignSift
 from spectrocrunch.align.alignSimple import alignMax
 from spectrocrunch.align.alignSimple import alignMin
+from spectrocrunch.align.types import transformationType
 
 from spectrocrunch.align.tests.teststack import teststack
 
@@ -73,7 +74,7 @@ def alignexample(t):
         refimageindex = 0
         alignclass = alignElastix
     elif t == "testdata":
-        source,offsets,stackdim = teststack()
+        source,offsets,stackdim = teststack(transformationType.translation)
         #source[0]=source[0][...,0:2]
         #source[0][...,1] = source[0][...,0]
         sourcelist = None
@@ -81,7 +82,8 @@ def alignexample(t):
         refdatasetindex = 0
         refimageindex = None
         alignclass = alignElastix
-        roi = ((0,20),(60,79))
+        roi = None
+        #roi = ((0,20),(60,79))
         #alignclass = alignMin
         #roi = ((10,30),(30,50))
     else:
@@ -94,12 +96,9 @@ def alignexample(t):
     o = alignclass(source,sourcelist,outputstack,None,None,stackdim=stackdim,overwrite=True,plot=True)
     o.align(refdatasetindex,refimageindex = refimageindex,onraw = True,pad = True,crop = False,roi = roi)
 
-    if t == "testdata":
-        offsets2 = o.offsets
-        offsets2[:,0] -= offsets2[0,0]
-        offsets2[:,1] -= offsets2[0,1]
-        print(offsets)
-        print(offsets2)
+    #if t == "testdata":
+    #    print(o.cofs)
+
 
     # Show result
     showstack(np.rollaxis(outputstack[0],stackdim,0))

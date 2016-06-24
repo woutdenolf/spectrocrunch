@@ -30,81 +30,116 @@ from ..alignFFT import alignFFT
 from ..alignSimple import alignMin
 from ..alignSimple import alignMax
 from ..alignSimple import alignCentroid
+from ..types import transformationType
 
 from .teststack import teststack
+from .teststack import transformation as gentransform
 
 import numpy as np
 
 class test_align(unittest.TestCase):
+    def testrelativecof(self,cofs,cofrel):
+        for i in range(1,cofs.shape[0]):
+            cofrelcalc = np.dot(np.linalg.inv(cofs[i-1,...]),cofs[i,...])
+            np.testing.assert_almost_equal(cofrelcalc,cofrel,decimal=1)
 
-    def getrelativeoffset(self,offsets,refimageindex):
-        off = offsets.copy()
-        off[:,0] -= off[refimageindex,0]
-        off[:,1] -= off[refimageindex,1]
-        return off
-
-    def getoffsetrelativetomedian(self,offsets):
-        off = offsets.copy()
-        off[:,0] -= np.median(off[:,0])
-        off[:,1] -= np.median(off[:,1])
-        return off
-
-    def test_align(self,alignclass):
+    def test_align(self,alignclass,transfotype):
         # Prepare dataIO
-        inputstack,offsets,stackdim = teststack()
+        inputstack,cofrel,stackdim = teststack(transfotype)
         outputstack = [np.zeros(1,dtype=np.float32)]*len(inputstack)
 
         # References
         refdatasetindex = 0
-        refimageindex = len(inputstack)//2
-        offsets_median = self.getoffsetrelativetomedian(offsets)
-        offsets_ref = self.getrelativeoffset(offsets,refimageindex)
-        offsets_0 = self.getrelativeoffset(offsets,0)
+        refimageindex = 0#len(inputstack)//2
         
         # Prepare alignment
-        o = alignclass(inputstack,None,outputstack,None,None,stackdim=stackdim,overwrite=True)
+        o = alignclass(inputstack,None,outputstack,None,None,stackdim=stackdim,overwrite=True,plot=False,transfotype=transfotype)
 
         # Check alignment
+        roi = ((5,-2),(3,-4))
         for i in range(4):
             pad = (i & 1)==1
             crop = (i & 2)==2
+
             # Pairwise: align on aligned
-            o.align(refdatasetindex,onraw = False,pad = pad,crop = crop,roi=((1,-1),(1,-1)))
-            offsets_0b = self.getrelativeoffset(o.offsets,0)
-            np.testing.assert_almost_equal(offsets_0,offsets_0b,decimal=1)
+            o.align(refdatasetindex,onraw = False,pad = pad,crop = crop,roi=roi)
+            self.testrelativecof(o.cofs,cofrel)
+
             # Pairwise: align on raw
-            o.align(refdatasetindex,onraw = True,pad = pad,crop = crop,roi=((1,-1),(1,-1)))
-            offsets_0b = self.getrelativeoffset(o.offsets,0)
-            np.testing.assert_almost_equal(offsets_0,offsets_0b,decimal=1)
+            o.align(refdatasetindex,onraw = True,pad = pad,crop = crop,roi=roi)
+            self.testrelativecof(o.cofs,cofrel)
+
             # Fixed reference
-            o.align(refdatasetindex,refimageindex=refimageindex,pad = pad,crop = crop,roi=((1,-1),(1,-1)))
-            offsets_0b = self.getrelativeoffset(o.offsets,0)
-            np.testing.assert_almost_equal(offsets_0,offsets_0b,decimal=1)
+            o.align(refdatasetindex,refimageindex=refimageindex,pad = pad,crop = crop,roi=roi)
+            self.testrelativecof(o.cofs,cofrel)
+
+    def test_sift_mapping(self):
+        # Initialize alignSift (not important)
+        inputstack = [np.zeros((2,2,2),dtype=np.float32)]*5
+        outputstack = [np.zeros(1,dtype=np.float32)]*5
+        o = alignSift(inputstack,None,outputstack,None,None,stackdim=2,overwrite=True)
+
+        # Generate points
+        N = 20
+        xsrc = np.random.random(N)*100
+        ysrc = np.random.random(N)*100
+        XT = np.column_stack((xsrc,ysrc,np.ones(N)))
+
+        types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine, transformationType.homography]
+        for t in types:
+            M,_ = gentransform(t,2)
+
+            # Transform points
+            YT = np.dot(XT,M.transpose())
+            xdest = YT[:,0]/YT[:,2]
+            ydest = YT[:,1]/YT[:,2]
+
+            # Add noise
+            #xdest += np.random.random(N)-0.5
+            #ydest += np.random.random(N)-0.5
+
+            # Get transformation
+            o.transfotype = t
+            o.transformationFromKp(xsrc,ysrc,xdest,ydest)
+            if t==transformationType.rigid:
+                np.testing.assert_almost_equal(M,o.cof,decimal=1)
+            else:
+                np.testing.assert_allclose(M,o.cof)
 
     def test_elastix(self):
-        self.test_align(alignElastix)
+        types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine]
+        types = [transformationType.translation]
+        for t in types:
+            self.test_align(alignElastix,t)
 
     def test_sift(self):
-        self.test_align(alignSift)
+        types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine, transformationType.homography]
+        types = [transformationType.translation]
+        for t in types:
+            self.test_align(alignSift,t)
 
     def test_fft(self):
-        self.test_align(alignFFT)
+        types = [transformationType.translation, transformationType.rigid]
+        types = [transformationType.translation]
+        for t in types:
+            self.test_align(alignFFT,t)
 
     def test_min(self):
-        self.test_align(alignMin)
+        self.test_align(alignMin,transformationType.translation)
 
     def test_max(self):
-        self.test_align(alignMax)
+        self.test_align(alignMax,transformationType.translation)
 
     def test_centroid(self):
-        self.test_align(alignCentroid)
+        self.test_align(alignCentroid,transformationType.translation)
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    #testSuite.addTest(test_align("test_min"))
+    testSuite.addTest(test_align("test_sift_mapping"))
+    testSuite.addTest(test_align("test_min"))
     testSuite.addTest(test_align("test_max"))
-    #testSuite.addTest(test_align("test_centroid"))
+    #testSuite.addTest(test_align("test_centroid")) # This can only work when putting a ROI on a single hotspot
     testSuite.addTest(test_align("test_fft"))
     testSuite.addTest(test_align("test_sift"))
     testSuite.addTest(test_align("test_elastix"))

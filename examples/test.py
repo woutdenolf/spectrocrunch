@@ -25,22 +25,12 @@
 import os, sys
 sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from spectrocrunch.common.integerbase import integerbase
-import numpy as np
+from spectrocrunch.align.tests.test_teststack import test_suite_all
+import unittest
 
 if __name__ == '__main__':
-
-        I0stacks = [0,1,2,3]
-
-        digs = ['b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
-        o = integerbase(digs = digs)
-        nI0 = len(I0stacks)
-        fixedargs = {"var_"+o.int2base(i):I0stacks[i] for i in range(nI0)}
-        expression = "var_"+o.int2base(0)
-        for i in range(1,nI0):
-            expression += "+var_"+o.int2base(i)
-        expression = "{}*var_a/({})".format(nI0,expression)
-
-        print(expression)
-
+    mysuite = test_suite_all()
+    runner = unittest.TextTestRunner()
+    if not runner.run(mysuite).wasSuccessful():
+        sys.exit(1)
     

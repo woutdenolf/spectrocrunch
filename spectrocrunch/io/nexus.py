@@ -270,6 +270,15 @@ def defaultstack(f,nxdatagroup):
     # Nexus default
     NXdefault(hdf5FileObject[nxdatagroup])
 
+    # For old txmwizard
+    grp = entry[name]
+    dataname = grp[grp.attrs["signal"]].name
+    createlink(hdf5FileObject,dataname,entry.name,"data")
+    energyname = [s for s in str.split(grp.attrs["axes"],':') if "energy" in s.lower()]
+    if len(energyname)>0:
+        createlink(hdf5FileObject,grp[energyname[0]].name,entry.name,"energy")
+
+    # Done
     if bclose:
         hdf5FileObject.close()
 

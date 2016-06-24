@@ -29,6 +29,7 @@ import pylab
 from .alignSource import alignSource
 from .alignDest import alignDest
 from .types import alignType
+from .types import transformationType
 
 class align(object):
     """Allows for the alignment of several stacks based on one stack.
@@ -36,7 +37,7 @@ class align(object):
        two images that should represent the same thing but transformed/deformed.
     """
 
-    def __init__(self,source,sourcelist,dest,destlist,extension,stackdim=None,overwrite=False,cval=np.nan,plot=False):
+    def __init__(self,source,sourcelist,dest,destlist,extension,stackdim=None,overwrite=False,cval=np.nan,plot=False,transfotype=transformationType.translation):
 
         # Data IO
         self.source = alignSource(source,sourcelist,stackdim=stackdim)
@@ -54,14 +55,17 @@ class align(object):
         self.post_transform = {"crop":False}
         self.extend = ((0,0),(0,0)) # negative: crop, positive: pad
 
-        # Affine transformation (change of frame matrices, not change of coordinates!)
-        self.offsets = np.zeros((self.source.nimages,2),dtype=self.dtype)
-        self.linears = np.zeros((self.source.nimages,2,2),dtype=self.dtype)
+        # Transformation (change of frame matrices, not change of coordinates!)
+        self.transfotype = transfotype
+        self.cofs = np.zeros((self.source.nimages,3,3),dtype=self.dtype)
         self.origin = np.zeros(2,dtype = self.dtype)
 
         # Others
+        self.idcof = np.identity(3,dtype = self.dtype)
         self.idlinear = np.identity(2,dtype = self.dtype)
         self.idoffset = np.zeros(2,dtype = self.dtype)
+        self.idproj = np.zeros(2,dtype = self.dtype)
+        self.idorigin = np.zeros(2,dtype = self.dtype)
 
         self.doplot = plot
 
@@ -193,27 +197,47 @@ class align(object):
     def execute_transformkernel(self,img):
         raise NotImplementedError()
 
-    def execute_transform_nokernel(self,img,offset,linear):
+    def execute_transform_nokernel(self,img,cof):
         """Apply a transformation to an image
         """
-        # affine_transform: assumes "change of frame" matrices with coordinates (y,x)
-        # shift: assumes "change of coordinates" matrices with coordinates (y,x)
-        if np.array_equal(linear,self.idlinear):
-            return scipy.ndimage.interpolation.shift(img,-offset,cval = self.cval,order=1,mode="constant")
+
+        # cof: change-of-frame matrix for coordinates (x,y)
+        nolinear = np.array_equal(cof[0:2,0:2],self.idlinear)
+        noproj = np.array_equal(cof[2,0:2],self.idproj)
+        if nolinear and noproj:
+            # shift: assumes change-of-coordinates vector for coordinates (y,x)
+            return scipy.ndimage.interpolation.shift(img,-cof[1::-1,2],cval = self.cval,order=1,mode="constant")
+        elif noproj:
+            # affine_transform: assumes change-of-frame matrix for coordinates (y,x)
+            M = self.cofwithorigin(cof)
+            return scipy.ndimage.interpolation.affine_transform(img,M[0:2,0:2].T,offset=M[1::-1,2],cval = self.cval,order=1,mode="constant")
         else:
             raise NotImplementedError()
-            # Use self.origin as well!
-            return scipy.ndimage.interpolation.affine_transform(img,linear,offset=offset,cval = self.cval,order=1,mode="constant")
+
+    def cofwithorigin(self,C2):
+        """ C2 is calculated in a frame which is shifted with respect to the (padded/cropped) image frame.
+            L3.L2.L1.X = X'
+            C1.C2.C3.X' = X
+            C1 = from padded/cropped frame to roi frame
+            C3 = from roi frame to padded frame
+        """
+        
+        # origin: position of the origin of the frame in which cof is calculated
+        C1 = self.idcof.copy()
+        C3 = self.idcof.copy()
+        C1[0:2,2] = self.origin
+        C3[0:2,2] = -self.origin
+        return np.dot(C1,np.dot(C2,C3))
 
     def execute_transform(self,img,i):
         """Transform according to the transformation extracted from an the transformation kernel (see gettransformation).
         """
-        return self.execute_transform_nokernel(img,self.offsets[i,...],self.linears[i,...])
+        return self.execute_transform_nokernel(img,self.cofs[i,...])
 
     def transformidentity(self,i):
         """Is the transformation the identity
         """
-        return np.array_equal(self.offsets[i,...], self.idoffset) and np.array_equal(self.linears[i,...], self.idlinear)
+        return np.array_equal(self.cofs[i,...], self.idcof)
 
     def pureidentity(self,i):
         """Is the transformation the identity, including the changes applied before (like padding)
@@ -246,15 +270,15 @@ class align(object):
            the origin of the image used during alignment in the image used during transformation
            must be calculated.
         """
-        self.origin = np.copy(self.idoffset)
+        self.origin = self.idorigin.copy()
 
         if self.pre_align["roi"] is not None:
-            self.origin[0] += self.pre_align["roi"][0][0]
-            self.origin[1] += self.pre_align["roi"][1][0]
+            self.origin[1] += self.pre_align["roi"][0][0]
+            self.origin[0] += self.pre_align["roi"][1][0]
 
         if self.pre_transform["pad"] or self.post_transform["crop"]:
-            self.origin[0] += self.extend[0][0]
-            self.origin[1] += self.extend[1][0]
+            self.origin[1] += self.extend[0][0]
+            self.origin[0] += self.extend[1][0]
 
     def get_transformation(self):
         raise NotImplementedError()
@@ -262,39 +286,38 @@ class align(object):
     def gettransformation(self,i,pairwise):
         """Get transformation parameters
         """
-        offset = self.get_transformation()
+        transfo = self.get_transformation()
 
+        # cofs is relative to i==iref or to i==0 when pairwise
         bchange = pairwise and self.alignonraw and i!=0
 
         if bchange:
-            self.offsets[i,...] = self.offsets[i-1,...] + offset
+            self.cofs[i,...] = np.dot(self.cofs[i-1,...],transfo)
         else:
-            self.offsets[i,...] = offset
-
-        self.linears[i,...] = self.idlinear
+            self.cofs[i,...] = transfo
 
         self.update_transformation(i,bchange)
 
-    def set_transformation(self,offset,changed):
+    def set_transformation(self,cof,changed):
         raise NotImplementedError()
 
     def update_transformation(self,i,bchange):
         """Update transformation parameters
         """
         if self.usekernel:
-            self.set_transformation(self.offsets[i,...],bchange)
+            self.set_transformation(self.cofs[i,...],bchange)
 
     def settransformidentity(self,i):
         """Make this transformation the identity
         """
-        self.offsets[i,...] = self.idoffset
-        self.linears[i,...] = self.idlinear
+        self.cofs[i,...] = self.idcof
 
     def minimaltransformation(self):
         """If all transformations are known, they can be reduced to minimize the difference with the original images
         """
-        self.offsets[:,0] -= np.median(self.offsets[:,0])
-        self.offsets[:,1] -= np.median(self.offsets[:,1])
+        # TODO: do something better
+        self.cofs[:,0,2] -= np.median(self.cofs[:,0,2])
+        self.cofs[:,1,2] -= np.median(self.cofs[:,1,2])
 
     def extendfromtransformation(self):
         """If all transformations are known, padding/cropping can be calculated
@@ -304,10 +327,41 @@ class align(object):
         if not self.pre_transform["pad"] and not self.post_transform["crop"]:
             return
 
-        o1min = np.floor(np.min(self.offsets[:,0])).astype(np.int)
-        o2min = np.floor(np.min(self.offsets[:,1])).astype(np.int)
-        o1max = np.ceil(np.max(self.offsets[:,0])).astype(np.int)
-        o2max = np.ceil(np.max(self.offsets[:,1])).astype(np.int)
+        # Transform corners
+        xy = np.empty((3,4))
+        xy[0,:] = [0,self.source.imgsize[1]-1,0,self.source.imgsize[1]-1]
+        xy[1,:] = [0,0,self.source.imgsize[0]-1,self.source.imgsize[0]-1]
+        xy[2,:] = [1,1,1,1]
+        myminmax = np.append(np.min(xy,axis=1),np.max(xy,axis=1))
+        maskmin = np.empty((3,4),dtype=bool)
+        maskmin[0,:] = [True,False,True,False]
+        maskmin[1,:] = [True,True,False,False]
+        maskmin[2,:] = [False,False,False,False]
+        maskmax = np.logical_not(maskmin)
+        maskmax[2,:] = [False,False,False,False]
+
+        for i in range(self.source.nimages):
+            xy2 = np.dot(self.cofwithorigin(self.cofs[i,...]),xy)
+            xy2[0,:] /= xy2[2,:]
+            xy2[1,:] /= xy2[2,:]
+            myminmax[0:3] = np.minimum(myminmax[0:3],np.min(xy2,axis=1))
+            myminmax[3:] = np.maximum(myminmax[3:],np.max(xy2,axis=1))
+        xmin = int(np.floor(myminmax[0]))
+        ymin = int(np.floor(myminmax[1]))
+        xmax = int(np.ceil(myminmax[3]))
+        ymax = int(np.ceil(myminmax[4]))
+
+        # Padding/cropping
+        o1min = ymin
+        o1max = ymax-self.source.imgsize[0]+1
+        o2min = xmin
+        o2max = xmax-self.source.imgsize[1]+1
+
+        # Translation only:
+        #o1min = np.floor(np.min(self.cofs[:,1,2])).astype(np.int)
+        #o2min = np.floor(np.min(self.cofs[:,0,2])).astype(np.int)
+        #o1max = np.ceil(np.max(self.cofs[:,1,2])).astype(np.int)
+        #o2max = np.ceil(np.max(self.cofs[:,0,2])).astype(np.int)
 
         if self.pre_transform["pad"]:
             self.extend = ((o1max,-o1min),(o2max,-o2min))
