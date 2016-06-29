@@ -54,7 +54,7 @@ class alignSource(object):
 
         if isinstance(source,str):
             tmp, ext = os.path.splitext(source)
-            if ext == '.h5':
+            if ext == '.h5' or ext == '.hdf5' or ext == '.nxs':
                 self.handle = h5py.File(source, "r")
                 self.datasets = [self.handle[name] for name in sublist]
                 s = self.datasets[0].shape

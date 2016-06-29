@@ -60,7 +60,7 @@ class alignDest(object):
         
         if isinstance(dest,str):
             tmp, ext = os.path.splitext(dest)
-            if ext == '.h5':
+            if ext == '.h5' or ext == '.hdf5' or ext == '.nxs':
                 self.desttype = dataType.h5
                 self.handle = h5py.File(dest, "a")
                 self.dir = "/"

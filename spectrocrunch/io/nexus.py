@@ -242,7 +242,7 @@ def NXdefault(child,up=True):
 
 def defaultstack(f,nxdatagroup):
     """
-    For PyMca default: PyMcaGui/pymca/QHDF5StackWizard.py
+    Make this NXdata group the default of the file
 
     Args:
         f (h5py.File|str): hdf5 file
@@ -257,26 +257,20 @@ def defaultstack(f,nxdatagroup):
     else:
         raise ValueError("The hdf5 file must be either a string or an hdf5 file object.")
 
-    # Pymca default
-    default = "_defaultstack"
-    if default in hdf5FileObject:
-        entry = hdf5FileObject[default]
-    else:
-        entry = newNXentry(hdf5FileObject,default)
-    removesoftlinks(entry)
-    path, name = hdf5pathparse(nxdatagroup)
-    createlink(hdf5FileObject,nxdatagroup,entry.name,name)
-
     # Nexus default
     NXdefault(hdf5FileObject[nxdatagroup])
 
-    # For old txmwizard
-    grp = entry[name]
-    dataname = grp[grp.attrs["signal"]].name
-    createlink(hdf5FileObject,dataname,entry.name,"data")
-    energyname = [s for s in str.split(grp.attrs["axes"],':') if "energy" in s.lower()]
-    if len(energyname)>0:
-        createlink(hdf5FileObject,grp[energyname[0]].name,entry.name,"energy")
+    # Pymca default: PyMcaGui/pymca/QHDF5StackWizard.py
+    # It only expects 1 group (old txmwizard as well)
+    #default = "_defaultstack"
+    #if default in hdf5FileObject:
+    #    entry = hdf5FileObject[default]
+    #else:
+    #    entry = newNXentry(hdf5FileObject,default)
+    #entry.attrs["description"] = "For viewers who don't implement the new default data convention."
+    #removesoftlinks(entry)
+    #path, name = hdf5pathparse(nxdatagroup)
+    #createlink(hdf5FileObject,nxdatagroup,entry.name,name)
 
     # Done
     if bclose:
