@@ -81,7 +81,7 @@ def alignexample(t):
         nstack = len(source)
         refdatasetindex = 0
         refimageindex = None
-        alignclass = alignElastix
+        alignclass = alignFFT
         roi = None
         #roi = ((0,20),(60,79))
         #alignclass = alignMin
@@ -96,8 +96,8 @@ def alignexample(t):
     o = alignclass(source,sourcelist,outputstack,None,None,stackdim=stackdim,overwrite=True,plot=True)
     o.align(refdatasetindex,refimageindex = refimageindex,onraw = True,pad = True,crop = False,roi = roi)
 
-    #if t == "testdata":
-    #    print(o.cofs)
+    if t == "testdata":
+        print(o.cofs)
 
 
     # Show result

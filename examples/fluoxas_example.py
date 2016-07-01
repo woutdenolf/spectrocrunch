@@ -29,8 +29,8 @@ sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import logging
 logging.getLogger("spectrocrunch").setLevel(logging.INFO)
 
-from spectrocrunch.process.id21_fluoxas import process
 from spectrocrunch.process.id21_fluoxas import defaultstack
+from spectrocrunch.process.id21_fluoxas import process
 
 if __name__ == '__main__':
     #defaultstack('/mntdirect/_data_id21_inhouse/wout/dev/SpectroCrunch/examples/testresults/fXANES5/fXANES5.norm.h5',['/detector0/Ca-K'],'Ca-K')
@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
     path = os.path.dirname(os.path.abspath(__file__))
 
-    example = "example1"
+    example = "example5"
 
     cfgfile = None
     skippreprocessing = False
@@ -115,6 +115,27 @@ if __name__ == '__main__':
         alignmethod = "max" #None, "fft", "sift", "elastix"
         alignreference = "xmap_x3c"
         refimageindex = 1 # None or a number
+
+    elif example=="example5":
+        from spectrocrunch.process.id16b_fluoxas import process
+
+        scanname = ["KMS"]
+        scannumbers = [[5,6,7,8]]
+        sourcepath = ["/data/visitor/hg64/id21/id16btest/KMS"]
+        destpath = os.path.join(path,"testresults",scanname[0])
+        cfgfile = ["KMSa_En4_Det2.cfg","KMSa_En4_Det3.cfg","KMSa_En4_Det4.cfg","KMSa_En4_Det6.cfg","KMSa_En4_Det7.cfg"]
+        cfgfile = [os.path.join("/data/visitor/hg64/id21/id16btest/",s) for s in cfgfile]
+        dtcor = True
+
+        skippreprocessing = False
+        skipnormalization = False
+
+        alignmethod = "elastix" #None, fft, sift, elastix
+        alignreference = "Fe-K"
+        refimageindex = 0 # None for pair-wise alignment
+        crop = True
+
+        default = "Fe-K"
 
     else:
         sys.exit()

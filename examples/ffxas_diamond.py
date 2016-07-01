@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2016 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -25,33 +25,35 @@
 import os, sys
 sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-#from spectrocrunch.align.tests.test_teststack import test_suite_all
-#import unittest
+from spectrocrunch.align.alignElastix import alignElastix as align
+#from spectrocrunch.align.alignSimple import alignMax as align
+#from spectrocrunch.align.alignSift import alignSift as align
 
-import re
+import h5py
 
 if __name__ == '__main__':
-#    mysuite = test_suite_all()
-#    runner = unittest.TextTestRunner()
-#    if not runner.run(mysuite).wasSuccessful():
-#        sys.exit(1)
+    path = "/data/visitor/ls2497/id21/XANES from Diamond/"
+    source = os.path.join(path,"Xanes1Co.h5")
+    dest = os.path.join(path,"Xanes1Co.aligned.h5")
+    stackdim = 2
+    sourcelist = ["/exchange/data"]
+    destlist = ["/exchange/data"]
+    roi = ((0,-1),(5,50))
 
-    title = "scan 0  zapimage  sampy 23.962 74.962 255 100 sampz 28.252 70.452 211 0  date : Sun Sep 13 02:24:13 2015;"
+    a = 15
+    b = 58
+    c = 20
+    hin = h5py.File(source, "r")
+    source = [hin["/exchange/data"][...,a:b]]
+    sourcelist = "None"
 
-    fnumber = "(?:[+-]?[0-9]*\.?[0-9]+)"
-    inumber = "\d+"
-    blanks = "\s+"
-    motor = "[a-zA-Z]+"
-    expr = "zapimage" + blanks +\
-           "("+ motor +")" + blanks +\
-           "("+ fnumber +")" + blanks +\
-           "("+ fnumber +")" + blanks +\
-           "("+ inumber +")" + blanks +\
-           "("+ inumber +")" + blanks +\
-           "("+ motor +")" + blanks +\
-           "("+ fnumber +")" + blanks +\
-           "("+ fnumber +")" + blanks +\
-           "("+ inumber +")"
+    os.remove(dest)
+    o = align(source,sourcelist,dest,destlist,"",stackdim=stackdim,overwrite=True,plot=True)
+    o.align(0, refimageindex=c, onraw = True, pad = False, crop = True, roi = roi)
+    
+    hout = h5py.File(dest, "a")
+    hout["/exchange/energy"] = hin["/exchange/energy"][a:b]
+    hin.close()
+    hout.close()
 
-
-    print(re.findall(expr,title))
+    

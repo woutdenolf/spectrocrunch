@@ -27,6 +27,7 @@ import json
 import logging
 import numpy as np
 import h5py
+import re
 from PyMca5.PyMcaIO import EdfFile
 
 from spectrocrunch.xrf.parse_xia import parse_xia_esrf
@@ -34,8 +35,12 @@ from spectrocrunch.xrf.fit import PerformBatchFit as fitter
 import spectrocrunch.io.nexus as nexus
 
 def filecounter(sourcepath,scanname,counter,scannumber,idet=None):
-    if idet is not None:
-        filename = "%s_%s_%02d_%04d_0000.edf"%(scanname,counter,idet,scannumber)
+    if counter=="xia":
+        filename = "%s_%sst_%04d_0000_0000.edf"%(scanname,counter,scannumber)
+    elif idet is not None:
+        filename = "%s_%s_%02d_%04d_0000.edf"%(scanname,counter,idet,scannumber) #ID21
+        if not os.path.isfile(os.path.join(sourcepath,filename)):
+            filename = "%s_%s%02d_%04d_0000.edf"%(scanname,counter,idet,scannumber) #ID16b
     else:
         filename = "%s_%s_%04d_0000.edf"%(scanname,counter,scannumber)
     counterfile = os.path.join(sourcepath,filename)
@@ -45,7 +50,7 @@ def detectorname(config,ndet,idet,counter=False):
     if ndet == 0:
         return ""
     elif config["addbeforefitting"] and ndet > 1 and not counter:
-        return "sum"
+        return "detectorsum"
     else:
         return "detector%d"%idet
 
@@ -58,6 +63,77 @@ def dimensions(config):
     else:
         imgdim = [0,1]
     return stackdim,imgdim
+
+def parsezapimage(cmd,name="zapimage"):
+    """Get scan dimensions from spec command "zapimage"
+    """
+    fnumber = "(?:[+-]?[0-9]*\.?[0-9]+)"
+    inumber = "\d+"
+    blanks = "\s+"
+    motor = "[a-zA-Z]+"
+    expr = name + blanks +\
+           "("+ motor +")" + blanks +\
+           "("+ fnumber +")" + blanks +\
+           "("+ fnumber +")" + blanks +\
+           "("+ inumber +")" + blanks +\
+           "("+ inumber +")" + blanks +\
+           "("+ motor +")" + blanks +\
+           "("+ fnumber +")" + blanks +\
+           "("+ fnumber +")" + blanks +\
+           "("+ inumber +")"
+    result = re.findall(expr,cmd)
+
+    if len(result)==1:
+        motfast = str(result[0][0])
+        start = np.float(result[0][1])
+        end = np.float(result[0][2])
+        nbp = np.float(result[0][3])
+        sfast = {"name":motfast,"data":np.linspace(start,end,nbp)}
+
+        motslow = str(result[0][5])
+        start = np.float(result[0][6])
+        end = np.float(result[0][7])
+        nbp = np.float(result[0][8])
+        end += (end-start)/(nbp-1)
+        nbp += 1
+        sslow = {"name":motslow,"data":np.linspace(start,end,nbp)}
+
+        return (motfast,motslow,sfast,sslow)
+    else:
+        return None
+
+def getscanpositions(config,header):
+    """Get scan dimensions from header
+    """
+    ret = None
+    if "scanlabel" in config:
+        cmd = header[config["scanlabel"]]
+        if "zapimage" in cmd:
+            ret = parsezapimage(cmd)
+    elif "fastlabel" in config and "slowlabel" in config:
+        
+        label = config["fastlabel"]
+        motfast = str(header[label+"_mot"])
+        start = np.float(header[label+"_start"])
+        end = np.float(header[label+"_end"])
+        nbp = np.float(header[label+"_nbp"])
+        sfast = {"name":motfast,"data":np.linspace(start,end,nbp)}
+
+        label = config["slowlabel"]
+        motslow = str(header[label+"_mot"])
+        start = np.float(header[label+"_start"])
+        end = np.float(header[label+"_end"])
+        nbp = np.float(header[label+"_nbp"])
+        end += (end-start)/(nbp-1)
+        nbp += 1
+        sslow = {"name":motslow,"data":np.linspace(start,end,nbp)}
+
+        ret = (motfast,motslow,sfast,sslow)
+
+    if ret is None:
+        raise NotImplementedError("Scan command cannot be parsed for motor positions.")
+
+    return ret
 
 def getimagestacks(config):
     """Get image stacks (counters, ROI's, fitted maps)
@@ -123,25 +199,12 @@ def getimagestacks(config):
                     metafile = EdfFile.EdfFile(metafilename)
                     header = metafile.GetHeader(0)
                     if iscan == 0 and ipath == 0:
-                        label = config["fastlabel"]
-                        motfast = header[label+"_mot"]
-                        start = np.float(header[label+"_start"])
-                        end = np.float(header[label+"_end"])
-                        nbp = np.float(header[label+"_nbp"])
-                        stackaxes[imgdim[1]] = {"name":str(motfast),"data":np.linspace(start,end,nbp)}
-
-                        label = config["slowlabel"]
-                        motslow = header[label+"_mot"]
-                        start = np.float(header[label+"_start"])
-                        end = np.float(header[label+"_end"])
-                        nbp = np.float(header[label+"_nbp"])
-                        end += (end-start)/(nbp-1)
-                        nbp += 1
-                        stackaxes[imgdim[0]] = {"name":str(motslow),"data":np.linspace(start,end,nbp)}
-
+                        motfast,motslow,sfast,sslow = getscanpositions(config,header)
+                        stackaxes[imgdim[1]] = sfast
+                        stackaxes[imgdim[0]] = sslow
                         stackaxes[stackdim] = {"name":str(config["stacklabel"]),"data":np.full(nscanstot,np.nan,dtype=np.float32)}
 
-                        coordinates = {mot:np.float32(header[mot]) for mot in config["coordinates"] if mot != motfast and mot != motslow}
+                        coordinates = {mot:np.float32(header[mot]) for mot in config["coordinates"] if mot != motfast and mot != motslow and mot in header}
 
                     stackvalue = np.float(header[config["stacklabel"]])
                     break
@@ -155,7 +218,7 @@ def getimagestacks(config):
             if config["dtcor"]:
                 parsename = "dtcor"
             else:
-                parsename = "copy"
+                parsename = "raw"
             parsename = "%%0%dd_%s"%(np.int(np.floor(np.log10(npaths)))+1,parsename)%(ipath)
 
             filestofit,detnums = parse_xia_esrf(sourcepath,scanname,
@@ -182,25 +245,29 @@ def getimagestacks(config):
             for i in range(ndet):
                 idet = detnums[i]
 
-                if len(filestofit[i])!= 0 and config["fit"]:
-                    if len(config["detectorcfg"])==1:
-                        cfg = config["detectorcfg"][0]
-                    else:
-                        cfg = config["detectorcfg"][i]
+                if not config["addbeforefitting"] or i==0:
+                    if len(filestofit[i])!= 0 and config["fit"]:
+                        if len(config["detectorcfg"])==1:
+                            cfg = config["detectorcfg"][0]
+                        else:
+                            cfg = config["detectorcfg"][i]
 
-                    # Fit spectra resulting in images
-                    outname = "%s_%s_xia%02d_%04d_0000"%(scanname,parsename,idet,scannumber)
-                    files, labels = fitter(filestofit[i],
-                                                config["outfitpath"],outname,cfg,stackvalue,
-                                                fast=config["fastfitting"])
+                        # Fit spectra resulting in images
+                        if config["addbeforefitting"]:
+                            outname = "%s_%s_xiaS1_%04d_0000"%(scanname,parsename,scannumber)
+                        else:
+                            outname = "%s_%s_xia%02d_%04d_0000"%(scanname,parsename,idet,scannumber)
+                        files, labels = fitter(filestofit[i],
+                                                    config["outfitpath"],outname,cfg,stackvalue,
+                                                    fast=config["fastfitting"])
 
-                    # Append images
-                    detname = detectorname(config,ndet,idet)
-                    if iscan == 0 and ipath == 0:
-                        for label in labels:
-                            stacks[detname][label] = [""]*nscanstot
-                    for i in range(len(labels)):
-                        stacks[detname][labels[i]][iscanoffset+iscan] = files[i]
+                        # Append images
+                        detname = detectorname(config,ndet,idet)
+                        if iscan == 0 and ipath == 0:
+                            for label in labels:
+                                stacks[detname][label] = [""]*nscanstot
+                        for i in range(len(labels)):
+                            stacks[detname][labels[i]][iscanoffset+iscan] = files[i]
 
                 # Append counters
                 detname = detectorname(config,ndet,idet,counter=True)
@@ -231,22 +298,35 @@ def exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=False):
     """
 
     if sumgroups:
-        if "sum" in f:
-            grpsum = f["sum"]
+        sumname = "detectorsum"
+        if sumname in f:
+            grpsum = f[sumname]
         else:
-            grpsum = nexus.newNXentry(f,"sum")
+            grpsum = nexus.newNXentry(f,sumname)
+        if sumname not in stacks:
+            stacks[sumname] = {}
 
     dim = [0,0,0]
 
     for k1 in keys: # detector or counter group
-        if k1 is not "counters" and sumgroups:
+        bgrpissum = k1 is not "counters" and sumgroups
+        if bgrpissum:
             grp = grpsum
         else:
-            grp = nexus.newNXentry(f,k1)
+            if k1 in f:
+                grp = f[k1]
+            else:
+                grp = nexus.newNXentry(f,k1)
 
-        for k2 in stacks[k1].keys(): # stack subgroup (NXdata class)
+        for k2 in stacks[k1].keys(): # stack subgroup (Al-K, S-K, xmap_x1c, ...)
             nxdatagrp = None
 
+            # skip when already an Nxdata group (previous call to exportgroups)
+            if not hasattr(stacks[k1][k2],"__iter__"):
+                continue
+
+            # loop over the stack images
+            # stacks[k1][k2]: list of files
             nscans = len(stacks[k1][k2])
             for iscan in range(nscans):
                 fdata = EdfFile.EdfFile(stacks[k1][k2][iscan])
@@ -254,19 +334,24 @@ def exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=False):
                     continue
 
                 data = fdata.GetData(0)
-                if k2 not in grp:
+                if k2 in grp:
+                    dset = grp[k2][grp[k2].attrs["signal"]]
+                else:
                     nxdatagrp = nexus.newNXdata(grp,k2,"")
-
+                    
                     # Allocate dataset
                     if dim==[0,0,0]:
                         dim[imgdim[0]] = data.shape[0]
                         dim[imgdim[1]] = data.shape[1]
                         dim[stackdim] = nscans
                     dset = nexus.createNXdataSignal(nxdatagrp,shape=dim,chunks = True,dtype = np.float32)
-                    if sumgroups:
+                    if bgrpissum:
                         dset[:] = 0
                     else:
                         dset[:] = np.nan
+
+                    # Link axes to the new NXdata group
+                    nexus.linkaxes(f,axes,[nxdatagrp])
 
                 # Some rows too much or rows missing:
                 if dim[imgdim[0]] > data.shape[0]:
@@ -275,27 +360,34 @@ def exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=False):
                     data = data[0:dim[imgdim[0]],:]
 
                 if stackdim == 0:
-                    if sumgroups:
+                    if bgrpissum:
                         dset[iscan,...] += data
                     else:
                         dset[iscan,...] = data
                 elif stackdim == 1:
-                    if sumgroups:
+                    if bgrpissum:
                         dset[:,iscan,:] += data
                     else:
                         dset[:,iscan,:] = data
                 else:
-                    if sumgroups:
+                    if bgrpissum:
                         dset[...,iscan] += data
                     else:
                         dset[...,iscan] = data
 
-            # Replace the list-of-files by the NX entry
+            # Add NX entry to stacks
             if nxdatagrp is None:
                 del stacks[k1][k2]
             else:
-                stacks[k1][k2] = nxdatagrp.name
-                nexus.linkaxes(f,axes,[nxdatagrp])
+                if bgrpissum:
+                    stacks[sumname][k2] = nxdatagrp.name
+                else:
+                    stacks[k1][k2] = nxdatagrp.name
+            
+        if bgrpissum:
+            del stacks[k1]
+
+    return stacks
 
 def exportimagestacks(config,stacks,stackaxes,coordinates,jsonfile):
     """Export EDF stacks to HDF5
@@ -305,18 +397,16 @@ def exportimagestacks(config,stacks,stackaxes,coordinates,jsonfile):
     # Save stack axes values
     axes = nexus.createaxes(f,stackaxes)
 
+    stackdim,imgdim = dimensions(config)
+
     # Save sum of detectors if requested
-    keys = [k for k in stacks.keys() if "detector" in k]
+    keys = [k for k in stacks.keys() if "detector" in k and "sum" not in k]
     if config["addafterfitting"] and len(keys)>1:
-        exportgroups(f,stacks,keys,axes,sumgroups=True)
-        kleft = [k for k in stacks.keys() if "detector" not in k]
-    else:
-        kleft = stacks.keys()
+        stacks = exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=True)
 
     # Save other groups (not included in the sum)
-    if len(kleft) > 0:
-        stackdim,imgdim = dimensions(config)
-        exportgroups(f,stacks,kleft,axes,stackdim,imgdim)
+    if len(stacks) > 0:
+        stacks = exportgroups(f,stacks,stacks.keys(),axes,stackdim,imgdim)
 
     # Save coordinates
     coordgrp = nexus.newNXentry(f,"coordinates")

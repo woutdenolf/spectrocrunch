@@ -28,7 +28,7 @@ import numpy as np
 import pylab
 from scipy import interpolate
 
-def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fliphor=False,color='#ffffff',defaultorigin=False):
+def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fliphor=False,color='#ffffff',defaultorigin=False,printpos=False):
     """
     Args:
         x(np.array): horizontal coordinates
@@ -86,12 +86,21 @@ def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fli
     if defaultorigin:
         ind = [0,1,2,3]
         if extent[1]<extent[0]:
+            #extent[0] ... xp  .......... extent[1]
+            #extent[1] ... xp  .......... extent[0]
+            xp = extent[1]+extent[0]-xp
             ind[0] = 1
             ind[1] = 0
         if extent[3]<extent[2]:
             ind[2] = 3
             ind[3] = 2
+            yp = extent[3]+extent[2]-yp
         extent = (extent[ind[0]],extent[ind[1]],extent[ind[2]],extent[ind[3]])
+
+    # Show
+    if printpos:
+        print(extent)
+        print(np.vstack((xp,yp)).T)
 
     # RGB for plotting
     if transpose:
@@ -115,12 +124,15 @@ def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fli
     s = fontsize/2
     axes.scatter(xp, yp, marker='o',s=s,color = color)
     for i in range(len(names)):
-        #rgbi = rgb[int(np.round(xp[i])),int(np.round(yp[i])),:]*255
-        
-        #print(rgbi[0]*0.299 + rgbi[1]*0.587 + rgbi[2]*0.114)
-        #if (rgbi[0]*0.299 + rgbi[1]*0.587 + rgbi[2]*0.114) > 50:
-        #    color = '#000000'
-        #else:
+        #try:
+        #    rgbi = rgb[int(np.round(xp[i])),int(np.round(yp[i])),:]*255
+
+            #print(rgbi[0]*0.299 + rgbi[1]*0.587 + rgbi[2]*0.114)
+        #    if (rgbi[0]*0.299 + rgbi[1]*0.587 + rgbi[2]*0.114) > 100:
+        #        color = '#000000'
+        #    else:
+        #        color = '#ffffff'
+        #except:
         #    color = '#ffffff'
 
         #color = '#%02x%02x%02x' % tuple(255-rgbi)
@@ -133,7 +145,7 @@ def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fli
     axes.set_ylim(ylim)
     pylab.show()
 
-def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=False,flipvert=True,fliphor=False,defaultorigin=False,showlabels=False,color='#ffffff'):
+def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=False,flipvert=True,fliphor=False,defaultorigin=False,showlabels=False,color='#ffffff',printpos=False):
     """
     Args:
         hdf5filename(str)
@@ -236,5 +248,5 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=Fa
 
     show(dim2,dim1,images,pdim2,pdim1,dim2label,dim1label,names,\
         transpose=transpose,flipvert=flipvert,fliphor=fliphor,color=color,\
-        defaultorigin=defaultorigin)
+        defaultorigin=defaultorigin,printpos=printpos)
 

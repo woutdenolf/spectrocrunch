@@ -81,7 +81,10 @@ def parse_xia_esrf(datadir,scanname,scannumber,outdir,outname,exclude_detectors=
     if add or deadtime:
         if not os.path.exists(outdir):
             os.makedirs(outdir)
-        sums = [detnums] if add else None
+        if add:
+            sums = [detnums]
+        else:
+            sums = None
 
         XiaCorrect.correctFiles(xiafiles, deadtime=deadtime, livetime=0, sums=sums, 
                                 avgflag=0, outdir=outdir, outname=outname, force=1,
