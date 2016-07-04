@@ -52,7 +52,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
             "sourcepath": sourcepath,
             "scanname": scanname,
             "scannumbers": scannumbers,
-            "counters": ["zap_norm_It","zap_p201_I0","zap_p201_IC","zap_p201_It","arr_srcurr","xmap_tika","xmap_ska","xmap_feka","xmap_auka","xmap_aska"],
+            "counters": ["zap_p201_I0","zap_p201_IC","zap_p201_It","arr_srcurr","xmap_nika","xmap_tika","xmap_feka","xmap_kka","xmap_caka","xmap_crka"],
 
             # Meta data
             "metacounters": ["xia"], # get meta data from the spectrum headers
@@ -108,8 +108,8 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
     stackdim = 2
     bsamefile = False
 
-    cropalign = crop
-    cropafter = False
+    cropalign = False
+    cropafter = crop
     replacenan = False
 
     # Image stack

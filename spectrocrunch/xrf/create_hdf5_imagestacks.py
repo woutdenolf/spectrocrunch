@@ -246,28 +246,29 @@ def getimagestacks(config):
                 idet = detnums[i]
 
                 if not config["addbeforefitting"] or i==0:
-                    if len(filestofit[i])!= 0 and config["fit"]:
-                        if len(config["detectorcfg"])==1:
-                            cfg = config["detectorcfg"][0]
-                        else:
-                            cfg = config["detectorcfg"][i]
+                    if config["fit"]:
+                        if len(filestofit[i])!= 0:
+                            if len(config["detectorcfg"])==1:
+                                cfg = config["detectorcfg"][0]
+                            else:
+                                cfg = config["detectorcfg"][i]
 
-                        # Fit spectra resulting in images
-                        if config["addbeforefitting"]:
-                            outname = "%s_%s_xiaS1_%04d_0000"%(scanname,parsename,scannumber)
-                        else:
-                            outname = "%s_%s_xia%02d_%04d_0000"%(scanname,parsename,idet,scannumber)
-                        files, labels = fitter(filestofit[i],
-                                                    config["outfitpath"],outname,cfg,stackvalue,
-                                                    fast=config["fastfitting"])
+                            # Fit spectra resulting in images
+                            if config["addbeforefitting"]:
+                                outname = "%s_%s_xiaS1_%04d_0000"%(scanname,parsename,scannumber)
+                            else:
+                                outname = "%s_%s_xia%02d_%04d_0000"%(scanname,parsename,idet,scannumber)
+                            files, labels = fitter(filestofit[i],
+                                                        config["outfitpath"],outname,cfg,stackvalue,
+                                                        fast=config["fastfitting"])
 
-                        # Append images
-                        detname = detectorname(config,ndet,idet)
-                        if iscan == 0 and ipath == 0:
-                            for label in labels:
-                                stacks[detname][label] = [""]*nscanstot
-                        for i in range(len(labels)):
-                            stacks[detname][labels[i]][iscanoffset+iscan] = files[i]
+                            # Append images
+                            detname = detectorname(config,ndet,idet)
+                            if iscan == 0 and ipath == 0:
+                                for label in labels:
+                                    stacks[detname][label] = [""]*nscanstot
+                            for i in range(len(labels)):
+                                stacks[detname][labels[i]][iscanoffset+iscan] = files[i]
 
                 # Append counters
                 detname = detectorname(config,ndet,idet,counter=True)
@@ -296,6 +297,8 @@ def getimagestacks(config):
 def exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=False):
     """Export groups of EDF stacks, summated or not
     """
+
+    logger = logging.getLogger(__name__)
 
     if sumgroups:
         sumname = "detectorsum"
@@ -329,7 +332,12 @@ def exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=False):
             # stacks[k1][k2]: list of files
             nscans = len(stacks[k1][k2])
             for iscan in range(nscans):
-                fdata = EdfFile.EdfFile(stacks[k1][k2][iscan])
+                try:
+                    fdata = EdfFile.EdfFile(stacks[k1][k2][iscan])
+                except IOError as e:
+                    logger.error(str.format("Error opening file {}",stacks[k1][k2][iscan]))
+                    raise e
+
                 if fdata.GetNumImages() == 0:
                     continue
 
