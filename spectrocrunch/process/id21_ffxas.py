@@ -36,7 +36,7 @@ from spectrocrunch.h5stacks.math_hdf5_imagestacks import crop_hdf5_imagestacks a
 from spectrocrunch.h5stacks.align_hdf5_imagestacks import align_hdf5_imagestacks as alignstacks
 import spectrocrunch.io.nexus as nexus
 
-def createconfig_pre(sourcepath,destpath,radix,ext,rebin,stackdim):
+def createconfig_pre(sourcepath,destpath,radix,ext,rebin,roi,stackdim):
 
     if not isinstance(sourcepath,list):
         sourcepath = [sourcepath]
@@ -52,7 +52,7 @@ def createconfig_pre(sourcepath,destpath,radix,ext,rebin,stackdim):
         "stacklabel" : "energy",
 
         # Defaults
-        "dtype": "np.float32",
+        "dtype": "np.float32", # must be floating point!
         "darkcurrentzero" : 90.,
         "darkcurrentgain" : 1.,
         "stackdim" : stackdim,
@@ -65,6 +65,7 @@ def createconfig_pre(sourcepath,destpath,radix,ext,rebin,stackdim):
 
         # Output
         "hdf5output": os.path.join(destpath,radix[0]+ext+".h5"),
+        "roi": roi,
         "rebin":rebin}
 
     # Create configuration file
@@ -78,7 +79,8 @@ def createconfig_pre(sourcepath,destpath,radix,ext,rebin,stackdim):
 
 def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
         skippre=False,skipnormalization=False,skipalign=False,\
-        refimageindex=None,crop=False,roialign=None,roiresult=None,plot=True):
+        roiraw=None,roialign=None,roiresult=None,\
+        refimageindex=None,crop=False,plot=True):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
@@ -87,7 +89,7 @@ def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
     bsamefile = False
 
     # Image stack
-    jsonfile, file_raw = createconfig_pre(sourcepath,destpath,radix,ext,rebin,stackdim)
+    jsonfile, file_raw = createconfig_pre(sourcepath,destpath,radix,ext,rebin,roiraw,stackdim)
     if skippre:
         stacks, axes = getstacks(file_raw,["detector0"])
     else:

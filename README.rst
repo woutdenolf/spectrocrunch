@@ -14,6 +14,23 @@ Run a single test:
 
     python -m spectrocrunch.align.tests.test_teststack
 
+Dependencies on bare python 2.7
+===============================
+    yum install hdf5-devel
+    pip install numpy scipy pylab h5py fabio testfixtures
+
+    yum install cmake
+    git clone https://github.com/kaspermarstal/SimpleElastix
+    mkdir build
+    cd build
+    cmake ../SimpleElastix/SuperBuild
+    make -j4
+
+
+    pip install http://sourceforge.net/projects/pymca/files/pymca/PyMca5.1.1/
+
+    pip install https://github.com/kif/sift_pyocl
+
 Installation
 ============
 

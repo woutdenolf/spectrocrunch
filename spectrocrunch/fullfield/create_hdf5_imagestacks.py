@@ -32,18 +32,56 @@ import re
 from spectrocrunch.common.dict import defaultdict
 import spectrocrunch.io.nexus as nexus
 
-def execrebin(data,rebin):
+def execrebin(img,rebin):
     """
     Args:
-        data(np.array): 2 dimensions
+        img(np.array): 2 dimensions
         rebin(array-like)
     Returns:
-        tuple: rebinned image
+        np.array: rebinned image
     """
     shaperebin = (data.shape[0]//rebin[0],data.shape[1]//rebin[1])
     view = data[:shaperebin[0] * rebin[0],:shaperebin[1] * rebin[1]]
     view = view.reshape(shaperebin[0], rebin[0], shaperebin[1], rebin[1])
     return view.sum(axis=3).sum(axis=1)
+
+def execroi(img,roi):
+    """
+    Args:
+        img(np.array): 2 dimensions
+        roi(2-tuple(2-tuple))
+    Returns:
+        np.array: cropped image
+    """
+    # Convert user roi to crop roi
+    dim1, dim2 = img.shape
+    arow = roi[0][0]
+    brow = roi[0][1]
+    acol = roi[1][0]
+    bcol = roi[1][1]
+    if arow < 0:
+        arow += dim1
+    if brow < 0:
+        brow += dim1
+    if acol < 0:
+        acol += dim2
+    if bcol < 0:
+        bcol += dim2
+    brow += 1
+    bcol += 1
+
+    return img[arow:brow,acol:bcol]
+
+def procraw(img,config):
+    roi = config["roi"]
+    if roi is not None:
+        img = execroi(img,roi)
+
+    rebin = config["rebin"]
+    if rebin[0] > 1 or rebin[1] > 1:
+        img = execrebin(img,rebin)
+
+    return img
 
 def darklibrary(config):
     """
@@ -62,7 +100,6 @@ def darklibrary(config):
     frametimedefault = config["frametimedefault"]
     dtype = eval(config["dtype"])
     nflabel = config["nbframeslabel"]
-    rebin = config["rebin"]
 
     # Library
     dark = defaultdict()
@@ -72,10 +109,9 @@ def darklibrary(config):
         fh = EdfFile.EdfFile(f)
         h = fh.GetHeader(0)
 
-        # Rebinned data
+        # Raw data
         data = fh.GetData(0).astype(dtype)
-        if rebin[0] > 1 or rebin[1] > 1:
-            data= execrebin(data,rebin)
+        data = procraw(data,config)
         
         # Frame time
         if frametimelabel in h:
@@ -104,13 +140,14 @@ def darklibrary(config):
     return dark
 
 def getroi(roilabel,h,fh):
-    """ roi = [col0,row0,ncol,nrow] or [x0,y0,nx,ny]
+    """ roi = [row0,col0,nrow,ncol] or [y0,x0,ny,nx]
     """
 
     # ROI from label
     roi = []
     if roilabel in h:
         roi = [int(s) for s in re.split('[<>,\-x ]+',h[roilabel]) if len(s)!=0]
+        roi = [roi[1],roi[0],roi[3],roi[2]] # camera takes x as the first dimension, python takes y
 
     # ROI from dimensions
     if len(roi)!=4:
@@ -119,14 +156,35 @@ def getroi(roilabel,h,fh):
 
     return roi
 
-def axesvalues(roi,rebin):
-    x0 = roi[0]
-    y0 = roi[1]
-    nx = roi[2]
-    ny = roi[3]
+def axesvalues(roi,config):
+    x0 = roi[1]
+    y0 = roi[0]
+    nx = roi[3]
+    ny = roi[2]
 
-    dx = rebin[1]
-    dy = rebin[0]
+    # Sub region
+    if config["roi"] is not None:
+        ax = config["roi"][1][0]
+        bx = config["roi"][1][1]
+        ay = config["roi"][0][0]
+        by = config["roi"][0][1]
+        if ax < 0:
+            ax += nx
+        if bx < 0:
+            bx += nx
+        if ay < 0:
+            ay += ny
+        if by < 0:
+            by += ny
+
+        x0 += ax
+        y0 += ay
+        nx = bx-ax+1
+        ny = by-ay+1
+       
+    # Rebin
+    dx = config["rebin"][1]
+    dy = config["rebin"][0]
 
     nx //= dx
     ny //= dy
@@ -137,6 +195,7 @@ def axesvalues(roi,rebin):
     x1 = x0 + (nx-1)*dx
     y1 = y0 + (ny-1)*dy
 
+    # axes in pixels
     col = np.linspace(x0,x1,nx)
     row = np.linspace(y0,y1,ny)
     return row,col
@@ -170,7 +229,6 @@ def dataflatlibrary(config):
     # Labels
     stacklabel = config["stacklabel"]
     roilabel = config["roilabel"]
-    rebin = config["rebin"]
 
     # Data and flat dictionaries
     roi = None
@@ -226,14 +284,14 @@ def dataflatlibrary(config):
             flat[key].append(f)
     
     # Remove entries with missing images
-    ndata = map(lambda x:len(data[x]),data)
-    ndatafiles = max(ndata,key=ndata.count)
-    nflat = map(lambda x:len(flat[x]),flat)
-    nflatfiles = max(nflat,key=nflat.count)
-    tmp1 = {k:data[k] for k in data if len(data[k])==ndatafiles and len(flat[k])==nflatfiles}
-    tmp2 = {k:flat[k] for k in flat if len(data[k])==ndatafiles and len(flat[k])==nflatfiles}
-    data = tmp1
-    flat = tmp2
+    #ndata = map(lambda x:len(data[x]),data)
+    #ndatafiles = max(ndata,key=ndata.count)
+    #nflat = map(lambda x:len(flat[x]),flat)
+    #nflatfiles = max(nflat,key=nflat.count)
+    #tmp1 = {k:data[k] for k in data if len(data[k])==ndatafiles and len(flat[k])==nflatfiles}
+    #tmp2 = {k:flat[k] for k in flat if len(data[k])==ndatafiles and len(flat[k])==nflatfiles}
+    #data = tmp1
+    #flat = tmp2
     
     # Split up flat images
     if config["beforeafter"]:
@@ -241,8 +299,13 @@ def dataflatlibrary(config):
         flat2 = {}
         for k in flat:
             files = sorted(flat[k])
-            flat1[k] = files[0:nflatfiles//2]
-            flat2[k] = files[nflatfiles//2:]
+            n = len(files)
+            if n==1:
+                flat1[k] = files
+                flat2[k] = []
+            else:
+                flat1[k] = files[0:n//2]
+                flat2[k] = files[n//2:]
     else:
         flat1 = flat
         flat2 = None
@@ -251,7 +314,7 @@ def dataflatlibrary(config):
     stackvalues = np.array(map(lambda x:np.float32(x),data.keys()))
     keyindices = np.argsort(stackvalues)
     stackvalues = stackvalues[keyindices]
-    row,col = axesvalues(roi,rebin)
+    row,col = axesvalues(roi,config)
 
     stackdim,imgdim = dimensions(config)
     stackaxes = [None]*3
@@ -273,7 +336,9 @@ def dimensions(config):
     return stackdim,imgdim
 
 def getnormalizedimage(fileslist,darklib,config):
-    """ img = (img1 - nf1*dark1) + (img2 - nf2*dark2) + ...
+    """ Get dark subtracted images from a list of files with intensity in ADU/sec
+        
+        img = (img1 - nf1*dark1) + (img2 - nf2*dark2) + ...
         time = nf1*tframe1 + nf2*tframe2 + ...
         img /= time
     """
@@ -290,10 +355,9 @@ def getnormalizedimage(fileslist,darklib,config):
         fh = EdfFile.EdfFile(f)
         h = fh.GetHeader(0)
 
-        # Rebinned data
+        # Raw data
         data = fh.GetData(0).astype(dtype)
-        if rebin[0] > 1 or rebin[1] > 1:
-            data= execrebin(data,rebin)
+        data = procraw(data,config)
 
         # Frame time
         if frametimelabel in h:
@@ -391,17 +455,26 @@ def create_hdf5_imagestacks(jsonfile):
             dsetsample[i,...] = img
             dsetflat1[i,...] = getnormalizedimage(flat1[key],darklib,config)
             if flat2 is not None:
-                dsetflat2[i,...] = getnormalizedimage(flat2[key],darklib,config)
+                if len(flat2[key])==0:
+                    dsetflat2[i,...] = dsetflat1[i,...]
+                else:
+                    dsetflat2[i,...] = getnormalizedimage(flat2[key],darklib,config)
         elif stackdim == 1:
             dsetsample[:,i,:] = img
             dsetflat1[:,i,:] = getnormalizedimage(flat1[key],darklib,config)
             if flat2 is not None:
-                dsetflat2[:,i,:] = getnormalizedimage(flat2[key],darklib,config)
+                if len(flat2[key])==0:
+                    dsetflat2[:,i,:] = dsetflat1[:,i,:]
+                else:
+                    dsetflat2[:,i,:] = getnormalizedimage(flat2[key],darklib,config)
         else:
             dsetsample[...,i] = img
             dsetflat1[...,i] = getnormalizedimage(flat1[key],darklib,config)
             if flat2 is not None:
-                dsetflat2[...,i] = getnormalizedimage(flat2[key],darklib,config)
+                if len(flat2[key])==0:
+                    dsetflat2[...,i] = dsetflat1[...,i]
+                else:
+                    dsetflat2[...,i] = getnormalizedimage(flat2[key],darklib,config)
 
     # Stack dict and link axes
     if flat2 is None:
