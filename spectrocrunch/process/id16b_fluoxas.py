@@ -29,15 +29,17 @@ import numpy as np
 
 from spectrocrunch.xrf.create_hdf5_imagestacks import create_hdf5_imagestacks as makestacks
 from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
-from spectrocrunch.h5stacks.math_hdf5_imagestacks import fluxnorm_hdf5_imagestacks as fluxnormstacks
-from spectrocrunch.h5stacks.math_hdf5_imagestacks import copy_hdf5_imagestacks as copystacks
-from spectrocrunch.h5stacks.math_hdf5_imagestacks import crop_hdf5_imagestacks as cropstacks
-from spectrocrunch.h5stacks.math_hdf5_imagestacks import replacevalue_hdf5_imagestacks as replacestacks
-from spectrocrunch.h5stacks.align_hdf5_imagestacks import align_hdf5_imagestacks as alignstacks
 import spectrocrunch.common.timing as timing
 import spectrocrunch.io.nexus as nexus
 
-def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,stackdim):
+from .proc_normalize import execute as normalize
+from .proc_align import execute as align
+from .proc_replacevalue import execute as replacevalue
+from .proc_crop import execute as execcrop
+from . proc_common import defaultstack
+from . proc_common import flattenstacks
+
+def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,stackdim,counters=[]):
     bfit = cfgfiles is not None
 
     if not isinstance(sourcepath,list):
@@ -47,12 +49,18 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
     if not isinstance(scannumbers,list):
         scannumbers = [scannumbers]
 
+    if len(counters)==0:
+        counters = ["zap_p201_I0","zap_p201_IC","zap_p201_It","arr_srcurr","xmap_nika","xmap_tika","xmap_feka","xmap_kka","xmap_caka","xmap_crka"]
+    else:
+        if "arr_srcurr" not in counters:
+            counters.append("arr_srcurr")
+
     config = {
             # Input
             "sourcepath": sourcepath,
             "scanname": scanname,
             "scannumbers": scannumbers,
-            "counters": ["zap_p201_I0","zap_p201_IC","zap_p201_It","arr_srcurr","xmap_nika","xmap_tika","xmap_feka","xmap_kka","xmap_caka","xmap_crka"],
+            "counters": counters,
 
             # Meta data
             "metacounters": ["xia"], # get meta data from the spectrum headers
@@ -87,20 +95,9 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
 
     return jsonfile,config["hdf5output"]
 
-def isgroup(name,reference):
-    return name.split(".")[0].endswith(reference)
-
-def defaultstack(f,stacks,plotreference):
-    if plotreference is None:
-        reference = []
-    else:
-        reference = [s for s in stacks if isgroup(s,plotreference)]
-    if len(reference)!=1:
-        return
-    nexus.defaultstack(f,reference[0])
-
 def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,\
-        refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,crop=False,roi=None,plot=True):
+        refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,\
+        crop=False,roialign=None,plot=True,counters=[]):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
@@ -110,130 +107,52 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
 
     cropalign = False
     cropafter = crop
-    replacenan = False
+    replacenan = True
 
-    # Image stack
-    logger.info("Creating image stacks ...")
+    # Image stacks
     if skippre:
-        file_raw = os.path.join(destpath,scanname[0]+".h5")
-        stacks, axes = getstacks(file_raw,["counters","detectorsum"])
+        h5file = os.path.join(destpath,scanname[0]+".h5")
+        stacks, axes = getstacks(h5file,["counters","detectorsum"])
     else:
-        jsonfile, file_raw = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim)
+        logger.info("Creating image stacks ...")
+        jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim,counters=counters)
         stacks, axes = makestacks(jsonfile)
 
-        #stacks2, axes2 = getstacks(file_raw,["counters","detectorsum"])
+        #stacks2, axes2 = getstacks(h5file,["counters","detectorsum"])
         #assert(axes == axes2)
         #assert(stacks == stacks2)
 
-    # Default
-    defaultstack(file_raw,stacks["counters"].values(),default)
-    if "detectorsum" in stacks:
-        defaultstack(file_raw,stacks["detectorsum"].values(),default)
+    # Convert stack dictionary to stack list
+    stacks = flattenstacks(stacks)
+
+    # Default group
+    defaultstack(h5file,stacks,default)
 
     # Groups that don't change and need to be copied
     copygroups = ["coordinates"]
 
-    # I0 normalization and convert stack dictionary to stack list
-    base,ext = os.path.splitext(file_raw)
-    if "detectorsum" in stacks and "arr_srcurr" in stacks["counters"] and skipnormalization==False:
-        logger.info("I0 normalization ...")
-        if bsamefile:
-            file_normalized = file_raw
-        else:
-            file_normalized = base+".norm"+ext
-
-        # normalization stacks
-        I0stacks = [stacks["counters"]["arr_srcurr"]]
-
-        # stacks to be normalized
-        innames = stacks["detectorsum"].values()
-        notnormalize = []
-        for ctr in stacks["counters"]:
-            if not any(isgroup(ctr,s) for s in notnormalize):
-                innames += [stacks["counters"][ctr]]
-
-        # normalize
-        Ifn_stacks, Ifn_axes = fluxnormstacks(file_raw,file_normalized,axes,I0stacks,innames,innames,overwrite=True,info={"normalization":"arr_srcurr"},copygroups=copygroups)
-
-        # copy unnormalized stacks when new file
-        innames = [ctr for ctr in stacks["counters"].values() if any(isgroup(ctr,s) for s in notnormalize)]
-        if file_raw==file_normalized:
-            Ifn_stacks += innames
-        else:
-            tmp_stacks, tmp = copystacks(file_raw,file_normalized,axes,innames,innames,overwrite=False)
-            Ifn_stacks += tmp_stacks
-
-        # Default
-        defaultstack(file_normalized,Ifn_stacks,default)
-    else:
-        Ifn_stacks = stacks["counters"].values()
-        if "detectorsum" in stacks:
-            Ifn_stacks += [s for s in stacks["detectorsum"].values()]
-        Ifn_axes = [dict(a) for a in axes]
-        file_normalized = file_raw
+    # I0 normalization
+    if not skipnormalization:
+        h5file,stacks,axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,["arr_srcurr"],["arr_srcurr"])
 
     # Alignment
-    if alignmethod is not None and alignreference is not None:
-        logger.info("Aligning image stacks ...")
-        if bsamefile:
-            file_aligned = file_normalized
-        else:
-            file_aligned = base+".align"+ext
-
-        info = {"method":alignmethod,"pairwise":refimageindex==None,\
-                "reference set":alignreference,\
-                "reference image":refimageindex,\
-                "crop":cropalign,\
-                "roi":roi}
-        aligned_stacks, aligned_axes = alignstacks(file_normalized,Ifn_stacks,Ifn_axes,stackdim,file_aligned,alignmethod,
-                                        alignreference,refimageindex=refimageindex,overwrite=True,crop=cropalign,
-                                        roi=roi,plot=plot,info=info,copygroups=copygroups)
-
-        # Default
-        defaultstack(file_aligned,aligned_stacks,default)
+    if alignmethod is None or alignreference is None:
+        timing.printtimeelapsed(T0,logger)
+        exit()
     else:
-        aligned_stacks = Ifn_stacks
-        aligned_axes = Ifn_axes
-        file_aligned = file_normalized
+        h5file,stacks,axes = align(h5file,stacks,axes, copygroups, bsamefile, default,\
+            alignmethod, alignreference, refimageindex, cropalign, roialign, plot, stackdim)
 
     # Remove NaN's
-    if replacenan and alignmethod is not None and alignreference is not None:
-        logger.info("Replace NaN's ...")
-        if bsamefile:
-            file_nonan = file_aligned
-        else:
-            file_nonan = base+".nonan"+ext
-
+    if replacenan:
         orgvalue = np.nan
         newvalue = 0
-        info = {"replaced value":orgvalue,"new value":newvalue}
-        replaced_stacks, replaced_axes = replacestacks(file_aligned,file_nonan,aligned_axes,aligned_stacks,aligned_stacks,orgvalue,newvalue,overwrite=True,info=info,copygroups=copygroups)
-
-        # Default
-        defaultstack(file_nonan,replaced_stacks,default)
-    else:
-        replaced_stacks = aligned_stacks
-        replaced_axes = aligned_axes
-        file_nonan = file_aligned
+        replacevalue(h5file, stacks, axes, copygroups, bsamefile, default, orgvalue, newvalue)
 
     # Crop
-    if cropafter and alignreference is not None:
-        logger.info("Crop image stacks ...")
-        if bsamefile:
-            file_cropped = file_aligned
-        else:
-            file_cropped = base+".crop"+ext
-
-        info = {"crop value":np.nan,"reference set":alignreference}
+    if cropafter:
         cropinfo = {"nanval":np.nan,"stackdim":stackdim,"reference set":alignreference}
-        cropped_stacks, cropped_axes = cropstacks(file_aligned,file_cropped,aligned_axes,aligned_stacks,aligned_stacks,cropinfo,overwrite=True,info=info,copygroups=copygroups)
+        execcrop(h5file, stacks, axes, copygroups, bsamefile, default, cropinfo)
 
-        # Default
-        defaultstack(file_cropped,cropped_stacks,default)
-    else:
-        cropped_stacks = aligned_stacks
-        cropped_axes = aligned_axes
-        file_cropped = file_aligned
-    
     timing.printtimeelapsed(T0,logger)
 

@@ -118,15 +118,18 @@ classifiers = [get_devstatus(),
                "Topic :: Software Development :: Libraries :: Python Modules",
                ]
 
-install_requires = ["numpy", "scipy", "h5py", "fabio", "SimpleITK", "testfixtures", "sift_pyocl", "pyparsing", "fdmnes", "PyMca5"]
+# Needed for using Spectrocrunch
+install_requires = ["numpy", "scipy", "h5py", "fabio", "SimpleITK", "sift_pyocl", "pyparsing", "fdmnes", "PyMca5"]
 # , "xraylib", "cctbx"
-setup_requires = ["setuptools_scm"]
+
+# Needed for running the setup script
+setup_requires = ["testfixtures", "setuptools_scm"] 
 
 setup(name='SpectroCrunch',
       version=get_version(),
-      url="https://github.com/spectrocrunch",
+      #url="https://github.com/spectrocrunch",
       author="Wout De Nolf",
-      author_email="wout.de_nolf@esrf.eu",
+      author_email="woutdenolf@users.sf.net",
       classifiers = classifiers,
       description="Spectroscopy data crunching",
       long_description=get_readme(),

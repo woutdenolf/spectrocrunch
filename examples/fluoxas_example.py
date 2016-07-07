@@ -29,7 +29,7 @@ sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import logging
 logging.getLogger("spectrocrunch").setLevel(logging.INFO)
 
-from spectrocrunch.process.id21_fluoxas import defaultstack
+from spectrocrunch.process.proc_common import defaultstack
 from spectrocrunch.process.id21_fluoxas import process
 
 if __name__ == '__main__':
@@ -38,16 +38,18 @@ if __name__ == '__main__':
 
     path = os.path.dirname(os.path.abspath(__file__))
 
-    example = "example5"
+    example = "example6"
 
     cfgfile = None
     skippreprocessing = False
     skipnormalization = False
+    skipalign = False
     dtcor = False
     default = None
-    crop = False
-    roi = None
+    crop = True
+    roialign = None
     plot = True
+    bff = False
 
     if example=="example1":
         scanname = ["fXANES5"]
@@ -59,11 +61,11 @@ if __name__ == '__main__':
         skippreprocessing = False
         skipnormalization = False
 
-        alignmethod = "max" #None, fft, sift, elastix
+        alignmethod = "fft" #None, fft, sift, elastix
         alignreference = "Ca-K"
         refimageindex = 0 # None for pair-wise alignment
         crop = True
-        roi = ((10,60),(10,60))
+        roialign = ((10,60),(10,60))
 
         default = "Ca-K"
 
@@ -121,25 +123,55 @@ if __name__ == '__main__':
 
         scanname = ["KMS"]
         scannumbers = [[5,6,7,8]]
-        sourcepath = ["/data/visitor/hg64/id21/id16btest/KMS"]
-        destpath = os.path.join(path,"testresults",scanname[0])
+        sourcepath = [os.path.join(path,"testdata","xrfxanes","id16b","KMSa")]
+
         cfgfile = ["KMSa_En4_Det2.cfg","KMSa_En4_Det3.cfg","KMSa_En4_Det4.cfg","KMSa_En4_Det6.cfg","KMSa_En4_Det7.cfg"]
-        cfgfile = [os.path.join("/data/visitor/hg64/id21/id16btest/",s) for s in cfgfile]
+        cfgfile = [os.path.join(path,"testdata","xrfxanes","id16b",s) for s in cfgfile]
+
+        destpath = os.path.join(path,"testresults","KMSa")
+
         dtcor = True
 
-        skippreprocessing = False
+        skippreprocessing = True
         skipnormalization = False
 
-        alignmethod = "elastix" #None, fft, sift, elastix
+        alignmethod = "fft" #None, fft, sift, elastix
         alignreference = "Fe-K"
         refimageindex = 0 # None for pair-wise alignment
         crop = True
 
         default = "Fe-K"
 
+    elif example=="example6":
+        from spectrocrunch.process.id21_ffxas import process
+        bff = True
+        
+        sourcepath = [os.path.join(path,"testdata","ff","id21","7913_50RH_ffCd")]
+        scanname = ["map1"]
+        destpath = os.path.join(path,"testresults","7913_50RH_ffCd ")
+
+        skippreprocessing = False
+        skipnormalization = False
+        skipalign = False
+
+        alignmethod = "fft" #None, fft, sift, elastix
+        refimageindex = 0 # None for pair-wise alignment
+        crop = True
+
+        rebin = (1,1)
+        roiraw = ((300,650),(900,1100))
+        roialign = ((1,-2),(1,-2))
+        roiresult = ((10,-20),(11,-21))
+
     else:
         sys.exit()
 
-    process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,default=default, \
-            refimageindex=refimageindex,skippre=skippreprocessing,skipnormalization=skipnormalization,dtcor=dtcor,crop=crop,roi=roi,plot=plot)
+    if bff:
+        process(sourcepath,destpath,scanname,"",rebin,alignmethod,\
+            refimageindex=refimageindex,skippre=skippreprocessing,skipnormalization=skipnormalization,roialign=roialign,crop=crop,plot=plot,\
+            skipalign=skipalign,roiresult=roiresult,roiraw=roiraw)
+    else:
+        process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,default=default, \
+            refimageindex=refimageindex,skippre=skippreprocessing,skipnormalization=skipnormalization,roialign=roialign,crop=crop,plot=plot,\
+            dtcor=dtcor)
 

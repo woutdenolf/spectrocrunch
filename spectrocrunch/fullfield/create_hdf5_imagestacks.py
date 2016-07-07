@@ -282,7 +282,7 @@ def dataflatlibrary(config):
         # Add to library
         if key in flat:
             flat[key].append(f)
-    
+
     # Remove entries with missing images
     #ndata = map(lambda x:len(data[x]),data)
     #ndatafiles = max(ndata,key=ndata.count)

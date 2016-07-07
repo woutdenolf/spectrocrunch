@@ -28,7 +28,7 @@ def get_hdf5_imagestacks(h5file,datagroupnames):
     """
     Args:
         h5file(str): hdf5 file
-        datagroupnames(str): NXentries containing NXdata image stacks
+        datagroupnames(list(str)): NXentries containing NXdata image stacks
 
     Returns:
         tuple

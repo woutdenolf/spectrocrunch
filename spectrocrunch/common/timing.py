@@ -37,9 +37,9 @@ def hms(seconds):
     sec = int(sec)
     return (hours,min,sec)
 
-def printtimeelapsed(T0,logger):
+def printtimeelapsed(T0,logger,text="Elapsed time"):
     hours,min,sec = hms((datetime.datetime.now()-T0).seconds)
-    logger.info("Elapsed time: %dh %dm %ds" % (hours,min,sec))
+    logger.info("%s: %dh %dm %ds" % (text,hours,min,sec))
 
 class progress(object):
     def __init__(self,logger):
