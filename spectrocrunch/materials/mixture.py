@@ -36,30 +36,76 @@ class mixture(object):
             fractype(fractionType): compound fraction type
         """
         
-        # Mole fractions
+        # Compound mole fractions
+        fractions = np.asarray(frac)
         if fractype == fractionType.mole:
-            MM = np.asarray([c.molarmass() for c in compounds])
-            wfrac = stoichiometry.frac_mole_to_weight(np.asarray(frac),MM)
+            nfrac = fractions
         elif fractype == fractionType.volume:
+            MM = np.asarray([c.molarmass() for c in compounds])
             rho = np.asarray([c.density for c in compounds])
-            wfrac = stoichiometry.frac_volume_to_weight(np.asarray(frac),rho)
+            nfrac = stoichiometry.frac_volume_to_mole(fractions,rho,MM)
         else:
-            wfrac = frac/sum(np.asarray(frac)) # sum is not necessarily zero in this case!
+            MM = np.asarray([c.molarmass() for c in compounds])
+            nfrac = stoichiometry.frac_weight_to_mole(fractions,MM)
 
-        self.compounds = dict(zip(compounds,wfrac))
+        self.compounds = dict(zip(compounds,nfrac))
 
     def __repr__(self):
-        return '\n'.join("{} wt% {}".format(100*s[1],s[0]) for s in self.compounds.items())
+        return '\n'.join("{} {}".format(s[1],s[0]) for s in self.compounds.items())
 
     def __getitem__(self,compound):
         return self.compounds[compound]
 
+    def molarmass(self):
+        MM = np.asarray([c.molarmass() for c in self.compounds])
+        nfrac = np.asarray(self.molefractions(total=True).values())
+        return (MM*nfrac).sum()
+
+    def weightfractions(self):
+        MM = np.asarray([c.molarmass() for c in self.compounds])
+        nfrac = np.asarray(self.molefractions().values())
+        wfrac = stoichiometry.frac_mole_to_weight(nfrac,MM)
+        return dict(zip(self.compounds.keys(),wfrac))
+
+    def molefractions(self,total=True):
+        if total:
+            return self.compounds
+        else:
+            nfrac = np.asarray(self.compounds.values())
+            nfrac /= nfrac.sum()
+            return dict(zip(self.compounds.keys(),nfrac))
+
     def density(self):
         MM = np.asarray([c.molarmass() for c in self.compounds])
         rho = np.asarray([c.density for c in self.compounds])
-        wfrac = np.asarray(self.compounds.values())
-        nfrac = stoichiometry.frac_weight_to_mole(wfrac,MM)
+        nfrac = np.asarray(self.molefractions().values())
         return stoichiometry.density_from_molefrac(nfrac,rho,MM)
+
+    def elemental_molefractions(self,total=True):
+        ret = {}
+
+        c_nfrac = self.molefractions(total=total)
+        for c in c_nfrac:
+            e_nfrac = c.molefractions(total=total)
+            for e in e_nfrac:
+                if e in ret:
+                    ret[e] += c_nfrac[c]*e_nfrac[e]
+                else:
+                    ret[e] = c_nfrac[c]*e_nfrac[e]
+        return ret
+
+    def elemental_weightfractions(self):
+        ret = {}
+
+        c_wfrac = self.weightfractions()
+        for c in c_wfrac:
+            e_wfrac = c.weightfractions()
+            for e in e_wfrac:
+                if e in ret:
+                    ret[e] += c_wfrac[c]*e_wfrac[e]
+                else:
+                    ret[e] = c_wfrac[c]*e_wfrac[e]
+        return ret
 
     def _crosssection(self,method,E,decimals=6,refresh=False,fine=False,decomposed=False):
         """Calculate compound cross-sections
@@ -70,29 +116,30 @@ class mixture(object):
             environ = None
 
         # compound cross-sections
+        c_wfrac = self.weightfractions()
         if decomposed:
             ret = {}
-            for c in self.compounds:
+            for c in c_wfrac:
                 if hasattr(c,'structure') and fine:
                     environ = c
                 else:
                     environ = None
 
-                wc = self.compounds[c]
+                e_wfrac = c.weightfractions()
                 ret[c] = E*0
                 for e in c.elements:
-                    ret[c] += wc*c.elements[e]*getattr(e,method)(E,environ=environ,decimals=decimals,refresh=refresh)
+                    ret[c] += c_wfrac[c]*e_wfrac[e]*getattr(e,method)(E,environ=environ,decimals=decimals,refresh=refresh)
         else:
             ret = E*0
-            for c in self.compounds:
+            for c in c_wfrac:
                 if hasattr(c,'structure') and fine:
                     environ = c
                 else:
                     environ = None
 
-                wc = self.compounds[c]
+                e_wfrac = c.weightfractions()
                 for e in c.elements:
-                    ret += wc*c.elements[e]*getattr(e,method)(E,environ=environ,decimals=decimals,refresh=refresh)
+                    ret += c_wfrac[c]*e_wfrac[e]*getattr(e,method)(E,environ=environ,decimals=decimals,refresh=refresh)
 
         return ret
 

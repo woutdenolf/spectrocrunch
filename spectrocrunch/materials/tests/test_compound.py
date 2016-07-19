@@ -54,12 +54,9 @@ class test_compound(unittest.TestCase):
         density = 2.3
         c = compoundfromformula("C6H2(NO2)3CH3",density)
 
-        sa = float(sum(a))
-        a = [i/sa for i in a]
-
         elements2 = c.molefractions()
         for i in range(len(elements)):
-            self.assertAlmostEqual(elements2[elements[i]],a[i])
+            self.assertEqual(elements2[elements[i]],a[i])
 
         self.assertEqual(c.density,density)
 
@@ -69,30 +66,25 @@ class test_compound(unittest.TestCase):
         density = 2.3
         c = compoundfromlist(elements,a,fractionType.mole,density)
 
-        sa = float(sum(a))
-        a = [i/sa for i in a]
-
         elements2 = c.molefractions()
         for i in range(len(elements)):
-            self.assertAlmostEqual(elements2[elements[i]],a[i])
+            self.assertEqual(elements2[elements[i]],a[i])
 
         self.assertEqual(c.density,density)
 
         c = compoundfromlist(elements,a,fractionType.weight,density)
+        wfrac = c.weightfractions()
         for i in range(len(elements)):
-            self.assertEqual(c.elements[elements[i]],a[i])
+            self.assertAlmostEqual(wfrac[elements[i]],a[i]/float(sum(a)))
 
     def test_cif(self):
         elements = ["Ca","C","O"]
         a = [6,6,18.]
         c = compoundfromcif("calcite",name="calcite") 
 
-        sa = float(sum(a))
-        a = [i/sa for i in a]
-
         elements2 = c.molefractions()
         for i in range(len(elements)):
-            self.assertAlmostEqual(elements2[elements[i]],a[i])
+            self.assertEqual(elements2[elements[i]],a[i])
 
 def test_suite_all():
     """Test suite including all test suites"""

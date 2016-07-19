@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2016 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -23,16 +23,48 @@
 # THE SOFTWARE.
 
 import unittest
-from . import test_stoichiometry
-from . import test_compound
-from . import test_mixture
+
+from ..compoundfromformula import compoundfromformula as compound
+from ..mixture import mixture
+from ..types import fractionType
+
+import numpy as np
+
+class test_mixture(unittest.TestCase):
+
+    def test_molefractions(self):
+        compound1 = compound("La2O3",0,name="La2O3")
+        compound2 = compound("SrO",0,name="SrO")
+        compound3 = compound("Co2O3",0,name="Co2O3")
+        compound4 = compound("Fe2O3",0,name="Fe2O3")
+
+        mole = np.array([1.3,2,0.2,3],dtype=float)
+        m = mixture([compound1,compound2,compound3,compound4],mole,fractionType.mole)
+
+        # Test compound mole fractions
+        nfrac1 = m.molefractions(total=True)
+        nfrac2 = mole
+        labels = ["La2O3","SrO","Co2O3","Fe2O3"]
+        for i in range(len(labels)):
+            self.assertAlmostEqual(nfrac1[labels[i]],nfrac2[i])
+
+        # Test elemental mole fractions
+        nfrac1 = m.elemental_molefractions(total=True)
+        nLa = 2*mole[0]
+        nSr = 1*mole[1]
+        nCo = 2*mole[2]
+        nFe = 2*mole[3]
+        nO = 3*mole[0]+1*mole[1]+3*mole[2]+3*mole[3]
+        nfrac2 = np.array([nSr,nCo,nFe,nO,nLa])
+        labels = ["Sr","Co","Fe","O","La"]
+        for i in range(len(labels)):
+            self.assertAlmostEqual(nfrac1[labels[i]],nfrac2[i])
+        
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_stoichiometry.test_suite_all())
-    testSuite.addTest(test_compound.test_suite_all())
-    testSuite.addTest(test_mixture.test_suite_all())
+    testSuite.addTest(test_mixture("test_molefractions"))
     return testSuite
     
 if __name__ == '__main__':

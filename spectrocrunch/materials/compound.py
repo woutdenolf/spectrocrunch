@@ -50,34 +50,34 @@ class compound(Hashable):
         else:
             self.name = name
 
-        # Compound density
-        self.density = density
-        if self.density==0:
-            if len(self.elements)==1:
-                self.density = self.elements[0].get_pure_density()
-            else:
-                #rho = [e.get_pure_density() for e in self.elements]
-                #self.density = np.mean(rho) # not based on anything, just a value
-                self.density = 1. # approx. density of water
-
-        # Compound weight fractions
+        # Element mole fractions
         if fractype == fractionType.mole:
-            elements = [element(e) for e in elements]
-            MM = np.asarray([e.MM for e in elements])
-            wfrac = stoichiometry.frac_mole_to_weight(np.asarray(frac),MM)
+            nfrac = frac # keep unnormalized!
         elif fractype == fractionType.volume:
             # would be possible if you give the element densities in the compound
             # (which is not the same as the pure element density) but that's un unlikely given
             raise ValueError("Cannot create a compound from elemental volume fractions")
         else:
-            wfrac = frac/sum(np.asarray(frac))
+            elements = [element(e) for e in elements]
+            MM = np.asarray([e.MM for e in elements])
+            nfrac = stoichiometry.frac_weight_to_mole(np.asarray(frac),MM) # normalized
 
-        # Element multiplicities
+        # Elements
         self.elements = {}
-        for e,w in zip(elements,wfrac):
+        for e,n in zip(elements,nfrac):
             if not isinstance(e,element):
                 e = element(e)
-            self.elements[e] = w
+            self.elements[e] = n
+
+        # Compound density
+        self.density = density
+        if self.density==0:
+            if len(self.elements)==1:
+                self.density = self.elements.keys()[0].get_pure_density()
+            else:
+                #rho = [e.get_pure_density() for e in self.elements]
+                #self.density = np.mean(rho) # not based on anything, just a value
+                self.density = 1. # approx. density of water
 
     def _cmpkey(self):
         """For comparing and sorting
@@ -89,20 +89,30 @@ class compound(Hashable):
         """
         return self.name
         #return '{}\n Composition: '.format(self.name) + \
-        #        ', '.join("{} wt% {}".format(100*s[1],s[0]) for s in sorted(self.elements.items())) + \
+        #        ', '.join("{} {}".format(s[1],s[0]) for s in sorted(self.elements.items())) + \
         #        '\n Density: {} g/cm^3'.format(self.density)
 
     def __getitem__(self,element):
         return self.elements[element]
 
     def molarmass(self):
-        return sum([e.MM for e in self.elements])
-
-    def molefractions(self):
         MM = np.asarray([e.MM for e in self.elements])
-        wfrac = np.asarray(self.elements.values())
-        nfrac = stoichiometry.frac_weight_to_mole(wfrac,MM)
-        return dict(zip(self.elements.keys(),nfrac))
+        nfrac = np.asarray(self.molefractions(total=True).values())
+        return (MM*nfrac).sum()
+
+    def weightfractions(self):
+        MM = np.asarray([e.MM for e in self.elements])
+        nfrac = np.asarray(self.molefractions().values())
+        wfrac = stoichiometry.frac_mole_to_weight(nfrac,MM)
+        return dict(zip(self.elements.keys(),wfrac))
+
+    def molefractions(self,total=True):
+        if total:
+            return self.elements
+        else:
+            nfrac = np.asarray(self.elements.values())
+            nfrac /= nfrac.sum()
+            return dict(zip(self.elements.keys(),nfrac))
 
     def markabsorber(self,symb,shells=[],fluolines=[]):
         """
@@ -124,14 +134,15 @@ class compound(Hashable):
         else:
             environ = None
 
+        e_wfrac = self.weightfractions()
         if decomposed:
             ret = {}
-            for e in self.elements:
-                ret[e] = self.elements[e]*getattr(e,method)(E,environ=environ,decimals=decimals,refresh=refresh)
+            for e in e_wfrac:
+                ret[e] = e_wfrac[e]*getattr(e,method)(E,environ=environ,decimals=decimals,refresh=refresh)
         else:
             ret = E*0
-            for e in self.elements:
-                ret += self.elements[e]*getattr(e,method)(E,environ=environ,decimals=decimals,refresh=refresh)
+            for e in e_wfrac:
+                ret += e_wfrac[e]*getattr(e,method)(E,environ=environ,decimals=decimals,refresh=refresh)
 
         return ret
 

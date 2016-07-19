@@ -22,23 +22,33 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import unittest
-from . import test_stoichiometry
-from . import test_compound
-from . import test_mixture
+execfile("initcctbx.py")
 
-def test_suite_all():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_stoichiometry.test_suite_all())
-    testSuite.addTest(test_compound.test_suite_all())
-    testSuite.addTest(test_mixture.test_suite_all())
-    return testSuite
-    
+
+# Don't use the installed version
+import os, sys
+sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from spectrocrunch.materials.compoundfromformula import compoundfromformula as compound
+from spectrocrunch.materials.mixture import mixture
+from spectrocrunch.materials.types import fractionType
+import numpy as np
+
 if __name__ == '__main__':
-    import sys
 
-    mysuite = test_suite_all()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)
+    compound1 = compound("La2O3",0,name="La2O3")
+    compound2 = compound("SrO",0,name="SrO")
+    compound3 = compound("Co2O3",0,name="Co2O3")
+    compound4 = compound("Fe2O3",0,name="Fe2O3")
+
+    m = mixture([compound1,compound2,compound3,compound4],[1,1,1,1],fractionType.weight)
+
+    print(compound4.weightfractions())
+    print("")
+    elements = m.elemental_weightfractions()
+    print("")
+    for e in elements:
+        print(e,e.MM,elements[e])
+
+    
+

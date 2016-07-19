@@ -63,6 +63,8 @@ import tempfile
 #  muL = rho(V) * mu = total(wi*mui) / total(wj/rhoj(Vj))
 #                    = total(rhoi(V)*mui)
 #  
+#  Molar mass of a compound
+#  MM = M/n = total(mi)/total(mi/MMi) = total(wi)/total(wi/MMi) = 1/total(wi/MMi)
 
 def frac_mole_to_weight(nfrac,MM):
     """
@@ -79,6 +81,14 @@ def frac_weight_to_mole(wfrac,MM):
         MM(np.array): molar mass of each compound
     """
     return(wfrac/(MM * (wfrac/MM).sum()))
+
+def molarmass_from_wfrac(wfrac,MM):
+    """
+    Args:
+        wfrac(np.array): weight fraction of each compound
+        MM(np.array): molar mass of each compound
+    """
+    return(1/((wfrac/MM).sum()))
 
 def frac_weight_to_volume(wfrac,rho):
     """
