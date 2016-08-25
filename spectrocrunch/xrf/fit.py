@@ -34,21 +34,27 @@ import numpy as np
 import re
 import os
 import glob
+import pylab
 
 import warnings
 warnings.filterwarnings("ignore")
+import logging
 
-def AdaptEnergy(cfg,energy):
+def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
     """
     Args:
         cfg(str): pymca config file
         energy(float): primary beam energy in keV
+        addhigh(Optional(num)): add high primary energy with very low weight
+        mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
     """
     # Read the configuration
     if not os.path.exists(cfg):
         raise IOError("File <%s> does not exists" % cfg)
     configuration = ConfigDict.ConfigDict()
     configuration.read(cfg)
+    if len(configuration)==0:
+        raise IOError("File <%s> couldn't be loaded" % cfg)
 
     # Adapt the configuration
     ftype = type(configuration["fit"]["energyweight"][0])
@@ -58,17 +64,22 @@ def AdaptEnergy(cfg,energy):
     # Adapt energy
     sourcelines = [None]*n
     sourcelines[0] = ftype(energy)
-    sourcelines[1] = ftype(3*energy)
+    if addhigh:
+        sourcelines[1] = ftype(3*energy)
     configuration["fit"]["energy"] = sourcelines
 
     sourcelines = [ftype(0)]*n
-    sourcelines[0] = ftype(1-1e-100)
-    sourcelines[1] = ftype(1e-100)
+    if addhigh:
+        sourcelines[0] = ftype(1e100)
+        sourcelines[1] = ftype(1e-5)
+    else:
+        sourcelines[0] = ftype(1)
     configuration["fit"]["energyweight"] = sourcelines
 
     sourcelines = [itype(0)]*n
     sourcelines[0] = itype(1)
-    sourcelines[1] = itype(1)
+    if addhigh:
+        sourcelines[1] = itype(1)
     configuration["fit"]["energyflag"] = sourcelines
 
     sourcelines = [itype(0)]*n
@@ -76,28 +87,67 @@ def AdaptEnergy(cfg,energy):
     configuration["fit"]["energyscatter"] = sourcelines
 
     # Dummy matrix (aparently needed for multi-energy)
-    if (configuration["attenuators"]["Matrix"][0]==0):
+    if (configuration["attenuators"]["Matrix"][0]==0 and addhigh):
         density = configuration["materials"]["Air"]["Density"]
         configuration["attenuators"]["Matrix"][0] = 1
         configuration["attenuators"]["Matrix"][1] = "Air"
         configuration["attenuators"]["Matrix"][2] = density
-        configuration["attenuators"]["Matrix"][3] = density*0
+        configuration["attenuators"]["Matrix"][3] = density*0 # thickness in cm
+
+    # Split M-lines
+    # You need an adapted pymca version: Elements
+    #ElementShellTransitions = [KShell.ElementKShellTransitions,
+    #	                   KShell.ElementKAlphaTransitions,
+    #	                   KShell.ElementKBetaTransitions,
+    #	                   LShell.ElementLShellTransitions,
+    #	                   LShell.ElementL1ShellTransitions,
+    #	                   LShell.ElementL2ShellTransitions,
+    #	                   LShell.ElementL3ShellTransitions,
+    #                      [s+"*" for s in MShell.ElementMShellTransitions],
+    #	                   MShell.ElementM1ShellTransitions,
+    #	                   MShell.ElementM2ShellTransitions,
+    #	                   MShell.ElementM3ShellTransitions,
+    #	                   MShell.ElementM4ShellTransitions,
+    #	                   MShell.ElementM5ShellTransitions]
+    #ElementShellRates = [KShell.ElementKShellRates,
+    #	             KShell.ElementKAlphaRates,
+    #	             KShell.ElementKBetaRates,
+    #	             LShell.ElementLShellRates,
+    #	             LShell.ElementL1ShellRates,
+    #	             LShell.ElementL2ShellRates,
+    #	             LShell.ElementL3ShellRates,
+    #	             MShell.ElementMShellRates,
+    #	             MShell.ElementM1ShellRates,
+    #	             MShell.ElementM2ShellRates,
+    #	             MShell.ElementM3ShellRates,
+    #	             MShell.ElementM4ShellRates,
+    #	             MShell.ElementM5ShellRates]
+    #ElementXrays      = ['K xrays', 'Ka xrays', 'Kb xrays', 'L xrays','L1 xrays','L2 xrays','L3 xrays','M xrays','M1 xrays','M2 xrays','M3 xrays','M4 xrays','M5 xrays']
+
+    if len(mlines) > 0:
+        if "M5 xrays" not in ClassMcaTheory.Elements.ElementXrays:
+            logging.getLogger(__name__).error("PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting.")
+            raise ImportError("PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting.")
+    for el in mlines:
+        if el in configuration["peaks"]:
+            if "M" in configuration["peaks"][el]:
+                configuration["peaks"][el] = [group for group in configuration["peaks"][el] if group != "M"] + mlines[el]
 
     # Write the configuration
     configuration.write(cfg)
 
-def PerformFit(filelist,cfg,energies,norm=None,fast=True,prog=None):
+def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plot=False):
     """Fit XRF spectra in batch with changing primary beam energy.
 
     Args:
         filelist(list(str)|np.array): spectra to fit
         cfg(str): configuration file to use
         energies(np.array): primary beam energies
-
-        norm(np.array): normalization array
+        mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
+        norm(Optional(np.array)): normalization array
         fast(Optional(bool)): fast fitting (linear)
         prog(Optional(timing.progress)): progress object
-
+        plot(Optional(bool))
     Returns:
         dict: {label:nenergies x nfiles,...}
     """
@@ -136,44 +186,66 @@ def PerformFit(filelist,cfg,energies,norm=None,fast=True,prog=None):
         else:
             norm = [norm]*nenergies
 
+    # Prepare plot
+    if plot:
+        fig = pylab.figure(1)
+        ax = pylab.subplot(111)
+
     # Fit at each energy
     if prog is not None:
         prog.setnfine(nenergies*nfiles)
 
+    ret = {}
     for j in range(nenergies):
         # Prepare fit with this energy
-        AdaptEnergy(cfg,energies[j])
+        AdaptPyMcaConfig(cfg,energies[j],mlines=mlines)
         mcafit = ClassMcaTheory.McaTheory(cfg)
         if fast:
             mcafit.enableOptimizedLinearFit()
         else:
             mcafit.disableOptimizedLinearFit()
-        
+
         # Fit all spectra with this energy
         for i in range(nfiles):
             # Data to fit
-            mcafit.setData(x,dataStack[i,j,:].flatten(),xmin=xmin,xmax=xmax)
+            y = dataStack[i,j,:].flatten()
+            mcafit.setData(x,y,xmin=xmin,xmax=xmax)
 
             # Initial parameter estimates
             mcafit.estimate()
-            
+
             # Fit
             fitresult = mcafit.startfit(digest=0)
 
             # Extract result
-            mcafitresult = mcafit.imagingDigestResult()
-            # mcafit.__niter
-            # mcafit.chisq
-            # mcafitresult[groupname]["fitarea"]: total peak area of the group
-            # mcafitresult[groupname]["sigmaarea"]: stdev on fitarea
-
-            if i==0 and j==0:
-                ret = {}
-                for k in mcafitresult["groups"]:
-                    ret[k] = np.empty((nenergies,nfiles),dtype=type(mcafitresult[k]["fitarea"]))
+            if plot:
+                mcafitresult = mcafit.digestresult()
+                ax.cla()
+                ax.semilogy(mcafitresult["energy"],mcafitresult["ydata"])
+                ax.semilogy(mcafitresult["energy"],mcafitresult["yfit"],color='red')
+                ax.set_ylim(bottom=1)
+                ax.set_title("Primary energy: {} keV".format(energies[j]))
+                ax.set_xlabel("Energy (keV)")
+                ax.set_ylabel("Intensity (cts)")
+                pylab.pause(0.0001)
+            else:
+                mcafitresult = mcafit.imagingDigestResult()
 
             for k in mcafitresult["groups"]:
+                if k not in ret:
+                    ret[k] = np.zeros((nenergies,nfiles),dtype=type(mcafitresult[k]["fitarea"]))
                 ret[k][j,i] = mcafitresult[k]["fitarea"]/norm[j]
+
+            if "chisq" not in ret:
+                ret["chisq"] = np.zeros((nenergies,nfiles),dtype=type(mcafit.chisq))
+            ret["chisq"][j,i] = mcafit.chisq
+
+
+            #import pdb; pdb.set_trace()
+
+            # ROI (TODO: implement separately for general use)
+            #ret["S K"][j,i] = sum(y[440:460])
+            #ret["Pb M"][j,i] = sum(y[475:515])
 
         # Print progress
         if prog is not None:
@@ -182,7 +254,7 @@ def PerformFit(filelist,cfg,energies,norm=None,fast=True,prog=None):
 
     return ret
 
-def PerformBatchFit(filelist,outdir,outname,cfg,energy,fast=True):
+def PerformBatchFit(filelist,outdir,outname,cfg,energy,mlines={},fast=True):
     """Fit XRF spectra in batch with one primary beam energy.
 
         Least-square fitting. If you intend a linear fit, modify the configuration:
@@ -196,7 +268,11 @@ def PerformBatchFit(filelist,outdir,outname,cfg,energy,fast=True):
     Args:
         filelist(list(str)): spectra to fit
         outdir(str): directory for results
-        outname(str)
+        outname(str): output radix
+        cfg(str): configuration file to use
+        energy(num): primary beam energy
+        mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
+        fast(Optional(bool)): fast fitting (linear)
     """
 
     if not os.path.exists(outdir):
@@ -205,7 +281,7 @@ def PerformBatchFit(filelist,outdir,outname,cfg,energy,fast=True):
     # Adapt file (not adapting the fitobject's member variables because it's unclear 
     # what other things need to be changed when changing the energy)
     if energy is not np.nan:
-        AdaptEnergy(cfg,energy)
+        AdaptPyMcaConfig(cfg,energy,mlines=mlines)
 
     if fast:
         # Prepare fit

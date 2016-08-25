@@ -32,10 +32,26 @@ def makeGaussian(x,y,x0,y0,sx,sy,rho,A):
     denom = 2*(1-rho**2)
     return A*np.exp(-num/denom)#/(2*np.pi*sx*sy*np.sqrt(1-rho**2))
 
-def gettransformedimage(x,y,data):
+def makeGaussianAngle(x,y,x0,y0,sx,sy,angle,A):
+    cosa = np.cos(angle)
+    sina = np.sin(angle)
+    sin2a = np.sin(2*angle)
+    varx = sx**2
+    vary = sy**2
+    a = cosa**2/(2*varx)+sina**2/(2*vary)
+    b = -sin2a/(4*varx)+sin2a/(4*vary)
+    c = sina**2/(2*varx)+cosa**2/(2*vary)
+    num = a*(x-x0)**2 - 2*b*(x-x0)*(y-y0) + c*(y-y0)**2
+    return A*np.exp(-num)
+
+def gettransformedimage(x,y,data,angle=False):
     ret = np.zeros(x.shape,dtype=float)
+    if angle:
+        proc = makeGaussianAngle
+    else:
+        proc = makeGaussian
     for x0,y0,sx,sy,rho,A in data:
-        ret += makeGaussian(x,y,x0,y0,sx,sy,rho,A)
+        ret += proc(x,y,x0,y0,sx,sy,rho,A)
     ret /= np.max(ret)
     return ret
 
@@ -106,11 +122,16 @@ def transformation(t,n):
         # total rotation is 40 degrees
         a = np.around(np.cos(40./180.*np.pi/(n-1)),3)
         #a = np.sqrt(3)/2 # between -1 and 1
+    elif t==transformationType.similarity:
+        a = np.around(np.cos(40./180.*np.pi/(n-1)),3)
+        b = np.around(np.sin(40./180.*np.pi/(n-1)),3)
+        a *= 1.1
+        b *= 1.1
     else:
         a = 1.1
-    b = 0.35
-    c = -0.4
-    d = 0.9
+        b = 0.2
+        c = -0.4
+        d = 0.9
 
     tx = 1.
     ty = 2.
@@ -133,14 +154,13 @@ def transformation(t,n):
 def random(a,b,n):
     return a+(b-a)*np.random.random(n)
 
-def teststack(transfotype):
+def teststack(transfotype,nimages = 5):
     """
     Returns:
         3-tuple: list of image stacks, change-of-coordinate matrix between the subsequent images, stack dimensions
     """
 
     # Transformation between images
-    nimages = 5
     Mbackward,Mforward = transformation(transfotype,nimages)
     # Mbackward: change-of-coordinate matrix (has the values we choose)
     # Mforward: change-of-frame matrix (the inverse of Mbackward)
@@ -222,5 +242,15 @@ def teststack(transfotype):
         xy[0,:] /= xy[2,:]
         xy[1,:] /= xy[2,:]
         ret[...,i] = gettransformedimage(xy[0,:],xy[1,:],data).reshape(subshape)
+
+    # Relative change-of-frame in subimage frame
+    C = np.identity(3,dtype=Mbackward.dtype)
+    Cinv = np.identity(3,dtype=Mbackward.dtype)
+    C[0:2,2] = [subxmin,subymin] # image frame to subimage frame
+    Cinv[0:2,2] = -C[0:2,2]
+    M = np.dot(np.dot(Cinv,Mbackward),C)
     
-    return ([ret,ret],Mbackward,2)
+    return ([ret,ret],M,2)
+
+
+

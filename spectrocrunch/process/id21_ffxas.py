@@ -119,14 +119,14 @@ def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
     if skipnormalization:
         file_normalized, Ifn_stacks,Ifn_axes = h5file,stacks,axes
     else:
-        if "flat2" in stacks:
+        if any("flat2" in s for s in stacks):
             snorm = ["flat1","flat2"]
         else:
             snorm = "flat1"
-        file_normalized, Ifn_stacks,Ifn_axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,snorm,snorm,stackdim=stackdim)
+        file_normalized, Ifn_stacks,Ifn_axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,snorm,snorm,stackdim=stackdim,copyskipped=False)
 
     # Alignment
-    if alignmethod is None:
+    if alignmethod is None or skipalign:
         timing.printtimeelapsed(T0,logger)
         exit()
     else:

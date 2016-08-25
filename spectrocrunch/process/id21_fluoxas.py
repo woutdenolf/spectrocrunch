@@ -132,7 +132,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
 
     # I0 normalization
     if not skipnormalization:
-        h5file,stacks,axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,["arr_iodet"],["arr_absorp1","arr_absorp2","arr_absorp3","arr_iodet"])
+        h5file,stacks,axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,["arr_iodet"],["arr_absorp1","arr_absorp2","arr_absorp3","arr_iodet"],stackdim=stackdim)
 
     # Alignment
     if alignmethod is None or alignreference is None:
