@@ -97,7 +97,7 @@ def darklibrary(config):
 
     # Labels
     frametimelabel = config["frametimelabel"]
-    frametimedefault = config["frametimedefault"]
+    frametimedefault = str(config["frametimedefault"])
     dtype = eval(config["dtype"])
     nflabel = config["nbframeslabel"]
 
@@ -115,7 +115,7 @@ def darklibrary(config):
         
         # Frame time
         if frametimelabel in h:
-            frametime = dtype(h[frametimelabel])
+            frametime = h[frametimelabel]
         else:
             frametime = frametimedefault
 
@@ -345,7 +345,7 @@ def getnormalizedimage(fileslist,darklib,config):
 
     # Labels
     frametimelabel = config["frametimelabel"]
-    frametimedefault = config["frametimedefault"]
+    frametimedefault = str(config["frametimedefault"])
     dtype = eval(config["dtype"])
     nflabel = config["nbframeslabel"]
     rebin = config["rebin"]
@@ -361,7 +361,7 @@ def getnormalizedimage(fileslist,darklib,config):
 
         # Frame time
         if frametimelabel in h:
-            frametime = dtype(h[frametimelabel])
+            frametime = h[frametimelabel]
         else:
             frametime = frametimedefault
 
@@ -373,10 +373,10 @@ def getnormalizedimage(fileslist,darklib,config):
 
         if img is None:
             img = data - darklib[frametime]*nframes
-            time = frametime*nframes
+            time = dtype(frametime)*nframes
         else:
             img += data - darklib[frametime]*nframes
-            time += frametime*nframes
+            time += dtype(frametime)*nframes
 
     img /= time
     return img
