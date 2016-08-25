@@ -83,14 +83,14 @@ def createconfig_pre(sourcepath,destpath,radix,ext,rebin,roi,stackdim):
 def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
         skippre=False,skipnormalization=False,skipalign=False,\
         roiraw=None,roialign=None,roiresult=None,\
-        refimageindex=None,crop=False,plot=True):
+        refimageindex=None,crop=False,plot=True,\
+        flatbefore=True,flatafter=True):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
 
     stackdim = 2
     bsamefile = False
-
     cropalign = crop
 
     # Image stack
@@ -119,25 +119,31 @@ def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
     if skipnormalization:
         file_normalized, Ifn_stacks,Ifn_axes = h5file,stacks,axes
     else:
-        if any("flat2" in s for s in stacks):
-            snorm = ["flat1","flat2"]
-        else:
+        if flatbefore and flatafter:
+            if any("flat2" in s for s in stacks):
+                snorm = ["flat1","flat2"]
+            else:
+                snorm = "flat1"
+        elif flatbefore:
             snorm = "flat1"
+        elif flatafter:
+            snorm = "flat2"
+        else:
+            logger.error("Nothing to normalize with.")
+            raise ValueError("Set flatbefore or flatafter to True.")
+
         file_normalized, Ifn_stacks,Ifn_axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,snorm,snorm,stackdim=stackdim,copyskipped=False)
 
     # Alignment
-    if alignmethod is None or skipalign:
-        timing.printtimeelapsed(T0,logger)
-        exit()
-    else:
+    if alignmethod is not None and not skipalign:
         alignreference = "sample"
         file_aligned, aligned_stacks, aligned_axes = align(file_normalized, Ifn_stacks, Ifn_axes, copygroups, bsamefile, default,\
             alignmethod, alignreference, refimageindex, cropalign, roialign, plot, stackdim)
 
-    # Crop
-    if roiresult is not None:
-        cropinfo = {"roi":roiresult,"stackdim":stackdim,"reference set":"sample"}
-        execcrop(h5file, stacks, axes, copygroups, bsamefile, default, cropinfo)
+        # Crop
+        if roiresult is not None:
+            cropinfo = {"roi":roiresult,"stackdim":stackdim,"reference set":"sample"}
+            execcrop(file_aligned, aligned_stacks, aligned_axes, copygroups, bsamefile, default, cropinfo)
 
     timing.printtimeelapsed(T0,logger)
 
