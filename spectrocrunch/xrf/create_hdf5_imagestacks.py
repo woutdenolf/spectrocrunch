@@ -87,17 +87,16 @@ def parsezapimage(cmd,name="zapimage"):
         motfast = str(result[0][0])
         start = np.float(result[0][1])
         end = np.float(result[0][2])
-        nbp = np.float(result[0][3])
-        sfast = {"name":motfast,"data":np.linspace(start,end,nbp)}
+        nstep = np.float(result[0][3])
+        inc = (end-start)/nstep
+        sfast = {"name":motfast,"data":np.arange(start,end,inc)} # nstep files
 
         motslow = str(result[0][5])
         start = np.float(result[0][6])
         end = np.float(result[0][7])
-        nbp = np.float(result[0][8])
-        end += (end-start)/(nbp-1)
-        nbp += 1
-        sslow = {"name":motslow,"data":np.linspace(start,end,nbp)}
-
+        nstep = np.float(result[0][8])
+        inc = (end-start)/nstep
+        sslow = {"name":motslow,"data":np.arange(start,end+inc,inc)} # nstep+1 files
         return (motfast,motslow,sfast,sslow)
     else:
         return None
@@ -116,17 +115,17 @@ def getscanpositions(config,header):
         motfast = str(header[label+"_mot"])
         start = np.float(header[label+"_start"])
         end = np.float(header[label+"_end"])
-        nbp = np.float(header[label+"_nbp"])
-        sfast = {"name":motfast,"data":np.linspace(start,end,nbp)}
+        nstep = np.float(header[label+"_nbp"])
+        inc = (end-start)/nstep
+        sfast = {"name":motfast,"data":np.arange(start,end,inc)} # nstep files
 
         label = config["slowlabel"]
         motslow = str(header[label+"_mot"])
         start = np.float(header[label+"_start"])
         end = np.float(header[label+"_end"])
-        nbp = np.float(header[label+"_nbp"])
-        end += (end-start)/(nbp-1)
-        nbp += 1
-        sslow = {"name":motslow,"data":np.linspace(start,end,nbp)}
+        nstep = np.float(header[label+"_nbp"])
+        inc = (end-start)/nstep
+        sslow = {"name":motslow,"data":np.arange(start,end+inc,inc)} # nstep+1 files
 
         ret = (motfast,motslow,sfast,sslow)
 
@@ -260,7 +259,7 @@ def getimagestacks(config):
                                 outname = "%s_%s_xia%02d_%04d_0000"%(scanname,parsename,idet,scannumber)
                             files, labels = fitter(filestofit[i],
                                                         config["outfitpath"],outname,cfg,stackvalue,
-                                                        fast=config["fastfitting"])
+                                                        fast=config["fastfitting"],mlines=config["mlines"])
 
                             # Append images
                             detname = detectorname(config,ndet,idet)

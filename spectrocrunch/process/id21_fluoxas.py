@@ -39,7 +39,7 @@ from .proc_crop import execute as execcrop
 from . proc_common import defaultstack
 from . proc_common import flattenstacks
 
-def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim):
+def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim,mlines={}):
     bfit = cfgfile is not None
     if not bfit:
         cfgfile = os.path.join(destpath,scanname[0]+".cfg")
@@ -70,6 +70,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stac
 
             # Configuration for fitting
             "detectorcfg": [cfgfile],
+            "mlines": mlines,
             "fit": bfit,
             "fastfitting": True,
             "addbeforefitting": False,
@@ -96,7 +97,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stac
 
 def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,\
         refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,\
-        crop=False,roialign=None,plot=True):
+        crop=False,roialign=None,plot=True,mlines={}):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
@@ -114,7 +115,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
         stacks, axes = getstacks(h5file,["counters","detector0"])
     else:
         logger.info("Creating image stacks ...")
-        jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim)
+        jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim,mlines=mlines)
         stacks, axes = makestacks(jsonfile)
 
         #stacks2, axes2 = getstacks(h5file,["counters","detector0"])

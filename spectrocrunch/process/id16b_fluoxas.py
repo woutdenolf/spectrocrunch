@@ -39,7 +39,7 @@ from .proc_crop import execute as execcrop
 from . proc_common import defaultstack
 from . proc_common import flattenstacks
 
-def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,stackdim,counters=[]):
+def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,stackdim,counters=[],mlines={}):
     bfit = cfgfiles is not None
 
     if not isinstance(sourcepath,list):
@@ -73,6 +73,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
 
             # Configuration for fitting
             "detectorcfg": cfgfiles,
+            "mlines": mlines,
             "fit": bfit,
             "fastfitting": True,
             "addbeforefitting": False, # sum spectra
@@ -97,7 +98,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
 
 def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,\
         refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,\
-        crop=False,roialign=None,plot=True,counters=[]):
+        crop=False,roialign=None,plot=True,counters=[],mlines={}):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
@@ -115,7 +116,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
         stacks, axes = getstacks(h5file,["counters","detectorsum"])
     else:
         logger.info("Creating image stacks ...")
-        jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim,counters=counters)
+        jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim,counters=counters,mlines=mlines)
         stacks, axes = makestacks(jsonfile)
 
         #stacks2, axes2 = getstacks(h5file,["counters","detectorsum"])
