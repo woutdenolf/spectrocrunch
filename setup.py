@@ -119,8 +119,8 @@ classifiers = [get_devstatus(),
                ]
 
 # Needed for using Spectrocrunch
-install_requires = ["numpy", "scipy", "h5py", "fabio", "SimpleITK", "sift_pyocl", "pyparsing", "fdmnes", "PyMca5"]
-# , "xraylib", "cctbx"
+install_requires = ["numpy", "scipy", "h5py", "fabio", "sift_pyocl", "pyparsing", "PyMca5"]
+# Non pip: "xraylib", "cctbx", "fdmnes", "SimpleITK"
 
 # Needed for running the setup script
 setup_requires = ["testfixtures", "setuptools_scm"] 

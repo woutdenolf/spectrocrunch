@@ -113,10 +113,11 @@ class alignElastix(align):
         """Get transformation from alignment kernel.
         """
         transformParameterMap = self.elastix.GetTransformParameterMap()
-        params = np.array(transformParameterMap[0]["TransformParameters"], self.dtype)
         cof = self.idcof.copy()
-        cof[0,2] = params[0]
-        cof[1,2] = params[1]
+        if len(transformParameterMap)>=1:
+            params = np.array(transformParameterMap[0]["TransformParameters"], self.dtype)
+            cof[0,2] = params[0]
+            cof[1,2] = params[1]
         return cof
 
     def set_transformation(self,cof,changed):

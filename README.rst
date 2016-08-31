@@ -14,39 +14,6 @@ Run a single test:
 
     python -m spectrocrunch.align.tests.test_teststack
 
-Dependencies on bare python 2.7
-===============================
-    
-    pip install setuptools_scm
-    pip install numpy
-    pip install scipy
-    pip install pylab 
-    yum install hdf5-devel
-    pip install h5py 
-    pip install fabio 
-    pip install testfixtures
-
-    yum install cmake
-    git clone https://github.com/kaspermarstal/SimpleElastix
-    mkdir build
-    cd build
-    cmake ../SimpleElastix/SuperBuild
-    make
-    cd ./SimpleITK-build/Wrapping/PythonPackage
-    python setup.py install
-
-    pip install mako 
-    pip install cffi
-    pip install pyopencl
-    wget https://github.com/woutdenolf/sift_pyocl/archive/master.zip
-    unzip master
-    cd sift_pyocl-master
-    python setup.py install
-        needed to change:
-            add cl_buffer_region typedef in wrap_cl.h
-
-    #pip install http://sourceforge.net/projects/pymca/files/pymca/PyMca5.1.1/
-
 
 Installation
 ============
