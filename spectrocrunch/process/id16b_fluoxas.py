@@ -39,7 +39,9 @@ from .proc_crop import execute as execcrop
 from . proc_common import defaultstack
 from . proc_common import flattenstacks
 
-def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,stackdim,counters=[],mlines={}):
+def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,stackdim,\
+                    counters=[],normcounter=None,mlines={},addbeforefit=True,\
+                    exclude_detectors=[]):
     bfit = cfgfiles is not None
 
     if not isinstance(sourcepath,list):
@@ -48,12 +50,8 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
         scanname = [scanname]
     if not isinstance(scannumbers,list):
         scannumbers = [scannumbers]
-
-    if len(counters)==0:
-        counters = ["zap_p201_I0","zap_p201_IC","zap_p201_It","arr_srcurr","xmap_nika","xmap_tika","xmap_feka","xmap_kka","xmap_caka","xmap_crka"]
-    else:
-        if "arr_srcurr" not in counters:
-            counters.append("arr_srcurr")
+    if not isinstance(cfgfiles,list):
+        cfgfiles = [cfgfiles]
 
     config = {
             # Input
@@ -76,9 +74,9 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
             "mlines": mlines,
             "fit": bfit,
             "fastfitting": True,
-            "addbeforefitting": False, # sum spectra
-            "addafterfitting": True, # sum fit results and detector counters
-            "exclude_detectors":[0,1,5],
+            "addbeforefitting": addbeforefit, # sum spectra
+            "addafterfitting": not addbeforefit, # sum fit results and detector counters
+            "exclude_detectors":exclude_detectors,
 
             # Output directories
             "outdatapath": os.path.join(destpath,scanname[0]+"_data"),
@@ -98,7 +96,8 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
 
 def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,\
         refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,\
-        crop=False,roialign=None,plot=True,counters=[],mlines={}):
+        crop=False,roialign=None,plot=True,counters=[],normcounter=None,mlines={},\
+        addbeforefit=True,exclude_detectors=[]):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
@@ -116,7 +115,10 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
         stacks, axes = getstacks(h5file,["counters","detectorsum"])
     else:
         logger.info("Creating image stacks ...")
-        jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim,counters=counters,mlines=mlines)
+        jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,\
+                                            cfgfile,dtcor,stackdim,counters=counters,\
+                                            normcounter=normcounter,mlines=mlines,\
+                                            addbeforefit=addbeforefit,exclude_detectors=exclude_detectors)
         stacks, axes = makestacks(jsonfile)
 
         #stacks2, axes2 = getstacks(h5file,["counters","detectorsum"])
@@ -133,8 +135,8 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
     copygroups = ["coordinates"]
 
     # I0 normalization
-    if not skipnormalization:
-        h5file,stacks,axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,["arr_srcurr"],["arr_srcurr"])
+    if not skipnormalization and normcounter is not None:
+        h5file,stacks,axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,[normcounter],[normcounter])
 
     # Alignment
     if alignmethod is None or alignreference is None:

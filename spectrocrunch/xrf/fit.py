@@ -48,6 +48,11 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
         addhigh(Optional(num)): add high primary energy with very low weight
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
     """
+
+    # Nothing to do
+    if energy is np.nan and len(mlines)==0:
+        return
+
     # Read the configuration
     if not os.path.exists(cfg):
         raise IOError("File <%s> does not exists" % cfg)
@@ -56,43 +61,44 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
     if len(configuration)==0:
         raise IOError("File <%s> couldn't be loaded" % cfg)
 
-    # Adapt the configuration
-    ftype = type(configuration["fit"]["energyweight"][0])
-    itype = type(configuration["fit"]["energyflag"][0])
-    n = len(configuration["fit"]["energy"])
+    if enery is not np.nan:
+        # Adapt the configuration
+        ftype = type(configuration["fit"]["energyweight"][0])
+        itype = type(configuration["fit"]["energyflag"][0])
+        n = len(configuration["fit"]["energy"])
 
-    # Adapt energy
-    sourcelines = [None]*n
-    sourcelines[0] = ftype(energy)
-    if addhigh:
-        sourcelines[1] = ftype(3*energy)
-    configuration["fit"]["energy"] = sourcelines
+        # Adapt energy
+        sourcelines = [None]*n
+        sourcelines[0] = ftype(energy)
+        if addhigh:
+            sourcelines[1] = ftype(3*energy)
+        configuration["fit"]["energy"] = sourcelines
 
-    sourcelines = [ftype(0)]*n
-    if addhigh:
-        sourcelines[0] = ftype(1e100)
-        sourcelines[1] = ftype(1e-5)
-    else:
-        sourcelines[0] = ftype(1)
-    configuration["fit"]["energyweight"] = sourcelines
+        sourcelines = [ftype(0)]*n
+        if addhigh:
+            sourcelines[0] = ftype(1e100)
+            sourcelines[1] = ftype(1e-5)
+        else:
+            sourcelines[0] = ftype(1)
+        configuration["fit"]["energyweight"] = sourcelines
 
-    sourcelines = [itype(0)]*n
-    sourcelines[0] = itype(1)
-    if addhigh:
-        sourcelines[1] = itype(1)
-    configuration["fit"]["energyflag"] = sourcelines
+        sourcelines = [itype(0)]*n
+        sourcelines[0] = itype(1)
+        if addhigh:
+            sourcelines[1] = itype(1)
+        configuration["fit"]["energyflag"] = sourcelines
 
-    sourcelines = [itype(0)]*n
-    sourcelines[0] = itype(1)
-    configuration["fit"]["energyscatter"] = sourcelines
+        sourcelines = [itype(0)]*n
+        sourcelines[0] = itype(1)
+        configuration["fit"]["energyscatter"] = sourcelines
 
-    # Dummy matrix (aparently needed for multi-energy)
-    if (configuration["attenuators"]["Matrix"][0]==0 and addhigh):
-        density = configuration["materials"]["Air"]["Density"]
-        configuration["attenuators"]["Matrix"][0] = 1
-        configuration["attenuators"]["Matrix"][1] = "Air"
-        configuration["attenuators"]["Matrix"][2] = density
-        configuration["attenuators"]["Matrix"][3] = density*0 # thickness in cm
+        # Dummy matrix (aparently needed for multi-energy)
+        if (configuration["attenuators"]["Matrix"][0]==0 and addhigh):
+            density = configuration["materials"]["Air"]["Density"]
+            configuration["attenuators"]["Matrix"][0] = 1
+            configuration["attenuators"]["Matrix"][1] = "Air"
+            configuration["attenuators"]["Matrix"][2] = density
+            configuration["attenuators"]["Matrix"][3] = density*0 # thickness in cm
 
     # Split M-lines
     # You need an adapted pymca version: Elements

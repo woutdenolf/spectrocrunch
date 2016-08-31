@@ -28,23 +28,33 @@ import logging
 import numpy as np
 import h5py
 import re
+from glob import glob
 from PyMca5.PyMcaIO import EdfFile
 
 from spectrocrunch.xrf.parse_xia import parse_xia_esrf
 from spectrocrunch.xrf.fit import PerformBatchFit as fitter
 import spectrocrunch.io.nexus as nexus
 
-def filecounter(sourcepath,scanname,counter,scannumber,idet=None):
-    if counter=="xia":
-        filename = "%s_%sst_%04d_0000_0000.edf"%(scanname,counter,scannumber)
-    elif idet is not None:
-        filename = "%s_%s_%02d_%04d_0000.edf"%(scanname,counter,idet,scannumber) #ID21
-        if not os.path.isfile(os.path.join(sourcepath,filename)):
-            filename = "%s_%s%02d_%04d_0000.edf"%(scanname,counter,idet,scannumber) #ID16b
+def filecounter(sourcepath,scanname,counter,scannumber,idet=None,getcount=False):
+    if getcount:
+        f = '*'
     else:
-        filename = "%s_%s_%04d_0000.edf"%(scanname,counter,scannumber)
+        f = '0000'
+
+    if counter=="xia":
+        filename = "%s_%sst_%04d_0000_%s.edf"%(scanname,counter,scannumber,f)
+    elif idet is not None:
+        filename = "%s_%s_%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f) #ID21
+        if not os.path.isfile(os.path.join(sourcepath,filename)):
+            filename = "%s_%s%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f) #ID16b
+    else:
+        filename = "%s_%s_%04d_%s.edf"%(scanname,counter,scannumber,f)
     counterfile = os.path.join(sourcepath,filename)
-    return counterfile
+
+    if getcount:
+        return len(glob(counterfile))
+    else:
+        return counterfile
 
 def detectorname(config,ndet,idet,counter=False):
     if ndet == 0:
@@ -106,9 +116,10 @@ def getscanpositions(config,header):
     """
     ret = None
     if "scanlabel" in config:
-        cmd = header[config["scanlabel"]]
-        if "zapimage" in cmd:
-            ret = parsezapimage(cmd)
+        if config["scanlabel"] in header:
+            cmd = header[config["scanlabel"]]
+            if "zapimage" in cmd:
+                ret = parsezapimage(cmd)
     elif "fastlabel" in config and "slowlabel" in config:
         
         label = config["fastlabel"]
@@ -194,18 +205,34 @@ def getimagestacks(config):
             stackvalue = np.nan
             for metacounter in config["metacounters"]:
                 try:
-                    metafilename = filecounter(sourcepath,scanname,metacounter,scannumber,idet=0 if "xmap" in metacounter else None)
+                    if "xmap" in metacounter:
+                        idet = 0
+                    else:
+                        idet = None
+                    metafilename = filecounter(sourcepath,scanname,metacounter,scannumber,idet=idet)
                     metafile = EdfFile.EdfFile(metafilename)
                     header = metafile.GetHeader(0)
+                    
                     if iscan == 0 and ipath == 0:
-                        motfast,motslow,sfast,sslow = getscanpositions(config,header)
+                        try:
+                            motfast,motslow,sfast,sslow = getscanpositions(config,header)
+                        except:
+                            motfast = "fast"
+                            motslow = "slow"
+
+                            tmp = int(metafile.Images[0].StaticHeader["Dim_2"])
+                            sfast = {"name":motfast,"data":np.arange(tmp)}
+
+                            tmp = filecounter(sourcepath,scanname,metacounter,scannumber,idet=idet,getcount=True)
+                            sslow = {"name":motslow,"data":np.arange(tmp)}
+                            
                         stackaxes[imgdim[1]] = sfast
                         stackaxes[imgdim[0]] = sslow
                         stackaxes[stackdim] = {"name":str(config["stacklabel"]),"data":np.full(nscanstot,np.nan,dtype=np.float32)}
-
                         coordinates = {mot:np.float32(header[mot]) for mot in config["coordinates"] if mot != motfast and mot != motslow and mot in header}
 
-                    stackvalue = np.float(header[config["stacklabel"]])
+                    if config["stacklabel"] in header:
+                        stackvalue = np.float(header[config["stacklabel"]])
                     break
                 except:
                     logger.exception("Something wrong with extracting info from meta file {}.".format(metafilename))
