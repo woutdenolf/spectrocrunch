@@ -39,7 +39,7 @@ from .proc_crop import execute as execcrop
 from . proc_common import defaultstack
 from . proc_common import flattenstacks
 
-def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim,mlines={}):
+def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim,mlines={},microdiff=False):
     bfit = cfgfile is not None
     if not bfit:
         cfgfile = os.path.join(destpath,scanname[0]+".cfg")
@@ -51,19 +51,29 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stac
     if not isinstance(scannumbers,list):
         scannumbers = [scannumbers]
 
+    if microdiff:
+        counters = ["zap_iodet","zap_idet","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c"]
+        motors = ["samh", "samv", "samd", "samph", "sampv"]
+        counter_reldir = ".."
+    else:
+        counters = ["arr_iodet","arr_idet","arr_absorp1","arr_absorp2","arr_absorp3","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c"]
+        motors = ["samy", "samz", "samx", "sampy", "sampz"]
+        counter_reldir = "."
+
     config = {
             # Input
             "sourcepath": sourcepath,
             "scanname": scanname,
             "scannumbers": scannumbers,
-            "counters": ["arr_iodet","arr_idet","arr_absorp1","arr_absorp2","arr_absorp3","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c"],
+            "counters": counters,
+            "counter_reldir": counter_reldir,
 
             # Meta data
-            "metacounters": ["arr_iodet","arr_idet","arr_absorp1","arr_absorp2","arr_absorp3","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c"],
+            "metacounters": counters,
             "stacklabel": "DCM_Energy",
             "fastlabel": "fast",
             "slowlabel": "slow",
-            "coordinates": ["samy", "samz", "samx", "sampy", "sampz"],
+            "coordinates": motors,
 
             # Deadtime correction
             "dtcor": dtcor,
@@ -93,11 +103,9 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stac
 
     return jsonfile,config["hdf5output"]
 
-
-
 def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,\
         refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,\
-        crop=False,roialign=None,plot=True,mlines={}):
+        crop=False,roialign=None,plot=True,mlines={},microdiff=False):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
@@ -115,7 +123,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
         stacks, axes = getstacks(h5file,["counters","detector0"])
     else:
         logger.info("Creating image stacks ...")
-        jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim,mlines=mlines)
+        jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim,mlines=mlines,microdiff=microdiff)
         stacks, axes = makestacks(jsonfile)
 
         #stacks2, axes2 = getstacks(h5file,["counters","detector0"])
@@ -133,12 +141,16 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
 
     # I0 normalization
     if not skipnormalization:
-        h5file,stacks,axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,["arr_iodet"],["arr_absorp1","arr_absorp2","arr_absorp3","arr_iodet"],stackdim=stackdim)
+        if microdiff:
+            normcounter = "zap_iodet"
+        else:
+            normcounter = "arr_iodet"
+        h5file,stacks,axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,[normcounter],["arr_absorp1","arr_absorp2","arr_absorp3",normcounter],stackdim=stackdim)
 
     # Alignment
     if alignmethod is None or alignreference is None:
         timing.printtimeelapsed(T0,logger)
-        exit()
+        return
     else:
         h5file,stacks,axes = align(h5file,stacks,axes, copygroups, bsamefile, default,\
             alignmethod, alignreference, refimageindex, cropalign, roialign, plot, stackdim)
@@ -155,4 +167,3 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
         execcrop(h5file, stacks, axes, copygroups, bsamefile, default, cropinfo)
     
     timing.printtimeelapsed(T0,logger)
-

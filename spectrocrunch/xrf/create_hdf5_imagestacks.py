@@ -194,7 +194,9 @@ def getimagestacks(config):
                          config["addbeforefitting"]==False
     nfilestofit = None
     for ipath in range(npaths):
-        sourcepath = config["sourcepath"][ipath]
+        counterpath = os.path.abspath(os.path.join(config["sourcepath"][ipath],config["counter_reldir"]))
+        xrfpath = config["sourcepath"][ipath]
+        
         scanname = config["scanname"][ipath]
         nscans = len(config["scannumbers"][ipath])
 
@@ -209,7 +211,7 @@ def getimagestacks(config):
                         idet = 0
                     else:
                         idet = None
-                    metafilename = filecounter(sourcepath,scanname,metacounter,scannumber,idet=idet)
+                    metafilename = filecounter(counterpath,scanname,metacounter,scannumber,idet=idet)
                     metafile = EdfFile.EdfFile(metafilename)
                     header = metafile.GetHeader(0)
                     
@@ -223,7 +225,7 @@ def getimagestacks(config):
                             tmp = int(metafile.Images[0].StaticHeader["Dim_2"])
                             sfast = {"name":motfast,"data":np.arange(tmp)}
 
-                            tmp = filecounter(sourcepath,scanname,metacounter,scannumber,idet=idet,getcount=True)
+                            tmp = filecounter(counterpath,scanname,metacounter,scannumber,idet=idet,getcount=True)
                             sslow = {"name":motslow,"data":np.arange(tmp)}
                             
                         stackaxes[imgdim[1]] = sfast
@@ -247,7 +249,7 @@ def getimagestacks(config):
                 parsename = "raw"
             parsename = "%%0%dd_%s"%(np.int(np.floor(np.log10(npaths)))+1,parsename)%(ipath)
 
-            filestofit,detnums = parse_xia_esrf(sourcepath,scanname,
+            filestofit,detnums = parse_xia_esrf(xrfpath,scanname,
                     scannumber,config["outdatapath"],parsename,add=config["addbeforefitting"],
                     exclude_detectors=config["exclude_detectors"],deadtime=config["dtcor"],
                     onlycountdetectors=onlycountdetectors)
@@ -302,11 +304,11 @@ def getimagestacks(config):
                     for counter in detcounters:
                         stacks[detname][counter] = [""]*nscanstot
                 for counter in detcounters:
-                    stacks[detname][counter][iscanoffset+iscan] = filecounter(sourcepath,scanname,counter,scannumber,idet=idet)
+                    stacks[detname][counter][iscanoffset+iscan] = filecounter(counterpath,scanname,counter,scannumber,idet=idet)
 
             # Append counters
             for counter in counters:
-                stacks["counters"][counter][iscanoffset+iscan] = filecounter(sourcepath,scanname,counter,scannumber)
+                stacks["counters"][counter][iscanoffset+iscan] = filecounter(counterpath,scanname,counter,scannumber)
         
         iscanoffset += nscans
 

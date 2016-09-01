@@ -59,6 +59,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
             "scanname": scanname,
             "scannumbers": scannumbers,
             "counters": counters,
+            "counter_reldir": ".",
 
             # Meta data
             "metacounters": ["xia"], # get meta data from the spectrum headers
@@ -141,7 +142,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
     # Alignment
     if alignmethod is None or alignreference is None:
         timing.printtimeelapsed(T0,logger)
-        exit()
+        return
     else:
         h5file,stacks,axes = align(h5file,stacks,axes, copygroups, bsamefile, default,\
             alignmethod, alignreference, refimageindex, cropalign, roialign, plot, stackdim)
