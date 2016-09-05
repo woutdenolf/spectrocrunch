@@ -69,6 +69,12 @@ class align(object):
 
         self.doplot = plot
 
+    def enableplot():
+        self.doplot = True
+
+    def disableplot():
+        self.doplot = False
+
     def plot(self,img,index,title):
         """Visualize alignment in progress
         """

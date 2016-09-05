@@ -61,7 +61,7 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
     if len(configuration)==0:
         raise IOError("File <%s> couldn't be loaded" % cfg)
 
-    if enery is not np.nan:
+    if energy is not np.nan:
         # Adapt the configuration
         ftype = type(configuration["fit"]["energyweight"][0])
         itype = type(configuration["fit"]["energyflag"][0])
