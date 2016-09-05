@@ -69,10 +69,10 @@ class align(object):
 
         self.doplot = plot
 
-    def enableplot():
+    def enableplot(self):
         self.doplot = True
 
-    def disableplot():
+    def disableplot(self):
         self.doplot = False
 
     def plot(self,img,index,title):
