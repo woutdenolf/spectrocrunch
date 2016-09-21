@@ -28,6 +28,8 @@ import SimpleITK as sitk
 import numpy as np
 from spectrocrunch.common.stdout import stdout_redirect
 from .types import transformationType
+import logging
+import traceback
 
 class alignElastix(align):
 
@@ -109,21 +111,38 @@ class alignElastix(align):
             self.fixed = sitk.GetImageFromArray(img)
         self.elastix.SetFixedImage(self.fixed)
 
+    def elastix_GetTransformParameterMap(self):
+        n = self.elastix.GetNumberOfParameterMaps()
+        if (n==0):
+            logger = logging.getLogger(__name__)
+            logger.info("Elastix couldn't align images")
+            return []
+        else:
+            try:
+                return self.elastix.GetTransformParameterMap()
+            except:
+                logger = logging.getLogger(__name__)
+                #logger.debug(traceback.format_exc())
+                logger.info("Elastix couldn't align images")
+                return []
+
     def get_transformation(self):
         """Get transformation from alignment kernel.
         """
-        transformParameterMap = self.elastix.GetTransformParameterMap()
         cof = self.idcof.copy()
+
+        transformParameterMap = self.elastix_GetTransformParameterMap()
         if len(transformParameterMap)>=1:
             params = np.array(transformParameterMap[0]["TransformParameters"], self.dtype)
             cof[0,2] = params[0]
             cof[1,2] = params[1]
+        
         return cof
 
     def set_transformation(self,cof,changed):
         """Set the transformation kernel according to the alignment kernel and adapted transformation
         """
-        transformParameterMap = self.elastix.GetTransformParameterMap()
+        transformParameterMap = self.elastix_GetTransformParameterMap()
         if changed:
             if self.transfotype==transformationType.translation:
                 transformParameterMap[0]["TransformParameters"] = (str(cof[0,2]),str(cof[1,2]))
@@ -139,7 +158,7 @@ class alignElastix(align):
         self.transformix.SetTransformParameterMap(transformParameterMap)
 
     def changefortransform(self,shape):
-        transformParameterMap = self.elastix.GetTransformParameterMap()
+        transformParameterMap = self.elastix_GetTransformParameterMap()
 
         oldshape = (int(transformParameterMap[0]["Size"][1]),int(transformParameterMap[0]["Size"][0]))
         if shape==oldshape:

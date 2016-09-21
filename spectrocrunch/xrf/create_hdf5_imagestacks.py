@@ -313,7 +313,7 @@ def getimagestacks(config):
         iscanoffset += nscans
 
     # Sort stack on stack axis value
-    ind = np.argsort(stackaxes[stackdim]["data"])
+    ind = np.argsort(stackaxes[stackdim]["data"],kind='mergesort')
     stackaxes[stackdim]["data"] = stackaxes[stackdim]["data"][ind]
     for s in stacks:
         group = stacks[s]

@@ -486,8 +486,9 @@ class align(object):
                     imgaligned = rawprep
                 else:
                     # Align image i to reference
-                    self.plot(rawprep,3,"To align %d"%i)
+                    
                     imgaligned = self.execute_alignkernel(rawprep)
+                    self.plot(rawprep,3,"To align %d"%i)
                     self.plot(imgaligned,2,"Aligned %d"%i)
                     self.gettransformation(i,pairwise)
 

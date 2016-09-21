@@ -47,6 +47,11 @@ class alignSift(align):
         self.inshape = self.source.imgsize
         self.outshape = self.source.imgsize
 
+        if min(self.inshape)<=5:
+            sift.param.par["BorderDist"] = 0
+        if 3*(2 * sift.param.par["BorderDist"] + 2) > min(self.inshape):
+            sift.param.par["BorderDist"] = 1
+
         self.newsiftplan()
         self.matchplan = sift.MatchPlan(context=self.ctx, max_workgroup_size=self.max_workgroup_size)
         self.kp1 = None
