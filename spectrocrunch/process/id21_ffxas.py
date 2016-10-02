@@ -132,7 +132,7 @@ def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
             logger.error("Nothing to normalize with.")
             raise ValueError("Set flatbefore or flatafter to True.")
 
-        file_normalized, Ifn_stacks,Ifn_axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,snorm,snorm,stackdim=stackdim,copyskipped=False)
+        file_normalized, Ifn_stacks,Ifn_axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,snorm,snorm,stackdim=stackdim,copyskipped=False,minlog=True)
 
     # Alignment
     if alignmethod is not None and not skipalign:

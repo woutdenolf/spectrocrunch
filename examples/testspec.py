@@ -22,44 +22,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import numpy as np
-import scipy.optimize
-import warnings
+# Don't use the installed version
+import os, sys
+sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-def gaussian(x,y,x0,y0,sx,sy,rho,A):
-    num = (x-x0)**2/sx**2 - 2*rho/(sx*sy)*(x-x0)*(y-y0) + (y-y0)**2/sy**2
-    denom = 2*(1-rho**2)
-    return A/(2*np.pi*sx*sy*np.sqrt(1-rho**2))*np.exp(-num/denom)
+from spectrocrunch.visualization.id21_showspec import shape_spec,shape_hdf5,plot
 
-def errorf_gaussian(p,x,y,data):
-    x0,y0,sx,sy,rho,A = tuple(p)
-    return np.ravel(gaussian(x,y,x0,y0,sx,sy,rho,A)-data)
+lst = []
+lst += [shape_spec("/data/id21/inhouse/16sep/fXAS_blc/spec/16090801.dat",2,labels=["arr_absorp2"],noborder=True,cmap="gray")]
+lst += [shape_spec("/data/id21/inhouse/16sep/fXAS_blc/spec/16090801.dat",8+158,labels=["arr_absorp2"])]
+lst += [shape_hdf5("/data/id21/inhouse/16sep/fXAS_blc/procstack/sludge4_fluoXAS_2.h5",["/counters/arr_absorp2"],158)]
+#lst += [shape_spec("/data/id21/inhouse/16sep/fXAS_blc/spec/16090801.dat",216+140,labels=["arr_absorp2"])]
+#lst += [shape_spec("/data/id21/inhouse/16sep/fXAS_blc/spec/16090801.dat",397+140,labels=["arr_absorp2"])]
 
-def guess_gaussian(x,y,data):
-    y0,x0 = np.unravel_index(np.argmax(data),data.shape)
-    y0 = y[y0,0]
-    x0 = x[0,x0]
+plot(lst)
 
-    xv = x[y0,:]-x0
-    yv = data[y0,:]
-    sx = np.sqrt(abs(xv**2*yv).sum()/yv.sum())
-    xv = y[:,x0]-y0
-    yv = data[:,x0]
-    sy = np.sqrt(abs(xv**2*yv).sum()/yv.sum())
-    rho = 0.
 
-    A = data[y0,x0]*2*np.pi*sx*sy*np.sqrt(1-rho**2)
 
-    return np.array([x0,y0,sx,sy,rho,A],dtype=np.float32)
-
-def fitgaussian(data):
-    y, x = np.indices(data.shape) # TODO: keep 1D
-    guess = guess_gaussian(x,y,data)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        p, success = scipy.optimize.leastsq(errorf_gaussian, guess, args=(x,y,data))
-        success = success>0 and success<5
-
-    return p, success
 

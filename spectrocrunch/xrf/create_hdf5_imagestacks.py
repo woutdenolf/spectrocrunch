@@ -162,7 +162,7 @@ def getimagestacks(config):
                          {"name":"name3","data":np.array}]
 
         The third element is a dictionary of static coordinates:
-            coordinates = {"varname1":value1, "varname2":value2, ...}
+            coordinates = {"varname1":np.array, "varname2":np.array, ...}
     """
 
     logger = logging.getLogger(__name__)
@@ -227,13 +227,25 @@ def getimagestacks(config):
                         stackaxes[imgdim[1]] = sfast
                         stackaxes[imgdim[0]] = sslow
                         stackaxes[stackdim] = {"name":str(config["stacklabel"]),"data":np.full(nscanstot,np.nan,dtype=np.float32)}
-                        coordinates = {mot:np.float(header[mot]) for mot in config["coordinates"] if mot != motfast and mot != motslow and mot in header}
 
+                        coordinates = {}
+                        for mot in config["coordinates"]:
+                            if mot != motfast and mot != motslow and mot in header:
+                                coordinates[mot] = np.full(nscanstot,np.nan)
+                    
+                    # Get coordinates
+                    for mot in coordinates:
+                        if mot in header:
+                            coordinates[mot][iscanoffset+iscan] = np.float(header[mot])
+                            
+                    # Get stack value
                     if config["stacklabel"] in header:
                         stackvalue = np.float(header[config["stacklabel"]])
                     break
                 except:
                     logger.exception("Something wrong with extracting info from meta file {}.".format(metafilename))
+
+            # Stack axis
             if stackaxes[stackdim] is None:
                 raise IOError("Metacounter files are not present, corrupted or not the right format.")
             stackaxes[stackdim]["data"][iscanoffset+iscan] = stackvalue
@@ -311,6 +323,8 @@ def getimagestacks(config):
     # Sort stack on stack axis value
     ind = np.argsort(stackaxes[stackdim]["data"],kind='mergesort')
     stackaxes[stackdim]["data"] = stackaxes[stackdim]["data"][ind]
+    for mot in coordinates:
+        coordinates[mot] = coordinates[mot][ind]
     for s in stacks:
         group = stacks[s]
         for lstack in group:

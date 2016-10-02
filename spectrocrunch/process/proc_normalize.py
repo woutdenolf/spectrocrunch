@@ -30,7 +30,7 @@ from spectrocrunch.h5stacks.math_hdf5_imagestacks import copy_hdf5_imagestacks a
 from . import proc_common
 
 def execute(file_in,stacks_in,axes_in,copygroups,bsamefile,default,\
-            ionames,skipnames,stackdim=None,copyskipped=True):
+            ionames,skipnames,stackdim=None,copyskipped=True,minlog=False):
     logger = logging.getLogger(__name__)
     logger.info("I0 normalization ...")
 
@@ -51,12 +51,12 @@ def execute(file_in,stacks_in,axes_in,copygroups,bsamefile,default,\
 
     # Processing info
     if len(I0stacks)==1:
-        info = {"normalization":ionames[0]}
+        info = {"normalization":ionames[0],"minlog":minlog}
     else:
-        info = {"normalization":"("+str.join("+",ionames)+")/"+str(len(ionames))}
+        info = {"normalization":"("+str.join("+",ionames)+")/"+str(len(ionames)),"minlog":minlog}
 
     # Normalize
-    stacks_out, axes_out = fluxnormstacks(file_in,file_out,axes_in,I0stacks,innames,innames,overwrite=True,info=info,copygroups=copygroups,stackdim=stackdim)
+    stacks_out, axes_out = fluxnormstacks(file_in,file_out,axes_in,I0stacks,innames,innames,overwrite=True,info=info,copygroups=copygroups,stackdim=stackdim,minlog=minlog)
 
     # Copy unnormalized stacks when new file
     if copyskipped:

@@ -36,8 +36,8 @@ from .proc_normalize import execute as normalize
 from .proc_align import execute as align
 from .proc_replacevalue import execute as replacevalue
 from .proc_crop import execute as execcrop
-from . proc_common import defaultstack
-from . proc_common import flattenstacks
+from .proc_common import defaultstack
+from .proc_common import flattenstacks
 
 def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim,mlines={},microdiff=False):
     bfit = cfgfile is not None

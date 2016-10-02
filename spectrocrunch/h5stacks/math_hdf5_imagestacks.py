@@ -109,7 +109,7 @@ def math_hdf5_imagestacks(filein,fileout,axes,operation,varargs,fixedargs,ret,ex
 
     return retstacks, retaxes
 
-def fluxnorm_hdf5_imagestacks(filein,fileout,axes,I0stacks,stacks,retstack,overwrite=False,info=None,copygroups=None,stackdim=None):
+def fluxnorm_hdf5_imagestacks(filein,fileout,axes,I0stacks,stacks,retstack,overwrite=False,info=None,copygroups=None,stackdim=None,minlog=False):
     
     nI0 = len(I0stacks)
     if nI0 == 1:
@@ -123,6 +123,8 @@ def fluxnorm_hdf5_imagestacks(filein,fileout,axes,I0stacks,stacks,retstack,overw
         for i in range(1,nI0):
             expression += "+var_"+o.int2base(i)
         expression = "{}*var_a/({})".format(nI0,expression)
+    if minlog:
+        expression = "-ln({})".format(expression)
 
     operation = {"type":operationType.expression,"value":expression,"stackdim":stackdim,"sliced":stackdim is not None}
 
@@ -132,6 +134,17 @@ def fluxnorm_hdf5_imagestacks(filein,fileout,axes,I0stacks,stacks,retstack,overw
         varargs[i] = {"a":stacks[i]}
 
     return math_hdf5_imagestacks(filein,fileout,axes,operation,varargs,fixedargs,retstack,extension="norm",overwrite=overwrite,info=info,copygroups=copygroups)
+
+def minlog_hdf5_imagestacks(filein,fileout,axes,stacks,retstack,overwrite=False,info=None,copygroups=None,stackdim=None):
+    expression = "-ln(var_a)"
+    operation = {"type":operationType.expression,"value":expression,"stackdim":stackdim,"sliced":stackdim is not None}
+
+    nI = len(stacks)
+    varargs = [None]*nI
+    for i in range(nI):
+        varargs[i] = {"a":stacks[i]}
+
+    return math_hdf5_imagestacks(filein,fileout,axes,operation,varargs,{},retstack,extension="minlog",overwrite=overwrite,info=info,copygroups=copygroups)
 
 def copy_hdf5_imagestacks(filein,fileout,axes,stacks,retstack,overwrite=False,info=None,copygroups=None,stackdim=None):
     operation = {"type":operationType.copy,"sliced":stackdim is not None,"stackdim":stackdim}

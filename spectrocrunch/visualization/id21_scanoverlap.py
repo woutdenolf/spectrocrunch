@@ -56,7 +56,7 @@ def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fli
 
     # Interpolate
     for i in range(nimg):
-        f = interpolate.interp2d(x,y,images[i,...],kind='cubic')
+        f = interpolate.interp2d(x,y,images[i,...],kind='cubic') # Use another algorithm
         images[i,...] = f(xnew,ynew)
 
     # Plot range

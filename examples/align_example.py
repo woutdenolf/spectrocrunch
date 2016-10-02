@@ -56,6 +56,8 @@ def alignexample(t):
     # Source data (several image stacks)
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)),"testdata")
 
+    transfotype = transformationType.translation
+
     roi = None
     if t=="xrfxanes":
         source = os.path.join(path,t,"h5","rape5_XANESfull.h5")
@@ -74,15 +76,17 @@ def alignexample(t):
         refimageindex = 0
         alignclass = alignElastix
     elif t == "testdata":
-        source,offsets,stackdim = teststack(transformationType.translation)
+        transfotype = transformationType.similarity
+        source,relcof,stackdim = teststack(transfotype,nimages=2)
         #source[0]=source[0][...,0:2]
         #source[0][...,1] = source[0][...,0]
         sourcelist = None
         nstack = len(source)
         refdatasetindex = 0
-        refimageindex = None
-        alignclass = alignFFT
+        refimageindex = 0
+        alignclass = alignSift
         roi = None
+        #roi = ((5,-5),(2,-2))
         #roi = ((0,20),(60,79))
         #alignclass = alignMin
         #roi = ((10,30),(30,50))
@@ -93,11 +97,12 @@ def alignexample(t):
     outputstack = [np.zeros(1,dtype=np.float32)]*nstack
 
     # Align
-    o = alignclass(source,sourcelist,outputstack,None,None,stackdim=stackdim,overwrite=True,plot=True)
-    o.align(refdatasetindex,refimageindex = refimageindex,onraw = True,pad = True,crop = False,roi = roi)
+    o = alignclass(source,sourcelist,outputstack,None,None,stackdim=stackdim,overwrite=True,plot=True,transfotype=transfotype)
+    o.align(refdatasetindex,refimageindex = refimageindex,onraw = False,pad = True,crop = False,roi = roi)
 
-    if t == "testdata":
-        print(o.cofs)
+    #if t == "testdata":
+    #    print(relcof)
+    #    print(o.absolute_cofs())
 
 
     # Show result
