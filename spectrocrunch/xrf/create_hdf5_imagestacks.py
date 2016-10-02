@@ -34,6 +34,7 @@ from PyMca5.PyMcaIO import EdfFile
 from spectrocrunch.xrf.parse_xia import parse_xia_esrf
 from spectrocrunch.xrf.fit import PerformBatchFit as fitter
 import spectrocrunch.io.nexus as nexus
+from spectrocrunch.io.spec import zapline_values, ascan_values
 
 def filecounter(sourcepath,scanname,counter,scannumber,idet=None,getcount=False):
     if getcount:
@@ -97,16 +98,14 @@ def parsezapimage(cmd,name="zapimage"):
         motfast = str(result[0][0])
         start = np.float(result[0][1])
         end = np.float(result[0][2])
-        nstep = np.float(result[0][3])
-        inc = (end-start)/nstep
-        sfast = {"name":motfast,"data":np.arange(start,end,inc)} # nstep files
+        npixels = np.float(result[0][3])
+        sfast = {"name":motfast,"data":zapline_values(start,end,npixels)} 
 
         motslow = str(result[0][5])
         start = np.float(result[0][6])
         end = np.float(result[0][7])
-        nstep = np.float(result[0][8])
-        inc = (end-start)/nstep
-        sslow = {"name":motslow,"data":np.arange(start,end+inc,inc)} # nstep+1 files
+        nsteps = np.float(result[0][8])
+        sslow = {"name":motslow,"data":ascan_values(start,end,nsteps)} 
         return (motfast,motslow,sfast,sslow)
     else:
         return None
@@ -121,22 +120,19 @@ def getscanpositions(config,header):
             if "zapimage" in cmd:
                 ret = parsezapimage(cmd)
     elif "fastlabel" in config and "slowlabel" in config:
-        
         label = config["fastlabel"]
         motfast = str(header[label+"_mot"])
         start = np.float(header[label+"_start"])
         end = np.float(header[label+"_end"])
-        nstep = np.float(header[label+"_nbp"])
-        inc = (end-start)/nstep
-        sfast = {"name":motfast,"data":np.arange(start,end,inc)} # nstep files
+        npixels = np.float(header[label+"_nbp"])
+        sfast = {"name":motfast,"data":zapline_values(start,end,npixels)}
 
         label = config["slowlabel"]
         motslow = str(header[label+"_mot"])
         start = np.float(header[label+"_start"])
         end = np.float(header[label+"_end"])
-        nstep = np.float(header[label+"_nbp"])
-        inc = (end-start)/nstep
-        sslow = {"name":motslow,"data":np.arange(start,end+inc,inc)} # nstep+1 files
+        nsteps = np.float(header[label+"_nbp"])
+        sslow = {"name":motslow,"data":ascan_values(start,end,nsteps)}
 
         ret = (motfast,motslow,sfast,sslow)
 
@@ -231,7 +227,7 @@ def getimagestacks(config):
                         stackaxes[imgdim[1]] = sfast
                         stackaxes[imgdim[0]] = sslow
                         stackaxes[stackdim] = {"name":str(config["stacklabel"]),"data":np.full(nscanstot,np.nan,dtype=np.float32)}
-                        coordinates = {mot:np.float32(header[mot]) for mot in config["coordinates"] if mot != motfast and mot != motslow and mot in header}
+                        coordinates = {mot:np.float(header[mot]) for mot in config["coordinates"] if mot != motfast and mot != motslow and mot in header}
 
                     if config["stacklabel"] in header:
                         stackvalue = np.float(header[config["stacklabel"]])

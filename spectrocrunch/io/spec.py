@@ -23,6 +23,23 @@
 # THE SOFTWARE.
 
 from PyMca5.PyMcaCore import SpecFileDataSource
+import re
+import numpy as np
+
+def zapline_values(start,end,npixels):
+    inc = (end-start)/npixels
+    return start + inc/2 + inc*np.arange(npixels)
+
+def zapline_range(start,end,npixels):
+    inc = (end-start)/npixels
+    return [start + inc/2, end - inc/2]
+
+def ascan_values(start,end,nsteps):
+    inc = (end-start)/nsteps
+    return start + inc*np.arange(nsteps+1)
+
+def ascan_range(start,end,nsteps):
+    return [start,end]
 
 class spec(SpecFileDataSource.SpecFileDataSource):
     """An interface to a spec file
@@ -41,7 +58,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
     def getdata(self, scannumber, labelnames):
         """
         Args:
-            filename(str): file name
+            scannumber(num): spec scan number
             labelnames(list(str)): list of labels
 
         Returns:
@@ -83,8 +100,89 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         return data,info
         
     def getmotorvalues(self,scannumber,motors):
+        """Get start positions for the specified motors
+        """
         info = self.getKeyInfo("{:d}.1".format(scannumber))
         names = info["MotorNames"]
         values = info["MotorValues"]
         return [values[names.index(mot)] for mot in motors]
+
+    def getxialocation(self,scannumber):
+        info = self.getKeyInfo("{:d}.1".format(scannumber))
+
+        ret = {"DIRECTORY":"", "RADIX":"", "ZAP SCAN NUMBER":"", "ZAP IMAGE NUMBER":""}
+        for s in info["Header"]:
+            if s.startswith("#C "):
+                tmp = s[2:].split(":")
+                if len(tmp)==2:
+                    tmp = [s.strip() for s in tmp]
+                    if tmp[0] in ret:
+                        ret[tmp[0]] = tmp[1]
+        return ret
+
+    def getdimensions(self,scannumber,motors):
+        """Get scan dimensions for the specified motors
+        """
+        info = self.getKeyInfo("{:d}.1".format(scannumber))
+        names = info["MotorNames"]
+        values = info["MotorValues"]
+        cmd = info["Command"]
+
+        # Parse motor positions
+        ret = {mot:values[names.index(mot)] for mot in motors}
+        nrep = 1
+
+        # Parse command
+        fnumber = "(?:[+-]?[0-9]*\.?[0-9]+)"
+        inumber = "\d+"
+        blanks = "\s+"
+        motor = "[a-zA-Z]+"
+
+        scanname = cmd.split(' ')[0]
+        if scanname=="zapimage":
+            expr = scanname + blanks +\
+                   "("+ motor +")" + blanks +\
+                   "("+ fnumber +")" + blanks +\
+                   "("+ fnumber +")" + blanks +\
+                   "("+ inumber +")" + blanks +\
+                   "("+ inumber +")" + blanks +\
+                   "("+ motor +")" + blanks +\
+                   "("+ fnumber +")" + blanks +\
+                   "("+ fnumber +")" + blanks +\
+                   "("+ inumber +")"
+            result = re.findall(expr,cmd)
+
+            if len(result)==1:
+                motfast = str(result[0][0])
+                start = np.float(result[0][1])
+                end = np.float(result[0][2])
+                npixels = np.float(result[0][3])
+                if motfast in motors:
+                    ret[motfast] = np.array(zapline_range(start,end,npixels))
+
+                motslow = str(result[0][5])
+                start = np.float(result[0][6])
+                end = np.float(result[0][7])
+                nsteps = np.float(result[0][8])
+                if motslow in motors:
+                    ret[motslow] = np.array(ascan_range(start,end,nsteps))
+                nrep = 4
+
+        elif scanname=="ascan":
+            expr = scanname + blanks + \
+                   "("+ motor +")" + blanks +\
+                   "("+ fnumber +")" + blanks +\
+                   "("+ fnumber +")" + blanks +\
+                   "("+ inumber +")" + blanks +\
+                   "("+ fnumber +")"
+            result = re.findall(expr,cmd)
+
+            if len(result)==1:
+                motfast = str(result[0][0])
+                start = np.float(result[0][1])
+                end = np.float(result[0][2])
+                if motfast in motors:
+                    ret[motfast] = np.array([start,end])
+
+        return ret
 

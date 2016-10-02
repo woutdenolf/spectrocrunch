@@ -24,7 +24,7 @@
 
 import scipy.ndimage.interpolation
 import numpy as np
-import pylab
+from matplotlib import pyplot as plt
 
 from .alignSource import alignSource
 from .alignDest import alignDest
@@ -67,29 +67,30 @@ class align(object):
         self.idproj = np.zeros(2,dtype = self.dtype)
         self.idorigin = np.zeros(2,dtype = self.dtype)
 
-        self.doplot = plot
+        self.plotinfo = {"ON":plot,"fig":None,"axes":None}
 
     def enableplot(self):
-        self.doplot = True
+        self.plotinfo["ON"] = True
 
     def disableplot(self):
-        self.doplot = False
+        self.plotinfo["ON"] = False
 
     def plot(self,img,index,title):
         """Visualize alignment in progress
         """
-        if not self.doplot:
+        if not self.plotinfo["ON"]:
             return
-        #pylab.figure(index)
-        #pylab.clf()
 
-        pylab.figure(1)
-        pylab.subplot(130+index)
+        if self.plotinfo["fig"] is None:
+            self.plotinfo["fig"],self.plotinfo["axes"] = plt.subplots(1,3)
+        ax = self.plotinfo["axes"][index]
+        ax.cla()
+
         img2 = img.copy()
         img2[np.isnan(img2)] = 0
-        pylab.imshow(img2,origin='lower',interpolation='nearest')
-        pylab.title(title)
-        pylab.pause(0.01)
+        ax.imshow(img2,origin='lower',interpolation='nearest')
+        ax.set_title(title)
+        plt.pause(0.01)
 
     def pad(self,img):
         """Apply padding
@@ -462,13 +463,17 @@ class align(object):
                 # Pair-wise alignment: first image is the first reference
                 imgref = self.readimgrawprep(refdatasetindex,0)
                 iref = 0
-                self.plot(imgref,1,"Image %d (pair-wise)"%iref)
+                self.plot(imgref,0,"Image %d (pair-wise)"%iref)
             else:
                 # Fixed-reference alignment
                 rawprep = self.readimgrawprep(refdatasetindex,refimageindex)
                 iref = refimageindex
-                self.plot(rawprep,1,"Reference %d (fixed)"%iref)
+                self.plot(rawprep,0,"Reference %d (fixed)"%iref)
                 self.set_reference(rawprep)
+
+        #from pympler import tracker
+        #tr = tracker.SummaryTracker()
+        #s1 = None
 
         # Loop over the images
         for i in range(self.source.nimages):
@@ -486,10 +491,17 @@ class align(object):
                     imgaligned = rawprep
                 else:
                     # Align image i to reference
-                    
+
+                    #if s1 is None:
+                    #    s1 = tr.create_summary()
+
                     imgaligned = self.execute_alignkernel(rawprep)
-                    self.plot(rawprep,3,"To align %d"%i)
-                    self.plot(imgaligned,2,"Aligned %d"%i)
+                    #s2 = tr.create_summary()
+
+                    #tr.print_diff(summary1=s1,summary2=s2)
+
+                    self.plot(rawprep,2,"To align %d"%i)
+                    self.plot(imgaligned,1,"Aligned %d"%i)
                     self.gettransformation(i,pairwise)
 
                 # Reference for the next image

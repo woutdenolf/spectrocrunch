@@ -155,7 +155,7 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=Fa
         offhor(float)
         offvert(float)
     """
-    
+ 
     oh5 = h5py.File(hdf5filename)
 
     # Prepare global coordinates
@@ -223,6 +223,11 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=Fa
     pdim2 = np.empty(n)
     for i in range(n):
         v = ospec.getmotorvalues(specnumbers[i],motors)
+        if printpos:
+            print("Spec number {}",format(i))
+            for a,b in zip(motors,v):
+                print(" {} = {}".format(a,b))
+        
         pdim1[i] = v[0]*1000+v[1]+offsamz
         pdim2[i] = v[2]*1000+v[3]+offsamy
 

@@ -112,7 +112,10 @@ class alignElastix(align):
         self.elastix.SetFixedImage(self.fixed)
 
     def elastix_GetTransformParameterMap(self):
-        n = self.elastix.GetNumberOfParameterMaps()
+        if hasattr(self.elastix, "GetNumberOfParameterMaps"):
+            n = self.elastix.GetNumberOfParameterMaps()
+        else:
+            n = 1
         if (n==0):
             logger = logging.getLogger(__name__)
             logger.info("Elastix couldn't align images")
