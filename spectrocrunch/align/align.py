@@ -88,7 +88,7 @@ class align(object):
 
         img2 = img.copy()
         img2[np.isnan(img2)] = 0
-        ax.imshow(img2,origin='lower',interpolation='nearest')
+        ax.imshow(img2,origin='lower',interpolation='nearest',cmap='jet')
         ax.set_title(title)
         plt.pause(0.01)
 
@@ -463,7 +463,6 @@ class align(object):
                 # Pair-wise alignment: first image is the first reference
                 imgref = self.readimgrawprep(refdatasetindex,0)
                 iref = 0
-                self.plot(imgref,0,"Image %d (pair-wise)"%iref)
             else:
                 # Fixed-reference alignment
                 rawprep = self.readimgrawprep(refdatasetindex,refimageindex)
@@ -484,6 +483,7 @@ class align(object):
                 # Update fixed image
                 if pairwise:
                     self.set_reference(imgref)
+                    
 
                 # Get align transformation
                 if i == iref:
@@ -499,7 +499,8 @@ class align(object):
                     #s2 = tr.create_summary()
 
                     #tr.print_diff(summary1=s1,summary2=s2)
-
+                    if pairwise:
+                        self.plot(imgref,0,"Reference %d (pair-wise)"%(iref))
                     self.plot(rawprep,2,"To align %d"%i)
                     self.plot(imgaligned,1,"Aligned %d"%i)
                     self.gettransformation(i,pairwise)

@@ -34,7 +34,10 @@ import tempfile
 import time
 from scipy import interpolate
 import json
-import iotbx.cif
+try:
+    import iotbx.cif
+except:
+    pass
 
 from spectrocrunch.common.hashable import Hashable
 

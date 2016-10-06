@@ -24,7 +24,10 @@
 
 from .compound import compound
 from .types import fractionType
-import iotbx.cif
+try:
+    import iotbx.cif
+except:
+    pass
 import os
 
 class compoundfromcif(compound):

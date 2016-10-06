@@ -28,7 +28,7 @@ from ..types import transformationType
 from .teststack import teststack
 
 import numpy as np
-import pylab
+import matplotlib.pyplot as plt
 
 class test_teststack(unittest.TestCase):
 
@@ -53,10 +53,10 @@ class test_teststack(unittest.TestCase):
                     break # show only one
 
     def plot(self,img):
-        pylab.figure(1)
-        pylab.subplot(111)
-        pylab.imshow(img,origin='lower',interpolation='nearest')
-        pylab.pause(0.1)
+        plt.figure(1)
+        plt.subplot(111)
+        plt.imshow(img,origin='lower',interpolation='nearest')
+        plt.pause(0.1)
 
 def test_suite_all():
     """Test suite including all test suites"""

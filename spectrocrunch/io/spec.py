@@ -27,7 +27,7 @@ import re
 import numpy as np
 
 def zapline_values(start,end,npixels):
-    inc = (end-start)/npixels
+    inc = (end-start)/np.float(npixels)
     return start + inc/2 + inc*np.arange(npixels)
 
 def zapline_range(start,end,npixels):
@@ -35,11 +35,72 @@ def zapline_range(start,end,npixels):
     return [start + inc/2, end - inc/2]
 
 def ascan_values(start,end,nsteps):
-    inc = (end-start)/nsteps
+    inc = (end-start)/np.float(nsteps)
     return start + inc*np.arange(nsteps+1)
 
 def ascan_range(start,end,nsteps):
     return [start,end]
+
+class cmd_parser(object):
+    def __init__(self):
+        self.fnumber = "(?:[+-]?[0-9]*\.?[0-9]+)"
+        self.inumber = "\d+"
+        self.blanks = "\s+"
+        self.motor = "[a-zA-Z]+"
+
+    def parse(self,cmd):
+        scanname = cmd.split(' ')[0]
+        if scanname=="zapimage":
+            return self.parsezapimage(cmd)
+        elif scanname=="ascan":
+            return self.parseascan(cmd)
+        else:
+            return {'name':'unknown'}
+
+    def parsezapimage(self,cmd,name="zapimage"):
+        scanname = cmd.split(' ')[0]
+        expr = name + self.blanks +\
+                   "("+ self.motor +")" + self.blanks +\
+                   "("+ self.fnumber +")" + self.blanks +\
+                   "("+ self.fnumber +")" + self.blanks +\
+                   "("+ self.inumber +")" + self.blanks +\
+                   "("+ self.inumber +")" + self.blanks +\
+                   "("+ self.motor +")" + self.blanks +\
+                   "("+ self.fnumber +")" + self.blanks +\
+                   "("+ self.fnumber +")" + self.blanks +\
+                   "("+ self.inumber +")"
+        result = re.findall(expr,cmd)
+        if len(result)==1:
+            return {'name':name,\
+                    'motfast':str(result[0][0]),\
+                    'startfast':np.float(result[0][1]),\
+                    'endfast':np.float(result[0][2]),\
+                    'npixelsfast':np.int(result[0][3]),\
+                    'time':np.float(result[0][4]),\
+                    'motslow':str(result[0][5]),\
+                    'startslow':np.float(result[0][6]),\
+                    'endslow':np.float(result[0][7]),\
+                    'nstepsslow':np.int(result[0][8])}
+        else:
+            return {'name':'unknown'}
+
+    def parseascan(self,cmd,name="ascan"):
+        expr = name + self.blanks + \
+                   "("+ self.motor +")" + self.blanks +\
+                   "("+ self.fnumber +")" + self.blanks +\
+                   "("+ self.fnumber +")" + self.blanks +\
+                   "("+ self.inumber +")" + self.blanks +\
+                   "("+ self.fnumber +")"
+        result = re.findall(expr,cmd)
+        if len(result)==1:
+            return {'name':name,\
+                    'motfast':str(result[0][0]),\
+                    'startfast':np.float(result[0][1]),\
+                    'endfast':np.float(result[0][2]),\
+                    'nstepsfast':np.int(result[0][2]),\
+                    'time':np.float(result[0][2])}
+        else:
+            return {'name':'unknown'}
 
 class spec(SpecFileDataSource.SpecFileDataSource):
     """An interface to a spec file
@@ -54,6 +115,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
             ValueError: file cannot be loaded
         """
         SpecFileDataSource.SpecFileDataSource.__init__(self,filename)
+        self.parser = cmd_parser()
 
     def getdata(self, scannumber, labelnames):
         """
@@ -130,59 +192,36 @@ class spec(SpecFileDataSource.SpecFileDataSource):
 
         # Parse motor positions
         ret = {mot:values[names.index(mot)] for mot in motors}
-        nrep = 1
 
         # Parse command
-        fnumber = "(?:[+-]?[0-9]*\.?[0-9]+)"
-        inumber = "\d+"
-        blanks = "\s+"
-        motor = "[a-zA-Z]+"
+        result = self.parser.parse(cmd)
+        if result['name']=="zapimage":
+            if result['motfast'] in motors:
+                ret[result['motfast']] = np.array(zapline_range(result['startfast'],result['endfast'],result['npixelsfast']))
+            if result['motslow'] in motors:
+                ret[result['motslow']] = np.array(ascan_range(result['startslow'],result['endslow'],result['nstepsslow']))
+        elif result['name']=="ascan":
+            if result['motfast'] in motors:
+                ret[result['motfast']] = np.array(ascan_range(result['startfast'],result['endsfast'],result['nstepsfast']))
 
-        scanname = cmd.split(' ')[0]
-        if scanname=="zapimage":
-            expr = scanname + blanks +\
-                   "("+ motor +")" + blanks +\
-                   "("+ fnumber +")" + blanks +\
-                   "("+ fnumber +")" + blanks +\
-                   "("+ inumber +")" + blanks +\
-                   "("+ inumber +")" + blanks +\
-                   "("+ motor +")" + blanks +\
-                   "("+ fnumber +")" + blanks +\
-                   "("+ fnumber +")" + blanks +\
-                   "("+ inumber +")"
-            result = re.findall(expr,cmd)
+        return ret
 
-            if len(result)==1:
-                motfast = str(result[0][0])
-                start = np.float(result[0][1])
-                end = np.float(result[0][2])
-                npixels = np.float(result[0][3])
-                if motfast in motors:
-                    ret[motfast] = np.array(zapline_range(start,end,npixels))
+    def getzapimages(self):
+        ret = {}
+        for k in self.getSourceInfo()["KeyList"]:
 
-                motslow = str(result[0][5])
-                start = np.float(result[0][6])
-                end = np.float(result[0][7])
-                nsteps = np.float(result[0][8])
-                if motslow in motors:
-                    ret[motslow] = np.array(ascan_range(start,end,nsteps))
-                nrep = 4
+            info = self.getKeyInfo(k)
+            if info["Command"].startswith("zapimage"):
+                
+                h = info["Header"]
+                h = [i.split(":")[1].strip() for i in h if "#C " in i]
+                add = {"specnumber":k.split('.')[0],"scanname":h[1],"scannumber":h[2],"scandir":h[0],"scansize":""}
 
-        elif scanname=="ascan":
-            expr = scanname + blanks + \
-                   "("+ motor +")" + blanks +\
-                   "("+ fnumber +")" + blanks +\
-                   "("+ fnumber +")" + blanks +\
-                   "("+ inumber +")" + blanks +\
-                   "("+ fnumber +")"
-            result = re.findall(expr,cmd)
+                result = self.parser.parse(info["Command"])
+                if result['name']=="zapimage":
+                    add["scansize"] = "{} x {}".format(result['npixelsfast'],result['nstepsslow']+1)
 
-            if len(result)==1:
-                motfast = str(result[0][0])
-                start = np.float(result[0][1])
-                end = np.float(result[0][2])
-                if motfast in motors:
-                    ret[motfast] = np.array([start,end])
+                ret['{}_{}'.format(h[1],int(h[2]))] = add
 
         return ret
 

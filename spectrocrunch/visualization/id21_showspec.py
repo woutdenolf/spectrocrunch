@@ -29,21 +29,40 @@ import fabio
 import os
 from matplotlib import cm
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
 class shape_object(object):
     
-    def __init__(self,noborder=False,cmap="jet",lo=0.05,hi=0.85):
-        self.noborder=noborder
+    def __init__(self,nframes,noborder=False,noROIborder=False,notitle=False,noimage=False,notext=False,static=True,ROIs=[],\
+                cmap="jet",rellim=[[0.,1.]],abslim=[],offset=[0,0],name="",figindex=0):
+        self.noborder = noborder
+        self.noROIborder = noROIborder
+        self.notitle = notitle
+        self.noimage = noimage
+        self.notext = notext
+        self.offset = offset
         self.cmap = cmap
-        self.lo = lo
-        self.hi = hi
+        self.rellim = rellim
+        self.abslim = abslim
         self.img = None
+        self.im = None
+        self.markers = []
+        self.markerstext = []
+        self.ROIplts = []
+        self.nframes = nframes
+        self.static = static
+        self.name = name
+        self.figindex = figindex
+
+        self.calcROIs(ROIs)
 
     def unloadimage(self):
         self.img = None
 
-    def setimage(self,images):
-        images = [np.zeros(s) if img is None else img for img in images]
+    def setimage(self,images,shape):
+        if shape is None:
+            return
+        images = [np.zeros(shape) if img is None else img for img in images]
         self.img = np.dstack(images)
         if len(self.img)==2:
             self.img = self.img[...,np.newaxis]
@@ -59,6 +78,67 @@ class shape_object(object):
             dim2 = np.array([dim2,dim2])
             shape -= 1
         return dim1.tolist(),dim2.tolist(),shape
+
+    def extendname(self,name):
+        if name=="":
+            return self.name
+        if self.name=="":
+            return name
+        return '_'.join((self.name,name))
+
+    def calcROIs(self,ROIs):
+        self.nROI = len(ROIs)
+        self.nmarkers = self.nROI
+        self.ROIs = ROIs
+        if self.nROI==0:
+            self.loadimage(0)
+            return
+
+        for i in range(self.nframes):
+            self.loadimage(i)
+
+            for j in range(self.nROI):
+                ROI = ROIs[j]["range"]
+                avg = np.average(np.average(self.img[ROI[0]:ROI[1],ROI[2]:ROI[3]],axis=0),axis=0)
+                navg = len(avg)
+
+                if i==0 and j==0:
+                    self.nROI *= navg
+                    self.ROIx = np.full(self.nframes,np.nan)
+                    self.ROIy = np.full((self.nframes,self.nROI),np.nan)
+                    self.ROInames = [""]*self.nROI
+
+                self.ROIx[i] = self.energy
+                self.ROIy[i,j*navg:j*navg+navg] = avg
+                self.ROInames[j*navg:j*navg+navg] = [self.extendname(ROIs[j]["name"])]*navg
+
+    def applytransform(self,extent,transform):
+        for c in transform:
+            if c=='t': # Transpose
+                extent = (extent[2],extent[3],extent[0],extent[1])
+            elif c=='v': # Flip vertical
+                extent = (extent[0],extent[1],extent[3],extent[2])
+            elif c=='h': # Flip horizontal
+                extent = (extent[1],extent[0],extent[2],extent[3])
+        return extent
+
+    def rangeind_to_coord(self,i,j,n):
+        # arr[i:j]        -> arr[i], arr[j-1]
+        # arr[None:None]  -> arr[0], arr[n-1]
+        # i < 0           -> n+i
+        # j < 0           -> n-1+j
+        if i is None:
+            i = 0
+        elif i<0:
+            i += n
+
+        if j is None:
+            j = n
+        elif j<0:
+            j += n
+        j -= 1
+
+        return i,j
 
     def getimage(self,transform,origin):
         # Image
@@ -81,77 +161,182 @@ class shape_object(object):
         # Plot range
         dim1,dim2,shape = self.get2ddims()
         if n1<=1:
-            d1 = 0
+            d1 = 0.
         else:
-            d1 = (dim1[1]-dim1[0])/(2.*n1-2)
+            d1 = (dim1[1]-dim1[0])/(n1-1.)
         if n2<=1:
-            d2 = 0
+            d2 = 0.
         else:
-            d2 = (dim2[1]-dim2[0])/(2.*n2-2)
-        
-        extent = (dim2[0]-d2-origin[1],dim2[1]+d2-origin[1],dim1[0]-d1-origin[0],dim1[1]+d1-origin[0])
-   
-        for c in transform:
-            if c=='t': # Transpose
-                extent = (extent[2],extent[3],extent[0],extent[1])
-            elif c=='v': # Flip vertical
-                extent = (extent[0],extent[1],extent[3],extent[2])
-            elif c=='h': # Flip horizontal
-                extent = (extent[1],extent[0],extent[2],extent[3])
+            d2 = (dim2[1]-dim2[0])/(n2-1.)
 
-        return img,extent,nchan,shape
+        halfpixel = np.array([-d2,d2,-d1,d1])/2
 
-    def plot(self,ax,origin,transform=""):
+        # extent = [x0,x1,y0,y1]
+        extent = np.array([dim2[0]-origin[1]+self.offset[1],\
+                           dim2[1]-origin[1]+self.offset[1],
+                           dim1[0]-origin[0]+self.offset[0],
+                           dim1[1]-origin[0]+self.offset[0]])
+
+        markers = []
+        for i in range(self.nROI):
+            ROI = self.ROIs[i]["range"][:]
+            ROI[0],ROI[1] = self.rangeind_to_coord(ROI[0],ROI[1],n1)
+            ROI[2],ROI[3] = self.rangeind_to_coord(ROI[2],ROI[3],n2)
+
+            ROI = np.array([extent[0]+ROI[2]*d2,extent[0]+ROI[3]*d2,extent[2]+ROI[0]*d1,extent[2]+ROI[1]*d1])
+            # ROI = [x0,x1,y0,y1]
+
+            ROI += halfpixel
+            ROI = self.applytransform(ROI,transform)
+            markers.append({"extent":ROI,"name":self.extendname(self.ROIs[i]["name"])})
+
+        extent += halfpixel
+        extent = self.applytransform(extent,transform)
+
+        if self.nROI==0 and not self.noborder:
+            markers.append({"extent":extent,"name":self.extendname("")})
+
+        return img,extent,markers,nchan,shape
+
+    def plot(self,ax,ax2,origin,frame,transform=""):
+        bfirst = self.im is None
+
         # Load the image
-        #self.loadimage()
+        frame = min(frame,self.nframes-1)
+        self.loadimage(frame)
 
-        # Get image
-        img,extent,nchan,shape = self.getimage(transform,origin)
+        # Get image and border
+        img,extent,markers,nchan,shape = self.getimage(transform,origin)
 
-        # Images scaling
-        for i in range(nchan):
-            mi = np.min(img[...,i])
-            ma = np.max(img[...,i])
-            mi += (ma-mi)*self.lo
-            ma -= (ma-mi)*self.hi
-            img[...,i] -= mi
-            img[...,i] /= ma
-            img[...,i] = np.clip(img[...,i],0,1)
+        # Clear previous plot when not static
+        if not self.static:
+            if len(self.markers)!=0:
+                for o in self.markers:
+                    if o is not None:
+                        o.remove()
+                del self.markers
+                self.markers = []
+            if len(self.markerstext)!=0:
+                for o in self.markerstext:
+                    if o is not None:
+                        o.remove()
+                del self.markerstext
+                self.markerstext = []
+            if self.im is not None:
+                o = self.im
+                o.remove()
+                del o
+                self.im = None
 
         # Plot image (if any)
-        if nchan==1:
-            ax.imshow(np.squeeze(img),extent=extent,origin='lower',interpolation='nearest',aspect=1,cmap=cm.get_cmap(self.cmap))
-        elif nchan==2:
-            ax.imshow(np.concatenate((img,np.zeros(img.shape[0:2])[...,np.newaxis]),axis=2),extent=extent,origin='lower',interpolation='nearest',aspect=1)
-        elif nchan==3:
-            ax.imshow(img,extent=extent,origin='lower',interpolation='nearest',aspect=1)
-
-        # Plot border (or line or point)
-        if not self.noborder:
-            if shape==0:
-                ax.scatter(extent[0], extent[2], marker='o')
-            elif shape==1:
-                if extent[0]==extent[1]:
-                    ax.plot([extent[0],extent[0]], [extent[2],extent[3]])
+        if not self.noimage and ax is not None:
+            # Images scaling
+            for i in range(nchan):
+                if len(self.abslim)==0:
+                    j = min(len(self.rellim),i)
+                    mi = np.nanmin(img[...,i])
+                    ma = np.nanmax(img[...,i])
+                    d = ma-mi
+                    ma = mi + d*self.rellim[j][1]
+                    mi += d*self.rellim[j][0]
                 else:
-                    ax.plot([extent[0],extent[1]], [extent[2],extent[2]])
+                    j = min(len(self.abslim),i)
+                    mi = self.abslim[j][0]
+                    ma = self.abslim[j][1]
+                img[...,i] -= mi
+                img[...,i] /= ma-mi
+                img[...,i] = np.clip(img[...,i],0,1)
+
+            # Plot image (if any)
+            if self.im is None:
+                if nchan==1:
+                    self.im = ax.imshow(np.squeeze(img),extent=extent,origin='lower',interpolation='nearest',aspect=1,cmap=cm.get_cmap(self.cmap),vmin=0,vmax=1)
+                elif nchan==2:
+                    self.im = ax.imshow(np.concatenate((img,np.zeros(img.shape[0:2])[...,np.newaxis]),axis=2),extent=extent,origin='lower',interpolation='nearest',aspect=1,vmin=0,vmax=1)
+                elif nchan==3:
+                    self.im = ax.imshow(img,extent=extent,origin='lower',interpolation='nearest',aspect=1,vmin=0,vmax=1)
             else:
-                ax.plot([extent[0],extent[0],extent[1],extent[1],extent[0]],\
-                        [extent[2],extent[3],extent[3],extent[2],extent[2]])
+                if nchan==1:
+                    self.im.set_array(np.squeeze(img))
+                elif nchan==2:
+                    self.im.set_array(np.concatenate((img,np.zeros(img.shape[0:2])[...,np.newaxis]),axis=2))
+                elif nchan==3:
+                    self.im.set_array(img)
+
+        # Plot ROI's
+        bredocolor = True
+        if ax2 is not None and self.nROI!=0:
+            if len(self.ROIplts)==0:
+                self.ROIplts = [None]*self.nROI
+                self.color = [None]*self.nROI
+                bredocolor = False
+                for i in range(self.nROI):
+                    self.ROIplts[i] = ax2.plot(self.ROIx[:frame+1],self.ROIy[:frame+1,i],color=self.color[i],label=self.ROInames[i])[0]
+                    self.color[i] = self.ROIplts[i].get_color()
+            else:
+                for i in range(self.nROI):
+                    self.ROIplts[i].set_data(self.ROIx[:frame+1],self.ROIy[:frame+1,i])
+
+        # Plot markers (rectangles, lines, points)
+        nmarkers = len(markers)
+        if nmarkers!=0 and (not self.static or bfirst) and not self.noROIborder and ax is not None:
+            if len(self.markers)==0:
+                self.markers = [None]*nmarkers
+                self.markerstext = [None]*nmarkers
+                if bredocolor:
+                    self.color = [None]*nmarkers
+                for i in range(nmarkers):
+                    marker = markers[i]["extent"]
+                    name = markers[i]["name"]
+                    j = i*nchan
+                    color = self.color[j]
+                    if shape==0:
+                        self.markers[i] = ax.scatter(marker[0], marker[2], marker='o', color=color)[0]
+                    elif shape==1:
+                        if marker[0]==marker[1]:
+                            self.markers[i] = ax.plot([marker[0],marker[0]], [marker[2],marker[3]], color=color)[0]
+                        else:
+                            self.markers[i] = ax.plot([marker[0],marker[1]], [marker[2],marker[2]], color=color)[0]
+                    else:
+                        self.markers[i] = ax.plot([marker[0],marker[0],marker[1],marker[1],marker[0]],\
+                                [marker[2],marker[3],marker[3],marker[2],marker[2]], color=color)[0]
+                    self.color[j] = self.markers[i].get_color()
+                    if not self.notext:
+                        pos = [np.max(marker[:2]),np.min(marker[2:])]
+                        self.markerstext[i] = ax.annotate(name,xy=pos,xytext=pos, color=self.color[j])
+            else:
+                for i in range(nmarkers):
+                    marker = markers[i]["extent"]
+                    if shape==0:
+                        self.markers[i].set_data(marker[0], marker[2])
+                    elif shape==1:
+                        if marker[0]==marker[1]:
+                            self.markers[i].set_data([marker[0],marker[0]], [marker[2],marker[3]])
+                        else:
+                            self.markers[i].set_data([marker[0],marker[1]], [marker[2],marker[2]])
+                    else:
+                        self.markers[i].set_data([marker[0],marker[0],marker[1],marker[1],marker[0]],\
+                                [marker[2],marker[3],marker[3],marker[2],marker[2]])
+                    if not self.notext:
+                        pos = [np.max(marker[:2]),np.min(marker[2:])]
+                        self.markerstext[i].set_position(pos)
+
+        
 
         # Free memory image
         #self.unloadimage()
 
 class shape_hdf5(shape_object):
 
-    def __init__(self,filename,subpaths,subindex,**kwargs):
-        shape_object.__init__(self,**kwargs)
+    def __init__(self,filename,subpaths,subindices,coordinatesindex=None,**kwargs):
         self.filename = filename
         self.subpaths = subpaths
-        self.subindex = subindex
-        self.loadimage()
+        self.subindices = subindices
+        self.coordinatesindex = coordinatesindex
 
-    def loadimage(self):
+        shape_object.__init__(self,len(subindices),**kwargs)
+
+    def loadimage(self,frame):
         oh5 = h5py.File(self.filename)
 
         # Prepare global coordinates
@@ -162,97 +347,111 @@ class shape_hdf5(shape_object):
         dim2name = "samy"
         dim2mult = 1
 
+        if self.coordinatesindex is not None:
+            frame2 = self.coordinatesindex
+        else:
+            frame2 = frame
+
         ocoord = oh5["coordinates"]
         for f in ocoord:
             if f == "samz":
-                v = np.atleast_1d([ocoord[f].value])
+                v = np.atleast_1d(ocoord[f].value)
                 if len(v)==1:
                     dim1off = v[0]*1000
                 else:
-                    dim1off = v[self.subindex]*1000
+                    dim1off = v[self.subindices[frame2]]*1000
 
                 dim1name = "sampz"
                 dim1mult = 1
             if f == "sampz":
-                v = np.atleast_1d([ocoord[f].value])
+                v = np.atleast_1d(ocoord[f].value)
                 if len(v)==1:
                     dim1off = v[0]
                 else:
-                    dim1off = v[self.subindex]
+                    dim1off = v[self.subindices[frame2]]
 
                 dim1name = "samz"
                 dim1mult = 1000
             if f == "samy":
-                v = np.atleast_1d([ocoord[f].value])
-                print(v)
+                v = np.atleast_1d(ocoord[f].value)
                 if len(v)==1:
                     dim2off = v[0]*1000
                 else:
-                    dim2off = v[self.subindex]*1000
+                    dim2off = v[self.subindices[frame2]]*1000
 
                 dim2name = "sampy"
                 dim2mult = 1
             if f == "sampy":
-                v = np.atleast_1d([ocoord[f].value])
+                v = np.atleast_1d(ocoord[f].value)
                 if len(v)==1:
                     dim2off = v[0]
                 else:
-                    dim2off = v[self.subindex]
+                    dim2off = v[self.subindices[frame2]]
 
                 dim2name = "samy"
                 dim2mult = 1000
 
         # Get image with axes in micron
         n = len(self.subpaths)
+        s = None
         images = [None]*n
+        self.energy = 0
         for i in range(n):
-            ogrp = oh5[self.subpaths[i]]
-            odset = ogrp[ogrp.attrs["signal"]]
-            self.dim1 = dim1off + ogrp[dim1name].value[[0,-1]]*dim1mult
-            self.dim2 = dim2off + ogrp[dim2name].value[[0,-1]]*dim2mult
+            if self.subpaths[i] in oh5:
+                ogrp = oh5[self.subpaths[i]]
+                odset = ogrp[ogrp.attrs["signal"]]
+                self.dim1 = dim1off + ogrp[dim1name].value[[0,-1]]*dim1mult
+                self.dim2 = dim2off + ogrp[dim2name].value[[0,-1]]*dim2mult
 
-            tmp = ogrp.attrs["axes"].split(":")
-            idim1 = tmp.index(dim1name)
-            idim2 = tmp.index(dim2name)
-            if idim2!=0 and idim1!=0:
-                img = odset[self.subindex,...]
-            elif idim2!=1 and idim1!=1:
-                img = odset[:,self.subindex,:]
-            else:
-                img = odset[...,self.subindex]
-            if idim1 > idim2:
-                img = img.T
-            images[i] = [img]
-        self.setimage(images)
+                tmp = ogrp.attrs["axes"].split(":")
+                
+                idim1 = tmp.index(dim1name)
+                idim2 = tmp.index(dim2name)
+                if idim2!=0 and idim1!=0:
+                    img = odset[self.subindices[frame],...]
+                    self.energy = ogrp[tmp[0]][self.subindices[frame]]
+                elif idim2!=1 and idim1!=1:
+                    img = odset[:,self.subindices[frame],:]
+                    self.energy = ogrp[tmp[1]][self.subindices[frame]]
+                else:
+                    img = odset[...,self.subindices[frame]]
+                    self.energy = ogrp[tmp[2]][self.subindices[frame]]
+                if idim1 > idim2:
+                    img = img.T
+                s = img.shape
+                images[i] = img
+        self.setimage(images,s)
+
+        print("Energy = {} keV".format(self.energy))
+        print(" range = [{}, {}]".format(np.nanmin(self.img),np.nanmax(self.img)))
 
         oh5.close()
 
 class shape_spec(shape_object):
     
-    def __init__(self,specfile,scannumber,labels=[],olddir="",newdir="",**kwargs):
-        shape_object.__init__(self,**kwargs)
+    def __init__(self,specfile,scannumbers,labels=[],olddir="",newdir="",**kwargs):
         self.specfile = specfile
-        self.scannumber = scannumber
+        self.scannumbers = scannumbers
         self.labels = labels
         self.olddir = olddir
         self.newdir = newdir
-        self.loadimage()
 
-    def loadimage(self):
+        shape_object.__init__(self,len(scannumbers),**kwargs)
+
+    def loadimage(self,frame):
         motors = ["samz","sampz","samy","sampy","Energy MONO"]
 
         f = spec(self.specfile)
 
-        p = f.getdimensions(self.scannumber,motors)
+        p = f.getdimensions(self.scannumbers[frame],motors)
         self.dim1 = p["samz"]*1000 + p["sampz"]
         self.dim2 = p["samy"]*1000 + p["sampy"]
+        self.energy = p["Energy MONO"]
 
-        print("Energy = {} keV".format(p["Energy MONO"]))
-        
         # Get images
         n = len(self.labels)
         if n!=0:
-            xia = f.getxialocation(self.scannumber)
+            xia = f.getxialocation(self.scannumbers[frame])
             xia["DIRECTORY"] = xia["DIRECTORY"].replace(self.olddir,self.newdir)
             xia["ZAP SCAN NUMBER"] = int(xia["ZAP SCAN NUMBER"])
             xia["ZAP IMAGE NUMBER"] = int(xia["ZAP IMAGE NUMBER"])
@@ -270,38 +469,161 @@ class shape_spec(shape_object):
                     print("  {}".format(filename))
                 else:
                     print("  File not found: {}".format(filename))
-            if s is not None:
-                self.setimage(images)
+            self.setimage(images,s)
             
-def totaldims(assocs):
-    dim1 = []
-    dim2 = []
-    for a in assocs:
-        tmp1,tmp2,_ = a.get2ddims()
-        dim1 += tmp1
-        dim2 += tmp2
-    return [min(dim1),max(dim1),min(dim2),max(dim2)]
+class lstPlot(object):
+    
+    def __init__(self,lst,limits=[],figsize=None,nframes=None):
+        self.lst = lst
+        tmp = [l.figindex for l in self.lst if l.figindex is not None]
+        if len(tmp)==0:
+            self.naxes = 0
+        else:
+            self.naxes = max(tmp)+1
+        self.nframes = max([l.nframes for l in self.lst])
+        if nframes is not None:
+            self.nframes = min(self.nframes,nframes)
+        self.prepare_axes(figsize,limits)
 
-def plot(lst):
-    f,ax = plt.subplots(1)
+    def prepare_axes(self,figsize,limits):
+        nROIplts = sum([l.nROI for l in self.lst])
 
-    dim1min,dim1max,dim2min,dim2max = totaldims(lst)
-    origin = [dim1min,dim2min]
-    xlimits = [0,abs(dim2max-dim2min)]
-    ylimits = [0,abs(dim1max-dim1min)]
+        self.fig = plt.figure(figsize=figsize)
 
-    for l in lst:
-        l.plot(ax,origin)
+        if self.naxes==0:
+            nrow = 1
+            ncol = 1
+        if self.naxes==2:
+            nrow = 1
+            ncol = 2
+        else:
+            ncol = int(np.ceil(np.sqrt(self.naxes)))
+            nrow = ncol
 
-    ax.set_xlabel('X ($\mu$m)')
-    ax.set_ylabel('Y ($\mu$m)')
+        if nROIplts!=0:
+            if self.naxes==0:
+                grid = (nrow,ncol)
+                self.ax2 = plt.subplot(1,1,1)
+            else:
+                ncol2 = 2*ncol
+                grid = (nrow,ncol2)
+                self.ax2 = plt.subplot2grid(grid,(0,ncol),colspan=ncol,rowspan=nrow)
+                ncol = ncol2
+            self.ax2.set_xlabel('Energy (keV)')
+        else:
+            grid = (nrow,ncol)
+            self.ax2 = None
+        self.ax2legend = None
 
-    ax.set_xlim(xlimits[0],xlimits[1])
-    ax.set_ylim(ylimits[0],ylimits[1])
+        self.ax = [None]*self.naxes
+        cnt = np.zeros(self.naxes)
+        lst = [l for l in self.lst if l.figindex is not None]
+        for l in lst:
+            cnt[l.figindex] += 1
+            if self.ax[l.figindex] is None:
+                row = l.figindex//ncol
+                col = l.figindex%ncol
+                self.ax[l.figindex] = plt.subplot2grid(grid,(row,col))
+                self.ax[l.figindex].set_xlabel('X ($\mu$m)')
+                self.ax[l.figindex].set_ylabel('Y ($\mu$m)')
+        for l in lst:
+            if cnt[l.figindex]==1 and not l.notitle:
+                self.ax[l.figindex].set_title(l.name)
 
-    plt.show()
+        self.set_axes_limits(limits)
 
+    def set_axes_limits(self,limits):
+        self.origin = [None]*self.naxes
+        for figindex in range(self.naxes):
+            if self.ax[figindex] is None:
+                continue
+            ylimits,xlimits = self.get_axes_limits(figindex)
+            self.origin[figindex] = [ylimits[0],xlimits[0]]
+            xlimits = [0,xlimits[1]-xlimits[0]]
+            ylimits = [0,ylimits[1]-ylimits[0]]
+            if figindex<len(limits):
+                if len(limits[figindex])==2:
+                    xlimits2,ylimits2 = limits[figindex]
+                    if len(xlimits2)==2:
+                        xlimits = xlimits2
+                    if len(ylimits2)==2:
+                        ylimits = ylimits2
+            self.ax[figindex].set_xlim(xlimits[0],xlimits[1])
+            self.ax[figindex].set_ylim(ylimits[0],ylimits[1])
 
+    def get_axes_limits(self,figindex):
+        lst = [l for l in self.lst if l.figindex==figindex]
+        if len(lst)==0:
+            return []
 
+        dim1 = []
+        dim2 = []
+        for l in lst:
+            tmp1,tmp2,_ = l.get2ddims()
+            dim1 += tmp1
+            dim2 += tmp2
+        return [min(dim1),max(dim1)],[min(dim2),max(dim2)]
 
+    def drawframe(self,frame):
+        if frame<0:
+            frame += self.nframes
+
+        for l in self.lst:
+            if l.figindex is None:
+                ax = None
+                origin = [0,0]
+            else:
+                ax = self.ax[l.figindex]
+                origin = self.origin[l.figindex]
+            l.plot(ax,self.ax2,origin,frame)
+
+        self.update_axes()
+
+    def update_axes(self):
+        if self.ax2 is not None:
+            self.ax2.relim()
+            self.ax2.autoscale(True)
+            self.ax2legend = self.ax2.legend()
+        
+class lstAnimation(lstPlot,animation.TimedAnimation):
+    def __init__(self,lst,limits=[],figsize=None,nframes=None,**kwargs):
+        lstPlot.__init__(self, lst, limits=limits, figsize=figsize,nframes=nframes)
+        animation.TimedAnimation.__init__(self, self.fig,**kwargs)
+
+    def _draw_frame(self, frame):
+        print("Frame {}".format(frame))
+        self.drawframe(frame)
+        
+    def new_frame_seq(self):
+        return iter(range(self.nframes))
+
+    def _init_draw(self):
+        for l in self.lst:
+            if l.figindex is None:
+                ax = None
+                origin = [0,0]
+            else:
+                ax = self.ax[l.figindex]
+                origin = self.origin[l.figindex]
+            l.plot(ax,self.ax2,origin,0)
+        if self.ax2legend is not None:
+            self.ax2legend.remove()
+            del self.ax2legend
+            self.ax2legend = None
+
+def animate(lst,save="",interactive=True,dpi=300,**kwargs):
+    ani = lstAnimation(lst,**kwargs)
+    if save != "":
+        ani.save("{}.mp4".format(save),bitrate=1024,dpi = dpi)
+    if interactive:
+        plt.show()
+
+def plot(lst,frame,save="",interactive=True,dpi=300,**kwargs):
+    p = lstPlot(lst,**kwargs)
+    p.drawframe(frame)
+
+    if save != "":
+        p.fig.savefig("{}.png".format(save),bbox_inches='tight',dpi=dpi)
+    if interactive:
+        plt.show()
 

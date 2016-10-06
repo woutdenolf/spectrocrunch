@@ -36,24 +36,28 @@ from spectrocrunch.xrf.fit import PerformBatchFit as fitter
 import spectrocrunch.io.nexus as nexus
 from spectrocrunch.io.spec import zapline_values, ascan_values
 
-def filecounter(sourcepath,scanname,counter,scannumber,idet=None,getcount=False):
+def filecounter(sourcepath,scanname,counter,scannumber,idet=None,getcount=False,debug=False):
     if getcount:
         f = '*'
     else:
         f = '0000'
 
     if counter=="xia":
-        filename = "%s_%sst_%04d_0000_%s.edf"%(scanname,counter,scannumber,f)
+        filename = ["%s_%sst_%04d_0000_%s.edf"%(scanname,counter,scannumber,f)]
     elif idet is not None:
-        filename = "%s_%s_%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f) #ID21
-        if not os.path.isfile(os.path.join(sourcepath,filename)):
-            filename = "%s_%s%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f) #ID16b
+        filename = ["%s_%s_%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f),\
+                    "%s_%s%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f)]
     else:
-        filename = "%s_%s_%04d_%s.edf"%(scanname,counter,scannumber,f)
-    counterfile = os.path.join(sourcepath,filename)
+        filename = ["%s_%s_%04d_%s.edf"%(scanname,counter,scannumber,f)]
+
+    for name in filename: # loop over possibilities
+        counterfile = os.path.join(sourcepath,name)
+        n = len(glob(counterfile))
+        if n!=0:
+            break
 
     if getcount:
-        return len(glob(counterfile))
+        return n
     else:
         return counterfile
 
@@ -262,6 +266,20 @@ def getimagestacks(config):
                     exclude_detectors=config["exclude_detectors"],deadtime=config["dtcor"],
                     onlycountdetectors=onlycountdetectors)
             ndet = len(detnums)
+            noxia = ndet==0
+
+            # XIA files may be missing but maybe the xia counters are there
+            if noxia:
+                detcounters = [ctr for ctr in config["counters"] if "xmap" in ctr]
+                if len(detcounters)!=0:
+                    idet = 0
+                    while True:                      
+                        tmp = filecounter(counterpath,scanname,detcounters[0],scannumber,idet=idet,getcount=True,debug=True)
+                        if tmp==0:
+                            break
+                        idet += 1
+                    ndet = idet
+                    detnums = range(ndet)
 
             # Allocate first level of the stacks
             if iscan == 0 and ipath == 0:
@@ -270,7 +288,7 @@ def getimagestacks(config):
 
                 for idet in detnums:
                     stacks[detectorname(config,ndet,idet)] = {}
-                    if len(detcounters)>0:
+                    if len(detcounters)!=0:
                         stacks[detectorname(config,ndet,idet,counter=True)] = {}
 
                 stacks["counters"] = {}
@@ -281,8 +299,9 @@ def getimagestacks(config):
             for i in range(ndet):
                 idet = detnums[i]
 
+                # Fit data
                 if not config["addbeforefitting"] or i==0:
-                    if config["fit"]:
+                    if config["fit"] and not noxia:
                         if len(filestofit[i])!= 0:
                             if len(config["detectorcfg"])==1:
                                 cfg = config["detectorcfg"][0]
@@ -295,8 +314,8 @@ def getimagestacks(config):
                             else:
                                 outname = "%s_%s_xia%02d_%04d_0000"%(scanname,parsename,idet,scannumber)
                             files, labels = fitter(filestofit[i],
-                                                        config["outfitpath"],outname,cfg,stackvalue,
-                                                        fast=config["fastfitting"],mlines=config["mlines"])
+                                                   config["outfitpath"],outname,cfg,stackvalue,
+                                                   fast=config["fastfitting"],mlines=config["mlines"])
 
                             # Append images
                             detname = detectorname(config,ndet,idet)
