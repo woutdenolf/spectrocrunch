@@ -188,8 +188,8 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=Fa
     for i in grps:
         ogrp = oh5[grps[i]["path"]]
         odset = ogrp[ogrp.attrs["signal"]]
-        dim1 = dim1off + ogrp[dim1name].value*dim1mult
-        dim2 = dim2off + ogrp[dim2name].value*dim2mult
+        dim1 = dim1off[grps[i]["ind"]] + ogrp[dim1name].value*dim1mult
+        dim2 = dim2off[grps[i]["ind"]] + ogrp[dim2name].value*dim2mult
         idim1 = ogrp.attrs[dim1name+"_indices"]
         idim2 = ogrp.attrs[dim2name+"_indices"]
         if idim2!=0 and idim1!=0:
@@ -201,12 +201,13 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=Fa
         if idim1 > idim2:
             img = img.T
         if i==0:
-            images = np.empty((3,)+img.shape,dtype=img.dtype)
+            images = np.zeros((3,)+img.shape,dtype=img.dtype)
 
         mi = np.min(img)
         ma = np.max(img)
-        mi += (ma-mi)*grps[i]["lo"]
-        ma -= (ma-mi)*grps[i]["hi"]
+        d = ma-mi
+        mi += d*grps[i]["lo"]
+        ma -= d*(1-grps[i]["hi"])
         img -= mi
         img /= ma
         img = np.clip(img,0,1)
