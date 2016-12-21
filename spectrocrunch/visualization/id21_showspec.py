@@ -29,12 +29,13 @@ import fabio
 import os
 from matplotlib import cm
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import matplotlib.animation as animation
 
 class shape_object(object):
     
     def __init__(self,nframes,noborder=False,noROIborder=False,notitle=False,noimage=False,notext=False,static=True,ROIs=[],\
-                cmap="jet",rellim=[[0.,1.]],abslim=[],offset=[0,0],name="",figindex=0):
+                cmap="jet",rellim=[[0.,1.]],abslim=[],offset=[0,0],name="",figindex=0,xanesnormalize={}):
         self.noborder = noborder
         self.noROIborder = noROIborder
         self.notitle = notitle
@@ -53,6 +54,7 @@ class shape_object(object):
         self.static = static
         self.name = name
         self.figindex = figindex
+        self.xanesnormalize = xanesnormalize
 
         self.calcROIs(ROIs)
 
@@ -94,13 +96,46 @@ class shape_object(object):
             self.loadimage(0)
             return
 
+        mask = [None]*self.nROI
+        for j in range(self.nROI):
+            if "minmax" in ROIs[j]:
+                self.loadimage(ROIs[j]["frame"])
+                n1,n2,nchan = self.img.shape
+                minmax = ROIs[j]["minmax"]
+                if nchan>1:
+                    tmp = self.img[:,:,0]
+                else:
+                    tmp = self.img
+
+                mi = np.nanmin(tmp)
+                ma = np.nanmax(tmp)
+                mi2 = mi + minmax[0]*(ma-mi)
+                ma2 = mi + minmax[1]*(ma-mi)
+                mask[j] = (tmp>=mi2) & (tmp<=ma2) & (~np.isnan(tmp))
+
         for i in range(self.nframes):
             self.loadimage(i)
+            n1,n2,nchan = self.img.shape
 
             for j in range(self.nROI):
-                ROI = ROIs[j]["range"]
-                avg = np.average(np.average(self.img[ROI[0]:ROI[1],ROI[2]:ROI[3]],axis=0),axis=0)
-                navg = len(avg)
+                if "range" in ROIs[j]:
+                    ROI = ROIs[j]["range"]
+                    if nchan>1:
+                        avg = np.nanmean(np.nanmean(self.img[ROI[0]:ROI[1],ROI[2]:ROI[3],0],axis=0),axis=0)
+                        navg = 1
+                    else:
+                        avg = np.nanmean(np.nanmean(self.img[ROI[0]:ROI[1],ROI[2]:ROI[3]],axis=0),axis=0)
+                        navg = len(avg)
+                elif "minmax" in ROIs[j]:
+                    minmax = ROIs[j]["minmax"]
+                    if nchan>1:
+                        tmp = self.img[:,:,0]
+                    else:
+                        tmp = self.img
+                    avg = np.nanmean(tmp[mask[j]])
+                    navg = 1
+                else:
+                    raise Exception("No known ROI type")
 
                 if i==0 and j==0:
                     self.nROI *= navg
@@ -111,6 +146,12 @@ class shape_object(object):
                 self.ROIx[i] = self.energy
                 self.ROIy[i,j*navg:j*navg+navg] = avg
                 self.ROInames[j*navg:j*navg+navg] = [self.extendname(ROIs[j]["name"])]*navg
+
+        if self.nROI!=0 and len(self.xanesnormalize)!=0:
+            preedge = np.average(self.ROIy[self.xanesnormalize['pre'][0]:self.xanesnormalize['pre'][1],:],axis=0)
+            postedge = np.average(self.ROIy[self.xanesnormalize['post'][0]:self.xanesnormalize['post'][1],:],axis=0)
+            self.ROIy -= preedge
+            self.ROIy /= postedge-preedge
 
     def applytransform(self,extent,transform):
         for c in transform:
@@ -179,6 +220,8 @@ class shape_object(object):
 
         markers = []
         for i in range(self.nROI):
+            if "range" not in self.ROIs[i]:
+                continue
             ROI = self.ROIs[i]["range"][:]
             ROI[0],ROI[1] = self.rangeind_to_coord(ROI[0],ROI[1],n1)
             ROI[2],ROI[3] = self.rangeind_to_coord(ROI[2],ROI[3],n2)
@@ -294,12 +337,12 @@ class shape_object(object):
                         self.markers[i] = ax.scatter(marker[0], marker[2], marker='o', color=color)[0]
                     elif shape==1:
                         if marker[0]==marker[1]:
-                            self.markers[i] = ax.plot([marker[0],marker[0]], [marker[2],marker[3]], color=color)[0]
+                            self.markers[i] = ax.plot([marker[0],marker[0]], [marker[2],marker[3]], color=color, linewidth=2)[0]
                         else:
-                            self.markers[i] = ax.plot([marker[0],marker[1]], [marker[2],marker[2]], color=color)[0]
+                            self.markers[i] = ax.plot([marker[0],marker[1]], [marker[2],marker[2]], color=color, linewidth=2)[0]
                     else:
                         self.markers[i] = ax.plot([marker[0],marker[0],marker[1],marker[1],marker[0]],\
-                                [marker[2],marker[3],marker[3],marker[2],marker[2]], color=color)[0]
+                                [marker[2],marker[3],marker[3],marker[2],marker[2]], color=color, linewidth=2)[0]
                     self.color[j] = self.markers[i].get_color()
                     if not self.notext:
                         pos = [np.max(marker[:2]),np.min(marker[2:])]
@@ -403,7 +446,11 @@ class shape_hdf5(shape_object):
                 self.dim1 = dim1off + ogrp[dim1name].value[[0,-1]]*dim1mult
                 self.dim2 = dim2off + ogrp[dim2name].value[[0,-1]]*dim2mult
 
-                tmp = ogrp.attrs["axes"].split(":")
+                tmp = ogrp.attrs["axes"]
+                if isinstance(tmp,str):
+                    tmp = tmp.split(":")
+                else:
+                    tmp = [t for t in tmp]
                 
                 idim1 = tmp.index(dim1name)
                 idim2 = tmp.index(dim2name)
@@ -473,7 +520,7 @@ class shape_spec(shape_object):
             
 class lstPlot(object):
     
-    def __init__(self,lst,limits=[],figsize=None,nframes=None):
+    def __init__(self,lst,limits=[],figsize=None,nframes=None,legendloc=0):
         self.lst = lst
         tmp = [l.figindex for l in self.lst if l.figindex is not None]
         if len(tmp)==0:
@@ -483,13 +530,15 @@ class lstPlot(object):
         self.nframes = max([l.nframes for l in self.lst])
         if nframes is not None:
             self.nframes = min(self.nframes,nframes)
+        self.legendloc = legendloc
         self.prepare_axes(figsize,limits)
-
+    
     def prepare_axes(self,figsize,limits):
         nROIplts = sum([l.nROI for l in self.lst])
 
         self.fig = plt.figure(figsize=figsize)
 
+        # Devide images in a grid
         if self.naxes==0:
             nrow = 1
             ncol = 1
@@ -500,18 +549,18 @@ class lstPlot(object):
             ncol = int(np.ceil(np.sqrt(self.naxes)))
             nrow = ncol
 
+        # Add plot to the grid is needed
         if nROIplts!=0:
             if self.naxes==0:
-                grid = (nrow,ncol)
-                self.ax2 = plt.subplot(1,1,1)
+                gs = gridspec.GridSpec(nrow,ncol)
+                self.ax2 = plt.subplot(gs[0,0])
             else:
-                ncol2 = 2*ncol
-                grid = (nrow,ncol2)
-                self.ax2 = plt.subplot2grid(grid,(0,ncol),colspan=ncol,rowspan=nrow)
-                ncol = ncol2
+                gs = gridspec.GridSpec(nrow,2*ncol)
+                self.ax2 = plt.subplot(gs[0:nrow,ncol:])
+                ncol *= 2
             self.ax2.set_xlabel('Energy (keV)')
         else:
-            grid = (nrow,ncol)
+            gs = gridspec.GridSpec(nrow,ncol)
             self.ax2 = None
         self.ax2legend = None
 
@@ -523,7 +572,7 @@ class lstPlot(object):
             if self.ax[l.figindex] is None:
                 row = l.figindex//ncol
                 col = l.figindex%ncol
-                self.ax[l.figindex] = plt.subplot2grid(grid,(row,col))
+                self.ax[l.figindex] = plt.subplot(gs[row,col])
                 self.ax[l.figindex].set_xlabel('X ($\mu$m)')
                 self.ax[l.figindex].set_ylabel('Y ($\mu$m)')
         for l in lst:
@@ -531,6 +580,8 @@ class lstPlot(object):
                 self.ax[l.figindex].set_title(l.name)
 
         self.set_axes_limits(limits)
+
+        plt.tight_layout()
 
     def set_axes_limits(self,limits):
         self.origin = [None]*self.naxes
@@ -583,7 +634,7 @@ class lstPlot(object):
         if self.ax2 is not None:
             self.ax2.relim()
             self.ax2.autoscale(True)
-            self.ax2legend = self.ax2.legend()
+            self.ax2legend = self.ax2.legend(loc=self.legendloc)
         
 class lstAnimation(lstPlot,animation.TimedAnimation):
     def __init__(self,lst,limits=[],figsize=None,nframes=None,**kwargs):
@@ -611,10 +662,16 @@ class lstAnimation(lstPlot,animation.TimedAnimation):
             del self.ax2legend
             self.ax2legend = None
 
-def animate(lst,save="",interactive=True,dpi=300,**kwargs):
+def animate(lst,save="",interactive=True,dpi=300,format="wmv",**kwargs):
     ani = lstAnimation(lst,**kwargs)
     if save != "":
-        ani.save("{}.mp4".format(save),bitrate=1024,dpi = dpi)
+        # ffmpeg -codecs
+        if format=="mp4":
+            ani.save("{}.mp4".format(save),bitrate=1024,dpi = dpi,codec="mpeg4")
+        elif format=="wmv":
+            ani.save("{}.wmv".format(save),bitrate=1024,dpi = dpi,codec="wmv1")
+        else:
+            raise ValueError("Format {} not supported.".format(format))
     if interactive:
         plt.show()
 

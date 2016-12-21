@@ -161,6 +161,40 @@ class spec(SpecFileDataSource.SpecFileDataSource):
 
         return data,info
         
+    def getdata2(self, scannumber, labelnames):
+        """
+        Args:
+            scannumber(num): spec scan number
+            labelnames(list(str)): list of labels
+
+        Returns:
+            np.array: first dimension are the labelnames
+
+        Raises:
+            KeyError: scan number doesn't exist
+            TypeError: unknown scan type
+            ValueError: no data corresponding to the labelnames
+        """
+
+        # Get data object
+        scan = self.getDataObject("{:d}.1".format(scannumber))
+ 
+        # Extract data
+        ind = []
+        labels = scan.info["LabelNames"]
+        for i in range(len(labelnames)):
+            try:
+                j = labels.index(labelnames[i])
+                ind.append(j)
+            except:
+                pass
+        if len(ind)>0:
+            data = scan.data[:,ind]
+        else:
+            data = None
+
+        return data
+
     def getmotorvalues(self,scannumber,motors):
         """Get start positions for the specified motors
         """

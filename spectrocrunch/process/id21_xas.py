@@ -165,7 +165,8 @@ def processNotSynchronized(specfile,specnumbers,destpath,detectorcfg,mlines={},r
             prog.printprogress()
 
         # Save XAS spectrum (for each element)
-        outname = destradix+'_'+'_'.join([str(d) for d in specnumbers[i]])
+        #outname = destradix+'_'+'_'.join([str(d) for d in specnumbers[i]])
+        outname = destradix+'_'+str(specnumbers[0])+'_'+str(specnumbers[-1])
         fileName = os.path.join(destpath, outname+".dat")
         if not os.path.exists(destpath):
             os.makedirs(destpath)
@@ -175,7 +176,7 @@ def processNotSynchronized(specfile,specnumbers,destpath,detectorcfg,mlines={},r
         ArraySave.save2DArrayListAsASCII(xasspectrum.values(), fileName, labels=labels)
         logger.info("Saved XAS spectrum {}.".format(fileName))
 
-def processEnergySynchronized(specfile,specnumbers,destpath,pymcacfg,mlines={},replacebasedir=None,showelement=None,dtcor=True,fastfitting=True,energyshift=0,plot=False):
+def processEnergySynchronized(specfile,specnumbers,destpath,pymcacfg,mlines={},replacebasedir=(),showelement=None,dtcor=True,fastfitting=True,energyshift=0,plot=False,bkg=0):
     """
     XRF fitting of XANES spectra (add spectra from repeats because of energy synchronization)
 
@@ -191,6 +192,7 @@ def processEnergySynchronized(specfile,specnumbers,destpath,pymcacfg,mlines={},r
         energyshift(Optional(num)): energy shift in keV
         plot(Optional(bool)): plot results
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
+        bkg(Optional(Num)): subtract from spectrum
     """
 
     energylabel = 'arr_energyM'
@@ -262,9 +264,12 @@ def processEnergySynchronized(specfile,specnumbers,destpath,pymcacfg,mlines={},r
                 xasspectrum["data"] += xia.data/norm
             else:
                 xasspectrum["data"] = xia.data/norm
+        xasspectrum["data"] -= bkg
+        xasspectrum["data"][xasspectrum["data"]<0]=0
 
         # Save XRF spectra to be fitted
-        outname = scanname+'_'+'_'.join([str(d) for d in specnumbers[i]])
+        #outname = scanname+'_'+'_'.join([str(d) for d in specnumbers[i]])
+        outname = scanname+'_'+str(specnumbers[i][0])+'_'+str(specnumbers[i][-1])
         fileName = os.path.join(destpath, outname+".edf")
         xia.data = xasspectrum["data"]
         xia.save(fileName, 1)
