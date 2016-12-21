@@ -103,31 +103,31 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
     # Split M-lines
     # You need an adapted pymca version: Elements
     #ElementShellTransitions = [KShell.ElementKShellTransitions,
-    #	                   KShell.ElementKAlphaTransitions,
-    #	                   KShell.ElementKBetaTransitions,
-    #	                   LShell.ElementLShellTransitions,
-    #	                   LShell.ElementL1ShellTransitions,
-    #	                   LShell.ElementL2ShellTransitions,
-    #	                   LShell.ElementL3ShellTransitions,
+    #                       KShell.ElementKAlphaTransitions,
+    #                       KShell.ElementKBetaTransitions,
+    #                       LShell.ElementLShellTransitions,
+    #                       LShell.ElementL1ShellTransitions,
+    #                       LShell.ElementL2ShellTransitions,
+    #                       LShell.ElementL3ShellTransitions,
     #                      [s+"*" for s in MShell.ElementMShellTransitions],
-    #	                   MShell.ElementM1ShellTransitions,
-    #	                   MShell.ElementM2ShellTransitions,
-    #	                   MShell.ElementM3ShellTransitions,
-    #	                   MShell.ElementM4ShellTransitions,
-    #	                   MShell.ElementM5ShellTransitions]
+    #                       MShell.ElementM1ShellTransitions,
+    #                       MShell.ElementM2ShellTransitions,
+    #                       MShell.ElementM3ShellTransitions,
+    #                       MShell.ElementM4ShellTransitions,
+    #                       MShell.ElementM5ShellTransitions]
     #ElementShellRates = [KShell.ElementKShellRates,
-    #	             KShell.ElementKAlphaRates,
-    #	             KShell.ElementKBetaRates,
-    #	             LShell.ElementLShellRates,
-    #	             LShell.ElementL1ShellRates,
-    #	             LShell.ElementL2ShellRates,
-    #	             LShell.ElementL3ShellRates,
-    #	             MShell.ElementMShellRates,
-    #	             MShell.ElementM1ShellRates,
-    #	             MShell.ElementM2ShellRates,
-    #	             MShell.ElementM3ShellRates,
-    #	             MShell.ElementM4ShellRates,
-    #	             MShell.ElementM5ShellRates]
+    #                 KShell.ElementKAlphaRates,
+    #                 KShell.ElementKBetaRates,
+    #                 LShell.ElementLShellRates,
+    #                 LShell.ElementL1ShellRates,
+    #                 LShell.ElementL2ShellRates,
+    #                 LShell.ElementL3ShellRates,
+    #                 MShell.ElementMShellRates,
+    #                 MShell.ElementM1ShellRates,
+    #                 MShell.ElementM2ShellRates,
+    #                 MShell.ElementM3ShellRates,
+    #                 MShell.ElementM4ShellRates,
+    #                 MShell.ElementM5ShellRates]
     #ElementXrays      = ['K xrays', 'Ka xrays', 'Kb xrays', 'L xrays','L1 xrays','L2 xrays','L3 xrays','M xrays','M1 xrays','M2 xrays','M3 xrays','M4 xrays','M5 xrays']
 
     if len(mlines) > 0:
@@ -227,8 +227,12 @@ def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plo
             if plot:
                 mcafitresult = mcafit.digestresult()
                 ax.cla()
-                ax.semilogy(mcafitresult["energy"],mcafitresult["ydata"])
-                ax.semilogy(mcafitresult["energy"],mcafitresult["yfit"],color='red')
+                if plot==2:
+                    ax.plot(mcafitresult["energy"],mcafitresult["ydata"])
+                    ax.plot(mcafitresult["energy"],mcafitresult["yfit"],color='red')
+                else:
+                    ax.semilogy(mcafitresult["energy"],mcafitresult["ydata"])
+                    ax.semilogy(mcafitresult["energy"],mcafitresult["yfit"],color='red')
                 ax.set_ylim(bottom=1)
                 ax.set_title("Primary energy: {} keV".format(energies[j]))
                 ax.set_xlabel("Energy (keV)")
