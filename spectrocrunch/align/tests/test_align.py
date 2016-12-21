@@ -62,17 +62,18 @@ class test_align(unittest.TestCase):
             pad = (i & 1)==1
             crop = (i & 2)==2
 
-            # Pairwise: align on aligned
-            o.align(refdatasetindex,onraw = False,pad = pad,crop = crop,roi=roi)
-            self.testrelativecof(o.cofs,cofrel)
+            # Fixed reference
+            o.align(refdatasetindex,refimageindex=refimageindex,pad = pad,crop = crop,roi=roi)
+            self.testrelativecof(o.absolute_cofs(homography=True),cofrel)
 
             # Pairwise: align on raw
             o.align(refdatasetindex,onraw = True,pad = pad,crop = crop,roi=roi)
-            self.testrelativecof(o.cofs,cofrel)
+            self.testrelativecof(o.absolute_cofs(homography=True),cofrel)
 
-            # Fixed reference
-            o.align(refdatasetindex,refimageindex=refimageindex,pad = pad,crop = crop,roi=roi)
-            self.testrelativecof(o.cofs,cofrel)
+            # Pairwise: align on aligned
+            o.align(refdatasetindex,onraw = False,pad = pad,crop = crop,roi=roi)
+            self.testrelativecof(o.absolute_cofs(homography=True),cofrel)
+ 
 
     def test_sift_mapping(self):
         # Initialize alignSift (not important)
@@ -86,7 +87,7 @@ class test_align(unittest.TestCase):
         ysrc = np.random.random(N)*100
         XT = np.column_stack((xsrc,ysrc,np.ones(N)))
 
-        types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine, transformationType.homography]
+        types = [transformationType.translation, transformationType.rigid, transformationType.similarity]
         for t in types:
             M,_ = gentransform(t,2)
 
@@ -103,9 +104,9 @@ class test_align(unittest.TestCase):
             o.transfotype = t
             o.transformationFromKp(xsrc,ysrc,xdest,ydest)
             if t==transformationType.rigid:
-                np.testing.assert_almost_equal(M,o.cof,decimal=1)
+                np.testing.assert_almost_equal(M,o._transform.getnumpyhomography(),decimal=1)
             else:
-                np.testing.assert_allclose(M,o.cof)
+                np.testing.assert_allclose(M,o._transform.getnumpyhomography())
 
     def test_fft_internals(self):
          # Initialize alignFFT (not important)
@@ -115,7 +116,7 @@ class test_align(unittest.TestCase):
 
         # Test Fourier related things
         img = np.abs(np.fft.fft2(np.arange(7*8).reshape((7,8))))
-        img2 = o.ifftshift(o.fftshift(img))
+        img2 = np.fft.ifftshift(np.fft.fftshift(img))
         np.testing.assert_allclose(img,img2)
 
         # Test log-polar
@@ -133,7 +134,7 @@ class test_align(unittest.TestCase):
         data = [(0.,0.,sx,sy,angle,1000.)]
         fixed = gettransformedimage(xv,yv,data,angle=True).reshape(xv.shape)
 
-        angle = -20*np.pi/180
+        angle = -2*np.pi/180
         scale = 1.3#0.9
         sx *= scale
         sy *= scale
@@ -142,38 +143,32 @@ class test_align(unittest.TestCase):
 
         a = scale*np.cos(angle)
         b = scale*np.sin(angle)
-        R = o.idcof.copy()
-        R[0,0] = a
-        R[1,1] = a
-        R[0,1] = -b
-        R[1,0] = b
+        R = np.array([[a,-b,0],[b,a,0],[0,0,1]])
 
-        T = o.idcof.copy()
-        T[0:2,2] = [mx/dx,my/dy]
-        Tinv = o.idcof.copy()
-        Tinv[0:2,2] = [-mx/dx,-my/dy]
+        T = np.array([[1,0,mx/dx],[0,1,my/dy],[0,0,1]])
+        Tinv = np.array([[1,0,-mx/dx],[0,1,-my/dy],[0,0,1]])
 
         M = np.dot(T,np.dot(R,Tinv))
 
         o.set_reference(fixed)
-        o.execute_alignkernel(moving)
+        aligned = o.execute_alignkernel(moving)
+        
+        
 
         #TODO: doesn't pass!
-        np.testing.assert_almost_equal(M,o.cof,decimal=1)
+        np.testing.assert_almost_equal(M,o._transform.getnumpyhomography(),decimal=1)
+
     def test_elastix(self):
-        types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine]
         types = [transformationType.translation]
         for t in types:
             self.test_align(alignElastix,t)
 
     def test_sift(self):
-        types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine, transformationType.homography]
-        types = [transformationType.translation]
+        types = [transformationType.translation, transformationType.rigid, transformationType.similarity]
         for t in types:
             self.test_align(alignSift,t)
 
     def test_fft(self):
-        types = [transformationType.translation, transformationType.rigid]
         types = [transformationType.translation]
         for t in types:
             self.test_align(alignFFT,t)
@@ -191,9 +186,10 @@ def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_align("test_sift_mapping"))
+    #testSuite.addTest(test_align("test_fft_internals"))
     testSuite.addTest(test_align("test_min"))
     testSuite.addTest(test_align("test_max"))
-    #testSuite.addTest(test_align("test_centroid")) # This can only work when putting a ROI on a single hotspot
+    ##testSuite.addTest(test_align("test_centroid")) # This can only work when putting a ROI on a single hotspot
     testSuite.addTest(test_align("test_fft"))
     testSuite.addTest(test_align("test_sift"))
     testSuite.addTest(test_align("test_elastix"))

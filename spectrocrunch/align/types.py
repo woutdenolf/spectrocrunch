@@ -41,7 +41,6 @@ transformationType = Enum(['translation','rigid','similarity','affine','homograp
 # scaling: R = [[s,0],[0,s]]
 # aspect: R = [[a,0],[1/a,0]]
 # shear: R = [[1,s],[s,1]]
-# homography: 
 #
 # rigid(eucledian):        rotation + translation          dof = 3      R = [[a,sqrt(1-a^2)],[sqrt(1-a^2),a]]  T = [[tx],[ty]]
 # similarity:              rigid + scaling                 dof = 4      R = [[a,-b],[b,a]]  T = [[tx],[ty]]

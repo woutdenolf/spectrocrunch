@@ -24,11 +24,17 @@
 
 
 from .align import align
-import sift_pyocl as sift
+
+from silx.image import sift
+from silx.opencl import ocl
+from silx.opencl.utils import get_opencl_code
+import pyopencl
+
 import os
 import numpy as np
 from scipy import stats
 from .types import transformationType
+import logging
 
 class alignSift(align):
 
@@ -36,9 +42,9 @@ class alignSift(align):
         super(alignSift,self).__init__(*args,**kwargs)
 
         # pyopencl stuff
-        device = sift.opencl.ocl.select_device(type="GPU", best=True)
-        self.ctx = sift.opencl.pyopencl.Context(devices=[sift.opencl.pyopencl.get_platforms()[device[0]].get_devices()[device[1]]])
-        self.queue = sift.opencl.pyopencl.CommandQueue(self.ctx)
+        device = ocl.select_device(type="GPU", best=True)
+        self.ctx = pyopencl.Context(devices=[pyopencl.get_platforms()[device[0]].get_devices()[device[1]]])
+        self.queue = pyopencl.CommandQueue(self.ctx)
         
         # Prepare alignment kernel
         self.max_workgroup_size = None
@@ -59,23 +65,21 @@ class alignSift(align):
         
         # Prepare transformation kernel
         self.workgroupshape = (8, 4)
-        kernel_file = os.path.join(os.path.dirname(os.path.abspath(sift.__file__)),"transform.cl")
-        kernel_src = open(kernel_file).read()
-        self.transformix = sift.opencl.pyopencl.Program(self.ctx, kernel_src).build()#('-D WORKGROUP_SIZE=%s' % self.max_workgroup_size)
+        self.transformix = pyopencl.Program(self.ctx, get_opencl_code("transform.cl")).build()#('-D WORKGROUP_SIZE=%s' % self.max_workgroup_size)
         self.newtransformixshape()
-
+        
         # Prepare transformation buffers
         self.buffers = {}
         self.newtransformationIObuffer()
-        self.cof = self.idcof.copy()
-        self.buffers["matrix"] = sift.opencl.pyopencl.array.empty(self.queue, shape=(2, 2), dtype=self.dtype)
-        self.buffers["offset"] = sift.opencl.pyopencl.array.empty(self.queue, shape=(1, 2), dtype=self.dtype)
+        self._transform = self.defaulttransform()
+        self.buffers["matrix"] = pyopencl.array.empty(self.queue, shape=(2, 2), dtype=self.dtype)
+        self.buffers["offset"] = pyopencl.array.empty(self.queue, shape=(1, 2), dtype=self.dtype)
         self.updatecofbuffer()
 
     def updatecofbuffer(self):
         # (x,y) becomes (y,x)
-        cpy1 = sift.opencl.pyopencl.enqueue_copy(self.queue, self.buffers["matrix"].data, np.ascontiguousarray(self.cof[0:2,0:2].T))
-        cpy2 = sift.opencl.pyopencl.enqueue_copy(self.queue, self.buffers["offset"].data, np.ascontiguousarray(self.cof[0:2,2][::-1]))
+        cpy1 = pyopencl.enqueue_copy(self.queue, self.buffers["matrix"].data, np.ascontiguousarray(self._transform.getlinear().T))
+        cpy2 = pyopencl.enqueue_copy(self.queue, self.buffers["offset"].data, np.ascontiguousarray(self._transform.gettranslation()[::-1]))
 
     def newsiftplan(self):
         """New kernel for finding keypoints
@@ -85,8 +89,8 @@ class alignSift(align):
     def newtransformationIObuffer(self):
         """New IO buffers for the transformation kernel
         """
-        self.buffers["input"] = sift.opencl.pyopencl.array.empty(self.queue, shape=self.inshape, dtype=self.dtype)
-        self.buffers["output"] = sift.opencl.pyopencl.array.empty(self.queue, shape=self.outshape, dtype=self.dtype)
+        self.buffers["input"] = pyopencl.array.empty(self.queue, shape=self.inshape, dtype=self.dtype)
+        self.buffers["output"] = pyopencl.array.empty(self.queue, shape=self.outshape, dtype=self.dtype)
 
     def newtransformixshape(self):
         shape = self.inshape[::-1]
@@ -115,13 +119,13 @@ class alignSift(align):
     def execute_transformkernel(self,img):
         """Transform image according with the transformation kernel
         """
-        if self.isidentity():
+        if self._transform.isidentity():
             return img
         self.changeshape(img.shape)
 
         # Copy image to buffer
         data = np.ascontiguousarray(img, self.dtype)
-        cpy = sift.opencl.pyopencl.enqueue_copy(self.queue, self.buffers["input"].data, data)
+        cpy = pyopencl.enqueue_copy(self.queue, self.buffers["input"].data, data)
         cpy.wait()
 
         # Apply transformation
@@ -134,14 +138,14 @@ class alignSift(align):
 
         # Copy image to buffer
         data = np.ascontiguousarray(img, self.dtype)
-        cpy = sift.opencl.pyopencl.enqueue_copy(self.queue, self.buffers["input"].data, data)
+        cpy = pyopencl.enqueue_copy(self.queue, self.buffers["input"].data, data)
         cpy.wait()
 
         # Find keypoints of buffered image
         self.kp2 = self.siftplan.keypoints(self.buffers["input"])
 
         # Find matching reference keypoints
-        self.cof[0:2,2] = 0
+        self._transform.settranslation(np.zeros(2))
         if self.kp1.size != 0 and self.kp2.size != 0:
             raw_matching = self.matchplan.match(self.buffers["ref_kp_gpu"], self.kp2, raw_results=True)
 
@@ -158,10 +162,10 @@ class alignSift(align):
                 # Extract transformation matrix
                 #dx = matching[:, 1].x - matching[:, 0].x
                 #dy = matching[:, 1].y - matching[:, 0].y
-                #self.cof[0:2,2] = (np.median(dy),np.median(dx)) # y is the first dimension in python
+                #self._transform.settranslation((np.median(dy),np.median(dx))) # y is the first dimension in python
                 
         # Apply transformation
-        if np.array_equal(self.cof,self.idcof):
+        if self._transform.isidentity():
             return img
 
         self.updatecofbuffer()
@@ -176,8 +180,14 @@ class alignSift(align):
     def solvelinearsystem(self,A,b):
         ##### Using pseudo-inverse #####
         # A-1* = (A^T.A)^(-1).A^T
-        S = np.dot(A.T, A)
-        sol = np.dot(np.linalg.inv(S), np.dot(A.T, b))
+        try:
+            S = np.dot(A.T, A)
+            sol = np.dot(np.linalg.inv(S), np.dot(A.T, b))
+        except np.linalg.LinAlgError as err:
+            logger = logging.getLogger(__name__)
+            logger.error("Singular matrix in calculating a transformation from SIFT keypoints")
+            sol = None
+            
         #sol = np.dot(numpy.linalg.pinv(A),b) #slower?
 
         ##### Using SVD #####
@@ -197,10 +207,10 @@ class alignSift(align):
 
             Remark: the rigid transformation is the most problematic (cfr. test_sift_mapping)
         """
-        self.cof = self.idcof.copy()
+        self._transform.setidentity()
 
         if self.transfotype==transformationType.translation:
-            self.cof[0:2,2] = [self.centroid(xdest-xsrc),self.centroid(ydest-ysrc)]
+            self._transform.settranslation([self.centroid(xdest-xsrc),self.centroid(ydest-ysrc)])
 
         elif self.transfotype==transformationType.rigid:
             # https://igl.ethz.ch/projects/ARAP/svd_rot.pdf
@@ -216,12 +226,13 @@ class alignSift(align):
 
             S = np.dot(np.dot(np.transpose(XT-censrc),np.identity(len(xsrc))),YT-cendest)
             U, s, V = np.linalg.svd(S, full_matrices=False)
-            self.cof[0:2,0:2] = np.dot(V,np.transpose(U))
+            C = np.dot(V,np.transpose(U))
+            self._transform.setlinear(C)
 
-            YTnoshift = YT-np.dot(XT,self.cof[0:2,0:2].T)
-            #self.cof[0:2,2] = cendest - np.dot(cof[0:2,0:2],censrc)
+            YTnoshift = YT-np.dot(XT,C.T)
+            #self._transform.settranslation(cendest - np.dot(C,censrc))
             # This seems to be more accurate
-            self.cof[0:2,2] = np.asarray([self.centroid(YTnoshift[:,0]),self.centroid(YTnoshift[:,1])])
+            self._transform.settranslation([self.centroid(YTnoshift[:,0]),self.centroid(YTnoshift[:,1])])
             
         elif self.transfotype==transformationType.similarity:
             # Similarity transformation:
@@ -261,8 +272,9 @@ class alignSift(align):
             Y[1::2, 0] = ydest
 
             sol = self.solvelinearsystem(X,Y)
-            self.cof[0:2,0:2] = [[sol[0],-sol[1]],[sol[1],sol[0]]]
-            self.cof[0:2,2] = sol[2:].flatten()
+            if sol is not None:
+                self._transform.setlinear([[sol[0],-sol[1]],[sol[1],sol[0]]])
+                self._transform.settranslation(sol[2:].flatten())
 
         elif self.transfotype==transformationType.affine:
             # Affine transformation:
@@ -286,6 +298,9 @@ class alignSift(align):
             #     x2'
             #     y2'
             #     ...
+
+            raise NotImplementedError("Sift doesn't support affine transformations (keypoints not invariant).")
+
             N = len(xsrc)
 
             X = np.zeros((2 * N, 6))
@@ -301,8 +316,8 @@ class alignSift(align):
             Y[1::2, 0] = ydest
 
             sol = self.solvelinearsystem(X,Y)
-            M = sol.reshape((2,3))
-            self.cof[0:2,:] = M
+            if sol is not None:
+                self._transform.setaffine(sol.reshape((2,3)))
 
         elif self.transfotype==transformationType.homography:
             # Projective transformation:
@@ -328,8 +343,10 @@ class alignSift(align):
             #     0
             #     0
             #     ...
-            if self.usekernel:
-                raise NotImplementedError("Sift doesn't support this type transformation.")
+            
+            raise NotImplementedError("Sift doesn't support homographies (keypoints not invariant).")
+            #if self.usekernel:
+            #    raise NotImplementedError("Sift doesn't support this type of transformation.")
 
             N = len(xsrc)
 
@@ -350,9 +367,10 @@ class alignSift(align):
             Y[1::2, 0] = ydest
 
             sol = self.solvelinearsystem(X,Y)
-            self.cof[:] = np.append(sol,1).reshape((3,3))
+            if sol is not None:
+                self._transform.sethomography(np.append(sol,1).reshape((3,3))) 
         else:
-            raise NotImplementedError("Sift doesn't support this type transformation.")
+            raise NotImplementedError("Sift doesn't support this type of transformation.")
 
     def execute_transformatrix(self):
         """Execute transformation kernel
@@ -370,11 +388,6 @@ class alignSift(align):
                                    #self.siftplan.buffers["min"].get()[0],
                                    np.int32(1)) # bilinear interpolation
 
-    def isidentity(self):
-        """Transformation is the identity?
-        """
-        return np.array_equal(self.cof,self.idcof)
-
     def set_reference(self,img,previous=False):
         """Reference for alignment
         """
@@ -386,17 +399,17 @@ class alignSift(align):
         else:
             self.kp1 = self.siftplan.keypoints(np.ascontiguousarray(img, self.dtype))
 
-        self.buffers["ref_kp_gpu"] = sift.opencl.pyopencl.array.to_device(self.matchplan.queue, self.kp1)
+        self.buffers["ref_kp_gpu"] = pyopencl.array.to_device(self.matchplan.queue, self.kp1)
 
     def get_transformation(self):
         """Get transformation from alignment kernel
         """
-        return self.cof
+        return self._transform
 
-    def set_transformation(self,M,bchanged):
+    def set_transformation(self,transform,bchanged):
         """Set the transformation kernel according to the alignment kernel and adapted transformation
         """
         if bchanged:
-            self.cof[:] = M
+            self._transform.set(transform)
             self.updatecofbuffer()
 

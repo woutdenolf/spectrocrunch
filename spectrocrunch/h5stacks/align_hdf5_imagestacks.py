@@ -125,8 +125,7 @@ def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refda
 
     # Add processing info
     if info is not None:
-        info["odim1"] = o.cofs[:,1,2]
-        info["odim2"] = o.cofs[:,0,2]
+        info["changeofframes"] = o.absolute_cofs()
         if bsamefile:
             nexus.addinfogroup(fout,"align",info)
         else:

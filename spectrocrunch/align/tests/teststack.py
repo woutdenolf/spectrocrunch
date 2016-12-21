@@ -52,7 +52,7 @@ def gettransformedimage(x,y,data,angle=False):
         proc = makeGaussian
     for x0,y0,sx,sy,rho,A in data:
         ret += proc(x,y,x0,y0,sx,sy,rho,A)
-    ret /= np.max(ret)
+    #ret /= np.max(ret)
     return ret
 
 #def getlargeimage(npeaks,nsigma,shape,subshape):
@@ -66,56 +66,56 @@ def gettransformedimage(x,y,data,angle=False):
 #    image /= np.max(image)
 
 def translation(dx,dy):
-    Mforward = np.identity(3)
-    Mbackward = np.identity(3)
-    Mforward[0:2,2] = [dx,dy]
-    Mbackward[0:2,2] = [-dx,-dy]
-    return Mforward,Mbackward
+    Mcoord = np.identity(3)
+    Mcof = np.identity(3)
+    Mcoord[0:2,2] = [dx,dy]
+    Mcof[0:2,2] = [-dx,-dy]
+    return Mcoord,Mcof
 
 def rigid(a,tx,ty):
     if (a<0 or a>1):
         raise ValueError("A rigid transformation is expected.")
-    Mforward = np.identity(3)
-    Mbackward = np.identity(3)
+    Mcoord = np.identity(3)
+    Mcof = np.identity(3)
     b = np.sqrt(1-a*a)
-    Mforward[0,0:3] = [a,-b,tx]
-    Mforward[1,0:3] = [b,a,ty]
-    Mbackward[0,0:3] = [a,b,-a*tx-b*ty]
-    Mbackward[1,0:3] = [-b,a,b*tx-a*ty]
-    return Mforward,Mbackward
+    Mcoord[0,0:3] = [a,-b,tx]
+    Mcoord[1,0:3] = [b,a,ty]
+    Mcof[0,0:3] = [a,b,-a*tx-b*ty]
+    Mcof[1,0:3] = [-b,a,b*tx-a*ty]
+    return Mcoord,Mcof
 
 def similarity(a,b,tx,ty):
-    Mforward = np.identity(3)
-    Mbackward = np.identity(3)
-    Mforward[0,0:3] = [a,-b,tx]
-    Mforward[1,0:3] = [b,a,ty]
+    Mcoord = np.identity(3)
+    Mcof = np.identity(3)
+    Mcoord[0,0:3] = [a,-b,tx]
+    Mcoord[1,0:3] = [b,a,ty]
     s = np.float(a*a+b*b)
-    Mbackward[0,0:3] = [a/s,b/s,-(a*tx+b*ty)/s]
-    Mbackward[1,0:3] = [-b/s,a/s,(b*tx-a*ty)/s]
-    return Mforward,Mbackward
+    Mcof[0,0:3] = [a/s,b/s,-(a*tx+b*ty)/s]
+    Mcof[1,0:3] = [-b/s,a/s,(b*tx-a*ty)/s]
+    return Mcoord,Mcof
 
 def affine(a,b,c,d,tx,ty):
-    Mforward = np.identity(3)
-    Mbackward = np.identity(3)
-    Mforward[0,0:3] = [a,b,tx]
-    Mforward[1,0:3] = [c,d,ty]
+    Mcoord = np.identity(3)
+    Mcof = np.identity(3)
+    Mcoord[0,0:3] = [a,b,tx]
+    Mcoord[1,0:3] = [c,d,ty]
     det = np.float(a*d-b*c)
-    Mbackward[0,0:3] = [d/det,-b/det,(d*tx-b*ty)/det]
-    Mbackward[1,0:3] = [-c/det,a/det,(c*tx-a*ty)/det]
-    return Mforward,Mbackward
+    Mcof[0,0:3] = [d/det,-b/det,(d*tx-b*ty)/det]
+    Mcof[1,0:3] = [-c/det,a/det,(c*tx-a*ty)/det]
+    return Mcoord,Mcof
 
 def homography(a,b,c,d,tx,ty,px,py):
-    Mforward = np.identity(3)
-    Mbackward = np.identity(3)
-    Mforward[0,0:3] = [a,b,tx]
-    Mforward[1,0:3] = [c,d,ty]
-    Mforward[2,0:3] = [px,py,1]
+    Mcoord = np.identity(3)
+    Mcof = np.identity(3)
+    Mcoord[0,0:3] = [a,b,tx]
+    Mcoord[1,0:3] = [c,d,ty]
+    Mcoord[2,0:3] = [px,py,1]
     det = np.float(a*d-a*py*ty-b*c+b*px*ty+c*py*tx-d*px*tx)
-    Mbackward[0,0:3] = [d-py*ty, py*tx-b, b*ty-d*tx]
-    Mbackward[1,0:3] = [px*ty-c, a-px*tx, c*tx-a*ty]
-    Mbackward[2,0:3] = [c*py-d*px, b*px-a*py,a*d-b*c]
-    Mbackward /= det
-    return Mforward,Mbackward
+    Mcof[0,0:3] = [d-py*ty, py*tx-b, b*ty-d*tx]
+    Mcof[1,0:3] = [px*ty-c, a-px*tx, c*tx-a*ty]
+    Mcof[2,0:3] = [c*py-d*px, b*px-a*py,a*d-b*c]
+    Mcof /= det
+    return Mcoord,Mcof
 
 def transformation(t,n):
     if t==transformationType.rigid:
@@ -128,13 +128,15 @@ def transformation(t,n):
         a *= 1.1
         b *= 1.1
     else:
-        a = 1.1
-        b = 0.2
-        c = -0.4
-        d = 0.9
+        a = np.around(np.cos(40./180.*np.pi/(n-1)),3)
+        b = np.around(np.sin(40./180.*np.pi/(n-1)),3)
+        a *= 1.1
+        b *= 1.2
+        c = -b*0.9
+        d = a*0.9
 
     tx = 1.
-    ty = 2.
+    ty = -2.
     px = 0.001
     py = -0.001
 
@@ -161,9 +163,7 @@ def teststack(transfotype,nimages = 5):
     """
 
     # Transformation between images
-    Mbackward,Mforward = transformation(transfotype,nimages)
-    # Mbackward: change-of-coordinate matrix (has the values we choose)
-    # Mforward: change-of-frame matrix (the inverse of Mbackward)
+    Mcoord,Mcof = transformation(transfotype,nimages)
 
     # Shape of a subimage
     subshape = (71,61)
@@ -171,23 +171,19 @@ def teststack(transfotype,nimages = 5):
     subymin = -subshape[0]//2
     subxmax = subshape[1]//2
     subymax = subshape[0]//2
+    subxmax = subshape[1]-1
+    subymax = subshape[0]-1
     subshape = (subymax-subymin+1,subxmax-subxmin+1)
 
-    # Determine shape of large image
+    # Determine shape of large image (transform corners)
     xy = np.empty((3,4))
     xy[0,:] = [subxmin,subxmax,subxmin,subxmax]
     xy[1,:] = [subymin,subymin,subymax,subymax]
     xy[2,:] = [1,1,1,1]
     myminmax = np.append(np.min(xy,axis=1),np.max(xy,axis=1))
-    maskmin = np.empty((3,4),dtype=bool)
-    maskmin[0,:] = [True,False,True,False]
-    maskmin[1,:] = [True,True,False,False]
-    maskmin[2,:] = [False,False,False,False]
-    maskmax = np.logical_not(maskmin)
-    maskmax[2,:] = [False,False,False,False]
 
     for i in range(1,nimages):
-        xy = np.dot(Mforward,xy) # this is the inverse coordinate transformation!
+        xy = np.dot(Mcoord,xy)
         xy[0,:] /= xy[2,:]
         xy[1,:] /= xy[2,:]
         myminmax[0:3] = np.minimum(myminmax[0:3],np.min(xy,axis=1))
@@ -224,11 +220,11 @@ def teststack(transfotype,nimages = 5):
         yv = yv.reshape((1,shape[0]*shape[1]))
         xy = np.vstack((xv,yv,np.ones_like(xv)))
         img = gettransformedimage(xv,yv,data).reshape(shape)
-        import pylab
-        pylab.figure(2)
-        pylab.subplot(111)
-        pylab.imshow(img,origin='lower',interpolation='nearest')
-        pylab.pause(0.1)
+        import matplotlib.pyplot as plt
+        plt.figure(2)
+        plt.subplot(111)
+        plt.imshow(img,origin='lower',interpolation='nearest')
+        plt.show()
 
     # Stack of transformed subimages
     ret = np.empty(subshape+(nimages,),dtype=np.float32)
@@ -238,19 +234,18 @@ def teststack(transfotype,nimages = 5):
     xy = np.vstack((xv,yv,np.ones_like(xv)))
     ret[...,0] = gettransformedimage(xv,yv,data).reshape(subshape)
     for i in range(1,nimages):
-        xy = np.dot(Mforward,xy) # this is the inverse coordinate transformation!
+        xy = np.dot(Mcof,xy) # coordinates from new frame to old frame
         xy[0,:] /= xy[2,:]
         xy[1,:] /= xy[2,:]
         ret[...,i] = gettransformedimage(xy[0,:],xy[1,:],data).reshape(subshape)
 
-    # Relative change-of-frame in subimage frame
-    C = np.identity(3,dtype=Mbackward.dtype)
-    Cinv = np.identity(3,dtype=Mbackward.dtype)
-    C[0:2,2] = [subxmin,subymin] # image frame to subimage frame
+    # Relative change-of-frame in subimage pixel frame
+    C = np.identity(3,dtype=Mcof.dtype)
+    Cinv = np.identity(3,dtype=Mcof.dtype)
+    C[0:2,2] = [subxmin,subymin] # image pixel frame to subimage pixel frame
     Cinv[0:2,2] = -C[0:2,2]
-    M = np.dot(np.dot(Cinv,Mbackward),C)
-    
-    return ([ret,ret],M,2)
+    Mcof = np.dot(np.dot(Cinv,Mcof),C)
+    Mcoord = np.dot(np.dot(Cinv,Mcoord),C)
 
-
+    return ([ret,ret],Mcoord,2) # Mcoord: change-of-frame matrix of the back-transformation
 

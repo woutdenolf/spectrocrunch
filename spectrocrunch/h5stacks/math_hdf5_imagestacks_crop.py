@@ -50,6 +50,12 @@ def calccroproi(stack,nanval,stackdim):
         dim1,dim2,nimg = dataset.shape
 
     # Mask (True = valid pixel)
+    # Do not slice by slice because of memory
+    #if nanval is np.nan:
+    #    mask = np.isnan(dataset[:]).sum(axis=stackdim)==0
+    #else:
+    #    mask = (dataset[:]==nanval).sum(axis=stackdim)==0
+
     mask = np.ones((dim1,dim2),dtype=np.bool)
     for i in range(nimg):
         if stackdim==0:

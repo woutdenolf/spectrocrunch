@@ -61,8 +61,8 @@ class alignElastix(align):
             parameterMap = sitk.GetDefaultParameterMap('translation')
         elif self.transfotype==transformationType.rigid:
             parameterMap = sitk.GetDefaultParameterMap('rigid')
-        elif self.transfotype==transformationType.similarity:
-            parameterMap = sitk.GetDefaultParameterMap('similarity')
+        #elif self.transfotype==transformationType.similarity:
+        #    parameterMap = sitk.GetDefaultParameterMap('similarity') # in Elastix but not SimpleElastix
         elif self.transfotype==transformationType.affine:
             parameterMap = sitk.GetDefaultParameterMap('affine')
         else:
@@ -132,31 +132,56 @@ class alignElastix(align):
     def get_transformation(self):
         """Get transformation from alignment kernel.
         """
-        cof = self.idcof.copy()
+        transform = self.defaulttransform()
 
         transformParameterMap = self.elastix_GetTransformParameterMap()
         if len(transformParameterMap)>=1:
-            params = np.array(transformParameterMap[0]["TransformParameters"], self.dtype)
-            cof[0,2] = params[0]
-            cof[1,2] = params[1]
-        
-        return cof
+            #for k in transformParameterMap[0]:
+            #    print(k,transformParameterMap[0][k])
 
-    def set_transformation(self,cof,changed):
+            if self.transfotype==transformationType.translation:
+                params = np.array(transformParameterMap[0]["TransformParameters"], self.dtype)
+                transform.settranslation(params[0:2])
+            elif self.transfotype==transformationType.rigid:
+                theta, tx, ty = np.array(transformParameterMap[0]["TransformParameters"], self.dtype)
+                cx, cy = np.array(transformParameterMap[0]["CenterOfRotationPoint"], self.dtype)
+
+                L = self.defaulttransform(ttype=transformationType.rigid)
+                L.setrigid(theta,tx,ty)
+
+                C = self.defaulttransform(ttype=transformationType.translation)
+                C.settranslation(-cx,-cy)
+
+                # cof = C^-1.L^-1.C
+
+                transform.set(L.dot(C).inverse().dot(C))
+
+                #TODO: not verified!
+            else:
+                raise NotImplementedError("Elastix doesn't support this type of transformation.")
+
+        return transform
+
+    def set_transformation(self,transform,changed):
         """Set the transformation kernel according to the alignment kernel and adapted transformation
         """
         transformParameterMap = self.elastix_GetTransformParameterMap()
+
         if changed:
+            if transform.transfotype != self.transfotype:
+                raise ValueError("Transformations must have the same type")
+
             if self.transfotype==transformationType.translation:
-                transformParameterMap[0]["TransformParameters"] = (str(cof[0,2]),str(cof[1,2]))
+                tmp = transform.gettranslation()
+                transformParameterMap[0]["TransformParameters"] = (str(tmp[0]),str(tmp[1]))
             elif self.transfotype==transformationType.rigid:
-                transformParameterMap[0]["TransformParameters"] = (str(cof[0,2]),str(cof[1,2]))
-            elif self.transfotype==transformationType.similarity:
-                transformParameterMap[0]["TransformParameters"] = (str(cof[0,2]),str(cof[1,2]))
+                transformParameterMap[0]["CenterOfRotationPoint"] = ("0","0")
+                theta, tx, ty = transform.getrigid()
+                transformParameterMap[0]["TransformParameters"] = (str(theta),str(tx),str(ty))
             elif self.transfotype==transformationType.affine:
-                transformParameterMap[0]["TransformParameters"] = (str(cof[0,2]),str(cof[1,2]))
+                pass
             else:
-                raise NotImplementedError("Elastix doesn't support this type transformation.")
+                raise NotImplementedError("Elastix doesn't support this type of transformation.")
 
         self.transformix.SetTransformParameterMap(transformParameterMap)
 
