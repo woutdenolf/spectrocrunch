@@ -26,7 +26,7 @@ import unittest
 
 from ..compoundfromformula import compoundfromformula
 from ..compoundfromlist import compoundfromlist
-from ..compoundfromcif import compoundfromcif
+#from ..compoundfromcif import compoundfromcif
 from ..types import fractionType
 from ..element import element
 
@@ -78,6 +78,8 @@ class test_compound(unittest.TestCase):
             self.assertAlmostEqual(wfrac[elements[i]],a[i]/float(sum(a)))
 
     def test_cif(self):
+        from ..compoundfromcif import compoundfromcif
+
         elements = ["Ca","C","O"]
         a = [6,6,18.]
         c = compoundfromcif("calcite",name="calcite") 
