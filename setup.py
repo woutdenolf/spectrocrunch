@@ -130,7 +130,7 @@ setup_requires = ["testfixtures", "setuptools_scm"]
 
 setup(name='SpectroCrunch',
       version=get_version(),
-      #url="https://github.com/spectrocrunch",
+      url="https://github.com/woutdenolf/spectrocrunch",
       author="Wout De Nolf",
       author_email="woutdenolf@users.sf.net",
       classifiers = classifiers,
