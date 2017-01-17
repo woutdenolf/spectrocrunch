@@ -1,24 +1,25 @@
 This project aims at processing spectrocopic imaging data (fluorescence and transmission).
 
-Version
+
+Install
 =======
 
-    python setup.py version
+    pip install spectrocrunch
 
 Test
 ====
 
+    python -m spectrocrunch.test.test_all
+
+Developers
+==========
+
+    python setup.py version
     python setup.py test
-
-Run a single test:
-
     python -m spectrocrunch.align.tests.test_teststack
-
-
-Installation
-============
-
     python setup.py install
+    python setup.py register -r pypi
+    python setup.py sdist upload -r pypi
 
 Use without installation
 ========================

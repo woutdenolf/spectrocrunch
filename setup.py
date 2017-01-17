@@ -37,6 +37,7 @@ Package installation file to be used as:
 from __future__ import print_function
 import sys
 import os
+del os.link
 import subprocess
 from setuptools import setup, Command, find_packages
 
@@ -126,7 +127,7 @@ extras_require = {\
     }
 
 # Needed for running the setup script
-setup_requires = ["testfixtures", "setuptools_scm"] 
+setup_requires = ["testfixtures"] #"setuptools_scm" 
 
 setup(name='SpectroCrunch',
       version=get_version(),
@@ -141,7 +142,7 @@ setup(name='SpectroCrunch',
       extras_require=extras_require,
       setup_requires=setup_requires,
       include_package_data=True,
-      use_scm_version=True,
+      #use_scm_version=True,
       license="MIT",
       cmdclass=cmdclass
       )
