@@ -120,7 +120,10 @@ classifiers = [get_devstatus(),
 
 # Needed for using Spectrocrunch
 install_requires = ["numpy", "scipy", "h5py", "fabio", "silx", "pyparsing", "PyMca5", "shapely"]
-# Non pip: "xraylib", "cctbx", "fdmnes", "SimpleITK"
+extras_require = {\
+    "physics":["xraylib", "cctbx", "fdmnes"],\
+    "elastix":["SimpleITK"]\
+    }
 
 # Needed for running the setup script
 setup_requires = ["testfixtures", "setuptools_scm"] 
@@ -135,6 +138,7 @@ setup(name='SpectroCrunch',
       long_description=get_readme(),
       packages=find_packages(),
       install_requires=install_requires,
+      extras_require=extras_require,
       setup_requires=setup_requires,
       include_package_data=True,
       use_scm_version=True,

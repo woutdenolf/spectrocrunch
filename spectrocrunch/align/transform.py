@@ -46,7 +46,7 @@ class transform(object):
         return self.cof[:]
 
     def getnumpyhomography(self):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             return np.array([[1,0,self.cof[0]],[0,1,self.cof[1]],[0,0,1]],dtype=self.dtype)
         else:
             return self.cof[:]
@@ -59,74 +59,74 @@ class transform(object):
         """
         if ty is not None:
             trn = [trn,ty]
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             self.cof[:] = trn
-        elif self.transfotype=='rigid':
+        elif self.transfotype==transformationType.rigid:
             self.cof[0:2,2] = trn
-        elif self.transfotype=='similarity':
+        elif self.transfotype==transformationType.similarity:
             self.cof[0:2,2] = trn
-        elif self.transfotype=='affine':
+        elif self.transfotype==transformationType.affine:
             self.cof[0:2,2] = trn
-        elif self.transfotype=='homography':
+        elif self.transfotype==transformationType.homography:
             self.cof[0:2,2] = trn
         else:
             raise ValueError("Transformation does not have an translation part")
 
     def gettranslation(self):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             return self.cof[:]
-        elif self.transfotype=='rigid':
+        elif self.transfotype==transformationType.rigid:
             return self.cof[0:2,2]
-        elif self.transfotype=='similarity':
+        elif self.transfotype==transformationType.similarity:
             return self.cof[0:2,2]
-        elif self.transfotype=='affine':
+        elif self.transfotype==transformationType.affine:
             return self.cof[0:2,2]
-        elif self.transfotype=='homography':
+        elif self.transfotype==transformationType.homography:
             return self.cof[0:2,2]
         else:
             raise ValueError("Transformation does not have an translation part")
 
     def setrigid(self,theta,tx,ty):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             trn = self.gettranslation()
-            self.transfotype=='affine'            
+            self.transfotype==transformationType.affine            
             self.cof = self.getidentity()
-        elif self.transfotype=='rigid':
+        elif self.transfotype==transformationType.rigid:
             pass
-        elif self.transfotype=='similarity':
-            self.transfotype='rigid'
-        elif self.transfotype=='affine':
-            self.transfotype='rigid'
-        elif self.transfotype=='homography':
+        elif self.transfotype==transformationType.similarity:
+            self.transfotype=transformationType.rigid
+        elif self.transfotype==transformationType.affine:
+            self.transfotype=transformationType.rigid
+        elif self.transfotype==transformationType.homography:
             pass
         else:
             raise ValueError("Transformation does not have an linear part")
 
         costheta = np.cos(theta)
         sintheta = np.sin(theta)
-        self.cof[0:2,:] = np.array([[costheta,-sintheta,tx],[sintheta,costheta,ty],[0,0,1]], self.dtype)
+        self.cof[0:2,:] = np.array([[costheta,-sintheta,tx],[sintheta,costheta,ty]], self.dtype)
 
     def getrigid(self):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             return 0,self.cof[0],self.cof[1]
-        elif self.transfotype=='rigid':
+        elif self.transfotype==transformationType.rigid:
             return np.arccos(self.cof[0,0]),self.cof[0,2],self.cof[1,2]
         else:
             raise ValueError("Transformation should be a translation or a rigid transformation")
 
     def setlinear(self,M):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             trn = self.gettranslation()
-            self.transfotype='affine'            
+            self.transfotype=transformationType.affine            
             self.cof = self.getidentity()
             self.settranslation(trn)
-        elif self.transfotype=='rigid':
+        elif self.transfotype==transformationType.rigid:
             pass
-        elif self.transfotype=='similarity':
+        elif self.transfotype==transformationType.similarity:
             pass
-        elif self.transfotype=='affine':
+        elif self.transfotype==transformationType.affine:
             pass
-        elif self.transfotype=='homography':
+        elif self.transfotype==transformationType.homography:
             pass
         else:
             raise ValueError("Transformation does not have an linear part")
@@ -134,32 +134,32 @@ class transform(object):
         self.cof[0:2,0:2] = M
 
     def getlinear(self):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             return np.identity(2,dtype = self.dtype)
-        elif self.transfotype=='rigid':
+        elif self.transfotype==transformationType.rigid:
             return self.cof[0:2,0:2]
-        elif self.transfotype=='similarity':
+        elif self.transfotype==transformationType.similarity:
             return self.cof[0:2,0:2]
-        elif self.transfotype=='affine':
+        elif self.transfotype==transformationType.affine:
             return self.cof[0:2,0:2]
-        elif self.transfotype=='homography':
+        elif self.transfotype==transformationType.homography:
             return self.cof[0:2,0:2]
         else:
             raise ValueError("Transformation does not have an linear part")
 
     def setaffine(self,M):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             trn = self.gettranslation()
-            self.transfotype='affine'            
+            self.transfotype=transformationType.affine            
             self.cof = self.getidentity()
             self.settranslation(trn)
-        elif self.transfotype=='rigid':
+        elif self.transfotype==transformationType.rigid:
             pass
-        elif self.transfotype=='similarity':
+        elif self.transfotype==transformationType.similarity:
             pass
-        elif self.transfotype=='affine':
+        elif self.transfotype==transformationType.affine:
             pass
-        elif self.transfotype=='homography':
+        elif self.transfotype==transformationType.homography:
             pass
         else:
             raise ValueError("Transformation does not have an affine part")
@@ -167,32 +167,32 @@ class transform(object):
         self.cof[0:2,:] = M
 
     def getaffine(self):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             return np.array([[1,0,self.cof[0]],[0,1,self.cof[1]]],dtype=self.dtype)
-        elif self.transfotype=='rigid':
+        elif self.transfotype==transformationType.rigid:
             return self.cof[:,0:2]
-        elif self.transfotype=='similarity':
+        elif self.transfotype==transformationType.similarity:
             return self.cof[:,0:2]
-        elif self.transfotype=='affine':
+        elif self.transfotype==transformationType.affine:
             return self.cof[:,0:2]
-        elif self.transfotype=='homography':
+        elif self.transfotype==transformationType.homography:
             return self.cof[:,0:2]
         else:
             raise ValueError("Transformation does not have an affine part")
 
     def sethomography(self,M):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             trn = self.gettranslation()
-            self.transfotype='homography'            
+            self.transfotype=transformationType.homography            
             self.cof = self.getidentity()
             self.settranslation(trn)
-        elif self.transfotype=='rigid':
-            self.transfotype=='homography'
-        elif self.transfotype=='similarity':
-            self.transfotype=='homography'
-        elif self.transfotype=='affine':
-            self.transfotype=='homography'
-        elif self.transfotype=='homography':
+        elif self.transfotype==transformationType.rigid:
+            self.transfotype==transformationType.homography
+        elif self.transfotype==transformationType.similarity:
+            self.transfotype==transformationType.homography
+        elif self.transfotype==transformationType.affine:
+            self.transfotype==transformationType.homography
+        elif self.transfotype==transformationType.homography:
             pass
         else:
             raise ValueError("Transformation does not have an affine part")
@@ -200,61 +200,61 @@ class transform(object):
         self.cof[:] = M
 
     def gethomography(self):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             return np.array([[1,0,self.cof[0]],[0,1,self.cof[1]],[0,0,1]],dtype=self.dtype)
-        elif self.transfotype=='rigid':
+        elif self.transfotype==transformationType.rigid:
             return self.cof[:]
-        elif self.transfotype=='similarity':
+        elif self.transfotype==transformationType.similarity:
             return self.cof[:]
-        elif self.transfotype=='affine':
+        elif self.transfotype==transformationType.affine:
             return self.cof[:]
-        elif self.transfotype=='homography':
+        elif self.transfotype==transformationType.homography:
             return self.cof[:]
         else:
             raise ValueError("Transformation does not have an affine part")
 
     def setidentity(self):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             self.cof[:] = np.zeros(2,dtype = self.dtype)
         else:
             self.cof[:] = np.identity(3,dtype = self.dtype)
 
     def getidentity(self):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             return np.zeros(2,dtype = self.dtype)
         else:
             return np.identity(3,dtype = self.dtype)
 
     def isidentity(self):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             return np.array_equal(self.cof,np.zeros(2,dtype = self.dtype))
         else:
             return np.array_equal(self.cof,np.identity(3,dtype = self.dtype))  
 
     def islinearidentity(self):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             return True
         else:
             return np.array_equal(self.cof[0:2,0:2],np.identity(2,dtype = self.dtype))  
 
     def isprojidentity(self):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             return True
         else:
             return np.array_equal(self.cof[2,0:2],np.zeros(2,dtype = self.dtype))
 
     def _dot(self,C,right=True):
-        if self.transfotype=='translation' and C.transfotype=='translation':
+        if self.transfotype==transformationType.translation and C.transfotype==transformationType.translation:
             cof = self.cof + C.cof
-            return cof,'translation'
+            return cof,transformationType.translation
 
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             C1 = np.identity(3,dtype = self.dtype)
             C1[0:2,2] = self.cof
         else:
             C1 = self.cof
 
-        if C.transfotype=='translation':
+        if C.transfotype==transformationType.translation:
             C2 = np.identity(3,dtype = self.dtype)
             C2[0:2,2] = C.cof
         else:
@@ -265,14 +265,14 @@ class transform(object):
         else:
             cof = np.dot(C2,C1)
 
-        if self.transfotype=='homography' or C.transfotype=='homography':
-            transfotype='homography'
-        elif self.transfotype=='affine' or C.transfotype=='affine':
-            transfotype='affine'
-        elif self.transfotype=='similarity' or C.transfotype=='similarity':
-            transfotype='similarity'
+        if self.transfotype==transformationType.homography or C.transfotype==transformationType.homography:
+            transfotype=transformationType.homography
+        elif self.transfotype==transformationType.affine or C.transfotype==transformationType.affine:
+            transfotype=transformationType.affine
+        elif self.transfotype==transformationType.similarity or C.transfotype==transformationType.similarity:
+            transfotype=transformationType.similarity
         else:
-            transfotype='rigid'
+            transfotype=transformationType.rigid
 
         return cof,transfotype
 
@@ -304,21 +304,21 @@ class transform(object):
 
     def inverse(self):
         ret = transform(self.transfotype,dtype=self.cof.dtype,cval=self.cval)
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             ret.cof[:] = -self.cof
         else:
             ret.cof[:] = np.linalg.inv(self.cof)
         return ret
 
     def inverseinplace(self):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             self.cof[:] = -self.cof
         else:
             self.cof[:] = np.linalg.inv(self.cof)
 
     def transformcoordinates(self,xy):
         # Anew = C^-1.Aold
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             Ci = -self.cof
         else:
             Ci = np.linalg.inv(self.cof)
@@ -330,7 +330,7 @@ class transform(object):
 
     def _transformcoordinates(self,C,xy):
         # xy' = C.xy
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             if len(xy.shape)==1:
                 if xy.shape[0]==2:
                     return xy + C
@@ -352,7 +352,7 @@ class transform(object):
         # self.cof: change-of-frame matrix for coordinates (x,y)
         if self.isidentity():
             return img
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             # shift: takes transformation vector for coordinates (y,x)
             return scipy.ndimage.interpolation.shift(img,-self.cof[1::-1],cval = self.cval,order=1,mode="constant")
         else:
@@ -366,7 +366,7 @@ class transform(object):
                 raise NotImplementedError()
 
     def __repr__(self):
-        if self.transfotype=='translation':
+        if self.transfotype==transformationType.translation:
             return "tx = {}, ty = {}".format(self.cof[0],self.cof[1])
         else:
             return "tx = {}, ty = {}\nR={}\npx = {}, py = {}".format(self.cof[0,2],self.cof[1,2],self.cof[0:2,0:2],self.cof[2,0],self.cof[2,1])

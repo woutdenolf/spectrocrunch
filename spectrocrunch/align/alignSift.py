@@ -43,6 +43,8 @@ class alignSift(align):
 
         # pyopencl stuff
         device = ocl.select_device(type="GPU", best=True)
+        if device is None:
+            device = ocl.select_device(best=True)
         self.ctx = pyopencl.Context(devices=[pyopencl.get_platforms()[device[0]].get_devices()[device[1]]])
         self.queue = pyopencl.CommandQueue(self.ctx)
         
