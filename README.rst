@@ -1,14 +1,6 @@
 SpectroCrunch: spectrocopic imaging library (XRF/XAS)
 =====================================================
 
-Status
-------
-
-Main development website: https://github.com/woutdenolf/spectrocrunch
-
-|Build Status|
-
-
 Install
 -------
 
@@ -21,6 +13,12 @@ Test
 
 Developers
 ----------
+
+Linux:   |Travis Status|
+Windows: |Appveyor Status|
+
+Main development website: https://github.com/woutdenolf/spectrocrunch
+Distribution website: https://pypi.python.org/pypi/SpectroCrunch
 
     python setup.py version
     python setup.py test
@@ -94,5 +92,7 @@ xrf
 
     X-ray fluorescence data processing.
 
-.. |Build Status| image:: https://travis-ci.org/woutdenolf/spectrocrunch.svg?branch=master
+.. |Travis Status| image:: https://travis-ci.org/woutdenolf/spectrocrunch.svg?branch=master
    :target: https://travis-ci.org/woutdenolf/spectrocrunch
+.. |Appveyor Status| image:: https://ci.appveyor.com/api/projects/status/github/woutdenolf/spectrocrunch?svg=true
+   :target: https://ci.appveyor.com/project/woutdenolf/spectrocrunch

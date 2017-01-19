@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Original script from https://github.com/gregvw/amd_sdk/
+# Original script from https://github.com/silx-kit/pyFAI
 
 # Location from which get nonce and file name from
 URL="http://developer.amd.com/tools-and-sdks/opencl-zone/opencl-tools-sdks/amd-accelerated-parallel-processing-app-sdk/"
