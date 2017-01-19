@@ -1,0 +1,9 @@
+numpy
+scipy
+h5py
+fabio
+silx
+pyparsing
+PyMca5
+shapely
+
