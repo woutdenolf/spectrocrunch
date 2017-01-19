@@ -118,7 +118,7 @@ classifiers = [get_devstatus(),
                ]
 
 # Needed for using Spectrocrunch
-install_requires = ["numpy", "scipy", "h5py", "fabio", "silx", "pyparsing", "PyMca5", "shapely"]
+install_requires = ["numpy", "scipy", "h5py", "fabio", "silx", "pyparsing", "PyMca5", "shapely", "matplotlib"]
 extras_require = {\
     "physics":["xraylib", "cctbx", "fdmnes"],\
     "elastix":["SimpleITK"]\

@@ -10,9 +10,8 @@ python:
   - "2.7"
 #  - "3.2"
 #  - "3.3"
-#  - "3.4"
-#  - "3.5"
-#  - "nightly" 
+  - "3.4"
+  - "3.5"
 
 branches:
   only:
@@ -21,16 +20,9 @@ branches:
 addons:
   apt:
     packages:
-      # Only used by the DISTRIB="ubuntu" setting
-      #- libhdf5-serial-1.8.4
-      #- libhdf5-serial-dev
-      #- gfortran
-      #- libatlas-base-dev
-      #- libqtcore4
+#Fot shapely:
+      - libgeos-dev
 #For OpenCL:
-      #- libboost-dev
-      #- libboost-python-dev
-      #- libboost-python
       - opencl-headers
       - python-pyopencl
 # command to install dependencies

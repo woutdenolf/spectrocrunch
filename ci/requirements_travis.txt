@@ -6,4 +6,5 @@ silx
 pyparsing
 PyMca5
 shapely
-
+matplotlib
+testfixtures
