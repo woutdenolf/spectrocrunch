@@ -47,7 +47,7 @@ class test_fit2d(unittest.TestCase):
         data = fit2d.gaussian(x,y,x0,y0,sx,sy,rho,A)
         #self.plot(data)
 
-        p2,_ = fit2d.fitgaussian(data)
+        p2,_ = fit2d.fitgaussian(x,y,data)
         np.testing.assert_allclose(p1,p2)
 
     def plot(self,img):

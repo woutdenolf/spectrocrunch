@@ -30,6 +30,7 @@ from ..alignFFT import alignFFT
 from ..alignSimple import alignMin
 from ..alignSimple import alignMax
 from ..alignSimple import alignCentroid
+from ..alignSimple import alignGaussMax
 from ..types import transformationType
 
 from .teststack import teststack
@@ -39,41 +40,63 @@ from .teststack import transformation as gentransform
 import numpy as np
 
 class test_align(unittest.TestCase):
-    def testrelativecof(self,cofs,cofrel):
+    def testrelativecof(self,cofs,cofrel,msg=None):
         for i in range(1,cofs.shape[0]):
             cofrelcalc = np.dot(np.linalg.inv(cofs[i-1,...]),cofs[i,...])
-            np.testing.assert_almost_equal(cofrelcalc,cofrel,decimal=1)
+            np.testing.assert_almost_equal(cofrelcalc,cofrel,decimal=2,err_msg=msg)
 
-    def test_align(self,alignclass,transfotype):
-        # Prepare dataIO
-        inputstack,cofrel,stackdim = teststack(transfotype)
-        outputstack = [np.zeros(1,dtype=np.float32)]*len(inputstack)
+    def test_align(self,alignclass,transfotype,realistic=False,subpixel=True):
 
-        # References
-        refdatasetindex = 0
-        refimageindex = 0#len(inputstack)//2
-        
-        # Prepare alignment
-        o = alignclass(inputstack,None,outputstack,None,None,stackdim=stackdim,overwrite=True,plot=False,transfotype=transfotype)
+        if transfotype==transformationType.translation and\
+            alignclass!=alignSift and alignclass!=alignElastix:
+            lst = [True,False]
+        else:
+            lst = [False]
+    
+        for vector in lst:
+            for transposed in lst:
+                if transposed and not vector:
+                    continue
 
-        # Check alignment
-        roi = ((5,-2),(3,-4))
-        for i in range(4):
-            pad = (i & 1)==1
-            crop = (i & 2)==2
+                # Prepare dataIO
+                inputstack,cofrel,stackdim = teststack(transfotype,vector=vector,transposed=transposed,realistic = realistic,subpixel=subpixel)
+                outputstack = [np.zeros(1,dtype=np.float32)]*len(inputstack)
 
-            # Fixed reference
-            o.align(refdatasetindex,refimageindex=refimageindex,pad = pad,crop = crop,roi=roi)
-            self.testrelativecof(o.absolute_cofs(homography=True),cofrel)
+                # References
+                refdatasetindex = 0
+                refimageindex = 0#len(inputstack)//2
+                    
+                # Prepare alignment
+                o = alignclass(inputstack,None,outputstack,None,None,stackdim=stackdim,overwrite=True,plot=False,transfotype=transfotype)
 
-            # Pairwise: align on raw
-            o.align(refdatasetindex,onraw = True,pad = pad,crop = crop,roi=roi)
-            self.testrelativecof(o.absolute_cofs(homography=True),cofrel)
+                # Check alignment
+                if vector:
+                    if transposed:
+                        roi = ((1,-3),(0,0))
+                    else:
+                        roi = ((0,0),(1,-3))
+                else:
+                    roi = ((1,-3),(1,-3))
 
-            # Pairwise: align on aligned
-            o.align(refdatasetindex,onraw = False,pad = pad,crop = crop,roi=roi)
-            self.testrelativecof(o.absolute_cofs(homography=True),cofrel)
+
+                for i in range(4):
+                    pad = (i & 1)==1
+                    crop = (i & 2)==2
+
+                    # Fixed reference
+                    msg = "Alignment: Pad = {}, Crop = {}, 1D = {}, transposed = {}, type = {}".format(pad,crop,vector,transposed,"fixed")
+                    o.align(refdatasetindex,refimageindex=refimageindex,pad = pad,crop = crop,roi=roi)
+                    self.testrelativecof(o.absolute_cofs(homography=True),cofrel,msg=msg)
  
+                    # Pairwise: align on raw
+                    msg = "Alignment: Pad = {}, Crop = {}, 1D = {}, transposed = {}, type = {}".format(pad,crop,vector,transposed,"pairwise/raw")
+                    o.align(refdatasetindex,onraw = True,pad = pad,crop = crop,roi=roi)
+                    self.testrelativecof(o.absolute_cofs(homography=True),cofrel,msg=msg)
+
+                    # Pairwise: align on aligned
+                    msg = "Alignment: Pad = {}, Crop = {}, 1D = {}, transposed = {}, type = {}".format(pad,crop,vector,transposed,"pairwise")
+                    o.align(refdatasetindex,onraw = False,pad = pad,crop = crop,roi=roi)
+                    self.testrelativecof(o.absolute_cofs(homography=True),cofrel,msg=msg)
 
     def test_sift_mapping(self):
         # Initialize alignSift (not important)
@@ -165,6 +188,7 @@ class test_align(unittest.TestCase):
 
     def test_sift(self):
         types = [transformationType.translation, transformationType.rigid, transformationType.similarity]
+        types = [transformationType.translation]
         for t in types:
             self.test_align(alignSift,t)
 
@@ -174,22 +198,26 @@ class test_align(unittest.TestCase):
             self.test_align(alignFFT,t)
 
     def test_min(self):
-        self.test_align(alignMin,transformationType.translation)
+        self.test_align(alignMin,transformationType.translation,realistic=True,subpixel=False)
 
     def test_max(self):
-        self.test_align(alignMax,transformationType.translation)
+        self.test_align(alignMax,transformationType.translation,subpixel=False)
 
     def test_centroid(self):
-        self.test_align(alignCentroid,transformationType.translation)
+        self.test_align(alignCentroid,transformationType.translation,subpixel=False)
+
+    def test_gaussmax(self):
+        self.test_align(alignGaussMax,transformationType.translation,subpixel=False)
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_align("test_sift_mapping"))
-    #testSuite.addTest(test_align("test_fft_internals"))
+    ##testSuite.addTest(test_align("test_fft_internals")) # not working for now
     testSuite.addTest(test_align("test_min"))
     testSuite.addTest(test_align("test_max"))
-    ##testSuite.addTest(test_align("test_centroid")) # This can only work when putting a ROI on a single hotspot
+    testSuite.addTest(test_align("test_centroid"))
+    testSuite.addTest(test_align("test_gaussmax"))
     testSuite.addTest(test_align("test_fft"))
     testSuite.addTest(test_align("test_sift"))
     testSuite.addTest(test_align("test_elastix"))

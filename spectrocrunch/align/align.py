@@ -25,6 +25,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from shapely.geometry import Polygon
+from shapely.geometry import LineString
 
 from .alignSource import alignSource
 from .alignDest import alignDest
@@ -118,10 +119,13 @@ class align(object):
             self.plotinfo["fig"],self.plotinfo["axes"] = plt.subplots(1,3)
         ax = self.plotinfo["axes"][index]
         ax.cla()
-
-        img2 = img.copy()
-        img2[np.isnan(img2)] = 0
-        ax.imshow(img2,origin='lower',interpolation='nearest',cmap='jet')
+        
+        if img.size in img.shape:
+            ax.plot(img.flatten())
+        else:
+            #img2 = img.copy()
+            #img2[np.isnan(img2)] = 0
+            ax.imshow(img,origin='lower',interpolation='nearest',cmap='jet')
         ax.set_title(title)
 
         plt.pause(0.01)
@@ -163,10 +167,12 @@ class align(object):
             a2 += n2
         if b2 < 0:
             b2 += n2
-        if b1 <= a1 or b2 <= a2 or \
+
+        if b1 < a1 or b2 < a2 or \
            a1 < 0 or a2 < 0 or b1 < 0 or b2 < 0 or \
            a1 >= n1 or a2 >= n2 or b1 >= n1 or b2 >= n2:
            raise ValueError("ROI is invalid.")
+
         return img[a1:b1+1,a2:b2+1]
 
     def writeimg(self,img,datasetindex,imageindex):
@@ -386,10 +392,22 @@ class align(object):
         """
         self.transfos[i].setidentity()
 
+    def genpolygon(self,lst):
+        p = Polygon(lst)
+        if p.area==0:
+            p = LineString(lst)
+        return p
+
+    def polygonempty(self,p):
+        if isinstance(p,Polygon):
+            return p.area==0
+        else:
+            return p.length==0
+
     def untransformedimagepolygon(self):
         add0 = 0.
         add1 = 0.
-        return Polygon([(add0,add0),\
+        return self.genpolygon([(add0,add0),\
                         (self.source.imgsize[1]-1+add1,add0),\
                         (self.source.imgsize[1]-1+add1,self.source.imgsize[0]-1+add1),\
                         (add0,self.source.imgsize[0]-1+add1)])
@@ -410,7 +428,7 @@ class align(object):
             xy2 = self.cof_in_raw_frame(self.transfos[i]).transformcoordinates(xy) # C1^(-1).C2^(-1).C1.XY
             xy2[0,:] /= xy2[2,:]
             xy2[1,:] /= xy2[2,:]
-            ret[i] = Polygon(xy2[0:2,:].T)
+            ret[i] = self.genpolygon(xy2[0:2,:].T)
     
         return ret
 
@@ -422,9 +440,10 @@ class align(object):
         else:
             for i in range(1,len(ps)):
                 p = p.intersection(ps[i])
-            if p.area==0:
+
+            if self.polygonempty(p):
                 logger = logging.getLogger(__name__)
-                logger.warning("Skip cropping because there would be nothing left.")
+                logger.warning("Cropping skipped because there would be nothing left.")
                 return ()
 
         xmin, ymin, xmax, ymax = p.bounds

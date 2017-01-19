@@ -111,8 +111,12 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
     replacenan = True
 
     # Image stacks
+    preprocessingexists = False
     if skippre:
         h5file = os.path.join(destpath,scanname[0]+".h5")
+        preprocessingexists = os.path.isfile(h5file)
+
+    if preprocessingexists:
         stacks, axes = getstacks(h5file,["counters","detectorsum"])
     else:
         logger.info("Creating image stacks ...")

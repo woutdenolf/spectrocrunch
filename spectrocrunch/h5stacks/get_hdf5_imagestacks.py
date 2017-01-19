@@ -62,7 +62,7 @@ def get_hdf5_imagestacks(h5file,datagroupnames):
     stacks = {}
     for grp in groups:
         stacks[grp] = {k:f[grp][k].name for k in f[grp].keys() if "." not in k}
-        if axes is None:
+        if axes is None and len(stacks[grp])!=0:
             names = f[stacks[grp].values()[0]].attrs["axes"].split(':')
             axes = [axesdict[name] for name in names]
 

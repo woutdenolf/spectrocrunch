@@ -70,8 +70,8 @@ def calccroproi(stack,nanval,stackdim):
             mask &= img != nanval
 
     # Valid row and columns (not all False)
-    indvalidrow = np.argwhere(mask.sum(axis=1))
-    indvalidcol = np.argwhere(mask.sum(axis=0))
+    indvalidrow = np.argwhere(mask.sum(axis=1))[0]
+    indvalidcol = np.argwhere(mask.sum(axis=0))[0]
     arow = indvalidrow[0]
     brow = indvalidrow[-1]+1
     acol = indvalidcol[0]
@@ -92,6 +92,7 @@ def calccroproi(stack,nanval,stackdim):
         roi = ((arow,brow),\
                (acol,bcol),\
                (0,nimg))
+
     return roi
 
 def convertuserroi(stack,roi,stackdim):

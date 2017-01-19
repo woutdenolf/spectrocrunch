@@ -58,11 +58,9 @@ class alignSource(object):
                 self.handle = h5py.File(source, "r")
                 self.datasets = [self.handle[name] for name in sublist]
                 s = self.datasets[0].shape
-                if len(s) != 3:
-                    raise ValueError("Datasets should have 3 dimensions.")
                 if not all(set.shape == s for set in self.datasets):
                     raise ValueError("Datasets don't have the same size.")
-
+                s = self.initshape(s)
                 self.sourcetype = dataType.h5
                 self.nimages = s[stackdim]
                 self.imgsize = tuple(np.delete(s,stackdim))
@@ -86,10 +84,9 @@ class alignSource(object):
             self.handle = source
             self.datasets = [self.handle[name] for name in sublist]
             s = self.datasets[0].shape
-            if len(s) != 3:
-                raise ValueError("Datasets should have 3 dimensions.")
             if not all(set.shape == s for set in self.datasets):
                 raise ValueError("Datasets don't have the same size.")
+            s = self.initshape(s)
 
             self.sourcetype = dataType.h5
             self.nimages = s[stackdim]
@@ -98,9 +95,7 @@ class alignSource(object):
         elif isinstance(source,list):
             if isinstance(source[0],(np.ndarray,h5py.Dataset)):
                 
-                s = source[0].shape
-                if len(s) != 3:
-                    raise ValueError("Datasets should have 3 dimensions.")
+                s = self.initshape(source[0].shape)
                 self.datasets = source
 
                 self.sourcetype = dataType.nparray if isinstance(source[0],np.ndarray) else dataType.h5ext
@@ -113,13 +108,25 @@ class alignSource(object):
         else:
             raise ValueError("Source type is not implemented.")
 
+    def initshape(self,s):
+        if len(s) > 3:
+            raise ValueError("Datasets should have 3 dimensions.")
+        if len(s) < 3:
+            return np.concatenate(s,np.ones(3-len(s)))
+        return s
+
     def readimg(self,datasetindex,imageindex):
         if self.sourcetype==dataType.h5 or self.sourcetype==dataType.h5ext or self.sourcetype==dataType.nparray:
-            return np.take(self.datasets[datasetindex],imageindex,axis=self.stackdim)
+            data = np.take(self.datasets[datasetindex],imageindex,axis=self.stackdim)
         elif self.sourcetype==dataType.singlefile:
-            return fabio.open(self.datasets[datasetindex][imageindex]).data
+            data = fabio.open(self.datasets[datasetindex][imageindex]).data
         else:
             raise ValueError("Source type is not implemented.")
+
+        if len(data.shape)==1:
+            data = data[...,np.newaxis]
+
+        return data
 
     def readimgas(self,datasetindex,imageindex,dtype):
         return self.readimg(datasetindex,imageindex).astype(dtype)

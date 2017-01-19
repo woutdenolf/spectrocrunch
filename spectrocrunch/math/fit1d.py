@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2016 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,23 +22,31 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import unittest
-from . import test_fit2d
-from . import test_fit1d
-from . import test_ft
+import numpy as np
+import scipy.optimize
+import warnings
 
-def test_suite_all():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_fit2d.test_suite_all())
-    testSuite.addTest(test_fit1d.test_suite_all())
-    testSuite.addTest(test_ft.test_suite_all())
-    return testSuite
-    
-if __name__ == '__main__':
-    import sys
+def gaussian(x,x0,sx,A):
+    return A/(np.sqrt(2*np.pi)*sx)*np.exp(-(x-x0)**2/(2*sx**2))
 
-    mysuite = test_suite_all()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)
+def errorf_gaussian(p,x,data):
+    x0,sx,A = tuple(p)
+    return np.ravel(gaussian(x,x0,sx,A)-data)
+
+def guess_gaussian(x,data):
+    x0i = np.argmax(data)
+    x0 = x[x0i]
+    sx = np.sqrt(abs((x-x0)**2*data).sum()/data.sum())
+    A = data[x0]*np.sqrt(2*np.pi)*sx
+    return np.array([x0,sx,A],dtype=np.float32)
+
+def fitgaussian(x,data):
+    guess = guess_gaussian(x,data)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        p, success = scipy.optimize.leastsq(errorf_gaussian, guess, args=(x,data))
+        success = success>0 and success<5
+
+    return p, success
+

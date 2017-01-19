@@ -127,7 +127,7 @@ def alignexample(t):
         onraw = True
         alignclass = alignElastix
     elif t == "testdata":
-        transfotype = transformationType.rigid
+        transfotype = transformationType.translation
         source,relcof,stackdim = teststack(transfotype,nimages=5)
         #source[0]=source[0][...,0:2]
         #source[0][...,1] = source[0][...,0]

@@ -35,22 +35,29 @@ class test_teststack(unittest.TestCase):
     def test_data(self):
         types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine, transformationType.homography]
         for t in types:
-            listofstacks,COFrelative,stackdim = teststack(t)
-            self.assertIsInstance(listofstacks,list)
-            self.assertIsInstance(listofstacks[0],np.ndarray)
-            self.assertEqual(len(listofstacks[0].shape),3)
-            self.assertTrue(all(s.shape==listofstacks[0].shape for s in listofstacks))
+            if t==transformationType.translation:
+                lst = [True,False]
+            else:
+                lst = [False]
+    
+            for vector in lst:
+                for transposed in lst:
+                    listofstacks,COFrelative,stackdim = teststack(t,vector=vector,transposed=transposed)
+                    self.assertIsInstance(listofstacks,list)
+                    self.assertIsInstance(listofstacks[0],np.ndarray)
+                    self.assertEqual(len(listofstacks[0].shape),3)
+                    self.assertTrue(all(s.shape==listofstacks[0].shape for s in listofstacks))
 
-            if False:
-                for s in listofstacks:
-                    for i in range(s.shape[stackdim]):
-                        if stackdim==0:
-                            self.plot(s[i,...])
-                        elif stackdim==1:
-                            self.plot(s[:,i,:])
-                        else:
-                            self.plot(s[...,i])
-                    break # show only one
+                    if False:
+                        for s in listofstacks:
+                            for i in range(s.shape[stackdim]):
+                                if stackdim==0:
+                                    self.plot(s[i,...])
+                                elif stackdim==1:
+                                    self.plot(s[:,i,:])
+                                else:
+                                    self.plot(s[...,i])
+                            break # show only one
 
     def plot(self,img):
         plt.figure(1)

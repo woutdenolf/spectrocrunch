@@ -26,7 +26,7 @@
 from .align import align
 from .types import transformationType
 import numpy as np
-import scipy.ndimage
+import spectrocrunch.math.center as center
 
 class alignSimple(align):
 
@@ -85,12 +85,21 @@ class alignSimple(align):
         """
         xy = None
         if self.xytype=="centroid":
-            xy = scipy.ndimage.measurements.center_of_mass(self.handle_missing(img,0))
+            xy = center.fcentroid(self.handle_missing(img,0))
         elif self.xytype=="min":
-            xy = np.unravel_index(np.nanargmin(self.handle_missing(img,np.nan)),img.shape)
+            xy = center.fmin(self.handle_missing(img,np.nan))
+        elif self.xytype=="gaussmax":
+            xy = center.fgaussmax(self.handle_missing(img,np.nan))
         else: # self.xytype=="max"
-            xy = np.unravel_index(np.nanargmax(self.handle_missing(img,np.nan)),img.shape)
-        return np.array(xy)[::-1]       
+            xy = center.fmax(self.handle_missing(img,np.nan))
+
+        if img.size in img.shape:
+            if img.shape[0]==1:
+                xy = (0,xy)
+            else:
+                xy = (xy,0)
+
+        return np.array(xy)[::-1]
 
     def set_reference(self,img,previous=False):
         """Reference for alignment
@@ -125,4 +134,9 @@ class alignCentroid(alignSimple):
     def __init__(self,*args,**kwargs):
         super(alignCentroid,self).__init__(*args,**kwargs)
         self.xytype = "centroid"
+
+class alignGaussMax(alignSimple):
+    def __init__(self,*args,**kwargs):
+        super(alignGaussMax,self).__init__(*args,**kwargs)
+        self.xytype = "gaussmax"
 

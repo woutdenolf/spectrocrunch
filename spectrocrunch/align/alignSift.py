@@ -41,6 +41,10 @@ class alignSift(align):
     def __init__(self,*args,**kwargs):
         super(alignSift,self).__init__(*args,**kwargs)
 
+        # No 1D
+        if 1 in self.source.imgsize:
+            raise ValueError("Sift can only be applied on images, not 1D vectors.")
+
         # pyopencl stuff
         device = ocl.select_device(type="GPU", best=True)
         if device is None:

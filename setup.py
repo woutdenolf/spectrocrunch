@@ -59,7 +59,6 @@ def get_devstatus():
     
     return "Development Status :: %d - %s"%(status,cycle[status])
 
-
 def get_readme():
     dirname = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(dirname, "README.rst"), "r") as fp:
@@ -95,7 +94,6 @@ class VersionOfAllPackages(Command):
     
     def run(self):
         print("This version of SpectroCrunch is", get_version())
-
 
 # Setup
 cmdclass = {'test':TestAllPackages,'version':VersionOfAllPackages}

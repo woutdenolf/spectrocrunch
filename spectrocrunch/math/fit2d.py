@@ -36,15 +36,15 @@ def errorf_gaussian(p,x,y,data):
     return np.ravel(gaussian(x,y,x0,y0,sx,sy,rho,A)-data)
 
 def guess_gaussian(x,y,data):
-    y0,x0 = np.unravel_index(np.argmax(data),data.shape)
-    y0 = y[y0,0]
-    x0 = x[0,x0]
+    y0i,x0i = np.unravel_index(np.argmax(data),data.shape)
+    y0 = y[y0i,0]
+    x0 = x[0,x0i]
 
-    xv = x[y0,:]-x0
-    yv = data[y0,:]
+    xv = x[y0i,:]-x0
+    yv = data[y0i,:]
     sx = np.sqrt(abs(xv**2*yv).sum()/yv.sum())
-    xv = y[:,x0]-y0
-    yv = data[:,x0]
+    xv = y[:,x0i]-y0
+    yv = data[:,x0i]
     sy = np.sqrt(abs(xv**2*yv).sum()/yv.sum())
     rho = 0.
 
@@ -52,8 +52,7 @@ def guess_gaussian(x,y,data):
 
     return np.array([x0,y0,sx,sy,rho,A],dtype=np.float32)
 
-def fitgaussian(data):
-    y, x = np.indices(data.shape) # TODO: keep 1D
+def fitgaussian(x,y,data):
     guess = guess_gaussian(x,y,data)
 
     with warnings.catch_warnings():

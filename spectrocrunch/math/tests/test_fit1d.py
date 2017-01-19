@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -23,16 +23,40 @@
 # THE SOFTWARE.
 
 import unittest
-from . import test_fit2d
-from . import test_fit1d
-from . import test_ft
+
+from .. import fit1d
+
+import numpy as np
+import pylab
+
+class test_fit1d(unittest.TestCase):
+
+    def test_leastsq(self):
+        nx = 501
+        x = np.arange(nx)
+        x0 = 10
+        sx = nx//4
+        A = 1000.
+        p1 = np.array([x0,sx,A],dtype=np.float32)
+        x0,sx,A = tuple(p1)
+
+        data = fit1d.gaussian(x,x0,sx,A)
+        #self.plot(data)
+
+        p2,_ = fit1d.fitgaussian(x,data)
+        np.testing.assert_allclose(p1,p2)
+
+    def plot(self,data):
+        pylab.figure(1)
+        pylab.subplot(111)
+        pylab.plot(data)
+        pylab.pause(0.1)
+        raw_input("Press enter to continue...")
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_fit2d.test_suite_all())
-    testSuite.addTest(test_fit1d.test_suite_all())
-    testSuite.addTest(test_ft.test_suite_all())
+    testSuite.addTest(test_fit1d("test_leastsq"))
     return testSuite
     
 if __name__ == '__main__':

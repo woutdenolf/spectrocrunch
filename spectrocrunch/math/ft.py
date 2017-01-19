@@ -56,6 +56,7 @@ def fft_freqind(n,freqconvention=FFT_FREQ_CONVENTION):
             n (int|np.array): number of data points in real space
             freqconvention (Optional(bool)): even frequency convention 1=numpy, 2=IDL
     """
+    # frequencies = [0,...,imax,imin,...,-1]/(n.d)
     if freqconvention==fftConvention.idl:
         imin = -(n//2)+(1-(n%2))
         imax = (n+1)//2-(n%2)
@@ -64,7 +65,7 @@ def fft_freqind(n,freqconvention=FFT_FREQ_CONVENTION):
         imax = (n+1)//2-1
     return imin,imax
 
-def fftfreq(n,d=1,freqconvention=FFT_FREQ_CONVENTION):
+def fftfreq(n,d=1,centered=False,freqconvention=FFT_FREQ_CONVENTION):
     """Fourier space with zero frequency first
 
         Args:
@@ -73,10 +74,13 @@ def fftfreq(n,d=1,freqconvention=FFT_FREQ_CONVENTION):
             freqconvention (Optional(bool)): even frequency convention 1=numpy, 2=IDL
     """
     imin,imax = fft_freqind(n,freqconvention=freqconvention)
-    freq = np.empty(n, dtype=int)
-    npos = imax+1
-    freq[:npos] = np.arange(npos, dtype=int)
-    freq[npos:] = np.arange(imin, 0, dtype=int)
+    if centered:
+        freq = np.arange(imin, imax+1, dtype=int)
+    else:
+        freq = np.empty(n, dtype=int)
+        npos = imax+1
+        freq[:npos] = np.arange(npos, dtype=int)
+        freq[npos:] = np.arange(imin, 0, dtype=int)
     return freq/float(n*d)
 
 def fftshift(sigft,freqconvention=FFT_FREQ_CONVENTION):
@@ -84,6 +88,7 @@ def fftshift(sigft,freqconvention=FFT_FREQ_CONVENTION):
 
         Args:
             sigft (np.array): signal in Fourier space
+            centered (Optional(bool)): zero frequency in the middle
             freqconvention (Optional(bool)): even frequency convention 1=numpy, 2=IDL
     """
     dim = np.array(sigft.shape)
@@ -132,7 +137,7 @@ def _realspace(N,dx,x0,x1):
         raise ValueError("Wrong real space coordinates ({},{})".format(x0,x1))
     return np.arange(x0,x1+1)*dx
 
-def _dft(f,dx=1,x0=0,x1=None,u=[],inverse=False,normconvention=FFT_NORM_CONVENTION):
+def _dft(f,dx=1,x0=0,x1=None,u=[],centered=False,inverse=False,normconvention=FFT_NORM_CONVENTION):
     """Fourier transform with fixed frequencies
 
         Args:
@@ -141,11 +146,12 @@ def _dft(f,dx=1,x0=0,x1=None,u=[],inverse=False,normconvention=FFT_NORM_CONVENTI
             x0 (Optional(num)): real space start index
             x1 (Optional(num)): real space end index
             u (Optional(np.array)): Fourier space
+            centered (Optional(bool)): zero frequency in the middle
             inverse (Optional(bool)): inverse Fourier transform
             normconvention (Optional(bool)): fft normalization 1=numpy, 2=IDL
     """
 
-    if dx==1 and x0==0 and x1 is None and len(u)==0:
+    if dx==1 and x0==0 and x1 is None and len(u)==0 and not centered:
         if inverse:
             ret = np.fft.ifft(f)
             if normconvention==fftConvention.idl:
@@ -160,7 +166,7 @@ def _dft(f,dx=1,x0=0,x1=None,u=[],inverse=False,normconvention=FFT_NORM_CONVENTI
 
         # Fourier space
         if len(u)==0:
-            u = fftfreq(len(f),dx)
+            u = fftfreq(len(f),dx,centered=centered)
 
         # Check dimensions
         if inverse:
@@ -181,7 +187,9 @@ def _dft(f,dx=1,x0=0,x1=None,u=[],inverse=False,normconvention=FFT_NORM_CONVENTI
     return ret
 
 def _dft2(f,dx=1,x0=0,x1=None,u=[],\
-            dy=1,y0=0,y1=None,v=[],inverse=False,normconvention=FFT_NORM_CONVENTION):
+            dy=1,y0=0,y1=None,v=[],\
+            centered=False,inverse=False,\
+            normconvention=FFT_NORM_CONVENTION):
     """Fourier transform with fixed frequencies
         Sub-region inverse Fourier transform with subpixel interpolation using the matrix for of the 2D-DFT
             Manuel Guizar-Sicairos, Samuel T. Thurman, and James R. Fienup,
@@ -198,12 +206,13 @@ def _dft2(f,dx=1,x0=0,x1=None,u=[],\
             y0 (Optional(num)): real space start index
             y1 (Optional(num)): real space end index
             v (Optional(np.array)): Fourier space
+            centered (Optional(bool)): zero frequency in the middle
             inverse (Optional(bool)): inverse Fourier transform
             normconvention (Optional(bool)): fft normalization 1=numpy, 2=IDL
     """
 
     if dx==1 and x0==0 and x1 is None and len(u)==0 and\
-       dy==1 and y0==0 and y1 is None and len(v)==0:
+       dy==1 and y0==0 and y1 is None and len(v)==0 and not centered:
         if inverse:
             ret = np.fft.ifft2(f)
             if normconvention==fftConvention.idl:
@@ -219,9 +228,9 @@ def _dft2(f,dx=1,x0=0,x1=None,u=[],\
 
         # Fourier space
         if len(u)==0:
-            u = fftfreq(f.shape[1],dx)
+            u = fftfreq(f.shape[1],dx,centered=centered)
         if len(v)==0:
-            v = fftfreq(f.shape[0],dy)
+            v = fftfreq(f.shape[0],dy,centered=centered)
 
         # DFT (forward or backward)
         if inverse:

@@ -196,6 +196,20 @@ class test_ft(unittest.TestCase):
                             v = ft.fftshift(ft.fftfreq(ny,d=dy,freqconvention=freqconvention),freqconvention=freqconvention)
                             np.testing.assert_allclose(ft.fftshift(ftsig,freqconvention=freqconvention)[1:ny-1,1:nx-1],ft.fft2(sig,dx=dx,u=u[1:nx-1],dy=dy,v=v[1:ny-1]))
 
+    def test_center(self):
+        for freqconvention in [ft.fftConvention.numpy,ft.fftConvention.idl]:
+            for dx in [1,0.5]:
+                for dy in [1,0.5]:
+                    for nx in range(4,6):
+                        sig = np.random.rand(nx)
+                        np.testing.assert_allclose(ft.fftshift(ft.fft(sig)),ft.fft(sig,centered=True))
+                        np.testing.assert_allclose(ft.fftshift(ft.fftfreq(nx)),ft.fftfreq(nx,centered=True))
+                        np.testing.assert_allclose(sig,ft.ifft(ft.fft(sig,centered=True),centered=True))
+                        for ny in range(4,6):
+                            sig = np.random.rand(ny,nx)
+                            np.testing.assert_allclose(ft.fftshift(ft.fft2(sig)),ft.fft2(sig,centered=True))
+                            np.testing.assert_allclose(sig,ft.ifft2(ft.fft2(sig,centered=True),centered=True))
+
 
 def test_suite_all():
     """Test suite including all test suites"""
@@ -207,6 +221,7 @@ def test_suite_all():
     testSuite.addTest(test_ft("test_shift"))
     testSuite.addTest(test_ft("test_freq"))
     testSuite.addTest(test_ft("test_subregion"))
+    testSuite.addTest(test_ft("test_center"))
     return testSuite
     
 if __name__ == '__main__':

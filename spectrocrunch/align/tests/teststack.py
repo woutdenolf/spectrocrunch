@@ -65,6 +65,16 @@ def gettransformedimage(x,y,data,angle=False):
 #    image = scipy.ndimage.gaussian_filter(image, sigma=min(subshape)/(npeaks*nsigma))
 #    image /= np.max(image)
 
+def makeGaussian1D(x,x0,sx,A):
+    return A*np.exp(-(x-x0)**2/(2.*sx**2))#/(np.sqrt(2*np.pi)*sx)
+
+def gettransformedvector(x,data,angle=False):
+    ret = np.zeros(x.shape,dtype=float)
+    for x0,sx,A in data:
+        ret += makeGaussian1D(x,x0,sx,A)
+    #ret /= np.max(ret)
+    return ret
+
 def translation(dx,dy):
     Mcoord = np.identity(3)
     Mcof = np.identity(3)
@@ -117,7 +127,7 @@ def homography(a,b,c,d,tx,ty,px,py):
     Mcof /= det
     return Mcoord,Mcof
 
-def transformation(t,n):
+def transformation(t,n,subpixel=True):
     if t==transformationType.rigid:
         # total rotation is 40 degrees
         a = np.around(np.cos(40./180.*np.pi/(n-1)),3)
@@ -135,8 +145,12 @@ def transformation(t,n):
         c = -b*0.9
         d = a*0.9
 
-    tx = 1.
-    ty = -2.
+    if subpixel:
+        tx = 1.5
+        ty = -1.7
+    else:
+        tx = 1.
+        ty = -2.
     px = 0.001
     py = -0.001
 
@@ -156,96 +170,189 @@ def transformation(t,n):
 def random(a,b,n):
     return a+(b-a)*np.random.random(n)
 
-def teststack(transfotype,nimages = 5):
+def teststack(transfotype,vector=False,transposed=False,nimages = 5,realistic = True, subpixel = True):
     """
     Returns:
         3-tuple: list of image stacks, change-of-coordinate matrix between the subsequent images, stack dimensions
     """
+    if vector and transfotype != transformationType.translation:
+        raise ValueError("Vectors can only be shifted.")
 
     # Transformation between images
-    Mcoord,Mcof = transformation(transfotype,nimages)
+    Mcoord,Mcof = transformation(transfotype,nimages,subpixel=subpixel)
 
-    # Shape of a subimage
-    subshape = (71,61)
-    subxmin = -subshape[1]//2
-    subymin = -subshape[0]//2
-    subxmax = subshape[1]//2
-    subymax = subshape[0]//2
-    subxmax = subshape[1]-1
-    subymax = subshape[0]-1
-    subshape = (subymax-subymin+1,subxmax-subxmin+1)
+    if vector:
+        ndim = 100
 
-    # Determine shape of large image (transform corners)
-    xy = np.empty((3,4))
-    xy[0,:] = [subxmin,subxmax,subxmin,subxmax]
-    xy[1,:] = [subymin,subymin,subymax,subymax]
-    xy[2,:] = [1,1,1,1]
-    myminmax = np.append(np.min(xy,axis=1),np.max(xy,axis=1))
+        # Shape of a subimage
+        if transposed:
+            dimi = 0
+            subshape = (ndim,1)
+        else:
+            dimi = 1
+            subshape = (1,ndim)
+        Mcoord[dimi,2] = 0
+        Mcof[dimi,2] = 0
+        subxmin = -subshape[dimi]//2
+        subxmax = subshape[dimi]//2
+        if transposed:
+            subshape = (subxmax-subxmin+1,1)
+        else:
+            subshape = (1,subxmax-subxmin+1)
 
-    for i in range(1,nimages):
-        xy = np.dot(Mcoord,xy)
-        xy[0,:] /= xy[2,:]
-        xy[1,:] /= xy[2,:]
-        myminmax[0:3] = np.minimum(myminmax[0:3],np.min(xy,axis=1))
-        myminmax[3:] = np.maximum(myminmax[3:],np.max(xy,axis=1))
-    xmin = int(myminmax[0])
-    ymin = int(myminmax[1])
-    xmax = int(myminmax[3])
-    ymax = int(myminmax[4])
+        # Determine shape of large image (transform corners)
+        d = Mcof[1-dimi,2]*(nimages-1)
+        xmin = int(min(subxmin,subxmin+d))
+        xmax = int(max(subxmax,subxmax+d))
 
-    # Gaussians in large image
-    npeaks = 20
-    sxy = min(subshape)/(1.5*npeaks)
-    margin = int(10*sxy)
-    xmin -= margin
-    ymin -= margin
-    xmax += margin
-    ymax += margin
-    shape = (ymax-ymin+1,xmax-xmin+1)
+        # Gaussians in large image
+        npix = np.product(subshape)
+        npixperpeak = 2.
+        npeaks = int(npix/npixperpeak)
+        sx = npixperpeak*1.5
+        margin = int(10*sx)
+        xmin -= margin
+        xmax += margin
+  
+        shape = subshape
+        if transposed:
+            shape = (xmax-xmin+1,1)
+        else:
+            shape = (1,xmax-xmin+1)
 
-    n = int(np.round(npeaks*min(shape)/min(subshape)))
-    np.random.seed(1)
-    x0 = random(0,shape[1],n**2)+xmin
-    y0 = random(0,shape[0],n**2)+ymin
-    sx = random(sxy*0.8,sxy*1.2,n**2)
-    sy = random(sxy*0.8,sxy*1.2,n**2)
-    rho = random(0,0.2,n**2)
-    A = random(1,2,n**2)
-    data = zip(x0,y0,sx,sy,rho,A)
+        np.random.seed(1)
+        if realistic:
+            x0 = random(xmin,xmax,npeaks)
+        else:
+            x0 = random(subxmin,subxmax,npeaks)
+        sx = random(sx*0.8,sx*1.2,npeaks)
+        A = random(1,5,npeaks)
+        data = zip(x0,sx,A)
 
-    # Plot full images
-    if False:
-        xv, yv = np.meshgrid(np.arange(xmin,xmax+1),np.arange(ymin,ymax+1))
-        xv = xv.reshape((1,shape[0]*shape[1]))
-        yv = yv.reshape((1,shape[0]*shape[1]))
+        # Plot full images
+        if False:
+            xv = np.arange(xmin,xmax+1)
+            img = gettransformedvector(xv,data).reshape(shape)
+            import matplotlib.pyplot as plt
+            plt.figure(2)
+            plt.plot(xv.flat,img.flat)
+            plt.show()
+
+        # Stack of transformed subimages
+        if realistic:
+            s = subshape
+            xv = np.arange(subxmin,subxmax+1)
+        else:
+            s = shape
+            xv = np.arange(xmin,xmax+1)
+
+        ret = np.empty(s+(nimages,),dtype=np.float32)
+        xy = np.copy(xv)
+        ret[...,0] = gettransformedvector(xy,data).reshape(s)
+        for i in range(1,nimages):
+            xy = xy + Mcof[1-dimi,2]
+            ret[...,i] = gettransformedvector(xy,data).reshape(s)
+
+        # Relative change-of-frame in subimage pixel frame
+        pass
+
+    else:
+        ndim1 = 71
+        ndim2 = 61
+        
+        # Shape of a subimage
+        subshape = (ndim1,ndim2)
+        subxmin = -subshape[1]//2
+        subymin = -subshape[0]//2
+        subxmax = subshape[1]//2
+        subymax = subshape[0]//2
+        subxmax = subshape[1]-1
+        subymax = subshape[0]-1
+        subshape = (subymax-subymin+1,subxmax-subxmin+1)
+
+        # Determine shape of large image (transform corners)
+        xy = np.empty((3,4))
+        xy[0,:] = [subxmin,subxmax,subxmin,subxmax]
+        xy[1,:] = [subymin,subymin,subymax,subymax]
+        xy[2,:] = [1,1,1,1]
+        myminmax = np.append(np.min(xy,axis=1),np.max(xy,axis=1))
+
+        for i in range(1,nimages):
+            xy = np.dot(Mcoord,xy)
+            xy[0,:] /= xy[2,:]
+            xy[1,:] /= xy[2,:]
+            myminmax[0:3] = np.minimum(myminmax[0:3],np.min(xy,axis=1))
+            myminmax[3:] = np.maximum(myminmax[3:],np.max(xy,axis=1))
+        xmin = int(myminmax[0])
+        ymin = int(myminmax[1])
+        xmax = int(myminmax[3])
+        ymax = int(myminmax[4])
+
+        # Gaussians in large image
+        npix = np.product(subshape)
+        npixperpeak = 10.
+        npeaks = int(npix/npixperpeak)
+        sxy = np.sqrt(npixperpeak)
+        margin = int(10*sxy)
+        xmin -= margin
+        ymin -= margin
+        xmax += margin
+        ymax += margin
+        shape = (ymax-ymin+1,xmax-xmin+1)
+
+        np.random.seed(1)
+        if realistic:
+            x0 = random(xmin,xmax,npeaks)
+            y0 = random(ymin,ymax,npeaks)
+        else:
+            x0 = random(subxmin,subxmax,npeaks)
+            y0 = random(subymin,subymax,npeaks)
+        sx = random(sxy*0.8,sxy*1.2,npeaks)
+        sy = random(sxy*0.8,sxy*1.2,npeaks)
+        rho = random(0,0.2,npeaks)
+        A = random(1,5,npeaks)
+        data = zip(x0,y0,sx,sy,rho,A)
+
+        # Plot full images
+        if False:
+            xv, yv = np.meshgrid(np.arange(xmin,xmax+1),np.arange(ymin,ymax+1))
+            xv = xv.reshape((1,shape[0]*shape[1]))
+            yv = yv.reshape((1,shape[0]*shape[1]))
+            xy = np.vstack((xv,yv,np.ones_like(xv)))
+            img = gettransformedimage(xv,yv,data).reshape(shape)
+            import matplotlib.pyplot as plt
+            plt.figure(2)
+            plt.subplot(111)
+            plt.imshow(img,origin='lower',interpolation='nearest')
+            plt.show()
+
+        # Stack of transformed subimages
+        if realistic:
+            s = subshape
+            xv, yv = np.meshgrid(np.arange(subxmin,subxmax+1),np.arange(subymin,subymax+1))
+        else:
+            s = shape
+            xv, yv = np.meshgrid(np.arange(xmin,xmax+1),np.arange(ymin,ymax+1))
+
+        ret = np.empty(s+(nimages,),dtype=np.float32)
+        xv = xv.reshape((1,s[0]*s[1]))
+        yv = yv.reshape((1,s[0]*s[1]))
         xy = np.vstack((xv,yv,np.ones_like(xv)))
-        img = gettransformedimage(xv,yv,data).reshape(shape)
-        import matplotlib.pyplot as plt
-        plt.figure(2)
-        plt.subplot(111)
-        plt.imshow(img,origin='lower',interpolation='nearest')
-        plt.show()
+        ret[...,0] = gettransformedimage(xv,yv,data).reshape(s)
+        for i in range(1,nimages):
+            xy = np.dot(Mcof,xy) # coordinates from new frame to old frame
+            xy[0,:] /= xy[2,:]
+            xy[1,:] /= xy[2,:]
+            ret[...,i] = gettransformedimage(xy[0,:],xy[1,:],data).reshape(s)
 
-    # Stack of transformed subimages
-    ret = np.empty(subshape+(nimages,),dtype=np.float32)
-    xv, yv = np.meshgrid(np.arange(subxmin,subxmax+1),np.arange(subymin,subymax+1))
-    xv = xv.reshape((1,subshape[0]*subshape[1]))
-    yv = yv.reshape((1,subshape[0]*subshape[1]))
-    xy = np.vstack((xv,yv,np.ones_like(xv)))
-    ret[...,0] = gettransformedimage(xv,yv,data).reshape(subshape)
-    for i in range(1,nimages):
-        xy = np.dot(Mcof,xy) # coordinates from new frame to old frame
-        xy[0,:] /= xy[2,:]
-        xy[1,:] /= xy[2,:]
-        ret[...,i] = gettransformedimage(xy[0,:],xy[1,:],data).reshape(subshape)
-
-    # Relative change-of-frame in subimage pixel frame
-    C = np.identity(3,dtype=Mcof.dtype)
-    Cinv = np.identity(3,dtype=Mcof.dtype)
-    C[0:2,2] = [subxmin,subymin] # image pixel frame to subimage pixel frame
-    Cinv[0:2,2] = -C[0:2,2]
-    Mcof = np.dot(np.dot(Cinv,Mcof),C)
-    Mcoord = np.dot(np.dot(Cinv,Mcoord),C)
+        # Relative change-of-frame in subimage pixel frame
+        if realistic:
+            C = np.identity(3,dtype=Mcof.dtype)
+            Cinv = np.identity(3,dtype=Mcof.dtype)
+            C[0:2,2] = [subxmin,subymin] # image pixel frame to subimage pixel frame
+            Cinv[0:2,2] = -C[0:2,2]
+            Mcof = np.dot(np.dot(Cinv,Mcof),C)
+            Mcoord = np.dot(np.dot(Cinv,Mcoord),C)
 
     return ([ret,ret],Mcoord,2) # Mcoord: change-of-frame matrix of the back-transformation
 

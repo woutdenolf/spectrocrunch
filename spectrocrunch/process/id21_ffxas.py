@@ -95,7 +95,11 @@ def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
 
     # Image stack
     jsonfile, h5file = createconfig_pre(sourcepath,destpath,radix,ext,rebin,roiraw,stackdim)
+    preprocessingexists = False
     if skippre:
+        preprocessingexists = os.path.isfile(h5file)
+
+    if preprocessingexists:
         stacks, axes = getstacks(h5file,["detector0"])
     else:
         logger.info("Creating image stacks ...")
