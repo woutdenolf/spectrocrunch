@@ -68,26 +68,26 @@ install:
 
 before_build:
     # GEOS
-    - ps: |
-      cd $env:GEOS_PROJECT_FOLDER
-      if ($env:PLATFORM -Match "Win32") {
-        $G="Visual Studio 14 2015"
-      } elseif ($env:PLATFORM -Match "Win64") {
-        $G="Visual Studio 14 2015 Win64"
-      }
-      Write-Host "Building libgeos:" -ForegroundColor Magenta
-      Write-Host "Running CMake:" -ForegroundColor Magenta
-      cmake.exe -G $G -DCMAKE_BUILD_TYPE=$env:CONFIGURATION $env:GEOS_BUILD_FOLDER
-      cd $env:GEOS_PROJECT_FOLDER
+    - ps: >-
+            cd $env:GEOS_PROJECT_FOLDER
+            if ($env:PLATFORM -Match "Win32") {
+              $G="Visual Studio 14 2015"
+            } elseif ($env:PLATFORM -Match "Win64") {
+              $G="Visual Studio 14 2015 Win64"
+            }
+            Write-Host "Building libgeos:" -ForegroundColor Magenta
+            Write-Host "Running CMake:" -ForegroundColor Magenta
+            cmake.exe -G $G -DCMAKE_BUILD_TYPE=$env:CONFIGURATION $env:GEOS_BUILD_FOLDER
+            cd $env:GEOS_PROJECT_FOLDER
 
 build_script:
     # Build GEOS
-    - ps: |
-      cd $env:GEOS_PROJECT_FOLDER
-      Write-Host "Running MSBuild:" -ForegroundColor Magenta
-      msbuild GEOS.sln /maxcpucount
-      ls . -R
-      cd $env:GEOS_PROJECT_FOLDER
+    - ps: >-
+            cd $env:GEOS_PROJECT_FOLDER
+            Write-Host "Running MSBuild:" -ForegroundColor Magenta
+            msbuild GEOS.sln /maxcpucount
+            ls . -R
+            cd $env:GEOS_PROJECT_FOLDER
 
     # Create build virtualenv
     - "virtualenv --clear %VENV_BUILD_DIR%"
@@ -121,13 +121,13 @@ build_script:
 
 test_script:
     # Test GEOS
-    - ps: |
-      cd $env:GEOS_PROJECT_FOLDER
-      Write-Host "Running libgeos CTest:" -ForegroundColor Magenta
-      $cmd = 'ctest -V --output-on-failure -C ' + $env:CONFIGURATION
-      iex "& $cmd"
-      if ($LastExitCode -ne 0) { $host.SetShouldExit($LastExitCode) }
-      cd $env:GEOS_PROJECT_FOLDER
+    - ps: >-
+            cd $env:GEOS_PROJECT_FOLDER
+            Write-Host "Running libgeos CTest:" -ForegroundColor Magenta
+            $cmd = 'ctest -V --output-on-failure -C ' + $env:CONFIGURATION
+            iex "& $cmd"
+            if ($LastExitCode -ne 0) { $host.SetShouldExit($LastExitCode) }
+            cd $env:GEOS_PROJECT_FOLDER
 
     # Create test virtualenv
     - "virtualenv --clear %VENV_TEST_DIR%"

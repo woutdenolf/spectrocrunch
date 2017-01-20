@@ -9,7 +9,7 @@ tar xf cmake-3.2.2.tar.gz
 cd cmake-3.2.2
 ./configure
 make
-make install
+sudo make install
 cd $cwd
 
 echo "Installing SimpleElastix ..."
