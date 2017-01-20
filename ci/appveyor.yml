@@ -1,6 +1,6 @@
 # Original script from https://github.com/silx-kit/pyFAI
 
-version: {build}
+version: "{build}"
 shallow_clone: true
 build: false
 
@@ -36,7 +36,22 @@ environment:
           PYTHON_ARCH: "64"
           BUILD_ARGS: ""
 
+    GEOS_TMP: "%APPVEYOR_BUILD_FOLDER%\\geos"
+
+init:
+  - ps: |
+      Write-Host "Build worker environment variables:" -ForegroundColor Magenta
+      Get-ChildItem Env: | %{"{0}={1}" -f $_.Name,$_.Value}
+
 install:
+    # GEOS
+    - "echo %cd%"
+    - "set GEOS_FOLDER=%cd%\\geos"
+    - "mkdir %GEOSPATH%"
+    - "cd %GEOSPATH%"
+    - "git clone https://github.com/libgeos/libgeos.git"
+        
+
     # Add Python to PATH
     - "SET PATH=%PYTHON_DIR%;%PYTHON_DIR%\\Scripts;%PATH%"
 
@@ -47,6 +62,18 @@ install:
     # Install virtualenv
     - "pip install --upgrade virtualenv"
     - "virtualenv --version"
+
+#before_build:
+#  - ps: |
+#      if ($env:PLATFORM -Match "Win32") {
+#        $G="Visual Studio 14 2015"
+#      } elseif ($env:PLATFORM -Match "Win64") {
+#        $G="Visual Studio 14 2015 Win64"
+#      }
+#      Write-Host "Building libgeos:" -ForegroundColor Magenta
+#      Write-Host "Running CMake:" -ForegroundColor Magenta
+#      cmake.exe -G $G -DCMAKE_BUILD_TYPE=$env:CONFIGURATION $env:APPVEYOR_BUILD_FOLDER
+#      Write-Host "Running MSBuild:" -ForegroundColor Magenta
 
 build_script:
     # Create build virtualenv

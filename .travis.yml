@@ -23,6 +23,8 @@ branches:
 addons:
   apt:
     packages:
+#For compiling
+      - build-essential
 #For shapely:
       - libgeos-dev
 #For OpenCL:
