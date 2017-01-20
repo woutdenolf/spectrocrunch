@@ -10,6 +10,8 @@ os:
 cache:
     - '%LOCALAPPDATA%\pip\Cache'
 
+configuration: Release
+
 environment:
     global:
         WIN_SDK_ROOT: "C:\\Program Files\\Microsoft SDKs\\Windows"
@@ -77,7 +79,7 @@ before_build:
           Write-Host "Building libgeos:" -ForegroundColor Magenta
           Write-Host "Running CMake:" -ForegroundColor Magenta
           cmake.exe -G $G -DCMAKE_BUILD_TYPE=$env:CONFIGURATION $env:GEOS_BUILD_FOLDER
-          cd $env:GEOS_PROJECT_FOLDER
+          cd $env:APPVEYOR_BUILD_FOLDER
 
 build_script:
     # Build GEOS
@@ -86,7 +88,7 @@ build_script:
           Write-Host "Running MSBuild:" -ForegroundColor Magenta
           msbuild GEOS.sln /maxcpucount
           ls . -R
-          cd $env:GEOS_PROJECT_FOLDER
+          cd $env:APPVEYOR_BUILD_FOLDER
 
     # Create build virtualenv
     - "virtualenv --clear %VENV_BUILD_DIR%"
@@ -126,7 +128,7 @@ test_script:
           $cmd = 'ctest -V --output-on-failure -C ' + $env:CONFIGURATION
           iex "& $cmd"
           if ($LastExitCode -ne 0) { $host.SetShouldExit($LastExitCode) }
-          cd $env:GEOS_PROJECT_FOLDER
+          cd $env:APPVEYOR_BUILD_FOLDER
 
     # Create test virtualenv
     - "virtualenv --clear %VENV_TEST_DIR%"
