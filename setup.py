@@ -40,20 +40,16 @@ import os
 del os.link
 import subprocess
 from setuptools import setup, Command, find_packages
+import _version
 
 # Get setup information
 def get_version():
-    import imp
-    _version = imp.load_source('_version', os.path.join(os.path.dirname(os.path.abspath(__file__)), "_version.py"))    
     return _version.strictversion
 
 def get_devstatus():
     # The development status is derived from the SpectroCrunch release level
     mapping = {"dev":2,"alpha":3,"beta":4,"rc":5,"final":6}
     cycle = {1:"Planning",2:"Pre-Alpha",3:"Alpha",4:"Beta",5:"Production/Stable",6:"Mature",7:"Inactive"}
-
-    import imp
-    _version = imp.load_source('_version', os.path.join(os.path.dirname(os.path.abspath(__file__)), "_version.py"))   
 
     status = mapping[_version.version_info.releaselevel]
     
@@ -65,7 +61,7 @@ def get_readme():
         long_description = fp.read()
     return long_description
 
-# Command class for testing
+# Command classes
 class TestAllPackages(Command):
     user_options = []
 
@@ -79,7 +75,7 @@ class TestAllPackages(Command):
         errno = subprocess.call([sys.executable,'-m','spectrocrunch.tests.test_all'])
         if errno != 0:
             print("Tests did not pass !!!")
-            # raise SystemExit(errno)
+            raise SystemExit(errno)
         else:
             print("All Tests passed.")
 
@@ -93,7 +89,7 @@ class VersionOfAllPackages(Command):
         pass
     
     def run(self):
-        print("This version of SpectroCrunch is", get_version())
+        print("This version of SpectroCrunch is", _version.version)
 
 # Setup
 cmdclass = {'test':TestAllPackages,'version':VersionOfAllPackages}

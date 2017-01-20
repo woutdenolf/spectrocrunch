@@ -26,14 +26,42 @@ Module for version handling (adopted from silx)
 * version = "1.2.3" or "1.2.3-beta4"
 * version_info = named tuple (1,2,3,"beta",4)
 * hexversion: 0x010203B4
-* strictversion = "1.2.3b4
+* strictversion = "1.2.3b4"
 """
+
+# git checkout master
+# git merge develop --no-commit 
+# ... change the version according to the rules below ...
+# git add .
+# git commit -m "bump version to 1.2.3-beta4"
+#
+#
+# http://semver.org/
+#
+# MAJOR.MINOR.MICRO.SERIAL
+#
+#  SERIAL: bump when changes not to the code
+#  MICRO : bump when bug fix is done
+#              when SERIAL == 15
+#  MINOR : bump when API changes backwards compatible
+#              when new functionality is added
+#              when MICRO == 15
+#  MAJOR : bump when API changes not backwards compatible
+# 
+# Always reset the lower numbers to 0.
+#
+# Release level:
+#  dev: not tested
+#  alpha: begin testing
+#  beta: feature complete
+#  rc: test complete
+#  final: stable version
 
 MAJOR = 0
 MINOR = 0
-MICRO = 1
+MICRO = 1 # <=15
 RELEV = "dev"
-SERIAL = 1
+SERIAL = 1 # <=15
 
 RELEASE_LEVEL_VALUE = {"dev": 0,
                        "alpha": 10,
@@ -60,3 +88,6 @@ hexversion |= RELEASE_LEVEL_VALUE.get(version_info[3], 0) * 1 << 4
 hexversion |= version_info[2] * 1 << 8
 hexversion |= version_info[1] * 1 << 16
 hexversion |= version_info[0] * 1 << 24
+
+if __name__ == "__main__":
+    print(version)

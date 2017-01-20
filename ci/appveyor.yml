@@ -1,6 +1,6 @@
 # Original script from https://github.com/silx-kit/pyFAI
 
-#version: 0.13.{build}
+version: {build}
 shallow_clone: true
 build: false
 

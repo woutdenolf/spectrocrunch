@@ -2,6 +2,7 @@
 
 # Original script from https://github.com/silx-kit/pyFAI
 
+# AMD SDK for opencl
 echo $(pwd)
 bash ./ci/amd_sdk.sh;
 ls
@@ -14,3 +15,4 @@ echo libamdocl64.so > ${OPENCL_VENDOR_PATH}/amdocl64.icd;
 export LD_LIBRARY_PATH=${AMDAPPSDK}/lib/x86_64:${LD_LIBRARY_PATH};
 chmod +x ${AMDAPPSDK}/bin/x86_64/clinfo;
 ${AMDAPPSDK}/bin/x86_64/clinfo;
+

@@ -13,6 +13,9 @@ python:
   - "3.4"
   - "3.5"
 
+notifications:
+  email: false
+
 branches:
   only:
   - master
@@ -20,21 +23,26 @@ branches:
 addons:
   apt:
     packages:
-#Fot shapely:
+#For shapely:
       - libgeos-dev
 #For OpenCL:
       - opencl-headers
       - python-pyopencl
-# command to install dependencies
 
 before_install:
   - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . ./ci/before_install-linux.sh; fi"
-#  - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'osx' ]; then . ./ci/travis/before_install-osx.sh; fi"
 
 install:
-  - "python ci/info_platform.py"
+  # Upgrade/install distribution modules
   - "pip install --upgrade pip"
+  # Install build dependencies with pip
   - "pip install --upgrade -r ci/requirements_travis.txt"
+  # Install build dependencies without pip
+  - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . ./ci/install-linux.sh; fi"
+  # Print Python info
+  - "python ci/info_platform.py"
+  - "pip list"
+  # Build
   - "python setup.py build"
   - "python setup.py bdist_wheel"
   # Install the generated wheel package to test it
