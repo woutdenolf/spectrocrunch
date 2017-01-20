@@ -25,6 +25,8 @@ branches:
 addons:
   apt:
     packages:
+      - curl
+      - cmake
 #For compiling
       - build-essential
 #For shapely:
