@@ -36,8 +36,9 @@ environment:
           PYTHON_ARCH: "64"
           BUILD_ARGS: ""
 
-    GEOS_SOURCE_FOLDER: "%APPVEYOR_BUILD_FOLDER%\\geos"
-    GEOS_BUILD_FOLDER: "%APPVEYOR_BUILD_FOLDER%\\geosbuild"
+    GEOS_PROJECT_FOLDER: "%APPVEYOR_BUILD_FOLDER%\\geos\\"
+    GEOS_SOURCE_FOLDER: "%APPVEYOR_BUILD_FOLDER%\\geos\\libgeos"
+    GEOS_BUILD_FOLDER: "%APPVEYOR_BUILD_FOLDER%\\geos\\build"
 
 init:
   - ps: |
@@ -47,10 +48,9 @@ init:
 install:
     # GEOS
     - ps: Write-Host "Cloning libgeos:" -ForegroundColor Magenta
-    - "echo %APPVEYOR_BUILD_FOLDER%"
     - "mkdir %GEOS_SOURCE_FOLDER%"
     - "mkdir %GEOS_BUILD_FOLDER%"
-    - "cd %GEOS_SOURCE_FOLDER%"
+    - "cd %GEOS_PROJECT_FOLDER%"
     - "git clone https://github.com/libgeos/libgeos.git"
     - "cd %APPVEYOR_BUILD_FOLDER%"
 
