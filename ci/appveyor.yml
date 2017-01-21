@@ -9,6 +9,7 @@ os:
 
 cache:
     - '%LOCALAPPDATA%\pip\Cache'
+    - '%GEOS_PROJECT_FOLDER%'
 
 environment:
     global:
