@@ -27,9 +27,11 @@ git clone -b master https://github.com/kaspermarstal/SimpleElastix
 mkdir build
 cd build
 echo -e "${hcol}Configure SimpleElastix ...${ncol}"
-cmake ../SimpleElastix/SuperBuild 1>/dev/null
+#cmake ../SimpleElastix/SuperBuild 1>/dev/null
+cmake
 echo -e "${hcol}Build SimpleElastix ...${ncol}"
-travis_wait 30 mvn make 1>/dev/null
+#travis_wait 30 mvn make 1>/dev/null
+make
 echo -e "${hcol}Install SimpleElastix ...${ncol}"
 ls -R ./SimpleITK-build
 #cd ./SimpleITK-build/Wrapping/Python/Packaging
