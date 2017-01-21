@@ -18,6 +18,10 @@ python:
 notifications:
   email: false
 
+cache:
+  directories:
+    - simpleelastix/
+
 branches:
   only:
   - master
@@ -66,4 +70,4 @@ script:
 #   distributions: "sdist bdist_wheel"
 #   on:
 #    tags: true
-#    branc: master
+#    branch: master

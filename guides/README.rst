@@ -43,6 +43,8 @@ TODO: upon releasing on github, trigger ci with pypi deployment
 From the source
 ---------------
 
+.. code-block:: bash
+
     git clone https://github.com/woutdenolf/spectrocrunch
     cd spectrocrunch
 
@@ -58,6 +60,8 @@ From the source
 Manual Deployment
 -----------------
 
+.. code-block:: bash
+
     # define pypi and pypitest in .pypirc (chmod 600 .pypirc)
     python setup.py register -r pypi
     # OR
@@ -70,6 +74,8 @@ Manual Deployment
     
 Help
 ----
+
+.. code-block:: bash
 
     python setup.py --help-commands
     python setup.py sdist --help-formats
