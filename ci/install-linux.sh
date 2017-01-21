@@ -27,10 +27,10 @@ git clone -b master https://github.com/kaspermarstal/SimpleElastix
 mkdir build
 cd build
 echo -e "${hcol}Configure SimpleElastix ...${ncol}"
-cmake ../SimpleElastix/SuperBuild 1>/dev/null
+cmake -DCMAKE_RULE_MESSAGES=OFF -DCMAKE_INSTALL_MESSAGE=NEVER ../SimpleElastix/SuperBuild 1>/dev/null
 echo -e "${hcol}Build SimpleElastix ...${ncol}"
 #travis_wait 30 mvn make 1>/dev/null
-make -s
+make -s | grep -v '%]'
 echo -e "${hcol}Install SimpleElastix ...${ncol}"
 ls -R ./SimpleITK-build
 cd ./SimpleITK-build/Wrapping/Python/Packaging
