@@ -82,13 +82,6 @@ build_script:
             & "C:\\Program Files\\Microsoft SDKs\\Windows\\v7.1\\Bin\\SetEnv.cmd" /x64
           }
 
-    # Install build dependencies
-    - "pip install -r ci/requirements_appveyor.txt --upgrade"
-
-    # Print Python info
-    - "python ci\\info_platform.py"
-    - "pip list"
-
     # Build GEOS
     - ps: |
           cd $env:GEOS_BUILD_FOLDER
@@ -104,6 +97,13 @@ build_script:
           msbuild GEOS.sln /maxcpucount /v:quiet /p:Configuration=Release /clp:ErrorsOnly
           ls $env:GEOS_DLL_FOLDER
           cd $env:APPVEYOR_BUILD_FOLDER
+
+    # Install build dependencies
+    - "pip install -r ci/requirements_appveyor.txt --upgrade"
+
+    # Print Python info
+    - "python ci\\info_platform.py"
+    - "pip list"
 
     # Build
     - "del pyFAI\\ext\\histogram.c"
