@@ -42,7 +42,7 @@ environment:
     GEOS_SOURCE_FOLDER: "%GEOS_PROJECT_FOLDER%\\libgeos"
     GEOS_BUILD_FOLDER: "%GEOS_PROJECT_FOLDER%\\build"
     GEOS_DLL_FOLDER: "%GEOS_BUILD_FOLDER%\\bin\\Release"
-    GEOS_LIBRARY_PATH: "%GEOS_DLL_FOLDER%\geos_c.dll"
+    GEOS_LIBRARY_PATH: "%GEOS_DLL_FOLDER%\\geos_c.dll"
 
 init:
   - "SET PATH=%GEOS_DLL_FOLDER%;%PATH%"
