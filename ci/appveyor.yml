@@ -92,14 +92,15 @@ build_script:
           }
           Write-Host "Building libgeos:" -ForegroundColor Magenta
           Write-Host "Running CMake:" -ForegroundColor Magenta
-          cmake.exe  -DCMAKE_RULE_MESSAGES=OFF -DCMAKE_INSTALL_MESSAGE=NEVER -G $G $env:GEOS_SOURCE_FOLDER 
+          cmake.exe -G $G $env:GEOS_SOURCE_FOLDER 
           Write-Host "Running MSBuild:" -ForegroundColor Magenta
           msbuild GEOS.sln /maxcpucount /v:quiet /p:Configuration=Release /clp:ErrorsOnly
           ls $env:GEOS_DLL_FOLDER
           cd $env:APPVEYOR_BUILD_FOLDER
 
     # Install build dependencies
-    - "pip install -r ci/requirements_appveyor.txt --upgrade"
+    #- "pip install -r ci/requirements_appveyor.txt --upgrade"
+    - "pip install --trusted-host www.silx.org --find-links http://www.silx.org/pub/wheelhouse/ -r ci/requirements_appveyor.txt --upgrade"
 
     # Print Python info
     - "python ci\\info_platform.py"

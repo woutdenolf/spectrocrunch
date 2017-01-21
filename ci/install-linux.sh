@@ -57,7 +57,8 @@ echo -e "${hcol}Configure SimpleElastix ...${ncol}"
 longtask cmake -DCMAKE_RULE_MESSAGES=OFF -DCMAKE_INSTALL_MESSAGE=NEVER ../SimpleElastix/SuperBuild
 
 echo -e "${hcol}Build SimpleElastix ...${ncol}"
-longtask make -s | grep -v '%]' | grep -v '^--' | grep -v '^Installing'
+#longtask make -s | grep -v '%]' | grep -v '^--' | grep -v '^Installing'
+make -s | grep -v '%]'
 
 echo -e "${hcol}Install SimpleElastix ...${ncol}"
 ls -R ./SimpleITK-build
