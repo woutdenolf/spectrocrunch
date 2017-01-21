@@ -80,7 +80,7 @@ before_build:
           Write-Host "Running CMake:" -ForegroundColor Magenta
           cmake.exe -G $G $env:GEOS_SOURCE_FOLDER 
           Write-Host "Running MSBuild:" -ForegroundColor Magenta
-          msbuild GEOS.sln /maxcpucount /verbosity:minimal /p:Configuration=Release
+          msbuild GEOS.sln /maxcpucount /verbosity:quiet /p:Configuration=Release
           ls . -R
           cd $env:APPVEYOR_BUILD_FOLDER
 

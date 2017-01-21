@@ -18,9 +18,11 @@ python:
 notifications:
   email: false
 
+cache: pip
+
 cache:
   directories:
-    - simpleelastix/
+  - $HOME/simpleelastix
 
 branches:
   only:
