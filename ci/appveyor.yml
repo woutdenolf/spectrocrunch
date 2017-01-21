@@ -38,14 +38,14 @@ environment:
           PYTHON_ARCH: "64"
           BUILD_ARGS: ""
 
-    GEOS_PROJECT_FOLDER: "%CACHED_FOLDER%\\geos\\"
+    GEOS_PROJECT_FOLDER: "%CACHED_FOLDER%\\geos"
     GEOS_SOURCE_FOLDER: "%GEOS_PROJECT_FOLDER%\\libgeos"
     GEOS_BUILD_FOLDER: "%GEOS_PROJECT_FOLDER%\\build"
     GEOS_DLL_FOLDER: "%GEOS_BUILD_FOLDER%\\bin\\Release"
+    GEOS_LIBRARY_PATH: "%GEOS_DLL_FOLDER%\geos_c.dll
 
 init:
-  #- "SET PATH=%GEOS_DLL_FOLDER%;%PATH%"
-  - "SET GEOS_LIBRARY_PATH=%GEOS_DLL_FOLDER%"
+  - "SET PATH=%GEOS_DLL_FOLDER%;%PATH%"
   - ps: |
       Write-Host "Build worker environment variables:" -ForegroundColor Magenta
       Get-ChildItem Env: | %{"{0}={1}" -f $_.Name,$_.Value}
@@ -70,23 +70,6 @@ install:
     - "pip install --upgrade virtualenv"
     - "virtualenv --version"
 
-before_build:
-    # GEOS (faster: /p:configuration=release ALL_BUILD.vcxproj)
-    - ps: |
-          cd $env:GEOS_BUILD_FOLDER
-          if ($env:PYTHON_ARCH -eq "64") {
-            $G="Visual Studio 14 2015 Win64"
-          } else {
-            $G="Visual Studio 14 2015"
-          }
-          Write-Host "Building libgeos:" -ForegroundColor Magenta
-          Write-Host "Running CMake:" -ForegroundColor Magenta
-          cmake.exe -G $G $env:GEOS_SOURCE_FOLDER 
-          Write-Host "Running MSBuild:" -ForegroundColor Magenta
-          msbuild GEOS.sln /maxcpucount /v:quiet /p:Configuration=Release /clp:ErrorsOnly
-          ls $GEOS_LIBRARY_PATH
-          cd $env:APPVEYOR_BUILD_FOLDER
-
 build_script:
     # Create build virtualenv
     - "virtualenv --clear %VENV_BUILD_DIR%"
@@ -105,6 +88,22 @@ build_script:
     # Print Python info
     - "python ci\\info_platform.py"
     - "pip list"
+
+    # Build GEOS
+    - ps: |
+          cd $env:GEOS_BUILD_FOLDER
+          if ($env:PYTHON_ARCH -eq "64") {
+            $G="Visual Studio 14 2015 Win64"
+          } else {
+            $G="Visual Studio 14 2015"
+          }
+          Write-Host "Building libgeos:" -ForegroundColor Magenta
+          Write-Host "Running CMake:" -ForegroundColor Magenta
+          cmake.exe -G $G $env:GEOS_SOURCE_FOLDER 
+          Write-Host "Running MSBuild:" -ForegroundColor Magenta
+          msbuild GEOS.sln /maxcpucount /v:quiet /p:Configuration=Release /clp:ErrorsOnly
+          ls $env:GEOS_DLL_FOLDER
+          cd $env:APPVEYOR_BUILD_FOLDER
 
     # Build
     - "del pyFAI\\ext\\histogram.c"
