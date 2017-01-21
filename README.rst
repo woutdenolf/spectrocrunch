@@ -3,43 +3,50 @@ SpectroCrunch: spectrocopic imaging library (XRF/XAS)
 
 Getting started
 ---------------
-Install::
+Install:
+
+.. code-block:: bash
 
     pip install spectrocrunch [--user]
 
-Test::
+Test:
+
+.. code-block:: bash
 
     python -m spectrocrunch.test.test_all
 
 Developers
 ----------
+Main development website: https://github.com/woutdenolf/spectrocrunch
+
+Distribution website: https://pypi.python.org/pypi/SpectroCrunch
 
 Linux:   |Travis Status|
 Windows: |Appveyor Status|
 
-Main development website: https://github.com/woutdenolf/spectrocrunch
+Guidelines for contributors and project managers can be found [here](guides/README.rst)
 
-Distribution website: https://pypi.python.org/pypi/SpectroCrunch ::
-
-    python setup.py version
-    python setup.py test
-    python -m spectrocrunch.align.tests.test_teststack
-    python setup.py install
-    python setup.py register -r pypi
-    python setup.py sdist upload -r pypi
-    
 Use without installation
 ------------------------
 
+.. code-block:: bash
+
+    git clone https://github.com/woutdenolf/spectrocrunch
+    cd spectrocrunch
+
 To import modules from a package without installing the package, add the 
 directory of the package to the PYTHONPATH environment variable or add this
-to the top of your script ::
+to the top of your script
+
+.. code-block::
 
     import sys
     sys.path.insert(1,'/data/id21/inhouse/wout/dev/SpectroCrunch')
 
 
-import as follows ::
+import as follows:
+
+.. code-block:: 
 
     from spectrocrunch.align.alignElastix import alignElastix as align
 

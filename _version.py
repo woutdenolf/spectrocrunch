@@ -29,34 +29,6 @@ Module for version handling (adopted from silx)
 * strictversion = "1.2.3b4"
 """
 
-# git checkout master
-# git merge develop --no-commit 
-# ... change the version according to the rules below ...
-# git add .
-# git commit -m "bump version to 1.2.3-beta4"
-#
-#
-# http://semver.org/
-#
-# MAJOR.MINOR.MICRO.SERIAL
-#
-#  SERIAL: bump when changes not to the code
-#  MICRO : bump when bug fix is done
-#              when SERIAL == 15
-#  MINOR : bump when API changes backwards compatible
-#              when new functionality is added
-#              when MICRO == 15
-#  MAJOR : bump when API changes not backwards compatible
-# 
-# Always reset the lower numbers to 0.
-#
-# Release level:
-#  dev: not tested
-#  alpha: begin testing
-#  beta: feature complete
-#  rc: test complete
-#  final: stable version
-
 MAJOR = 0
 MINOR = 0
 MICRO = 1 # <=15
