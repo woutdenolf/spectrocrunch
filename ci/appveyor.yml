@@ -10,8 +10,6 @@ os:
 cache:
     - '%LOCALAPPDATA%\pip\Cache'
 
-configuration: Release
-
 environment:
     global:
         WIN_SDK_ROOT: "C:\\Program Files\\Microsoft SDKs\\Windows"
@@ -24,6 +22,7 @@ environment:
           PYTHON_VERSION: "2.7.11"
           PYTHON_ARCH: "64"
           BUILD_ARGS: ""
+          PLATFORM: Win64
 
         # Python 3.4
         - PYTHON_DIR: "C:\\Python34-x64"
@@ -31,12 +30,14 @@ environment:
           PYTHON_ARCH: "64"
           # OpenMP is not available on python 3.4
           BUILD_ARGS: "--no-openmp"
+          PLATFORM: Win64
 
         # Python 3.5
         - PYTHON_DIR: "C:\\Python35-x64"
           PYTHON_VERSION: "3.5.0"
           PYTHON_ARCH: "64"
           BUILD_ARGS: ""
+          PLATFORM: Win64
 
     GEOS_PROJECT_FOLDER: "%APPVEYOR_BUILD_FOLDER%\\geos"
     GEOS_BUILD_FOLDER: "%APPVEYOR_BUILD_FOLDER%\\geosbuild"
@@ -78,18 +79,14 @@ before_build:
           }
           Write-Host "Building libgeos:" -ForegroundColor Magenta
           Write-Host "Running CMake:" -ForegroundColor Magenta
-          cmake.exe -G $G -DCMAKE_BUILD_TYPE=$env:CONFIGURATION $env:GEOS_BUILD_FOLDER
-          cd $env:APPVEYOR_BUILD_FOLDER
-
-build_script:
-    # Build GEOS
-    - ps: |
-          cd $env:GEOS_PROJECT_FOLDER
+          cmake.exe -G $G $env:GEOS_BUILD_FOLDER
           Write-Host "Running MSBuild:" -ForegroundColor Magenta
+          cd $env:GEOS_BUILD_FOLDER
           msbuild GEOS.sln /maxcpucount
           ls . -R
           cd $env:APPVEYOR_BUILD_FOLDER
 
+build_script:
     # Create build virtualenv
     - "virtualenv --clear %VENV_BUILD_DIR%"
     - "%VENV_BUILD_DIR%\\Scripts\\activate.bat"

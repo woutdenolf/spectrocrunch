@@ -4,12 +4,6 @@ cwd=$(pwd)
 echo $cwd
 
 echo "Installing curl ..."
-$version = curl_version();
-$ssl_supported= ($version['features'] & CURL_VERSION_SSL);
-echo $version
-echo $version['features']
-echo $ssl_supported
-
 #./configure --with-ssl
 #make
 #sudo make install
