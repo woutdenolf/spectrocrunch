@@ -2,8 +2,6 @@
 
 # Original script from https://github.com/silx-kit/pyFAI
 
-curl --version
-
 # AMD SDK for opencl
 echo $(pwd)
 bash ./ci/amd_sdk.sh;
