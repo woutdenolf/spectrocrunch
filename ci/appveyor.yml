@@ -44,7 +44,8 @@ environment:
     GEOS_DLL_FOLDER: "%GEOS_BUILD_FOLDER%\\bin\\Release"
 
 init:
-  - "SET PATH=%GEOS_DLL_FOLDER%;%PATH%"
+  #- "SET PATH=%GEOS_DLL_FOLDER%;%PATH%"
+  - "SET GEOS_LIBRARY_PATH=%GEOS_DLL_FOLDER%"
   - ps: |
       Write-Host "Build worker environment variables:" -ForegroundColor Magenta
       Get-ChildItem Env: | %{"{0}={1}" -f $_.Name,$_.Value}

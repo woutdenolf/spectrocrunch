@@ -24,7 +24,7 @@ Distribution website: https://pypi.python.org/pypi/SpectroCrunch
 Linux:   |Travis Status|
 Windows: |Appveyor Status|
 
-Guidelines for contributors and project managers can be found [here](guides/README.rst)
+Guidelines for contributors and project managers can be found :ref:`dev-guide`
 
 Use without installation
 ------------------------

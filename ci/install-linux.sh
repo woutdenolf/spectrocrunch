@@ -7,7 +7,7 @@ echo -e "${hcol}Download cmake ...${ncol}"
 cd $CACHED_FOLDER
 mkdir cmake
 cd cmake
-wget --no-check-certificate http://www.cmake.org/files/v3.7/cmake-3.7.2.tar.gz
+wget --no-check-certificate -q http://www.cmake.org/files/v3.7/cmake-3.7.2.tar.gz
 tar xf cmake-3.7.2.tar.gz
 cd cmake-3.7.2
 echo -e "${hcol}Configure cmake ...${ncol}"
@@ -31,7 +31,9 @@ cmake ../SimpleElastix/SuperBuild 1>/dev/null
 echo -e "${hcol}Build SimpleElastix ...${ncol}"
 travis_wait 30 mvn make 1>/dev/null
 echo -e "${hcol}Install SimpleElastix ...${ncol}"
-cd ./SimpleITK-build/Wrapping/Python/Packaging
+ls -R ./SimpleITK-build
+#cd ./SimpleITK-build/Wrapping/Python/Packaging
+cd ./SimpleITK-build/Wrapping/PythonPackage
 python setup.py install 1>/dev/null
 
 cd $TRAVIS_BUILD_DIR
