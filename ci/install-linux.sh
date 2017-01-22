@@ -99,14 +99,9 @@ if [ "$STATE_CMAKE" -lt "$STATE" ]; then
     incandsavestate STATE_CMAKE
 fi
 
-incstate STATE
+echo -e "${hcol}Install cmake ...${ncol}"
+sudo make install -s
 
-if [ "$STATE_CMAKE" -lt "$STATE" ]; then
-    echo -e "${hcol}Install cmake ...${ncol}"
-    sudo make install -s
-
-    incandsavestate STATE_CMAKE
-fi
 
 #============SimpleElastix============
 
@@ -140,21 +135,16 @@ incstate STATE
 
 if [ "$STATE_SIMPLEELASTIX" -lt "$STATE" ]; then
     echo -e "${hcol}Build SimpleElastix ...${ncol}"
-    make -s -j2
+    #make -s -j2
 
     incandsavestate STATE_SIMPLEELASTIX
 fi
 
-incstate STATE
+echo -e "${hcol}Install SimpleElastix ...${ncol}"
+cd ./SimpleITK-build/Wrapping/Python/Packaging
+#cd ./SimpleITK-build/Wrapping/PythonPackage
+#python setup.py install
 
-if [ "$STATE_SIMPLEELASTIX" -lt "$STATE" ]; then
-    echo -e "${hcol}Install SimpleElastix ...${ncol}"
-    cd ./SimpleITK-build/Wrapping/Python/Packaging
-    #cd ./SimpleITK-build/Wrapping/PythonPackage
-    python setup.py install
-
-    incandsavestate STATE_SIMPLEELASTIX
-fi
 
 #============cleanup============
 clearsavedstate

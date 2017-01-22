@@ -16,7 +16,20 @@ environment:
         WIN_SDK_ROOT: "C:\\Program Files\\Microsoft SDKs\\Windows"
         VENV_BUILD_DIR: "venv_build"
         VENV_TEST_DIR: "venv_test"
+
         CACHED_FOLDER: "%LOCALAPPDATA%\\cashed"
+
+        GEOS_PROJECT_FOLDER: "%CACHED_FOLDER%\\geos"
+        GEOS_SOURCE_FOLDER: "%GEOS_PROJECT_FOLDER%\\libgeos"
+        GEOS_BUILD_FOLDER: "%GEOS_PROJECT_FOLDER%\\build"
+        GEOS_DLL_FOLDER: "%GEOS_BUILD_FOLDER%\\bin\\Release"
+        GEOS_LIBRARY_PATH: "%GEOS_DLL_FOLDER%\\geos_c.dll"
+
+        OPENCL_PROJECT_FOLDER: "%CACHED_FOLDER%\\opencl"
+        OPENCL_INCLUDE_FOLDER: "%OPENCL_PROJECT_FOLDER%\\inc"
+        OPENCL_BUILD_FOLDER: "%OPENCL_PROJECT_FOLDER%\\lib"
+
+        MSINTTYPES_FOLDER: "%CACHED_FOLDER%\\msinttypes"
 
     matrix:
         # Python 2.7
@@ -38,16 +51,7 @@ environment:
           PYTHON_ARCH: "64"
           BUILD_ARGS: ""
 
-    GEOS_PROJECT_FOLDER: "%CACHED_FOLDER%\\geos"
-    GEOS_SOURCE_FOLDER: "%GEOS_PROJECT_FOLDER%\\libgeos"
-    GEOS_BUILD_FOLDER: "%GEOS_PROJECT_FOLDER%\\build"
-    GEOS_DLL_FOLDER: "%GEOS_BUILD_FOLDER%\\bin\\Release"
-    GEOS_LIBRARY_PATH: "%GEOS_DLL_FOLDER%\\geos_c.dll"
-
-    MSINTTYPES_FOLDER: "%CACHED_FOLDER%\\msinttypes"
-
 init:
-  - "SET PATH=%GEOS_DLL_FOLDER%;%PATH%;%MSINTTYPES_FOLDER%"
   - ps: |
       Write-Host "Build worker environment variables:" -ForegroundColor Magenta
       Get-ChildItem Env: | %{"{0}={1}" -f $_.Name,$_.Value}
@@ -60,6 +64,27 @@ install:
     - "cd %GEOS_PROJECT_FOLDER%"
     - "git clone https://github.com/libgeos/libgeos.git"
     - "cd %APPVEYOR_BUILD_FOLDER%"
+
+    # Missing C99 headers for MSVC
+    - "mkdir %MSINTTYPES_FOLDER%"
+    - "cd %MSINTTYPES_FOLDER%"
+    - ps: Start-FileDownload ('https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/msinttypes/msinttypes-r26.zip' ) msinttypes.zip
+    - 7z e msinttypes.zip
+    - "SET INCLUDE=%INCLUDE%;%MSINTTYPES_FOLDER%"
+    - "cd %APPVEYOR_BUILD_FOLDER%"
+
+    # Download OpenCL Headers
+    - ps: |
+          mkdir %OPENCL_PROJECT_FOLDER%
+          cd %OPENCL_PROJECT_FOLDER%
+          wget https://www.khronos.org/registry/cl/specs/opencl-icd-1.2.11.0.tgz -OutFile opencl-icd-1.2.11.0.tgz
+          7z x opencl-icd-1.2.11.0.tgz > $null
+          7z x opencl-icd-1.2.11.0.tar > $null
+          mv .\icd\* .
+          mkdir inc/CL
+          wget https://github.com/KhronosGroup/OpenCL-Headers | select -ExpandProperty links | where {$_.href -like "*.h*"} | select -ExpandProperty outerText | foreach{ wget https://raw.githubusercontent.com/KhronosGroup/OpenCL-Headers/master/$_ -OutFile inc/CL/$_ }
+          mkdir lib
+          cd %APPVEYOR_BUILD_FOLDER%
 
     # Add Python to PATH
     - "SET PATH=%PYTHON_DIR%;%PYTHON_DIR%\\Scripts;%PATH%"
@@ -98,14 +123,13 @@ build_script:
           Write-Host "Running MSBuild:" -ForegroundColor Magenta
           msbuild GEOS.sln /maxcpucount /v:quiet /p:Configuration=Release /clp:ErrorsOnly
           cd $env:APPVEYOR_BUILD_FOLDER
+    - "SET PATH=%GEOS_DLL_FOLDER%;%PATH%"
 
-    # Missing C99 headers for MSVC
-    - "mkdir %MSINTTYPES_FOLDER%"
-    - "cd %MSINTTYPES_FOLDER%"
-    - ps: Start-FileDownload ('https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/msinttypes/msinttypes-r26.zip' ) msinttypes.zip
-    - 7z e msinttypes.zip
-    - "SET INCLUDE=%INCLUDE%;%MSINTTYPES_FOLDER%"
-    - "cd %APPVEYOR_BUILD_FOLDER%"
+    # Build the ICD loader
+    - cd %OPENCL_BUILD_FOLDER%
+    - cmake -G "NMake Makefiles" ..
+    - nmake
+    - cd %APPVEYOR_BUILD_FOLDER%
 
     # Install build dependencies
     #- "pip install -r ci/requirements_appveyor.txt --upgrade"
