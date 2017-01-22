@@ -50,7 +50,8 @@ install:
   # Upgrade/install distribution modules
   - "pip install --upgrade pip"
   # Install build dependencies with pip
-  - "pip install --upgrade -r ci/requirements_travis.txt"
+  #- "pip install --upgrade -r ci/requirements_travis.txt"
+  - "pip install --trusted-host www.silx.org --find-links http://www.silx.org/pub/wheelhouse/ -r ci/requirements_travis.txt --upgrade"
   # Install build dependencies without pip
   - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . ./ci/install-linux.sh; fi"
   # Print Python info
@@ -58,7 +59,7 @@ install:
   - "pip list"
   # Build
   - "python setup.py build"
-  - "python setup.py bdist_wheel"
+  - "python setup.py sdist bdist_wheel"
   # Install the generated wheel package to test it
   - "pip install --pre --no-index --find-links dist/ Spectrocrunch"
 

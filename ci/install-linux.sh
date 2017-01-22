@@ -54,11 +54,12 @@ mkdir build
 cd build
 
 echo -e "${hcol}Configure SimpleElastix ...${ncol}"
-longtask cmake -DCMAKE_RULE_MESSAGES=OFF -DCMAKE_INSTALL_MESSAGE=NEVER ../SimpleElastix/SuperBuild
+OMP_NUM_THREADS=2
+longtask cmake -DCMAKE_RULE_MESSAGES=OFF -DCMAKE_INSTALL_MESSAGE=NEVER -DBUILD_TESTING=OFF ../SimpleElastix/SuperBuild
 
 echo -e "${hcol}Build SimpleElastix ...${ncol}"
 #longtask make -s | grep -v '%]' | grep -v '^--' | grep -v '^Installing'
-make -s | grep -v '%]'
+make -s -j2 | grep -v '%]'
 
 echo -e "${hcol}Install SimpleElastix ...${ncol}"
 ls -R ./SimpleITK-build

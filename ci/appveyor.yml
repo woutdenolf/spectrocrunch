@@ -107,7 +107,6 @@ build_script:
     - "pip list"
 
     # Build
-    - "del pyFAI\\ext\\histogram.c"
     - "python setup.py build %BUILD_ARGS%"
     - "python setup.py test"
     - "python setup.py bdist_wheel bdist_msi"
