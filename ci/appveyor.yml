@@ -104,7 +104,7 @@ build_script:
     - "cd %MSINTTYPES_FOLDER%"
     - ps: Start-FileDownload ('https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/msinttypes/msinttypes-r26.zip' ) msinttypes.zip
     - 7z e msinttypes.zip
-    - ps: ls .
+    - "SET INCLUDE=%INCLUDE%;%MSINTTYPES_FOLDER%"
     - "cd %APPVEYOR_BUILD_FOLDER%"
 
     # Install build dependencies
