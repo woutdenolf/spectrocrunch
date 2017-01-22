@@ -8,6 +8,3 @@ PyMca5
 shapely
 matplotlib
 testfixtures
-mako
-pyopencl
-wheel
