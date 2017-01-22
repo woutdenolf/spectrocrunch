@@ -137,12 +137,11 @@ if [ "$STATE_SIMPLEELASTIX" -lt "$STATE" ]; then
     echo -e "${hcol}Build SimpleElastix ...${ncol}"
     #make -s -j2
 
-    incandsavestate STATE_SIMPLEELASTIX
+    #incandsavestate STATE_SIMPLEELASTIX
 fi
 
 echo -e "${hcol}Install SimpleElastix ...${ncol}"
-cd ./SimpleITK-build/Wrapping/Python/Packaging
-#cd ./SimpleITK-build/Wrapping/PythonPackage
+#cd ./SimpleITK-build/Wrapping/Python/Packaging
 #python setup.py install
 
 

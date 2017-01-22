@@ -75,8 +75,8 @@ install:
 
     # Download OpenCL Headers
     - ps: |
-          mkdir %OPENCL_PROJECT_FOLDER%
-          cd %OPENCL_PROJECT_FOLDER%
+          mkdir $env:OPENCL_PROJECT_FOLDER
+          cd $env:OPENCL_PROJECT_FOLDER
           wget https://www.khronos.org/registry/cl/specs/opencl-icd-1.2.11.0.tgz -OutFile opencl-icd-1.2.11.0.tgz
           7z x opencl-icd-1.2.11.0.tgz > $null
           7z x opencl-icd-1.2.11.0.tar > $null
@@ -84,7 +84,7 @@ install:
           mkdir inc/CL
           wget https://github.com/KhronosGroup/OpenCL-Headers | select -ExpandProperty links | where {$_.href -like "*.h*"} | select -ExpandProperty outerText | foreach{ wget https://raw.githubusercontent.com/KhronosGroup/OpenCL-Headers/master/$_ -OutFile inc/CL/$_ }
           mkdir lib
-          cd %APPVEYOR_BUILD_FOLDER%
+          cd $env:APPVEYOR_BUILD_FOLDER
 
     # Add Python to PATH
     - "SET PATH=%PYTHON_DIR%;%PYTHON_DIR%\\Scripts;%PATH%"
