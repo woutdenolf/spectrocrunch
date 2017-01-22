@@ -95,8 +95,11 @@ build_script:
           cmake.exe -G $G $env:GEOS_SOURCE_FOLDER 
           Write-Host "Running MSBuild:" -ForegroundColor Magenta
           msbuild GEOS.sln /maxcpucount /v:quiet /p:Configuration=Release /clp:ErrorsOnly
-          ls $env:GEOS_DLL_FOLDER
           cd $env:APPVEYOR_BUILD_FOLDER
+
+    # Install missing C99 headers for MSVC
+    - ps: Start-FileDownload ('https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/msinttypes/msinttypes-r26.zip' ) msinttypes.zip
+    - 7z e msinttypes.zip -omsinttypes > NULL
 
     # Install build dependencies
     #- "pip install -r ci/requirements_appveyor.txt --upgrade"
