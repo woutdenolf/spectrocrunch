@@ -62,7 +62,7 @@ install:
     - "mkdir %GEOS_SOURCE_FOLDER%"
     - "mkdir %GEOS_BUILD_FOLDER%"
     - "cd %GEOS_PROJECT_FOLDER%"
-    - "git clone https://github.com/libgeos/libgeos.git"
+    - "IF NOT EXIST $env:GEOS_LIBRARY_PATH git clone https://github.com/libgeos/libgeos.git"
     - "cd %APPVEYOR_BUILD_FOLDER%"
 
     # Missing C99 headers for MSVC
@@ -102,6 +102,13 @@ build_script:
     - "virtualenv --clear %VENV_BUILD_DIR%"
     - "%VENV_BUILD_DIR%\\Scripts\\activate.bat"
 
+    # Build the ICD loader
+    - cd %OPENCL_BUILD_FOLDER%
+    - cmake --help
+    - cmake -G "NMake Makefiles" ..
+    - nmake
+    - cd %APPVEYOR_BUILD_FOLDER%
+
     # Configure MSVC environment
     # Python 3.3 x64 and Python 3.4 x64 need a special configuration
     - ps: |
@@ -111,26 +118,21 @@ build_script:
 
     # Build GEOS
     - ps: |
-          cd $env:GEOS_BUILD_FOLDER
-          if ($env:PYTHON_ARCH -eq "64") {
-            $G="Visual Studio 14 2015 Win64"
-          } else {
-            $G="Visual Studio 14 2015"
+          if (!(Test-Path $env:GEOS_LIBRARY_PATH)) {
+            cd $env:GEOS_BUILD_FOLDER
+            if ($env:PYTHON_ARCH -eq "64") {
+              $G="Visual Studio 14 2015 Win64"
+            } else {
+              $G="Visual Studio 14 2015"
+            }
+            Write-Host "Building libgeos:" -ForegroundColor Magenta
+            Write-Host "Running CMake:" -ForegroundColor Magenta
+            cmake -G $G $env:GEOS_SOURCE_FOLDER 
+            Write-Host "Running MSBuild:" -ForegroundColor Magenta
+            msbuild GEOS.sln /maxcpucount /v:quiet /p:Configuration=Release /clp:ErrorsOnly
+            cd $env:APPVEYOR_BUILD_FOLDER
           }
-          Write-Host "Building libgeos:" -ForegroundColor Magenta
-          Write-Host "Running CMake:" -ForegroundColor Magenta
-          cmake -G $G $env:GEOS_SOURCE_FOLDER 
-          Write-Host "Running MSBuild:" -ForegroundColor Magenta
-          msbuild GEOS.sln /maxcpucount /v:quiet /p:Configuration=Release /clp:ErrorsOnly
-          cd $env:APPVEYOR_BUILD_FOLDER
     - "SET PATH=%GEOS_DLL_FOLDER%;%PATH%"
-
-    # Build the ICD loader
-    - cd %OPENCL_BUILD_FOLDER%
-    - cmake --help
-    - cmake -G "NMake Makefiles" ..
-    - nmake
-    - cd %APPVEYOR_BUILD_FOLDER%
 
     # Install build dependencies
     #- "pip install -r ci/requirements_appveyor.txt --upgrade"

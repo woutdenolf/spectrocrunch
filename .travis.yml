@@ -19,8 +19,6 @@ notifications:
   email: false
 
 env:
-  global:
-    - TIMEOUT=0
   - CACHED_FOLDER=$HOME/cached
 
 cache:
