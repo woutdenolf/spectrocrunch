@@ -126,9 +126,9 @@ incstate STATE
 OMP_NUM_THREADS=2
 if [ "$STATE_SIMPLEELASTIX" -lt "$STATE" ]; then
     echo -e "${hcol}Configure SimpleElastix ...${ncol}"
-    cmake -DCMAKE_RULE_MESSAGES=OFF -DCMAKE_INSTALL_MESSAGE=NEVER -DBUILD_TESTING=OFF ../SimpleElastix/SuperBuild
+    #cmake -DCMAKE_RULE_MESSAGES=OFF -DCMAKE_INSTALL_MESSAGE=NEVER -DBUILD_TESTING=OFF ../SimpleElastix/SuperBuild
 
-    incandsavestate STATE_SIMPLEELASTIX
+    #incandsavestate STATE_SIMPLEELASTIX
 fi
 
 incstate STATE

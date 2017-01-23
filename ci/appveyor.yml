@@ -119,7 +119,7 @@ build_script:
           }
           Write-Host "Building libgeos:" -ForegroundColor Magenta
           Write-Host "Running CMake:" -ForegroundColor Magenta
-          cmake.exe -G $G $env:GEOS_SOURCE_FOLDER 
+          cmake -G $G $env:GEOS_SOURCE_FOLDER 
           Write-Host "Running MSBuild:" -ForegroundColor Magenta
           msbuild GEOS.sln /maxcpucount /v:quiet /p:Configuration=Release /clp:ErrorsOnly
           cd $env:APPVEYOR_BUILD_FOLDER
@@ -127,6 +127,7 @@ build_script:
 
     # Build the ICD loader
     - cd %OPENCL_BUILD_FOLDER%
+    - cmake --help
     - cmake -G "NMake Makefiles" ..
     - nmake
     - cd %APPVEYOR_BUILD_FOLDER%
