@@ -48,7 +48,7 @@ before_install:
 install:
   # Install build dependencies and cache them
   - cd $CACHED_FOLDER
-  - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . $TRAVIS_BUILD_DIR/tools/prepare_installation.sh; fi"
+  - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . $TRAVIS_BUILD_DIR/tools/prepare_installation.sh -y; fi"
   - cd $TRAVIS_BUILD_DIR
 
   # Print Python info
