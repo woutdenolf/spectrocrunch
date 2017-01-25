@@ -25,4 +25,6 @@
 try:
     from ._version import version as __version__
 except ImportError:
-    pass
+    import os
+    __version__ = "Local version ({})".format(os.path.dirname(os.path.abspath(__file__)))
+

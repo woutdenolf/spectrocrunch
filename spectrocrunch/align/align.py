@@ -136,7 +136,7 @@ class align(object):
         pad = ((max(self.extend[0][0],0),max(self.extend[0][1],0)),\
                (max(self.extend[1][0],0),max(self.extend[1][1],0)))
         if np.count_nonzero(pad)!=0:
-            return np.pad(img,pad,'constant',constant_values=self.cval)
+            return np.pad(img,pad,'constant',constant_values=(self.cval,self.cval))
         else:
             return img
 

@@ -1,8 +1,8 @@
 numpy
 scipy
 h5py
-fabio
 silx
+fabio
 pyparsing
 PyMca5
 shapely
@@ -10,4 +10,3 @@ matplotlib
 testfixtures
 mako
 pyopencl
-wheel

@@ -38,18 +38,18 @@ environment:
           PYTHON_ARCH: "64"
           BUILD_ARGS: ""
 
-        # Python 3.4
-        - PYTHON_DIR: "C:\\Python34-x64"
-          PYTHON_VERSION: "3.4.3"
-          PYTHON_ARCH: "64"
-          # OpenMP is not available on python 3.4
-          BUILD_ARGS: "--no-openmp"
+        ## Python 3.4
+        #- PYTHON_DIR: "C:\\Python34-x64"
+        #  PYTHON_VERSION: "3.4.3"
+        #  PYTHON_ARCH: "64"
+        #  # OpenMP is not available on python 3.4
+        #  BUILD_ARGS: "--no-openmp"
 
-        # Python 3.5
-        - PYTHON_DIR: "C:\\Python35-x64"
-          PYTHON_VERSION: "3.5.0"
-          PYTHON_ARCH: "64"
-          BUILD_ARGS: ""
+        ## Python 3.5
+        #- PYTHON_DIR: "C:\\Python35-x64"
+        #  PYTHON_VERSION: "3.5.0"
+        #  PYTHON_ARCH: "64"
+        #  BUILD_ARGS: ""
 
 init:
   - ps: |

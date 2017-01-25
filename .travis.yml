@@ -12,8 +12,8 @@ python:
   - "2.7"
 #  - "3.2"
 #  - "3.3"
-  - "3.4"
-  - "3.5"
+#  - "3.4"
+#  - "3.5"
 
 notifications:
   email: false
@@ -30,36 +30,35 @@ branches:
   only:
   - master
 
-addons:
-  apt:
-    packages:
-      - curl
-      - cmake
-#For compiling
-      - build-essential
-#For shapely:
-      - libgeos-dev
-#For OpenCL:
-      - opencl-headers
-      - python-pyopencl
+-addons:
+-  apt:
+-    packages:
+-      - curl
+-      - wget
+-      - cmake
+-      - build-essential
+-      - libgeos-dev
+-      - opencl-headers
+-      - python-pyopencl
+-      - swig
 
 before_install:
-  - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . ./ci/before_install-linux.sh; fi"
+  #- "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . ./ci/before_install-linux.sh; fi"
 
 install:
-  # Upgrade/install distribution modules
-  - "pip install --upgrade pip"
-  # Install build dependencies with pip
-  - "pip install --upgrade -r ci/requirements_travis.txt"
-  #- "pip install --trusted-host www.silx.org --find-links http://www.silx.org/pub/wheelhouse/ -r ci/requirements_travis.txt --upgrade"
-  # Install build dependencies without pip
-  - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . ./ci/install-linux.sh; fi"
+  # Install build dependencies and cache them
+  - cd $CACHED_FOLDER
+  - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . $TRAVIS_BUILD_DIR/tools/prepare_installation.sh; fi"
+  - cd $TRAVIS_BUILD_DIR
+
   # Print Python info
   - "python ci/info_platform.py"
   - "pip list"
+
   # Build
   - "python setup.py build"
   - "python setup.py sdist bdist_wheel"
+
   # Install the generated wheel package to test it
   - "pip install --pre --no-index --find-links dist/ Spectrocrunch"
 

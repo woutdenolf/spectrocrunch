@@ -37,7 +37,7 @@ function initstate() {
         echo -e "${hcol}Status $1 is already ${!1}${ncol}"
     else
         export "$1"=0
-        echo -e "${hcol}Status $1 is initialized to ${ncol}"
+        echo -e "${hcol}Status $1 is initialized to ${!1}${ncol}"
     fi 
 }
 
@@ -126,9 +126,9 @@ incstate STATE
 OMP_NUM_THREADS=2
 if [ "$STATE_SIMPLEELASTIX" -lt "$STATE" ]; then
     echo -e "${hcol}Configure SimpleElastix ...${ncol}"
-    #cmake -DCMAKE_RULE_MESSAGES=OFF -DCMAKE_INSTALL_MESSAGE=NEVER -DBUILD_TESTING=OFF ../SimpleElastix/SuperBuild
+    cmake -DCMAKE_RULE_MESSAGES=OFF -DCMAKE_INSTALL_MESSAGE=NEVER -DBUILD_TESTING=OFF ../SimpleElastix/SuperBuild
 
-    #incandsavestate STATE_SIMPLEELASTIX
+    incandsavestate STATE_SIMPLEELASTIX
 fi
 
 incstate STATE
