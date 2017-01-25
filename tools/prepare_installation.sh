@@ -61,6 +61,8 @@ sudo -E apt-get -y install opencl-headers python-pyopencl # silx
 
 # ============Install modules============
 sudo -E apt-get -y install python-numpy python-scipy python-matplotlib python-h5py python-setuptools python-pyopencl
+sudo -E -H pip install --upgrade pip
+sudo -E -H pip install --upgrade setuptools
 sudo -E -H pip install -r $SPECTROCRUNCH_ROOT/requirements.txt
 
 # ============Install xraylib============
@@ -76,7 +78,7 @@ if [ ! -f xraylib/xraylib-3.2.0/python/.libs/_xraylib.so ]; then
   ./configure --enable-python --enable-python-integration
 
   echo -e "${hcol}Build xraylib ...${ncol}"
-  make -s
+  make -s -j2
   make check
 else
   cd xraylib/xraylib-3.2.0
@@ -128,7 +130,7 @@ if [ $? = 0 ]; then
   ./configure
 
   echo -e "${hcol}Build cmake ...${ncol}"
-  make -s
+  make -s -j2
 
   echo -e "${hcol}Install cmake ...${ncol}"
   sudo make install -s

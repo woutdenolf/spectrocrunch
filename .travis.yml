@@ -60,7 +60,8 @@ install:
   - "python setup.py sdist bdist_wheel"
 
   # Install the generated wheel package to test it
-  - "pip install --pre --no-index --find-links dist/ Spectrocrunch"
+  #- "pip install --pre --no-index --find-links dist/ Spectrocrunch"
+  - "python setup.py install"
 
 # command to run tests
 script:

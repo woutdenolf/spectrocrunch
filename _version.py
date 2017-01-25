@@ -32,8 +32,8 @@ Module for version handling (adopted from silx)
 MAJOR = 0
 MINOR = 0
 MICRO = 1 # <=15
-RELEV = "dev"
-SERIAL = 1 # <=15
+RELEV = "alpha"
+SERIAL = 2 # <=15
 
 RELEASE_LEVEL_VALUE = {"dev": 0,
                        "alpha": 10,
@@ -50,9 +50,7 @@ strictversion = version = "%d.%d.%d" % version_info[:3]
 
 if version_info.releaselevel != "final":
     version += "-%s%s" % version_info[-2:]
-    prerel = "a" if RELEASE_LEVEL_VALUE.get(version_info[3], 0) < 10 else "b"
-    if prerel not in "ab":
-        prerel = "a"
+    prerel = "a" if RELEASE_LEVEL_VALUE.get(version_info[3], 0) <= 10 else "b"
     strictversion += prerel + str(version_info[-1])
 
 hexversion = version_info[4]

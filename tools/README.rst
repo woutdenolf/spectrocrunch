@@ -1,5 +1,3 @@
-.. _dev-guide:
-
 Guide for developers
 ====================
 
@@ -12,7 +10,7 @@ Versioning is done on the master branch::
   git merge develop --no-commit 
   #... change the version according to the rules below ...
   git add .
-  git commit -m "bump version to 1.2.3-beta4"
+  git commit -m "Bump version to 1.2.3-beta4"
 
 Semantic versioning is followed (http://semver.org/)::
 
@@ -20,13 +18,13 @@ Semantic versioning is followed (http://semver.org/)::
 
   SERIAL: bump when changes not to the code
   MICRO : bump when bug fix is done
-              when SERIAL == 15
+              when bumping SERIAL == 15
   MINOR : bump when API changes backwards compatible
               when new functionality is added
-              when MICRO == 15
+              when bumping MICRO == 15
   MAJOR : bump when API changes not backwards compatible
  
-  Always reset the lower numbers to 0.
+  Always reset the lower numbers to 0, except for SERIAL which starts at 1.
 
   dev   : not tested
   alpha : begin testing
@@ -82,3 +80,56 @@ Help
     python setup.py --help-commands
     python setup.py sdist --help-formats
     python setup.py bdist --help-formats
+
+Subpackages
+-----------
+
+align
++++++
+
+    Aligning multiple image stacks with different alignment algorithms. One stack is the reference, the other stacks are aligned accordingly.
+
+common
+++++++
+
+    Subpackage used by the other subpackages.
+
+fullfield
++++++++++
+
+    Fullfield XAS data processing.
+
+h5stacks
+++++++++
+
+    Data processing organized in a software independent hdf5 pipeline.
+
+io
+++
+
+    Data I/O.
+
+materials
++++++++++
+
+    Definition of compounds and mixtures with calculation of physical properties (database/calculation/simulation).
+
+math
+++++
+
+    Another subpackage used by the other subpackages, more specifically grouping all math.
+
+process
++++++++
+
+    This subpackage connects beamline specific code to the other subpackages.
+
+visualization
++++++++++++++
+
+    Plotting things.
+
+xrf
++++
+
+    X-ray fluorescence data processing.

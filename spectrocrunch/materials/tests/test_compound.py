@@ -78,7 +78,10 @@ class test_compound(unittest.TestCase):
             self.assertAlmostEqual(wfrac[elements[i]],a[i]/float(sum(a)))
 
     def test_cif(self):
-        from ..compoundfromcif import compoundfromcif
+        try:
+            from ..compoundfromcif import compoundfromcif
+        except ImportError:
+            raise unittest.SkipTest("cctbx not available")
 
         elements = ["Ca","C","O"]
         a = [6,6,18.]
