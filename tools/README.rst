@@ -46,8 +46,11 @@ From the source
 .. code-block:: bash
 
     git clone https://github.com/woutdenolf/spectrocrunch
-    cd spectrocrunch
 
+    . spectrocrunch/tools/prepare_installation.sh [-v 3]
+    if [[ $? == 0 ]]; then echo "OK"; else echo "NOT OK"; fi
+
+    cd spectrocrunch
     python setup.py version
     python setup.py test
     python -m spectrocrunch.align.tests.test_teststack
@@ -60,15 +63,39 @@ From the source
 Manual Deployment
 -----------------
 
+Add PyPi credentials file ~/.pypirc (chmod 600):
+
 .. code-block:: bash
 
-    # define pypi and pypitest in .pypirc (chmod 600 .pypirc)
+    [distutils]
+    index-servers =
+      pypi
+      pypitest
+
+    [pypi]
+    repository=https://pypi.python.org/pypi
+    username=...
+    password=...
+
+    [pypitest]
+    repository=https://testpypi.python.org/pypi
+    username=...
+    password=...
+
+
+Register project:
+
+.. code-block:: bash
+
     python setup.py register -r pypi
-    # OR
-    python setup.py register -r testpypi
+    python setup.py register -r pypitest
+
+Deploy:
+
+.. code-block:: bash
 
     # on linux
-    python setup.py sdist  bdist_wheel upload -r pypi
+    python setup.py sdist bdist_wheel upload -r pypi
     # on windows
     python setup.py bdist_msi upload -r pypi
     

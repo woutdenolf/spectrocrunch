@@ -4,24 +4,30 @@ SpectroCrunch: spectrocopic imaging library (XRF/XAS)
 Getting started
 ---------------
 
-Install:
+Install dependencies:
+
+.. code-block:: bash
+
+    git clone https://github.com/woutdenolf/spectrocrunch
+    . spectrocrunch/tools/prepare_installation.sh [-v 3]
+
+Install from PyPi:
 
 .. code-block:: bash
 
     pip install spectrocrunch [--user]
+
+Install from source:
+
+.. code-block:: bash
+
+    python setup.py install [--user]
 
 Test:
 
 .. code-block:: bash
 
     python -m spectrocrunch.test.test_all
-
-Install dependencies:
-
-.. code-block:: bash
-
-    git clone https://github.com/woutdenolf/spectrocrunch
-    . spectrocrunch/tools/prepare_installation.sh
 
 Developers
 ----------
