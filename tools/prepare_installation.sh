@@ -215,7 +215,7 @@ if [[ $NOTDRY == true ]]; then
   setpipbin $PYTHONMAJORV
 
   sudo -E -H $PIPBIN install -r $SPECTROCRUNCH_ROOT/requirements.txt
-  ##sudo -E -H $PIPBIN install --upgrade ConfigParser # pyfdmnes (should be there by default)
+  sudo -E -H $PIPBIN install --egg PyMca5
 fi
 
 # ============Install xraylib============
@@ -293,8 +293,8 @@ if [ $? = 0 ]; then
   if [[ $NOTDRY == true && ! -d cmake-3.7.2 ]]; then
     wget --no-check-certificate http://www.cmake.org/files/v3.7/cmake-3.7.2.tar.gz
     tar -xzf cmake-3.7.2.tar.gz
-    cd cmake-3.7.2
   fi
+  cd cmake-3.7.2
 
   if [[ $TIMELEFT == true && ! -f Makefile ]]; then
     echo -e "${hcol}Configure cmake ...${ncol}"

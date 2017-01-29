@@ -8,4 +8,4 @@ testfixtures
 matplotlib
 shapely
 pyopencl==2015.1
-PyMca5
+#PyMca5
