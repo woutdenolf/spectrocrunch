@@ -215,7 +215,7 @@ if [[ $NOTDRY == true ]]; then
   setpipbin $PYTHONMAJORV
 
   sudo -E -H $PIPBIN install -r $SPECTROCRUNCH_ROOT/requirements.txt
-  sudo -E -H $PIPBIN install --egg PyMca5
+  #sudo -E -H $PIPBIN install --egg PyMca5 #TODO: doesn't want to build
 fi
 
 # ============Install xraylib============
@@ -315,10 +315,6 @@ if [ $? = 0 ]; then
   echo -e "${hcol}Install cmake ...${ncol}"
   if [[ $NOTDRY == true ]]; then
     sudo make install -s
-
-    if [[ $TIMELIMITED == true ]]; then
-      TIMELEFT=false
-    fi
   fi
 fi
 
@@ -373,7 +369,7 @@ echo -e "${hcol}Cleaning up ...${ncol}"
 cd $RESTORE_WD
 
 if [[ $NOTDRY == true ]]; then
-  apt-get -y autoremove
+  sudo -E apt-get -y autoremove
 
   if [[ $TIMELEFT == true ]]; then
       echo -e "${hcol}All done! You should not be able to install spectrocrunch.${ncol}"
