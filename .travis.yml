@@ -43,10 +43,10 @@ branches:
 -      - swig
 
 before_install:
-  #- "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . ./ci/before_install-linux.sh; fi"
+  #- "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . ./ci/before_install-linux.sh; cd $TRAVIS_BUILD_DIR; fi"
 
 install:
-  # Install build dependencies and cache them
+  # Install build dependencies
   - cd $CACHED_FOLDER
   - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . $TRAVIS_BUILD_DIR/tools/prepare_installation.sh -y -t; fi"
   - cd $TRAVIS_BUILD_DIR
@@ -65,7 +65,7 @@ install:
 
 # command to run tests
 script:
-  - "python setup.py test"
+  - "if [[ $TIMELEFT == true ]]; then python setup.py test;fi"
 
 # deploy
 # deploy:

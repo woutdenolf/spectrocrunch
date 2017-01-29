@@ -29,8 +29,11 @@ show_help()
 
 unset CHOICE
 OPTIND=0
-PYTHONBIN="python"
-PIPV="pip"
+PYTHONBINAPT="python"
+PIPBINAPT="pip"
+PYTHONBIN=$PYTHONBINAPT
+PIPBIN=$PIPBINAPT
+PYTHONMAJORV=2
 TIMELIMITED=false
 TIMELEFT=true
 NOTDRY=true
@@ -51,9 +54,21 @@ while getopts "v:ythd" opt; do
       NOTDRY=false
       ;;
     v)
-      if [ "$OPTARG" = "3" ]; then
-        PYTHONBIN="python3"
-        PIPV=$(compgen -c "pip-3" | sort | awk '{print $NF}')
+      if [ "$(echo $OPTARG | head -c 1)" = "3" ]; then
+        PYTHONMAJORV=3
+        PYTHONBINAPT="python3"
+        PIPBINAPT="pip3"
+        PYTHONBIN="python$OPTARG"
+        PIPBIN="pip$OPTARG"
+      elif [ "$(echo $OPTARG | head -c 1)" = "2" ]; then
+        PYTHONMAJORV=2
+        PYTHONBINAPT="python"
+        PIPBINAPT="pip"
+        PYTHONBIN="python$OPTARG"
+        PIPBIN="pip$OPTARG"
+      else
+        echo "Python version number must start with 2 or 3." >&2
+        return 1
       fi
       ;;
     \?)
@@ -63,29 +78,17 @@ while getopts "v:ythd" opt; do
   esac
 done
 if [[ "$TRAVIS" == "true" ]]; then
-    CHOICE="y"
-    TIMELIMITED=true
-    TIMELEFT=true
-    CI=true
+  CHOICE="y"
+  TIMELIMITED=true
+  TIMELEFT=true
+  CI=true
 fi
 
 # ============Initialize environment============
 hcol='\033[0;36m'
 ncol='\033[0m'
 
-# Working directory for building dependencies: $(pwd)/2.7, $(pwd)/3.4, ...
 RESTORE_WD=$(pwd)
-PYTHONV=`$PYTHONBIN -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(t)";`
-mkdir -p $PYTHONV
-cd $PYTHONV
-INSTALL_WD=$(pwd)
-
-echo -e "${hcol}Python version: $PYTHONV${ncol}"
-
-PYTHON_EXECUTABLE=$(which $PYTHONBIN) # full path
-PYTHON_INCLUDE_DIR="/usr/include/python$PYTHONV"
-PYTHON_LIBRARY="/usr/lib/libpython$PYTHONV.so"
-
 SPECTROCRUNCH_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/..
 
 if [[ "$(dnsdomainname)" == "esrf.fr" ]]; then
@@ -94,7 +97,84 @@ if [[ "$(dnsdomainname)" == "esrf.fr" ]]; then
   export https_proxy="http://proxy.esrf.fr:3128"
 fi
 
+# ============Install basics============
+echo -e "${hcol}Installing basics ...${ncol}"
+if [[ $NOTDRY == true ]]; then
+  sudo -E apt-get -y install curl wget git
+  sudo -E apt-get -y install build-essential cmake $PYTHONBINAPT $PYTHONBINAPT-dev $PYTHONBINAPT-pip
+fi
+
+# ============Python version============
+function setpythonbin() {
+  if [[ "${PYTHONBIN#*.}" != "$PYTHONBIN" ]]; then
+    # Already a specific version like 2.7
+    return
+  fi
+
+  PYTHONBIN=$(compgen -c "python$1" | grep "^python$1\..$" | sort | tail -n -1)
+  if [[ -z $PYTHONBIN ]]; then
+    PYTHONBIN=$(compgen -c "python-$1" | grep "^python-$1\..$" | sort | tail -n -1)
+  fi
+  if [[ -z $PYTHONBIN ]]; then
+    PYTHONBIN=$PYTHONBINAPT
+  fi
+}
+setpythonbin $PYTHONMAJORV
+PYTHON_EXECUTABLE=$(which $PYTHONBIN) # full path
+
+PYTHONV=`$PYTHONBIN -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(t)";`
+PYTHONFULLV=`$PYTHONBIN -c "import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));sys.stdout.write(t)";`
+
+PYTHON_INCLUDE_DIR=`$PYTHONBIN -c "import distutils.sysconfig; print(distutils.sysconfig.get_python_inc());"`
+
+PYTHON_LIBRARY_NAME=`$PYTHONBIN -c "import distutils.sysconfig; print(distutils.sysconfig.get_config_var('LDLIBRARY'));"`
+PYTHON_PREFIX=="/usr/"
+PYTHON_LIBRARY="${PYTHON_PREFIX}lib/${PYTHON_LIBRARY_NAME}"
+if [[ ! -f $PYTHON_LIBRARY ]]; then
+  PYTHON_PREFIX="/usr/local/"
+  PYTHON_LIBRARY="${PYTHON_PREFIX}lib/${PYTHON_LIBRARY_NAME}"
+fi
+
+if [[ $PYTHONMAJORV = 3 ]]; then
+  dpkg --compare-versions "${PYTHONV}" "lt" "3.4"
+  if [ $? = 0 ]; then
+    echo -e "${hcol}Python version must be >= 3.4 (used ${PYTHONV}).${ncol}"
+    return 1
+  fi
+else
+  dpkg --compare-versions "${PYTHONV}" "lt" "2.7"
+  if [ $? = 0 ]; then
+    echo -e "${hcol}Python version must be >= 2.7 (used ${PYTHONV}).${ncol}"
+    return 1
+  fi
+fi
+
+
+mkdir -p ${PYTHONV}
+cd ${PYTHONV}
+INSTALL_WD=$(pwd)
+
+# ============Pip version============
+function setpipbin() {
+  if [[ "${PIPBIN#*.}" != "$PIPBIN" ]]; then
+    # Already a specific version like 2.7
+    return
+  fi
+
+  PIPBIN=$(compgen -c "pip$1" | grep "^pip$1\..$" | sort | tail -n -1)
+  if [[ -z $PIPBIN ]]; then
+    PIPBIN=$(compgen -c "pip-$1" | grep "^pip-$1\..$" | sort | tail -n -1)
+  fi
+  if [[ -z $PIPBIN ]]; then
+    PIPBIN=$PIPBINAPT
+  fi
+}
+setpipbin $PYTHONMAJORV
+
 # ============Notifications============
+echo -e "${hcol}Python version: $PYTHONFULLV${ncol}"
+echo -e "${hcol}Pip:$($PIPBIN --version| awk '{$1= ""; print $0}')${ncol}"
+
 if [[ -z ${CHOICE} ]]; then
   read -p "Approximately 12GB of data will added to \"$(pwd)\". Continue (Y/n)?" CHOICE
 fi
@@ -105,39 +185,37 @@ case "$CHOICE" in
 esac
 
 # ============Install dependencies============
-echo -e "${hcol}Installing basic ...${ncol}"
-if [[ $NOTDRY == true ]]; then
-  sudo -E apt-get -y install curl wget git
-fi
-
-echo -e "${hcol}Installing basic python ...${ncol}"
-if [[ $NOTDRY == true ]]; then
-  if [[ $CI == true ]]; then
-    sudo -E apt-get -y install build-essential cmake $PYTHONBIN $PYTHONBIN-dev $PYTHONBIN-pip
-  else
-    sudo -E apt-get -y install build-essential cmake
-  fi
-fi
-
 echo -e "${hcol}Installing python module dependencies ...${ncol}"
 if [[ $NOTDRY == true ]]; then
   sudo -E apt-get -y install hdf5-devel # h5py
   sudo -E apt-get -y install libgeos-dev # shapely
   sudo -E apt-get -y install swig # xraylib
-  sudo -E apt-get -y install opencl-headers $PYTHONBIN-pyopencl # silx
+  sudo -E apt-get -y install opencl-headers # pyopencl
+  sudo -E apt-get -y install libffi-dev # pyopencl
 fi
 
 # ============Install modules============
 echo -e "${hcol}Installing python modules ...${ncol}"
 if [[ $NOTDRY == true ]]; then
-  sudo -E apt-get -y install $PYTHONBIN-numpy $PYTHONBIN-scipy $PYTHONBIN-matplotlib $PYTHONBIN-h5py $PYTHONBIN-setuptools $PYTHONBIN-pyopencl
-  if [[ $CI == true ]]; then
-    sudo -E -H $PIPV install --upgrade pip # problem on with Python 2 and 3 distros
-    sudo -E -H $PIPV install --upgrade setuptools
-  fi
   
-  sudo -E -H $PIPV install -r $SPECTROCRUNCH_ROOT/requirements.txt
-  ##sudo -E -H $PIPV install --upgrade ConfigParser # pyfdmnes (should be there by default)
+  # Try to install modules with apt-get first
+  sudo -E apt-get -y install $PYTHONBINAPT-numpy
+  sudo -E apt-get -y install $PYTHONBINAPT-scipy
+  sudo -E apt-get -y install $PYTHONBINAPT-h5py
+  sudo -E apt-get -y install $PYTHONBINAPT-setuptools
+  sudo -E apt-get -y install $PYTHONBINAPT-pyopencl
+  sudo -E apt-get -y install $PYTHONBINAPT-matplotlib
+  sudo -E apt-get -y install $PYTHONBINAPT-pyopencl
+
+  sudo -E -H $PIPBIN install --upgrade pip
+  sudo -E -H $PIPBIN install --upgrade setuptools
+  sudo -E -H $PIPBIN install --upgrade numpy # silx
+  sudo -E -H $PIPBIN install --upgrade mako # pyopencl
+
+  setpipbin $PYTHONMAJORV
+
+  sudo -E -H $PIPBIN install -r $SPECTROCRUNCH_ROOT/requirements.txt
+  ##sudo -E -H $PIPBIN install --upgrade ConfigParser # pyfdmnes (should be there by default)
 fi
 
 # ============Install xraylib============
@@ -153,7 +231,7 @@ if [ ! -f xraylib/xraylib-3.2.0/python/.libs/_xraylib.so ]; then
 
   echo -e "${hcol}Configure xraylib ...${ncol}"
   if [[ $NOTDRY == true ]]; then
-    ./configure --enable-python --enable-python-integration PYTHON=$PYTHON_EXECUTABLE PYTHON_VERSION=$PYTHONV
+    ./configure --enable-python --enable-python-integration PYTHON=$PYTHON_EXECUTABLE PYTHON_VERSION=$PYTHONV PYTHON_PREFIX=$PYTHON_PREFIX
   fi
 
   echo -e "${hcol}Build xraylib ...${ncol}"
@@ -167,7 +245,7 @@ fi
 
 echo -e "${hcol}Install xraylib ...${ncol}"
 if [[ $NOTDRY == true ]]; then
-  make install -s
+  sudo make install -s
 fi
 
 # ============Install fdmnes============
@@ -199,6 +277,7 @@ fi
 echo -e "${hcol}Install pyfdmnes ...${ncol}"
 if [[ $NOTDRY == true ]]; then
   cd pyFDMNES
+  $PYTHONBIN setup.py build -f
   $PYTHONBIN setup.py install
 fi
 
@@ -252,6 +331,8 @@ if [ ! -f simpleelastix/build/SimpleITK-build/Wrapping/Python/Packaging/setup.py
   if [[ $TIMELEFT == true && ! -f Makefile ]]; then
     echo -e "${hcol}Configure SimpleElastix ...${ncol}"
     if [[ $NOTDRY == true ]]; then
+      # TODO: run twice to get the right python interpreter?
+      cmake ../SimpleElastix/SuperBuild -DPYTHON_EXECUTABLE:FILEPATH=$PYTHON_EXECUTABLE -DPYTHON_INCLUDE_DIR:PATH=$PYTHON_INCLUDE_DIR -DPYTHON_LIBRARY:FILEPATH=$PYTHON_LIBRARY
       cmake ../SimpleElastix/SuperBuild -DPYTHON_EXECUTABLE:FILEPATH=$PYTHON_EXECUTABLE -DPYTHON_INCLUDE_DIR:PATH=$PYTHON_INCLUDE_DIR -DPYTHON_LIBRARY:FILEPATH=$PYTHON_LIBRARY
       if [[ $TIMELIMITED == true ]]; then
           TIMELEFT=false
@@ -264,6 +345,9 @@ if [ ! -f simpleelastix/build/SimpleITK-build/Wrapping/Python/Packaging/setup.py
     OMP_NUM_THREADS=2
     if [[ $NOTDRY == true ]]; then
       make -s -j2
+      if [[ $TIMELIMITED == true ]]; then
+          TIMELEFT=false
+      fi
     fi
   fi
 else

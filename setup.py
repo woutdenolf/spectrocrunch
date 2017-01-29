@@ -21,26 +21,28 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-"""
-Package installation file to be used as:
-
-- python setup.py version
-- python setup.py test
-- python setup.py build
-- python setup.py install
-- python setup.py sdist
-- python setup.py bdist
-
-"""
 
 # Imports
-from __future__ import print_function
 import sys
-import os
-del os.link
 import subprocess
+import os
 from setuptools import setup, Command, find_packages
+from setuptools.command.install import install
 import _version
+
+# Disable hardlinks when not working
+if hasattr(os, 'link'):
+    tempfile = __file__ + '.tmp'
+    try:
+        os.link(__file__, tempfile)
+    except OSError as e:
+        if e.errno == 1:  # Operation not permitted
+            del os.link
+        else:
+            raise
+    finally:
+        if os.path.exists(tempfile):
+            os.remove(tempfile)
 
 # Get setup information
 def get_version():
@@ -62,6 +64,8 @@ def get_readme():
     return long_description
 
 # Command classes
+cmdclass = {}
+
 class TestAllPackages(Command):
     user_options = []
 
@@ -78,6 +82,7 @@ class TestAllPackages(Command):
             raise SystemExit(errno)
         else:
             print("All Tests passed.")
+cmdclass['test'] = TestAllPackages
 
 class VersionOfAllPackages(Command):
     user_options = []
@@ -90,9 +95,12 @@ class VersionOfAllPackages(Command):
     
     def run(self):
         print("This version of SpectroCrunch is", _version.version)
+cmdclass['version'] = VersionOfAllPackages
 
-# Setup
-cmdclass = {'test':TestAllPackages,'version':VersionOfAllPackages}
+class InstallWithVersion(install):
+    def run(self):
+        install.run(self)
+cmdclass['install'] = InstallWithVersion
 
 # Trove classifiers
 classifiers = [get_devstatus(),
@@ -115,14 +123,14 @@ classifiers = [get_devstatus(),
                ]
 
 # Needed for using Spectrocrunch
-install_requires = ["numpy", "scipy", "h5py", "fabio", "silx", "pyparsing", "pymca", "shapely", "matplotlib"]
+install_requires = ["numpy", "scipy", "h5py", "fabio", "silx", "pyparsing", "PyMca5", "shapely", "matplotlib"]
 extras_require = {\
     "physics":["xraylib", "cctbx", "fdmnes"],\
     "elastix":["SimpleITK"]\
     }
 
 # Needed for running the setup script
-setup_requires = ["testfixtures"] #"setuptools_scm" 
+setup_requires = ["testfixtures"]
 
 setup(name='SpectroCrunch',
       version=get_version(),
@@ -137,7 +145,6 @@ setup(name='SpectroCrunch',
       extras_require=extras_require,
       setup_requires=setup_requires,
       include_package_data=True,
-      #use_scm_version=True,
       license="MIT",
       cmdclass=cmdclass
       )

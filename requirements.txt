@@ -4,7 +4,8 @@ h5py
 silx
 fabio
 pyparsing
-pymca
-shapely
-matplotlib
 testfixtures
+matplotlib
+shapely
+pyopencl==2015.1
+PyMca5

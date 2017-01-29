@@ -14,6 +14,7 @@ dist
 log.*
 *.png
 *.log
+*.*.txt
 
 # Generated data
 testresults

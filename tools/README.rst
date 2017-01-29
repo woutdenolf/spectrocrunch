@@ -8,7 +8,7 @@ Versioning is done on the master branch::
 
   git checkout master
   git merge develop --no-commit 
-  #... change the version according to the rules below ...
+  #... change _version.py and CHANGELOG.rst ...
   git add .
   git commit -m "Bump version to 1.2.3-beta4"
 
@@ -36,9 +36,17 @@ Semantic versioning is followed (http://semver.org/)::
 Releasing
 ---------
 
-A release can be created on github with the tag MAJOR.MINOR.MICRO
+Create a tag (replace -s with -a for an unsigned tag)
 
-TODO: upon releasing on github, trigger ci with pypi deployment
+  #... change CHANGELOG.rst ...
+  git tag -s vMAJOR.MINOR.MICRO -m "Version MAJOR.MINOR.MICRO"
+  git push --tags
+
+Then create a release on github based on this tag
+
+  Title: Release of version MAJOR.MINOR.MICRO
+  Body: Copy from CHANGELOG
+   
 
 From the source
 ---------------
