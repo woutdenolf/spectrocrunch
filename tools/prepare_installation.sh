@@ -223,7 +223,7 @@ if [ ! -f xraylib/xraylib-3.2.0/python/.libs/_xraylib.so ]; then
   echo -e "${hcol}Download xraylib ...${ncol}"
   mkdir -p xraylib
   cd xraylib
-  if [[ $NOTDRY == true ]]; then
+  if [[ $NOTDRY == true && ! -d xraylib-3.2.0 ]]; then
     curl -O http://lvserver.ugent.be/xraylib/xraylib-3.2.0.tar.gz
     tar -xvf xraylib-3.2.0.tar.gz
     cd xraylib-3.2.0
@@ -245,7 +245,7 @@ fi
 
 echo -e "${hcol}Install xraylib ...${ncol}"
 if [[ $NOTDRY == true ]]; then
-  sudo make install -s
+  sudo -E make install -s
 fi
 
 # ============Install fdmnes============
@@ -263,14 +263,16 @@ if [[ $NOTDRY == true ]]; then
       ln -s /opt/fdmnes /usr/local/bin/fdmnes
     fi
   else
-    curl -O http://neel.cnrs.fr/IMG/zip/fdmnes_2017_01_10.zip
-    unzip fdmnes_2017_01_10.zip -d /usr/local
-    ln -s /usr/local/fdmnes/fdmnes_linux64 /usr/local/bin/fdmnes
+    if [[ ! -f /usr/local/bin/fdmnes ]]; then
+      curl -O http://neel.cnrs.fr/IMG/zip/fdmnes_2017_01_10.zip
+      sudo -E unzip fdmnes_2017_01_10.zip -d /usr/local
+      sudo -E ln -s /usr/local/fdmnes/fdmnes_linux64 /usr/local/bin/fdmnes
+    fi
   fi
 fi
 
 echo -e "${hcol}Download pyfdmnes ...${ncol}"
-if [[ $NOTDRY == true ]]; then
+if [[ $NOTDRY == true && ! -d pyFDMNES ]]; then
   git clone https://github.com/woutdenolf/pyFDMNES.git
 fi
 
@@ -288,13 +290,13 @@ if [ $? = 0 ]; then
   cd $INSTALL_WD
   mkdir -p cmake
   cd cmake
-  if [[ $NOTDRY == true ]]; then
-    wget --no-check-certificate -q http://www.cmake.org/files/v3.7/cmake-3.7.2.tar.gz
+  if [[ $NOTDRY == true && ! -d cmake-3.7.2 ]]; then
+    wget --no-check-certificate http://www.cmake.org/files/v3.7/cmake-3.7.2.tar.gz
     tar -xzf cmake-3.7.2.tar.gz
     cd cmake-3.7.2
   fi
 
-  if [[ $TIMELEFT == true ]]; then
+  if [[ $TIMELEFT == true && ! -f Makefile ]]; then
     echo -e "${hcol}Configure cmake ...${ncol}"
     if [[ $NOTDRY == true ]]; then
       ./configure
@@ -305,13 +307,17 @@ if [ $? = 0 ]; then
       make -s -j2
     fi
 
-    echo -e "${hcol}Install cmake ...${ncol}"
-    if [[ $NOTDRY == true ]]; then
-      sudo make install -s
+    if [[ $TIMELIMITED == true ]]; then
+      TIMELEFT=false
+    fi
+  fi
 
-      if [[ $TIMELIMITED == true ]]; then
-        TIMELEFT=false
-      fi
+  echo -e "${hcol}Install cmake ...${ncol}"
+  if [[ $NOTDRY == true ]]; then
+    sudo make install -s
+
+    if [[ $TIMELIMITED == true ]]; then
+      TIMELEFT=false
     fi
   fi
 fi
@@ -322,7 +328,7 @@ if [ ! -f simpleelastix/build/SimpleITK-build/Wrapping/Python/Packaging/setup.py
   echo -e "${hcol}Download SimpleElastix ...${ncol}"
   mkdir -p simpleelastix
   cd simpleelastix
-  if [[ $NOTDRY == true ]]; then
+  if [[ $NOTDRY == true && ! -d SimpleElastix ]]; then
     git clone https://github.com/kaspermarstal/SimpleElastix
   fi
   mkdir -p build

@@ -65,7 +65,7 @@ install:
 
 # command to run tests
 script:
-  - "if [[ $TIMELEFT == true ]]; then python setup.py test;fi"
+  - "python setup.py test"
 
 # deploy
 # deploy:

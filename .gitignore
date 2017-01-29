@@ -2,7 +2,6 @@
 
 # Generated
 build
-doc
 dist
 *.egg*
 
