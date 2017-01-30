@@ -35,10 +35,16 @@ Main development website: https://github.com/woutdenolf/spectrocrunch
 
 Distribution website: https://pypi.python.org/pypi/SpectroCrunch
 
-Linux:   |Travis Status|
-Windows: |Appveyor Status|
-
 Guidelines for contributors and project managers can be found in tools/README.rst
+
++------------+-------------------------+-------------------------+
+|            | Master                  | Develop                 |
++============+=========================+=========================+
+| Linux      | |Travis Status Master|  | |Travis Status Develop| |
++------------+-------------------------+-------------------------+
+| Windows    | |Appveyor Status|       |                         |
++------------+-------------------------+-------------------------+
+
 
 Use without installation
 ------------------------
@@ -65,7 +71,9 @@ import as follows:
     from spectrocrunch.align.alignElastix import alignElastix as align
 
 
-.. |Travis Status| image:: https://travis-ci.org/woutdenolf/spectrocrunch.svg?branch=master
+.. |Travis Status Master| image:: https://travis-ci.org/woutdenolf/spectrocrunch.svg?branch=master
+   :target: https://travis-ci.org/woutdenolf/spectrocrunch
+.. |Travis Status Develop| image:: https://travis-ci.org/woutdenolf/spectrocrunch.svg?branch=develop
    :target: https://travis-ci.org/woutdenolf/spectrocrunch
 .. |Appveyor Status| image:: https://ci.appveyor.com/api/projects/status/github/woutdenolf/spectrocrunch?svg=true
    :target: https://ci.appveyor.com/project/woutdenolf/spectrocrunch
