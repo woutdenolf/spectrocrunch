@@ -1,10 +1,10 @@
 Change Log
 ==========
 
-`master`_ (unreleased)
-----------------------
+`develop`_ (unreleased)
+-----------------------
 
-* Travis CI (Python 2.7)
+* Changes not described yet
 
 
 `0.0.1-alpha2`_ (unreleased)
@@ -16,6 +16,7 @@ Change Log
 * Parse ESRF ID16b specific fluoXAS data
 * ESRF ID21 specific data visualization
 * 1D spectrum alignment (only phase correlation and simple properties)
+* Travis CI (Python 2.7)
 
 
 `genesis`_ (unreleased)
@@ -30,4 +31,4 @@ Change Log
 
 .. _genesis: https://github.com/woutdenolf/spectrocrunch/commit/genesis
 .. _0.0.1-alpha2: https://github.com/woutdenolf/spectrocrunch/compare/genesis...v0.0.1-alpha2
-.. _master: https://github.com/woutdenolf/spectrocrunch/compare/v0.0.1-alpha2...master
+.. _develop: https://github.com/woutdenolf/spectrocrunch/compare/v0.0.1-alpha2...develop

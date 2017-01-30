@@ -1,36 +1,103 @@
 Guide for developers
 ====================
 
-Versioning
-----------
+Git branching model
+-------------------
 
-Versioning is done on the master branch:
+`This <http://nvie.com/posts/a-successful-git-branching-model/>`_ branching model is followed:
+
+* Github branches: master (RELEV=final), develop (RELEV=dev)
+
+* Local branches: master (RELEV=final), develop (RELEV=dev), feat-\*, fix-\*, hotfix-\*
 
 .. code-block:: bash
 
-  # Merge change into master
+  git clone https://github.com/woutdenolf/spectrocrunch Spectrocrunch
+  git config --global push.followTags true
+
+* Feature/fix branch:
+
+.. code-block:: bash
+
+  # Start working on the feature
+  git checkout -b feat-something develop
+
+  # Commit changes ...
+
+  # Merge feature into develop
+  git checkout develop
+  git merge --no-ff feat-something
+  git branch -d feat-something
+
+  # Publish
+  git push origin develop
+
+* Release branch:
+
+.. code-block:: bash
+
+  # Start releasing
+  git checkout -b release-1.2 develop
+
+  # change RELEV from "dev" to "alpha"
+  # Possible change in SERIAL, MICRO (bug fixes) and RELEV (testing progress)
+
+  # Version to be released
+  echo `python -c "from _version import version;print(\"v{}\".format(version));"`
+
+  # CHANGELOG.rst: add release
+
+  # Bump the version
+  git add .
+  git commit -m "Bump version to 1.2.3"
+
+  # Merge release in master and develop
   git checkout master
-  git merge develop --no-commit 
-  # change _version.py
-  # CHANGELOG.rst:
-  #   rename latest unreleased version to current one
-  #   move master changes to current
+  git merge --no-ff release-1.2
+  git tag -s v1.2.3 -m "Version 1.2.3"
+
+  git checkout develop
+  git merge --no-ff release-1.2
+
+  git branch -d release-1.2
+
+  # Publish
+  git push origin develop
+  git push origin master
+
+* Hotfix branch:
+
+.. code-block:: bash
+
+  # Master tag is 1.2.3
+  git checkout -b hotfix-1.2.4 master
+
+  # Possible change in SERIAL, MICRO (bug fixes) and RELEV (testing progress)
+  # Finally RELEV=final
+
+  # CHANGELOG.rst: add release
+
   git add .
 
   # Check current version
   echo `python -c "from _version import version;print(\"v{}\".format(version));"`
 
-  # Bump non-release
-  git commit -m "Bump version to 1.2.3-beta4"
-  git tag -s v1.2.3-beta4 -m "Unreleased version 1.2.3-beta4"
+  # Bump the version
+  git commit -m "Bump version to 1.2.4"
 
-  # Bump non-release
-  git commit -m "Bump version to 1.2.3"
-  git tag -s v1.2.3 -m "Version 1.2.3"
+  # Merge release in master and develop
+  git checkout master
+  git merge --no-ff hotfix-1.2.4
+  git tag -s v1.2.4 -m "Version 1.2.4"
+  git checkout develop
+  git merge --no-ff hotfix-1.2.4
 
-  git push --tags
+  git branch -d hotfix-1.2.4
 
-Semantic versioning is followed (http://semver.org/)::
+Versioning
+----------
+
+`Semantic versioning <http://semver.org/>`_ is followed::
 
   MAJOR.MINOR.MICRO.SERIAL
 
@@ -54,32 +121,13 @@ Semantic versioning is followed (http://semver.org/)::
 Releasing
 ---------
 
-Bump to release version (see `Versioning`_). Then create a release on github based on this tag
+Create a release on github based on this tag
 
   Title: Release of version MAJOR.MINOR.MICRO
+
   Body: Copy from CHANGELOG
+
    
-
-From the source
----------------
-
-.. code-block:: bash
-
-    git clone https://github.com/woutdenolf/spectrocrunch
-
-    . spectrocrunch/tools/prepare_installation.sh [-v 3]
-    if [[ $? == 0 ]]; then echo "OK"; else echo "NOT OK"; fi
-
-    cd spectrocrunch
-    python setup.py version
-    python setup.py test
-    python -m spectrocrunch.align.tests.test_teststack
-
-    python setup.py build
-    python setup.py install [--user]
-    # OR
-    pip install . [--user]
-    
 Manual Deployment
 -----------------
 
@@ -118,6 +166,27 @@ Deploy:
     python setup.py sdist bdist_wheel upload -r pypi
     # on windows
     python setup.py bdist_msi upload -r pypi
+
+
+From the source
+---------------
+
+.. code-block:: bash
+
+    . spectrocrunch/tools/prepare_installation.sh [-v 3]
+    if [[ $? == 0 ]]; then echo "OK"; else echo "NOT OK"; fi
+
+    cd spectrocrunch
+    python setup.py version
+    python setup.py test
+    python -m spectrocrunch.align.tests.test_teststack
+
+    python setup.py build
+    python setup.py install [--user]
+    # OR
+    pip install . [--user]
+    
+
     
 Help
 ----
@@ -127,6 +196,7 @@ Help
     python setup.py --help-commands
     python setup.py sdist --help-formats
     python setup.py bdist --help-formats
+  
 
 Subpackages
 -----------
