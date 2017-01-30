@@ -149,7 +149,6 @@ else
   fi
 fi
 
-
 mkdir -p ${PYTHONV}
 cd ${PYTHONV}
 INSTALL_WD=$(pwd)
@@ -172,7 +171,7 @@ function setpipbin() {
 setpipbin $PYTHONMAJORV
 
 # ============Notifications============
-echo -e "${hcol}Python version: $PYTHONFULLV${ncol}"
+echo -e "${hcol}Python version: $PYTHONFULLV ($PYTHON_EXECUTABLE)${ncol}"
 echo -e "${hcol}Pip:$($PIPBIN --version| awk '{$1= ""; print $0}')${ncol}"
 
 if [[ -z ${CHOICE} ]]; then
@@ -189,9 +188,10 @@ echo -e "${hcol}Installing python module dependencies ...${ncol}"
 if [[ $NOTDRY == true ]]; then
   sudo -E apt-get -y install hdf5-devel # h5py
   sudo -E apt-get -y install libgeos-dev # shapely
-  sudo -E apt-get -y install swig # xraylib
+  sudo -E apt-get -y install swig # xraylib, simpleelastix
   sudo -E apt-get -y install opencl-headers # pyopencl
   sudo -E apt-get -y install libffi-dev # pyopencl
+  sudo -E apt-get -y install libinsighttoolkit-dev # simpleelastix
 fi
 
 # ============Install modules============
@@ -214,8 +214,10 @@ if [[ $NOTDRY == true ]]; then
 
   setpipbin $PYTHONMAJORV
 
-  sudo -E -H $PIPBIN install -r $SPECTROCRUNCH_ROOT/requirements.txt
+  sudo -E -H $PIPBIN install --upgrade -r $SPECTROCRUNCH_ROOT/requirements.txt
   #sudo -E -H $PIPBIN install --egg PyMca5 #TODO: doesn't want to build
+
+  $PIPBIN list
 fi
 
 # ============Install xraylib============
@@ -334,8 +336,38 @@ if [ ! -f simpleelastix/build/SimpleITK-build/Wrapping/Python/Packaging/setup.py
     echo -e "${hcol}Configure SimpleElastix ...${ncol}"
     if [[ $NOTDRY == true ]]; then
       # TODO: run twice to get the right python interpreter?
-      cmake ../SimpleElastix/SuperBuild -DPYTHON_EXECUTABLE:FILEPATH=$PYTHON_EXECUTABLE -DPYTHON_INCLUDE_DIR:PATH=$PYTHON_INCLUDE_DIR -DPYTHON_LIBRARY:FILEPATH=$PYTHON_LIBRARY
-      cmake ../SimpleElastix/SuperBuild -DPYTHON_EXECUTABLE:FILEPATH=$PYTHON_EXECUTABLE -DPYTHON_INCLUDE_DIR:PATH=$PYTHON_INCLUDE_DIR -DPYTHON_LIBRARY:FILEPATH=$PYTHON_LIBRARY
+      # TODO: USE_SYSTEM_ITK, USE_SYSTEM_ELASTIX
+      cmake -DBUILD_EXAMPLES:BOOL=OFF \
+            -DBUILD_SHARED_LIBS:BOOL=OFF \
+            -DBUILD_TESTING:BOOL=OFF \
+            -DUSE_SYSTEM_SWIG:BOOL=ON \
+            -DPYTHON_EXECUTABLE:FILEPATH=$PYTHON_EXECUTABLE \
+            -DPYTHON_INCLUDE_DIR:PATH=$PYTHON_INCLUDE_DIR \
+            -DPYTHON_LIBRARY:FILEPATH=$PYTHON_LIBRARY \
+            -DWRAP_CSHARP:BOOL=OFF \
+            -DWRAP_JAVA:BOOL=OFF \
+            -DWRAP_LUA:BOOL=OFF \
+            -DWRAP_PYTHON:BOOL=ON \
+            -DWRAP_R:BOOL=OFF \
+            -DWRAP_RUBY:BOOL=OFF \
+            -DWRAP_TCL:BOOL=OFF \
+            ../SimpleElastix/SuperBuild
+      cmake -DBUILD_EXAMPLES:BOOL=OFF \
+            -DBUILD_SHARED_LIBS:BOOL=OFF \
+            -DBUILD_TESTING:BOOL=OFF \
+            -DUSE_SYSTEM_SWIG:BOOL=ON \
+            -DPYTHON_EXECUTABLE:FILEPATH=$PYTHON_EXECUTABLE \
+            -DPYTHON_INCLUDE_DIR:PATH=$PYTHON_INCLUDE_DIR \
+            -DPYTHON_LIBRARY:FILEPATH=$PYTHON_LIBRARY \
+            -DWRAP_CSHARP:BOOL=OFF \
+            -DWRAP_JAVA:BOOL=OFF \
+            -DWRAP_LUA:BOOL=OFF \
+            -DWRAP_PYTHON:BOOL=ON \
+            -DWRAP_R:BOOL=OFF \
+            -DWRAP_RUBY:BOOL=OFF \
+            -DWRAP_TCL:BOOL=OFF \
+            ../SimpleElastix/SuperBuild
+
       if [[ $TIMELIMITED == true ]]; then
           TIMELEFT=false
       fi

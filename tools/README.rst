@@ -4,13 +4,31 @@ Guide for developers
 Versioning
 ----------
 
-Versioning is done on the master branch::
+Versioning is done on the master branch:
 
+.. code-block:: bash
+
+  # Merge change into master
   git checkout master
   git merge develop --no-commit 
-  #... change _version.py and CHANGELOG.rst ...
+  # change _version.py
+  # CHANGELOG.rst:
+  #   rename latest unreleased version to current one
+  #   move master changes to current
   git add .
+
+  # Check current version
+  echo `python -c "from _version import version;print(\"v{}\".format(version));"`
+
+  # Bump non-release
   git commit -m "Bump version to 1.2.3-beta4"
+  git tag -s v1.2.3-beta4 -m "Unreleased version 1.2.3-beta4"
+
+  # Bump non-release
+  git commit -m "Bump version to 1.2.3"
+  git tag -s v1.2.3 -m "Version 1.2.3"
+
+  git push --tags
 
 Semantic versioning is followed (http://semver.org/)::
 
@@ -36,13 +54,7 @@ Semantic versioning is followed (http://semver.org/)::
 Releasing
 ---------
 
-Create a tag (replace -s with -a for an unsigned tag)
-
-  #... change CHANGELOG.rst ...
-  git tag -s vMAJOR.MINOR.MICRO -m "Version MAJOR.MINOR.MICRO"
-  git push --tags
-
-Then create a release on github based on this tag
+Bump to release version (see `Versioning`_). Then create a release on github based on this tag
 
   Title: Release of version MAJOR.MINOR.MICRO
   Body: Copy from CHANGELOG
