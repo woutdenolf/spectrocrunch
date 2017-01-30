@@ -81,7 +81,6 @@ if [[ "$TRAVIS" == "true" ]]; then
   CHOICE="y"
   TIMELIMITED=true
   TIMELEFT=true
-  CI=true
 fi
 
 # ============Initialize environment============
@@ -101,7 +100,7 @@ fi
 echo -e "${hcol}Installing basics ...${ncol}"
 if [[ $NOTDRY == true ]]; then
   sudo -E apt-get -y install curl wget git
-  sudo -E apt-get -y install build-essential cmake $PYTHONBINAPT $PYTHONBINAPT-dev $PYTHONBINAPT-pip
+  sudo -E apt-get -y install build-essential cmake $PYTHONBINAPT $PYTHONBINAPT-dev $PYTHONBINAPT-pip $PYTHONBINAPT-openssl
 fi
 
 # ============Python version============
@@ -170,7 +169,7 @@ function setpipbin() {
 }
 setpipbin $PYTHONMAJORV
 echo -e "${hcol}Upgrading pip ...${ncol}"
-sudo -E -H $PIPBIN install --upgrade pip
+$PIPBIN install --upgrade pip
 
 # ============Notifications============
 echo -e "${hcol}Python version: $PYTHONFULLV ($PYTHON_EXECUTABLE)${ncol}"
@@ -210,14 +209,12 @@ if [[ $NOTDRY == true ]]; then
   sudo -E apt-get -y install $PYTHONBINAPT-pyopencl
 
   
-  sudo -E -H $PIPBIN install --upgrade setuptools
-  sudo -E -H $PIPBIN install --upgrade numpy # silx
-  sudo -E -H $PIPBIN install --upgrade mako # pyopencl
+  $PIPBIN install --upgrade setuptools
+  $PIPBIN install --upgrade numpy # silx
+  $PIPBIN install --upgrade mako # pyopencl
 
-  setpipbin $PYTHONMAJORV
-
-  sudo -E -H $PIPBIN install --upgrade -r $SPECTROCRUNCH_ROOT/requirements.txt
-  sudo -E -H $PIPBIN install --upgrade pymca #TODO: doesn't want to build
+  $PIPBIN install --upgrade -r $SPECTROCRUNCH_ROOT/requirements.txt
+  $PIPBIN install --upgrade pymca #TODO: doesn't want to build
 fi
 
 # ============Install xraylib============

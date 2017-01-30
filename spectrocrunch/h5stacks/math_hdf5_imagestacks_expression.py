@@ -119,7 +119,7 @@ class StringParser(object):
                 "max": np.nanmax,
                 "min": np.nanmin,
                 "mean": np.nanmean,
-                "median": np.nanmedian,
+                "median": np.nanmedian if hasattr(np, 'nanmedian') else np.median,
                 "ln": np.log,
                 "sobel": lambda a: filters.sobel(a, axis=-1, output=None, mode='constant', cval=np.nan)}
 
