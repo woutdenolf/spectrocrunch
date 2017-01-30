@@ -121,15 +121,15 @@ Versioning
 Releasing
 ---------
 
-Create a release on github based on this tag
+Create a release on github based on a tag
 
   Title: Release of version MAJOR.MINOR.MICRO
 
   Body: Copy from CHANGELOG
 
    
-Manual Deployment
------------------
+Deployment
+----------
 
 Add PyPi credentials file ~/.pypirc (chmod 600):
 
@@ -162,11 +162,16 @@ Deploy:
 
 .. code-block:: bash
 
+    # Checkout a release
+    git checkout tags/v1.0
+
     # on linux
     python setup.py sdist bdist_wheel upload -r pypi
     # on windows
     python setup.py bdist_msi upload -r pypi
 
+    # Back to a branch head
+    git checkout develop
 
 From the source
 ---------------

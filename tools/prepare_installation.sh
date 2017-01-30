@@ -169,6 +169,8 @@ function setpipbin() {
   fi
 }
 setpipbin $PYTHONMAJORV
+echo -e "${hcol}Upgrading pip ...${ncol}"
+sudo -E -H $PIPBIN install --upgrade pip
 
 # ============Notifications============
 echo -e "${hcol}Python version: $PYTHONFULLV ($PYTHON_EXECUTABLE)${ncol}"
@@ -207,7 +209,7 @@ if [[ $NOTDRY == true ]]; then
   sudo -E apt-get -y install $PYTHONBINAPT-matplotlib
   sudo -E apt-get -y install $PYTHONBINAPT-pyopencl
 
-  sudo -E -H $PIPBIN install --upgrade pip
+  
   sudo -E -H $PIPBIN install --upgrade setuptools
   sudo -E -H $PIPBIN install --upgrade numpy # silx
   sudo -E -H $PIPBIN install --upgrade mako # pyopencl
@@ -215,9 +217,7 @@ if [[ $NOTDRY == true ]]; then
   setpipbin $PYTHONMAJORV
 
   sudo -E -H $PIPBIN install --upgrade -r $SPECTROCRUNCH_ROOT/requirements.txt
-  #sudo -E -H $PIPBIN install --egg PyMca5 #TODO: doesn't want to build
-
-  $PIPBIN list
+  sudo -E -H $PIPBIN install --upgrade pymca #TODO: doesn't want to build
 fi
 
 # ============Install xraylib============
