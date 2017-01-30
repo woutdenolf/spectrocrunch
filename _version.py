@@ -31,9 +31,9 @@ Module for version handling (adopted from silx)
 
 MAJOR = 0
 MINOR = 0
-MICRO = 1 # <=15
-RELEV = "alpha"
-SERIAL = 2 # <=15
+MICRO = 2 # <=15
+RELEV = "dev"
+SERIAL = 1 # <=15
 
 RELEASE_LEVEL_VALUE = {"dev": 0,
                        "alpha": 10,

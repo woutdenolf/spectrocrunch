@@ -29,6 +29,7 @@ cache:
 branches:
   only:
   - master
+  - develop
 
 -addons:
 -  apt:

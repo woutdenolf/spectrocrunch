@@ -6,9 +6,9 @@ Git branching model
 
 `This <http://nvie.com/posts/a-successful-git-branching-model/>`_ branching model is followed:
 
-* Github branches: master (RELEV=final), develop (RELEV=dev)
+* Github branches: master, develop (RELEV=dev)
 
-* Local branches: master (RELEV=final), develop (RELEV=dev), feat-\*, fix-\*, hotfix-\*
+* Local branches: master, develop (RELEV=dev), feat-\*, fix-\*, hotfix-\*
 
 .. code-block:: bash
 
@@ -65,7 +65,7 @@ Git branching model
   git push origin develop
   git push origin master
 
-* Hotfix branch:
+* Hotfix branch (like a feature branch but then starting from the master):
 
 .. code-block:: bash
 
@@ -73,26 +73,26 @@ Git branching model
   git checkout -b hotfix-1.2.4 master
 
   # Possible change in SERIAL, MICRO (bug fixes) and RELEV (testing progress)
-  # Finally RELEV=final
-
-  # CHANGELOG.rst: add release
-
-  git add .
 
   # Check current version
   echo `python -c "from _version import version;print(\"v{}\".format(version));"`
 
+  # CHANGELOG.rst: add release
+
   # Bump the version
+  git add .
   git commit -m "Bump version to 1.2.4"
 
   # Merge release in master and develop
   git checkout master
   git merge --no-ff hotfix-1.2.4
   git tag -s v1.2.4 -m "Version 1.2.4"
+
   git checkout develop
   git merge --no-ff hotfix-1.2.4
 
   git branch -d hotfix-1.2.4
+
 
 Versioning
 ----------
