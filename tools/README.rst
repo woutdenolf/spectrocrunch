@@ -150,7 +150,6 @@ Add PyPi credentials file ~/.pypirc (chmod 600):
     username=...
     password=...
 
-
 Register project:
 
 .. code-block:: bash
@@ -173,12 +172,13 @@ Deploy:
     # Back to a branch head
     git checkout develop
 
+
 From the source
 ---------------
 
 .. code-block:: bash
 
-    . spectrocrunch/tools/prepare_installation.sh [-v 3]
+    . spectrocrunch/tools/prepare_install-linux.sh [-v 3]
     if [[ $? == 0 ]]; then echo "OK"; else echo "NOT OK"; fi
 
     cd spectrocrunch

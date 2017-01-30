@@ -96,14 +96,9 @@ if [[ "$(dnsdomainname)" == "esrf.fr" ]]; then
   export https_proxy="http://proxy.esrf.fr:3128"
 fi
 
-# ============Install basics============
-echo -e "${hcol}Installing basics ...${ncol}"
-if [[ $NOTDRY == true ]]; then
-  sudo -E apt-get -y install curl wget git
-  sudo -E apt-get -y install build-essential cmake $PYTHONBINAPT $PYTHONBINAPT-dev $PYTHONBINAPT-pip $PYTHONBINAPT-openssl
-fi
-
 # ============Python version============
+echo -e "${hcol}Looking for python ...${ncol}"
+
 function setpythonbin() {
   if [[ "${PYTHONBIN#*.}" != "$PYTHONBIN" ]]; then
     # Already a specific version like 2.7
@@ -119,6 +114,15 @@ function setpythonbin() {
   fi
 }
 setpythonbin $PYTHONMAJORV
+if [ -z `which $PYTHONBIN` ]; then
+  sudo -E apt-get install $PYTHONBINAPT $PYTHONBINAPT-dev
+fi
+setpythonbin $PYTHONMAJORV
+if [ -z `which $PYTHONBIN` ]; then
+  echo -e "${hcol}$PYTHONBIN is not installed on this system.${ncol}"
+  return 1
+fi
+
 PYTHON_EXECUTABLE=$(which $PYTHONBIN) # full path
 
 PYTHONV=`$PYTHONBIN -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(t)";`
@@ -153,6 +157,8 @@ cd ${PYTHONV}
 INSTALL_WD=$(pwd)
 
 # ============Pip version============
+echo -e "${hcol}Looking for pip ...${ncol}"
+
 function setpipbin() {
   if [[ "${PIPBIN#*.}" != "$PIPBIN" ]]; then
     # Already a specific version like 2.7
@@ -168,6 +174,15 @@ function setpipbin() {
   fi
 }
 setpipbin $PYTHONMAJORV
+if [ -z `which $PIPBIN` ]; then
+  sudo -E apt-get install $PIPBINAPT
+fi
+setpipbin $PYTHONMAJORV
+if [ -z `which $PIPBIN` ]; then
+  echo -e "${hcol}$PIPBIN is not installed on this system.${ncol}"
+  return 1
+fi
+
 echo -e "${hcol}Upgrading pip ...${ncol}"
 $PIPBIN install --upgrade pip
 
@@ -184,6 +199,12 @@ case "$CHOICE" in
   * ) ;;
 esac
 
+# ============Install basics============
+echo -e "${hcol}Installing basics ...${ncol}"
+if [[ $NOTDRY == true ]]; then
+  sudo -E apt-get -y install build-essential cmake curl wget git
+fi
+
 # ============Install dependencies============
 echo -e "${hcol}Installing python module dependencies ...${ncol}"
 if [[ $NOTDRY == true ]]; then
@@ -198,17 +219,6 @@ fi
 # ============Install modules============
 echo -e "${hcol}Installing python modules ...${ncol}"
 if [[ $NOTDRY == true ]]; then
-  
-  # Try to install modules with apt-get first
-  sudo -E apt-get -y install $PYTHONBINAPT-numpy
-  sudo -E apt-get -y install $PYTHONBINAPT-scipy
-  sudo -E apt-get -y install $PYTHONBINAPT-h5py
-  sudo -E apt-get -y install $PYTHONBINAPT-setuptools
-  sudo -E apt-get -y install $PYTHONBINAPT-pyopencl
-  sudo -E apt-get -y install $PYTHONBINAPT-matplotlib
-  sudo -E apt-get -y install $PYTHONBINAPT-pyopencl
-
-  
   $PIPBIN install --upgrade setuptools
   $PIPBIN install --upgrade numpy # silx
   $PIPBIN install --upgrade mako # pyopencl

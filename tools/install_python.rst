@@ -1,5 +1,28 @@
+Use pyenv
+---------
 
-Install Python 3 on Debian 7 (tested with 3.4.6 and 3.5.3):
+.. code-block:: bash
+
+    pyenv install 3.4.0
+    pyenv versions # show the versions you can choose for, including the system
+    pyenv version # show current python version
+
+    # python for this user
+    pyenv global version
+    pyenv global
+    
+    # python in directory and all subdirectories
+    pyenv local version
+    pyenv local --unset
+    pyenv local
+
+    # python in current shell
+    pyenv shell version 
+    pyenv shell --unset
+    pyenv shell
+
+Install system-wide Python locally (NOT recommended, use pyenv instead)
+-----------------------------------------------------------------------
 
 .. code-block:: bash
 
@@ -22,6 +45,4 @@ Install Python 3 on Debian 7 (tested with 3.4.6 and 3.5.3):
     ./configure --enable-optimizations
     make -j2
     make install
-
-
 

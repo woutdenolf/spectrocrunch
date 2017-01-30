@@ -8,7 +8,6 @@ sudo: required
 
 language: python
 python:
-#  - "2.6"
   - "2.7"
 #  - "3.2"
 #  - "3.3"
@@ -31,49 +30,32 @@ branches:
   - master
   - develop
 
--addons:
--  apt:
--    packages:
--      - curl
--      - wget
--      - cmake
--      - build-essential
--      - libgeos-dev
--      - opencl-headers
--      - python-pyopencl
--      - swig
-
 before_install:
-  #- "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . ./ci/before_install-linux.sh; cd $TRAVIS_BUILD_DIR; fi"
+  # Install CI specific build dependencies
+  - cd $CACHED_FOLDER
+  - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . $TRAVIS_BUILD_DIR/tools/prepare_install-linux.sh; fi"
 
 install:
-  # Install build dependencies
+  # Install general build dependencies
   - cd $CACHED_FOLDER
-  - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . $TRAVIS_BUILD_DIR/tools/prepare_installation.sh -y -t; fi"
+  - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . $TRAVIS_BUILD_DIR/tools/prepare_install-linux.sh -y -t; fi"
+
+  # Package directory  
   - cd $TRAVIS_BUILD_DIR
 
   # Print Python info
-  - "python ci/info_platform.py"
+  - "python $TRAVIS_BUILD_DIR/ci/info_platform.py"
   - "pip list"
 
-  # Build
+  # Build package
   - "python setup.py build"
   - "python setup.py sdist bdist_wheel"
 
-  # Install the generated wheel package to test it
+  # Install package
   #- "pip install --pre --no-index --find-links dist/ Spectrocrunch"
   - "python setup.py install"
 
-# command to run tests
 script:
-  - "python setup.py test"
+  # Test the installed package
+  - "python -m spectrocrunch.tests.test_all"
 
-# deploy
-# deploy:
-#   provider: pypi
-#   user: ...
-#   password: ...
-#   distributions: "sdist bdist_wheel"
-#   on:
-#    tags: true
-#    branch: master
