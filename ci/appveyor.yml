@@ -7,6 +7,11 @@ build: false
 os:
     - Visual Studio 2015
 
+#branches:
+#  only:
+#    - master
+#    - production
+
 cache:
     - '%LOCALAPPDATA%\pip\Cache'
     - '%CACHED_FOLDER%'

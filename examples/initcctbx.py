@@ -26,18 +26,19 @@
     execfile("initcctbx.py")
 """
 
+CCTBCBUILD = "/usr/local/cctbx/build"
+
 import os, sys
 
-LIBTBX_BUILD = "/usr/local/cctbx-dev-643/build"
-os.environ["LIBTBX_BUILD"] = LIBTBX_BUILD
+os.environ["LIBTBX_BUILD"] = CCTBCBUILD
 
-FONTCONFIG_PATH="/usr/local/cctbx-dev-643/base/etc/fonts"
+FONTCONFIG_PATH=os.path.abspath(os.path.join(CCTBCBUILD,'..','base','etc','fonts'))
 os.environ["FONTCONFIG_PATH"] = FONTCONFIG_PATH
 
 if "LD_LIBRARY_PATH" not in os.environ:
-    os.environ["LD_LIBRARY_PATH"] = ":".join([os.path.abspath(os.path.join(LIBTBX_BUILD,'lib')), \
-                                os.path.abspath(os.path.join(LIBTBX_BUILD,'bin')), \
-                                os.path.abspath(os.path.join(LIBTBX_BUILD,'..','base','lib'))])
+    os.environ["LD_LIBRARY_PATH"] = ":".join([os.path.abspath(os.path.join(CCTBCBUILD,'lib')), \
+                                os.path.abspath(os.path.join(CCTBCBUILD,'bin')), \
+                                os.path.abspath(os.path.join(CCTBCBUILD,'..','base','lib'))])
     try:
         os.execl(sys.executable, 'python', __file__, *sys.argv[1:])
         sys.exit()
@@ -45,8 +46,9 @@ if "LD_LIBRARY_PATH" not in os.environ:
         print 'Failed re-exec:', exc
         sys.exit(1)
 
-sys.path.append(os.path.abspath(os.path.join(LIBTBX_BUILD,'lib')))
-sys.path.append(os.path.abspath(os.path.join(LIBTBX_BUILD,'..','modules','cctbx_project','libtbx','pythonpath')))
-sys.path.append(os.path.abspath(os.path.join(LIBTBX_BUILD,'..','modules','cctbx_project','boost_adaptbx')))
-sys.path.append(os.path.abspath(os.path.join(LIBTBX_BUILD,'..','modules')))
-sys.path.append(os.path.abspath(os.path.join(LIBTBX_BUILD,'..','modules','cctbx_project')))
+sys.path.append(os.path.abspath(os.path.join(CCTBCBUILD,'lib')))
+sys.path.append(os.path.abspath(os.path.join(CCTBCBUILD,'..','modules','cctbx_project','libtbx','pythonpath')))
+sys.path.append(os.path.abspath(os.path.join(CCTBCBUILD,'..','modules','cctbx_project','boost_adaptbx')))
+sys.path.append(os.path.abspath(os.path.join(CCTBCBUILD,'..','modules')))
+sys.path.append(os.path.abspath(os.path.join(CCTBCBUILD,'..','modules','cctbx_project')))
+

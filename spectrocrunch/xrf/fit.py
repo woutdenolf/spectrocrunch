@@ -101,6 +101,8 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
             configuration["attenuators"]["Matrix"][3] = density*0 # thickness in cm
 
     # Split M-lines
+    # /usr/local/lib/python2.7/dist-packages/PyMca5/PyMcaPhysics/xrf/Elements.py
+    #
     # You need an adapted pymca version: Elements
     #ElementShellTransitions = [KShell.ElementKShellTransitions,
     #                       KShell.ElementKAlphaTransitions,

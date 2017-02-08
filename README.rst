@@ -9,7 +9,7 @@ Install dependencies:
 .. code-block:: bash
 
     git clone https://github.com/woutdenolf/spectrocrunch
-    . spectrocrunch/tools/prepare_installation.sh [-v 3]
+    . spectrocrunch/tools/prepare_install-linux.sh
 
 Install from PyPi:
 
@@ -21,7 +21,9 @@ Install from source:
 
 .. code-block:: bash
 
-    python setup.py install [--user]
+    git clone https://github.com/woutdenolf/spectrocrunch Spectrocrunch
+    cd Spectrocrunch
+    pip install [--user] .
 
 Test:
 
@@ -37,13 +39,13 @@ Distribution website: https://pypi.python.org/pypi/SpectroCrunch
 
 Guidelines for contributors and project managers can be found in tools/README.rst
 
-+------------+-------------------------+-------------------------+
-|            | Master                  | Develop                 |
-+============+=========================+=========================+
-| Linux      | |Travis Status Master|  | |Travis Status Develop| |
-+------------+-------------------------+-------------------------+
-| Windows    | |Appveyor Status|       |                         |
-+------------+-------------------------+-------------------------+
++------------+--------------------------+---------------------------+
+|            | Master                   | Develop                   |
++============+==========================+===========================+
+| Linux      | |Travis Status Master|   | |Travis Status Develop|   |
++------------+--------------------------+---------------------------+
+| Windows    | |Appveyor Status Master| | |Appveyor Status Develop| |
++------------+--------------------------+---------------------------+
 
 
 Use without installation
@@ -75,5 +77,7 @@ import as follows:
    :target: https://travis-ci.org/woutdenolf/spectrocrunch
 .. |Travis Status Develop| image:: https://travis-ci.org/woutdenolf/spectrocrunch.svg?branch=develop
    :target: https://travis-ci.org/woutdenolf/spectrocrunch
-.. |Appveyor Status| image:: https://ci.appveyor.com/api/projects/status/github/woutdenolf/spectrocrunch?svg=true
-   :target: https://ci.appveyor.com/project/woutdenolf/spectrocrunch
+.. |Appveyor Status Master| image:: https://ci.appveyor.com/api/projects/status/github/woutdenolf/spectrocrunch/branch/master?svg=true
+   :target: https://ci.appveyor.com/project/woutdenolf/spectrocrunch/branch/master
+.. |Appveyor Status Develop| image:: https://ci.appveyor.com/api/projects/status/github/woutdenolf/spectrocrunch/branch/develop?svg=true
+   :target: https://ci.appveyor.com/project/woutdenolf/spectrocrunch/branch/develop

@@ -4,7 +4,7 @@ Change Log
 `develop`_ (unreleased)
 -----------------------
 
-* Changes not described yet
+* Add changes here
 
 
 `0.0.1-alpha2`_ (unreleased)

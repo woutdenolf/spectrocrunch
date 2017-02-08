@@ -3,19 +3,13 @@
 # This script will install all spectrocrunch Python 2 and 3 dependencies.
 # 
 
-# ============Check whether the current user is a sudoer============
-if [[ ! -z "$((sudo -n true) 2>&1)" ]]; then
-  echo $(whoami) "does not have sudo rights (login as root or any other sudoer)"
-  return 1
-fi
-
-# ============Parse arguments============
+# ============Usage============
 show_help()
 {
   echo "
         Usage: prepare_installation  [-v version] [-y] [-t] [-d]
 
-        -v version      Python version to be used (2 or 3).
+        -v version      Python version to be used (2, 3, 2.7, 3.5, ...).
         -y              Answer yes to everything.
         -t              Time limited build.
         -d              Dry run
@@ -26,69 +20,25 @@ show_help()
        "
 }
 
-
-unset CHOICE
-OPTIND=0
-PYTHONBINAPT="python"
-PIPBINAPT="pip"
-PYTHONBIN=$PYTHONBINAPT
-PIPBIN=$PIPBINAPT
-PYTHONMAJORV=2
-TIMELIMITED=false
-TIMELEFT=true
-NOTDRY=true
-CI=false
-while getopts "v:ythd" opt; do
-  case $opt in
-    h)
-      show_help
-      return 1
-      ;;
-    y)
-      CHOICE="y"
-      ;;
-    t)
-      TIMELIMITED=true
-      ;;
-    d)
-      NOTDRY=false
-      ;;
-    v)
-      if [ "$(echo $OPTARG | head -c 1)" = "3" ]; then
-        PYTHONMAJORV=3
-        PYTHONBINAPT="python3"
-        PIPBINAPT="pip3"
-        PYTHONBIN="python$OPTARG"
-        PIPBIN="pip$OPTARG"
-      elif [ "$(echo $OPTARG | head -c 1)" = "2" ]; then
-        PYTHONMAJORV=2
-        PYTHONBINAPT="python"
-        PIPBINAPT="pip"
-        PYTHONBIN="python$OPTARG"
-        PIPBIN="pip$OPTARG"
-      else
-        echo "Python version number must start with 2 or 3." >&2
-        return 1
-      fi
-      ;;
-    \?)
-      echo "Invalid option: -$OPTARG. Use -h flag for help." >&2
-      return 1
-      ;;
-  esac
-done
-if [[ "$TRAVIS" == "true" ]]; then
-  CHOICE="y"
-  TIMELIMITED=true
-  TIMELEFT=true
-fi
-
 # ============Initialize environment============
+START_TIME=$SECONDS
+
 hcol='\033[0;36m'
 ncol='\033[0m'
 
 RESTORE_WD=$(pwd)
-SPECTROCRUNCH_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/..
+export SPECTROCRUNCH_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/..
+if [[ -z "$((sudo -n true) 2>&1)" ]]; then
+  export SYSTEM_PRIVILIGES=true 
+else
+  export SYSTEM_PRIVILIGES=false
+fi
+
+RETURNCODE_ARG=1
+RETURNCODE_PYTHONENV=2
+RETURNCODE_CANCEL=3
+BUILDSTEPS=9
+export BUILDSTEP=0
 
 if [[ "$(dnsdomainname)" == "esrf.fr" ]]; then
   echo -e "${hcol}Setting esrf proxy ...${ncol}"
@@ -96,59 +46,70 @@ if [[ "$(dnsdomainname)" == "esrf.fr" ]]; then
   export https_proxy="http://proxy.esrf.fr:3128"
 fi
 
-# ============Python version============
-echo -e "${hcol}Looking for python ...${ncol}"
+# ============Parse arguments============
+export PYTHONBINAPT="python"
+export PIPBINAPT="pip"
+export TIMELIMITED=false
+export TIMELEFT=true
+export NOTDRY=true
 
-function setpythonbin() {
-  if [[ "${PYTHONBIN#*.}" != "$PYTHONBIN" ]]; then
-    # Already a specific version like 2.7
-    return
-  fi
+OPTIND=0
+while getopts "v:ythd" opt; do
+  case $opt in
+    h)
+      show_help
+      cd $RESTORE_WD
+      return $RETURNCODE_ARG
+      ;;
+    y)
+      FORCECHOICE="y"
+      ;;
+    t)
+      TIMELIMITED=true
+      ;;
+    d)
+      NOTDRY=false
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG. Use -h flag for help." >&2
+      cd $RESTORE_WD
+      return $RETURNCODE_ARG
+      ;;
+  esac
+done
 
-  PYTHONBIN=$(compgen -c "python$1" | grep "^python$1\..$" | sort | tail -n -1)
-  if [[ -z $PYTHONBIN ]]; then
-    PYTHONBIN=$(compgen -c "python-$1" | grep "^python-$1\..$" | sort | tail -n -1)
-  fi
-  if [[ -z $PYTHONBIN ]]; then
-    PYTHONBIN=$PYTHONBINAPT
-  fi
-}
-setpythonbin $PYTHONMAJORV
-if [ -z `which $PYTHONBIN` ]; then
-  sudo -E apt-get install $PYTHONBINAPT $PYTHONBINAPT-dev
+# ============Python============
+echo -e "${hcol}Looking for python interpreter ...${ncol}"
+
+export PYTHONBIN=$PYTHONBINAPT
+
+if [[ -z `which $PYTHONBIN` && $SYSTEM_PRIVILIGES == true && $NOTDRY == true ]]; then
+  sudo -E apt-get install $PYTHONBINAPT $PYTHONBINAPT-dev $PYTHONBINAPT-qt4
 fi
-setpythonbin $PYTHONMAJORV
+
 if [ -z `which $PYTHONBIN` ]; then
   echo -e "${hcol}$PYTHONBIN is not installed on this system.${ncol}"
-  return 1
+  cd $RESTORE_WD
+  return $RETURNCODE_PYTHONENV
 fi
 
-PYTHON_EXECUTABLE=$(which $PYTHONBIN) # full path
+# ============Check python version============
+PYTHONMAJORV=`$PYTHONBIN -c "import sys;print(sys.version_info[0])";`
+PYTHONV=`$PYTHONBIN -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)";`
 
-PYTHONV=`$PYTHONBIN -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(t)";`
-PYTHONFULLV=`$PYTHONBIN -c "import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));sys.stdout.write(t)";`
-
-PYTHON_INCLUDE_DIR=`$PYTHONBIN -c "import distutils.sysconfig; print(distutils.sysconfig.get_python_inc());"`
-
-PYTHON_LIBRARY_NAME=`$PYTHONBIN -c "import distutils.sysconfig; print(distutils.sysconfig.get_config_var('LDLIBRARY'));"`
-PYTHON_PREFIX=="/usr/"
-PYTHON_LIBRARY="${PYTHON_PREFIX}lib/${PYTHON_LIBRARY_NAME}"
-if [[ ! -f $PYTHON_LIBRARY ]]; then
-  PYTHON_PREFIX="/usr/local/"
-  PYTHON_LIBRARY="${PYTHON_PREFIX}lib/${PYTHON_LIBRARY_NAME}"
-fi
-
-if [[ $PYTHONMAJORV = 3 ]]; then
+if [[ $PYTHONMAJORV == "3" ]]; then
   dpkg --compare-versions "${PYTHONV}" "lt" "3.4"
   if [ $? = 0 ]; then
     echo -e "${hcol}Python version must be >= 3.4 (used ${PYTHONV}).${ncol}"
-    return 1
+    cd $RESTORE_WD
+    return $RETURNCODE_PYTHONENV
   fi
 else
   dpkg --compare-versions "${PYTHONV}" "lt" "2.7"
   if [ $? = 0 ]; then
     echo -e "${hcol}Python version must be >= 2.7 (used ${PYTHONV}).${ncol}"
-    return 1
+    cd $RESTORE_WD
+    return $RETURNCODE_PYTHONENV
   fi
 fi
 
@@ -156,264 +117,130 @@ mkdir -p ${PYTHONV}
 cd ${PYTHONV}
 INSTALL_WD=$(pwd)
 
-# ============Pip version============
-echo -e "${hcol}Looking for pip ...${ncol}"
+# ============Pip============
+echo -e "${hcol}Looking for pip package ...${ncol}"
 
-function setpipbin() {
-  if [[ "${PIPBIN#*.}" != "$PIPBIN" ]]; then
-    # Already a specific version like 2.7
-    return
-  fi
+export PIPBIN=$PIPBINAPT
 
-  PIPBIN=$(compgen -c "pip$1" | grep "^pip$1\..$" | sort | tail -n -1)
-  if [[ -z $PIPBIN ]]; then
-    PIPBIN=$(compgen -c "pip-$1" | grep "^pip-$1\..$" | sort | tail -n -1)
-  fi
-  if [[ -z $PIPBIN ]]; then
-    PIPBIN=$PIPBINAPT
-  fi
-}
-setpipbin $PYTHONMAJORV
-if [ -z `which $PIPBIN` ]; then
+if [[ -z `which $PIPBIN` && $SYSTEM_PRIVILIGES == true && $NOTDRY == true ]]; then
   sudo -E apt-get install $PIPBINAPT
 fi
-setpipbin $PYTHONMAJORV
+
 if [ -z `which $PIPBIN` ]; then
   echo -e "${hcol}$PIPBIN is not installed on this system.${ncol}"
-  return 1
+  cd $RESTORE_WD
+  return $RETURNCODE_PYTHONENV
 fi
 
 echo -e "${hcol}Upgrading pip ...${ncol}"
-$PIPBIN install --upgrade pip
+if [[ $NOTDRY == true ]]; then
+  $PIPBIN install --upgrade pip
+fi
 
-# ============Notifications============
-echo -e "${hcol}Python version: $PYTHONFULLV ($PYTHON_EXECUTABLE)${ncol}"
+# ============Preparations done, start installing?============
+# /usr/lib/python2.7/dist-packages: system-wide, installed with package manager
+# /usr/local/lib/python2.7/dist-packages: system-wide, installed with pip
+#
+# /usr/lib/python2.7/site-packages:
+# /usr/local/lib/python2.7/site-packages:
+#
+# /usr/lib/python2.7:
+# /usr/lib/pymodules/python2.7:
+#
+# ~/.local/lib/python2.7/site-packages: user-only, installed with pip --user
+#
+# <virtualenv_name>/lib/python2.7/site-packages: virtual environment, installed with pip
+
+PYTHON_EXECUTABLE=$(which $PYTHONBIN) # full path
+PYTHONFULLV=`$PYTHONBIN -c "import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)";`
+PYTHON_INCLUDE_DIR=`$PYTHONBIN -c "import distutils.sysconfig; print(distutils.sysconfig.get_python_inc());"`
+PYTHON_LIBRARY=`$PYTHONBIN -c "import distutils.sysconfig,os; print(os.path.join(distutils.sysconfig.get_config_var('LIBDIR'),distutils.sysconfig.get_config_var('LDLIBRARY')));"`
+
+echo -e "${hcol}Python version: $PYTHONFULLV ${ncol}"
+echo -e "${hcol}Python location: $PYTHON_EXECUTABLE ${ncol}"
+echo -e "${hcol}Python include: $PYTHON_INCLUDE_DIR ${ncol}"
+echo -e "${hcol}Python library: $PYTHON_LIBRARY ${ncol}"
 echo -e "${hcol}Pip:$($PIPBIN --version| awk '{$1= ""; print $0}')${ncol}"
 
-if [[ -z ${CHOICE} ]]; then
+if [[ -z $FORCECHOICE ]]; then
   read -p "Approximately 12GB of data will added to \"$(pwd)\". Continue (Y/n)?" CHOICE
+else
+  CHOICE=$FORCECHOICE
 fi
 case "$CHOICE" in 
   y|Y ) ;;
-  n|N ) return 1;;
+  n|N ) 
+        cd $RESTORE_WD
+        return $RETURNCODE_CANCEL;;
   * ) ;;
 esac
 
 # ============Install basics============
-echo -e "${hcol}Installing basics ...${ncol}"
-if [[ $NOTDRY == true ]]; then
+echo -e "${hcol}Install basics ...${ncol}"
+if [[ $NOTDRY == true && $SYSTEM_PRIVILIGES == true ]]; then
   sudo -E apt-get -y install build-essential cmake curl wget git
 fi
 
+BUILDSTEP=$(( $BUILDSTEP+1 ))
+
 # ============Install dependencies============
-echo -e "${hcol}Installing python module dependencies ...${ncol}"
-if [[ $NOTDRY == true ]]; then
-  sudo -E apt-get -y install hdf5-devel # h5py
+echo -e "${hcol}Install python module dependencies ...${ncol}"
+if [[ $NOTDRY == true && $SYSTEM_PRIVILIGES == true ]]; then
+  sudo -E apt-get install $PYTHONBINAPT-qt4 # pymca
   sudo -E apt-get -y install libgeos-dev # shapely
-  sudo -E apt-get -y install swig # xraylib, simpleelastix
   sudo -E apt-get -y install opencl-headers # pyopencl
   sudo -E apt-get -y install libffi-dev # pyopencl
-  sudo -E apt-get -y install libinsighttoolkit-dev # simpleelastix
+  sudo -E apt-get -y install libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev # pymca
 fi
 
+BUILDSTEP=$(( $BUILDSTEP+1 ))
+
 # ============Install modules============
-echo -e "${hcol}Installing python modules ...${ncol}"
+echo -e "${hcol}Install python modules ...${ncol}"
 if [[ $NOTDRY == true ]]; then
   $PIPBIN install --upgrade setuptools
+  $PIPBIN install --upgrade wheel
   $PIPBIN install --upgrade numpy # silx
   $PIPBIN install --upgrade mako # pyopencl
 
   $PIPBIN install --upgrade -r $SPECTROCRUNCH_ROOT/requirements.txt
-  $PIPBIN install --upgrade pymca #TODO: doesn't want to build
+  $PIPBIN install --upgrade --egg pymca #TODO: wait for pymca to get fixed
 fi
 
-# ============Install xraylib============
-if [ ! -f xraylib/xraylib-3.2.0/python/.libs/_xraylib.so ]; then
-  echo -e "${hcol}Download xraylib ...${ncol}"
-  mkdir -p xraylib
-  cd xraylib
-  if [[ $NOTDRY == true && ! -d xraylib-3.2.0 ]]; then
-    curl -O http://lvserver.ugent.be/xraylib/xraylib-3.2.0.tar.gz
-    tar -xvf xraylib-3.2.0.tar.gz
-    cd xraylib-3.2.0
-  fi
+BUILDSTEP=$(( $BUILDSTEP+1 ))
 
-  echo -e "${hcol}Configure xraylib ...${ncol}"
-  if [[ $NOTDRY == true ]]; then
-    ./configure --enable-python --enable-python-integration PYTHON=$PYTHON_EXECUTABLE PYTHON_VERSION=$PYTHONV PYTHON_PREFIX=$PYTHON_PREFIX
-  fi
-
-  echo -e "${hcol}Build xraylib ...${ncol}"
-  if [[ $NOTDRY == true ]]; then
-    make -s -j2
-    make check
-  fi
-else
-  cd xraylib/xraylib-3.2.0
-fi
-
-echo -e "${hcol}Install xraylib ...${ncol}"
-if [[ $NOTDRY == true ]]; then
-  sudo -E make install -s
-fi
-
-# ============Install fdmnes============
+# ============Custom installation============
+source $SPECTROCRUNCH_ROOT/tools/install-xraylib.sh
 cd $INSTALL_WD
-mkdir -p fdmnes
-cd fdmnes
 
-echo -e "${hcol}Install fdmnes ...${ncol}"
-if [[ $NOTDRY == true ]]; then
-  if [ -d /sware/exp/fdmnes ]; then
-    if [ ! -d /opt/fdmnes ]; then
-      ln -s /sware/exp/fdmnes /opt/fdmnes
-    fi
-    if [ ! -d /usr/local/bin/fdmnes ]; then
-      ln -s /opt/fdmnes /usr/local/bin/fdmnes
-    fi
-  else
-    if [[ ! -f /usr/local/bin/fdmnes ]]; then
-      curl -O http://neel.cnrs.fr/IMG/zip/fdmnes_2017_01_10.zip
-      sudo -E unzip fdmnes_2017_01_10.zip -d /usr/local
-      sudo -E ln -s /usr/local/fdmnes/fdmnes_linux64 /usr/local/bin/fdmnes
-    fi
-  fi
-fi
-
-echo -e "${hcol}Download pyfdmnes ...${ncol}"
-if [[ $NOTDRY == true && ! -d pyFDMNES ]]; then
-  git clone https://github.com/woutdenolf/pyFDMNES.git
-fi
-
-echo -e "${hcol}Install pyfdmnes ...${ncol}"
-if [[ $NOTDRY == true ]]; then
-  cd pyFDMNES
-  $PYTHONBIN setup.py build -f
-  $PYTHONBIN setup.py install
-fi
-
-# ============Install cmake > 3.0.0 (for spectrocrunch)============
-dpkg --compare-versions "$(cmake --version | head -1 | awk '{print $3}')" "lt" "3.0.0"
-if [ $? = 0 ]; then
-  echo -e "${hcol}Download cmake ...${ncol}"
-  cd $INSTALL_WD
-  mkdir -p cmake
-  cd cmake
-  if [[ $NOTDRY == true && ! -d cmake-3.7.2 ]]; then
-    wget --no-check-certificate http://www.cmake.org/files/v3.7/cmake-3.7.2.tar.gz
-    tar -xzf cmake-3.7.2.tar.gz
-  fi
-  cd cmake-3.7.2
-
-  if [[ $TIMELEFT == true && ! -f Makefile ]]; then
-    echo -e "${hcol}Configure cmake ...${ncol}"
-    if [[ $NOTDRY == true ]]; then
-      ./configure
-    fi
-
-    echo -e "${hcol}Build cmake ...${ncol}"
-    if [[ $NOTDRY == true ]]; then
-      make -s -j2
-    fi
-
-    if [[ $TIMELIMITED == true ]]; then
-      TIMELEFT=false
-    fi
-  fi
-
-  echo -e "${hcol}Install cmake ...${ncol}"
-  if [[ $NOTDRY == true ]]; then
-    sudo make install -s
-  fi
-fi
-
-# ============Install simpleelastix============
+source $SPECTROCRUNCH_ROOT/tools/install-fdmnes.sh
 cd $INSTALL_WD
-if [ ! -f simpleelastix/build/SimpleITK-build/Wrapping/Python/Packaging/setup.py ]; then
-  echo -e "${hcol}Download SimpleElastix ...${ncol}"
-  mkdir -p simpleelastix
-  cd simpleelastix
-  if [[ $NOTDRY == true && ! -d SimpleElastix ]]; then
-    git clone https://github.com/kaspermarstal/SimpleElastix
-  fi
-  mkdir -p build
-  cd build
 
-  if [[ $TIMELEFT == true && ! -f Makefile ]]; then
-    echo -e "${hcol}Configure SimpleElastix ...${ncol}"
-    if [[ $NOTDRY == true ]]; then
-      # TODO: run twice to get the right python interpreter?
-      # TODO: USE_SYSTEM_ITK, USE_SYSTEM_ELASTIX
-      cmake -DBUILD_EXAMPLES:BOOL=OFF \
-            -DBUILD_SHARED_LIBS:BOOL=OFF \
-            -DBUILD_TESTING:BOOL=OFF \
-            -DUSE_SYSTEM_SWIG:BOOL=ON \
-            -DPYTHON_EXECUTABLE:FILEPATH=$PYTHON_EXECUTABLE \
-            -DPYTHON_INCLUDE_DIR:PATH=$PYTHON_INCLUDE_DIR \
-            -DPYTHON_LIBRARY:FILEPATH=$PYTHON_LIBRARY \
-            -DWRAP_CSHARP:BOOL=OFF \
-            -DWRAP_JAVA:BOOL=OFF \
-            -DWRAP_LUA:BOOL=OFF \
-            -DWRAP_PYTHON:BOOL=ON \
-            -DWRAP_R:BOOL=OFF \
-            -DWRAP_RUBY:BOOL=OFF \
-            -DWRAP_TCL:BOOL=OFF \
-            ../SimpleElastix/SuperBuild
-      cmake -DBUILD_EXAMPLES:BOOL=OFF \
-            -DBUILD_SHARED_LIBS:BOOL=OFF \
-            -DBUILD_TESTING:BOOL=OFF \
-            -DUSE_SYSTEM_SWIG:BOOL=ON \
-            -DPYTHON_EXECUTABLE:FILEPATH=$PYTHON_EXECUTABLE \
-            -DPYTHON_INCLUDE_DIR:PATH=$PYTHON_INCLUDE_DIR \
-            -DPYTHON_LIBRARY:FILEPATH=$PYTHON_LIBRARY \
-            -DWRAP_CSHARP:BOOL=OFF \
-            -DWRAP_JAVA:BOOL=OFF \
-            -DWRAP_LUA:BOOL=OFF \
-            -DWRAP_PYTHON:BOOL=ON \
-            -DWRAP_R:BOOL=OFF \
-            -DWRAP_RUBY:BOOL=OFF \
-            -DWRAP_TCL:BOOL=OFF \
-            ../SimpleElastix/SuperBuild
-
-      if [[ $TIMELIMITED == true ]]; then
-          TIMELEFT=false
-      fi
-    fi
-  fi
-
-  if [[ $TIMELEFT == true ]]; then
-    echo -e "${hcol}Build SimpleElastix ...${ncol}"
-    OMP_NUM_THREADS=2
-    if [[ $NOTDRY == true ]]; then
-      make -s -j2
-      if [[ $TIMELIMITED == true ]]; then
-          TIMELEFT=false
-      fi
-    fi
-  fi
-else
-  cd simpleelastix/build
-fi
-
-if [[ $TIMELEFT == true ]]; then
-    echo -e "${hcol}Install SimpleElastix ...${ncol}"
-    if [[ $NOTDRY == true ]]; then
-      cd ./SimpleITK-build/Wrapping/Python/Packaging
-      $PYTHONBIN setup.py install
-    fi
-fi
+source $SPECTROCRUNCH_ROOT/tools/install-simpleelastix.sh
+cd $INSTALL_WD
 
 # ============Cleanup============
 echo -e "${hcol}Cleaning up ...${ncol}"
 cd $RESTORE_WD
 
 if [[ $NOTDRY == true ]]; then
-  sudo -E apt-get -y autoremove
+  if [[ $SYSTEM_PRIVILIGES == true ]]; then
+    sudo -E apt-get -y autoremove
+  else
+    PATH=$HOME/.local:$PATH
+    echo -e "${hcol}Make sure to add PATH=\$HOME/.local:\$PATH to your bashrc file.${ncol}"
+  fi
 
   if [[ $TIMELEFT == true ]]; then
-      echo -e "${hcol}All done! You should not be able to install spectrocrunch.${ncol}"
+      echo -e "${hcol}All done ($BUILDSTEP/$BUILDSTEPS)! You should not be able to install spectrocrunch.${ncol}"
   else
-      echo -e "${hcol}Not everything has been build due to time restrictions. Run the script again.${ncol}"
+      echo -e "${hcol}Not everything has been build due to time restrictions. Run the script again ($BUILDSTEP/$BUILDSTEPS).${ncol}"
   fi
+else
+  echo -e "${hcol}Dry build $BUILDSTEP/$BUILDSTEPS.${ncol}"
 fi
+
+ELAPSED_TIME=$(($SECONDS - $START_TIME))
+echo -e "${hcol}Total execution time = $(( $ELAPSED_TIME/60 )) min${ncol}"
+
 

@@ -22,12 +22,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+PROJECT = 'SpectroCrunch'
+
 # Imports
 import sys
 import subprocess
 import os
-from setuptools import setup, Command, find_packages
+from setuptools import setup
+from setuptools import Command
+from setuptools import find_packages
 from setuptools.command.install import install
+from setuptools.command.build_py import build_py
 import _version
 
 # Disable hardlinks when not working
@@ -94,13 +99,20 @@ class VersionOfAllPackages(Command):
         pass
     
     def run(self):
-        print("This version of SpectroCrunch is", _version.version)
+        print("This version of {} is {}".format(PROJECT,_version.version))
 cmdclass['version'] = VersionOfAllPackages
 
-class InstallWithVersion(install):
-    def run(self):
-        install.run(self)
-cmdclass['install'] = InstallWithVersion
+
+class BuildWithVersion(build_py):
+    """
+    Enhanced build_py which copies version.py to <PROJECT>._version.py
+    """
+    def find_package_modules(self, package, package_dir):
+        modules = build_py.find_package_modules(self, package, package_dir)
+        if "." not in package:
+            modules.append((package, '_version', '_version.py'))
+        return modules
+cmdclass['build_py'] = BuildWithVersion
 
 # Trove classifiers
 classifiers = [get_devstatus(),
@@ -115,11 +127,11 @@ classifiers = [get_devstatus(),
                "Operating System :: POSIX :: Linux",
                #"Operating System :: MacOS :: MacOS X",
                "Programming Language :: Python :: 2.7",
-               "Programming Language :: Python :: 3.4",
-               "Programming Language :: Python :: 3.5",
+               #"Programming Language :: Python :: 3.4",
+               #"Programming Language :: Python :: 3.5",
                #"Topic :: Documentation :: Sphinx",
                "Topic :: Scientific/Engineering :: Physics",
-               "Topic :: Software Development :: Libraries :: Python Modules",
+               "Topic :: Software Development :: Libraries :: Python Modules"
                ]
 
 # Needed for using Spectrocrunch
@@ -132,13 +144,13 @@ extras_require = {\
 # Needed for running the setup script
 setup_requires = ["testfixtures"]
 
-setup(name='SpectroCrunch',
+setup(name=PROJECT,
       version=get_version(),
       url="https://github.com/woutdenolf/spectrocrunch",
       author="Wout De Nolf",
       author_email="woutdenolf@users.sf.net",
       classifiers = classifiers,
-      description="Spectroscopy data crunching",
+      description="Spectrocopic imaging library (XRF/XAS)",
       long_description=get_readme(),
       packages=find_packages(),
       install_requires=install_requires,

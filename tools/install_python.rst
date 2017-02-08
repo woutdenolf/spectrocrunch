@@ -3,7 +3,12 @@ Use pyenv
 
 .. code-block:: bash
 
-    pyenv install 3.4.0
+    curl -L https://raw.githubusercontent.com/yyuu/pyenv-installer/master/bin/pyenv-installer | bash
+
+    export PYENV_ROOT="$HOME/.pyenv" # this is the default
+    export PYTHON_CONFIGURE_OPTS="--enable-shared" # this is not the default
+    pyenv install 3.4.6
+
     pyenv versions # show the versions you can choose for, including the system
     pyenv version # show current python version
 
@@ -21,8 +26,8 @@ Use pyenv
     pyenv shell --unset
     pyenv shell
 
-Install system-wide Python locally (NOT recommended, use pyenv instead)
------------------------------------------------------------------------
+Install system-wide Python manually (NOT recommended, use pyenv instead)
+------------------------------------------------------------------------
 
 .. code-block:: bash
 

@@ -25,10 +25,10 @@ cache:
   - $HOME/.cache/pip
   - $CACHED_FOLDER
 
-branches:
-  only:
-  - master
-  - develop
+#branches:
+#  only:
+#  - master
+#  - develop
 
 before_install:
   # Install CI specific build dependencies
@@ -52,8 +52,7 @@ install:
   - "python setup.py sdist bdist_wheel"
 
   # Install package
-  #- "pip install --pre --no-index --find-links dist/ Spectrocrunch"
-  - "python setup.py install"
+  - "pip install --pre --no-index --find-links dist/ Spectrocrunch"
 
 script:
   # Test the installed package
