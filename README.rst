@@ -77,7 +77,7 @@ import as follows:
    :target: https://travis-ci.org/woutdenolf/spectrocrunch
 .. |Travis Status Develop| image:: https://travis-ci.org/woutdenolf/spectrocrunch.svg?branch=develop
    :target: https://travis-ci.org/woutdenolf/spectrocrunch
-.. |Appveyor Status Master| image:: https://ci.appveyor.com/api/projects/status/github/woutdenolf/spectrocrunch/branch/master?svg=true
+.. |Appveyor Status Master| image:: https://ci.appveyor.com/api/projects/status/github/woutdenolf/spectrocrunch?svg=true&branch=master
    :target: https://ci.appveyor.com/project/woutdenolf/spectrocrunch/branch/master
-.. |Appveyor Status Develop| image:: https://ci.appveyor.com/api/projects/status/github/woutdenolf/spectrocrunch/branch/develop?svg=true
+.. |Appveyor Status Develop| image:: https://ci.appveyor.com/api/projects/status/github/woutdenolf/spectrocrunch?svg=true&branch=develop
    :target: https://ci.appveyor.com/project/woutdenolf/spectrocrunch/branch/develop
