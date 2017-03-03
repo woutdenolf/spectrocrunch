@@ -76,7 +76,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
             "fit": bfit,
             "fastfitting": True,
             "addbeforefitting": addbeforefit, # sum spectra
-            "addafterfitting": not addbeforefit, # sum fit results and detector counters
+            "addafterfitting": True, # sum fit results and detector counters
             "exclude_detectors":exclude_detectors,
 
             # Output directories
