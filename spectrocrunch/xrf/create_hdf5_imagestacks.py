@@ -43,16 +43,23 @@ def filecounter(sourcepath,scanname,counter,scannumber,idet=None,getcount=False,
         f = '0000'
 
     if counter=="xia":
-        filename = ["%s_%sst_%04d_0000_%s.edf"%(scanname,counter,scannumber,f)]
+        filename = ["%s_%sst_%04d_0000_%s.edf"%(scanname,counter,scannumber,f),\
+                    "%s_%sst_%04d_0000_%s.edf.1"%(scanname,counter,scannumber,f)]
     elif idet is not None:
         filename = ["%s_%s_%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f),\
-                    "%s_%s%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f)]
+                    "%s_%s_%02d_%04d_%s.edf.1"%(scanname,counter,idet,scannumber,f),\
+                    "%s_%s%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f),\
+                    "%s_%s%02d_%04d_%s.edf.1"%(scanname,counter,idet,scannumber,f)]
     else:
-        filename = ["%s_%s_%04d_%s.edf"%(scanname,counter,scannumber,f)]
+        filename = ["%s_%s_%04d_%s.edf"%(scanname,counter,scannumber,f),\
+                    "%s_%s_%04d_%s.edf.1"%(scanname,counter,scannumber,f)]
 
+    n = 0
     for name in filename: # loop over possibilities
         counterfile = os.path.join(sourcepath,name)
-        n = len(glob(counterfile))
+        files = glob(counterfile)
+        files = [f for f in files if os.stat(f).st_size > 0]
+        n = len(files)
         if n!=0:
             break
 

@@ -229,7 +229,8 @@ def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plo
             if plot:
                 mcafitresult = mcafit.digestresult()
                 ax.cla()
-                if plot==2:
+
+                if plot==2 or not any(np.isfinite(np.log(mcafitresult["ydata"]))):
                     ax.plot(mcafitresult["energy"],mcafitresult["ydata"])
                     ax.plot(mcafitresult["energy"],mcafitresult["yfit"],color='red')
                 else:
