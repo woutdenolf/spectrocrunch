@@ -217,6 +217,7 @@ def processEnergySynchronized(specfile,specnumbers,destpath,pymcacfg,mlines={},r
         # XAS spectrum: sum of all repeats and detectors
         xasspectrum = {}
         nrepeats = len(specnumbers[i])
+        xrfinfo = [{}]*nrepeats
 
         # Get spec info
         for j in range(nrepeats):
@@ -235,12 +236,14 @@ def processEnergySynchronized(specfile,specnumbers,destpath,pymcacfg,mlines={},r
                 xasspectrum["energy"] = data[:,0]
                 xasspectrum["norm"] = np.empty((data.shape[0],nrepeats),dtype=data.dtype)
             xasspectrum["norm"][:,j] = data[:,1]
-        
+            xrfinfo[j] = info
+
         xasspectrum["norm"] /= np.median(xasspectrum["norm"])
  
         # Generate XRF spectra to be fitted
         for j in range(nrepeats):
             norm = xasspectrum["norm"][:,j].reshape((xasspectrum["nenergy"],1))
+            info = xrfinfo[j]
 
             # Parse xia files
             datadir = info["DIRECTORY"]
@@ -258,6 +261,9 @@ def processEnergySynchronized(specfile,specnumbers,destpath,pymcacfg,mlines={},r
             stfile = glob(fs)
             if len(stfile)==0:
                 logger.error("No files found with filter {}".format(fs))
+
+            print(detfiles)
+
             xia = XiaEdf.XiaEdfScanFile(stfile[0], detfiles)
             err = xia.sum(deadtime=dtcor)
             if "data" in xasspectrum:
