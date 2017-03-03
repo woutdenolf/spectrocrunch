@@ -28,7 +28,7 @@ import numpy as np
 import pylab
 from scipy import interpolate
 
-def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fliphor=False,color='#ffffff',defaultorigin=False,printpos=False):
+def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fliphor=False,color='#ffffff',defaultorigin=False,printpos=False,outname=None):
     """
     Args:
         x(np.array): horizontal coordinates
@@ -143,9 +143,12 @@ def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fli
 
     axes.set_xlim(xlim)
     axes.set_ylim(ylim)
-    pylab.show()
+    if outname is None:
+        pylab.show()
+    else:
+        pylab.savefig(outname)
 
-def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=False,flipvert=True,fliphor=False,defaultorigin=False,showlabels=False,color='#ffffff',printpos=False):
+def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=False,flipvert=True,fliphor=False,defaultorigin=False,showlabels=False,color='#ffffff',printpos=False,outname=None):
     """
     Args:
         hdf5filename(str)
@@ -198,11 +201,11 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=Fa
             img = odset[:,grps[i]["ind"],:]
         else:
             img = odset[...,grps[i]["ind"]]
+        img[np.isnan(img)] = np.nanmin(img)
         if idim1 > idim2:
             img = img.T
         if i==0:
             images = np.zeros((3,)+img.shape,dtype=img.dtype)
-
         mi = np.min(img)
         ma = np.max(img)
         d = ma-mi
@@ -254,5 +257,5 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=Fa
 
     show(dim2,dim1,images,pdim2,pdim1,dim2label,dim1label,names,\
         transpose=transpose,flipvert=flipvert,fliphor=fliphor,color=color,\
-        defaultorigin=defaultorigin,printpos=printpos)
+        defaultorigin=defaultorigin,printpos=printpos,outname=outname)
 

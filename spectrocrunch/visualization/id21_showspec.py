@@ -520,7 +520,7 @@ class shape_spec(shape_object):
             
 class lstPlot(object):
     
-    def __init__(self,lst,limits=[],figsize=None,nframes=None,legendloc=0):
+    def __init__(self,lst,limits=[],figsize=None,nframes=None,legendloc=0,transform=""):
         self.lst = lst
         tmp = [l.figindex for l in self.lst if l.figindex is not None]
         if len(tmp)==0:
@@ -531,6 +531,8 @@ class lstPlot(object):
         if nframes is not None:
             self.nframes = min(self.nframes,nframes)
         self.legendloc = legendloc
+        self.transform = transform
+
         self.prepare_axes(figsize,limits)
     
     def prepare_axes(self,figsize,limits):
@@ -592,6 +594,15 @@ class lstPlot(object):
             self.origin[figindex] = [ylimits[0],xlimits[0]]
             xlimits = [0,xlimits[1]-xlimits[0]]
             ylimits = [0,ylimits[1]-ylimits[0]]
+
+            for c in self.transform:
+                if c=='t': # Transpose
+                    ylimits,xlimits = xlimits,ylimits
+                elif c=='v': # Flip vertical
+                    ylimits = ylimits[::-1]
+                elif c=='h': # Flip horizontal
+                    xlimits = xlimits[::-1]
+
             if figindex<len(limits):
                 if len(limits[figindex])==2:
                     xlimits2,ylimits2 = limits[figindex]
@@ -601,6 +612,7 @@ class lstPlot(object):
                         ylimits = ylimits2
             self.ax[figindex].set_xlim(xlimits[0],xlimits[1])
             self.ax[figindex].set_ylim(ylimits[0],ylimits[1])
+            self.ax[figindex].relim()
 
     def get_axes_limits(self,figindex):
         lst = [l for l in self.lst if l.figindex==figindex]
@@ -613,6 +625,7 @@ class lstPlot(object):
             tmp1,tmp2,_ = l.get2ddims()
             dim1 += tmp1
             dim2 += tmp2
+
         return [min(dim1),max(dim1)],[min(dim2),max(dim2)]
 
     def drawframe(self,frame):
@@ -626,8 +639,7 @@ class lstPlot(object):
             else:
                 ax = self.ax[l.figindex]
                 origin = self.origin[l.figindex]
-            l.plot(ax,self.ax2,origin,frame)
-
+            l.plot(ax,self.ax2,origin,frame,transform="")
         self.update_axes()
 
     def update_axes(self):
@@ -635,10 +647,16 @@ class lstPlot(object):
             self.ax2.relim()
             self.ax2.autoscale(True)
             self.ax2legend = self.ax2.legend(loc=self.legendloc)
-        
+        # Does not work well
+        #for figindex in range(self.naxes):
+        #    if self.ax[figindex] is None:
+        #        continue
+        #    self.ax[figindex].relim()
+        #    self.ax[figindex].autoscale_view(True)
+
 class lstAnimation(lstPlot,animation.TimedAnimation):
-    def __init__(self,lst,limits=[],figsize=None,nframes=None,**kwargs):
-        lstPlot.__init__(self, lst, limits=limits, figsize=figsize,nframes=nframes)
+    def __init__(self,lst,limits=[],figsize=None,nframes=None,transform="",**kwargs):
+        lstPlot.__init__(self, lst, limits=limits, figsize=figsize,nframes=nframes,transform=transform)
         animation.TimedAnimation.__init__(self, self.fig,**kwargs)
 
     def _draw_frame(self, frame):
