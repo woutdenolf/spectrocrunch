@@ -144,7 +144,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
                     tmp = [s.strip() for s in tmp]
                     if tmp[0] in info:
                         info[tmp[0]] = tmp[1]
- 
+
         # Extract data
         ind = []
         labels = scan.info["LabelNames"]
@@ -256,6 +256,34 @@ class spec(SpecFileDataSource.SpecFileDataSource):
                     add["scansize"] = "{} x {}".format(result['npixelsfast'],result['nstepsslow']+1)
 
                 ret['{}_{}'.format(h[1],int(h[2]))] = add
+
+        return ret
+
+    def extractxanesinfo(self):
+        ret = {}
+        for k in self.getSourceInfo()["KeyList"]:
+            scannumber = int(k.split('.')[0])
+            info = self.getKeyInfo(k)
+            if info["Command"].startswith("zapline mono"):
+                ret[scannumber] = {"scannumber":scannumber,"repeats":1}
+            elif info["Command"].startswith("zapenergy SUM"):
+                ret[scannumber] = {"scannumber":scannumber,"repeats":int(info["Command"].split(' ')[2])}
+        return ret
+
+    def extractxanes(self,scannumbers,labelnames):
+        ret = {}
+        for scannumber in scannumbers:
+            k = "{:d}.1".format(scannumber)
+
+            info = self.getKeyInfo(k)
+            if info["Command"].startswith("zapline mono"):
+                ret[scannumber] = {"repeats":1, \
+                                    "data":self.getdata2(scannumber, labelnames),\
+                                    "labels":["{}.{}".format(s,scannumber) for s in labelnames]}
+            elif info["Command"].startswith("zapenergy SUM"):
+                ret[scannumber] = {"repeats":int(info["Command"].split(' ')[2]),\
+                                    "data":self.getdata2(scannumber, labelnames),\
+                                    "labels":["{}.{}".format(s,scannumber) for s in labelnames]}
 
         return ret
 

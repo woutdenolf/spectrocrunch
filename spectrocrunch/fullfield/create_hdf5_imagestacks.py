@@ -25,7 +25,7 @@
 import json
 import numpy as np
 import h5py
-from PyMca5.PyMcaIO import EdfFile
+import fabio
 import glob
 import re
 
@@ -53,24 +53,7 @@ def execroi(img,roi):
     Returns:
         np.array: cropped image
     """
-    # Convert user roi to crop roi
-    dim1, dim2 = img.shape
-    arow = roi[0][0]
-    brow = roi[0][1]
-    acol = roi[1][0]
-    bcol = roi[1][1]
-    if arow < 0:
-        arow += dim1
-    if brow < 0:
-        brow += dim1
-    if acol < 0:
-        acol += dim2
-    if bcol < 0:
-        bcol += dim2
-    brow += 1
-    bcol += 1
-
-    return img[arow:brow,acol:bcol]
+    return img[roi[0][0]:roi[0][1],roi[1][0]:roi[1][1]]
 
 def procraw(img,config):
     roi = config["roi"]
@@ -106,11 +89,11 @@ def darklibrary(config):
     dark.setdefaultfactory(lambda frametime: config["darkcurrentzero"] + config["darkcurrentgain"]*frametime)
     ndark = {}
     for f in darkfiles:
-        fh = EdfFile.EdfFile(f)
-        h = fh.GetHeader(0)
+        fh = fabio.open(f)
+        h = fh.header
 
         # Raw data
-        data = fh.GetData(0).astype(dtype)
+        data = fh.data.astype(dtype)
         data = procraw(data,config)
         
         # Frame time
@@ -168,6 +151,14 @@ def axesvalues(roi,config):
         bx = config["roi"][1][1]
         ay = config["roi"][0][0]
         by = config["roi"][0][1]
+        if ax is None:
+            ax = 0
+        if bx is None:
+            bx = 0
+        if ay is None:
+            ay = 0
+        if by is None:
+            by = 0
         if ax < 0:
             ax += nx
         if bx < 0:
@@ -235,10 +226,8 @@ def dataflatlibrary(config):
     data = {}
     flat = {}
     for f in datafiles:
-        fh = EdfFile.EdfFile(f)
-        if fh.GetNumImages() == 0:
-            continue
-        h = fh.GetHeader(0)
+        fh = fabio.open(f)
+        h = fh.header
 
         # Stack label
         if stacklabel not in h:
@@ -261,10 +250,8 @@ def dataflatlibrary(config):
             flat[key] = []
 
     for f in flatfiles:
-        fh = EdfFile.EdfFile(f)
-        if fh.GetNumImages() == 0:
-            continue
-        h = fh.GetHeader(0)
+        fh = fabio.open(f)
+        h = fh.header
 
          # Stack label
         if stacklabel not in h:
@@ -282,6 +269,9 @@ def dataflatlibrary(config):
         # Add to library
         if key in flat:
             flat[key].append(f)
+
+    if len(data)==0:
+        raise IOError("Not data files found ({})".format(config["datalist"][0]))
 
     # Remove entries with missing images
     #ndata = map(lambda x:len(data[x]),data)
@@ -352,11 +342,11 @@ def getnormalizedimage(fileslist,darklib,config):
 
     img = None
     for f in fileslist:
-        fh = EdfFile.EdfFile(f)
-        h = fh.GetHeader(0)
+        fh = fabio.open(f)
+        h = fh.header
 
         # Raw data
-        data = fh.GetData(0).astype(dtype)
+        data = fh.data.astype(dtype)
         data = procraw(data,config)
 
         # Frame time
@@ -428,9 +418,12 @@ def create_hdf5_imagestacks(jsonfile):
 
     # Create NXdata groups for transmission and flat-field stacks
     nxdatasample = nexus.newNXdata(grp,"sample","")
-    nxdataflat1 = nexus.newNXdata(grp,"flat1","")
-    if flat2 is not None:
-        nxdataflat2 = nexus.newNXdata(grp,"flat2","")
+    nxdataflat1 = None
+    nxdataflat2 = None
+    if not config["normalize"]:
+        nxdataflat1 = nexus.newNXdata(grp,"flat1","")
+        if flat2 is not None:
+            nxdataflat2 = nexus.newNXdata(grp,"flat2","")
 
     # Loop over the images
     keys = data.keys()
@@ -441,48 +434,64 @@ def create_hdf5_imagestacks(jsonfile):
         # Get data
         img = getnormalizedimage(data[key],darklib,config)
 
+        # Normalize
+        if config["normalize"]:
+            flat = getnormalizedimage(flat1[key],darklib,config)
+            if flat2 is None:
+                flat += getnormalizedimage(flat2[key],darklib,config)
+                flat /= 2.
+            img /= flat
+
         # Allocate datasets
         if i==0:
             dim[imgdim[0]] = img.shape[0]
             dim[imgdim[1]] = img.shape[1]
             dim[stackdim] = len(data)
             dsetsample = nexus.createNXdataSignal(nxdatasample,shape=dim,chunks = True,dtype = dtype)
-            dsetflat1 = nexus.createNXdataSignal(nxdataflat1,shape=dim,chunks = True,dtype = dtype)
-            if flat2 is not None:
-                dsetflat2 = nexus.createNXdataSignal(nxdataflat2,shape=dim,chunks = True,dtype = dtype)
+            if nxdataflat1 is not None:
+                dsetflat1 = nexus.createNXdataSignal(nxdataflat1,shape=dim,chunks = True,dtype = dtype)
+                if nxdataflat2 is not None:
+                    dsetflat2 = nexus.createNXdataSignal(nxdataflat2,shape=dim,chunks = True,dtype = dtype)
 
         if stackdim == 0:
             dsetsample[i,...] = img
-            dsetflat1[i,...] = getnormalizedimage(flat1[key],darklib,config)
-            if flat2 is not None:
-                if len(flat2[key])==0:
-                    dsetflat2[i,...] = dsetflat1[i,...]
-                else:
-                    dsetflat2[i,...] = getnormalizedimage(flat2[key],darklib,config)
+            if nxdataflat1 is not None:
+                dsetflat1[i,...] = getnormalizedimage(flat1[key],darklib,config)
+                if nxdataflat2 is not None:
+                    if len(flat2[key])==0:
+                        dsetflat2[i,...] = dsetflat1[i,...]
+                    else:
+                        dsetflat2[i,...] = getnormalizedimage(flat2[key],darklib,config)
         elif stackdim == 1:
             dsetsample[:,i,:] = img
-            dsetflat1[:,i,:] = getnormalizedimage(flat1[key],darklib,config)
-            if flat2 is not None:
-                if len(flat2[key])==0:
-                    dsetflat2[:,i,:] = dsetflat1[:,i,:]
-                else:
-                    dsetflat2[:,i,:] = getnormalizedimage(flat2[key],darklib,config)
+            if nxdataflat1 is not None:
+                dsetflat1[:,i,:] = getnormalizedimage(flat1[key],darklib,config)
+                if nxdataflat2 is not None:
+                    if len(flat2[key])==0:
+                        dsetflat2[:,i,:] = dsetflat1[:,i,:]
+                    else:
+                        dsetflat2[:,i,:] = getnormalizedimage(flat2[key],darklib,config)
         else:
             dsetsample[...,i] = img
-            dsetflat1[...,i] = getnormalizedimage(flat1[key],darklib,config)
-            if flat2 is not None:
-                if len(flat2[key])==0:
-                    dsetflat2[...,i] = dsetflat1[...,i]
-                else:
-                    dsetflat2[...,i] = getnormalizedimage(flat2[key],darklib,config)
+            if nxdataflat1 is not None:
+                dsetflat1[...,i] = getnormalizedimage(flat1[key],darklib,config)
+                if nxdataflat2 is not None:
+                    if len(flat2[key])==0:
+                        dsetflat2[...,i] = dsetflat1[...,i]
+                    else:
+                        dsetflat2[...,i] = getnormalizedimage(flat2[key],darklib,config)
 
     # Stack dict and link axes
-    if flat2 is None:
-        stacks = {"detector0":{"sample":nxdatasample.name,"flat1":nxdataflat1.name}}
-        nexus.linkaxes(f,axes,[nxdatasample,nxdataflat1])
+    if nxdataflat1 is None:
+        stacks = {"detector0":{"sample":nxdatasample.name}}
+        nexus.linkaxes(f,axes,[nxdatasample])
     else:
-        stacks = {"detector0":{"sample":nxdatasample.name,"flat1":nxdataflat1.name,"flat2":nxdataflat2.name}}
-        nexus.linkaxes(f,axes,[nxdatasample,nxdataflat1,nxdataflat2])
+        if nxdataflat2 is None:
+            stacks = {"detector0":{"sample":nxdatasample.name,"flat1":nxdataflat1.name}}
+            nexus.linkaxes(f,axes,[nxdatasample,nxdataflat1])
+        else:
+            stacks = {"detector0":{"sample":nxdatasample.name,"flat1":nxdataflat1.name,"flat2":nxdataflat2.name}}
+            nexus.linkaxes(f,axes,[nxdatasample,nxdataflat1,nxdataflat2])
 
     # Save coordinates
     #coordgrp = nexus.newNXentry(f,"coordinates")

@@ -112,20 +112,8 @@ def convertuserroi(stack,roi,stackdim):
     brow = roi[0][1]
     acol = roi[1][0]
     bcol = roi[1][1]
-    if arow < 0:
-        arow += dim1
-    if brow < 0:
-        brow += dim1
-    if acol < 0:
-        acol += dim2
-    if bcol < 0:
-        bcol += dim2
-    brow += 1
-    bcol += 1
 
     # Roi to keep
-    if brow-arow == dim1 and bcol-acol == dim2:
-        return None
     if stackdim==0:
         roi = ((0,nimg),\
                (arow,brow),\

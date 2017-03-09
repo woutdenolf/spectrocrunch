@@ -39,7 +39,7 @@ from .proc_crop import execute as execcrop
 from . proc_common import defaultstack
 from . proc_common import flattenstacks
 
-def createconfig_pre(sourcepath,destpath,radix,ext,rebin,roi,stackdim):
+def createconfig_pre(sourcepath,destpath,radix,ext,rebin,roi,stackdim,normalize):
 
     if not isinstance(sourcepath,list):
         sourcepath = [sourcepath]
@@ -65,6 +65,7 @@ def createconfig_pre(sourcepath,destpath,radix,ext,rebin,roi,stackdim):
         "datalist" : map(lambda xy: os.path.join(xy[0],xy[1]+"*_data_*.edf"),zip(sourcepath,radix)),
         "flatlist" : map(lambda xy: os.path.join(xy[0],xy[1]+"*_ref_*.edf"),zip(sourcepath,radix)),
         "beforeafter" : True,
+        "normalize": normalize,
 
         # Output
         "hdf5output": os.path.join(destpath,radix[0]+ext+".h5"),
@@ -84,7 +85,7 @@ def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
         skippre=False,skipnormalization=False,skipalign=False,\
         roiraw=None,roialign=None,roiresult=None,\
         refimageindex=None,crop=False,plot=True,\
-        flatbefore=True,flatafter=True):
+        flatbefore=True,flatafter=True,normalizeonload=True):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
@@ -94,7 +95,8 @@ def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
     cropalign = crop
 
     # Image stack
-    jsonfile, h5file = createconfig_pre(sourcepath,destpath,radix,ext,rebin,roiraw,stackdim)
+    normalize = normalizeonload and not skipnormalization
+    jsonfile, h5file = createconfig_pre(sourcepath,destpath,radix,ext,rebin,roiraw,stackdim,normalize)
     preprocessingexists = False
     if skippre:
         preprocessingexists = os.path.isfile(h5file)
@@ -120,7 +122,7 @@ def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
     copygroups = None
 
     # I0 normalization
-    if skipnormalization:
+    if skipnormalization or normalizeonload:
         file_normalized, Ifn_stacks,Ifn_axes = h5file,stacks,axes
     else:
         if flatbefore and flatafter:

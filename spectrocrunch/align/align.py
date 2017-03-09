@@ -154,26 +154,7 @@ class align(object):
     def roi(self,img,roi):
         """Extract ROI
         """
-        n1,n2 = img.shape
-        a1 = roi[0][0]
-        b1 = roi[0][1]
-        a2 = roi[1][0]
-        b2 = roi[1][1]
-        if a1 < 0:
-            a1 += n1
-        if b1 < 0:
-            b1 += n1
-        if a2 < 0:
-            a2 += n2
-        if b2 < 0:
-            b2 += n2
-
-        if b1 < a1 or b2 < a2 or \
-           a1 < 0 or a2 < 0 or b1 < 0 or b2 < 0 or \
-           a1 >= n1 or a2 >= n2 or b1 >= n1 or b2 >= n2:
-           raise ValueError("ROI is invalid.")
-
-        return img[a1:b1+1,a2:b2+1]
+        return img[roi[0][0]:roi[0][1],roi[1][0]:roi[1][1]]
 
     def writeimg(self,img,datasetindex,imageindex):
         """Save 1 image in 1 stack.
@@ -673,7 +654,11 @@ class align(object):
                     self.writeimg(img,j,i)
 
     def setroi(self,roi):
-        self.pre_align["roi"] = roi
+        if roi is None:
+            self.pre_align["roi"] = None
+        else:
+            self.pre_align["roi"] = ((0 if roi[0][0] is None else roi[0][0],roi[0][1]),\
+                                     (0 if roi[1][0] is None else roi[0][0],roi[1][1]))
         self.calccof_raw_to_prealign()
 
     def align(self,refdatasetindex,refimageindex = None,onraw = False,pad = True,crop = False,redo = False,roi = None):
