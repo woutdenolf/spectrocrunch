@@ -64,7 +64,7 @@ class File(h5py.File):
         """
         h5py.File.__init__(self,filename,**kwargs)
 
-        if "NX_class" not in self.attrs:
+        if "NX_class" not in self.attrs and self.mode!="r":
             self.attrs["NX_class"] = "NXroot"
             self.attrs["file_name"] = filename
             self.attrs["file_time"] = timestamp()
@@ -158,12 +158,15 @@ def addinfogroup(fout,name,datadict):
             newgroup.create_dataset(k,(1,1),typ,asciilist)
         elif isinstance(datadict[k],list) or isinstance(datadict[k],tuple):
             arr = np.array(datadict[k])
+            arr[np.equal(arr,None)] = 0
             if arr.size==0:
                 newgroup[k] = arr
-            elif isinstance(arr[0],str) or isinstance(arr[0],np.unicode_):
+            elif isinstance(arr.flat[0],str) or isinstance(arr.flat[0],np.unicode_):
                 asciilist = [s.encode("ascii","ignore") for s in datadict[k]]
                 typ = "S%d"%max([len(s) for s in asciilist])
                 newgroup.create_dataset(k,(len(asciilist),1),typ,asciilist)
+            elif isinstance(arr.flat[0],int):
+                arr = np.array(arr,dtype=int)
             else:
                 newgroup[k] = arr
         else:

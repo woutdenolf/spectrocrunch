@@ -24,9 +24,12 @@
 
 import unittest
 
+from . import test_math_hdf5_imagestacks
+
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
+    testSuite.addTest(test_math_hdf5_imagestacks.test_suite_all())
     return testSuite
     
 if __name__ == '__main__':

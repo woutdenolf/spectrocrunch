@@ -33,6 +33,9 @@ from spectrocrunch.common.integerbase import integerbase
 from spectrocrunch.common.Enum import Enum
 operationType = Enum(['expression','copy','crop','replace'])
 
+import re
+import logging
+
 def math_hdf5_imagestacks(filein,fileout,axes,operation,varargs,fixedargs,ret,extension="",overwrite=False,info=None,copygroups=None):
     """Perform some operations on hdf5 imagestacks
 
@@ -43,7 +46,7 @@ def math_hdf5_imagestacks(filein,fileout,axes,operation,varargs,fixedargs,ret,ex
         operation(dict): type, value
         varargs(list(dict)|list(array-like)): 
         fixedargs(dict):
-        ret:
+        ret: paths names of the results (same elements as varargs)
         extension:
         overwrite:
         info:
@@ -109,31 +112,49 @@ def math_hdf5_imagestacks(filein,fileout,axes,operation,varargs,fixedargs,ret,ex
 
     return retstacks, retaxes
 
-def fluxnorm_hdf5_imagestacks(filein,fileout,axes,I0stacks,stacks,retstack,overwrite=False,info=None,copygroups=None,stackdim=None,minlog=False):
-    
-    nI0 = len(I0stacks)
-    if nI0 == 1:
-        fixedargs = {'b': I0stacks[0]}
-        expression = "var_a/var_b"
+def extractexpression(expression,allowempty=True):
+    if allowempty:
+        return list(set(re.findall("\{(.*?)\}",expression)))
     else:
-        digs = ['b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']
-        o = integerbase(digs = digs)
-        fixedargs = {o.int2base(i):I0stacks[i] for i in range(nI0)}
-        expression = "var_"+o.int2base(0)
-        for i in range(1,nI0):
-            expression += "+var_"+o.int2base(i)
-        expression = "{}*var_a/({})".format(nI0,expression)
-    if minlog:
-        expression = "-ln({})".format(expression)
+        return list(set(re.findall("\{([^\{\}]+)\}",expression)))
 
-    operation = {"type":operationType.expression,"value":expression,"stackdim":stackdim,"sliced":stackdim is not None}
+def replaceexpression(expression,olds,news):
+    for old,new in zip(olds,news):
+        expression = expression.replace("{{{}}}".format(old),"{{{}}}".format(new))
+    return expression
 
-    nI = len(stacks)
-    varargs = [None]*nI
-    for i in range(nI):
+def parseexpression(expression,stacks):
+    _vars = extractexpression(expression)
+    if "" not in _vars:
+        raise ValueError("The expression does not contain {} which indicates the variable argument.")
+
+    digs = ['b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']
+    o = integerbase(digs = digs)
+    
+    # Variable argument
+    expression = expression.replace("{}","var_a")
+    _vars.remove("")
+    n = len(stacks)
+    varargs = [None]*n
+    for i in range(n):
         varargs[i] = {"a":stacks[i]}
 
-    return math_hdf5_imagestacks(filein,fileout,axes,operation,varargs,fixedargs,retstack,extension="norm",overwrite=overwrite,info=info,copygroups=copygroups)
+    # Fixed arguments
+    fixedargs = {}
+    for i in range(len(_vars)):
+        varname = o.int2base(i+1)
+        expression = expression.replace("{{{}}}".format(_vars[i]),"var_{}".format(varname))
+        fixedargs[varname] = _vars[i]
+
+    return expression,varargs,fixedargs
+
+def calc_hdf5_imagestacks(filein,fileout,axes,expression,stacks,retstack,overwrite=False,info=None,copygroups=None,stackdim=None,extension=""):
+    logger = logging.getLogger(__name__)
+    logger.debug("Stack math expression: {}".format(expression))
+
+    expression,varargs,fixedargs = parseexpression(expression,stacks)
+    operation = {"type":operationType.expression,"value":expression,"stackdim":stackdim,"sliced":stackdim is not None}
+    return math_hdf5_imagestacks(filein,fileout,axes,operation,varargs,fixedargs,retstack,extension=extension,overwrite=overwrite,info=info,copygroups=copygroups)
 
 def minlog_hdf5_imagestacks(filein,fileout,axes,stacks,retstack,overwrite=False,info=None,copygroups=None,stackdim=None):
     expression = "-ln(var_a)"

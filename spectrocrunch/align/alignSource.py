@@ -117,7 +117,14 @@ class alignSource(object):
 
     def readimg(self,datasetindex,imageindex):
         if self.sourcetype==dataType.h5 or self.sourcetype==dataType.h5ext or self.sourcetype==dataType.nparray:
-            data = np.take(self.datasets[datasetindex],imageindex,axis=self.stackdim)
+            #data = np.take(self.datasets[datasetindex],imageindex,axis=self.stackdim) # reads the entire file?!
+            if self.stackdim==0:
+                data = self.datasets[datasetindex][imageindex,...]
+            elif self.stackdim==1:
+                data = self.datasets[datasetindex][:,imageindex,:]
+            else:
+                data = self.datasets[datasetindex][...,imageindex]
+
         elif self.sourcetype==dataType.singlefile:
             data = fabio.open(self.datasets[datasetindex][imageindex]).data
         else:

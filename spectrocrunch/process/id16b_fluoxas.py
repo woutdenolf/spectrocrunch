@@ -32,7 +32,7 @@ from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as 
 import spectrocrunch.common.timing as timing
 import spectrocrunch.io.nexus as nexus
 
-from .proc_normalize import execute as normalize
+from .proc_math import execute as normalize
 from .proc_align import execute as align
 from .proc_replacevalue import execute as replacevalue
 from .proc_crop import execute as execcrop
@@ -141,7 +141,9 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
 
     # I0 normalization
     if not skipnormalization and normcounter is not None:
-        h5file,stacks,axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,[normcounter],[normcounter])
+        expression = "{{}}/{{{}}}".format(normcounter)
+        skip = [normcounter]
+        h5file,stacks,axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="norm")
 
     # Alignment
     if alignmethod is None or alignreference is None:

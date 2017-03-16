@@ -154,11 +154,11 @@ def axesvalues(roi,config):
         if ax is None:
             ax = 0
         if bx is None:
-            bx = 0
+            bx = nx
         if ay is None:
             ay = 0
         if by is None:
-            by = 0
+            by = ny
         if ax < 0:
             ax += nx
         if bx < 0:
@@ -170,8 +170,8 @@ def axesvalues(roi,config):
 
         x0 += ax
         y0 += ay
-        nx = bx-ax+1
-        ny = by-ay+1
+        nx = bx-ax
+        ny = by-ay
        
     # Rebin
     dx = config["rebin"][1]
@@ -189,6 +189,7 @@ def axesvalues(roi,config):
     # axes in pixels
     col = np.linspace(x0,x1,nx)
     row = np.linspace(y0,y1,ny)
+
     return row,col
 
 def dataflatlibrary(config):
@@ -437,10 +438,10 @@ def create_hdf5_imagestacks(jsonfile):
         # Normalize
         if config["normalize"]:
             flat = getnormalizedimage(flat1[key],darklib,config)
-            if flat2 is None:
+            if flat2 is not None:
                 flat += getnormalizedimage(flat2[key],darklib,config)
                 flat /= 2.
-            img /= flat
+            img = -np.log(img/flat)
 
         # Allocate datasets
         if i==0:

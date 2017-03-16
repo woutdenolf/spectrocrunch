@@ -31,6 +31,7 @@ from spectrocrunch.math.tests import test_all as test_math
 from spectrocrunch.process.tests import test_all as test_process
 from spectrocrunch.visualization.tests import test_all as test_visualization
 from spectrocrunch.xrf.tests import test_all as test_xrf
+from spectrocrunch.h5stacks.tests import test_all as test_h5stacks
 
 def test_suite_all():
     """Test suite including all test suites"""
@@ -43,7 +44,7 @@ def test_suite_all():
     testSuite.addTest(test_process.test_suite_all())
     testSuite.addTest(test_visualization.test_suite_all())
     testSuite.addTest(test_xrf.test_suite_all())
-
+    testSuite.addTest(test_h5stacks.test_suite_all())
     return testSuite
 
 if __name__ == '__main__':

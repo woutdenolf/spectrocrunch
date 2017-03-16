@@ -35,10 +35,13 @@ def isgroup(hdf5path,name):
     """
     return hdf5path.split(".")[0].endswith(name)
 
-def selectgroups(hdf5paths,names):
+def selectgroups(hdf5paths,names,sort=False):
     """Select hdf5 paths which correspond to the names
     """
-    return [f for f in hdf5paths if any(isgroup(f,s) for s in names)]
+    if sort:
+        return [f for s in names for f in hdf5paths if isgroup(f,s)]
+    else:
+        return [f for f in hdf5paths if any(isgroup(f,s) for s in names)]
 
 def selectnotgroups(hdf5paths,names):
     """Select hdf5 paths which do not correspond to the names

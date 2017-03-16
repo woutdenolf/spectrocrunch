@@ -24,39 +24,38 @@
 
 import logging
 
-from spectrocrunch.h5stacks.math_hdf5_imagestacks import fluxnorm_hdf5_imagestacks as fluxnormstacks
-from spectrocrunch.h5stacks.math_hdf5_imagestacks import copy_hdf5_imagestacks as copystacks
+import spectrocrunch.h5stacks.math_hdf5_imagestacks as math
 
 from . import proc_common
 
 def execute(file_in,stacks_in,axes_in,copygroups,bsamefile,default,\
-            ionames,skipnames,stackdim=None,copyskipped=True,minlog=False):
+            expression,skipnames,stackdim=None,copyskipped=True,extension="math"):
     logger = logging.getLogger(__name__)
-    logger.info("I0 normalization ...")
+    logger.info("Normalization ...")
+
+    # Stacks to normalize
+    innames = proc_common.selectnotgroups(stacks_in,skipnames)
+    if len(innames)==0:
+        raise ValueError("No other stacks found than these: "+str.join(", ",skipnames))
 
     # Output file
     if bsamefile:
         file_out = file_in
     else:
         base, ext = proc_common.hdf5base(file_in)
-        file_out = base+".norm"+ext
+        file_out = base+"."+extension+ext
 
-    # Stacks for normalization
-    I0stacks = proc_common.selectgroups(stacks_in,ionames)
-    if len(I0stacks)==0:
-       raise ValueError("None of these stacks is not present: "+str.join(",",ionames))
-    innames = proc_common.selectnotgroups(stacks_in,skipnames)
-    if len(innames)==0:
-       raise ValueError("No other stacks found than these: "+str.join(",",skipnames))
+    # Expand full paths
+    fixednames = math.extractexpression(expression,allowempty=False)
+    fixedpaths = proc_common.selectgroups(stacks_in,fixednames,sort=True)
+    expression = math.replaceexpression(expression,fixednames,fixedpaths)
 
     # Processing info
-    if len(I0stacks)==1:
-        info = {"normalization":ionames[0],"minlog":minlog}
-    else:
-        info = {"normalization":"("+str.join("+",ionames)+")/"+str(len(ionames)),"minlog":minlog}
+    info = {}
+    info["expression"] = expression
 
     # Normalize
-    stacks_out, axes_out = fluxnormstacks(file_in,file_out,axes_in,I0stacks,innames,innames,overwrite=True,info=info,copygroups=copygroups,stackdim=stackdim,minlog=minlog)
+    stacks_out, axes_out = math.calc_hdf5_imagestacks(file_in,file_out,axes_in,expression,innames,innames,overwrite=True,info=info,copygroups=copygroups,stackdim=stackdim,extension=extension)
 
     # Copy unnormalized stacks when new file
     if copyskipped:
@@ -65,7 +64,7 @@ def execute(file_in,stacks_in,axes_in,copygroups,bsamefile,default,\
             if file_in==file_out:
                 stacks_out += innames
             else:
-                tmp_stacks, tmp = copystacks(file_in,file_out,axes_in,innames,innames,overwrite=False)
+                tmp_stacks, tmp = math.copy_hdf5_imagestacks(file_in,file_out,axes_in,innames,innames,overwrite=False)
                 stacks_out += tmp_stacks
 
     # Default

@@ -32,7 +32,7 @@ from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as 
 import spectrocrunch.common.timing as timing
 import spectrocrunch.io.nexus as nexus
 
-from .proc_normalize import execute as normalize
+from .proc_math import execute as normalize
 from .proc_align import execute as align
 from .proc_replacevalue import execute as replacevalue
 from .proc_crop import execute as execcrop
@@ -52,11 +52,11 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stac
         scannumbers = [scannumbers]
 
     if microdiff:
-        counters = ["zap_iodet","zap_idet","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c"]
+        counters = ["zap_iodet","zap_idet","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]
         motors = ["samh", "samv", "samd", "samph", "sampv"]
         counter_reldir = ".."
     else:
-        counters = ["arr_iodet","arr_idet","arr_absorp1","arr_absorp2","arr_absorp3","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c"]
+        counters = ["arr_iodet","arr_idet","arr_absorp1","arr_absorp2","arr_absorp3","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]
         motors = ["samy", "samz", "samx", "sampy", "sampz"]
         counter_reldir = "."
 
@@ -127,7 +127,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
         stacks, axes = getstacks(h5file,["counters","detector0"])
     else:
         logger.info("Creating image stacks ...")
-        jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim,mlines=mlines,microdiff=microdiff)
+        jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,False,stackdim,mlines=mlines,microdiff=microdiff)
         stacks, axes = makestacks(jsonfile)
 
         #stacks2, axes2 = getstacks(h5file,["counters","detector0"])
@@ -144,12 +144,21 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
     copygroups = ["coordinates"]
 
     # I0 normalization
-    if not skipnormalization:
+    if not skipnormalization or dtcor:
+        skip = ["arr_absorp1","arr_absorp2","arr_absorp3"]
         if microdiff:
             normcounter = "zap_iodet"
         else:
             normcounter = "arr_iodet"
-        h5file,stacks,axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,[normcounter],["arr_absorp1","arr_absorp2","arr_absorp3",normcounter],stackdim=stackdim)
+
+        if dtcor:
+            expression = "{{}}*{{xmap_icr}}/({{{}}}*{{xmap_ocr}})".format(normcounter)
+            skip += [normcounter,"xmap_icr","xmap_ocr"]
+        else:
+            expression = "{{}}/{{{}}}".format(normcounter)
+            skip += [normcounter]
+
+        h5file,stacks,axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="norm")
 
     # Alignment
     if alignmethod is None or alignreference is None:

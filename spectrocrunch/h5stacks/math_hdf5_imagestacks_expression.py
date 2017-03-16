@@ -46,7 +46,7 @@ class StringParser(object):
         if toks and toks[0]=='-': 
             self.exprStack.append( 'unary -' )
             
-    def __init__(self):
+    def __init__(self,dtype=np.float32):
         """
         expop   :: '^'
         multop  :: '*' | '/'
@@ -58,6 +58,7 @@ class StringParser(object):
         expr    :: term [ addop term ]*
         """
         self.exprStack = []
+        self.dtype = dtype
 
         point = pyparsing.Literal( "." )
         
@@ -150,7 +151,7 @@ class StringParser(object):
                     return var
             return 0
         else:
-            return float( op )
+            return self.dtype( op )
             
     def eval(self,num_string,parseAll=True,variables={}):
         self.exprStack=[]
@@ -222,7 +223,7 @@ def evaluate_sliced(operation,fin,varargs,fixedargs,retstacks):
 
         # Allocate space  
         shape = [0,0,0]
-        v = 1
+        v = np.int8(1)
         for k in variables:
             if isinstance(variables[k],h5py.Group):
                 variables[k] = variables[k][variables[k].attrs["signal"]]
@@ -234,7 +235,7 @@ def evaluate_sliced(operation,fin,varargs,fixedargs,retstacks):
                 v *= variables[k][0,0,0]
             else:
                 v *= variables[k]
-        
+
         dset = nexus.createNXdataSignal(retstacks[i],shape=shape,dtype=type(v),chunks = True)
 
         # Evaluate expression

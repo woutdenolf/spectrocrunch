@@ -33,7 +33,7 @@ from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as 
 
 import spectrocrunch.io.nexus as nexus
 
-from .proc_normalize import execute as normalize
+from .proc_math import execute as normalizefunc
 from .proc_align import execute as align
 from .proc_crop import execute as execcrop
 from . proc_common import defaultstack
@@ -127,18 +127,17 @@ def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
     else:
         if flatbefore and flatafter:
             if any("flat2" in s for s in stacks):
-                snorm = ["flat1","flat2"]
+                expression = "-ln(2*{}/({flat1}+{flat2}))"
             else:
-                snorm = "flat1"
+                expression = "-ln({}/{flat1})"
         elif flatbefore:
-            snorm = "flat1"
+            expression = "-ln({}/{flat1})"
         elif flatafter:
-            snorm = "flat2"
+            expression = "-ln({}/{flat2})"
         else:
             logger.error("Nothing to normalize with.")
             raise ValueError("Set flatbefore or flatafter to True.")
-
-        file_normalized, Ifn_stacks,Ifn_axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,snorm,snorm,stackdim=stackdim,copyskipped=False,minlog=True)
+        file_normalized, Ifn_stacks,Ifn_axes = normalizefunc(h5file,stacks,axes,copygroups,bsamefile,default,expression,["flat1","flat2"],stackdim=stackdim,copyskipped=False,extension="norm")
 
     # Alignment
     if alignmethod is not None and not skipalign:
