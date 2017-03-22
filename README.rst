@@ -37,7 +37,7 @@ Main development website: https://github.com/woutdenolf/spectrocrunch
 
 Distribution website: https://pypi.python.org/pypi/SpectroCrunch
 
-Guidelines for contributors and project managers can be found in tools/README.rst
+Pull requests must be done on the develop branch. More guidelines for contributors and project managers can be found in tools/README.rst
 
 +------------+--------------------------+---------------------------+
 |            | Master                   | Develop                   |

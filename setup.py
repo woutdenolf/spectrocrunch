@@ -135,7 +135,7 @@ classifiers = [get_devstatus(),
                ]
 
 # Needed for using Spectrocrunch
-install_requires = ["numpy", "scipy", "h5py", "fabio", "silx", "pyparsing", "PyMca5", "shapely", "matplotlib"]
+install_requires = ["numpy", "scipy", "h5py", "fabio", "silx", "pyparsing", "PyMca5", "shapely", "matplotlib"] # nexusformat
 extras_require = {\
     "physics":["xraylib", "cctbx", "fdmnes"],\
     "elastix":["SimpleITK"]\
@@ -150,7 +150,7 @@ setup(name=PROJECT,
       author="Wout De Nolf",
       author_email="woutdenolf@users.sf.net",
       classifiers = classifiers,
-      description="Spectrocopic imaging library (XRF/XAS)",
+      description="Spectroscopic imaging library (XRF/XAS)",
       long_description=get_readme(),
       packages=find_packages(),
       install_requires=install_requires,

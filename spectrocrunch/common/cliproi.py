@@ -24,8 +24,7 @@
 
 
 def cliproi(shape,roi):
-    """Make sure that a ROI does not reduce any dimension to zero
-       or exceeds the maximal size.
+    """Make sure that a ROI does not exceeds the maximal size.
 
     Args:
         shape (n-tuple): array shape (n1, n2, ...)
@@ -40,20 +39,19 @@ def cliproi(shape,roi):
     roinew = []
 
     for n,(a,b) in zip(shape,roi):
-        if a<0:
-            a += n
-        if b<0:
-            b += n
-
         if a is None:
             a = 0
         else:
+            if a<0:
+                a += n
             a = max(0,min(a,n-1))
 
         if b is None:
             b = n
         else:
-            b = max(1,min(b,n))
+            if b<0:
+                b += n
+            b = max(0,min(b,n))
 
         roinew += [[a,b]]
 

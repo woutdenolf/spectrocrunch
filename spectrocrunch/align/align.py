@@ -32,6 +32,7 @@ from .alignDest import alignDest
 from .types import alignType
 from .types import transformationType
 from .transform import transform
+from spectrocrunch.common.cliproi import cliproi
 
 import logging
 
@@ -154,7 +155,10 @@ class align(object):
     def roi(self,img,roi):
         """Extract ROI
         """
-        return img[roi[0][0]:roi[0][1],roi[1][0]:roi[1][1]]
+        [[ya,yb],[xa,xb]] = cliproi(img.shape,roi)
+        if xb<=xa or yb<=ya:
+            raise ValueError("ROI reduces image size to zero: [{}:{},{}:{}]".format(ya,yb,xa,xb))
+        return img[ya:yb,xa:xb]
 
     def writeimg(self,img,datasetindex,imageindex):
         """Save 1 image in 1 stack.
@@ -177,6 +181,8 @@ class align(object):
         """
         img = self.readimgraw(datasetindex,imageindex)
         img = self.dopre_align(img)
+        if 0 in img.shape or len(img.shape)!=2:
+            raise ValueError("Image preprocessed for alignment has shape {}".format(img.shape))
         return img
 
     def nopre_align(self):
@@ -658,7 +664,7 @@ class align(object):
             self.pre_align["roi"] = None
         else:
             self.pre_align["roi"] = ((0 if roi[0][0] is None else roi[0][0],roi[0][1]),\
-                                     (0 if roi[1][0] is None else roi[0][0],roi[1][1]))
+                                     (0 if roi[1][0] is None else roi[1][0],roi[1][1]))
         self.calccof_raw_to_prealign()
 
     def align(self,refdatasetindex,refimageindex = None,onraw = False,pad = True,crop = False,redo = False,roi = None):

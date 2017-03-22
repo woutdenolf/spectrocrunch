@@ -37,7 +37,7 @@ fi
 RETURNCODE_ARG=1
 RETURNCODE_PYTHONENV=2
 RETURNCODE_CANCEL=3
-BUILDSTEPS=9
+BUILDSTEPS=12
 export BUILDSTEP=0
 
 if [[ "$(dnsdomainname)" == "esrf.fr" ]]; then
@@ -137,7 +137,7 @@ if [[ $NOTDRY == true ]]; then
   $PIPBIN install --upgrade pip
 fi
 
-# ============Preparations done, start installing?============
+# ============Show information and ask to proceed============
 # /usr/lib/python2.7/dist-packages: system-wide, installed with package manager
 # /usr/local/lib/python2.7/dist-packages: system-wide, installed with pip
 #
