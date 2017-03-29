@@ -183,7 +183,7 @@ fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))
 
-# ============Install dependencies============
+# ============Install system dependencies============
 echo -e "${hcol}Install python module dependencies ...${ncol}"
 if [[ $NOTDRY == true && $SYSTEM_PRIVILIGES == true ]]; then
   sudo -E apt-get install $PYTHONBINAPT-qt4 # pymca
@@ -232,7 +232,7 @@ if [[ $NOTDRY == true ]]; then
   fi
 
   if [[ $TIMELEFT == true ]]; then
-      echo -e "${hcol}All done ($BUILDSTEP/$BUILDSTEPS)! You should not be able to install spectrocrunch.${ncol}"
+      echo -e "${hcol}All done ($BUILDSTEP/$BUILDSTEPS)! You should now be able to install spectrocrunch.${ncol}"
   else
       echo -e "${hcol}Not everything has been build due to time restrictions. Run the script again ($BUILDSTEP/$BUILDSTEPS).${ncol}"
   fi

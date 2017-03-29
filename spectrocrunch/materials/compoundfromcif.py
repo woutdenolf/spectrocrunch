@@ -24,7 +24,10 @@
 
 from .compound import compound
 from .types import fractionType
-import iotbx.cif
+try:
+    import iotbx.cif as iotbxcif
+except ImportError:
+    iotbxcif = None
 import os
 
 class compoundfromcif(compound):
@@ -39,13 +42,18 @@ class compoundfromcif(compound):
             name(Optional[str]): compound name
         Raises:
             IOError: If the file doesn't exist
+            RuntimeError: 
         """
+        if iotbxcif is None:
+            raise RuntimeError("cctbx is required to read cif files")
+
         f = self._get_cif_name(filename)
         if f is None:
             raise IOError("Cif file %s not found."%filename)
         self.ciffile = f
+
         # cctbx.xray.structure.structure
-        self.structure = iotbx.cif.reader(file_path=f).build_crystal_structures().values()[0]
+        self.structure = iotbxcif.reader(file_path=f).build_crystal_structures().values()[0]
 
         # Extract necessary information
         scatterers = {}

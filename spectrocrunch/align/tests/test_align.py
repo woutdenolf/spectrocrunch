@@ -72,9 +72,9 @@ class test_align(unittest.TestCase):
                 # Check alignment
                 if vector:
                     if transposed:
-                        roi = ((1,-3),(0,0))
+                        roi = ((1,-3),(0,1))
                     else:
-                        roi = ((0,0),(1,-3))
+                        roi = ((0,1),(1,-3))
                 else:
                     roi = ((1,-3),(1,-3))
 

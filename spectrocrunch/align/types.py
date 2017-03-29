@@ -42,10 +42,10 @@ transformationType = Enum(['translation','rigid','similarity','affine','homograp
 # aspect: R = [[a,0],[1/a,0]]
 # shear: R = [[1,s],[s,1]]
 #
-# rigid(eucledian):        rotation + translation          dof = 3      R = [[a,sqrt(1-a^2)],[sqrt(1-a^2),a]]  T = [[tx],[ty]]
-# similarity:              rigid + scaling                 dof = 4      R = [[a,-b],[b,a]]  T = [[tx],[ty]]
-# affine:                  similarity + aspect + shear     dof = 6      R = [[a,b],[c,d]] T = [[tx],[ty]]
-# homography(projection):  affine + projection             dof = 8      R = [[a,b],[c,d]] T = [[tx],[ty]] P = [px,py]
+# rigid(eucledian):        reflection + rotation + translation   dof = 3      R = [[a,sqrt(1-a^2)],[sqrt(1-a^2),a]]  T = [[tx],[ty]]
+# similarity:              rigid + scaling                       dof = 4      R = [[a,-b],[b,a]]  T = [[tx],[ty]]
+# affine:                  similarity + aspect + shear           dof = 6      R = [[a,b],[c,d]] T = [[tx],[ty]]
+# homography(projection):  affine + projection                   dof = 8      R = [[a,b],[c,d]] T = [[tx],[ty]] P = [px,py]
 #
 
 

@@ -26,9 +26,14 @@ import unittest
 
 from ..compoundfromformula import compoundfromformula
 from ..compoundfromlist import compoundfromlist
-#from ..compoundfromcif import compoundfromcif
+from ..compoundfromcif import compoundfromcif
 from ..types import fractionType
 from ..element import element
+
+try:
+    import iotbx.cif as iotbxcif
+except ImportError:
+    iotbxcif = None
 
 import numpy as np
 
@@ -78,9 +83,7 @@ class test_compound(unittest.TestCase):
             self.assertAlmostEqual(wfrac[elements[i]],a[i]/float(sum(a)))
 
     def test_cif(self):
-        try:
-            from ..compoundfromcif import compoundfromcif
-        except ImportError:
+        if iotbxcif is None:
             raise unittest.SkipTest("cctbx not available")
 
         elements = ["Ca","C","O"]

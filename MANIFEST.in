@@ -1,0 +1,23 @@
+# Files to be distributed (does not control what is installed)
+#
+# Check: check-manifest -u -v
+
+include README.rst
+include CHANGELOG.rst
+include LICENSE.txt
+include setup.py
+include setup.cfg
+include requirements.txt
+include _version.py
+
+include examples/*
+
+recursive-include doc *.py
+recursive-include doc *.rst
+recursive-include doc make.bat
+recursive-include doc Makefile
+
+recursive-include tools *.rst
+recursive-include tools *.sh
+
+

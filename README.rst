@@ -1,5 +1,5 @@
-SpectroCrunch: spectrocopic imaging library (XRF/XAS)
-=====================================================
+SpectroCrunch: spectroscopic imaging library (XRF/XAS)
+======================================================
 
 Getting started
 ---------------
@@ -21,31 +21,31 @@ Install from source:
 
 .. code-block:: bash
 
-    git clone https://github.com/woutdenolf/spectrocrunch Spectrocrunch
-    cd Spectrocrunch
+    git clone https://github.com/woutdenolf/spectrocrunch
+    cd spectrocrunch
     pip install [--user] .
 
 Test:
 
 .. code-block:: bash
 
-    python -m spectrocrunch.test.test_all
+    python -m spectrocrunch.tests.test_all
+
+Documentation:
+
+http://pythonhosted.org/spectrocrunch
+
 
 Developers
 ----------
+
+|Travis Status Master| |Appveyor Status Master|
+
 Main development website: https://github.com/woutdenolf/spectrocrunch
 
-Distribution website: https://pypi.python.org/pypi/SpectroCrunch
+Distribution website: https://pypi.python.org/pypi/spectrocrunch
 
-Pull requests must be done on the develop branch. More guidelines for contributors and project managers can be found in tools/README.rst
-
-+------------+--------------------------+---------------------------+
-|            | Master                   | Develop                   |
-+============+==========================+===========================+
-| Linux      | |Travis Status Master|   | |Travis Status Develop|   |
-+------------+--------------------------+---------------------------+
-| Windows    | |Appveyor Status Master| | |Appveyor Status Develop| |
-+------------+--------------------------+---------------------------+
+Guidelines for contributors and project managers can be found in the `developers guide <https://github.com/woutdenolf/spectrocrunch/tools/README.rst/>`_.
 
 
 Use without installation
@@ -63,10 +63,10 @@ to the top of your script
 .. code-block::
 
     import sys
-    sys.path.insert(1,'/data/id21/inhouse/wout/dev/SpectroCrunch')
+    sys.path.insert(1,'/data/id21/inhouse/wout/dev/Spectrocrunch')
 
 
-import as follows:
+Import as follows:
 
 .. code-block:: 
 
@@ -75,9 +75,5 @@ import as follows:
 
 .. |Travis Status Master| image:: https://travis-ci.org/woutdenolf/spectrocrunch.svg?branch=master
    :target: https://travis-ci.org/woutdenolf/spectrocrunch
-.. |Travis Status Develop| image:: https://travis-ci.org/woutdenolf/spectrocrunch.svg?branch=develop
-   :target: https://travis-ci.org/woutdenolf/spectrocrunch
 .. |Appveyor Status Master| image:: https://ci.appveyor.com/api/projects/status/github/woutdenolf/spectrocrunch?svg=true&branch=master
    :target: https://ci.appveyor.com/project/woutdenolf/spectrocrunch/branch/master
-.. |Appveyor Status Develop| image:: https://ci.appveyor.com/api/projects/status/github/woutdenolf/spectrocrunch?svg=true&branch=develop
-   :target: https://ci.appveyor.com/project/woutdenolf/spectrocrunch/branch/develop

@@ -1,98 +1,296 @@
 Guide for developers
 ====================
 
-Git branching model
--------------------
-
-`This <http://nvie.com/posts/a-successful-git-branching-model/>`_ branching model is followed:
-
-* Github branches: master, develop (RELEV=dev)
-
-* Local branches: master, develop (RELEV=dev), feat-\*, fix-\*, hotfix-\*
+Configure git
+-------------
 
 .. code-block:: bash
 
-  git clone https://github.com/woutdenolf/spectrocrunch Spectrocrunch
-  git config --global push.followTags true
+    git config --global user.name githubname
+    git config --global user.email user@domain
+    git config --global user.signingkey YOURMASTERKEYID
 
-* Feature/fix branch:
+(See `signing  <localrefsigning_>`_)
+
+
+Contribute
+----------
+
+Assuming you forked spectrocrunch on github, then your fork will be referred to as "origin" and the repository you forked from will be referred to as "upstream".
+
+* Clone your fork locally:
 
 .. code-block:: bash
 
-  # Start working on the feature
-  git checkout -b feat-something develop
+  git clone https://github.com/forkuser/spectrocrunch
+  git remote add upstream https://github.com/woutdenolf/spectrocrunch
+
+* Add a feature:
+
+.. code-block:: bash
+
+  # Branch of the upstream master
+  git fetch upstream
+  git checkout upstream/master
+  git branch feat-something
+  git checkout feat-something
+
+  # Stay up to date with upstream
+  git branch --set-upstream-to=upstream/master
+  git pull
 
   # Commit changes ...
+  git commit -m "..."
 
-  # Merge feature into develop
-  git checkout develop
-  git merge --no-ff feat-something
-  git branch -d feat-something
+  # Push to origin
+  git push origin feat-something
 
-  # Publish
-  git push origin develop
+* Create a new pull request with
 
-* Release branch:
+  base fork: woutdenolf/spectrocrunch (upstream)
+
+  base: master
+
+  head fork: forkuser/spectrocrunch (origin)
+
+  compare: feat-something
+
+* Keep your master up to date:
 
 .. code-block:: bash
-
-  # Start releasing
-  git checkout -b release-1.2 develop
-
-  # change RELEV from "dev" to "alpha"
-  # Possible change in SERIAL, MICRO (bug fixes) and RELEV (testing progress)
-
-  # Version to be released
-  echo `python -c "from _version import version;print(\"v{}\".format(version));"`
-
-  # CHANGELOG.rst: add release
-
-  # Bump the version
-  git add .
-  git commit -m "Bump version to 1.2.3"
-
-  # Merge release in master and develop
+  
   git checkout master
-  git merge --no-ff release-1.2
-  git tag -s v1.2.3 -m "Version 1.2.3"
-
-  git checkout develop
-  git merge --no-ff release-1.2
-
-  git branch -d release-1.2
-
-  # Publish
-  git push origin develop
+  git pull upstream master (== git fetch upstream; git merge upstream/master)
   git push origin master
 
-* Hotfix branch (like a feature branch but then starting from the master):
+* Clean up your repository:
+
+.. code-block:: bash
+  
+  git fetch -p upstream
+
+
+Increase the version
+--------------------
+
+1. Get the master
+
+.. code-block:: bash
+  
+  git checkout master
+  git pull upstream master
+
+2. Update version in _version.py and update CHANGELOG.rst (see `versioning  <localrefversion_>`_)
+
+.. code-block:: bash
+  
+  echo `python -c "from _version import version;print(\"v{}\".format(version));"`
+
+3. Check whether the version is in releasable state (see `check releasable state  <localrefreleasable_>`_)
+
+4. Commit and tag new version
+
+.. code-block:: bash
+  
+  git add .
+  git commit -m "Bump version to 1.2.3"
+  git tag -s v1.2.3 -m "Version 1.2.3"
+  push origin
+  push origin v1.2.3
+
+5. Create a new pull request with
+
+  base fork: woutdenolf/spectrocrunch (upstream)
+
+  base: master
+
+  head fork: forkuser/spectrocrunch (origin)
+
+  compare: v1.2.3
+
+
+.. _localrefreleasable:
+
+Check releasable state
+----------------------
+
+1. Create a clean `sandbox <localrefsandbox_>`_ and make a fresh git clone
+
+2. Release directory
+
+.. code-block:: bash
+  
+  export RELEASEDIR=...
+  export VERSION=`python -c "from _version import strictversion as version;print(\"{}\".format(version));"`
+  rm -r ${RELEASEDIR}
+  mkdir -p ${RELEASEDIR}/dist
+
+3. Build the source tarball
+
+.. code-block:: bash
+  
+  python setup.py clean sdist
+  cp dist/spectrocrunch-${VERSION}.tar.gz ${RELEASEDIR}/dist
+
+4. Test the source
+
+.. code-block:: bash
+  
+  tar zxvf ${RELEASEDIR}/dist/spectrocrunch-${VERSION}.tar.gz
+  cd spectrocrunch-${VERSION}
+  pip install .
+  python -m spectrocrunch.tests.test_all
+  
+5. Release the docs
+
+.. code-block:: bash
+  
+  python setup.py clean build_doc
+  pip uninstall -y spectrocrunch
+  cd build/sphinx/html
+  zip -r ${RELEASEDIR}/html_doc.zip .
+  cd ../../..
+
+6. Inspect the docs
+
+.. code-block:: bash
+  
+  firefox build/sphinx/html/index.html
+
+7. Build the wheels (do this on different platforms)
+
+.. code-block:: bash
+  
+  python setup.py clean bdist_wheel
+  cp dist/spectrocrunch-${VERSION}-py2.py3-none-any.whl ${RELEASEDIR}/dist
+
+8. Test the wheels
+
+.. code-block:: bash
+  
+  pip install ${RELEASEDIR}/dist/spectrocrunch-${VERSION}-py2.py3-none-any.whl
+  python -m spectrocrunch.tests.test_all
+  pip uninstall -y spectrocrunch
+
+9. Delete the `sandbox  <localrefsandbox_>`_
+
+
+Release a version
+-----------------
+
+1. Get the version to be released
+
+.. code-block:: bash
+  
+  git checkout master
+  git pull upstream master
+  git checkout v1.2.3
+
+2. Check whether the version is in releasable state (see `check releasable state  <localrefreleasable_>`_). This should have been done when creating the release but best to double check.
+
+3. Create a release on github based on the tag
+
+  Title: Release of version MAJOR.MINOR.MICRO
+
+  Body: Copy from CHANGELOG
+
+4. Deploy code (see `pypi setup  <localrefdeployment_>`_)
 
 .. code-block:: bash
 
-  # Master tag is 1.2.3
-  git checkout -b hotfix-1.2.4 master
+  twine upload -r pypitest --sign ${RELEASEDIR}/*
+  twine upload -r pypi --sign ${RELEASEDIR}/*
 
-  # Possible change in SERIAL, MICRO (bug fixes) and RELEV (testing progress)
+5. Deploy documentation
 
-  # Check current version
-  echo `python -c "from _version import version;print(\"v{}\".format(version));"`
+.. code-block:: bash
 
-  # CHANGELOG.rst: add release
+  https://testpypi.python.org/pypi?%3Aaction=pkg_edit&name=spectrocrunch
+  http://pypi.python.org/pypi?%3Aaction=pkg_edit&name=spectrocrunch
 
-  # Bump the version
-  git add .
-  git commit -m "Bump version to 1.2.4"
 
-  # Merge release in master and develop
-  git checkout master
-  git merge --no-ff hotfix-1.2.4
-  git tag -s v1.2.4 -m "Version 1.2.4"
+.. _localrefdeployment:
 
-  git checkout develop
-  git merge --no-ff hotfix-1.2.4
+Deployment
+----------
 
-  git branch -d hotfix-1.2.4
+Add PyPi credentials file ~/.pypirc (chmod 600):
 
+.. code-block:: bash
+
+  [distutils]
+  index-servers =
+    pypi
+    pypitest
+
+  [pypi]
+  repository=https://pypi.python.org/pypi
+  username=...
+  password=...
+
+  [pypitest]
+  repository=https://testpypi.python.org/pypi
+  username=...
+  password=...
+
+Register project (already done):
+
+.. code-block:: bash
+
+  twine register -r pypi dist/*.whl
+  twine register -r pypitest dist/*.whl
+
+
+.. _localrefsandbox:
+
+Sandbox
+-------
+
+* Using virtualenv
+
+.. code-block:: bash
+
+  virtualenv test1.2.3
+  cd test1.2.3
+  source bin/activate
+
+* Using pyenv
+
+Installation and activation
+
+.. code-block:: bash
+
+  export PYTHON_CONFIGURE_OPTS="--enable-shared"
+  export PYENV_ROOT="~/.pyenv"
+  if [[ ! -d $PYENV_ROOT ]]; then
+    git clone https://github.com/pyenv/pyenv.git ${PYENV_ROOT}
+    git clone https://github.com/pyenv/pyenv-virtualenv.git ${PYENV_ROOT}/plugins/pyenv-virtualenv
+  fi
+  export PATH="$PYENV_ROOT/bin:$PATH"
+  eval "$(pyenv init -)"
+  eval "$(pyenv virtualenv-init -)"
+
+Manage python versions
+
+  pyenv install 2.7.13
+  pyenv uninstall 2.7.13
+
+  pyenv local 2.7.13 (in this directory)
+  pyenv shell 2.7.13 (in this shell)
+  pyenv shell --unset
+
+  pyenv version
+  pyenv versions
+
+Manage virtualenvs
+
+  pyenv virtualenv 2.7.13 myenvname
+  pyenv activate myenvname
+  pyenv deactivate
+  pyenv uninstall myenvname
+  pyenv virtualenvs
+
+.. _localrefversion:
 
 Versioning
 ----------
@@ -109,7 +307,7 @@ Versioning
               when bumping MICRO == 15
   MAJOR : bump when API changes not backwards compatible
  
-  Always reset the lower numbers to 0, except for SERIAL which starts at 1.
+  Always reset the lower numbers to 0.
 
   dev   : not tested
   alpha : begin testing
@@ -118,81 +316,15 @@ Versioning
   final : stable version
 
 
-Releasing
----------
-
-Create a release on github based on a tag
-
-  Title: Release of version MAJOR.MINOR.MICRO
-
-  Body: Copy from CHANGELOG
-
-   
-Deployment
-----------
-
-Add PyPi credentials file ~/.pypirc (chmod 600):
-
-.. code-block:: bash
-
-    [distutils]
-    index-servers =
-      pypi
-      pypitest
-
-    [pypi]
-    repository=https://pypi.python.org/pypi
-    username=...
-    password=...
-
-    [pypitest]
-    repository=https://testpypi.python.org/pypi
-    username=...
-    password=...
-
-Register project:
-
-.. code-block:: bash
-
-    python setup.py register -r pypi
-    python setup.py register -r pypitest
-
-Deploy:
-
-.. code-block:: bash
-
-    # Checkout a release
-    git checkout tags/v1.0
-
-    # on linux
-    python setup.py sdist bdist_wheel upload -r pypi
-    # on windows
-    python setup.py bdist_msi upload -r pypi
-
-    # Back to a branch head
-    git checkout develop
-
-
-From the source
----------------
+Install external dependencies
+-----------------------------
 
 .. code-block:: bash
 
     . spectrocrunch/tools/prepare_install-linux.sh [-v 3]
     if [[ $? == 0 ]]; then echo "OK"; else echo "NOT OK"; fi
 
-    cd spectrocrunch
-    python setup.py version
-    python setup.py test
-    python -m spectrocrunch.align.tests.test_teststack
 
-    python setup.py build
-    python setup.py install [--user]
-    # OR
-    pip install . [--user]
-    
-
-    
 Help
 ----
 
@@ -201,57 +333,57 @@ Help
     python setup.py --help-commands
     python setup.py sdist --help-formats
     python setup.py bdist --help-formats
-  
 
-Subpackages
------------
 
-align
-+++++
+.. _localrefsigning:
 
-    Aligning multiple image stacks with different alignment algorithms. One stack is the reference, the other stacks are aligned accordingly.
+Signing
+-------
 
-common
-++++++
+Generate PGP keypair:
 
-    Subpackage used by the other subpackages.
+.. code-block:: bash
 
-fullfield
-+++++++++
+    while true; do ls -R / &>/dev/null; sleep 1; done &
+    gpg --gen-key
 
-    Fullfield XAS data processing.
+Generate a revocation certificate:
 
-h5stacks
-++++++++
+.. code-block:: bash
 
-    Data processing organized in a software independent hdf5 pipeline.
+    gpg --output revoke.asc --gen-revoke YOURMASTERKEYID
+    shred --remove revoke.asc
 
-io
-++
+Publish public key:
 
-    Data I/O.
+.. code-block:: bash
 
-materials
-+++++++++
+    gpg --keyserver pgp.mit.edu --send-keys YOURMASTERKEYID
 
-    Definition of compounds and mixtures with calculation of physical properties (database/calculation/simulation).
+Share public key:
 
-math
-++++
+.. code-block:: bash
 
-    Another subpackage used by the other subpackages, more specifically grouping all math.
+    gpg --armor --export YOURMASTERKEYID
+    (or look it up in pgp.mit.edu)
 
-process
-+++++++
+Revoke PGP key:
 
-    This subpackage connects beamline specific code to the other subpackages.
+.. code-block:: bash
 
-visualization
-+++++++++++++
+    gpg --keyserver pgp.mit.edu --recv-keys YOURMASTERKEYID
+    gpg --import revoke.asc
+    gpg --keyserver pgp.mit.edu --send-keys YOURMASTERKEYID
 
-    Plotting things.
+Share private PGP key:
 
-xrf
-+++
+.. code-block:: bash
 
-    X-ray fluorescence data processing.
+    gpg --export-secret-key -a | ssh user@host gpg --import -
+
+Show all keys:
+
+.. code-block:: bash
+
+    gpg --list-keys
+
