@@ -1,6 +1,19 @@
 Guide for developers
 ====================
 
+1. `Configure your local git.  <localrefconfiggit_>`_
+
+2. `Contribute.  <localrefcontribute_>`_
+
+3. `Check whether a branch can be released. <localrefreleasable_>`_
+
+4. `Increase the version number.  <localrefincversion_>`_
+
+5. `Release and deploy. <localrefreleaseversion_>`_
+
+
+.. _localrefconfiggit:
+
 Configure git
 -------------
 
@@ -10,13 +23,15 @@ Configure git
     git config --global user.email user@domain
     git config --global user.signingkey YOURMASTERKEYID
 
-(See `signing  <localrefsigning_>`_)
+The signing key is only needed by project managers to sign tags and PyPi releases (see `signing  <localrefsigning_>`_). Other contributors only need to concern themselves with pull-requests on Github (see `contribute  <localrefcontribute_>`_).
 
+
+.. _localrefcontribute:
 
 Contribute
 ----------
 
-Assuming you forked spectrocrunch on github, then your fork will be referred to as "origin" and the repository you forked from will be referred to as "upstream".
+Assuming you forked spectrocrunch on Github, then your fork will be referred to as "origin" and the repository you forked from will be referred to as "upstream".
 
 * Clone your fork locally:
 
@@ -70,6 +85,8 @@ Assuming you forked spectrocrunch on github, then your fork will be referred to 
   git fetch -p upstream
 
 
+.. _localrefincversion:
+
 Increase the version
 --------------------
 
@@ -86,7 +103,7 @@ Increase the version
   
   echo `python -c "from _version import version;print(\"v{}\".format(version));"`
 
-3. Check whether the version is in releasable state (see `check releasable state  <localrefreleasable_>`_)
+3. Check whether the branch can be `released  <localrefreleasable_>`_.
 
 4. Commit and tag new version
 
@@ -100,19 +117,55 @@ Increase the version
 
 5. Create a new pull request with
 
-  base fork: woutdenolf/spectrocrunch (upstream)
+   base fork: woutdenolf/spectrocrunch (upstream)
 
-  base: master
+   base: master
 
-  head fork: forkuser/spectrocrunch (origin)
+   head fork: forkuser/spectrocrunch (origin)
 
-  compare: v1.2.3
+   compare: v1.2.3
+
+
+.. _localrefreleaseversion:
+
+Release and deploy
+------------------
+
+1. Get the version to be released
+
+.. code-block:: bash
+  
+  git checkout master
+  git pull upstream master
+  git checkout v1.2.3
+
+2. Check whether the branch can be `released  <localrefreleasable_>`_. `Increase the version number <localrefincversion_>`_ when something needed fixing.
+
+3. Create a release on Github based on the tag
+
+  Title: Release of version MAJOR.MINOR.MICRO
+
+  Body: Copy from CHANGELOG
+
+4. Deploy code (see `pypi setup  <localrefdeployment_>`_)
+
+.. code-block:: bash
+
+  twine upload -r pypitest --sign ${RELEASEDIR}/*
+  twine upload -r pypi --sign ${RELEASEDIR}/*
+
+5. Deploy documentation
+
+.. code-block:: bash
+
+  https://testpypi.python.org/pypi?%3Aaction=pkg_edit&name=spectrocrunch
+  http://pypi.python.org/pypi?%3Aaction=pkg_edit&name=spectrocrunch
 
 
 .. _localrefreleasable:
 
-Check releasable state
-----------------------
+Check branch releasable
+-----------------------
 
 1. Create a clean `sandbox <localrefsandbox_>`_ and make a fresh git clone
 
@@ -175,40 +228,6 @@ Check releasable state
 9. Delete the `sandbox  <localrefsandbox_>`_
 
 
-Release a version
------------------
-
-1. Get the version to be released
-
-.. code-block:: bash
-  
-  git checkout master
-  git pull upstream master
-  git checkout v1.2.3
-
-2. Check whether the version is in releasable state (see `check releasable state  <localrefreleasable_>`_). This should have been done when creating the release but best to double check.
-
-3. Create a release on github based on the tag
-
-  Title: Release of version MAJOR.MINOR.MICRO
-
-  Body: Copy from CHANGELOG
-
-4. Deploy code (see `pypi setup  <localrefdeployment_>`_)
-
-.. code-block:: bash
-
-  twine upload -r pypitest --sign ${RELEASEDIR}/*
-  twine upload -r pypi --sign ${RELEASEDIR}/*
-
-5. Deploy documentation
-
-.. code-block:: bash
-
-  https://testpypi.python.org/pypi?%3Aaction=pkg_edit&name=spectrocrunch
-  http://pypi.python.org/pypi?%3Aaction=pkg_edit&name=spectrocrunch
-
-
 .. _localrefdeployment:
 
 Deployment
@@ -246,7 +265,7 @@ Register project (already done):
 Sandbox
 -------
 
-* Using virtualenv
+* Using `virtualenv <https://virtualenv.pypa.io/>`_
 
 .. code-block:: bash
 
@@ -254,7 +273,7 @@ Sandbox
   cd test1.2.3
   source bin/activate
 
-* Using pyenv
+* Using `pyenv <https://github.com/pyenv/pyenv/>`_
 
 Installation and activation
 
@@ -272,6 +291,8 @@ Installation and activation
 
 Manage python versions
 
+.. code-block:: bash
+
   pyenv install 2.7.13
   pyenv uninstall 2.7.13
 
@@ -284,11 +305,14 @@ Manage python versions
 
 Manage virtualenvs
 
+.. code-block:: bash
+
   pyenv virtualenv 2.7.13 myenvname
   pyenv activate myenvname
   pyenv deactivate
   pyenv uninstall myenvname
   pyenv virtualenvs
+
 
 .. _localrefversion:
 
