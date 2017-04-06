@@ -280,7 +280,7 @@ Installation and activation
 .. code-block:: bash
 
   export PYTHON_CONFIGURE_OPTS="--enable-shared"
-  export PYENV_ROOT="~/.pyenv"
+  export PYENV_ROOT="${HOME}/.pyenv"
   if [[ ! -d $PYENV_ROOT ]]; then
     git clone https://github.com/pyenv/pyenv.git ${PYENV_ROOT}
     git clone https://github.com/pyenv/pyenv-virtualenv.git ${PYENV_ROOT}/plugins/pyenv-virtualenv
