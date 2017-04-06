@@ -20,6 +20,7 @@ fi
 
 if [ -z $BUILDSTEP ]; then
     BUILDSTEP=0
+    BUILDSTEPS=0
 fi
 
 if [ -z $TIMELEFT ]; then
@@ -56,10 +57,11 @@ if [ $? = 0 ]; then
 else
     BUILDSTEP=$(( $BUILDSTEP+1 ))
 fi
+BUILDSTEPS=$(( $BUILDSTEPS+1 ))
 
 # ITK
-source $SCRIPT_WD/install-itk.sh
-cd $RESTORE_WD
+#source $SCRIPT_WD/install-itk.sh
+#cd $RESTORE_WD
 
 # ============Install simpleelastix============
 if [ ! -f simpleelastix/build/SimpleITK-build/Wrapping/Python/Packaging/setup.py ]; then
@@ -85,7 +87,7 @@ if [ ! -f simpleelastix/build/SimpleITK-build/Wrapping/Python/Packaging/setup.py
                           -DUSE_SYSTEM_LUA:BOOL=OFF \
                           -DUSE_SYSTEM_VIRTUALENV:BOOL=OFF \
                           -DUSE_SYSTEM_ELASTIX:BOOL=OFF \
-                          -DUSE_SYSTEM_ITK:BOOL=ON \
+                          -DUSE_SYSTEM_ITK:BOOL=OFF \
                           -DPYTHON_EXECUTABLE:FILEPATH=$PYTHON_EXECUTABLE \
                           -DPYTHON_INCLUDE_DIR:PATH=$PYTHON_INCLUDE_DIR \
                           -DPYTHON_LIBRARY:FILEPATH=$PYTHON_LIBRARY \
@@ -125,6 +127,8 @@ else
     BUILDSTEP=$(( $BUILDSTEP+2 ))
 fi
 
+BUILDSTEPS=$(( $BUILDSTEPS+2 ))
+
 if [[ $TIMELEFT == true ]]; then
     echo -e "${hcol}Install SimpleElastix ...${ncol}"
     if [[ $NOTDRY == true ]]; then
@@ -134,3 +138,5 @@ if [[ $TIMELEFT == true ]]; then
 
     BUILDSTEP=$(( $BUILDSTEP+1 ))
 fi
+
+BUILDSTEPS=$(( $BUILDSTEPS+1 ))

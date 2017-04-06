@@ -14,6 +14,7 @@ fi
 
 if [ -z $BUILDSTEP ]; then
     BUILDSTEP=0
+    BUILDSTEPS=0
 fi
 
 if [ -z $SYSTEM_PRIVILIGES ]; then
@@ -27,6 +28,10 @@ fi
 # ============Install fdmnes============
 mkdir -p fdmnes
 cd fdmnes
+
+FDMNESVERSION=`curl -s https://api.github.com/repos/gudasergey/fdmnes/releases | grep tag_name | head -n 1 | cut -d '"' -f 4`
+FDMNESZIPNAME=fdmnes_${FDMNESVERSION}.zip
+FDMNESLINK=http://neel.cnrs.fr/IMG/zip/${FDMNESZIPNAME}
 
 echo -e "${hcol}Install fdmnes ...${ncol}"
 if [[ $NOTDRY == true ]]; then
@@ -42,17 +47,17 @@ if [[ $NOTDRY == true ]]; then
         else
             # Install system-wide
             if [[ ! -f /usr/local/bin/fdmnes ]]; then
-                curl -O http://neel.cnrs.fr/IMG/zip/fdmnes_2017_01_10.zip
-                sudo -E unzip fdmnes_2017_01_10.zip -d /usr/local
+                curl -O ${FDMNESLINK}
+                sudo -E unzip ${FDMNESZIPNAME} -d /usr/local
                 sudo -E ln -s /usr/local/fdmnes/fdmnes_linux64 /usr/local/bin/fdmnes
             fi
         fi
     else
         # Install locally
         if [[ ! -f $HOME/.local/bin/fdmnes ]]; then
-            curl -O http://neel.cnrs.fr/IMG/zip/fdmnes_2017_01_10.zip
+            curl -O ${FDMNESLINK}
             mkdir -p $HOME/.local/bin
-            unzip fdmnes_2017_01_10.zip -d $HOME/.local
+            unzip ${FDMNESZIPNAME} -d $HOME/.local
             ln -s $HOME/.local/fdmnes/fdmnes_linux64 $HOME/.local/bin/fdmnes
         fi
     fi
@@ -71,4 +76,4 @@ if [[ $NOTDRY == true ]]; then
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))
-
+BUILDSTEPS=$(( $BUILDSTEPS+1 ))

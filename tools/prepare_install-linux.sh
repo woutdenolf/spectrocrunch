@@ -37,7 +37,7 @@ fi
 RETURNCODE_ARG=1
 RETURNCODE_PYTHONENV=2
 RETURNCODE_CANCEL=3
-BUILDSTEPS=12
+export BUILDSTEPS=0
 export BUILDSTEP=0
 
 if [[ "$(dnsdomainname)" == "esrf.fr" ]]; then
@@ -182,6 +182,7 @@ if [[ $NOTDRY == true && $SYSTEM_PRIVILIGES == true ]]; then
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))
+BUILDSTEPS=$(( $BUILDSTEPS+1 ))
 
 # ============Install system dependencies============
 echo -e "${hcol}Install python module dependencies ...${ncol}"
@@ -194,6 +195,7 @@ if [[ $NOTDRY == true && $SYSTEM_PRIVILIGES == true ]]; then
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))
+BUILDSTEPS=$(( $BUILDSTEPS+1 ))
 
 # ============Install modules============
 echo -e "${hcol}Install python modules ...${ncol}"
@@ -208,6 +210,7 @@ if [[ $NOTDRY == true ]]; then
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))
+BUILDSTEPS=$(( $BUILDSTEPS+1 ))
 
 # ============Custom installation============
 source $SPECTROCRUNCH_ROOT/tools/install-xraylib.sh

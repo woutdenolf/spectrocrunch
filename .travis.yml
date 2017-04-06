@@ -13,6 +13,7 @@ python:
 #  - "3.3"
 #  - "3.4"
 #  - "3.5"
+#  - "3.6"
 
 notifications:
   email: false
@@ -24,11 +25,6 @@ cache:
   directories:
   - $HOME/.cache/pip
   - $CACHED_FOLDER
-
-#branches:
-#  only:
-#  - master
-#  - develop
 
 before_install:
   # Install CI specific build dependencies

@@ -19,6 +19,7 @@ fi
 
 if [ -z $BUILDSTEP ]; then
     BUILDSTEP=0
+    BUILDSTEPS=0
 fi
 
 if [ -z $SYSTEM_PRIVILIGES ]; then
@@ -97,4 +98,5 @@ if [[ $NOTDRY == true ]]; then
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))
+BUILDSTEPS=$(( $BUILDSTEPS+1 ))
 

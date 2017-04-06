@@ -10,6 +10,7 @@ fi
 
 if [ -z $BUILDSTEP ]; then
     BUILDSTEP=0
+    BUILDSTEPS=0
 fi
 
 if [ -z $SYSTEM_PRIVILIGES ]; then
@@ -87,6 +88,8 @@ else
     BUILDSTEP=$(( $BUILDSTEP+2 ))
 fi
 
+BUILDSTEPS=$(( $BUILDSTEPS+2 ))
+
 if [[ $TIMELEFT == true ]]; then
     echo -e "${hcol}Install ITK ...${ncol}"
     if [[ $NOTDRY == true ]]; then
@@ -105,6 +108,8 @@ if [[ $TIMELEFT == true ]]; then
 
     BUILDSTEP=$(( $BUILDSTEP+1 ))
 fi
+
+BUILDSTEPS=$(( $BUILDSTEPS+1 ))
 
 
 
