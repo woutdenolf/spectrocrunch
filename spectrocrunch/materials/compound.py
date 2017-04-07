@@ -34,13 +34,14 @@ class compound(Hashable):
     """Interface to a compound
     """
 
-    def __init__(self,elements,frac,fractype,density,name=None):
+    def __init__(self,elements,frac,fractype,density,nrefrac=1,name=None):
         """
         Args:
             elements(list): list of elements (["Fe","O"] or [element("Fe"),element("O")])
             frac(list[float]): element fractions
             fractype(fractionType): element fraction type
-            density(float): compound density in g/cm^3
+            density(num): compound density in g/cm^3
+            nrefrac(num): refractive index
             name(Optional[str]): compound name
         """
 
@@ -49,13 +50,14 @@ class compound(Hashable):
             self.name = str(id(self))
         else:
             self.name = name
+        self.nrefrac = float(nrefrac)
 
         # Element mole fractions
         if fractype == fractionType.mole:
             nfrac = frac # keep unnormalized!
         elif fractype == fractionType.volume:
             # would be possible if you give the element densities in the compound
-            # (which is not the same as the pure element density) but that's un unlikely given
+            # (which is not the same as the pure element density) but that's an unlikely given
             raise ValueError("Cannot create a compound from elemental volume fractions")
         else:
             elements = [element(e) for e in elements]
@@ -67,17 +69,50 @@ class compound(Hashable):
         for e,n in zip(elements,nfrac):
             if not isinstance(e,element):
                 e = element(e)
-            self.elements[e] = n
+            self.elements[e] = float(n)
 
         # Compound density
-        self.density = density
+        self.density = float(density)
         if self.density==0:
             if len(self.elements)==1:
                 self.density = self.elements.keys()[0].get_pure_density()
             else:
                 #rho = [e.get_pure_density() for e in self.elements]
                 #self.density = np.mean(rho) # not based on anything, just a value
-                self.density = 1. # approx. density of water
+                if len(self.elements)==0:
+                    self.density = 0.
+                else:
+                    self.density = 1. # approx. density of water
+
+    def addelement(self,el,frac,fractype,density=None):
+        """Add an element to the compound
+
+        Args:
+            elements(str|element): "Fe" or element("Fe")
+            frac(num): element fraction
+            fractype(fractionType): element fraction type
+            density(Optional(num)): new compound density in g/cm^3
+        """
+
+        if fractype == fractionType.mole:
+            elements = self.elements.keys()+[element(el)]
+            nfrac = np.asarray(self.elements.values()+[frac])
+        elif fractype == fractionType.volume:
+            raise ValueError("Cannot create a compound from elemental volume fractions")
+        else:
+            elements = self.elements.keys()+[element(el)]
+            MM = np.asarray([e.MM for e in elements])
+
+            wfrac = np.asarray(self.weightfractions().values())
+            wfrac *= (1-frac)/wfrac.sum()
+            wfrac = np.append(wfrac,frac)
+            nfrac = stoichiometry.frac_weight_to_mole(wfrac,MM) # normalized
+
+        # Elements
+        for e,n in zip(elements,nfrac):
+            if not isinstance(e,element):
+                e = element(e)
+            self.elements[e] = n
 
     def _cmpkey(self):
         """For comparing and sorting

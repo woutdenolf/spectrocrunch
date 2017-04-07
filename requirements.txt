@@ -1,6 +1,7 @@
 numpy
 scipy
 h5py
+six
 silx
 fabio
 pyparsing

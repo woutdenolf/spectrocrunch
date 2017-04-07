@@ -241,7 +241,7 @@ classifiers = [get_devstatus(),
 ##################
 ## Requirements ## 
 ##################
-install_requires = ["numpy", "scipy", "h5py", "fabio", "silx", "pyparsing", "PyMca5", "shapely", "matplotlib"] ## # nexusformat
+install_requires = ["numpy", "scipy", "h5py", "six", "fabio", "silx", "pyparsing", "PyMca5", "shapely", "matplotlib"] ## # nexusformat
 extras_require = {"physics":["xraylib", "cctbx", "fdmnes"],\
                   "elastix":["SimpleITK"]\
                   }

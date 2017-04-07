@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2016 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -24,6 +24,7 @@
 
 import unittest
 
+from ..compound import compound as compoundraw
 from ..compoundfromformula import compoundfromformula
 from ..compoundfromlist import compoundfromlist
 from ..compoundfromcif import compoundfromcif
@@ -94,6 +95,27 @@ class test_compound(unittest.TestCase):
         for i in range(len(elements)):
             self.assertEqual(elements2[elements[i]],a[i])
 
+    def test_addelement(self):
+        c1 = compoundraw(["Fe","O"],[2,3],fractionType.mole,density=1)
+        c2 = compoundraw(["Fe"],[2],fractionType.mole,density=1)
+        c2.addelement("O",3,fractionType.mole)
+        self.assertEqual(c1.elements,c2.elements)
+
+        c1 = compoundraw(["Fe","O"],[2,3],fractionType.weight,density=1)
+        c2 = compoundraw(["Fe"],[2],fractionType.weight,density=1)
+        c2.addelement("O",3/5.,fractionType.weight)
+        self.assertEqual(c1.elements.keys(),c2.elements.keys())
+        for v1,v2 in zip(c1.elements.values(),c2.elements.values()):
+            self.assertAlmostEqual(v1,v2)
+
+    def test_vacuum(self):
+        c = compoundraw([],[],fractionType.mole,0,name="vacuum")
+        self.assertEqual(len(c.elements),0)
+        self.assertEqual(len(c.weightfractions()),0)
+        self.assertEqual(len(c.molefractions()),0)
+        self.assertEqual(c.molarmass(),0)
+        self.assertEqual(c.density,0)
+
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
@@ -101,6 +123,8 @@ def test_suite_all():
     testSuite.addTest(test_compound("test_formula"))
     testSuite.addTest(test_compound("test_list"))
     testSuite.addTest(test_compound("test_cif"))
+    testSuite.addTest(test_compound("test_addelement"))
+    testSuite.addTest(test_compound("test_vacuum"))
     return testSuite
     
 if __name__ == '__main__':
