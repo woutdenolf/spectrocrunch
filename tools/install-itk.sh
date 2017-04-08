@@ -4,26 +4,13 @@
 # 
 
 # ============Initialize environment============
-if [ -z $NOTDRY ]; then
-    NOTDRY=true
-fi
-
-if [ -z $BUILDSTEP ]; then
-    BUILDSTEP=0
-    BUILDSTEPS=0
-fi
-
-if [ -z $SYSTEM_PRIVILIGES ]; then
-    if [[ -z "$((sudo -n true) 2>&1)" ]]; then
-        export SYSTEM_PRIVILIGES=true 
-    else
-        export SYSTEM_PRIVILIGES=false
-    fi
-fi
+SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $SCRIPT_ROOT/funcs.sh
+initEnv
 
 # ============Build ITK============
 if [[ $TIMELEFT == true && ! -f ITK/build/Makefile ]]; then
-    echo -e "${hcol}Download ITK ...${ncol}"
+    cprint "Download ITK ..."
     mkdir -p ITK
     cd ITK
     if [[ $NOTDRY == true && ! -d ITK ]]; then
@@ -36,7 +23,7 @@ if [[ $TIMELEFT == true && ! -f ITK/build/Makefile ]]; then
     mkdir -p build
     cd build
 
-    echo -e "${hcol}Configure ITK ...${ncol}"
+    cprint "Configure ITK ..."
     if [[ $NOTDRY == true ]]; then
         CMAKE_PARAMS="-DBUILD_SHARED_LIBS=OFF \
                       -DModule_ITKReview=ON \
@@ -65,15 +52,15 @@ if [[ $TIMELEFT == true && ! -f ITK/build/Makefile ]]; then
         if [[ $SYSTEM_PRIVILIGES == true ]]; then
             cmake $CMAKE_PARAMS ../ITK
         else
-            mkdir -p $HOME/.local
-            cmake -DCMAKE_INSTALL_PREFIX:PATH="$HOME/.local" $CMAKE_PARAMS ../ITK
+            mkdir -p $SPECTROCRUNCHLOCAL
+            cmake -DCMAKE_INSTALL_PREFIX:PATH="$SPECTROCRUNCHLOCAL" $CMAKE_PARAMS ../ITK
         fi
     fi
 
     BUILDSTEP=$(( $BUILDSTEP+1 ))
 
     if [[ $TIMELEFT == true ]]; then
-        echo -e "${hcol}Build ITK ...${ncol}"
+        cprint "Build ITK ..."
         OMP_NUM_THREADS=2
         if [[ $NOTDRY == true ]]; then
             make -s -j2
@@ -91,25 +78,26 @@ fi
 BUILDSTEPS=$(( $BUILDSTEPS+2 ))
 
 if [[ $TIMELEFT == true ]]; then
-    echo -e "${hcol}Install ITK ...${ncol}"
+    cprint "Install ITK ..."
     if [[ $NOTDRY == true ]]; then
-        if [[ $SYSTEM_PRIVILIGES == true ]]; then
-            sudo -E make install -s
-            export ITK_DIR=/usr/local/lib/cmake
-        else
-            make install -s
-            export ITK_DIR=$HOME/.local/lib/cmake
+        mexec "make install -s"
+
+        if [[ $SYSTEM_PRIVILIGES == false ]]; then
+            addProfile $SPECTROCRUNCHRC "# Installed ITK: $SPECTROCRUNCHLOCALSTR"
+            addLibPath $SPECTROCRUNCHLOCAL/lib
+            addLibPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/lib"
         fi
 
+        # Variable needed by simpleelastix:
+        ITK_DIR=$SPECTROCRUNCHLOCAL/lib/cmake
         ITK_DIR=$ITK_DIR/$(find $ITK_DIR -maxdepth 1 -type d -name 'ITK-*' -printf %f -quit)
-
-        echo -e "${hcol}ITK directory: $ITK_DIR${ncol}"
+        cprint "ITK directory: $ITK_DIR"
     fi
 
     BUILDSTEP=$(( $BUILDSTEP+1 ))
 fi
 
 BUILDSTEPS=$(( $BUILDSTEPS+1 ))
-
+cd $INSTALL_WD
 
 

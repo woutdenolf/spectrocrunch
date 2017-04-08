@@ -12,7 +12,8 @@ show_help()
         -v version      Python version to be used (2, 3, 2.7, 3.5, ...).
         -y              Answer yes to everything.
         -t              Time limited build.
-        -d              Dry run
+        -d              Dry run.
+        -u              Install for user only.
 
         For Example: ./prepare_installation -v 3 -d
 
@@ -21,40 +22,13 @@ show_help()
 }
 
 # ============Initialize environment============
-START_TIME=$SECONDS
+SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $SCRIPT_ROOT/funcs.sh
+resetEnv
 
-hcol='\033[0;36m'
-ncol='\033[0m'
-
-RESTORE_WD=$(pwd)
-export SPECTROCRUNCH_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/..
-if [[ -z "$((sudo -n true) 2>&1)" ]]; then
-  export SYSTEM_PRIVILIGES=true 
-else
-  export SYSTEM_PRIVILIGES=false
-fi
-
-RETURNCODE_ARG=1
-RETURNCODE_PYTHONENV=2
-RETURNCODE_CANCEL=3
-export BUILDSTEPS=0
-export BUILDSTEP=0
-
-if [[ "$(dnsdomainname)" == "esrf.fr" ]]; then
-  echo -e "${hcol}Setting esrf proxy ...${ncol}"
-  export http_proxy="http://proxy.esrf.fr:3128"
-  export https_proxy="http://proxy.esrf.fr:3128"
-fi
-
-# ============Parse arguments============
-export PYTHONBINAPT="python"
-export PIPBINAPT="pip"
-export TIMELIMITED=false
-export TIMELEFT=true
-export NOTDRY=true
-
+# ============Adapt environment based on script arguments============
 OPTIND=0
-while getopts "v:ythd" opt; do
+while getopts "v:uythd" opt; do
   case $opt in
     h)
       show_help
@@ -67,6 +41,9 @@ while getopts "v:ythd" opt; do
     t)
       TIMELIMITED=true
       ;;
+    u)
+      SYSTEM_PRIVILIGES=false
+      ;;
     d)
       NOTDRY=false
       ;;
@@ -77,64 +54,26 @@ while getopts "v:ythd" opt; do
       ;;
   esac
 done
+initEnv
 
-# ============Python============
-echo -e "${hcol}Looking for python interpreter ...${ncol}"
-
-export PYTHONBIN=$PYTHONBINAPT
-
-if [[ -z `which $PYTHONBIN` && $SYSTEM_PRIVILIGES == true && $NOTDRY == true ]]; then
-  sudo -E apt-get install $PYTHONBINAPT $PYTHONBINAPT-dev $PYTHONBINAPT-qt4
-fi
-
-if [ -z `which $PYTHONBIN` ]; then
-  echo -e "${hcol}$PYTHONBIN is not installed on this system.${ncol}"
-  cd $RESTORE_WD
-  return $RETURNCODE_PYTHONENV
-fi
-
-# ============Check python version============
-PYTHONMAJORV=`$PYTHONBIN -c "import sys;print(sys.version_info[0])";`
-PYTHONV=`$PYTHONBIN -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)";`
-
-if [[ $PYTHONMAJORV == "3" ]]; then
-  dpkg --compare-versions "${PYTHONV}" "lt" "3.4"
-  if [ $? = 0 ]; then
-    echo -e "${hcol}Python version must be >= 3.4 (used ${PYTHONV}).${ncol}"
+# ============Initialize Python============
+initPython
+Retval=$?
+if [ $Retval -ne 0 ]; then
     cd $RESTORE_WD
-    return $RETURNCODE_PYTHONENV
-  fi
-else
-  dpkg --compare-versions "${PYTHONV}" "lt" "2.7"
-  if [ $? = 0 ]; then
-    echo -e "${hcol}Python version must be >= 2.7 (used ${PYTHONV}).${ncol}"
-    cd $RESTORE_WD
-    return $RETURNCODE_PYTHONENV
-  fi
+    return $Retval
 fi
 
 mkdir -p ${PYTHONV}
 cd ${PYTHONV}
 INSTALL_WD=$(pwd)
 
-# ============Pip============
-echo -e "${hcol}Looking for pip package ...${ncol}"
-
-export PIPBIN=$PIPBINAPT
-
-if [[ -z `which $PIPBIN` && $SYSTEM_PRIVILIGES == true && $NOTDRY == true ]]; then
-  sudo -E apt-get install $PIPBINAPT
-fi
-
-if [ -z `which $PIPBIN` ]; then
-  echo -e "${hcol}$PIPBIN is not installed on this system.${ncol}"
-  cd $RESTORE_WD
-  return $RETURNCODE_PYTHONENV
-fi
-
-echo -e "${hcol}Upgrading pip ...${ncol}"
-if [[ $NOTDRY == true ]]; then
-  $PIPBIN install --upgrade pip
+# ============Initialize Pip============
+initPip
+Retval=$?
+if [ $Retval -ne 0 ]; then
+    cd $RESTORE_WD
+    return $Retval
 fi
 
 # ============Show information and ask to proceed============
@@ -151,21 +90,16 @@ fi
 #
 # <virtualenv_name>/lib/python2.7/site-packages: virtual environment, installed with pip
 
-PYTHON_EXECUTABLE=$(which $PYTHONBIN) # full path
-PYTHONFULLV=`$PYTHONBIN -c "import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)";`
-PYTHON_INCLUDE_DIR=`$PYTHONBIN -c "import distutils.sysconfig; print(distutils.sysconfig.get_python_inc());"`
-PYTHON_LIBRARY=`$PYTHONBIN -c "import distutils.sysconfig,os; print(os.path.join(distutils.sysconfig.get_config_var('LIBDIR'),distutils.sysconfig.get_config_var('LDLIBRARY')));"`
-
-echo -e "${hcol}Python version: $PYTHONFULLV ${ncol}"
-echo -e "${hcol}Python location: $PYTHON_EXECUTABLE ${ncol}"
-echo -e "${hcol}Python include: $PYTHON_INCLUDE_DIR ${ncol}"
-echo -e "${hcol}Python library: $PYTHON_LIBRARY ${ncol}"
-echo -e "${hcol}Pip:$($PIPBIN --version| awk '{$1= ""; print $0}')${ncol}"
+cprint "Python version: $PYTHONFULLV"
+cprint "Python location: $PYTHON_EXECUTABLE"
+cprint "Python include: $PYTHON_INCLUDE_DIR"
+cprint "Python library: $PYTHON_LIBRARY"
+cprint "Pip:$($PIPBIN --version| awk '{$1= ""; print $0}')"
 
 if [[ -z $FORCECHOICE ]]; then
-  read -p "Approximately 12GB of data will added to \"$(pwd)\". Continue (Y/n)?" CHOICE
+    read -p "Approximately 12GB of data will added to \"$(pwd)\". Continue (Y/n)?" CHOICE
 else
-  CHOICE=$FORCECHOICE
+    CHOICE=$FORCECHOICE
 fi
 case "$CHOICE" in 
   y|Y ) ;;
@@ -176,74 +110,80 @@ case "$CHOICE" in
 esac
 
 # ============Install basics============
-echo -e "${hcol}Install basics ...${ncol}"
+cprint "Install basics ..."
 if [[ $NOTDRY == true && $SYSTEM_PRIVILIGES == true ]]; then
-  sudo -E apt-get -y install build-essential cmake curl wget git
+    sudo -E apt-get -y install make build-essential cmake curl wget git
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))
 BUILDSTEPS=$(( $BUILDSTEPS+1 ))
 
 # ============Install system dependencies============
-echo -e "${hcol}Install python module dependencies ...${ncol}"
-if [[ $NOTDRY == true && $SYSTEM_PRIVILIGES == true ]]; then
-  sudo -E apt-get install $PYTHONBINAPT-qt4 # pymca
-  sudo -E apt-get -y install libgeos-dev # shapely
-  sudo -E apt-get -y install opencl-headers # pyopencl
-  sudo -E apt-get -y install libffi-dev # pyopencl
-  sudo -E apt-get -y install libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev # pymca
+cprint "Install python module dependencies ..."
+if [[ $SYSTEM_PRIVILIGES == true ]]; then
+    if [[ $NOTDRY == true ]]; then
+        sudo -E apt-get -y install $PYTHONBINAPT-qt4 # pymca
+        sudo -E apt-get -y install libgeos-dev # shapely
+        sudo -E apt-get -y install opencl-headers # pyopencl
+        sudo -E apt-get -y install libffi-dev # pyopencl
+        sudo -E apt-get -y install libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev # pymca
+    fi
+    BUILDSTEP=$(( $BUILDSTEP+1 ))
+    BUILDSTEPS=$(( $BUILDSTEPS+1 ))
+else
+    source $SCRIPT_ROOT/install-opencl.sh # pyopencl
+    cd $INSTALL_WD
+
+    source $SCRIPT_ROOT/install-libgeos.sh # shapely
+    cd $INSTALL_WD
 fi
 
-BUILDSTEP=$(( $BUILDSTEP+1 ))
-BUILDSTEPS=$(( $BUILDSTEPS+1 ))
-
 # ============Install modules============
-echo -e "${hcol}Install python modules ...${ncol}"
+cprint "Install python modules ..."
 if [[ $NOTDRY == true ]]; then
-  $PIPBIN install --upgrade setuptools
-  $PIPBIN install --upgrade wheel
-  $PIPBIN install --upgrade numpy # silx
-  $PIPBIN install --upgrade mako # pyopencl
+    $PIPBIN install --upgrade setuptools
+    $PIPBIN install --upgrade wheel
+    $PIPBIN install --upgrade numpy # silx
+    $PIPBIN install --upgrade mako # pyopencl
 
-  $PIPBIN install --upgrade -r $SPECTROCRUNCH_ROOT/requirements.txt
-  $PIPBIN install --upgrade --egg pymca #TODO: wait for pymca to get fixed
+    $PIPBIN install --upgrade -r $SCRIPT_ROOT/../requirements.txt
+    $PIPBIN install --upgrade --egg pymca #TODO: wait for pymca to get fixed
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))
 BUILDSTEPS=$(( $BUILDSTEPS+1 ))
 
 # ============Custom installation============
-source $SPECTROCRUNCH_ROOT/tools/install-xraylib.sh
+source $SCRIPT_ROOT/install-xraylib.sh
 cd $INSTALL_WD
 
-source $SPECTROCRUNCH_ROOT/tools/install-fdmnes.sh
+source $SCRIPT_ROOT/install-fdmnes.sh
 cd $INSTALL_WD
 
-source $SPECTROCRUNCH_ROOT/tools/install-simpleelastix.sh
+source $SCRIPT_ROOT/install-simpleelastix.sh
 cd $INSTALL_WD
 
 # ============Cleanup============
-echo -e "${hcol}Cleaning up ...${ncol}"
+cprint "Cleaning up ..."
 cd $RESTORE_WD
 
 if [[ $NOTDRY == true ]]; then
-  if [[ $SYSTEM_PRIVILIGES == true ]]; then
-    sudo -E apt-get -y autoremove
-  else
-    PATH=$HOME/.local:$PATH
-    echo -e "${hcol}Make sure to add PATH=\$HOME/.local:\$PATH to your bashrc file.${ncol}"
-  fi
+    if [[ $SYSTEM_PRIVILIGES == true ]]; then
+        sudo -E apt-get -y autoremove
+    else
+        cprint "Variables have been added to $SPECTROCRUNCHRC."
+    fi
 
-  if [[ $TIMELEFT == true ]]; then
-      echo -e "${hcol}All done ($BUILDSTEP/$BUILDSTEPS)! You should now be able to install spectrocrunch.${ncol}"
-  else
-      echo -e "${hcol}Not everything has been build due to time restrictions. Run the script again ($BUILDSTEP/$BUILDSTEPS).${ncol}"
-  fi
+    if [[ $TIMELEFT == true ]]; then
+        cprint "All done ($BUILDSTEP/$BUILDSTEPS)! You should now be able to install spectrocrunch."
+    else
+        cprint "Not everything has been build due to time restrictions. Run the script again ($BUILDSTEP/$BUILDSTEPS)."
+    fi
 else
-  echo -e "${hcol}Dry build $BUILDSTEP/$BUILDSTEPS.${ncol}"
+    cprint "Dry build $BUILDSTEP/$BUILDSTEPS."
 fi
 
 ELAPSED_TIME=$(($SECONDS - $START_TIME))
-echo -e "${hcol}Total execution time = $(( $ELAPSED_TIME/60 )) min${ncol}"
+cprint "Total execution time = $(( $ELAPSED_TIME/60 )) min"
 
 

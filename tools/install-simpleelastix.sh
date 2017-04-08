@@ -1,71 +1,34 @@
 #!/bin/bash
 # 
-# Install xraylib on Linux.
+# Install simpleelastix on Linux.
 # 
 
 # ============Initialize environment============
-if [ -z $PYTHONBIN ]; then
-    PYTHONBIN=python
-fi
-if [ -z $PYTHONBINAPT ]; then
-    PYTHONBINAPT=python
-fi
-PYTHON_EXECUTABLE=$(which $PYTHONBIN) # full path
-PYTHON_INCLUDE_DIR=`$PYTHONBIN -c "import distutils.sysconfig; print(distutils.sysconfig.get_python_inc());"`
-PYTHON_LIBRARY=`$PYTHONBIN -c "import distutils.sysconfig,os; print(os.path.join(distutils.sysconfig.get_config_var('LIBDIR'),distutils.sysconfig.get_config_var('LDLIBRARY')));"`
-
-if [ -z $NOTDRY ]; then
-    NOTDRY=true
-fi
-
-if [ -z $BUILDSTEP ]; then
-    BUILDSTEP=0
-    BUILDSTEPS=0
-fi
-
-if [ -z $TIMELEFT ]; then
-    TIMELEFT=true
-fi
-
-if [ -z $TIMELIMITED ]; then
-    TIMELIMITED=false
-fi
-
-if [ -z $SYSTEM_PRIVILIGES ]; then
-    if [[ -z "$((sudo -n true) 2>&1)" ]]; then
-        export SYSTEM_PRIVILIGES=true 
-    else
-        export SYSTEM_PRIVILIGES=false
-    fi
-fi
+SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $SCRIPT_ROOT/funcs.sh
+initEnv
 
 # ============Install dependencies============
-echo -e "${hcol}Install SimpleElastix dependencies ...${ncol}"
+cprint "Install SimpleElastix dependencies ..."
 if [[ $NOTDRY == true && $SYSTEM_PRIVILIGES == true ]]; then
     sudo -E apt-get -y install swig
-    sudo -E apt-get install $PYTHONBINAPT-dev
+    sudo -E apt-get -y install $PYTHONBINAPT-dev
 fi
-
-RESTORE_WD=$(pwd)
-SCRIPT_WD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # cmake
 dpkg --compare-versions "$(cmake --version | head -1 | awk '{print $3}')" "lt" "3.0.0"
 if [ $? = 0 ]; then
-    source $SCRIPT_WD/install-cmake.sh
-    cd $RESTORE_WD
-else
-    BUILDSTEP=$(( $BUILDSTEP+1 ))
+    source $SCRIPT_ROOT/install-cmake.sh
+    cd $INSTALL_WD
 fi
-BUILDSTEPS=$(( $BUILDSTEPS+1 ))
 
 # ITK
-#source $SCRIPT_WD/install-itk.sh
-#cd $RESTORE_WD
+#source $SCRIPT_ROOT/install-itk.sh
+#cd $INSTALL_WD
 
 # ============Install simpleelastix============
 if [ ! -f simpleelastix/build/SimpleITK-build/Wrapping/Python/Packaging/setup.py ]; then
-    echo -e "${hcol}Download SimpleElastix ...${ncol}"
+    cprint "Download SimpleElastix ..."
     mkdir -p simpleelastix
     cd simpleelastix
     if [[ $NOTDRY == true && ! -d SimpleElastix ]]; then
@@ -75,7 +38,7 @@ if [ ! -f simpleelastix/build/SimpleITK-build/Wrapping/Python/Packaging/setup.py
     cd build
 
     if [[ $TIMELEFT == true && ! -f Makefile ]]; then
-        echo -e "${hcol}Configure SimpleElastix ...${ncol}"
+        cprint "Configure SimpleElastix ..."
         if [[ $NOTDRY == true ]]; then
             # http://simpleelastix.readthedocs.io/GettingStarted.html#manually-building-on-linux
             #
@@ -103,8 +66,8 @@ if [ ! -f simpleelastix/build/SimpleITK-build/Wrapping/Python/Packaging/setup.py
             if [[ $SYSTEM_PRIVILIGES == true ]]; then
                 cmake $CMAKE_PARAMS ../SimpleElastix/SuperBuild
             else
-                mkdir -p $HOME/.local
-                cmake -DCMAKE_INSTALL_PREFIX:PATH="$HOME/.local" $CMAKE_PARAMS ../SimpleElastix/SuperBuild
+                mkdir -p $SPECTROCRUNCHLOCAL
+                cmake -DCMAKE_INSTALL_PREFIX:PATH="$SPECTROCRUNCHLOCAL" $CMAKE_PARAMS ../SimpleElastix/SuperBuild
             fi
         fi
         
@@ -112,7 +75,7 @@ if [ ! -f simpleelastix/build/SimpleITK-build/Wrapping/Python/Packaging/setup.py
     fi
 
     if [[ $TIMELEFT == true ]]; then
-        echo -e "${hcol}Build SimpleElastix ...${ncol}"
+        cprint "Build SimpleElastix ..."
         OMP_NUM_THREADS=2
         if [[ $NOTDRY == true ]]; then
             make -s -j2
@@ -130,13 +93,21 @@ fi
 BUILDSTEPS=$(( $BUILDSTEPS+2 ))
 
 if [[ $TIMELEFT == true ]]; then
-    echo -e "${hcol}Install SimpleElastix ...${ncol}"
+    cprint "Install SimpleElastix ..."
     if [[ $NOTDRY == true ]]; then
         cd ./SimpleITK-build/Wrapping/Python/Packaging
         $PYTHONBIN setup.py install
+
+        if [[ $SYSTEM_PRIVILIGES == false ]]; then
+            addProfile $SPECTROCRUNCHRC "# Installed simpleelastix: $SPECTROCRUNCHLOCALSTR"
+            addLibPath $SPECTROCRUNCHLOCAL/lib
+            addLibPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/lib"
+        fi
     fi
 
     BUILDSTEP=$(( $BUILDSTEP+1 ))
 fi
 
 BUILDSTEPS=$(( $BUILDSTEPS+1 ))
+cd $INSTALL_WD
+
