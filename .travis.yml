@@ -1,26 +1,21 @@
-# Original script from https://github.com/silx-kit/pyFAI
-
-os:
-  - linux
-#  - osx
+# Original script from https://github.com/silx-kit/silx
 
 sudo: required
 
 language: python
-python:
-  - "2.7"
-#  - "3.2"
-#  - "3.3"
-#  - "3.4"
-#  - "3.5"
-#  - "3.6"
 
 notifications:
   email: false
 
 env:
+  global:
   - CACHED_FOLDER=$HOME/cached
   - BUILD_FOLDER=$HOME/build
+
+matrix:
+  include:
+    - python: 2.7
+      os: linux
 
 cache:
   directories:
