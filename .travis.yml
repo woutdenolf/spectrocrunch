@@ -20,6 +20,7 @@ notifications:
 
 env:
   - CACHED_FOLDER=$HOME/cached
+  - BUILD_FOLDER=$HOME/build
 
 cache:
   directories:
@@ -27,13 +28,13 @@ cache:
   - $CACHED_FOLDER
 
 before_install:
-  # Install CI specific build dependencies
-  - cd $CACHED_FOLDER
+  - mkdir -p $CACHED_FOLDER
+  - mkdir -p $BUILD_FOLDER
   - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . $TRAVIS_BUILD_DIR/ci/prepare-travis.sh; fi"
 
 install:
   # Install general build dependencies
-  - cd $CACHED_FOLDER
+  - cd $BUILD_FOLDER
   - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . $TRAVIS_BUILD_DIR/tools/prepare_install-linux.sh -y; fi"
 
   # Package directory  
@@ -48,7 +49,7 @@ install:
   - "python setup.py sdist bdist_wheel"
 
   # Install package
-  - "pip install --pre --no-index --find-links dist/ Spectrocrunch"
+  - "pip install --pre --no-index --find-links dist/"
 
 script:
   # Test the installed package
