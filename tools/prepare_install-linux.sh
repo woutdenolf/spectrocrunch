@@ -124,7 +124,7 @@ if [[ $SYSTEM_PRIVILIGES == true ]]; then
     if [[ $NOTDRY == true ]]; then
         sudo -E apt-get -y install $PYTHONBINAPT-qt4 # pymca
         sudo -E apt-get -y install libgeos-dev # shapely
-        sudo -E apt-get -y install opencl-headers # pyopencl
+        sudo -E apt-get -y install ocl-icd-opencl-dev opencl-headers # pyopencl
         sudo -E apt-get -y install libffi-dev # pyopencl
         sudo -E apt-get -y install libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev # pymca
     fi

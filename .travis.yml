@@ -29,8 +29,6 @@ cache:
 before_install:
   # Install CI specific build dependencies
   - cd $CACHED_FOLDER
-  - ls
-  - ls -all $TRAVIS_BUILD_DIR
   - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . $TRAVIS_BUILD_DIR/ci/prepare-travis.sh; fi"
 
 install:
