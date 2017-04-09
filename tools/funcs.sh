@@ -27,7 +27,7 @@ addProfile()
 {
 	addFile "$@"
 
-    if [[ $1 == $SPECTROCRUNCHRC && $SYSTEM_PRIVILIGES == false ]]; then
+    if [[ $1 == $SPECTROCRUNCHRC && $INSTALL_SYSTEMWIDE == false ]]; then
         addFile "$HOME/.bashrc" "[ -r $SPECTROCRUNCHRC ] && source \"$SPECTROCRUNCHRC\""
     fi
 
@@ -131,6 +131,10 @@ initPip()
 
     export PIPBIN=$PIPBINAPT
 
+    if [[ -z `which $PIPBIN` ]]; then
+        $PYTHONBIN -m ensurepip
+    fi
+
     if [[ -z `which $PIPBIN` && $SYSTEM_PRIVILIGES == true && $NOTDRY == true ]]; then
         sudo -E apt-get -y install $PIPBINAPT
     fi
@@ -209,8 +213,12 @@ _initEnv()
         fi
     fi
 
+    if [[ -z $INSTALL_SYSTEMWIDE || $RESET == true ]]; then
+        INSTALL_SYSTEMWIDE=$SYSTEM_PRIVILIGES
+    fi
+
     if [[ -z $SPECTROCRUNCHRC || $RESET == true ]]; then
-        if [[ $SYSTEM_PRIVILIGES == true ]]; then
+        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
             SPECTROCRUNCHRC="/etc/profile.d/spectrocrunchrc.sh"
         else
             SPECTROCRUNCHRC="$HOME/.spectrocrunchrc"
@@ -218,7 +226,7 @@ _initEnv()
     fi
 
     if [[ -z $SPECTROCRUNCHLOCAL || $RESET == true ]]; then
-        if [[ $SYSTEM_PRIVILIGES == true ]]; then
+        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
             SPECTROCRUNCHLOCAL="/usr/local"
         else
             SPECTROCRUNCHLOCAL="$HOME/.local"
@@ -226,7 +234,7 @@ _initEnv()
     fi
 
     if [[ -z $SPECTROCRUNCHLOCALSTR || $RESET == true ]]; then
-        if [[ $SYSTEM_PRIVILIGES == true ]]; then
+        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
             SPECTROCRUNCHLOCALSTR="/usr/local"
         else
             SPECTROCRUNCHLOCALSTR="\$HOME/.local"
@@ -234,7 +242,7 @@ _initEnv()
     fi
 
     if [[ -z $SPECTROCRUNCHOPT || $RESET == true ]]; then
-        if [[ $SYSTEM_PRIVILIGES == true ]]; then
+        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
             SPECTROCRUNCHOPT="/opt"
         else
             SPECTROCRUNCHOPT="$HOME/.local"
@@ -242,7 +250,7 @@ _initEnv()
     fi
 
     if [[ -z $SPECTROCRUNCHOPTSTR || $RESET == true ]]; then
-        if [[ $SYSTEM_PRIVILIGES == true ]]; then
+        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
             SPECTROCRUNCHOPTSTR="/opt"
         else
             SPECTROCRUNCHOPTSTR="\$HOME/.local"

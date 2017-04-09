@@ -21,7 +21,7 @@ cd cmake-3.7.2
 if [[ ! -f Makefile ]]; then
     cprint "Configure cmake ..."
     if [[ $NOTDRY == true ]]; then
-        if [[ $SYSTEM_PRIVILIGES == true ]]; then
+        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
             ./configure
         else
             mkdir -p $SPECTROCRUNCHLOCAL

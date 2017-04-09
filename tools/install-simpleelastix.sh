@@ -63,7 +63,7 @@ if [ ! -f simpleelastix/build/SimpleITK-build/Wrapping/Python/Packaging/setup.py
                           -DWRAP_RUBY:BOOL=OFF \
                           -DWRAP_TCL:BOOL=OFF"
 
-            if [[ $SYSTEM_PRIVILIGES == true ]]; then
+            if [[ $INSTALL_SYSTEMWIDE == true ]]; then
                 cmake $CMAKE_PARAMS ../SimpleElastix/SuperBuild
             else
                 mkdir -p $SPECTROCRUNCHLOCAL

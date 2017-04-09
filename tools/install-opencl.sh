@@ -9,21 +9,15 @@ source $SCRIPT_ROOT/funcs.sh
 initEnv
 
 # ============Install AMD SDK============
-#export AMDAPPSDKROOT=$SPECTROCRUNCHOPT/AMDAPPSDK
-#AMDAPPSDKROOTSTR=$SPECTROCRUNCHOPTSTR/AMDAPPSDK
-#if [[ $SYSTEM_PRIVILIGES == true ]]; then    
-#    export OPENCL_VENDOR_PATH=/etc/OpenCL/vendors
-#    OPENCL_VENDOR_PATHSTR="/etc/OpenCL/vendors"
-#else
-#    export OPENCL_VENDOR_PATH=$AMDAPPSDKROOT/etc/OpenCL/vendors
-#    OPENCL_VENDOR_PATHSTR="\$AMDAPPSDKROOT/etc/OpenCL/vendors"
-#fi
-
-# TODO: for Travis
-export AMDAPPSDKROOT=$HOME/.local/AMDAPPSDK
-AMDAPPSDKROOTSTR="\$HOME/.local/AMDAPPSDK"
-export OPENCL_VENDOR_PATH=$AMDAPPSDKROOT/etc/OpenCL/vendors
-OPENCL_VENDOR_PATHSTR="\$AMDAPPSDKROOT/etc/OpenCL/vendors"
+export AMDAPPSDKROOT=$SPECTROCRUNCHOPT/AMDAPPSDK
+AMDAPPSDKROOTSTR=$SPECTROCRUNCHOPTSTR/AMDAPPSDK
+if [[ $INSTALL_SYSTEMWIDE == true ]]; then    
+    export OPENCL_VENDOR_PATH=/etc/OpenCL/vendors
+    OPENCL_VENDOR_PATHSTR="/etc/OpenCL/vendors"
+else
+    export OPENCL_VENDOR_PATH=$AMDAPPSDKROOT/etc/OpenCL/vendors
+    OPENCL_VENDOR_PATHSTR="\$AMDAPPSDKROOT/etc/OpenCL/vendors"
+fi
 
 mkdir -p amd
 cd amd

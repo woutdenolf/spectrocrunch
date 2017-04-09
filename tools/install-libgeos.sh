@@ -8,6 +8,16 @@ SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $SCRIPT_ROOT/funcs.sh
 initEnv
 
+# ============Install dependencies============
+cprint "Install libgeos dependencies ..."
+
+# cmake
+dpkg --compare-versions "$(cmake --version | head -1 | awk '{print $3}')" "lt" "3.0.0"
+if [ $? = 0 ]; then
+    source $SCRIPT_ROOT/install-cmake.sh
+    cd $INSTALL_WD
+fi
+
 # ============Install libgeos============
 if [ ! -f libgeos/build/lib/libgeos.so ]; then
     cprint "Download libgeos ..."
@@ -21,7 +31,7 @@ if [ ! -f libgeos/build/lib/libgeos.so ]; then
 
     cprint "Configure libgeos ..."
     if [[ $NOTDRY == true ]]; then
-        if [[ $SYSTEM_PRIVILIGES == true ]]; then
+        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
             cmake ../geos
         else
             mkdir -p $SPECTROCRUNCHLOCAL

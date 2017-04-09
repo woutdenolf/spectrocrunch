@@ -42,7 +42,7 @@ while getopts "v:uythd" opt; do
       TIMELIMITED=true
       ;;
     u)
-      SYSTEM_PRIVILIGES=false
+      INSTALL_SYSTEMWIDE=false
       ;;
     d)
       NOTDRY=false

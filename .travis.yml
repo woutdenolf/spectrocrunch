@@ -30,7 +30,7 @@ before_install:
 install:
   # Install general build dependencies
   - cd $BUILD_FOLDER
-  - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . $TRAVIS_BUILD_DIR/tools/prepare_install-linux.sh -y; fi"
+  - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . $TRAVIS_BUILD_DIR/tools/prepare_install-linux.sh -y -u; fi"
 
   # Package directory  
   - cd $TRAVIS_BUILD_DIR

@@ -28,7 +28,7 @@ if [ ! -f xraylib/xraylib-3.2.0/python/.libs/_xraylib.so ]; then
 
     cprint "Configure xraylib ..."
     if [[ $NOTDRY == true ]]; then
-        if [[ $SYSTEM_PRIVILIGES == true ]]; then
+        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
             ./configure --enable-python \
                         --enable-python-integration \
                         --disable-java \
