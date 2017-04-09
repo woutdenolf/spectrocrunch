@@ -45,12 +45,10 @@ if [[ $NOTDRY == true ]]; then
     fi
 
     # Environment
-    if [[ $SYSTEM_PRIVILIGES == false ]]; then
-        addProfile $SPECTROCRUNCHRC "# Installed fdmnes: $SPECTROCRUNCHOPTSTR/fdmnes"
-        if [ ! -d /sware/exp/fdmnes ]; then
-            addBinPath $SPECTROCRUNCHLOCAL/bin
-            addBinPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/bin"
-        fi
+    addProfile $SPECTROCRUNCHRC "# Installed fdmnes: $SPECTROCRUNCHOPTSTR/fdmnes"
+    if [ ! -d /sware/exp/fdmnes ]; then
+        addBinPath $SPECTROCRUNCHLOCAL/bin
+        addBinPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/bin"
     fi
 fi
 

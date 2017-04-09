@@ -11,6 +11,7 @@ if [ ! -d ${PYTHONV} ]; then
     LINK=ftp://ftp.esrf.fr/tmp/spectrocrunch/$FILE
 
     # Download
+    cd $CACHED_FOLDER
     if [ ! -f $FILE ]; then
         echo "Looking for pre-build libraries ..."
         NOSUCHFILE="$( wget --spider $LINK 2>&1 > /dev/null | grep No | wc -l)"
@@ -22,8 +23,8 @@ if [ ! -d ${PYTHONV} ]; then
     # Unpack
     if [ -f $FILE ]; then
         echo "Unpack pre-build libraries ..."
-        tar -xzf $FILE
-        rm -f $FILE
+        tar -xzf $FILE -C $BUILD_FOLDER
     fi
+    cd $BUILD_FOLDER
 fi
 

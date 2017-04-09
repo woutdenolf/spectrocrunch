@@ -98,11 +98,9 @@ if [[ $TIMELEFT == true ]]; then
         cd ./SimpleITK-build/Wrapping/Python/Packaging
         $PYTHONBIN setup.py install
 
-        if [[ $SYSTEM_PRIVILIGES == false ]]; then
-            addProfile $SPECTROCRUNCHRC "# Installed simpleelastix: $SPECTROCRUNCHLOCALSTR"
-            addLibPath $SPECTROCRUNCHLOCAL/lib
-            addLibPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/lib"
-        fi
+        addProfile $SPECTROCRUNCHRC "# Installed simpleelastix: $SPECTROCRUNCHLOCALSTR"
+        addLibPath $SPECTROCRUNCHLOCAL/lib
+        addLibPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/lib"
     fi
 
     BUILDSTEP=$(( $BUILDSTEP+1 ))

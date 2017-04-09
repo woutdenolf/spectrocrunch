@@ -42,11 +42,9 @@ cprint "Install libgeos ..."
 if [[ $NOTDRY == true ]]; then
     mexec "make install -s"
 
-    if [[ $SYSTEM_PRIVILIGES == false ]]; then
-        addProfile $SPECTROCRUNCHRC "# Installed libgeos: $SPECTROCRUNCHLOCALSTR"
-        addLibPath $SPECTROCRUNCHLOCAL/lib
-        addLibPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/lib"
-    fi
+    addProfile $SPECTROCRUNCHRC "# Installed libgeos: $SPECTROCRUNCHLOCALSTR"
+    addLibPath $SPECTROCRUNCHLOCAL/lib
+    addLibPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/lib"
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))

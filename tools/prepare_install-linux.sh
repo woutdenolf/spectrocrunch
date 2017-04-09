@@ -123,23 +123,23 @@ cprint "Install python module dependencies ..."
 if [[ $SYSTEM_PRIVILIGES == true ]]; then
     if [[ $NOTDRY == true ]]; then
         sudo -E apt-get -y install $PYTHONBINAPT-qt4 # pymca
-        sudo -E apt-get -y install libgeos-dev # shapely
-        sudo -E apt-get -y install ocl-icd-opencl-dev opencl-headers # pyopencl
+        #sudo -E apt-get -y install libgeos-dev # shapely
+        #sudo -E apt-get -y install ocl-icd-opencl-dev opencl-headers # pyopencl
         sudo -E apt-get -y install libffi-dev # pyopencl
         sudo -E apt-get -y install libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev # pymca
     fi
     BUILDSTEP=$(( $BUILDSTEP+1 ))
     BUILDSTEPS=$(( $BUILDSTEPS+1 ))
-else
-    source $SCRIPT_ROOT/install-opencl.sh # pyopencl
-    cd $INSTALL_WD
-
-    source $SCRIPT_ROOT/install-libgeos.sh # shapely
-    cd $INSTALL_WD
 fi
 
+source $SCRIPT_ROOT/install-opencl.sh # pyopencl
+cd $INSTALL_WD
+
+source $SCRIPT_ROOT/install-libgeos.sh # shapely
+cd $INSTALL_WD
+
 # ============Install modules============
-cprint "Install python modules ..."
+cprint "Install python modules available on pypi..."
 if [[ $NOTDRY == true ]]; then
     $PIPBIN install --upgrade setuptools
     $PIPBIN install --upgrade wheel
@@ -154,6 +154,7 @@ BUILDSTEP=$(( $BUILDSTEP+1 ))
 BUILDSTEPS=$(( $BUILDSTEPS+1 ))
 
 # ============Custom installation============
+cprint "Install python modules not available on pypi..."
 source $SCRIPT_ROOT/install-xraylib.sh
 cd $INSTALL_WD
 

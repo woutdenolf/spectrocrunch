@@ -44,6 +44,16 @@ addBinPath()
     fi
 }
 
+# ============addInclPath============
+# Add path to $CPATH
+addInclPath()
+{
+	if [[ ":$CPATH:" != *":$1:"* ]]; then
+        export CPATH=$1:$CPATH
+    fi
+}
+
+
 # ============addLibPath============
 # Add path to $LD_LIBRARY_PATH
 addLibPath()
@@ -61,6 +71,13 @@ addLibPath()
 addBinPathProfile()
 {
     addProfile $1 "export PATH=$2:\$PATH"
+}
+
+# ============addInclPathProfile============
+# Add path to $CPATH premanently
+addInclPathProfile()
+{
+    addProfile $1 "export CPATH=$2:\$CPATH"
 }
 
 # ============addLibPathProfile============

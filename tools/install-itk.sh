@@ -82,11 +82,9 @@ if [[ $TIMELEFT == true ]]; then
     if [[ $NOTDRY == true ]]; then
         mexec "make install -s"
 
-        if [[ $SYSTEM_PRIVILIGES == false ]]; then
-            addProfile $SPECTROCRUNCHRC "# Installed ITK: $SPECTROCRUNCHLOCALSTR"
-            addLibPath $SPECTROCRUNCHLOCAL/lib
-            addLibPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/lib"
-        fi
+        addProfile $SPECTROCRUNCHRC "# Installed ITK: $SPECTROCRUNCHLOCALSTR"
+        addLibPath $SPECTROCRUNCHLOCAL/lib
+        addLibPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/lib"
 
         # Variable needed by simpleelastix:
         ITK_DIR=$SPECTROCRUNCHLOCAL/lib/cmake

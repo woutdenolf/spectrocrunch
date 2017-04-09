@@ -62,6 +62,7 @@ if [[ $NOTDRY == true ]]; then
         addLibPath $AMDAPPSDKROOT/lib/x86
         addLibPathProfile $SPECTROCRUNCHRC "\$AMDAPPSDKROOT/lib/x86"
     fi
+    addInclPath $AMDAPPSDKROOT/include
 
     # Show info
     if [ "$OS_ARCH" == "64" ]; then

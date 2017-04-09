@@ -70,13 +70,11 @@ cprint "Install xraylib ..."
 if [[ $NOTDRY == true ]]; then
     mexec "make install -s"
 
-    if [[ $SYSTEM_PRIVILIGES == false ]]; then
-        addProfile $SPECTROCRUNCHRC "# Installed xraylib: $SPECTROCRUNCHOPTSTR/xraylib"
-        addLibPath $SPECTROCRUNCHLOCAL/lib
-        addLibPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/lib"
-        addBinPath $SPECTROCRUNCHLOCAL/bin
-        addBinPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/bin"
-    fi
+    addProfile $SPECTROCRUNCHRC "# Installed xraylib: $SPECTROCRUNCHOPTSTR/xraylib"
+    addLibPath $SPECTROCRUNCHLOCAL/lib
+    addLibPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/lib"
+    addBinPath $SPECTROCRUNCHLOCAL/bin
+    addBinPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/bin"
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))

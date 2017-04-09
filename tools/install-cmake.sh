@@ -40,9 +40,7 @@ if [[ $NOTDRY == true ]]; then
     mexec "make install -s"
 
     # Add path just for this installation script
-    if [[ $SYSTEM_PRIVILIGES == false ]]; then
-        addBinPath $SPECTROCRUNCHLOCAL/bin
-    fi
+    addBinPath $SPECTROCRUNCHLOCAL/bin
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))
