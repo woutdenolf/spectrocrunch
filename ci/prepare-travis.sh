@@ -13,11 +13,8 @@ if [ ! -d ${PYTHONV} ]; then
     # Download
     cd $CACHED_FOLDER
     if [ ! -f $FILE ]; then
-        echo "Looking for pre-build libraries ..."
-        NOSUCHFILE="$( wget --spider $LINK 2>&1 > /dev/null | grep No | wc -l)"
-        if [ $NOSUCHFILE -eq 0 ]; then
-            wget $LINK
-        fi
+        echo "Download pre-build libraries ..."
+        wget ${LINK}
     fi
 
     # Unpack
@@ -26,8 +23,5 @@ if [ ! -d ${PYTHONV} ]; then
         tar -xzf $FILE -C $BUILD_FOLDER
     fi
     cd $BUILD_FOLDER
-    pwd
-    ls
-
 fi
 
