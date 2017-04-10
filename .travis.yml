@@ -10,7 +10,7 @@ notifications:
 env:
   global:
   - CACHED_FOLDER=$HOME/cached
-  - BUILD_FOLDER=$HOME/build
+  - BUILD_FOLDER=$HOME
 
 matrix:
   include:
