@@ -77,12 +77,12 @@ Accept when:
   Python library: /opt/python/2.7.12/lib/libpython2.7.so 
   Pip: 9.0.1 from /home/travis/virtualenv/python2.7.12/lib/python2.7/site-packages (python 2.7) 
 
-6. Create pre-build and upload to ftp.esrf.fr/tmp/spectrocrunch:
+6. Create pre-build and upload:
 
 .. code-block:: bash
 
-  tar -czf travis.python2.7.tgz 2.7/simpleelastix
-
+  tar -czf spectrocrunch.travis.python2.7.tgz 2.7/simpleelastix 2.7/cmake
+  curl --upload-file spectrocrunch.travis.python2.7.tgz https://transfer.sh/spectrocrunch.travis.python2.7.tgz
 
 .. _localrefappveyor:
 

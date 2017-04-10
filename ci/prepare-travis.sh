@@ -7,8 +7,8 @@
 PYTHONV=`python -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)";`
 
 if [ ! -d ${PYTHONV} ]; then
-    FILE=travis.python${PYTHONV}.tgz
-    LINK=ftp://ftp.esrf.fr/tmp/spectrocrunch/$FILE
+    FILE=spectrocrunch.travis.python${PYTHONV}.tgz
+    LINK=https://transfer.sh/fGRlO/$FILE
 
     # Download
     cd $CACHED_FOLDER
