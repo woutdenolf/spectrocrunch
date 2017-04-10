@@ -13,10 +13,9 @@ mkdir -p fdmnes
 cd fdmnes
 
 if [ ! -d /sware/exp/fdmnes ]; then
-    FDMNESVERSION=`curl -s https://api.github.com/repos/gudasergey/fdmnes/releases | grep tag_name | head -n 1 | cut -d '"' -f 4`
-    FDMNESZIPNAME=fdmnes_${FDMNESVERSION}.zip
-    FDMNESLINK=http://neel.cnrs.fr/IMG/zip/${FDMNESZIPNAME}
-
+    FDMNESLINK=`wget -O - -q http://neel.cnrs.fr/spip.php?article3137 | grep  -o 'http://neel.cnrs.fr/IMG/zip/[^"]*'`
+    FDMNESZIPNAME=$(basename $FDMNESLINK)
+    
     if [ ! -f ${FDMNESZIPNAME} ]; then
         cprint "Download fdmnes ..."
 
@@ -61,7 +60,7 @@ cprint "Install pyfdmnes ..."
 if [[ $NOTDRY == true ]]; then
     cd pyFDMNES
 
-    echo "[global]" >> setup.cfg
+    echo "[global]" > setup.cfg
     echo "fdmnes_path=$SPECTROCRUNCHLOCAL/bin/fdmnes" >> setup.cfg
 
     $PYTHONBIN setup.py build -f

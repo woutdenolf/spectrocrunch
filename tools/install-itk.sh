@@ -80,7 +80,7 @@ BUILDSTEPS=$(( $BUILDSTEPS+2 ))
 if [[ $TIMELEFT == true ]]; then
     cprint "Install ITK ..."
     if [[ $NOTDRY == true ]]; then
-        mexec "make install -s"
+        mmakeinstall
 
         addProfile $SPECTROCRUNCHRC "# Installed ITK: $SPECTROCRUNCHLOCALSTR"
         addLibPath $SPECTROCRUNCHLOCAL/lib

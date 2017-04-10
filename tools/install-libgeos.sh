@@ -50,7 +50,7 @@ fi
 
 cprint "Install libgeos ..."
 if [[ $NOTDRY == true ]]; then
-    mexec "make install -s"
+    mmakeinstall
 
     addProfile $SPECTROCRUNCHRC "# Installed libgeos: $SPECTROCRUNCHLOCALSTR"
     addLibPath $SPECTROCRUNCHLOCAL/lib

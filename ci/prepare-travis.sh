@@ -26,5 +26,8 @@ if [ ! -d ${PYTHONV} ]; then
         tar -xzf $FILE -C $BUILD_FOLDER
     fi
     cd $BUILD_FOLDER
+    pwd
+    ls
+
 fi
 

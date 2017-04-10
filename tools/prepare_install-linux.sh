@@ -95,6 +95,8 @@ cprint "Python location: $PYTHON_EXECUTABLE"
 cprint "Python include: $PYTHON_INCLUDE_DIR"
 cprint "Python library: $PYTHON_LIBRARY"
 cprint "Pip:$($PIPBIN --version| awk '{$1= ""; print $0}')"
+cprint "Root priviliges: $SYSTEM_PRIVILIGES"
+cprint "System wide installation: $INSTALL_SYSTEMWIDE"
 
 if [[ -z $FORCECHOICE ]]; then
     read -p "Approximately 12GB of data will added to \"$(pwd)\". Continue (Y/n)?" CHOICE
@@ -112,7 +114,7 @@ esac
 # ============Install basics============
 cprint "Install basics ..."
 if [[ $NOTDRY == true && $SYSTEM_PRIVILIGES == true ]]; then
-    sudo -E apt-get -y install make build-essential cmake curl wget git
+    mexec "apt-get -y install make build-essential cmake checkinstall curl wget git"
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))
@@ -122,11 +124,11 @@ BUILDSTEPS=$(( $BUILDSTEPS+1 ))
 cprint "Install python module dependencies ..."
 if [[ $SYSTEM_PRIVILIGES == true ]]; then
     if [[ $NOTDRY == true ]]; then
-        sudo -E apt-get -y install $PYTHONBINAPT-qt4 # pymca
-        #sudo -E apt-get -y install libgeos-dev # shapely
-        #sudo -E apt-get -y install ocl-icd-opencl-dev opencl-headers # pyopencl
-        sudo -E apt-get -y install libffi-dev # pyopencl
-        sudo -E apt-get -y install libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev # pymca
+        mexec "apt-get -y install $PYTHONBINAPT-qt4" # pymca
+        #mexec "apt-get -y install libgeos-dev" # shapely
+        #mexec "apt-get -y install ocl-icd-opencl-dev opencl-headers" # pyopencl
+        mexec "apt-get -y install libffi-dev" # pyopencl
+        mexec "apt-get -y install libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev" # pymca
     fi
     BUILDSTEP=$(( $BUILDSTEP+1 ))
     BUILDSTEPS=$(( $BUILDSTEPS+1 ))
@@ -170,7 +172,7 @@ cd $RESTORE_WD
 
 if [[ $NOTDRY == true ]]; then
     if [[ $SYSTEM_PRIVILIGES == true ]]; then
-        sudo -E apt-get -y autoremove
+        mexec "apt-get -y autoremove"
     else
         cprint "Variables have been added to $SPECTROCRUNCHRC."
     fi

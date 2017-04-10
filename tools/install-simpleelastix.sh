@@ -11,8 +11,8 @@ initEnv
 # ============Install dependencies============
 cprint "Install SimpleElastix dependencies ..."
 if [[ $NOTDRY == true && $SYSTEM_PRIVILIGES == true ]]; then
-    sudo -E apt-get -y install swig
-    sudo -E apt-get -y install $PYTHONBINAPT-dev
+    mexec "apt-get -y install swig"
+    mexec "apt-get -y install $PYTHONBINAPT-dev"
 fi
 
 # cmake

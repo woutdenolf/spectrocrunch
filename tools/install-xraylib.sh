@@ -11,8 +11,8 @@ initEnv
 # ============Install dependencies============
 cprint "Install xraylib dependencies ..."
 if [[ $NOTDRY == true && $SYSTEM_PRIVILIGES == true ]]; then
-    sudo -E apt-get -y install swig
-    sudo -E apt-get -y install $PYTHONBINAPT-dev
+    mexec "apt-get -y install swig"
+    mexec "apt-get -y install $PYTHONBINAPT-dev"
 fi
 
 # ============Install xraylib============
@@ -68,7 +68,7 @@ fi
 
 cprint "Install xraylib ..."
 if [[ $NOTDRY == true ]]; then
-    mexec "make install -s"
+    mmakeinstall
 
     addProfile $SPECTROCRUNCHRC "# Installed xraylib: $SPECTROCRUNCHOPTSTR/xraylib"
     addLibPath $SPECTROCRUNCHLOCAL/lib

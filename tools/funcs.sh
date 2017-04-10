@@ -4,7 +4,7 @@
 # 
 
 # ============addFile============
-# Add a line to a resource file
+# Add a line to a resource file when it doesn't exist yet
 addFile()
 {
 	local FILE="$1"
@@ -27,8 +27,12 @@ addProfile()
 {
 	addFile "$@"
 
-    if [[ $1 == $SPECTROCRUNCHRC && $INSTALL_SYSTEMWIDE == false ]]; then
-        addFile "$HOME/.bashrc" "[ -r $SPECTROCRUNCHRC ] && source \"$SPECTROCRUNCHRC\""
+    if [[ $1 == $SPECTROCRUNCHRC ]]; then
+        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
+            addFile "/etc/bash.bashrc" "[ -r $SPECTROCRUNCHRC ] && source \"$SPECTROCRUNCHRC\""
+        else
+            addFile "$HOME/.bashrc" "[ -r $SPECTROCRUNCHRC ] && source \"$SPECTROCRUNCHRC\""
+        fi
     fi
 
     Retval=$?
@@ -96,7 +100,7 @@ initPython()
     export PYTHONBIN=$PYTHONBINAPT
 
     if [[ -z `which $PYTHONBIN` && $SYSTEM_PRIVILIGES == true && $NOTDRY == true ]]; then
-        sudo -E apt-get -y install $PYTHONBINAPT $PYTHONBINAPT-dev $PYTHONBINAPT-qt4
+        mexec "apt-get -y install $PYTHONBINAPT $PYTHONBINAPT-dev $PYTHONBINAPT-qt4"
     fi
 
     if [[ -z `which $PYTHONBIN` ]]; then
@@ -136,7 +140,7 @@ initPip()
     fi
 
     if [[ -z `which $PIPBIN` && $SYSTEM_PRIVILIGES == true && $NOTDRY == true ]]; then
-        sudo -E apt-get -y install $PIPBINAPT
+        mexec "apt-get -y install $PIPBINAPT"
     fi
 
     if [[ -z `which $PIPBIN` ]]; then
@@ -217,44 +221,34 @@ _initEnv()
         INSTALL_SYSTEMWIDE=$SYSTEM_PRIVILIGES
     fi
 
-    if [[ -z $SPECTROCRUNCHRC || $RESET == true ]]; then
-        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
-            SPECTROCRUNCHRC="/etc/profile.d/spectrocrunchrc.sh"
-        else
-            SPECTROCRUNCHRC="$HOME/.spectrocrunchrc"
-        fi
+    if [[ $INSTALL_SYSTEMWIDE == true ]]; then
+        SPECTROCRUNCHRC="/etc/spectrocrunch.bashrc"
+    else
+        SPECTROCRUNCHRC="$HOME/.spectrocrunchrc"
     fi
 
-    if [[ -z $SPECTROCRUNCHLOCAL || $RESET == true ]]; then
-        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
-            SPECTROCRUNCHLOCAL="/usr/local"
-        else
-            SPECTROCRUNCHLOCAL="$HOME/.local"
-        fi
+    if [[ $INSTALL_SYSTEMWIDE == true ]]; then
+        SPECTROCRUNCHLOCAL="/usr/local"
+    else
+        SPECTROCRUNCHLOCAL="$HOME/.local"
     fi
 
-    if [[ -z $SPECTROCRUNCHLOCALSTR || $RESET == true ]]; then
-        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
-            SPECTROCRUNCHLOCALSTR="/usr/local"
-        else
-            SPECTROCRUNCHLOCALSTR="\$HOME/.local"
-        fi
+    if [[ $INSTALL_SYSTEMWIDE == true ]]; then
+        SPECTROCRUNCHLOCALSTR="/usr/local"
+    else
+        SPECTROCRUNCHLOCALSTR="\$HOME/.local"
     fi
 
-    if [[ -z $SPECTROCRUNCHOPT || $RESET == true ]]; then
-        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
-            SPECTROCRUNCHOPT="/opt"
-        else
-            SPECTROCRUNCHOPT="$HOME/.local"
-        fi
+    if [[ $INSTALL_SYSTEMWIDE == true ]]; then
+        SPECTROCRUNCHOPT="/opt"
+    else
+        SPECTROCRUNCHOPT="$HOME/.local"
     fi
 
-    if [[ -z $SPECTROCRUNCHOPTSTR || $RESET == true ]]; then
-        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
-            SPECTROCRUNCHOPTSTR="/opt"
-        else
-            SPECTROCRUNCHOPTSTR="\$HOME/.local"
-        fi
+    if [[ $INSTALL_SYSTEMWIDE == true ]]; then
+        SPECTROCRUNCHOPTSTR="/opt"
+    else
+        SPECTROCRUNCHOPTSTR="\$HOME/.local"
     fi
 
     # ============Installation progress============
@@ -331,5 +325,17 @@ mexec()
         eval $1
     fi
 }
+
+# ============mexecmakeinstall============
+# Execute make install
+mmakeinstall()
+{
+    if [[ $SYSTEM_PRIVILIGES == true && $INSTALL_SYSTEMWIDE == true ]]; then
+        sudo -E checkinstall -y
+    else
+        make install -s
+    fi
+}
+
 
 

@@ -37,7 +37,7 @@ fi
 
 cprint "Install cmake ..."
 if [[ $NOTDRY == true ]]; then
-    mexec "make install -s"
+    mmakeinstall
 
     # Add path just for this installation script
     addBinPath $SPECTROCRUNCHLOCAL/bin
