@@ -186,10 +186,30 @@ class compound(Hashable):
         """
         return self._crosssection("mass_att_coeff",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
 
+    def mass_abs_coeff(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
+        """Mass absorption coefficient (cm^2/g, E in keV)
+        """
+        return self._crosssection("mass_abs_coeff",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+
     def partial_mass_abs_coeff(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
         """Mass absorption coefficient for the selected shells and lines (cm^2/g, E in keV). In other words: fluorescence XAS.
         """
         return self._crosssection("partial_mass_abs_coeff",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+
+    def scattering_cross_section(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
+        """Scattering cross section (cm^2/g, E in keV).
+        """
+        return self._crosssection("scattering_cross_section",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+
+    def compton_cross_section(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
+        """Compton cross section (cm^2/g, E in keV).
+        """
+        return self._crosssection("compton_cross_section",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+
+    def rayleigh_cross_section(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
+        """Rayleigh cross section (cm^2/g, E in keV).
+        """
+        return self._crosssection("rayleigh_cross_section",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
 
     def get_energy(self,energyrange,defaultinc=1):
         """Get absolute energies (keV) from a relative energy range (eV)

@@ -311,6 +311,30 @@ class element(Hashable):
 
         return ret
 
+    def mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False):
+        """Mass absorption coefficient (cm^2/g, E in keV).
+        """
+        ret = np.empty(len(E),dtype=np.float64)
+
+        if environ is None or not self.isabsorber():
+            for i in range(len(E)):
+                ret[i] = xraylib.CS_Photo_Total(self.Z,E[i])
+        else:
+            for i in range(len(E)):
+                ret[i] = xraylib.CS_Photo_Total(self.Z,E[i])
+                for shell in self.shells:
+                    ret[i] -= xraylib.CS_Photo_Partial(self.Z,shell,E[i])
+
+            ind = np.argwhere(ret<0)
+            if len(ind)>0:
+                ind2 = np.argwhere(ret>=0)
+                f = interpolate.interp1d(E[ind2].flatten(),ret[ind2].flatten(),bounds_error=False)
+                ret[ind] = f(E[ind])
+
+            ret += self._CS_Photo_Partial_FDMNES(E,environ,decimals=decimals,refresh=refresh,fluo=False)
+
+        return ret
+
     def partial_mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False):
         """Mass absorption coefficient for the selected shells and lines (cm^2/g, E in keV). In other words: fluorescence XAS.
         """
@@ -325,6 +349,36 @@ class element(Hashable):
                     ret[i] += xraylib.CS_Photo_Partial(self.Z,self.shells[shelli],E[i])*self.fluofrac[shelli]
         else:
             ret = self._CS_Photo_Partial_FDMNES(E,environ,decimals=decimals,refresh=refresh,fluo=True)
+
+        return ret
+
+    def scattering_cross_section(self,E,environ=None,decimals=6,refresh=False):
+        """Scattering cross section (cm^2/g, E in keV).
+        """
+        ret = np.empty(len(E),dtype=np.float64)
+
+        for i in range(len(E)):
+            ret[i] = xraylib.CS_Rayl(self.Z,E[i])+xraylib.CS_Compt(self.Z,E[i])
+
+        return ret
+
+    def rayleigh_cross_section(self,E,environ=None,decimals=6,refresh=False):
+        """Rayleigh cross section (cm^2/g, E in keV).
+        """
+        ret = np.empty(len(E),dtype=np.float64)
+
+        for i in range(len(E)):
+            ret[i] = xraylib.CS_Rayl(self.Z,E[i])
+
+        return ret
+
+    def compton_cross_section(self,E,environ=None,decimals=6,refresh=False):
+        """Rayleigh cross section (cm^2/g, E in keV).
+        """
+        ret = np.empty(len(E),dtype=np.float64)
+
+        for i in range(len(E)):
+            ret[i] = xraylib.CS_Compt(self.Z,E[i])
 
         return ret
 
