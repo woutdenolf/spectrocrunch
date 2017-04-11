@@ -290,6 +290,9 @@ class element(Hashable):
     def mass_att_coeff(self,E,environ=None,decimals=6,refresh=False):
         """Mass attenuation coefficient (cm^2/g, E in keV). In other words: transmission XAS.
         """
+        if not hasattr(E,"__iter__"):
+            E = [E]
+            
         ret = np.empty(len(E),dtype=np.float64)
 
         if environ is None or not self.isabsorber():
@@ -314,6 +317,8 @@ class element(Hashable):
     def mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False):
         """Mass absorption coefficient (cm^2/g, E in keV).
         """
+        if not hasattr(E,"__iter__"):
+            E = [E]
         ret = np.empty(len(E),dtype=np.float64)
 
         if environ is None or not self.isabsorber():
@@ -338,6 +343,8 @@ class element(Hashable):
     def partial_mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False):
         """Mass absorption coefficient for the selected shells and lines (cm^2/g, E in keV). In other words: fluorescence XAS.
         """
+        if not hasattr(E,"__iter__"):
+            E = [E]
 
         if not self.isabsorber():
             return np.zeros(len(E),dtype=np.float64)
@@ -355,6 +362,9 @@ class element(Hashable):
     def scattering_cross_section(self,E,environ=None,decimals=6,refresh=False):
         """Scattering cross section (cm^2/g, E in keV).
         """
+        if not hasattr(E,"__iter__"):
+            E = [E]
+
         ret = np.empty(len(E),dtype=np.float64)
 
         for i in range(len(E)):
@@ -365,6 +375,9 @@ class element(Hashable):
     def rayleigh_cross_section(self,E,environ=None,decimals=6,refresh=False):
         """Rayleigh cross section (cm^2/g, E in keV).
         """
+        if not hasattr(E,"__iter__"):
+            E = [E]
+
         ret = np.empty(len(E),dtype=np.float64)
 
         for i in range(len(E)):
@@ -375,6 +388,9 @@ class element(Hashable):
     def compton_cross_section(self,E,environ=None,decimals=6,refresh=False):
         """Rayleigh cross section (cm^2/g, E in keV).
         """
+        if not hasattr(E,"__iter__"):
+            E = [E]
+
         ret = np.empty(len(E),dtype=np.float64)
 
         for i in range(len(E)):

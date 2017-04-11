@@ -26,17 +26,17 @@ from six import with_metaclass
 
 from . import noisepropagation
 
-class AreaDetectorMeta(type):
+class LensMeta(type):
     """
-    Metaclass used to register all detector classes inheriting from AreaDetector
+    Metaclass used to register all lens classes inheriting from Lens
     """
     def __init__(cls, name, bases, dct):
         cls.registry[name.lower().replace(" ","_")] = cls
-        super(AreaDetectorMeta, cls).__init__(name, bases, dct)
+        super(LensMeta, cls).__init__(name, bases, dct)
 
-class AreaDetector(with_metaclass(AreaDetectorMeta, object)):
+class Lens(with_metaclass(LensMeta, object)):
     """
-    Class representing an area detector
+    Class representing an area lens
     """
     registry = {}
 
@@ -44,59 +44,61 @@ class AreaDetector(with_metaclass(AreaDetectorMeta, object)):
     def factory(cls, name):
         """
         Args:
-            name(str): name of the detector
+            name(str): name of the lens
 
         Returns:
-            AreaDetector
+            Lens
         """
         name = name.lower().replace(" ","_")
         if name in cls.registry:
             return cls.registry[name]()
         else:
-            raise RuntimeError("Detector {} is not one of the registered detectors: {}".format(name, cls.registry.keys()))
+            raise RuntimeError("Lens {} is not one of the registered lenses: {}".format(name, cls.registry.keys()))
 
-    def __init__(self, etoadu=1, qe=1, aduoffset=0, darkcurrent=0, readoutnoise=0):
+    def __init__(self, magnification=1, NA=1, transmission=1):
         """
         Args:
-            etoadu(num): number of ADU per electron
-            qe(num): detector quantum efficiency
-            aduoffset(num): pixel intensity offset (ADU)
-            darkcurrent(num): dark current (e/sec)
-            readoutnoise(num): readout noise (e)
+            magnification(num): magnification
+            NA(num): numerical aperture
+            transmission(num): transmission
         """
 
-        self.etoadu = float(etoadu)
-        self.qe = float(qe)
-        self.aduoffset = float(aduoffset)
-        self.darkcurrent = float(darkcurrent)
-        self.readoutnoise = float(readoutnoise)
+        self.magnification = float(magnification)
+        self.NA = float(NA)
+        self.transmission = float(transmission)
 
-    def propagate(self,N,energy):
+    def propagate(self,N,energy,nrefrac):
         """Error propagation of a number of photons.
                
         Args:
             N(uncertainties.unumpy.uarray): incomming number of photons with uncertainties
             energy(np.array): associated energies
+            nrefrac: refraction index of the scintillator
 
         Returns:
             uncertainties.unumpy.uarray
         """
 
-        # Generation of electrons
-        gain = self.qe
-        process = noisepropagation.poisson(gain)
+        # Transmission of X-rays
+        probsuccess = self.transmission*(self.NA*self.magnification/(self.magnification+1.)/(2.*nrefrac**2))**2
+        process = noisepropagation.bernouilli(probsuccess)
         Nout = noisepropagation.propagate(N,process)
-
-        # TODO noise after
 
         return Nout
 
-
-class pcoedge55(AreaDetector):
+class mitutoyoid21_10x(Lens):
     """
-    PCO Edge 5.5
+    Mitutoyo M Plan Apo 20x 0.42 f = 200 mm
     """
 
     def __init__(self):
-        super(pcoedge55, self).__init__(etoadu=1/0.45, qe=0.03, aduoffset=95.5, darkcurrent=7.4, readoutnoise=0.95)
+        super(mitutoyoid21_10x, self).__init__(magnification=10, NA=0.42, transmission=0.95)
+
+class mitutoyoid21_20x(Lens):
+    """
+    Mitutoyo M Plan Apo HR 10x 0.42 f = 200 mm
+    """
+
+    def __init__(self):
+        super(mitutoyoid21_20x, self).__init__(magnification=20, NA=0.42, transmission=0.95)
 

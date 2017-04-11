@@ -26,36 +26,78 @@ import unittest
 
 from .. import detectors
 from .. import scintillators
+from .. import lenses
+from .. import materials
 
 import numpy as np
-
+from uncertainties import unumpy
 
 class test_objects(unittest.TestCase):
 
     def test_detectors(self):
         self.assertRaises(RuntimeError, detectors.AreaDetector.factory, "")
+
+        energy = np.array([7.])
+        N = np.array([1e5])
+        N = unumpy.uarray(N,np.sqrt(N))
+
         o = detectors.AreaDetector.factory("pcoedge55")
+        Nout = o.propagate(N,energy)
+
         o = detectors.AreaDetector.factory("areadetector")
+        Nout = o.propagate(N,energy)
+
+    def test_lenses(self):
+        self.assertRaises(RuntimeError, lenses.Lens.factory, "")
+
+        energy = np.array([7.])
+        N = np.array([1e5])
+        N = unumpy.uarray(N,np.sqrt(N))
+
+        o = lenses.Lens.factory("mitutoyoid21_10x")
+        Nout = o.propagate(N,energy,1)
+
+        o = lenses.Lens.factory("mitutoyoid21_20x")
+        Nout = o.propagate(N,energy,1)
 
     def test_scintillators(self):
         self.assertRaises(RuntimeError, scintillators.Scintillator.factory, "", 0)
-        o = scintillators.Scintillator.factory("GGG",10,{"Eu":0.03})
+
+        energy = np.array([7.])
+        N = np.array([1e5])
+        N = unumpy.uarray(N,np.sqrt(N))
+        
+        o = scintillators.Scintillator.factory("GGG ID21",13)
+        Nout = o.propagate(N,energy)
+
+        #SNR = unumpy.nominal_values(N)/unumpy.std_devs(N)
 
         #import matplotlib.pyplot as plt
         #plt.figure()
         #energy = np.linspace(2,9,100,dtype=float)
         #plt.plot(energy,o.transmission(energy))
         
-        o = scintillators.Scintillator.factory("LSO",10,{"Tb":0.03})
+        o = scintillators.Scintillator.factory("LSO ID21",10)
+        Nout = o.propagate(N,energy)
 
         #plt.plot(energy,o.transmission(energy))
         #plt.show()
 
+    def test_materials(self):
+        self.assertRaises(RuntimeError, materials.Material.factory, "", 0)
+
+        energy = np.array([7.])
+        N = np.array([1e5])
+        N = unumpy.uarray(N,np.sqrt(N))
+
+        
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_objects("test_detectors"))
     testSuite.addTest(test_objects("test_scintillators"))
+    testSuite.addTest(test_objects("test_lenses"))
+    testSuite.addTest(test_objects("test_materials"))
 
     return testSuite
     

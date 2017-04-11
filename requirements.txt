@@ -8,5 +8,6 @@ pyparsing
 testfixtures
 matplotlib
 shapely
+uncertainties
 pyopencl==2015.1
 #pymca

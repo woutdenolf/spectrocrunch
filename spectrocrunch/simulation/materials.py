@@ -26,50 +26,61 @@ from six import with_metaclass
 
 from . import noisepropagation
 
-class AreaDetectorMeta(type):
+from ..materials.compoundfromformula import compound as compound
+from ..materials.mixture import mixture
+from ..materials.types import fractionType
+
+import numpy as np
+
+class MaterialMeta(type):
     """
-    Metaclass used to register all detector classes inheriting from AreaDetector
+    Metaclass used to register all material classes inheriting from Material
     """
     def __init__(cls, name, bases, dct):
         cls.registry[name.lower().replace(" ","_")] = cls
-        super(AreaDetectorMeta, cls).__init__(name, bases, dct)
+        super(MaterialMeta, cls).__init__(name, bases, dct)
 
-class AreaDetector(with_metaclass(AreaDetectorMeta, object)):
+class Material(with_metaclass(MaterialMeta, object)):
     """
-    Class representing an area detector
+    Class representing an area material
     """
     registry = {}
 
     @classmethod
-    def factory(cls, name):
+    def factory(cls, name, thickness, dopants=None):
         """
         Args:
-            name(str): name of the detector
+            name(str): name of the material
 
         Returns:
-            AreaDetector
+            Material
         """
         name = name.lower().replace(" ","_")
         if name in cls.registry:
-            return cls.registry[name]()
+            return cls.registry[name](thickness, dopants=dopants)
         else:
-            raise RuntimeError("Detector {} is not one of the registered detectors: {}".format(name, cls.registry.keys()))
+            raise RuntimeError("Material {} is not one of the registered materials: {}".format(name, cls.registry.keys()))
 
-    def __init__(self, etoadu=1, qe=1, aduoffset=0, darkcurrent=0, readoutnoise=0):
+    def __init__(self, thickness=0, material=None):
         """
         Args:
-            etoadu(num): number of ADU per electron
-            qe(num): detector quantum efficiency
-            aduoffset(num): pixel intensity offset (ADU)
-            darkcurrent(num): dark current (e/sec)
-            readoutnoise(num): readout noise (e)
+            thickness(num): thickness in micron
+            material(spectrocrunch.materials.compound|spectrocrunch.materials.mixture): material composition
         """
 
-        self.etoadu = float(etoadu)
-        self.qe = float(qe)
-        self.aduoffset = float(aduoffset)
-        self.darkcurrent = float(darkcurrent)
-        self.readoutnoise = float(readoutnoise)
+        self.thickness = float(thickness)
+        if material is None:
+            self.material = compound([],[],fractionType.mole,0,name="vacuum")
+        else:
+            self.material = material
+
+        super(Material, self).__init__(pmftype=pmftypes.bernouilli)
+
+    def attenuation(self,energy):
+        return 1-self.material.transmission(energy)
+
+    def transmission(self,energy):
+        return np.exp(-self.material.density*self.thickness*1e-4*self.material.mass_att_coeff(energy))
 
     def propagate(self,N,energy):
         """Error propagation of a number of photons.
@@ -82,21 +93,17 @@ class AreaDetector(with_metaclass(AreaDetectorMeta, object)):
             uncertainties.unumpy.uarray
         """
 
-        # Generation of electrons
-        gain = self.qe
-        process = noisepropagation.poisson(gain)
+        # Transmission of X-rays
+        probsuccess = self.transmission(energy)
+        process = noisepropagation.bernouilli(probsuccess)
         Nout = noisepropagation.propagate(N,process)
-
-        # TODO noise after
 
         return Nout
 
+#import xraylib
+#for c in xraylib.GetCompoundDataNISTList():
+#    c = MaterialMeta(c, (), {})
 
-class pcoedge55(AreaDetector):
-    """
-    PCO Edge 5.5
-    """
 
-    def __init__(self):
-        super(pcoedge55, self).__init__(etoadu=1/0.45, qe=0.03, aduoffset=95.5, darkcurrent=7.4, readoutnoise=0.95)
+
 
