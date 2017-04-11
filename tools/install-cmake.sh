@@ -4,25 +4,12 @@
 # 
 
 # ============Initialize environment============
-if [ -z $NOTDRY ]; then
-    NOTDRY=true
-fi
-
-if [ -z $BUILDSTEP ]; then
-    BUILDSTEP=0
-    BUILDSTEPS=0
-fi
-
-if [ -z $SYSTEM_PRIVILIGES ]; then
-    if [[ -z "$((sudo -n true) 2>&1)" ]]; then
-        export SYSTEM_PRIVILIGES=true 
-    else
-        export SYSTEM_PRIVILIGES=false
-    fi
-fi
+SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $SCRIPT_ROOT/funcs.sh
+initEnv
 
 # ============Install cmake============
-echo -e "${hcol}Download cmake ...${ncol}"
+cprint "Download cmake ..."
 mkdir -p cmake
 cd cmake
 if [[ $NOTDRY == true && ! -d cmake-3.7.2 ]]; then
@@ -32,31 +19,31 @@ fi
 cd cmake-3.7.2
 
 if [[ ! -f Makefile ]]; then
-    echo -e "${hcol}Configure cmake ...${ncol}"
+    cprint "Configure cmake ..."
     if [[ $NOTDRY == true ]]; then
-        if [[ $SYSTEM_PRIVILIGES == true ]]; then
+        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
             ./configure
         else
-            mkdir -p $HOME/.local
-            ./configure --prefix=$HOME/.local
+            mkdir -p $SPECTROCRUNCHLOCAL
+            ./configure --prefix=$SPECTROCRUNCHLOCAL
         fi
     fi
-    echo -e "${hcol}Build cmake ...${ncol}"
+    cprint "Build cmake ..."
     if [[ $NOTDRY == true ]]; then
         make -s -j2
     fi
 fi
 
 
-echo -e "${hcol}Install cmake ...${ncol}"
+cprint "Install cmake ..."
 if [[ $NOTDRY == true ]]; then
-    if [[ $SYSTEM_PRIVILIGES == true ]]; then
-        sudo -E make install -s
-    else
-        make install -s
-    fi
+    mmakeinstall
+
+    # Add path just for this installation script
+    addBinPath $SPECTROCRUNCHLOCAL/bin
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))
 BUILDSTEPS=$(( $BUILDSTEPS+1 ))
+cd $INSTALL_WD
 

@@ -4,42 +4,20 @@
 # 
 
 # ============Initialize environment============
-if [ -z $PYTHONBIN ]; then
-    PYTHONBIN=python
-fi
-if [ -z $PYTHONBINAPT ]; then
-    PYTHONBINAPT=python
-fi
-PYTHON_EXECUTABLE=$(which $PYTHONBIN) # full path
-PYTHONV=`$PYTHONBIN -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)";` # e.g. 2.7
-
-if [ -z $NOTDRY ]; then
-    NOTDRY=true
-fi
-
-if [ -z $BUILDSTEP ]; then
-    BUILDSTEP=0
-    BUILDSTEPS=0
-fi
-
-if [ -z $SYSTEM_PRIVILIGES ]; then
-    if [[ -z "$((sudo -n true) 2>&1)" ]]; then
-        export SYSTEM_PRIVILIGES=true 
-    else
-        export SYSTEM_PRIVILIGES=false
-    fi
-fi
+SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $SCRIPT_ROOT/funcs.sh
+initEnv
 
 # ============Install dependencies============
-echo -e "${hcol}Install xraylib dependencies ...${ncol}"
+cprint "Install xraylib dependencies ..."
 if [[ $NOTDRY == true && $SYSTEM_PRIVILIGES == true ]]; then
-    sudo -E apt-get -y install swig
-    sudo -E apt-get install $PYTHONBINAPT-dev
+    mexec "apt-get -y install swig"
+    mexec "apt-get -y install $PYTHONBINAPT-dev"
 fi
 
 # ============Install xraylib============
 if [ ! -f xraylib/xraylib-3.2.0/python/.libs/_xraylib.so ]; then
-    echo -e "${hcol}Download xraylib ...${ncol}"
+    cprint "Download xraylib ..."
     mkdir -p xraylib
     cd xraylib
     if [[ $NOTDRY == true && ! -d xraylib-3.2.0 ]]; then
@@ -48,9 +26,9 @@ if [ ! -f xraylib/xraylib-3.2.0/python/.libs/_xraylib.so ]; then
         cd xraylib-3.2.0
     fi
 
-    echo -e "${hcol}Configure xraylib ...${ncol}"
+    cprint "Configure xraylib ..."
     if [[ $NOTDRY == true ]]; then
-        if [[ $SYSTEM_PRIVILIGES == true ]]; then
+        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
             ./configure --enable-python \
                         --enable-python-integration \
                         --disable-java \
@@ -63,8 +41,8 @@ if [ ! -f xraylib/xraylib-3.2.0/python/.libs/_xraylib.so ]; then
                         PYTHON=$PYTHON_EXECUTABLE \
                         PYTHON_VERSION=$PYTHONV
         else
-            mkdir -p $HOME/.local
-            ./configure --prefix="$HOME/.local" \
+            mkdir -p $SPECTROCRUNCHLOCAL
+            ./configure --prefix="$SPECTROCRUNCHLOCAL" \
                         --enable-python \
                         --enable-python-integration \
                         --disable-java \
@@ -79,7 +57,7 @@ if [ ! -f xraylib/xraylib-3.2.0/python/.libs/_xraylib.so ]; then
         fi
     fi
 
-    echo -e "${hcol}Build xraylib ...${ncol}"
+    cprint "Build xraylib ..."
     if [[ $NOTDRY == true ]]; then
         make -s -j2
         make check
@@ -88,15 +66,18 @@ else
     cd xraylib/xraylib-3.2.0
 fi
 
-echo -e "${hcol}Install xraylib ...${ncol}"
+cprint "Install xraylib ..."
 if [[ $NOTDRY == true ]]; then
-    if [[ $SYSTEM_PRIVILIGES == true ]]; then
-        sudo -E make install -s
-    else
-        make install -s
-    fi
+    mmakeinstall
+
+    addProfile $SPECTROCRUNCHRC "# Installed xraylib: $SPECTROCRUNCHOPTSTR/xraylib"
+    addLibPath $SPECTROCRUNCHLOCAL/lib
+    addLibPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/lib"
+    addBinPath $SPECTROCRUNCHLOCAL/bin
+    addBinPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/bin"
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))
 BUILDSTEPS=$(( $BUILDSTEPS+1 ))
+cd $INSTALL_WD
 
