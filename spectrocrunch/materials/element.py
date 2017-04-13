@@ -80,12 +80,17 @@ class element(Hashable):
         """
         return self.name
 
-    def markasabsorber(self,symb,shells=[],fluolines=[]):
+    def markasabsorber(self,symb,shells=None,fluolines=None):
         """
         Args:
             symb(str): element symbol
         """
         if self.name==symb:
+            if shells is None:
+                shells = []
+            if fluolines is None:
+                fluolines = []
+
             # Shells for partial cross-sections
             if hasattr(shells,"__iter__"):
                 self.shells = shells
@@ -289,10 +294,19 @@ class element(Hashable):
 
     def mass_att_coeff(self,E,environ=None,decimals=6,refresh=False):
         """Mass attenuation coefficient (cm^2/g, E in keV). In other words: transmission XAS.
+
+        Args:
+            E(num or array-like): energy (keV)
+            environ(dict): chemical environment of this element
+            decimals(Optional(num)): precision of energy in keV
+            refresh(Optional(bool)): force re-simulation if used
+
+        Returns:
+            num or np.array
         """
-        if not hasattr(E,"__iter__"):
+        bnum = not hasattr(E,"__iter__")
+        if bnum:
             E = [E]
-            
         ret = np.empty(len(E),dtype=np.float64)
 
         if environ is None or not self.isabsorber():
@@ -312,12 +326,25 @@ class element(Hashable):
 
             ret += self._CS_Photo_Partial_FDMNES(E,environ,decimals=decimals,refresh=refresh,fluo=False)
 
-        return ret
+        if bnum:
+            return ret[0]
+        else:
+            return ret
 
     def mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False):
         """Mass absorption coefficient (cm^2/g, E in keV).
+
+        Args:
+            E(num or array-like): energy (keV)
+            environ(dict): chemical environment of this element
+            decimals(Optional(num)): precision of energy in keV
+            refresh(Optional(bool)): force re-simulation if used
+
+        Returns:
+            num or np.array
         """
-        if not hasattr(E,"__iter__"):
+        bnum = not hasattr(E,"__iter__")
+        if bnum:
             E = [E]
         ret = np.empty(len(E),dtype=np.float64)
 
@@ -338,16 +365,32 @@ class element(Hashable):
 
             ret += self._CS_Photo_Partial_FDMNES(E,environ,decimals=decimals,refresh=refresh,fluo=False)
 
-        return ret
+        if bnum:
+            return ret[0]
+        else:
+            return ret
 
     def partial_mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False):
         """Mass absorption coefficient for the selected shells and lines (cm^2/g, E in keV). In other words: fluorescence XAS.
+
+        Args:
+            E(num or array-like): energy (keV)
+            environ(dict): chemical environment of this element
+            decimals(Optional(num)): precision of energy in keV
+            refresh(Optional(bool)): force re-simulation if used
+
+        Returns:
+            num or np.array
         """
-        if not hasattr(E,"__iter__"):
+        bnum = not hasattr(E,"__iter__")
+        if bnum:
             E = [E]
 
         if not self.isabsorber():
-            return np.zeros(len(E),dtype=np.float64)
+            if bnum:
+                return np.float64(0)
+            else:
+                return np.zeros(len(E),dtype=np.float64)
 
         if environ is None:
             ret = np.zeros(len(E),dtype=np.float64)
@@ -357,44 +400,74 @@ class element(Hashable):
         else:
             ret = self._CS_Photo_Partial_FDMNES(E,environ,decimals=decimals,refresh=refresh,fluo=True)
 
-        return ret
+        if bnum:
+            return ret[0]
+        else:
+            return ret
 
     def scattering_cross_section(self,E,environ=None,decimals=6,refresh=False):
         """Scattering cross section (cm^2/g, E in keV).
+
+        Args:
+            E(num or array-like): energy (keV)
+            environ(dict): chemical environment of this element
+            decimals(Optional(num)): precision of energy in keV
+            refresh(Optional(bool)): force re-simulation if used
+
+        Returns:
+            num or np.array
         """
-        if not hasattr(E,"__iter__"):
-            E = [E]
+        if hasattr(E,"__iter__"):
+            ret = np.empty(len(E),dtype=np.float64)
 
-        ret = np.empty(len(E),dtype=np.float64)
-
-        for i in range(len(E)):
-            ret[i] = xraylib.CS_Rayl(self.Z,E[i])+xraylib.CS_Compt(self.Z,E[i])
+            for i in range(len(E)):
+                ret[i] = xraylib.CS_Rayl(self.Z,E[i])+xraylib.CS_Compt(self.Z,E[i])
+        else:
+            ret = xraylib.CS_Rayl(self.Z,E)+xraylib.CS_Compt(self.Z,E)
 
         return ret
 
     def rayleigh_cross_section(self,E,environ=None,decimals=6,refresh=False):
         """Rayleigh cross section (cm^2/g, E in keV).
+
+        Args:
+            E(num or array-like): energy (keV)
+            environ(dict): chemical environment of this element
+            decimals(Optional(num)): precision of energy in keV
+            refresh(Optional(bool)): force re-simulation if used
+
+        Returns:
+            num or np.array
         """
-        if not hasattr(E,"__iter__"):
-            E = [E]
+        if hasattr(E,"__iter__"):
+            ret = np.empty(len(E),dtype=np.float64)
 
-        ret = np.empty(len(E),dtype=np.float64)
-
-        for i in range(len(E)):
-            ret[i] = xraylib.CS_Rayl(self.Z,E[i])
+            for i in range(len(E)):
+                ret[i] = xraylib.CS_Rayl(self.Z,E[i])
+        else:
+            ret = xraylib.CS_Rayl(self.Z,E)
 
         return ret
 
     def compton_cross_section(self,E,environ=None,decimals=6,refresh=False):
         """Rayleigh cross section (cm^2/g, E in keV).
+
+        Args:
+            E(num or array-like): energy (keV)
+            environ(dict): chemical environment of this element
+            decimals(Optional(num)): precision of energy in keV
+            refresh(Optional(bool)): force re-simulation if used
+
+        Returns:
+            num or np.array
         """
-        if not hasattr(E,"__iter__"):
-            E = [E]
+        if hasattr(E,"__iter__"):
+            ret = np.empty(len(E),dtype=np.float64)
 
-        ret = np.empty(len(E),dtype=np.float64)
-
-        for i in range(len(E)):
-            ret[i] = xraylib.CS_Compt(self.Z,E[i])
+            for i in range(len(E)):
+                ret[i] = xraylib.CS_Compt(self.Z,E[i])
+        else:
+            ret = xraylib.CS_Compt(self.Z,E)
 
         return ret
 

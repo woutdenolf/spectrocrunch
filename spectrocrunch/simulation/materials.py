@@ -29,6 +29,9 @@ from . import noisepropagation
 from ..materials.compoundfromformula import compound as compound
 from ..materials.mixture import mixture
 from ..materials.types import fractionType
+import xraylib
+
+from ..common import classfactory
 
 import numpy as np
 
@@ -47,7 +50,7 @@ class Material(with_metaclass(MaterialMeta, object)):
     registry = {}
 
     @classmethod
-    def factory(cls, name, thickness, dopants=None):
+    def factory(cls, name):
         """
         Args:
             name(str): name of the material
@@ -57,24 +60,19 @@ class Material(with_metaclass(MaterialMeta, object)):
         """
         name = name.lower().replace(" ","_")
         if name in cls.registry:
-            return cls.registry[name](thickness, dopants=dopants)
+            return cls.registry[name]()
         else:
             raise RuntimeError("Material {} is not one of the registered materials: {}".format(name, cls.registry.keys()))
 
-    def __init__(self, thickness=0, material=None):
+    def __init__(self, material, thickness):
         """
         Args:
+            material(spectrocrunch.materials.compound): material composition
             thickness(num): thickness in micron
-            material(spectrocrunch.materials.compound|spectrocrunch.materials.mixture): material composition
         """
 
         self.thickness = float(thickness)
-        if material is None:
-            self.material = compound([],[],fractionType.mole,0,name="vacuum")
-        else:
-            self.material = material
-
-        super(Material, self).__init__(pmftype=pmftypes.bernouilli)
+        self.material = material
 
     def attenuation(self,energy):
         return 1-self.material.transmission(energy)
@@ -86,11 +84,11 @@ class Material(with_metaclass(MaterialMeta, object)):
         """Error propagation of a number of photons.
                
         Args:
-            N(uncertainties.unumpy.uarray): incomming number of photons with uncertainties
-            energy(np.array): associated energies
+            N(num or numpy.array(uncertainties.core.Variable)): incomming number of photons with uncertainties
+            energy(num or numpy.array): associated energies
 
         Returns:
-            uncertainties.unumpy.uarray
+            uncertainties.core.Variable or numpy.array(uncertainties.core.Variable)
         """
 
         # Transmission of X-rays
@@ -100,10 +98,36 @@ class Material(with_metaclass(MaterialMeta, object)):
 
         return Nout
 
-#import xraylib
-#for c in xraylib.GetCompoundDataNISTList():
-#    c = MaterialMeta(c, (), {})
+class vacuum(Material):
+    """
+    Vacuum
+    """
+
+    def __init__(self,thickness):
+        compound([],[],fractionType.mole,0,name="vacuum")
+        super(ultralene, self).__init__(material,thickness)
+
+class ultralene(Material):
+    """
+    Ultralene
+    """
+
+    def __init__(self,thickness):
+        data = xraylib.GetCompoundDataNISTByName("Kapton Polyimide Film")
+        material = compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name=data["name"])
+        super(ultralene, self).__init__(material,thickness)
 
 
 
+try:
+    
+    for c in xraylib.GetCompoundDataNISTList():
+        c = c.lower().replace(" ","_")
+        #c = type(c, (Material,), {"__init__":})
+
+    #print Material.registry
+except ImportError:
+    pass
+
+factory = Material.factory
 

@@ -26,6 +26,9 @@ from six import with_metaclass
 
 from . import noisepropagation
 
+from uncertainties import ufloat
+import numpy as np
+
 class AreaDetectorMeta(type):
     """
     Metaclass used to register all detector classes inheriting from AreaDetector
@@ -41,7 +44,7 @@ class AreaDetector(with_metaclass(AreaDetectorMeta, object)):
     registry = {}
 
     @classmethod
-    def factory(cls, name):
+    def factory(cls, name, etoadu, qe, aduoffset, darkcurrent, readoutnoise):
         """
         Args:
             name(str): name of the detector
@@ -51,15 +54,15 @@ class AreaDetector(with_metaclass(AreaDetectorMeta, object)):
         """
         name = name.lower().replace(" ","_")
         if name in cls.registry:
-            return cls.registry[name]()
+            return cls.registry[name](etoadu, qe, aduoffset, darkcurrent, readoutnoise)
         else:
             raise RuntimeError("Detector {} is not one of the registered detectors: {}".format(name, cls.registry.keys()))
 
-    def __init__(self, etoadu=1, qe=1, aduoffset=0, darkcurrent=0, readoutnoise=0):
+    def __init__(self, etoadu, qe, aduoffset, darkcurrent, readoutnoise):
         """
         Args:
             etoadu(num): number of ADU per electron
-            qe(num): detector quantum efficiency
+            qe(num): detector quantum efficiency (e/ph)
             aduoffset(num): pixel intensity offset (ADU)
             darkcurrent(num): dark current (e/sec)
             readoutnoise(num): readout noise (e)
@@ -68,29 +71,52 @@ class AreaDetector(with_metaclass(AreaDetectorMeta, object)):
         self.etoadu = float(etoadu)
         self.qe = float(qe)
         self.aduoffset = float(aduoffset)
-        self.darkcurrent = float(darkcurrent)
-        self.readoutnoise = float(readoutnoise)
+        self.darkcurrent = ufloat(darkcurrent,np.sqrt(darkcurrent))
+        self.readoutnoise = ufloat(0,readoutnoise)
 
-    def propagate(self,N,energy):
+    def propagate(self,N,energy,tframe=None,nframe=None):
         """Error propagation of a number of photons.
                
         Args:
-            N(uncertainties.unumpy.uarray): incomming number of photons with uncertainties
-            energy(np.array): associated energies
+            N(num or numpy.array(uncertainties.core.Variable)): incomming number of photons within a tframe timespan with uncertainties
+            energy(num or numpy.array): associated energies
+            tframe(num): time per frame (sec)
+            nframe(num): number of frames (sec)
 
         Returns:
-            uncertainties.unumpy.uarray
+            uncertainties.core.Variable or numpy.array(uncertainties.core.Variable): detector signal in ADU
         """
+
+        if tframe is None:
+            ValueError("Frame exposure time not specified.")
+        if nframe is None:
+            ValueError("Number of frames not specified.")
 
         # Generation of electrons
         gain = self.qe
         process = noisepropagation.poisson(gain)
-        Nout = noisepropagation.propagate(N,process)
+        Nout = noisepropagation.propagate(N,process) # units: e
 
-        # TODO noise after
+        # Add dark current
+        Nout += self.darkcurrent*tframe # units: e
 
-        return Nout
+        # Add read-out noise
+        Nout += self.readoutnoise # units: e
 
+        # Convert to ADU
+        Nout *= self.etoadu # units: ADU
+
+        # Add ADU offset
+        Nout += self.aduoffset # units: ADU
+
+        # Number of frames
+        Nout *= nframe # units: ADU
+
+        # Repeat with number of energies
+        if not hasattr(Nout,"__iter__") and hasattr(energy,"__iter__"):
+            Nout = np.repeat(Nout,len(energy))
+
+        return Nout # units: ADU
 
 class pcoedge55(AreaDetector):
     """
@@ -99,4 +125,6 @@ class pcoedge55(AreaDetector):
 
     def __init__(self):
         super(pcoedge55, self).__init__(etoadu=1/0.45, qe=0.03, aduoffset=95.5, darkcurrent=7.4, readoutnoise=0.95)
+
+factory = AreaDetector.factory
 

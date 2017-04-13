@@ -49,7 +49,7 @@ class Scintillator(with_metaclass(ScintillatorMeta, object)):
     registry = {}
 
     @classmethod
-    def factory(cls, name, thickness):
+    def factory(cls, name, thickness, material, nvisperkeV):
         """
         Args:
             name(str): name of the scintillator
@@ -59,11 +59,11 @@ class Scintillator(with_metaclass(ScintillatorMeta, object)):
         """
         name = name.lower().replace(" ","_")
         if name in cls.registry:
-            return cls.registry[name](thickness)
+            return cls.registry[name](thickness, material, nvisperkeV)
         else:
             raise RuntimeError("Scintillator {} is not one of the registered scintillators: {}".format(name, cls.registry.keys()))
 
-    def __init__(self, thickness=0, material=None, nvisperkeV=1):
+    def __init__(self, thickness, material, nvisperkeV):
         """
         Args:
             thickness(num): thickness in micron
@@ -73,10 +73,7 @@ class Scintillator(with_metaclass(ScintillatorMeta, object)):
 
         self.thickness = float(thickness)
         self.nvisperkeV = float(nvisperkeV)
-        if material is None:
-            self.material = compound([],[],fractionType.mole,0,name="vacuum")
-        else:
-            self.material = material
+        self.material = material
 
     @staticmethod
     def doping(material,dopants):
@@ -107,11 +104,11 @@ class Scintillator(with_metaclass(ScintillatorMeta, object)):
         """Error propagation of a number of photons.
                
         Args:
-            N(uncertainties.unumpy.uarray): incomming number of photons with uncertainties
-            energy(np.array): associated energies
+            N(num or numpy.array(uncertainties.core.Variable)): incomming number of photons with uncertainties
+            energy(num or numpy.array): associated energies
 
         Returns:
-            uncertainties.unumpy.uarray
+            uncertainties.core.Variable or numpy.array(uncertainties.core.Variable)
         """
 
         # Absorption of X-rays
@@ -125,6 +122,9 @@ class Scintillator(with_metaclass(ScintillatorMeta, object)):
         Nout = noisepropagation.propagate(Nout,process)
 
         return Nout
+
+    def get_nrefrac(self):
+        return self.material.nrefrac
 
 class GGG_ID21(Scintillator):
     """
@@ -192,4 +192,6 @@ class LSO_ID21(Scintillator):
         ret = np.zeros(n,dtype=float)
         ret[energy==LambdaEnergy(550)] = 1 # Tb
         return ret
+
+factory = Scintillator.factory
 

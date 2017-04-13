@@ -28,47 +28,86 @@ from .. import detectors
 from .. import scintillators
 from .. import lenses
 from .. import materials
+from ...materials.compoundfromformula import compound as compound
 
 import numpy as np
 from uncertainties import unumpy
+from uncertainties import ufloat
 
 class test_objects(unittest.TestCase):
 
-    def test_detectors(self):
-        self.assertRaises(RuntimeError, detectors.AreaDetector.factory, "")
-
-        energy = np.array([7.])
-        N = np.array([1e5])
+    def _checkprop(self,o,**kwargs):
+        # Both arrays
+        energy = np.array([7.,7.])
+        N = np.array([1e5,1e5])
         N = unumpy.uarray(N,np.sqrt(N))
 
-        o = detectors.AreaDetector.factory("pcoedge55")
-        Nout = o.propagate(N,energy)
+        Nout = o.propagate(N,energy,**kwargs)
 
-        o = detectors.AreaDetector.factory("areadetector")
-        Nout = o.propagate(N,energy)
+        self.assertEqual(len(Nout),2)
+        tmp = unumpy.nominal_values(Nout)
+        self.assertEqual(tmp[0],tmp[1])
+        tmp = unumpy.std_devs(Nout)
+        self.assertEqual(tmp[0],tmp[1])
 
+        # N array
+        energy = 7.
+        N = np.array([1e5,1e5])
+        N = unumpy.uarray(N,np.sqrt(N))
+
+        Nout = o.propagate(N,energy,**kwargs)
+
+        self.assertEqual(len(Nout),2)
+        tmp = unumpy.nominal_values(Nout)
+        self.assertEqual(tmp[0],tmp[1])
+        tmp = unumpy.std_devs(Nout)
+        self.assertEqual(tmp[0],tmp[1])
+
+        # Energy array
+        energy = np.array([7.,7.])
+        N = 1e5
+        N = ufloat(N,np.sqrt(N))
+
+        Nout = o.propagate(N,energy,**kwargs)
+
+        self.assertEqual(len(Nout),2)
+        tmp = unumpy.nominal_values(Nout)
+        self.assertEqual(tmp[0],tmp[1])
+        tmp = unumpy.std_devs(Nout)
+        self.assertEqual(tmp[0],tmp[1])
+
+        # Not arrays
+        energy = 7.
+        N = 1e5
+        N = ufloat(N,np.sqrt(N))
+        
+        Nout = o.propagate(N,energy,**kwargs)
+        self.assertFalse(hasattr(Nout,"__iter__"))
+
+    def test_detectors(self):
+        self.assertRaises(RuntimeError, detectors.factory, "")
+
+        o = detectors.factory("pcoedge55")
+        o = detectors.pcoedge55()
+        self._checkprop(o,tframe=2,nframe=10)
+
+        o = detectors.factory("areadetector")
+        self._checkprop(o,tframe=2,nframe=10)
+    
     def test_lenses(self):
         self.assertRaises(RuntimeError, lenses.Lens.factory, "")
 
-        energy = np.array([7.])
-        N = np.array([1e5])
-        N = unumpy.uarray(N,np.sqrt(N))
+        o = lenses.factory("mitutoyoid21_10x")
+        self._checkprop(o,nrefrac=1.1)
 
-        o = lenses.Lens.factory("mitutoyoid21_10x")
-        Nout = o.propagate(N,energy,1)
-
-        o = lenses.Lens.factory("mitutoyoid21_20x")
-        Nout = o.propagate(N,energy,1)
+        o = lenses.factory("mitutoyoid21_20x")
+        self._checkprop(o,nrefrac=1.1)
 
     def test_scintillators(self):
-        self.assertRaises(RuntimeError, scintillators.Scintillator.factory, "", 0)
+        self.assertRaises(RuntimeError, scintillators.factory, "", 0)
 
-        energy = np.array([7.])
-        N = np.array([1e5])
-        N = unumpy.uarray(N,np.sqrt(N))
-        
         o = scintillators.Scintillator.factory("GGG ID21",13)
-        Nout = o.propagate(N,energy)
+        self._checkprop(o)
 
         #SNR = unumpy.nominal_values(N)/unumpy.std_devs(N)
 
@@ -77,19 +116,21 @@ class test_objects(unittest.TestCase):
         #energy = np.linspace(2,9,100,dtype=float)
         #plt.plot(energy,o.transmission(energy))
         
-        o = scintillators.Scintillator.factory("LSO ID21",10)
-        Nout = o.propagate(N,energy)
+        o = scintillators.factory("LSO ID21",10)
+        self._checkprop(o)
 
         #plt.plot(energy,o.transmission(energy))
         #plt.show()
 
     def test_materials(self):
-        self.assertRaises(RuntimeError, materials.Material.factory, "", 0)
+        #self.assertRaises(RuntimeError, materials.Material.factory, "", 0)
 
-        energy = np.array([7.])
-        N = np.array([1e5])
-        N = unumpy.uarray(N,np.sqrt(N))
 
+
+        o = materials.factory("Ultralene",4)
+
+        #for s in materials.Material.registry:
+        #    print s
         
 def test_suite_all():
     """Test suite including all test suites"""

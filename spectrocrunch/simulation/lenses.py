@@ -26,6 +26,8 @@ from six import with_metaclass
 
 from . import noisepropagation
 
+import numpy as np
+
 class LensMeta(type):
     """
     Metaclass used to register all lens classes inheriting from Lens
@@ -41,7 +43,7 @@ class Lens(with_metaclass(LensMeta, object)):
     registry = {}
 
     @classmethod
-    def factory(cls, name):
+    def factory(cls, name, *args):
         """
         Args:
             name(str): name of the lens
@@ -51,11 +53,11 @@ class Lens(with_metaclass(LensMeta, object)):
         """
         name = name.lower().replace(" ","_")
         if name in cls.registry:
-            return cls.registry[name]()
+            return cls.registry[name](*args)
         else:
             raise RuntimeError("Lens {} is not one of the registered lenses: {}".format(name, cls.registry.keys()))
 
-    def __init__(self, magnification=1, NA=1, transmission=1):
+    def __init__(self, magnification, NA, transmission):
         """
         Args:
             magnification(num): magnification
@@ -67,22 +69,29 @@ class Lens(with_metaclass(LensMeta, object)):
         self.NA = float(NA)
         self.transmission = float(transmission)
 
-    def propagate(self,N,energy,nrefrac):
+    def propagate(self,N,energy,nrefrac=None):
         """Error propagation of a number of photons.
                
         Args:
-            N(uncertainties.unumpy.uarray): incomming number of photons with uncertainties
-            energy(np.array): associated energies
-            nrefrac: refraction index of the scintillator
+            N(num or numpy.array(uncertainties.core.Variable)): incomming number of photons with uncertainties
+            energy(num or numpy.array): associated energies
+            nrefrac(num): refraction index of the scintillator
 
         Returns:
-            uncertainties.unumpy.uarray
+            uncertainties.core.Variable or numpy.array(uncertainties.core.Variable)
         """
+
+        if nrefrac is None:
+            ValueError("Refractive index of the scintillator not specified.")
 
         # Transmission of X-rays
         probsuccess = self.transmission*(self.NA*self.magnification/(self.magnification+1.)/(2.*nrefrac**2))**2
         process = noisepropagation.bernouilli(probsuccess)
         Nout = noisepropagation.propagate(N,process)
+
+        # Repeat with number of energies
+        if not hasattr(Nout,"__iter__") and hasattr(energy,"__iter__"):
+            Nout = np.repeat(Nout,len(energy))
 
         return Nout
 
@@ -101,4 +110,6 @@ class mitutoyoid21_20x(Lens):
 
     def __init__(self):
         super(mitutoyoid21_20x, self).__init__(magnification=20, NA=0.42, transmission=0.95)
+
+factory = Lens.factory
 

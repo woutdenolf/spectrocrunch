@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -21,3 +21,36 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+
+import unittest
+
+from .. import calcnoise
+from .. import materials
+
+class test_calcnoise(unittest.TestCase):
+
+    def test_ffnoise(self):
+        #import matplotlib.pyplot as plt
+        #plt.figure()
+        #energy = np.linspace(2,9,100,dtype=float)
+        #plt.plot(energy,o.transmission(energy))
+        
+        pass
+
+        #plt.plot(energy,o.transmission(energy))
+        #plt.show()
+        
+def test_suite_all():
+    """Test suite including all test suites"""
+    testSuite = unittest.TestSuite()
+    testSuite.addTest(test_calcnoise("test_ffnoise"))
+
+    return testSuite
+    
+if __name__ == '__main__':
+    import sys
+
+    mysuite = test_suite_all()
+    runner = unittest.TextTestRunner()
+    if not runner.run(mysuite).wasSuccessful():
+        sys.exit(1)

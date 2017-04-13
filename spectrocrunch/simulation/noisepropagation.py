@@ -24,20 +24,13 @@
 
 from ..common.Enum import Enum
 
-from uncertainties import unumpy
 import numpy as np
+from uncertainties import unumpy
+from uncertainties import ufloat
 
-class process(object):
-    def expectedvalue(self):
-        raise NotImplementedError()
-
-    def variance(self):
-        raise NotImplementedError()
-
-class bernouilli(process):
+class bernouilli(object):
     def __init__(self,probsuccess):
         self.probsuccess = probsuccess
-        super(bernouilli,self).__init__()
 
     def expectedvalue(self):
         return self.probsuccess
@@ -45,10 +38,9 @@ class bernouilli(process):
     def variance(self):
         return self.probsuccess*(1-self.probsuccess)
 
-class poisson(process):
+class poisson(object):
     def __init__(self,gain):
         self.gain = gain
-        super(poisson,self).__init__()
 
     def expectedvalue(self):
         return self.gain
@@ -56,8 +48,14 @@ class poisson(process):
     def variance(self):
         return self.gain
 
+def randomvariable(X,SX):
+    if hasattr(X,"__iter__"):
+        return unumpy.uarray(X,SX)
+    else:
+        return ufloat(X,SX)
+    
 def propagate(N,process):
-    """Sum of a random number (N) of independent random variables (X_i) with the same probability mass function
+    """Sum of a random number (N) of independent random variables (X_i) with the same probability mass function.
        
     Args:
         N(uncertainties.unumpy.uarray): incomming number of photons with uncertainties
@@ -74,6 +72,6 @@ def propagate(N,process):
 
     EY = EN*EX
     VARY = VARN*EX*EX + VARX*EN
-        
-    return unumpy.uarray(EY,np.sqrt(VARY))
+    
+    return randomvariable(EY,np.sqrt(VARY))
 

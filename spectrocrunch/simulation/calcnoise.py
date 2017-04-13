@@ -21,3 +21,35 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+
+from . import detectors
+from . import scintillators
+from . import lenses
+
+def id21_ffnoise(I0,energy,sample,tframe,nframe):
+    """ID21 fullfield noise propagation
+
+    Args:
+        I0 (num or array-like): incomming flux (ph/sec)
+        energy (num or array-like): associated energy (keV)
+        sample (spectrocrunch.simulation.materials.Material): sample
+        tframe(num): time per frame (sec)
+        nframe(num): number of frames (sec)
+
+    Returns:
+        uncertainties.unumpy.uarray: detector signal in ADU
+    """
+
+    N = I0*tframe
+
+    oscint = scintillators.Scintillator.factory("LSO ID21",10)
+    olens = lenses.Lens.factory("mitutoyoid21_10x")
+    odet = detectors.AreaDetector.factory("pcoedge55")
+
+    N = sample.propagate(N,energy)
+    N = oscint.propagate(N,energy)
+    N = olens.propagate(N,energy,nrefrac=oscint.get_nrefrac())
+    N = odet.propagate(N,energy,tframe=tframe,nframe=nframe)
+
+    return N
+
