@@ -196,9 +196,6 @@ def getimagestacks(config):
         nscanstot += len(config["scannumbers"][ipath])
 
     # DT correction, sum detector and fit
-    onlycountdetectors = config["fit"]==False and \
-                         config["dtcor"]==False and \
-                         config["addbeforefitting"]==False
     nfilestofit = None
     for ipath in range(npaths):
         counterpath = os.path.abspath(os.path.join(config["sourcepath"][ipath],config["counter_reldir"]))
@@ -271,7 +268,7 @@ def getimagestacks(config):
             filestofit,detnums = parse_xia_esrf(xrfpath,scanname,
                     scannumber,config["outdatapath"],parsename,add=config["addbeforefitting"],
                     exclude_detectors=config["exclude_detectors"],deadtime=config["dtcor"],
-                    onlycountdetectors=onlycountdetectors)
+                    willbefitted=config["fit"],deadtimeifsingle=config["dtcorifsingle"])
             ndet = len(detnums)
             noxia = ndet==0
 

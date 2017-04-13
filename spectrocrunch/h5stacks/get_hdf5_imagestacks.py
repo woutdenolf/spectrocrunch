@@ -24,6 +24,8 @@
 
 import spectrocrunch.io.nexus as nexus
 
+import re
+
 def get_hdf5_imagestacks(h5file,datagroupnames):
     """
     Args:
@@ -58,7 +60,7 @@ def get_hdf5_imagestacks(h5file,datagroupnames):
     axes = None
 
     # Get data groups
-    groups = [k for k in f.keys() if k in datagroupnames]
+    groups = [k for k in f.keys() if any(re.match(pattern,k) is not None for pattern in datagroupnames)]
     stacks = {}
     for grp in groups:
         stacks[grp] = {k:f[grp][k].name for k in f[grp].keys() if "." not in k}

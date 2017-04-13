@@ -39,10 +39,9 @@ from .proc_crop import execute as execcrop
 from .proc_common import defaultstack
 from .proc_common import flattenstacks
 
-def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stackdim,mlines={},microdiff=False):
-    bfit = cfgfile is not None
-    if not bfit:
-        cfgfile = os.path.join(destpath,scanname[0]+".cfg")
+def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,stackdim,\
+                    mlines={},microdiff=False,exclude_detectors=[],addbeforefit=True):
+    bfit = cfgfiles is not None
 
     if not isinstance(sourcepath,list):
         sourcepath = [sourcepath]
@@ -50,6 +49,8 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stac
         scanname = [scanname]
     if not isinstance(scannumbers,list):
         scannumbers = [scannumbers]
+    if not isinstance(cfgfiles,list):
+        cfgfiles = [cfgfiles]
 
     if microdiff:
         counters = ["zap_iodet","zap_idet","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]
@@ -77,15 +78,16 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stac
 
             # Deadtime correction
             "dtcor": dtcor,
+            "dtcorifsingle":False, # correct for deadtime (if dtcor==True) when a single detector
 
             # Configuration for fitting
-            "detectorcfg": [cfgfile],
+            "detectorcfg": cfgfiles,
             "mlines": mlines,
             "fit": bfit,
             "fastfitting": True,
-            "addbeforefitting": False,
-            "addafterfitting": False,
-            "exclude_detectors":[],
+            "addbeforefitting": addbeforefit, # sum spectra
+            "addafterfitting": True, # sum fit results and detector counters
+            "exclude_detectors":exclude_detectors,
 
             # Output directories
             "outdatapath": os.path.join(destpath,scanname[0]+"_data"),
@@ -103,9 +105,10 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,dtcor,stac
 
     return jsonfile,config["hdf5output"]
 
-def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,\
+def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignreference,\
         refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,\
-        crop=False,roialign=None,plot=True,mlines={},microdiff=False):
+        crop=False,roialign=None,plot=True,mlines={},microdiff=False,exclude_detectors=[],\
+        addbeforefit=True):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
@@ -124,15 +127,20 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
         preprocessingexists = os.path.isfile(h5file)
 
     if preprocessingexists:
-        stacks, axes = getstacks(h5file,["counters","detector0"])
+        stacks, axes = getstacks(h5file,["counters","^detector([0-9]+|sum)$"])
     else:
         logger.info("Creating image stacks ...")
-        jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfile,False,stackdim,mlines=mlines,microdiff=microdiff)
+        jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,\
+                                            cfgfiles,dtcor,stackdim,mlines=mlines,microdiff=microdiff,\
+                                            exclude_detectors=exclude_detectors,addbeforefit=addbeforefit)
         stacks, axes = makestacks(jsonfile)
 
         #stacks2, axes2 = getstacks(h5file,["counters","detector0"])
         #assert(axes == axes2)
         #assert(stacks == stacks2)
+
+    if "detectorsum" in stacks:
+        dtcor = False # done on the raw data
 
     # Convert stack dictionary to stack list
     stacks = flattenstacks(stacks)
