@@ -27,6 +27,7 @@ import h5py
 import numpy as np
 import pylab
 from scipy import interpolate
+from ..math.common import logscale
 
 def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fliphor=False,color='#ffffff',defaultorigin=False,printpos=False,outname=None):
     """
@@ -148,7 +149,7 @@ def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fli
     else:
         pylab.savefig(outname)
 
-def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=False,flipvert=True,fliphor=False,defaultorigin=False,showlabels=False,color='#ffffff',printpos=False,outname=None):
+def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=False,flipvert=True,fliphor=False,defaultorigin=False,showlabels=False,color='#ffffff',printpos=False,outname=None,log=False):
     """
     Args:
         hdf5filename(str)
@@ -206,6 +207,10 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=Fa
             img = img.T
         if i==0:
             images = np.zeros((3,)+img.shape,dtype=img.dtype)
+
+        if log:
+            img = logscale(img)
+
         mi = np.min(img)
         ma = np.max(img)
         d = ma-mi

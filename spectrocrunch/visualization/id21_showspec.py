@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from spectrocrunch.io.spec import spec
+from ..io.spec import spec
 import h5py
 import numpy as np
 import fabio
@@ -32,10 +32,12 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.animation as animation
 
+from ..math.common import logscale
+
 class shape_object(object):
     
     def __init__(self,nframes,noborder=False,noROIborder=False,notitle=False,noimage=False,notext=False,static=True,ROIs=[],\
-                cmap="jet",rellim=[[0.,1.]],abslim=[],offset=[0,0],name="",figindex=0,xanesnormalize={}):
+                cmap="jet",rellim=[[0.,1.]],abslim=[],log=[],offset=[0,0],name="",figindex=0,xanesnormalize={}):
         self.noborder = noborder
         self.noROIborder = noROIborder
         self.notitle = notitle
@@ -45,6 +47,7 @@ class shape_object(object):
         self.cmap = cmap
         self.rellim = rellim
         self.abslim = abslim
+        self.log = log
         self.img = None
         self.im = None
         self.markers = []
@@ -275,6 +278,10 @@ class shape_object(object):
         if not self.noimage and ax is not None:
             # Images scaling
             for i in range(nchan):
+                if len(self.log)!=0:
+                    if self.log[i]:
+                        img[...,i] = logscale(img[...,i])
+                        
                 if len(self.abslim)==0:
                     j = min(len(self.rellim),i)
                     mi = np.nanmin(img[...,i])
