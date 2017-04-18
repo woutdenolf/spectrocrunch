@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from . import detectors
+from . import areadetectors
 from . import scintillators
 from . import lenses
 
@@ -44,7 +44,7 @@ def id21_ffnoise(I0,energy,sample,tframe,nframe):
 
     oscint = scintillators.Scintillator.factory("LSO ID21",10)
     olens = lenses.Lens.factory("mitutoyoid21_10x")
-    odet = detectors.AreaDetector.factory("pcoedge55")
+    odet = areadetectors.AreaDetector.factory("pcoedge55")
 
     N = sample.propagate(N,energy)
     N = oscint.propagate(N,energy)

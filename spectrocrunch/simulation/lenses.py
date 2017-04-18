@@ -22,48 +22,33 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from six import with_metaclass
+from ..common.classfactory import FactoryBase
+import collections
 
 from . import noisepropagation
 
 import numpy as np
 
-class LensMeta(type):
+class Lens(FactoryBase):
     """
-    Metaclass used to register all lens classes inheriting from Lens
+    Class representing a lens
     """
-    def __init__(cls, name, bases, dct):
-        cls.registry[name.lower().replace(" ","_")] = cls
-        super(LensMeta, cls).__init__(name, bases, dct)
+    registry = collections.OrderedDict()
+    registry2 = collections.OrderedDict()
 
-class Lens(with_metaclass(LensMeta, object)):
-    """
-    Class representing an area lens
-    """
-    registry = {}
-
-    @classmethod
-    def factory(cls, name, *args):
-        """
-        Args:
-            name(str): name of the lens
-
-        Returns:
-            Lens
-        """
-        name = name.lower().replace(" ","_")
-        if name in cls.registry:
-            return cls.registry[name](*args)
-        else:
-            raise RuntimeError("Lens {} is not one of the registered lenses: {}".format(name, cls.registry.keys()))
-
-    def __init__(self, magnification, NA, transmission):
+    def __init__(self, magnification=None, NA=None, transmission=None):
         """
         Args:
             magnification(num): magnification
             NA(num): numerical aperture
             transmission(num): transmission
         """
+        if magnification is None:
+            raise RuntimeError("Magnifiction not defined for {}".format(self.__class__.__name__))
+        if NA is None:
+            raise RuntimeError("NA not defined for {}".format(self.__class__.__name__))
+        if transmission is None:
+            raise RuntimeError("Transmission not defined for {}".format(self.__class__.__name__))
 
         self.magnification = float(magnification)
         self.NA = float(NA)
@@ -99,6 +84,7 @@ class mitutoyoid21_10x(Lens):
     """
     Mitutoyo M Plan Apo 20x 0.42 f = 200 mm
     """
+    aliases = ["Mitutoyo ID21 10x"]
 
     def __init__(self):
         super(mitutoyoid21_10x, self).__init__(magnification=10, NA=0.42, transmission=0.95)
@@ -107,9 +93,11 @@ class mitutoyoid21_20x(Lens):
     """
     Mitutoyo M Plan Apo HR 10x 0.42 f = 200 mm
     """
+    aliases = ["Mitutoyo ID21 20x"]
 
     def __init__(self):
         super(mitutoyoid21_20x, self).__init__(magnification=20, NA=0.42, transmission=0.95)
 
+registry = Lens.registry
 factory = Lens.factory
 

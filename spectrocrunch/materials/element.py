@@ -128,6 +128,9 @@ class element(Hashable):
     def isabsorber(self):
         return len(self.shells)!=0
 
+    def getfluoinfo(self):
+        return {"shells":self.shells,"linefraction":self.fluofrac}
+
     def _xraylib_linenames(self,linecodes):
         """Convert xraylib line codes to IUPAC names
         """

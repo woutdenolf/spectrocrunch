@@ -22,7 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from six import with_metaclass
+from ..common.classfactory import FactoryBase
+import collections
 
 from . import noisepropagation
 
@@ -34,42 +35,26 @@ from .constants import LambdaEnergy
 
 import numpy as np
 
-class ScintillatorMeta(type):
-    """
-    Metaclass used to register all scintillator classes inheriting from Scintillator
-    """
-    def __init__(cls, name, bases, dct):
-        cls.registry[name.lower().replace(" ","_")] = cls
-        super(ScintillatorMeta, cls).__init__(name, bases, dct)
-
-class Scintillator(with_metaclass(ScintillatorMeta, object)):
+class Scintillator(FactoryBase):
     """
     Class representing an area scintillator
     """
-    registry = {}
+    registry = collections.OrderedDict()
+    registry2 = collections.OrderedDict()
 
-    @classmethod
-    def factory(cls, name, thickness, material, nvisperkeV):
-        """
-        Args:
-            name(str): name of the scintillator
-
-        Returns:
-            Scintillator
-        """
-        name = name.lower().replace(" ","_")
-        if name in cls.registry:
-            return cls.registry[name](thickness, material, nvisperkeV)
-        else:
-            raise RuntimeError("Scintillator {} is not one of the registered scintillators: {}".format(name, cls.registry.keys()))
-
-    def __init__(self, thickness, material, nvisperkeV):
+    def __init__(self, thickness=None, material=None, nvisperkeV=None):
         """
         Args:
             thickness(num): thickness in micron
             material(spectrocrunch.materials.compound|spectrocrunch.materials.mixture): scintillator compoisition
             nvisperkeV(num): number of VIS photons generated per keV
         """
+        if thickness is None:
+            raise RuntimeError("Thickness not defined for {}".format(self.__class__.__name__))
+        if material is None:
+            raise RuntimeError("Material not defined for {}".format(self.__class__.__name__))
+        if nvisperkeV is None:
+            raise RuntimeError("nvisperkeV not defined for {}".format(self.__class__.__name__))
 
         self.thickness = float(thickness)
         self.nvisperkeV = float(nvisperkeV)
@@ -130,8 +115,9 @@ class GGG_ID21(Scintillator):
     """
     Eu doped GGG
     """
+    aliases = ["GGG ID21"]
 
-    def __init__(self,thickness):
+    def __init__(self,thickness=None):
         """
         Args:
             thickness(num): thickness in micron
@@ -164,8 +150,9 @@ class LSO_ID21(Scintillator):
     """
     Tb doped LSO
     """
+    aliases = ["LSO ID21"]
 
-    def __init__(self,thickness):
+    def __init__(self,thickness=None):
         """
         Args:
             thickness(num): thickness in micron
@@ -193,5 +180,6 @@ class LSO_ID21(Scintillator):
         ret[energy==LambdaEnergy(550)] = 1 # Tb
         return ret
 
+registry = Scintillator.registry
 factory = Scintillator.factory
 

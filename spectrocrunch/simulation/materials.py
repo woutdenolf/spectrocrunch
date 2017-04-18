@@ -22,7 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from six import with_metaclass
+from ..common.classfactory import FactoryBase
+import collections
 
 from . import noisepropagation
 
@@ -31,45 +32,25 @@ from ..materials.mixture import mixture
 from ..materials.types import fractionType
 import xraylib
 
-from ..common import classfactory
-
 import numpy as np
 
-class MaterialMeta(type):
-    """
-    Metaclass used to register all material classes inheriting from Material
-    """
-    def __init__(cls, name, bases, dct):
-        cls.registry[name.lower().replace(" ","_")] = cls
-        super(MaterialMeta, cls).__init__(name, bases, dct)
-
-class Material(with_metaclass(MaterialMeta, object)):
+class Material(FactoryBase):
     """
     Class representing an area material
     """
-    registry = {}
+    registry = collections.OrderedDict()
+    registry2 = collections.OrderedDict()
 
-    @classmethod
-    def factory(cls, name):
-        """
-        Args:
-            name(str): name of the material
-
-        Returns:
-            Material
-        """
-        name = name.lower().replace(" ","_")
-        if name in cls.registry:
-            return cls.registry[name]()
-        else:
-            raise RuntimeError("Material {} is not one of the registered materials: {}".format(name, cls.registry.keys()))
-
-    def __init__(self, material, thickness):
+    def __init__(self, material=None, thickness=None):
         """
         Args:
             material(spectrocrunch.materials.compound): material composition
             thickness(num): thickness in micron
         """
+        if thickness is None:
+            raise RuntimeError("Thickness not defined for {}".format(self.__class__.__name__))
+        if material is None:
+            raise RuntimeError("Material not defined for {}".format(self.__class__.__name__))
 
         self.thickness = float(thickness)
         self.material = material
@@ -91,43 +72,53 @@ class Material(with_metaclass(MaterialMeta, object)):
             uncertainties.core.Variable or numpy.array(uncertainties.core.Variable)
         """
 
-        # Transmission of X-rays
-        probsuccess = self.transmission(energy)
-        process = noisepropagation.bernouilli(probsuccess)
-        Nout = noisepropagation.propagate(N,process)
+        if self.material.hasabsorbers():
+            # TODO: Fluorescence
+            probsuccess = self.transmission(energy)
+            process = noisepropagation.bernouilli(probsuccess)
+            Nout = noisepropagation.propagate(N,process)
+        else:
+            # Transmission of X-rays
+            probsuccess = self.transmission(energy)
+            process = noisepropagation.bernouilli(probsuccess)
+            Nout = noisepropagation.propagate(N,process)
 
         return Nout
 
-class vacuum(Material):
+class Vacuum(Material):
     """
     Vacuum
     """
 
     def __init__(self,thickness):
-        compound([],[],fractionType.mole,0,name="vacuum")
-        super(ultralene, self).__init__(material,thickness)
+        material = compound([],[],fractionType.mole,0,name="vacuum")
+        super(Vacuum, self).__init__(material=material,thickness=thickness)
 
-class ultralene(Material):
+class Ultralene(Material):
     """
     Ultralene
     """
 
-    def __init__(self,thickness):
+    def __init__(self,thickness=None):
         data = xraylib.GetCompoundDataNISTByName("Kapton Polyimide Film")
         material = compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name=data["name"])
-        super(ultralene, self).__init__(material,thickness)
+        super(Ultralene, self).__init__(material=material,thickness=thickness)
 
-
+def NistFactory(nistname):
+    def __init__(self,thickness=None):
+        data = xraylib.GetCompoundDataNISTByName(nistname)
+        material = compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name=data["name"])
+        Material.__init__(self, material=material,thickness=thickness)
+    newclass = type(nistname.replace(" ","_"), (Material,),{"__init__": __init__,"aliases":[nistname,nistname.lower()]})
+    return newclass
 
 try:
-    
     for c in xraylib.GetCompoundDataNISTList():
-        c = c.lower().replace(" ","_")
-        #c = type(c, (Material,), {"__init__":})
-
-    #print Material.registry
+        c = NistFactory(c)
 except ImportError:
     pass
 
+registry = Material.registry
 factory = Material.factory
+
 

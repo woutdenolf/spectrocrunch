@@ -161,6 +161,16 @@ class compound(Hashable):
         for e in self.elements:
             e.markasabsorber()
 
+    def hasabsorbers(self):
+        return any([e.isabsorber() for e in self.elements])
+
+    def getabsorberinfo(self):
+        ret = {}
+        for e in self.elements:
+            if e.isabsorber() and e not in ret:
+                ret[e] = e.getfluoinfo()
+        return ret
+
     def _crosssection(self,method,E,decimals=6,refresh=False,fine=False,decomposed=False):
         """Calculate compound cross-sections
         """

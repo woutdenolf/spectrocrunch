@@ -22,41 +22,20 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from six import with_metaclass
+from ..common.classfactory import FactoryBase
+import collections
 
 from . import noisepropagation
 
 from uncertainties import ufloat
 import numpy as np
 
-class AreaDetectorMeta(type):
-    """
-    Metaclass used to register all detector classes inheriting from AreaDetector
-    """
-    def __init__(cls, name, bases, dct):
-        cls.registry[name.lower().replace(" ","_")] = cls
-        super(AreaDetectorMeta, cls).__init__(name, bases, dct)
-
-class AreaDetector(with_metaclass(AreaDetectorMeta, object)):
+class AreaDetector(FactoryBase):
     """
     Class representing an area detector
     """
-    registry = {}
-
-    @classmethod
-    def factory(cls, name, etoadu, qe, aduoffset, darkcurrent, readoutnoise):
-        """
-        Args:
-            name(str): name of the detector
-
-        Returns:
-            AreaDetector
-        """
-        name = name.lower().replace(" ","_")
-        if name in cls.registry:
-            return cls.registry[name](etoadu, qe, aduoffset, darkcurrent, readoutnoise)
-        else:
-            raise RuntimeError("Detector {} is not one of the registered detectors: {}".format(name, cls.registry.keys()))
+    registry = collections.OrderedDict()
+    registry2 = collections.OrderedDict()
 
     def __init__(self, etoadu, qe, aduoffset, darkcurrent, readoutnoise):
         """
@@ -122,9 +101,11 @@ class pcoedge55(AreaDetector):
     """
     PCO Edge 5.5
     """
+    aliases = ["PCO Edge 5.5"]
 
     def __init__(self):
         super(pcoedge55, self).__init__(etoadu=1/0.45, qe=0.03, aduoffset=95.5, darkcurrent=7.4, readoutnoise=0.95)
 
+registry = AreaDetector.registry
 factory = AreaDetector.factory
 

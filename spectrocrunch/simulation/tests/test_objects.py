@@ -24,7 +24,7 @@
 
 import unittest
 
-from .. import detectors
+from .. import areadetectors
 from .. import scintillators
 from .. import lenses
 from .. import materials
@@ -85,28 +85,26 @@ class test_objects(unittest.TestCase):
         self.assertFalse(hasattr(Nout,"__iter__"))
 
     def test_detectors(self):
-        self.assertRaises(RuntimeError, detectors.factory, "")
+        self.assertRaises(RuntimeError, areadetectors.factory, "noclassname")
 
-        o = detectors.factory("pcoedge55")
-        o = detectors.pcoedge55()
-        self._checkprop(o,tframe=2,nframe=10)
-
-        o = detectors.factory("areadetector")
+        o = areadetectors.factory("PCO Edge 5.5")
         self._checkprop(o,tframe=2,nframe=10)
     
     def test_lenses(self):
-        self.assertRaises(RuntimeError, lenses.Lens.factory, "")
+        self.assertRaises(RuntimeError, lenses.factory, "noclassname")
 
-        o = lenses.factory("mitutoyoid21_10x")
+        o = lenses.factory("Mitutoyo ID21 10x")
         self._checkprop(o,nrefrac=1.1)
 
-        o = lenses.factory("mitutoyoid21_20x")
+        o = lenses.factory("Mitutoyo ID21 10x")
         self._checkprop(o,nrefrac=1.1)
 
     def test_scintillators(self):
-        self.assertRaises(RuntimeError, scintillators.factory, "", 0)
+        self.assertRaises(RuntimeError, scintillators.factory, "noclassname")
+        for cname in scintillators.registry:
+            self.assertRaises(RuntimeError, scintillators.factory, cname)
 
-        o = scintillators.Scintillator.factory("GGG ID21",13)
+        o = scintillators.factory("GGG ID21",thickness=13)
         self._checkprop(o)
 
         #SNR = unumpy.nominal_values(N)/unumpy.std_devs(N)
@@ -116,21 +114,17 @@ class test_objects(unittest.TestCase):
         #energy = np.linspace(2,9,100,dtype=float)
         #plt.plot(energy,o.transmission(energy))
         
-        o = scintillators.factory("LSO ID21",10)
+        o = scintillators.factory("LSO ID21",thickness=10)
         self._checkprop(o)
 
         #plt.plot(energy,o.transmission(energy))
         #plt.show()
 
     def test_materials(self):
-        #self.assertRaises(RuntimeError, materials.Material.factory, "", 0)
+        self.assertRaises(RuntimeError, materials.factory, "noclassname")
 
-
-
-        o = materials.factory("Ultralene",4)
-
-        #for s in materials.Material.registry:
-        #    print s
+        o = materials.factory("ultralene",thickness=4)
+        self._checkprop(o)
         
 def test_suite_all():
     """Test suite including all test suites"""
