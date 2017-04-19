@@ -41,6 +41,135 @@ except:
 
 from spectrocrunch.common.hashable import Hashable
 
+class fluoline(Hashable):
+    _all = {s.split('_')[0]:xraylib.__dict__[s] for s in xraylib.__dict__.keys() if s.endswith("_LINE")}
+    
+    def __init__(self,code):
+        """
+        Args:
+            code(int): xraylib line code
+        """
+        self.code = code
+        self.name = fluoline.getname(self.code)
+
+    def _cmpkey(self):
+        """For comparing and sorting
+        """
+        return self.code
+
+    def _stringrepr(self):
+        """Unique representation of an instance
+        """
+        return self.name
+
+    def radrate(self,Z):
+        return xraylib.RadRate(Z,self.code)
+
+    @classmethod
+    def getname(cls,code):
+        """IUPAC name
+        """
+        names = [name for name,c in cls._all.items() if c == code]
+
+        n = len(names)
+        if n==1:
+            return names[0]
+        elif n==2:
+            n0 = len(names[0])
+            n1 = len(names[1])
+            if n0==n1:
+                candidate = names[0]
+                if names[0][1]=='A' or names[0][1]=='B':
+                    return names[1]
+                else:
+                    return names[0]
+            elif n0>n1:
+                return names[0]
+            else:
+                return names[1]
+        else:
+            return names[np.argmax([len(name) for name in names])]
+    
+    @classmethod
+    def factory(cls,codes,shellname):
+        """Generate fluoline instances from codes
+            - only from given shell
+            - decompose composite lines
+            - remove duplicates
+
+        Args:
+            codes(array(int)): xraylib line codes
+
+        Returns:
+            list(fluoline)
+        """
+        if codes is None:
+            return []
+        elif not hasattr(codes,"__iter__"):
+            codes = [codes]
+
+        # line belongs to shell
+        # line is selected (directly or under composite)
+        # line is not a composite
+        use = lambda line,selname,code: line.startswith(shellname) and\
+                                        line.startswith(selname) and\
+                                        (code<0 or line!=selname)
+
+        lines = [fluoline(cls._all[name]) for code in codes for name in cls._all if use(name,cls.getname(code),code)] # decompose composites
+
+        return list(set(lines)) # remove duplicates
+
+
+class shell(Hashable):
+    _all = {xraylib.__dict__[s]:s.split('_')[0] for s in xraylib.__dict__.keys() if s.endswith("_SHELL")}
+
+    def __init__(self,code,fluolines=None):
+        """
+        Args:
+            code(int): xraylib shell code
+            fluolines(Optional(array(int))): xraylib line codes (all lines when None)
+        """
+
+        self.code = code
+        self.name = self.getname()
+        self.setfluo(fluolines=fluolines)
+
+    def _cmpkey(self):
+        """For comparing and sorting
+        """
+        return self.code
+
+    def _stringrepr(self):
+        """Unique representation of an instance
+        """
+        return self.name
+
+    def getname(self):
+        return shell._all[self.code]
+
+    def setfluo(self,fluolines=None):
+        """
+        Args:
+            fluolines(Optional(array(int))): xraylib line codes
+        """
+        self.fluolines = fluoline.factory(fluolines,self.name)
+
+    def fluoyield(self,Z):
+        return xraylib.FluorYield(Z,self.code)
+
+    def radrate(self,Z):
+        if len(self.fluolines)==0:
+            return [1] # ALL lines
+        else:
+            return [l.radrate(Z) for l in self.fluolines]
+
+    def fluofrac(self,Z):
+        return self.fluoyield(Z)*sum(self.radrate(Z))
+
+    def edgenergy(self,Z):
+        return xraylib.EdgeEnergy(Z,self.code)
+
+
 class element(Hashable):
     """Interface to chemical elements
     """
@@ -66,9 +195,8 @@ class element(Hashable):
         # Atomic properties
         self.MM = xraylib.AtomicWeight(self.Z)
 
-        # Information for calculating cross-sections
-        self.shells = [] # all shells by default
-        self.fluofrac = [] # all fluorescence lines by default
+        # Information for calculating partial cross-sections
+        self.shells = []
 
     def _cmpkey(self):
         """For comparing and sorting
@@ -84,99 +212,23 @@ class element(Hashable):
         """
         Args:
             symb(str): element symbol
+            shells(Optional(array(int))): xraylib shell codes
+            fluolines(Optional(array(int))): xraylib line codes
         """
         if self.name==symb:
+            # Shell names
             if shells is None:
-                shells = []
-            if fluolines is None:
-                fluolines = []
-
-            # Shells for partial cross-sections
-            if hasattr(shells,"__iter__"):
-                self.shells = shells
+                self.shells = []
+            elif not hasattr(shells,"__iter__"):
+                self.shells = [shell(shells,fluolines=fluolines)]
             else:
-                self.shells = [shells]
-
-            # Fluorescence fractions for shells
-            if len(self.shells)==0:
-                self.fluofrac = []
-            else:
-                self.fluofrac = [1]*len(self.shells)
-                if len(fluolines)>0:
-                    lines = self._xraylib_linenames(fluolines)
-
-                    shellnames = [s for s in xraylib.__dict__.keys() if s.endswith("_SHELL")]
-                    shellcodes = [xraylib.__dict__[s] for s in shellnames]
-
-                    for shelli in range(len(self.shells)):
-                        # Fluorescence yield for this shell
-                        shell = self.shells[shelli]
-                        fyield = xraylib.FluorYield(self.Z,shell)
-
-                        # Radiative rates of the lines that correspond to this shell
-                        shellname = shellnames[shellcodes.index(shell)].split('_')[0]
-                        radrates = [xraylib.RadRate(self.Z,xraylib.__dict__[line]) for line in lines if line.startswith(shellname)]
-
-                        # Fraction of the shell's partial cross-sections
-                        self.fluofrac[shelli] = fyield * sum(radrates)
-
+                self.shells = list(set([shell(s,fluolines=fluolines) for s in shells]))
 
     def unmarkabsorber(self):
-        self.shells = [] # this means ALL SHELLS
-        self.fluofrac = [] # this means ALL LINES
+        self.shells = []
 
     def isabsorber(self):
         return len(self.shells)!=0
-
-    def getfluoinfo(self):
-        return {"shells":self.shells,"linefraction":self.fluofrac}
-
-    def _xraylib_linenames(self,linecodes):
-        """Convert xraylib line codes to IUPAC names
-        """
-
-        if hasattr(linecodes,"__iter__"):
-            codes = np.asarray(linecodes)
-        else:
-            codes = np.asarray([linecodes])
-
-        # All line names and corresponding codes
-        linenames = [s for s in xraylib.__dict__.keys() if s.endswith("_LINE")]
-        linecodes = [xraylib.__dict__[s] for s in linenames]
-
-        # Expand composite lines
-        ind = np.where(codes >= 0)[0]
-        for i in ind:
-            groupname = linenames[linecodes.index(codes[i])].split("_")[0]
-            codes = np.append(codes,[xraylib.__dict__[s] for s in linenames if s.startswith(groupname)])
-
-        # Remove duplicates and composites
-        codes = np.unique(codes[codes<0])
-
-        # Code to IUPAC name
-        linecodes = np.asarray(linecodes)
-        ret = [None]*len(codes)
-        for i in range(len(codes)):
-            ind = np.where(linecodes==codes[i])[0]
-            if len(ind)==1:
-                ret[i] = linenames[ind[0]]
-            elif len(ind)==2:
-                n0 = len(linenames[ind[0]])
-                n1 = len(linenames[ind[1]])
-                if n0==n1:
-                    candidate = linenames[ind[0]]
-                    if candidate[1]=='A' or candidate[1]=='B':
-                        ret[i] = linenames[ind[1]]
-                    else:
-                        ret[i] = candidate
-                elif n0>n1:
-                    ret[i] = linenames[ind[0]]
-                else:
-                    ret[i] = linenames[ind[1]]
-            else:
-                raise ValueError("Error in converting Siegbahn line name to IUPAC name.")
-            
-        return ret
 
     def get_pure_density(self):
         return xraylib.ElementDensity(self.Z)
@@ -184,11 +236,11 @@ class element(Hashable):
     def get_energy(self,energyrange,defaultinc=1):
         """Get absolute energies (keV) from a relative energy range (eV)
         """
-        n = len(self.shells)
-        if n==0:
+        nshells = len(self.shells)
+        if nshells==0:
             return None
-        if n==1:
-            return xraylib.EdgeEnergy(self.Z,self.shells[0]) + self._get_fdmnes_energies(energyrange)/1000.
+        elif nshells==1:
+            return self.shells[0].edgeenergy(self.Z) + self._get_fdmnes_energies(energyrange)/1000.
         else:
             return self._get_fdmnes_energies(self._get_absolute_energyrange(energyrange,defaultinc=defaultinc))
 
@@ -232,7 +284,7 @@ class element(Hashable):
         nbounds = len(indE)
         energies = np.empty(nshells*nbounds,dtype=energyrange.dtype)
         for i in range(nshells):
-            energies[i*nbounds:(i+1)*nbounds] = xraylib.EdgeEnergy(self.Z,self.shells[i]) + energyrange[indE]/1000.
+            energies[i*nbounds:(i+1)*nbounds] = self.shells[i].edgeenergy(self.Z) + energyrange[indE]/1000.
 
         # Put unique boundaries in new range array
         E = np.unique(energies)
@@ -264,13 +316,13 @@ class element(Hashable):
 
         return newrange
 
-    def _get_fdmnes_energyrange(self,Eabs,shell,decimals=6):
+    def _get_fdmnes_energyrange(self,Eabs,edgeenergy,decimals=6):
         """Calculate energies based on boundaries and step sizes:
             energyrange = [E0,step0,E1,step1,E2] (eV, relative to the edge)
            Eabs in keV
         """
 
-        E = (Eabs - xraylib.EdgeEnergy(self.Z,shell))*1000 # absolute (keV) to relative (eV)
+        E = (Eabs - edgeenergy)*1000 # absolute (keV) to relative (eV)
 
         dE = np.around(E[1:]-E[0:-1],decimals=decimals-3)
         ind = np.argwhere(dE[1:]-dE[0:-1])
@@ -318,8 +370,8 @@ class element(Hashable):
         else:
             for i in range(len(E)):
                 ret[i] = xraylib.CS_Total_Kissel(self.Z,E[i])
-                for shell in self.shells:
-                    ret[i] -= xraylib.CS_Photo_Partial(self.Z,shell,E[i])
+                for s in self.shells:
+                    ret[i] -= xraylib.CS_Photo_Partial(self.Z,s.code,E[i])
 
             ind = np.argwhere(ret<0)
             if len(ind)>0:
@@ -357,8 +409,8 @@ class element(Hashable):
         else:
             for i in range(len(E)):
                 ret[i] = xraylib.CS_Photo_Total(self.Z,E[i])
-                for shell in self.shells:
-                    ret[i] -= xraylib.CS_Photo_Partial(self.Z,shell,E[i])
+                for s in self.shells:
+                    ret[i] -= xraylib.CS_Photo_Partial(self.Z,s.code,E[i])
 
             ind = np.argwhere(ret<0)
             if len(ind)>0:
@@ -398,8 +450,8 @@ class element(Hashable):
         if environ is None:
             ret = np.zeros(len(E),dtype=np.float64)
             for i in range(len(E)):
-                for shelli in range(len(self.shells)):
-                    ret[i] += xraylib.CS_Photo_Partial(self.Z,self.shells[shelli],E[i])*self.fluofrac[shelli]
+                for s in self.shells:
+                    ret[i] += xraylib.CS_Photo_Partial(self.Z,s.code,E[i])*s.fluofrac(self.Z)
         else:
             ret = self._CS_Photo_Partial_FDMNES(E,environ,decimals=decimals,refresh=refresh,fluo=True)
 
@@ -486,14 +538,6 @@ class element(Hashable):
             else:
                 return None
 
-    def _get_fdmnes_shell(self,shell):
-        for s in xraylib.__dict__.keys():
-            if not s.endswith("_SHELL"):
-                continue
-            if xraylib.__dict__[s] == shell:
-                return s[:-6]
-        raise ValueError("FDMNES cannot handle xraylib shell %d"%shell)
-
     def _get_multiplicity(self,struct):
         scat = struct.scatterers()
         ret = 0.
@@ -524,14 +568,13 @@ class element(Hashable):
 
         # Do simulation
         ret = None
-        for shelli in range(len(self.shells)):
+        for s in self.shells:
             # Select edge
-            shell = self.shells[shelli]
-            sim.P.Edge = self._get_fdmnes_shell(shell)
+            sim.P.Edge = s.name
             filebase = os.path.splitext(os.path.basename(environ.ciffile))[0]+"_"+self.name+"_"+sim.P.Edge
 
             # Relative energy range in eV
-            Range = self._get_fdmnes_energyrange(E,shell,decimals=decimals)
+            Range = self._get_fdmnes_energyrange(E,s.edgeenergy(self.Z),decimals=decimals)
             sim.P.Range = tuple(Range)
 
             # Read previous configuration file
@@ -570,7 +613,7 @@ class element(Hashable):
 
             # Convert data to absorbance
             data[:,0] /= 1000. # ev -> keV
-            data[:,0] += xraylib.EdgeEnergy(self.Z,shell) # rel -> abs
+            data[:,0] += s.edgeenergy(self.Z) # rel -> abs
             data[:,1] *= xraylib.AVOGNUM*1E6/self.MM # Absorption cross section (Mbarn) -> mass absorption coefficient (cm^2/g)
 
             # Element multiplicity in the unit cell
