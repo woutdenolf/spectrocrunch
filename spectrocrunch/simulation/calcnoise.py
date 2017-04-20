@@ -25,8 +25,11 @@
 from . import areadetectors
 from . import scintillators
 from . import lenses
+from .noisepropagation import randomvariable
 
-def id21_ffnoise(I0,energy,sample,tframe,nframe):
+import numpy as np
+
+def id21_ffnoise(I0,energy,sample,tframe_data,nframe_data,tframe_flat,nframe_flat,scint="LSO",lens="x10"):
     """ID21 fullfield noise propagation
 
     Args:
@@ -34,22 +37,52 @@ def id21_ffnoise(I0,energy,sample,tframe,nframe):
         energy (num or array-like): associated energy (keV)
         sample (spectrocrunch.simulation.materials.Material): sample
         tframe(num): time per frame (sec)
-        nframe(num): number of frames (sec)
+        nframe_data(num): number of data frames
+        nframe_flat(num): number of flat frames
+        scint(Optional(str)):
+        lens(Optional(str)):
 
     Returns:
-        uncertainties.unumpy.uarray: detector signal in ADU
+        2-tuple(uncertainties.unumpy.uarray): detector signal in ADU (with and w.o. sample)
     """
 
-    N = I0*tframe
+    if scint=="LSO":
+        oscint = scintillators.factory("LSO ID21",thickness=10)
+    else:
+        oscint = scintillators.factory("GGG ID21",thickness=13)
 
-    oscint = scintillators.Scintillator.factory("LSO ID21",10)
-    olens = lenses.Lens.factory("mitutoyoid21_10x")
-    odet = areadetectors.AreaDetector.factory("pcoedge55")
+    if lens=="x10":
+        olens = lenses.factory("mitutoyoid21_10x")
+    else:
+        olens = lenses.factory("mitutoyoid21_10x")
 
-    N = sample.propagate(N,energy)
-    N = oscint.propagate(N,energy)
-    N = olens.propagate(N,energy,nrefrac=oscint.get_nrefrac())
-    N = odet.propagate(N,energy,tframe=tframe,nframe=nframe)
+    odet = areadetectors.factory("pcoedge55")
 
-    return N
+    # With sample
+    Ni = I0*tframe_data
+    Ni = randomvariable(Ni,np.sqrt(Ni))
+    Ni = sample.propagate(Ni,energy)
+    Ni = oscint.propagate(Ni,energy)
+    Ni = olens.propagate(Ni,energy,nrefrac=oscint.get_nrefrac())
+    Ni = odet.propagate(Ni,energy,tframe=tframe_data,nframe=nframe_data)
+
+    # Without sample
+    N0 = I0*tframe_flat
+    N0 = randomvariable(N0,np.sqrt(N0))
+    N0 = oscint.propagate(N0,energy)
+    N0 = olens.propagate(N0,energy,nrefrac=oscint.get_nrefrac())
+    N0 = odet.propagate(N0,energy,tframe=tframe_flat,nframe=nframe_flat)
+
+    return Ni,N0
+
+def id21_transmissionnoise(I0,energy):
+    """ID21 SXM transmission noise propagation
+    """
+    pass
+
+def id21_xrfnoise(I0,energy):
+    """ID21 SXM transmission noise propagation
+    """
+    pass
+
 

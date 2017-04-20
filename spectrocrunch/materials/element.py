@@ -209,7 +209,11 @@ class element(Hashable):
         return self.name
 
     def markasabsorber(self,symb,shells=None,fluolines=None):
-        """
+        """Marking an element's shells and lines has following effect:
+            - replace cross-section data with simulations for the selected shells
+            - partial absorption cross-section is not zero
+            - when no fluolines are given: all lines for each shell are taken into account
+
         Args:
             symb(str): element symbol
             shells(Optional(array(int))): xraylib shell codes
@@ -232,89 +236,6 @@ class element(Hashable):
 
     def get_pure_density(self):
         return xraylib.ElementDensity(self.Z)
-
-    def get_energy(self,energyrange,defaultinc=1):
-        """Get absolute energies (keV) from a relative energy range (eV)
-        """
-        nshells = len(self.shells)
-        if nshells==0:
-            return None
-        elif nshells==1:
-            return self.shells[0].edgeenergy(self.Z) + self._get_fdmnes_energies(energyrange)/1000.
-        else:
-            return self._get_fdmnes_energies(self._get_absolute_energyrange(energyrange,defaultinc=defaultinc))
-
-    def _get_fdmnes_energies(self,energyrange):
-        """Calculate energies based on boundaries and step sizes:
-            energyrange = [E0,step0,E1,step1,E2]
-        """
-
-        # Number of steps in each region
-        nblocks = len(energyrange)//2
-        nsteps = np.empty(nblocks,dtype=int)
-        e = energyrange[0]
-        for i in range(nblocks):
-            b = e
-            e = energyrange[2*i+2]
-            inc = energyrange[2*i+1]
-            nsteps[i] = np.ceil((e-b)/inc)
-            e = b + nsteps[i]*inc
-            if i == nblocks-1:
-                if e > energyrange[-1]:
-                    nsteps[i]-=1
-
-        ret = np.empty(nsteps.sum()+1,dtype=energyrange.dtype)
-        ret[0] = energyrange[0]
-        off = 1
-        for i in range(nblocks):
-            inc = energyrange[2*i+1]
-            ret[off:off+nsteps[i]] = ret[off-1] + np.arange(1,nsteps[i]+1)*inc
-            off += nsteps[i]
-
-        return ret
-
-    def _get_absolute_energyrange(self,energyrange,defaultinc=1):
-        """Convert relative energy range (eV) to absolute energy range (keV)
-        """
-
-        # Boundaries
-        nblocks = len(energyrange)//2
-        indE = np.arange(0,len(energyrange),2)
-        nshells = len(self.shells)
-        nbounds = len(indE)
-        energies = np.empty(nshells*nbounds,dtype=energyrange.dtype)
-        for i in range(nshells):
-            energies[i*nbounds:(i+1)*nbounds] = self.shells[i].edgeenergy(self.Z) + energyrange[indE]/1000.
-
-        # Put unique boundaries in new range array
-        E = np.unique(energies)
-        newnblocks = len(E)-1
-        newrange = np.empty(2*newnblocks+1,dtype=energyrange.dtype)
-        newindE = np.arange(0,len(newrange),2)
-        newindD = np.arange(1,2*newnblocks,2)
-        newrange[newindE] = E
-        newrange[newindD] = defaultinc/1000.
-        
-        # Determine step sizes
-        for j in range(newnblocks):
-            m = newrange[2*j] + (newrange[2*j+2]-newrange[2*j])/2
-            inc = 0
-            
-            for i in range(nshells):
-                b = i*nbounds
-                e = b+nbounds-1
-                if m > energies[b] and m < energies[e]:
-                    ubound = 2*np.argmax((energies[b:e+1]-m)>0)
-                    d = energyrange[ubound-1]/1000.
-                    if inc==0:
-                        inc = d
-                    else:
-                        inc = min(inc,d)
-
-            if inc != 0:
-                newrange[2*j+1] = inc
-
-        return newrange
 
     def _get_fdmnes_energyrange(self,Eabs,edgeenergy,decimals=6):
         """Calculate energies based on boundaries and step sizes:
@@ -348,7 +269,7 @@ class element(Hashable):
         return energyrange
 
     def mass_att_coeff(self,E,environ=None,decimals=6,refresh=False):
-        """Mass attenuation coefficient (cm^2/g, E in keV). In other words: transmission XAS.
+        """Mass attenuation coefficient (cm^2/g, E in keV). Use for transmission XAS.
 
         Args:
             E(num or array-like): energy (keV)
@@ -362,29 +283,19 @@ class element(Hashable):
         bnum = not hasattr(E,"__iter__")
         if bnum:
             E = [E]
-        ret = np.empty(len(E),dtype=np.float64)
+        cs = np.empty(len(E),dtype=np.float64)
 
-        if environ is None or not self.isabsorber():
-            for i in range(len(E)):
-                ret[i] = xraylib.CS_Total_Kissel(self.Z,E[i])
-        else:
-            for i in range(len(E)):
-                ret[i] = xraylib.CS_Total_Kissel(self.Z,E[i])
-                for s in self.shells:
-                    ret[i] -= xraylib.CS_Photo_Partial(self.Z,s.code,E[i])
+        # Total
+        for i in range(len(E)):
+            cs[i] = xraylib.CS_Total_Kissel(self.Z,E[i])
 
-            ind = np.argwhere(ret<0)
-            if len(ind)>0:
-                ind2 = np.argwhere(ret>=0)
-                f = interpolate.interp1d(E[ind2].flatten(),ret[ind2].flatten(),bounds_error=False)
-                ret[ind] = f(E[ind])
-
-            ret += self._CS_Photo_Partial_FDMNES(E,environ,decimals=decimals,refresh=refresh,fluo=False)
+        # Replace part by simulation
+        cs = self._replace_partial_mass_abs_coeff(cs,E,environ=environ,decimals=decimals,refresh=refresh)
 
         if bnum:
-            return ret[0]
+            return cs[0]
         else:
-            return ret
+            return cs
 
     def mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False):
         """Mass absorption coefficient (cm^2/g, E in keV).
@@ -401,16 +312,26 @@ class element(Hashable):
         bnum = not hasattr(E,"__iter__")
         if bnum:
             E = [E]
-        ret = np.empty(len(E),dtype=np.float64)
+        cs = np.empty(len(E),dtype=np.float64)
 
-        if environ is None or not self.isabsorber():
-            for i in range(len(E)):
-                ret[i] = xraylib.CS_Photo_Total(self.Z,E[i])
+        # Total
+        for i in range(len(E)):
+            cs[i] = xraylib.CS_Photo_Total(self.Z,E[i])
+
+        # Replace part by simulation
+        cs = self._replace_partial_mass_abs_coeff(cs,E,environ=environ,decimals=decimals,refresh=refresh)
+
+        if bnum:
+            return cs[0]
         else:
-            for i in range(len(E)):
-                ret[i] = xraylib.CS_Photo_Total(self.Z,E[i])
-                for s in self.shells:
-                    ret[i] -= xraylib.CS_Photo_Partial(self.Z,s.code,E[i])
+            return cs
+
+    def _replace_partial_mass_abs_coeff(self,cs,E,environ=None,decimals=6,refresh=False):
+        """
+        """
+        if environ is not None and self.isabsorber():
+            # Subtract partial cross-sections (summed over selected shells)
+            cs -= sum(self._CS_Photo_Partial_DB(E).values())
 
             ind = np.argwhere(ret<0)
             if len(ind)>0:
@@ -418,15 +339,13 @@ class element(Hashable):
                 f = interpolate.interp1d(E[ind2].flatten(),ret[ind2].flatten(),bounds_error=False)
                 ret[ind] = f(E[ind])
 
-            ret += self._CS_Photo_Partial_FDMNES(E,environ,decimals=decimals,refresh=refresh,fluo=False)
+            # Add partial cross-sections (summed over selected shells)
+            cs += sum(self._CS_Photo_Partial_SIM(E,environ,decimals=decimals,refresh=refresh).values())
 
-        if bnum:
-            return ret[0]
-        else:
-            return ret
+        return cs
 
     def partial_mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False):
-        """Mass absorption coefficient for the selected shells and lines (cm^2/g, E in keV). In other words: fluorescence XAS.
+        """Mass absorption coefficient for the selected shells (cm^2/g, E in keV).
 
         Args:
             E(num or array-like): energy (keV)
@@ -435,7 +354,7 @@ class element(Hashable):
             refresh(Optional(bool)): force re-simulation if used
 
         Returns:
-            num or np.array
+            num or array: sum_S[tau(E,S)]
         """
         bnum = not hasattr(E,"__iter__")
         if bnum:
@@ -448,17 +367,61 @@ class element(Hashable):
                 return np.zeros(len(E),dtype=np.float64)
 
         if environ is None:
-            ret = np.zeros(len(E),dtype=np.float64)
-            for i in range(len(E)):
-                for s in self.shells:
-                    ret[i] += xraylib.CS_Photo_Partial(self.Z,s.code,E[i])*s.fluofrac(self.Z)
+            cs = self._CS_Photo_Partial_DB(E)
         else:
-            ret = self._CS_Photo_Partial_FDMNES(E,environ,decimals=decimals,refresh=refresh,fluo=True)
+            cs = self._CS_Photo_Partial_SIM(E,environ,decimals=decimals,refresh=refresh)
 
+        cs = sum(cs.values())
         if bnum:
-            return ret[0]
+            return cs[0]
         else:
-            return ret
+            return cs
+
+    def xrf_cross_section(self,E,**kwargs):
+        return self._xrf_cross_section(E,decomposed=False,**kwargs)
+
+    def xrf_cross_section_decomposed(self,E,**kwargs):
+        return self._xrf_cross_section(E,decomposed=True,**kwargs)
+
+    def _xrf_cross_section(self,E,environ=None,decimals=6,refresh=False,decomposed=False):
+        """XRF cross section for the selected shells and lines (cm^2/g, E in keV). Use for fluorescence XAS.
+
+            muXRF(E) = sum_{S}[tau(E,S)*fluoyield(S)*sum_{L}[radrate(S,L)]]
+
+        Args:
+            E(num or array-like): energy (keV)
+            environ(dict): chemical environment of this element
+            decimals(Optional(num)): precision of energy in keV
+            refresh(Optional(bool)): force re-simulation if used
+            decomposed(Optional(bool)): output as dictionary
+
+        Returns:
+            num or np.array: muXRF
+            dict: S:tau(E,S)
+        """
+        bnum = not hasattr(E,"__iter__")
+        if bnum:
+            E = [E]
+
+        if not self.isabsorber():
+            if bnum:
+                return np.float64(0)
+            else:
+                return np.zeros(len(E),dtype=np.float64)
+
+        if environ is None:
+            cs = self._CS_Photo_Partial_DB(E)
+        else:
+            cs = self._CS_Photo_Partial_SIM(E,environ,decimals=decimals,refresh=refresh)
+
+        if decomposed:
+            return cs
+        else:
+            cs = sum([c*s.fluofrac(self.Z) for s,c in cs.items()])
+            if bnum:
+                return cs[0]
+            else:
+                return cs
 
     def scattering_cross_section(self,E,environ=None,decimals=6,refresh=False):
         """Scattering cross section (cm^2/g, E in keV).
@@ -546,8 +509,34 @@ class element(Hashable):
                 ret += s.occupancy*s.multiplicity()
         return ret
 
-    def _CS_Photo_Partial_FDMNES(self,E,environ,decimals=6,refresh=False,fluo=True):
+    def _CS_Photo_Partial_DB(self,E):
+        """Get the partial photoionization cross section from xraylib (E in keV).
+
+        Args:
+            E(array): energy (keV)
+
+        Returns
+            dict: shell:tau(E,shell)
+        """
+        cs = {}
+        for s in self.shells:
+            cs[s] = np.empty(len(E),dtype=np.float64)
+            for i in range(len(E)):
+                cs[s][i] = xraylib.CS_Photo_Partial(self.Z,s.code,E[i])
+
+        return cs
+
+    def _CS_Photo_Partial_SIM(self,E,environ,decimals=6,refresh=False,fluo=True):
         """Calculate the partial photoionization cross section with fdmnes (E in keV).
+
+        Args:
+            E(array): energy (keV)
+            environ(dict): chemical environment of this element
+            decimals(Optional(num)): precision of energy in keV
+            refresh(Optional(bool)): force re-simulation if used
+
+        Returns
+            dict: shell:tau(E,shell)
         """
 
         # Initialize simulation
@@ -567,8 +556,11 @@ class element(Hashable):
         sim.P.Density = False # save density of states
 
         # Do simulation
-        ret = None
+        cs = {}
+
         for s in self.shells:
+            cs[s] = np.empty(len(E),dtype=np.float64)
+
             # Select edge
             sim.P.Edge = s.name
             filebase = os.path.splitext(os.path.basename(environ.ciffile))[0]+"_"+self.name+"_"+sim.P.Edge
@@ -626,20 +618,96 @@ class element(Hashable):
                 config["nmult"] = nmult
             data[:,1] /= nmult
 
-            # Energy interpolation and add
+            # Energy interpolation and keep
             f = interpolate.interp1d(data[:,0],data[:,1],bounds_error=False)
-            if fluo:
-                frac = self.fluofrac[shelli]
-            else:
-                frac = 1
-            if ret is None:
-                ret = f(E)*frac
-            else:
-                ret += f(E)*frac
+            cs[s] = f(E)
         
             # Write configuration file
             with open(fcfg,'w') as f:
                 json.dump(config,f,indent=2)
 
         return ret
-    
+
+    def get_energy(self,energyrange,defaultinc=1):
+        """Get absolute energies (keV) from a relative energy range (eV)
+        """
+        nshells = len(self.shells)
+        if nshells==0:
+            return None
+        elif nshells==1:
+            return self.shells[0].edgeenergy(self.Z) + self._get_fdmnes_energies(energyrange)/1000.
+        else:
+            return self._get_fdmnes_energies(self._get_absolute_energyrange(energyrange,defaultinc=defaultinc))
+
+    def _get_fdmnes_energies(self,energyrange):
+        """Calculate energies based on boundaries and step sizes:
+            energyrange = [E0,step0,E1,step1,E2]
+        """
+
+        # Number of steps in each region
+        nblocks = len(energyrange)//2
+        nsteps = np.empty(nblocks,dtype=int)
+        e = energyrange[0]
+        for i in range(nblocks):
+            b = e
+            e = energyrange[2*i+2]
+            inc = energyrange[2*i+1]
+            nsteps[i] = np.ceil((e-b)/inc)
+            e = b + nsteps[i]*inc
+            if i == nblocks-1:
+                if e > energyrange[-1]:
+                    nsteps[i]-=1
+
+        ret = np.empty(nsteps.sum()+1,dtype=energyrange.dtype)
+        ret[0] = energyrange[0]
+        off = 1
+        for i in range(nblocks):
+            inc = energyrange[2*i+1]
+            ret[off:off+nsteps[i]] = ret[off-1] + np.arange(1,nsteps[i]+1)*inc
+            off += nsteps[i]
+
+        return ret
+
+    def _get_absolute_energyrange(self,energyrange,defaultinc=1):
+        """Convert relative energy range (eV) to absolute energy range (keV)
+        """
+
+        # Boundaries
+        nblocks = len(energyrange)//2
+        indE = np.arange(0,len(energyrange),2)
+        nshells = len(self.shells)
+        nbounds = len(indE)
+        energies = np.empty(nshells*nbounds,dtype=energyrange.dtype)
+        for i in range(nshells):
+            energies[i*nbounds:(i+1)*nbounds] = self.shells[i].edgeenergy(self.Z) + energyrange[indE]/1000.
+
+        # Put unique boundaries in new range array
+        E = np.unique(energies)
+        newnblocks = len(E)-1
+        newrange = np.empty(2*newnblocks+1,dtype=energyrange.dtype)
+        newindE = np.arange(0,len(newrange),2)
+        newindD = np.arange(1,2*newnblocks,2)
+        newrange[newindE] = E
+        newrange[newindD] = defaultinc/1000.
+        
+        # Determine step sizes
+        for j in range(newnblocks):
+            m = newrange[2*j] + (newrange[2*j+2]-newrange[2*j])/2
+            inc = 0
+            
+            for i in range(nshells):
+                b = i*nbounds
+                e = b+nbounds-1
+                if m > energies[b] and m < energies[e]:
+                    ubound = 2*np.argmax((energies[b:e+1]-m)>0)
+                    d = energyrange[ubound-1]/1000.
+                    if inc==0:
+                        inc = d
+                    else:
+                        inc = min(inc,d)
+
+            if inc != 0:
+                newrange[2*j+1] = inc
+
+        return newrange
+

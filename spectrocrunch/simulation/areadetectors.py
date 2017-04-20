@@ -59,8 +59,8 @@ class AreaDetector(FactoryBase):
         Args:
             N(num or numpy.array(uncertainties.core.Variable)): incomming number of photons within a tframe timespan with uncertainties
             energy(num or numpy.array): associated energies
-            tframe(num): time per frame (sec)
-            nframe(num): number of frames (sec)
+            tframe(num or numpy.array): time per frame (sec)
+            nframe(num or numpy.array): number of frames (sec)
 
         Returns:
             uncertainties.core.Variable or numpy.array(uncertainties.core.Variable): detector signal in ADU
@@ -89,7 +89,7 @@ class AreaDetector(FactoryBase):
         Nout += self.aduoffset # units: ADU
 
         # Number of frames
-        Nout *= nframe # units: ADU
+        Nout = noisepropagation.repeat(Nout,nframe) # units: ADU
 
         # Repeat with number of energies
         if not hasattr(Nout,"__iter__") and hasattr(energy,"__iter__"):
@@ -104,7 +104,7 @@ class pcoedge55(AreaDetector):
     aliases = ["PCO Edge 5.5"]
 
     def __init__(self):
-        super(pcoedge55, self).__init__(etoadu=1/0.45, qe=0.03, aduoffset=95.5, darkcurrent=7.4, readoutnoise=0.95)
+        super(pcoedge55, self).__init__(etoadu=65536/30000., qe=0.7, aduoffset=95.5, darkcurrent=7.4, readoutnoise=0.95)
 
 registry = AreaDetector.registry
 factory = AreaDetector.factory

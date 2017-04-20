@@ -53,6 +53,12 @@ def randomvariable(X,SX):
         return unumpy.uarray(X,SX)
     else:
         return ufloat(X,SX)
+
+def repeat(X,n):
+    if hasattr(X,"__iter__"):
+        return unumpy.uarray(n*unumpy.nominal_values(X),np.sqrt(n)*unumpy.std_devs(X))
+    else:
+        return ufloat(n*X.n,np.sqrt(n)*X.s)
     
 def propagate(N,process):
     """Sum of a random number (N) of independent random variables (X_i) with the same probability mass function.

@@ -44,7 +44,7 @@ class Material(FactoryBase):
     def __init__(self, material=None, thickness=None):
         """
         Args:
-            material(spectrocrunch.materials.compound): material composition
+            material(list(spectrocrunch.materials.compound|mixture)): material composition
             thickness(num): thickness in micron
         """
         if thickness is None:
@@ -52,14 +52,25 @@ class Material(FactoryBase):
         if material is None:
             raise RuntimeError("Material not defined for {}".format(self.__class__.__name__))
 
-        self.thickness = float(thickness)
-        self.material = material
+        if hasattr(thickness,"__iter__"):
+            self.thickness = np.asarray(thickness,dtype=float)
+        else:
+            self.thickness = np.asarray([thickness],dtype=float)
 
-    def attenuation(self,energy):
-        return 1-self.material.transmission(energy)
+        if hasattr(material,"__iter__"):
+            self.material = material
+        else:
+            self.material = [material]
 
-    def transmission(self,energy):
-        return np.exp(-self.material.density*self.thickness*1e-4*self.material.mass_att_coeff(energy))
+        self.nlayers = len(self.material)
+
+    def fluo_prob(self,energy,layer):
+        self.material[layer].xrf_cross_section_decomposed(energy)
+        
+        return 1-self.transmission_prob(energy,layer)
+
+    def transmission_prob(self,energy,layer):
+        return np.exp(-self.material[layer].density*self.thickness[layer]*1e-4*self.material[layer].mass_att_coeff(energy))
 
     def propagate(self,N,energy):
         """Error propagation of a number of photons.
@@ -72,16 +83,17 @@ class Material(FactoryBase):
             uncertainties.core.Variable or numpy.array(uncertainties.core.Variable)
         """
 
-        if self.material.hasabsorbers():
-            # TODO: Fluorescence
-            probsuccess = self.transmission(energy)
-            process = noisepropagation.bernouilli(probsuccess)
-            Nout = noisepropagation.propagate(N,process)
+        Nout = N
+
+        if any([m.hasabsorbers() for m in self.material]):
+            prob = self.fluo_prob
         else:
-            # Transmission of X-rays
-            probsuccess = self.transmission(energy)
+            prob = self.transmission_prob
+
+        for layer in range(self.nlayers):
+            probsuccess = prob(energy,layer)
             process = noisepropagation.bernouilli(probsuccess)
-            Nout = noisepropagation.propagate(N,process)
+            Nout = noisepropagation.propagate(Nout,process)
 
         return Nout
 

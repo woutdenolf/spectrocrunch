@@ -64,12 +64,8 @@ class compound(Hashable):
             MM = np.asarray([e.MM for e in elements])
             nfrac = stoichiometry.frac_weight_to_mole(np.asarray(frac),MM) # normalized
 
-        # Elements
-        self.elements = {}
-        for e,n in zip(elements,nfrac):
-            if not isinstance(e,element):
-                e = element(e)
-            self.elements[e] = float(n)
+        # Elements (no duplicates)
+        self._compose_elements(elements,nfrac)
 
         # Compound density
         self.density = float(density)
@@ -84,6 +80,16 @@ class compound(Hashable):
                 else:
                     self.density = 1. # approx. density of water
 
+    def _compose_elements(self,elements,nfrac):
+        self.elements = {}
+        for e,n in zip(elements,nfrac):
+            if not isinstance(e,element):
+                e = element(e)
+            if e in self.elements:
+                self.elements[e] += float(n)
+            else:
+                self.elements[e] = float(n)
+
     def addelement(self,el,frac,fractype,density=None):
         """Add an element to the compound
 
@@ -95,24 +101,25 @@ class compound(Hashable):
         """
 
         if fractype == fractionType.mole:
+            nfrac = np.asarray(self.molefractions().values())
+            if nfrac.sum()==1:
+                nfrac = stoichiometry.add_frac(nfrac,frac)
+            else:
+                nfrac = np.append(nfrac,frac)
+
             elements = self.elements.keys()+[element(el)]
-            nfrac = np.asarray(self.elements.values()+[frac])
         elif fractype == fractionType.volume:
             raise ValueError("Cannot create a compound from elemental volume fractions")
         else:
+            wfrac = np.asarray(self.weightfractions().values())
+            wfrac = stoichiometry.add_frac(wfrac,frac)
+
             elements = self.elements.keys()+[element(el)]
             MM = np.asarray([e.MM for e in elements])
-
-            wfrac = np.asarray(self.weightfractions().values())
-            wfrac *= (1-frac)/wfrac.sum()
-            wfrac = np.append(wfrac,frac)
             nfrac = stoichiometry.frac_weight_to_mole(wfrac,MM) # normalized
 
-        # Elements
-        for e,n in zip(elements,nfrac):
-            if not isinstance(e,element):
-                e = element(e)
-            self.elements[e] = n
+        # Elements (no duplicates)
+        self._compose_elements(elements,nfrac)
 
     def _cmpkey(self):
         """For comparing and sorting
@@ -171,7 +178,7 @@ class compound(Hashable):
                 ret[e] = e.getfluoinfo()
         return ret
 
-    def _crosssection(self,method,E,decimals=6,refresh=False,fine=False,decomposed=False):
+    def _crosssection(self,method,E,fine=False,decomposed=False,**kwargs):
         """Calculate compound cross-sections
         """
         if hasattr(self,'structure') and fine:
@@ -183,43 +190,53 @@ class compound(Hashable):
         if decomposed:
             ret = {}
             for e in e_wfrac:
-                ret[e] = e_wfrac[e]*getattr(e,method)(E,environ=environ,decimals=decimals,refresh=refresh)
+                ret[e] = {"frac":e_wfrac[e],"cs":getattr(e,method)(E,environ=environ,**kwargs)}
         else:
             ret = E*0
             for e in e_wfrac:
-                ret += e_wfrac[e]*getattr(e,method)(E,environ=environ,decimals=decimals,refresh=refresh)
+                ret += e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
 
         return ret
 
-    def mass_att_coeff(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
-        """Mass attenuation coefficient (cm^2/g, E in keV). In other words: transmission XAS.
+    def mass_att_coeff(self,E,fine=False,decomposed=False,**kwargs):
+        """Mass attenuation coefficient (cm^2/g, E in keV). Use for transmission XAS.
         """
-        return self._crosssection("mass_att_coeff",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+        return self._crosssection("mass_att_coeff",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def mass_abs_coeff(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
+    def mass_abs_coeff(self,E,fine=False,decomposed=False,**kwargs):
         """Mass absorption coefficient (cm^2/g, E in keV)
         """
-        return self._crosssection("mass_abs_coeff",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+        return self._crosssection("mass_abs_coeff",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def partial_mass_abs_coeff(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
-        """Mass absorption coefficient for the selected shells and lines (cm^2/g, E in keV). In other words: fluorescence XAS.
+    def partial_mass_abs_coeff(self,E,fine=False,decomposed=False,**kwargs):
+        """Mass absorption coefficient for the selected shells and lines (cm^2/g, E in keV).
         """
-        return self._crosssection("partial_mass_abs_coeff",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+        return self._crosssection("partial_mass_abs_coeff",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def scattering_cross_section(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
+    def scattering_cross_section(self,E,fine=False,decomposed=False,**kwargs):
         """Scattering cross section (cm^2/g, E in keV).
         """
-        return self._crosssection("scattering_cross_section",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+        return self._crosssection("scattering_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def compton_cross_section(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
+    def compton_cross_section(self,E,fine=False,decomposed=False,**kwargs):
         """Compton cross section (cm^2/g, E in keV).
         """
-        return self._crosssection("compton_cross_section",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+        return self._crosssection("compton_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def rayleigh_cross_section(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
+    def rayleigh_cross_section(self,E,fine=False,decomposed=False,**kwargs):
         """Rayleigh cross section (cm^2/g, E in keV).
         """
-        return self._crosssection("rayleigh_cross_section",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+        return self._crosssection("rayleigh_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
+
+    def xrf_cross_section(self,E,fine=False,decomposed=False,**kwargs):
+        """XRF cross section (cm^2/g, E in keV). Use for fluorescence XAS.
+        """
+        return self._crosssection("xrf_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
+
+    def xrf_cross_section_decomposed(self,E,fine=False,**kwargs):
+        """XRF cross section (cm^2/g, E in keV).
+        """
+        return self._crosssection("xrf_cross_section",E,fine=fine,decomposed=True,**kwargs)
 
     def get_energy(self,energyrange,defaultinc=1):
         """Get absolute energies (keV) from a relative energy range (eV)

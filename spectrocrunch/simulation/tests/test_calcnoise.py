@@ -27,18 +27,32 @@ import unittest
 from .. import calcnoise
 from .. import materials
 
+from ...materials.compoundfromformula import compoundfromformula as compound
+
+import numpy as np
+from uncertainties import unumpy
+
 class test_calcnoise(unittest.TestCase):
 
     def test_ffnoise(self):
-        #import matplotlib.pyplot as plt
-        #plt.figure()
-        #energy = np.linspace(2,9,100,dtype=float)
-        #plt.plot(energy,o.transmission(energy))
-        
-        pass
+        I0 = 1e5
+        energy = np.linspace(3,5,100)
+        tframe = 0.07
+        nframe = 100
 
-        #plt.plot(energy,o.transmission(energy))
-        #plt.show()
+        sample = materials.factory("Material",material=compound("CaCO3",2.71),thickness=5)
+
+        N,N0 = calcnoise.id21_ffnoise(I0,energy,sample,tframe,nframe,tframe,nframe)
+
+        XAS = -unumpy.log(N/N0)
+
+        signal = unumpy.nominal_values(XAS)
+        noise = unumpy.std_devs(XAS)
+
+        import matplotlib.pyplot as plt
+        plt.figure()
+        plt.plot(energy,noise/signal*100)
+        plt.show()
         
 def test_suite_all():
     """Test suite including all test suites"""

@@ -48,7 +48,52 @@ class mixture(object):
             MM = np.asarray([c.molarmass() for c in compounds])
             nfrac = stoichiometry.frac_weight_to_mole(fractions,MM)
 
-        self.compounds = dict(zip(compounds,nfrac))
+        # Compounds (no duplicates)
+        self._compose_compounds(compounds,nfrac)
+
+    def _compose_compounds(self,compounds,nfrac):
+        self.compounds = {}
+        for c,n in zip(compounds,nfrac):
+            if c in self.compounds:
+                self.compounds[c] += float(n)
+            else:
+                self.compounds[c] = float(n)
+
+    def addcompound(self,c,frac,fractype):
+        """Add a compound to the mixture
+
+        Args:
+            c(compounds): compound
+            frac(num): compound fraction
+            fractype(fractionType): compound fraction type
+        
+        """
+        if fractype == fractionType.mole:
+            nfrac = np.asarray(self.molefractions().values())
+            if nfrac.sum()==1:
+                nfrac = stoichiometry.add_frac(nfrac,frac)
+            else:
+                nfrac = np.append(nfrac,frac)
+
+            compounds = self.compounds.keys()+[c]
+        elif fractype == fractionType.volume:
+            vfrac = np.asarray(self.volumefractions().values())
+            vfrac = stoichiometry.add_frac(vfrac,frac)
+
+            compounds = self.compounds.keys()+[c]
+            MM = np.asarray([c.molarmass() for c in compounds])
+            rho = np.asarray([c.density for c in compounds])
+            nfrac = stoichiometry.frac_volume_to_mole(vfrac,rho,MM)
+        else:
+            wfrac = np.asarray(self.weightfractions().values())
+            wfrac = stoichiometry.add_frac(wfrac,frac)
+
+            compounds = self.compounds.keys()+[c]
+            MM = np.asarray([c.molarmass() for c in compounds])
+            nfrac = stoichiometry.frac_weight_to_mole(wfrac,MM)
+
+        # Compounds (no duplicates)
+        self._compose_compounds(compounds,nfrac)
 
     def __repr__(self):
         return '\n'.join("{} {}".format(s[1],s[0]) for s in self.compounds.items())
@@ -60,6 +105,13 @@ class mixture(object):
         MM = np.asarray([c.molarmass() for c in self.compounds])
         nfrac = np.asarray(self.molefractions(total=True).values())
         return (MM*nfrac).sum()
+
+    def volumefractions(self):
+        MM = np.asarray([c.molarmass() for c in self.compounds])
+        rho = np.asarray([c.density for c in self.compounds])
+        nfrac = np.asarray(self.molefractions().values())
+        wfrac = stoichiometry.frac_mole_to_volume(nfrac,rho,MM)
+        return dict(zip(self.compounds.keys(),wfrac))
 
     def weightfractions(self):
         MM = np.asarray([c.molarmass() for c in self.compounds])
@@ -107,15 +159,10 @@ class mixture(object):
                     ret[e] = c_wfrac[c]*e_wfrac[e]
         return ret
 
-    def _crosssection(self,method,E,decimals=6,refresh=False,fine=False,decomposed=False):
+    def _crosssection(self,method,E,fine=False,decomposed=False,**kwargs):
         """Calculate compound cross-sections
         """
-        if hasattr(self,'structure') and fine:
-            environ = self
-        else:
-            environ = None
 
-        # compound cross-sections
         c_wfrac = self.weightfractions()
         if decomposed:
             ret = {}
@@ -126,9 +173,10 @@ class mixture(object):
                     environ = None
 
                 e_wfrac = c.weightfractions()
-                ret[c] = E*0
+
+                ret[c] = {"frac":c_wfrac[c],"elements":{}}
                 for e in c.elements:
-                    ret[c] += c_wfrac[c]*e_wfrac[e]*getattr(e,method)(E,environ=environ,decimals=decimals,refresh=refresh)
+                    ret[c]["elements"][e] += {"frac":e_wfrac[e],"cs":getattr(e,method)(E,environ=environ,**kwargs)}
         else:
             ret = E*0
             for c in c_wfrac:
@@ -139,39 +187,49 @@ class mixture(object):
 
                 e_wfrac = c.weightfractions()
                 for e in c.elements:
-                    ret += c_wfrac[c]*e_wfrac[e]*getattr(e,method)(E,environ=environ,decimals=decimals,refresh=refresh)
+                    ret += c_wfrac[c]*e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
 
         return ret
 
-    def mass_att_coeff(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
-        """Mass attenuation coefficient (cm^2/g, E in keV). In other words: transmission XAS.
+    def mass_att_coeff(self,E,fine=False,decomposed=False,**kwargs):
+        """Mass attenuation coefficient (cm^2/g, E in keV). Use for transmission XAS.
         """
-        return self._crosssection("mass_att_coeff",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+        return self._crosssection("mass_att_coeff",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def mass_abs_coeff(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
+    def mass_abs_coeff(self,E,fine=False,decomposed=False,**kwargs):
         """Mass absorption coefficient (cm^2/g, E in keV).
         """
-        return self._crosssection("mass_abs_coeff",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+        return self._crosssection("mass_abs_coeff",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def partial_mass_abs_coeff(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
-        """Mass absorption coefficient for the selected shells and lines (cm^2/g, E in keV). In other words: fluorescence XAS.
+    def partial_mass_abs_coeff(self,E,fine=False,decomposed=False,**kwargs):
+        """Mass absorption coefficient for the selected shells and lines (cm^2/g, E in keV).
         """
-        return self._crosssection("partial_mass_abs_coeff",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+        return self._crosssection("partial_mass_abs_coeff",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def scattering_cross_section(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
+    def scattering_cross_section(self,E,fine=False,decomposed=False,**kwargs):
         """Scattering cross section (cm^2/g, E in keV).
         """
-        return self._crosssection("scattering_cross_section",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+        return self._crosssection("scattering_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def compton_cross_section(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
+    def compton_cross_section(self,E,fine=False,decomposed=False,**kwargs):
         """Compton cross section (cm^2/g, E in keV).
         """
-        return self._crosssection("compton_cross_section",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+        return self._crosssection("compton_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def rayleigh_cross_section(self,E,decimals=6,refresh=False,fine=False,decomposed=False):
+    def rayleigh_cross_section(self,E,fine=False,decomposed=False,**kwargs):
         """Rayleigh cross section (cm^2/g, E in keV).
         """
-        return self._crosssection("rayleigh_cross_section",E,decimals=decimals,refresh=refresh,fine=fine,decomposed=decomposed)
+        return self._crosssection("rayleigh_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
+
+    def xrf_cross_section(self,E,fine=False,decomposed=False,**kwargs):
+        """XRF cross section (cm^2/g, E in keV). Use for fluorescence XAS.
+        """
+        return self._crosssection("xrf_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
+
+    def xrf_cross_section_decomposed(self,E,fine=False,**kwargs):
+        """XRF cross section (cm^2/g, E in keV).
+        """
+        return self._crosssection("xrf_cross_section_decomposed",E,fine=fine,decomposed=True,**kwargs)
 
     def markabsorber(self,symb,shells=[],fluolines=[]):
         """
