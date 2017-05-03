@@ -31,8 +31,9 @@ import numpy as np
 def log_dummy(message, verbose_level=None, verbose_ask=None):
     pass
 
-def parse_xia_esrf(datadir,scanname,scannumber,outdir,outname,exclude_detectors=[],deadtime=True,add=True,onlycountdetectors=False):
-    """Parse an XIA XRF scan with ESRF naming
+def parse_xia_esrf(datadir,scanname,scannumber,outdir,outname,exclude_detectors=[],\
+                    deadtime=True,add=True,willbefitted=True,deadtimeifsingle=True):
+    """Parse an XIA XRF scan with ESRF naming convention
         Input files:
             [scanname]_xia[xianum]_[scannumber]_0000_[linenumber].edf
             xianum = detector number or "st"
@@ -41,15 +42,16 @@ def parse_xia_esrf(datadir,scanname,scannumber,outdir,outname,exclude_detectors=
             xianum = detector number or "S1" for sum
 
     Args:
-        datadir(str)
-        scanname(str)
-        scannumber(int)
-        outdir(str)
-        outname(str)
-        exclude_detectors(Optional(list[int]))
-        deadtime(Optional(bool))
-        add(Optional(bool))
-        onlycountdetectors(Optional(bool))
+        datadir(str): directory of the xia files
+        scanname(str): radix of the xia files
+        scannumber(int): scan number of the xia files
+        outdir(str): directory for the corrected/summed xia files if any
+        outname(str): radix for the corrected/summed xia files if any
+        exclude_detectors(Optional(list[int])): detector numbers to be excluded
+        deadtime(Optional(bool)): apply deadtime correction to spectra
+        add(Optional(bool)): add spectra (after deadtime correction if any)
+        willbefitted(Optional(bool)): spectra will be fitted
+        deadtimeifsingle(Optional(bool)): deadtime can be skipped when a single detector (will be done afterwards)
     """
 
     # Raw data
@@ -72,10 +74,20 @@ def parse_xia_esrf(datadir,scanname,scannumber,outdir,outname,exclude_detectors=
     tmp.append(None) # exclude "st" detector
     detnums = [f.getDetector() for f in xiafiles[0] if f.getDetector() not in tmp]
     ndet = len(detnums)
-    if ndet == 0 or onlycountdetectors:
-        return [[]],detnums
-    if ndet == 1:
+
+    # Only count detectors and not save sum/dtcorrection?
+    if ndet<2:
         add = False
+        if deadtimeifsingle==False:
+            deadtime = False
+
+    if ndet==0:
+        add = False
+        deadtime = False
+        willbefitted = False
+
+    if willbefitted==False and deadtime==False and add==False:
+        return [[]],detnums
 
     # DT correction and optional summation
     if add or deadtime:
