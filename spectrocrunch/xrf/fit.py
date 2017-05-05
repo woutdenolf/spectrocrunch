@@ -144,6 +144,57 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
     # Write the configuration
     configuration.write(cfg)
 
+def PerformRoi(filelist,rois,energies,norm=None):
+    """ROI XRF spectra in batch.
+
+    Args:
+        filelist(list(str)|np.array): spectra to fit
+        rois(dict(2-tuple)): ROIs
+        energies(np.array): primary beam energies
+        norm(Optional(np.array)): normalization array
+    Returns:
+        dict: {label:nenergies x nfiles,...}
+    """
+    # Load data
+    # Each spectrum (each row) in 1 edf file is acquired at a different energy
+    if isinstance(filelist,list):
+        dataStack = EDFStack.EDFStack(filelist, dtype=np.float32).data
+    else:
+        dataStack = filelist
+    nfiles,nenergies,nchannels = dataStack.shape
+
+    # Energies
+    if hasattr(energies,"__iter__"):
+        if len(energies)==1:
+            energies = [energies[0]]*nenergies
+        elif len(energies)!=nenergies:
+            raise ValueError("Expected {} energies ({} given)".format(nenergies,len(energies)))
+    else:
+        energies = [energies]*nenergies
+
+    # Normalization
+    if norm is None:
+        norm = [1]*nenergies
+    else:
+        if hasattr(norm,"__iter__"):
+            if len(norm)==1:
+                norm = [norm[0]]*nenergies
+            elif len(norm)!=nenergies:
+                raise ValueError("Expected {} normalization values ({} given)".format(nenergies,len(norm)))
+        else:
+            norm = [norm]*nenergies
+
+    # ROI
+    ret = {}
+    for k in rois:
+        ret[k] = np.zeros((nenergies,nfiles),dtype=type(dataStack))
+
+    for i in range(nfiles):
+        for k,roi in rois.items():
+            ret[k][:,i] = np.sum(dataStack[i,:,roi[0]:roi[1]],axis=1)/norm
+
+    return ret
+
 def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plot=False):
     """Fit XRF spectra in batch with changing primary beam energy.
 
@@ -252,13 +303,6 @@ def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plo
             if "chisq" not in ret:
                 ret["chisq"] = np.zeros((nenergies,nfiles),dtype=type(mcafit.chisq))
             ret["chisq"][j,i] = mcafit.chisq
-
-
-            #import pdb; pdb.set_trace()
-
-            # ROI (TODO: implement separately for general use)
-            #ret["S K"][j,i] = sum(y[440:460])
-            #ret["Pb M"][j,i] = sum(y[475:515])
 
         # Print progress
         if prog is not None:
