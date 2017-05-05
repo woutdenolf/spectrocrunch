@@ -67,7 +67,7 @@ def processNotSynchronized(specfile,specnumbers,destpath,detectorcfg,mlines={},r
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
         bkgxas(Optional(Num)): subtract from XAS spectrum
         bkgflux(Optional(Num)): subtract from iodet signal (cts/sec)
-        rois(Optional(list(2-tuple))): ROIs instead of fitting
+        rois(Optional(list(dict(2-tuple)))): ROIs instead of fitting
     """
 
     energylabel = 'arr_energyM'
@@ -90,6 +90,8 @@ def processNotSynchronized(specfile,specnumbers,destpath,detectorcfg,mlines={},r
     prog = progress(logger)
     if not hasattr(detectorcfg,"__iter__"):
         detectorcfg = [detectorcfg]
+    if isinstance(rois,dict):
+        rois = [rois]
 
     # Loop over spectra
     off = 0
@@ -147,8 +149,13 @@ def processNotSynchronized(specfile,specnumbers,destpath,detectorcfg,mlines={},r
                         # Perform fitting
                         xasresults = fitter(filestofit[k],cfg,energyj,mlines=mlines,norm=norm,fast=fastfitting,prog=prog,plot=plot)
                     else:
+                        if len(rois)==1:
+                            roisk = rois[0]
+                        else:
+                            roisk = rois[k]
+
                         # Perform ROI summing
-                        xasresults = roisummer(filestofit[k],rois,energyj,norm=norm)
+                        xasresults = roisummer(filestofit[k],roisk,energyj,norm=norm)
 
                     if len(xasspectrumj)==0:
                         xasspectrumj = xasresults
