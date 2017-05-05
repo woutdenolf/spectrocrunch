@@ -32,15 +32,16 @@ from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as 
 import spectrocrunch.common.timing as timing
 import spectrocrunch.io.nexus as nexus
 
-from .proc_math import execute as normalize
+from .proc_math import execute as math
 from .proc_align import execute as align
 from .proc_replacevalue import execute as replacevalue
 from .proc_crop import execute as execcrop
 from .proc_common import defaultstack
 from .proc_common import flattenstacks
+from .proc_resample import execute as execresample
 
 def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,stackdim,\
-                    mlines={},microdiff=False,exclude_detectors=[],addbeforefit=True):
+                    mlines={},microdiff=False,exclude_detectors=[],addbeforefit=True,useencoders=False):
     bfit = cfgfiles is not None
 
     if not isinstance(sourcepath,list):
@@ -58,6 +59,8 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
         counter_reldir = ".."
     else:
         counters = ["arr_iodet","arr_idet","arr_absorp1","arr_absorp2","arr_absorp3","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]
+        if useencoders:
+            counters += ["arr_samy","arr_samz"]
         motors = ["samy", "samz", "samx", "sampy", "sampz"]
         counter_reldir = "."
 
@@ -108,7 +111,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
 def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignreference,\
         refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,\
         crop=False,roialign=None,plot=True,mlines={},microdiff=False,exclude_detectors=[],\
-        addbeforefit=True):
+        addbeforefit=True,encodercor=None,normcounter=None):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
@@ -132,7 +135,8 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
         logger.info("Creating image stacks ...")
         jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,\
                                             cfgfiles,dtcor,stackdim,mlines=mlines,microdiff=microdiff,\
-                                            exclude_detectors=exclude_detectors,addbeforefit=addbeforefit)
+                                            exclude_detectors=exclude_detectors,addbeforefit=addbeforefit,\
+                                            useencoders=encodercor is not None)
         stacks, axes = makestacks(jsonfile)
 
         #stacks2, axes2 = getstacks(h5file,["counters","detector0"])
@@ -151,40 +155,63 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
     # Groups that don't change and need to be copied
     copygroups = ["coordinates"]
 
-    # I0 normalization
-    if not skipnormalization or dtcor:
-        skip = ["arr_absorp1","arr_absorp2","arr_absorp3"]
-        if microdiff:
-            normcounter = "zap_iodet"
-        else:
-            normcounter = "arr_iodet"
+    # Normalization
+    if not skipnormalization or dtcor or normcounter is not None:
+        skip = ["arr_absorp1","arr_absorp2","arr_absorp3","arr_samy","arr_samz"]
 
+        # Add flux normalization to normcounter
+        if not skipnormalization:
+            if microdiff:
+                iodet = "{zap_iodet}"
+            else:
+                iodet = "{arr_iodet}"
+
+            if normcounter is None:
+                normcounter = iodet
+            else:
+                normcounter = "{}*{}".format(normcounter,iodet)
+
+        # Create normalization expression
         if dtcor:
-            expression = "{{}}*{{xmap_icr}}/({{{}}}*{{xmap_ocr}})".format(normcounter)
+            if normcounter is None:
+                expression = "{{}}*{{xmap_icr}}/{{xmap_ocr}}"
+            else:
+                expression = "{{}}*{{xmap_icr}}/({}*{{xmap_ocr}})".format(normcounter)
             skip += [normcounter,"xmap_icr","xmap_ocr"]
         else:
-            expression = "{{}}/{{{}}}".format(normcounter)
+            expression = "{{}}/{}".format(normcounter)
             skip += [normcounter]
 
-        h5file,stacks,axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="norm")
+        h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="norm")
+
+    # Correct for encoder positions
+    if encodercor is not None:
+        resampleinfo = {}
+
+        if "samy" in encodercor:
+            resampleinfo["samy"] = {"encoder":"arr_samy","resolution":encodercor["samy"]} # resolution: 52500 steps/unit
+            
+        if "samz" in encodercor:
+            resampleinfo["samz"] = {"encoder":"arr_samz","resolution":encodercor["samz"]} # resolution: 50000 steps/unit
+
+        if len(resampleinfo) is not None:
+            h5file,stacks,axes = execresample(h5file, stacks, axes, copygroups, bsamefile, default, resampleinfo)
 
     # Alignment
-    if alignmethod is None or alignreference is None:
-        timing.printtimeelapsed(T0,logger)
-        return
-    else:
+    if alignmethod is not None and alignreference is not None:
+        # Alignment
         h5file,stacks,axes = align(h5file,stacks,axes, copygroups, bsamefile, default,\
             alignmethod, alignreference, refimageindex, cropalign, roialign, plot, stackdim)
 
-    # Remove NaN's
-    if replacenan:
-        orgvalue = np.nan
-        newvalue = 0
-        replacevalue(h5file, stacks, axes, copygroups, bsamefile, default, orgvalue, newvalue)
+        # Remove NaN's
+        if replacenan:
+            orgvalue = np.nan
+            newvalue = 0
+            replacevalue(h5file, stacks, axes, copygroups, bsamefile, default, orgvalue, newvalue)
 
-    # Crop
-    if cropafter:
-        cropinfo = {"nanval":np.nan,"stackdim":stackdim,"reference set":alignreference}
-        execcrop(h5file, stacks, axes, copygroups, bsamefile, default, cropinfo)
+        # Crop
+        if cropafter:
+            cropinfo = {"nanval":np.nan,"stackdim":stackdim,"reference set":alignreference}
+            execcrop(h5file, stacks, axes, copygroups, bsamefile, default, cropinfo)
     
     timing.printtimeelapsed(T0,logger)
