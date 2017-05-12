@@ -144,13 +144,12 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
     # Write the configuration
     configuration.write(cfg)
 
-def PerformRoi(filelist,rois,energies,norm=None):
-    """ROI XRF spectra in batch.
+def PerformRoi(filelist,rois,norm=None):
+    """ROI XRF spectra in batch with changing primary beam energy.
 
     Args:
         filelist(list(str)|np.array): spectra to fit
         rois(dict(2-tuple)): ROIs
-        energies(np.array): primary beam energies
         norm(Optional(np.array)): normalization array
     Returns:
         dict: {label:nenergies x nfiles,...}
@@ -162,15 +161,6 @@ def PerformRoi(filelist,rois,energies,norm=None):
     else:
         dataStack = filelist
     nfiles,nenergies,nchannels = dataStack.shape
-
-    # Energies
-    if hasattr(energies,"__iter__"):
-        if len(energies)==1:
-            energies = [energies[0]]*nenergies
-        elif len(energies)!=nenergies:
-            raise ValueError("Expected {} energies ({} given)".format(nenergies,len(energies)))
-    else:
-        energies = [energies]*nenergies
 
     # Normalization
     if norm is None:
