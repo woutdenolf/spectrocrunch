@@ -54,11 +54,15 @@ class cmd_parser(object):
             return self.parsezapimage(cmd)
         elif scanname=="ascan":
             return self.parseascan(cmd)
+        elif scanname=="zapline":
+            return self.parsezapline(cmd)
+        elif scanname=="zapenergy":
+            return self.parsezapenergy(cmd)
         else:
             return {'name':'unknown'}
 
     def parsezapimage(self,cmd,name="zapimage"):
-        scanname = cmd.split(' ')[0]
+        #scanname = cmd.split(' ')[0]
         expr = name + self.blanks +\
                    "("+ self.motor +")" + self.blanks +\
                    "("+ self.fnumber +")" + self.blanks +\
@@ -76,13 +80,33 @@ class cmd_parser(object):
                     'startfast':np.float(result[0][1]),\
                     'endfast':np.float(result[0][2]),\
                     'npixelsfast':np.int(result[0][3]),\
-                    'time':np.float(result[0][4]),\
+                    'time':np.float(result[0][4])/1000,\
                     'motslow':str(result[0][5]),\
                     'startslow':np.float(result[0][6]),\
                     'endslow':np.float(result[0][7]),\
                     'nstepsslow':np.int(result[0][8])}
         else:
             return {'name':'unknown'}
+
+    def parsezapenergy(self,cmd,name="zapenergy"):
+        # Only for sum
+        expr = name + self.blanks + \
+                   "SUM" + self.blanks +\
+                   "("+ self.inumber +")" + self.blanks +\
+                   "("+ self.fnumber +")"
+        result = re.findall(expr,cmd)
+        if len(result)==1:
+            return {'name':name,\
+                    'repeats':np.int(result[0][0]),\
+                    'time':np.float(result[0][1])}
+        else:
+            return {'name':'unknown'}
+
+    def parsezapline(self,cmd):
+        ret = self.parseascan(cmd,name="zapline")
+        if "time" in ret:
+            ret["time"] /= 1000
+        return ret
 
     def parseascan(self,cmd,name="ascan"):
         expr = name + self.blanks + \
@@ -97,8 +121,8 @@ class cmd_parser(object):
                     'motfast':str(result[0][0]),\
                     'startfast':np.float(result[0][1]),\
                     'endfast':np.float(result[0][2]),\
-                    'nstepsfast':np.int(result[0][2]),\
-                    'time':np.float(result[0][2])}
+                    'nstepsfast':np.int(result[0][3]),\
+                    'time':np.float(result[0][4])}
         else:
             return {'name':'unknown'}
 
@@ -118,13 +142,14 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         self.parser = cmd_parser()
 
     def getdata(self, scannumber, labelnames):
-        """
+        """Get counters + info on saved data
+
         Args:
             scannumber(num): spec scan number
-            labelnames(list(str)): list of labels
+            labelnames(list(str)): list of counter names
 
         Returns:
-            (np.array, dict): first dimension are the labelnames, information on the real data
+            (np.array, dict): counters (nCounter x npts), info on collected data
 
         Raises:
             KeyError: scan number doesn't exist
@@ -162,13 +187,14 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         return data,info
         
     def getdata2(self, scannumber, labelnames):
-        """
+        """Get counters
+
         Args:
             scannumber(num): spec scan number
             labelnames(list(str)): list of labels
 
         Returns:
-            np.array: first dimension are the labelnames
+            np.array: counters (nCounter x npts)
 
         Raises:
             KeyError: scan number doesn't exist
@@ -177,8 +203,11 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         """
 
         # Get data object
-        scan = self.getDataObject("{:d}.1".format(scannumber))
- 
+        try:
+            scan = self.getDataObject("{:d}.1".format(scannumber))
+        except TypeError:
+            raise TypeError("Error loading scan number {}".format(scannumber))
+            
         # Extract data
         ind = []
         labels = scan.info["LabelNames"]
@@ -204,6 +233,8 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         return [values[names.index(mot)] for mot in motors]
 
     def getxialocation(self,scannumber):
+        """Get info on saved data
+        """
         info = self.getKeyInfo("{:d}.1".format(scannumber))
 
         ret = {"DIRECTORY":"", "RADIX":"", "ZAP SCAN NUMBER":"", "ZAP IMAGE NUMBER":""}
@@ -215,6 +246,10 @@ class spec(SpecFileDataSource.SpecFileDataSource):
                     if tmp[0] in ret:
                         ret[tmp[0]] = tmp[1]
         return ret
+
+    def scancommand(self,scannumber):
+        info = self.getKeyInfo("{:d}.1".format(scannumber))
+        return self.parser.parse(info["Command"])
 
     def getdimensions(self,scannumber,motors):
         """Get scan dimensions for the specified motors
@@ -241,6 +276,8 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         return ret
 
     def getzapimages(self):
+        """Get list of all zapimages
+        """
         ret = {}
         for k in self.getSourceInfo()["KeyList"]:
 
@@ -259,30 +296,91 @@ class spec(SpecFileDataSource.SpecFileDataSource):
 
         return ret
 
-    def extractxanesinfo(self):
+    def extractxanesinfo(self,grouped=False,):
+        """Get list of all ID21 XANES
+        """
         ret = {}
         for k in self.getSourceInfo()["KeyList"]:
             scannumber = int(k.split('.')[0])
             info = self.getKeyInfo(k)
             if info["Command"].startswith("zapline mono"):
+                if info["Lines"]==0:
+                    continue
                 ret[scannumber] = {"scannumber":scannumber,"repeats":1}
             elif info["Command"].startswith("zapenergy SUM"):
+                if info["Lines"]==0:
+                    continue
                 ret[scannumber] = {"scannumber":scannumber,"repeats":int(info["Command"].split(' ')[2])}
+
+        return ret
+
+    def extractxanesginfo(self,keepsum=False,sumingroups=False,keepindividual=False,skip=None):
+        """Get list of all ID21 XANES, grouping repeats
+        """
+        data = self.extractxanesinfo()
+        if skip is None:
+            skip = []
+
+        ret = []
+
+        bproc = {k:k not in skip for k in data}
+
+        # Groups: [rep1,rep2,...,(sum)]
+        for k in data:
+            if not bproc[k]:
+                continue
+            n = data[k]["repeats"]
+            if n>1:
+                # [rep1,rep2,....]
+                i0 = k
+                i1 = k
+                while (data[i0-1]["repeats"] if (i0-1) in data else 0) ==1:
+                    i0 -= 1
+                rng = range(max(i0,k-n),i1)
+                add = [data[k]["scannumber"] for k in rng if bproc[k]]
+                for l in rng:
+                    bproc[l] = keepindividual
+
+                # [rep1,rep2,...,(sum)]
+                if keepsum:
+                    if sumingroups:
+                        add += [i1]
+                        bproc[i1] = keepindividual
+                else:
+                    bproc[i1] = False
+
+                ret += [add]
+
+        # Add each scan as an individual group
+        for k in data:
+            if bproc[k]:
+                ret += [[data[k]["scannumber"]]]
+
         return ret
 
     def extractxanes(self,scannumbers,labelnames):
+        """Get list of specific ID21 XANES with counters
+        """
         ret = {}
         for scannumber in scannumbers:
             k = "{:d}.1".format(scannumber)
 
             info = self.getKeyInfo(k)
             if info["Command"].startswith("zapline mono"):
+                result = self.parser.parse(info["Command"])
+                if result['name']!="zapline" or info["Lines"]==0:
+                    continue
                 ret[scannumber] = {"repeats":1, \
                                     "data":self.getdata2(scannumber, labelnames),\
+                                    "time":result["time"],\
                                     "labels":["{}.{}".format(s,scannumber) for s in labelnames]}
             elif info["Command"].startswith("zapenergy SUM"):
+                result = self.parser.parse(info["Command"])
+                if result['name']!="zapenergy" or info["Lines"]==0:
+                    continue
                 ret[scannumber] = {"repeats":int(info["Command"].split(' ')[2]),\
                                     "data":self.getdata2(scannumber, labelnames),\
+                                    "time":result["time"],\
                                     "labels":["{}.{}".format(s,scannumber) for s in labelnames]}
 
         return ret

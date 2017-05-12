@@ -17,6 +17,7 @@
 # 
 # XAS1:
 #     XAS1 = f(sum(I)/sum(I0))
+#          = m
 #     VARXAS = sumj[ (dXAS/dIj)^2.VARIj + (dXAS/dI0j)^2.VARI0j ]
 #
 #     dXAS1/dIj  =  f' / sum(I0)
@@ -74,7 +75,7 @@
 #         VARXAS3 = sumj[ (VARIj/Ij^2 + VARI0j/I0j^2)  . Ij^2/Ij0^2 ]
 #
 
-#execfile("initcctbx.py")
+execfile("initcctbx.py")
 
 import os, sys
 sys.path.insert(1,'/data/id21/inhouse/wout/dev/SpectroCrunch')
@@ -167,7 +168,7 @@ def xasnorm(data,flux,xrf=False,normtype=1):
         # XAS2 = f(sum(I/I0))
         # VARXAS2 = sumj[ VARIj/I0j^2 + VARI0j.Ij^2/I0j^4] / [sum(I/I0)]^2
         # VARXAS2 = sumj[ VARIj/I0j^2 + VARI0j.Ij^2/T0j^4 ]
-        print("XAS2 = sum(f(I/I0)")
+        print("XAS2 = f(sum(I/I0))")
         xas = (data/flux).sum(axis=0)
         xasnoise = (datawnoise/fluxwnoise).sum(axis=0)
         uxas = sum([v1/v2 for v1,v2 in zip(udata,uflux)])
@@ -191,7 +192,7 @@ def xasnorm(data,flux,xrf=False,normtype=1):
         # XAS3 = sum(f(I/I0)) 
         # VARXAS3 = sumj[ VARIj/Ij^2 + VARI0j/Ij0^2 ]
         # VARXAS3 = sumj[ (VARIj/Ij^2 + VARI0j/I0j^2)  . Ij^2/Ij0^2 ]
-        print("XAS3 = sum(f(I/I0)")
+        print("XAS3 = sum(f(I/I0))")
         xas = data/flux
         xasnoise = datawnoise/fluxwnoise
         uxas = [v1/v2 for v1,v2 in zip(udata,uflux)]
