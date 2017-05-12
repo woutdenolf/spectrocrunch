@@ -71,7 +71,10 @@ class alignSift(align):
         
         # Prepare transformation kernel
         self.workgroupshape = (8, 4)
-        self.transformix = pyopencl.Program(self.ctx, get_opencl_code("transform.cl")).build()#('-D WORKGROUP_SIZE=%s' % self.max_workgroup_size)
+        try:
+            self.transformix = pyopencl.Program(self.ctx, get_opencl_code("transform.cl")).build()#('-D WORKGROUP_SIZE=%s' % self.max_workgroup_size)
+        except IOError:
+            self.transformix = pyopencl.Program(self.ctx, get_opencl_code("sift/transform.cl")).build()
         self.newtransformixshape()
         
         # Prepare transformation buffers
