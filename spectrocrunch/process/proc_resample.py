@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2016 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,23 +22,33 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from scipy.interpolate import interp1d
-from scipy import arange, array, exp
+import logging
 
-def extrap1d(interpolator):
-    xs = interpolator.x
-    ys = interpolator.y
+from spectrocrunch.h5stacks.math_hdf5_imagestacks import resample_hdf5_imagestacks as resamplestacks
 
-    def pointwise(x):
-        if x < xs[0]:
-            return ys[0]+(x-xs[0])*(ys[1]-ys[0])/(xs[1]-xs[0])
-        elif x > xs[-1]:
-            return ys[-1]+(x-xs[-1])*(ys[-1]-ys[-2])/(xs[-1]-xs[-2])
-        else:
-            return interpolator(x)
+from . import proc_common
 
-    def ufunclike(xs):
-        return array(map(pointwise, array(xs)))
+def execute(file_in, stacks_in, axes_in, copygroups, bsamefile, default,\
+            resampleinfo):
 
-    return ufunclike
+    logger = logging.getLogger(__name__)
+    logger.info("Resampling image stacks ...")
+
+    # Output file
+    if bsamefile:
+        file_out = file_in
+    else:
+        base, ext = proc_common.hdf5base(file_in)
+        file_out = base+".resample"+ext
+
+    # Processing info
+    info = {}
+
+    # Align
+    stacks_out, axes_out = resamplestacks(file_in,file_out,axes_in,stacks_in,stacks_in,resampleinfo,overwrite=True,info=info,copygroups=copygroups)
+
+    # Default
+    proc_common.defaultstack(file_out,stacks_out,default)
+    
+    return file_out, stacks_out, axes_out
 
