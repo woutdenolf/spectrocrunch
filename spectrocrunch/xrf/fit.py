@@ -277,7 +277,7 @@ def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plo
                 else:
                     ax.semilogy(mcafitresult["energy"],mcafitresult["ydata"])
                     ax.semilogy(mcafitresult["energy"],mcafitresult["yfit"],color='red')
-                ax.set_ylim(bottom=1)
+                    ax.set_ylim(ymin=np.nanmin(mcafitresult["ydata"][np.nonzero(mcafitresult["ydata"])]))
                 ax.set_title("Primary energy: {} keV".format(energies[j]))
                 ax.set_xlabel("Energy (keV)")
                 ax.set_ylabel("Intensity (cts)")

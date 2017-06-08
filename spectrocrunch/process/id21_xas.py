@@ -340,7 +340,8 @@ def processEnergySynchronized(specfile,specnumbers,destpath,pymcacfg,mlines={},r
             datadir = info["DIRECTORY"]
             if len(replacebasedir) == 2:
                 datadir = datadir.replace(replacebasedir[0],replacebasedir[1])
-                pymcacfg = pymcacfg.replace(replacebasedir[0],replacebasedir[1])
+                if pymcacfg is not None:
+                    pymcacfg = pymcacfg.replace(replacebasedir[0],replacebasedir[1])
             scanname = info["RADIX"]
             scannumber = int(info["ZAP SCAN NUMBER"])
 
