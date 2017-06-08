@@ -58,6 +58,8 @@ class cmd_parser(object):
             return self.parsezapline(cmd)
         elif scanname=="zapenergy":
             return self.parsezapenergy(cmd)
+        elif scanname=="mesh":
+            return self.parsemesh(cmd)
         else:
             return {'name':'unknown'}
 
@@ -88,13 +90,48 @@ class cmd_parser(object):
         else:
             return {'name':'unknown'}
 
+    def parsemesh(self,cmd,name="mesh"):
+        #scanname = cmd.split(' ')[0]
+        expr = name + self.blanks +\
+                   "("+ self.motor +")" + self.blanks +\
+                   "("+ self.fnumber +")" + self.blanks +\
+                   "("+ self.fnumber +")" + self.blanks +\
+                   "("+ self.inumber +")" + self.blanks +\
+                   "("+ self.motor +")" + self.blanks +\
+                   "("+ self.fnumber +")" + self.blanks +\
+                   "("+ self.fnumber +")" + self.blanks +\
+                   "("+ self.inumber +")" + self.blanks +\
+                   "("+ self.inumber +")"
+        result = re.findall(expr,cmd)
+        if len(result)==1:
+            return {'name':name,\
+                    'motfast':str(result[0][0]),\
+                    'startfast':np.float(result[0][1]),\
+                    'endfast':np.float(result[0][2]),\
+                    'nstepsfast':np.int(result[0][3]),\
+                    'motslow':str(result[0][4]),\
+                    'startslow':np.float(result[0][5]),\
+                    'endslow':np.float(result[0][6]),\
+                    'nstepsslow':np.int(result[0][7]),\
+                    'time':np.float(result[0][8])}
+        else:
+            return {'name':'unknown'}
+
     def parsezapenergy(self,cmd,name="zapenergy"):
-        # Only for sum
-        expr = name + self.blanks + \
+        # Only SUM is called zapenergy, otherwise its called zapline
+        exprSUM = name + self.blanks + \
                    "SUM" + self.blanks +\
                    "("+ self.inumber +")" + self.blanks +\
                    "("+ self.fnumber +")"
-        result = re.findall(expr,cmd)
+        result = re.findall(exprSUM,cmd)
+
+        if len(result)==0:
+            exprSUM = name + self.blanks + \
+                       "SUM2" + self.blanks +\
+                       "("+ self.inumber +")" + self.blanks +\
+                       "("+ self.fnumber +")"
+            result = re.findall(exprSUM,cmd)
+
         if len(result)==1:
             return {'name':name,\
                     'repeats':np.int(result[0][0]),\
@@ -272,6 +309,11 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         elif result['name']=="ascan":
             if result['motfast'] in motors:
                 ret[result['motfast']] = np.array(ascan_range(result['startfast'],result['endsfast'],result['nstepsfast']))
+        elif result['name']=="mesh":
+            if result['motfast'] in motors:
+                ret[result['motfast']] = np.array(ascan_range(result['startfast'],result['endfast'],result['npixelsfast']))
+            if result['motslow'] in motors:
+                ret[result['motslow']] = np.array(ascan_range(result['startslow'],result['endslow'],result['nstepsslow']))
 
         return ret
 
@@ -296,47 +338,66 @@ class spec(SpecFileDataSource.SpecFileDataSource):
 
         return ret
 
-    def extractxanesinfo(self,grouped=False,):
+    def extractxanesinfo(self,skip=None,nrmin=None,nrmax=None):
         """Get list of all ID21 XANES
         """
-        ret = {}
-        for k in self.getSourceInfo()["KeyList"]:
-            scannumber = int(k.split('.')[0])
-            info = self.getKeyInfo(k)
-            if info["Command"].startswith("zapline mono"):
-                if info["Lines"]==0:
-                    continue
-                ret[scannumber] = {"scannumber":scannumber,"repeats":1}
-            elif info["Command"].startswith("zapenergy SUM"):
-                if info["Lines"]==0:
-                    continue
-                ret[scannumber] = {"scannumber":scannumber,"repeats":int(info["Command"].split(' ')[2])}
+        ret = []
 
-        return ret
-
-    def extractxanesginfo(self,keepsum=False,sumingroups=False,keepindividual=False,skip=None):
-        """Get list of all ID21 XANES, grouping repeats
-        """
-        data = self.extractxanesinfo()
+        lst = self.getSourceInfo()["KeyList"]
         if skip is None:
             skip = []
 
+        for k in lst:
+            scannumber = int(k.split('.')[0])
+            if nrmin is not None:
+                if scannumber < nrmin:
+                    continue
+            if nrmax is not None:
+                if scannumber > nrmax:
+                    continue
+            if scannumber in skip:
+                continue
+
+            info = self.getKeyInfo(k)
+            if info["Command"].startswith("zapline mono "):
+                if info["Lines"]==0:
+                    continue
+                ret += [{"scannumber":scannumber,"repeats":1}]
+                
+            elif info["Command"].startswith("zapenergy SUM "):
+                if info["Lines"]==0:
+                    continue
+                ret += [{"scannumber":scannumber,"repeats":int(info["Command"].split(' ')[2])}]
+            elif info["Command"].startswith("zapenergy SUM2 "):
+                # This used to be the sum fo the repeats, energy interpolated
+                if info["Lines"]==0:
+                    continue
+                ret[-1] = {"scannumber":scannumber,"repeats":int(info["Command"].split(' ')[2])}
+
+        return ret
+
+    def extractxanesginfo(self,keepsum=False,sumingroups=False,keepindividual=False,skip=None,nrmin=None,nrmax=None):
+        """Get list of all ID21 XANES, grouping repeats
+        """
+        data = self.extractxanesinfo(skip=skip,nrmin=nrmin,nrmax=nrmax)
+
         ret = []
 
-        bproc = {k:k not in skip for k in data}
+        bproc = [True]*len(data)
 
         # Groups: [rep1,rep2,...,(sum)]
-        for k in data:
-            if not bproc[k]:
+        for i in range(len(data)):
+            if not bproc[i]:
                 continue
-            n = data[k]["repeats"]
+
+            n = data[i]["repeats"]
             if n>1:
                 # [rep1,rep2,....]
-                i0 = k
-                i1 = k
-                while (data[i0-1]["repeats"] if (i0-1) in data else 0) ==1:
+                i0 = i
+                i1 = i
+                while (data[i0-1]["repeats"] if i0>0 else 0) ==1:
                     i0 -= 1
-                rng = range(max(i0,k-n),i1)
+                rng = range(max(i0,i-n),i1)
                 add = [data[k]["scannumber"] for k in rng if bproc[k]]
                 for l in rng:
                     bproc[l] = keepindividual
@@ -344,7 +405,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
                 # [rep1,rep2,...,(sum)]
                 if keepsum:
                     if sumingroups:
-                        add += [i1]
+                        add += [data[i1]["scannumber"]]
                         bproc[i1] = keepindividual
                 else:
                     bproc[i1] = False
@@ -352,9 +413,9 @@ class spec(SpecFileDataSource.SpecFileDataSource):
                 ret += [add]
 
         # Add each scan as an individual group
-        for k in data:
-            if bproc[k]:
-                ret += [[data[k]["scannumber"]]]
+        for i in range(len(data)):
+            if bproc[i]:
+                ret += [[data[i]["scannumber"]]]
 
         return ret
 
@@ -362,6 +423,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         """Get list of specific ID21 XANES with counters
         """
         ret = {}
+
         for scannumber in scannumbers:
             k = "{:d}.1".format(scannumber)
 
