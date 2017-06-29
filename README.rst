@@ -45,7 +45,7 @@ Main development website: https://github.com/woutdenolf/spectrocrunch
 
 Distribution website: https://pypi.python.org/pypi/spectrocrunch
 
-Guidelines for contributors and project managers can be found in the `developers guide <https://github.com/woutdenolf/spectrocrunch/tools/README.rst/>`_.
+Guidelines for contributors and project managers can be found in the `developers guide <https://github.com/woutdenolf/wdncrunch/blob/master/tools/README.rst/>`_.
 
 
 Use without installation

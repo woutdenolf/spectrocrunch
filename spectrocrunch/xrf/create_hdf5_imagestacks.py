@@ -47,11 +47,13 @@ def filecounter(sourcepath,scanname,counter,scannumber,idet=None,getcount=False,
                     "%s_%sst_%04d_0000_%s.edf.1"%(scanname,counter,scannumber,f)]
     elif idet is not None:
         filename = ["%s_%s_%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f),\
+                    "%s_PUZ_%s_%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f),\
                     "%s_%s_%02d_%04d_%s.edf.1"%(scanname,counter,idet,scannumber,f),\
                     "%s_%s%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f),\
                     "%s_%s%02d_%04d_%s.edf.1"%(scanname,counter,idet,scannumber,f)]
     else:
         filename = ["%s_%s_%04d_%s.edf"%(scanname,counter,scannumber,f),\
+                    "%s_PUZ_%s_%04d_%s.edf"%(scanname,counter,scannumber,f),\
                     "%s_%s_%04d_%s.edf.1"%(scanname,counter,scannumber,f)]
 
     n = 0

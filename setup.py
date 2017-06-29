@@ -214,6 +214,21 @@ class CleanCommand(Command):
 
 cmdclass['clean'] = CleanCommand
 
+#####################
+## "name" command ## 
+#####################
+class NameCommand(Command):
+    """Print project name."""
+    user_options = []
+    def initialize_options(self):
+        pass
+    def finalize_options(self):
+        pass
+    def run(self):
+        print PROJECT
+
+cmdclass['name'] = NameCommand
+
 
 #######################
 ## Trove classifiers ## 

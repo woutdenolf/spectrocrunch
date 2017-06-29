@@ -572,6 +572,8 @@ class align(object):
     def doalign(self,refdatasetindex,refimageindex=None,aligntype=alignType.full):
         """Align datasets and save the result.
         """
+        logger = logging.getLogger(__name__)
+ 
         pairwise = refimageindex is None
 
         # Prepare destination
@@ -606,6 +608,7 @@ class align(object):
                     self.set_reference(imgref)
                     
                 # Get align transformation
+                logger.debug("Align index %d on %d"%(i,iref))
                 if i == iref:
                     self.settransformidentity(i)
                     imgaligned = rawprep

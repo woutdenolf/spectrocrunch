@@ -1,5 +1,5 @@
-spectrocrunch package
-=====================
+API reference
+=============
 
 Subpackages
 -----------

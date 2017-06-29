@@ -26,6 +26,7 @@ import os
 import json
 import logging
 import numpy as np
+import copy
 
 from spectrocrunch.xrf.create_hdf5_imagestacks import create_hdf5_imagestacks as makestacks
 from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
@@ -41,7 +42,9 @@ from .proc_common import flattenstacks
 from .proc_resample import execute as execresample
 
 def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,stackdim,\
-                    mlines={},microdiff=False,exclude_detectors=[],addbeforefit=True,useencoders=False):
+                    mlines={},microdiff=False,exclude_detectors=[],addbeforefit=True,useencoders=False,noxia=False):
+    if noxia:
+        cfgfiles = None
     bfit = cfgfiles is not None
 
     if not isinstance(sourcepath,list):
@@ -54,11 +57,17 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
         cfgfiles = [cfgfiles]
 
     if microdiff:
-        counters = ["zap_iodet","zap_idet","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]
+        if noxia:
+            counters = ["zap_iodet","zap_idet"]
+        else:
+            counters = ["zap_iodet","zap_idet","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]
         motors = ["samh", "samv", "samd", "samph", "sampv"]
         counter_reldir = ".."
     else:
-        counters = ["arr_iodet","arr_idet","arr_absorp1","arr_absorp2","arr_absorp3","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]
+        if noxia:
+            counters = ["arr_iodet","arr_idet","arr_fdet","arr_absorp1","arr_absorp2","arr_absorp3"]
+        else:
+            counters = ["arr_iodet","arr_idet","arr_fdet","arr_absorp1","arr_absorp2","arr_absorp3","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]
         if useencoders:
             counters += ["arr_samy","arr_samz"]
         motors = ["samy", "samz", "samx", "sampy", "sampz"]
@@ -81,7 +90,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
 
             # Deadtime correction
             "dtcor": dtcor,
-            "dtcorifsingle":False, # correct for deadtime (if dtcor==True) when a single detector
+            "dtcorifsingle":False, # correct for deadtime when a single detector (ignored when dtcor==False)
 
             # Configuration for fitting
             "detectorcfg": cfgfiles,
@@ -111,7 +120,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
 def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignreference,\
         refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,\
         crop=False,roialign=None,plot=True,mlines={},microdiff=False,exclude_detectors=[],\
-        addbeforefit=True,encodercor=None,normcounter=None):
+        addbeforefit=True,encodercor=None,normcounter=None,noxia=False,postnormcounter=None):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
@@ -136,7 +145,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
         jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,\
                                             cfgfiles,dtcor,stackdim,mlines=mlines,microdiff=microdiff,\
                                             exclude_detectors=exclude_detectors,addbeforefit=addbeforefit,\
-                                            useencoders=encodercor is not None)
+                                            useencoders=encodercor is not None,noxia=noxia)
         stacks, axes = makestacks(jsonfile)
 
         #stacks2, axes2 = getstacks(h5file,["counters","detector0"])
@@ -156,8 +165,9 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
     copygroups = ["coordinates"]
 
     # Normalization
+    skipnorm = ["arr_absorp1","arr_absorp2","arr_absorp3","arr_samy","arr_samz"]
     if not skipnormalization or dtcor or normcounter is not None:
-        skip = ["arr_absorp1","arr_absorp2","arr_absorp3","arr_samy","arr_samz"]
+        skip = copy.copy(skipnorm)
 
         # Add flux normalization to normcounter
         if not skipnormalization:
@@ -169,7 +179,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
             if normcounter is None:
                 normcounter = iodet
             else:
-                normcounter = "{}*{}".format(normcounter,iodet)
+                normcounter = "{{{}}}".format(normcounter)
 
         # Create normalization expression
         if dtcor:
@@ -179,7 +189,6 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
                 expression = "{{}}*{{xmap_icr}}/({}*{{xmap_ocr}})".format(normcounter)
             skip += [normcounter,"xmap_icr","xmap_ocr"]
         else:
-            expression = "{{}}/{}".format(normcounter)
             skip += [normcounter]
 
         h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="norm")
@@ -202,6 +211,12 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
         # Alignment
         h5file,stacks,axes = align(h5file,stacks,axes, copygroups, bsamefile, default,\
             alignmethod, alignreference, refimageindex, cropalign, roialign, plot, stackdim)
+
+        # Post normalization
+        if postnormcounter is not None:
+            skip = skipnorm+[postnormcounter]
+            expression = "{{}}/{{{}}}".format(postnormcounter)
+            h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="postnorm")
 
         # Remove NaN's
         if replacenan:

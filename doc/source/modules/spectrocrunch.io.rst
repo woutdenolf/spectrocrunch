@@ -1,48 +1,38 @@
-spectrocrunch.io package
-========================
+spectrocrunch.io
+================
 
-Data I/O.
+.. automodule:: spectrocrunch.io
 
-Submodules
-----------
 
-spectrocrunch.io.ascii module
------------------------------
+spectrocrunch.io.ascii
+----------------------
 
 .. automodule:: spectrocrunch.io.ascii
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.io.edf module
----------------------------
+spectrocrunch.io.edf
+--------------------
 
 .. automodule:: spectrocrunch.io.edf
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.io.nexus module
------------------------------
+spectrocrunch.io.nexus
+----------------------
 
 .. automodule:: spectrocrunch.io.nexus
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.io.spec module
-----------------------------
+spectrocrunch.io.spec
+---------------------
 
 .. automodule:: spectrocrunch.io.spec
     :members:
     :undoc-members:
     :show-inheritance:
 
-
-Module contents
----------------
-
-.. automodule:: spectrocrunch.io
-    :members:
-    :undoc-members:
-    :show-inheritance:

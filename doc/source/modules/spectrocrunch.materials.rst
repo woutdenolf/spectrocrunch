@@ -1,80 +1,69 @@
-spectrocrunch.materials package
-===============================
+spectrocrunch.materials
+=======================
 
-Definition of compounds and mixtures with calculation of physical properties (database/calculation/simulation).
+.. automodule:: spectrocrunch.materials
 
-Submodules
-----------
-
-spectrocrunch.materials.compound module
----------------------------------------
+spectrocrunch.materials.compound
+--------------------------------
 
 .. automodule:: spectrocrunch.materials.compound
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.materials.compoundfromcif module
-----------------------------------------------
+spectrocrunch.materials.compoundfromcif
+---------------------------------------
 
 .. automodule:: spectrocrunch.materials.compoundfromcif
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.materials.compoundfromformula module
---------------------------------------------------
+spectrocrunch.materials.compoundfromformula
+-------------------------------------------
 
 .. automodule:: spectrocrunch.materials.compoundfromformula
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.materials.compoundfromlist module
------------------------------------------------
+spectrocrunch.materials.compoundfromlist
+----------------------------------------
 
 .. automodule:: spectrocrunch.materials.compoundfromlist
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.materials.element module
---------------------------------------
+spectrocrunch.materials.element
+-------------------------------
 
 .. automodule:: spectrocrunch.materials.element
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.materials.mixture module
---------------------------------------
+spectrocrunch.materials.mixture
+-------------------------------
 
 .. automodule:: spectrocrunch.materials.mixture
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.materials.stoichiometry module
---------------------------------------------
+spectrocrunch.materials.stoichiometry
+-------------------------------------
 
 .. automodule:: spectrocrunch.materials.stoichiometry
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.materials.types module
-------------------------------------
+spectrocrunch.materials.types
+-----------------------------
 
 .. automodule:: spectrocrunch.materials.types
     :members:
     :undoc-members:
     :show-inheritance:
 
-
-Module contents
----------------
-
-.. automodule:: spectrocrunch.materials
-    :members:
-    :undoc-members:
-    :show-inheritance:

@@ -1,53 +1,51 @@
-spectrocrunch.align package
-===========================
+spectrocrunch.align
+===================
 
-Aligning multiple image stacks with different alignment algorithms. One stack is the reference, the other stacks are aligned accordingly.
+.. automodule:: spectrocrunch.align
 
-Submodules
-----------
 
-spectrocrunch.align.align module
---------------------------------
+spectrocrunch.align.align
+-------------------------
 
 .. automodule:: spectrocrunch.align.align
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.align.alignDest module
-------------------------------------
+spectrocrunch.align.alignDest
+-----------------------------
 
 .. automodule:: spectrocrunch.align.alignDest
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.align.alignElastix module
----------------------------------------
+spectrocrunch.align.alignElastix
+--------------------------------
 
 .. automodule:: spectrocrunch.align.alignElastix
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.align.alignFFT module
------------------------------------
+spectrocrunch.align.alignFFT
+----------------------------
 
 .. automodule:: spectrocrunch.align.alignFFT
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.align.alignSift module
-------------------------------------
+spectrocrunch.align.alignSift
+-----------------------------
 
 .. automodule:: spectrocrunch.align.alignSift
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.align.alignSimple module
---------------------------------------
+spectrocrunch.align.alignSimple
+-------------------------------
 
 .. automodule:: spectrocrunch.align.alignSimple
     :members:
@@ -62,16 +60,16 @@ spectrocrunch.align.alignSource module
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.align.transform module
-------------------------------------
+spectrocrunch.align.transform
+-----------------------------
 
 .. automodule:: spectrocrunch.align.transform
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.align.types module
---------------------------------
+spectrocrunch.align.types
+-------------------------
 
 .. automodule:: spectrocrunch.align.types
     :members:
@@ -79,10 +77,3 @@ spectrocrunch.align.types module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: spectrocrunch.align
-    :members:
-    :undoc-members:
-    :show-inheritance:
