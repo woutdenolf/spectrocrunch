@@ -349,18 +349,23 @@ def processEnergySynchronized(specfile,specnumbers,destpath,pymcacfg,mlines={},r
             fs = os.path.join(datadir,"%s_xia[0-9]*_%04d_0000_*.edf"%(scanname,scannumber))
             detfiles = sorted(glob(fs))
             if len(detfiles)==0:
-                logger.error("No files found with filter {}".format(fs))
+                logger.warning("No files found with filter {}".format(fs))
             fs = os.path.join(datadir,"%s_xiast_%04d_0000_*.edf"%(scanname,scannumber))
             stfile = glob(fs)
             if len(stfile)==0:
-                logger.error("No files found with filter {}".format(fs))
+                logger.warning("No files found with filter {}".format(fs))
 
-            xia = XiaEdf.XiaEdfScanFile(stfile[0], detfiles)
-            err = xia.sum(deadtime=dtcor)
-            if "data" in xasspectrum:
-                xasspectrum["data"] += xia.data/norm
+            if len(detfiles)==0:
+                xia = None
+                if "data" not in xasspectrum:
+                    xasspectrum["data"] = norm*0
             else:
-                xasspectrum["data"] = xia.data/norm
+                xia = XiaEdf.XiaEdfScanFile(stfile[0], detfiles)
+                err = xia.sum(deadtime=dtcor)
+                if "data" in xasspectrum:
+                    xasspectrum["data"] += xia.data/norm
+                else:
+                    xasspectrum["data"] = xia.data/norm
 
         # What we want:
         #    XAS = sum(I)/sum(I0) = mu(fluo).rho.d
@@ -379,7 +384,7 @@ def processEnergySynchronized(specfile,specnumbers,destpath,pymcacfg,mlines={},r
         else:
             outname = '{}_{:03d}_{:03d}.sum'.format(scanname,specnumbers[i][0],specnumbers[i][-1])
 
-        if rois is None:
+        if rois is None and xia is not None:
             # Save XRF spectra to be fitted (not needed, just for checking the fit afterwards)
             fileName = os.path.join(destpath, outname+".edf")
             xia.data = xasspectrum["data"]
@@ -401,9 +406,10 @@ def processEnergySynchronized(specfile,specnumbers,destpath,pymcacfg,mlines={},r
 
             # More straightforward:
             xasresults = {}
-            nen,nchan = xasspectrum["data"].shape
-            for label,roi in rois.items():
-                xasresults[label] = np.sum(xasspectrum["data"][:,roi[0]:roi[1]],axis=1)[:,None]
+            if rois is not None:
+                nen,nchan = xasspectrum["data"].shape
+                for label,roi in rois.items():
+                    xasresults[label] = np.sum(xasspectrum["data"][:,roi[0]:roi[1]],axis=1)[:,None]
 
         #if True:
         #    import matplotlib.pyplot as plt
@@ -426,6 +432,9 @@ def processEnergySynchronized(specfile,specnumbers,destpath,pymcacfg,mlines={},r
                 tmp = -np.log(tmp)
 
             xasresults[c] = tmp[:,np.newaxis]
+
+        # Add norm
+        xasresults["norm"] = xasspectrum["norm"]
 
         # Save XAS spectrum (for each element)
         fileName = os.path.join(destpath, outname+".dat")
