@@ -25,7 +25,7 @@
 import fnmatch
 import os
 from glob import glob
-from PyMca5.PyMcaIO import EdfFile
+import fabio
 from spectrocrunch.io.spec import spec
 
 def specinfo(specfolder):
@@ -54,9 +54,9 @@ def extractscaninfo(filename):
     scanname = "_".join(tmp[:tmp.index("arr")])
     scannumber = int(tmp[-2])
 
-    f = EdfFile.EdfFile(filename)
+    f = fabio.open(filename)
     try:
-        header = f.GetHeader(0)
+        header = f.header
         energy = float(header["DCM_Energy"])
     except:
         energy = 0

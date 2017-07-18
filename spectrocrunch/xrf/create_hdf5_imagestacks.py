@@ -29,7 +29,7 @@ import numpy as np
 import h5py
 import re
 from glob import glob
-from PyMca5.PyMcaIO import EdfFile
+import fabio
 
 from spectrocrunch.xrf.parse_xia import parse_xia_esrf
 from spectrocrunch.xrf.fit import PerformBatchFit as fitter
@@ -218,9 +218,9 @@ def getimagestacks(config):
                     else:
                         idet = None
                     metafilename = filecounter(counterpath,scanname,metacounter,scannumber,idet=idet)
-                    metafile = EdfFile.EdfFile(metafilename)
-                    header = metafile.GetHeader(0)
-                    
+                    metafile = fabio.open(metafilename)
+                    header = metafile.header
+
                     if iscan == 0 and ipath == 0:
                         try:
                             motfast,motslow,sfast,sslow = getscanpositions(config,header)
@@ -228,7 +228,7 @@ def getimagestacks(config):
                             motfast = "fast"
                             motslow = "slow"
 
-                            tmp = int(metafile.Images[0].StaticHeader["Dim_2"])
+                            tmp = int(header["Dim_2"])
                             sfast = {"name":motfast,"data":np.arange(tmp)}
 
                             tmp = filecounter(counterpath,scanname,metacounter,scannumber,idet=idet,getcount=True)
@@ -396,15 +396,12 @@ def exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=False):
             nscans = len(stacks[k1][k2])
             for iscan in range(nscans):
                 try:
-                    fdata = EdfFile.EdfFile(stacks[k1][k2][iscan])
+                    fdata = fabio.open(stacks[k1][k2][iscan])
                 except IOError as e:
                     logger.error(str.format("Error opening file {}",stacks[k1][k2][iscan]))
                     raise e
 
-                if fdata.GetNumImages() == 0:
-                    continue
-
-                data = fdata.GetData(0)
+                data = fdata.data
                 if k2 in grp:
                     dset = grp[k2][grp[k2].attrs["signal"]]
                 else:
