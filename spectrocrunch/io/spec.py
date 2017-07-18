@@ -25,6 +25,7 @@
 from PyMca5.PyMcaCore import SpecFileDataSource
 import re
 import numpy as np
+from collections import OrderedDict
 
 def zapline_values(start,end,npixels):
     inc = (end-start)/np.float(npixels)
@@ -47,6 +48,7 @@ class cmd_parser(object):
         self.inumber = "\d+"
         self.blanks = "\s+"
         self.motor = "[a-zA-Z]+"
+        self.motorornum = "[a-zA-Z0-9]+"
 
     def parse(self,cmd):
         scanname = cmd.split(' ')[0]
@@ -60,6 +62,8 @@ class cmd_parser(object):
             return self.parsezapenergy(cmd)
         elif scanname=="mesh":
             return self.parsemesh(cmd)
+        elif scanname=="puzzle":
+            return self.parsepuzzle(cmd)
         else:
             return {'name':'unknown'}
 
@@ -87,6 +91,32 @@ class cmd_parser(object):
                     'startslow':np.float(result[0][6]),\
                     'endslow':np.float(result[0][7]),\
                     'nstepsslow':np.int(result[0][8])}
+        else:
+            return {'name':'unknown'}
+
+    def parsepuzzle(self,cmd,name="puzzle"):
+        expr = name + self.blanks +\
+                   "("+ self.motorornum +")" + self.blanks +\
+                   "("+ self.fnumber +")" + self.blanks +\
+                   "("+ self.fnumber +")" + self.blanks +\
+                   "("+ self.inumber +")" + self.blanks +\
+                   "("+ self.motorornum +")" + self.blanks +\
+                   "("+ self.fnumber +")" + self.blanks +\
+                   "("+ self.fnumber +")" + self.blanks +\
+                   "("+ self.inumber +")" + self.blanks +\
+                   "("+ self.inumber +")"
+        result = re.findall(expr,cmd)
+        if len(result)==1:
+            return {'name':name,\
+                    'motfast':str(result[0][0]),\
+                    'startfast':np.float(result[0][1]),\
+                    'endfast':np.float(result[0][2]),\
+                    'npixelsfast':np.int(result[0][3]),\
+                    'motslow':str(result[0][4]),\
+                    'startslow':np.float(result[0][5]),\
+                    'endslow':np.float(result[0][6]),\
+                    'nstepsslow':np.int(result[0][7]),\
+                    'time':np.float(result[0][8])/1000}
         else:
             return {'name':'unknown'}
 
@@ -317,22 +347,31 @@ class spec(SpecFileDataSource.SpecFileDataSource):
 
         return ret
 
-    def getzapimages(self):
+    def getzapimages(self,motors=None):
         """Get list of all zapimages
         """
-        ret = {}
+        ret = OrderedDict()
         for k in self.getSourceInfo()["KeyList"]:
 
             info = self.getKeyInfo(k)
-            if info["Command"].startswith("zapimage"):
+            if info["Command"].startswith("zapimage") or info["Command"].startswith("puzzle"):
                 
                 h = info["Header"]
                 h = [i.split(":")[1].strip() for i in h if "#C " in i]
                 add = {"specnumber":k.split('.')[0],"scanname":h[1],"scannumber":h[2],"scandir":h[0],"scansize":""}
 
                 result = self.parser.parse(info["Command"])
-                if result['name']=="zapimage":
+                if result['name']=="zapimage" or result['name']=="puzzle":
                     add["scansize"] = "{} x {}".format(result['npixelsfast'],result['nstepsslow']+1)
+                
+                add["puzzle"] = result['name']=="puzzle"
+
+                if motors is None:
+                    add["motors"] = []
+                else:
+                    names = info["MotorNames"]
+                    values = info["MotorValues"]
+                    add["motors"] = [values[names.index(mot)] for mot in motors]
 
                 ret['{}_{}'.format(h[1],int(h[2]))] = add
 
