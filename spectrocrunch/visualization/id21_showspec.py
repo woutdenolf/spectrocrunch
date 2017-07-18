@@ -378,11 +378,12 @@ class shape_object(object):
 
 class shape_hdf5(shape_object):
 
-    def __init__(self,filename,subpaths,subindices,coordinatesindex=None,**kwargs):
+    def __init__(self,filename,subpaths,subindices,coordinatesindex=None,ignoremotorpositions=False,**kwargs):
         self.filename = filename
         self.subpaths = subpaths
         self.subindices = subindices
         self.coordinatesindex = coordinatesindex
+        self.ignoremotorpositions = ignoremotorpositions
 
         shape_object.__init__(self,len(subindices),**kwargs)
 
@@ -397,11 +398,14 @@ class shape_hdf5(shape_object):
         dim2name = "samy"
         dim2mult = 1
 
-        if self.coordinatesindex is not None:
-            frame2 = self.coordinatesindex
+        if self.ignoremotorpositions:
+            frame2 = 0
         else:
-            frame2 = frame
-
+            if self.coordinatesindex is not None:
+                frame2 = self.coordinatesindex
+            else:
+                frame2 = frame
+            
         ocoord = oh5["coordinates"]
         for f in ocoord:
             if f == "samz":
