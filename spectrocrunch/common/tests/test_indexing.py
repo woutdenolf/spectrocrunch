@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -24,12 +24,51 @@
 
 import unittest
 
-from . import test_indexing
+from . import genindexing
+
+from .. import indexing
+
+import numpy as np
+
+class test_indexing(unittest.TestCase):
+
+    def test_list(self):
+        n = 100
+        lst = range(n)
+        for index in genindexing.genindexing(n,fornumpy=False):
+            slst = lst[index]
+            self.assertEqual(indexing.nonchangingindex(index),slst==lst)
+    
+    def test_numpy(self):
+        n1 = 10
+        n2 = 100
+        arr = np.zeros((n1,n2))
+
+        index = genindexing.genindexingn((n1,n2))
+        for i in index:
+            sarr = arr[i]
+            self.assertEqual(indexing.nonchangingindex(i),np.array_equal(sarr,arr))
+
+        for index1 in genindexing.genindexing(n1,fornumpy=True):
+            index = index1
+            sarr = arr[index]
+            self.assertEqual(indexing.nonchangingindex(index),np.array_equal(sarr,arr))
+
+            if index1 is None:
+                continue
+
+            for index2 in genindexing.genindexing(n2,fornumpy=True):
+                if index1 is Ellipsis and index2 is Ellipsis:
+                    continue
+                index = (index1,index2)
+                sarr = arr[index]
+                self.assertEqual(indexing.nonchangingindex(index),np.array_equal(sarr,arr))
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_indexing.test_suite_all())
+    testSuite.addTest(test_indexing("test_list"))
+    testSuite.addTest(test_indexing("test_numpy"))
     return testSuite
     
 if __name__ == '__main__':

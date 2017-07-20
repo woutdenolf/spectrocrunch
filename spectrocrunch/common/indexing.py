@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,20 +22,26 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import unittest
+import random
 
-from . import test_indexing
+def nonchangingindex(index):
+    if isinstance(index,tuple):
+        return all([nonchangingindex(i) for i in index])
+    elif isinstance(index,slice):
+        return index==slice(None,None) or index==slice(0,None)
+    elif index is Ellipsis:
+        return True
+    elif index is None:
+        return False
+    else:
+        return False
 
-def test_suite_all():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_indexing.test_suite_all())
-    return testSuite
-    
-if __name__ == '__main__':
-    import sys
+def expandindex(index,i):
+    if not nonchangingindex(index[i]):
+        index2 = list(index)
+        index2[i] = None
+        index2 = tuple(index2)
+        return index2
+    return index
 
-    mysuite = test_suite_all()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)
+

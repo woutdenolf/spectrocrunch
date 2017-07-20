@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,20 +22,46 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import unittest
+import random
 
-from . import test_indexing
+import itertools
 
-def test_suite_all():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_indexing.test_suite_all())
-    return testSuite
-    
-if __name__ == '__main__':
-    import sys
+def genindexing(dim,fornumpy=False):
 
-    mysuite = test_suite_all()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)
+    if dim>1:
+        i = random.randint(1,dim-1)
+        j = random.randint(-dim,-1)
+        k = random.randint(1,max(1,dim//2))
+    else:
+        i = 0
+        j = 0
+        k = 1
+
+    ret = [0,i,j,\
+           slice(i,j,k),slice(None,j,k),slice(i,None,k),slice(i,j,None),\
+           slice(None,None,k),slice(i,None,None),slice(None,j,None),\
+           slice(None),\
+           slice(0)]
+
+    if fornumpy:
+        ret += [random.randint(-dim,dim-1),random.randint(-dim,dim-1),Ellipsis,None]
+
+    return ret
+
+def valid(index):
+    # Do not start with None unless all None
+    if index[0] is None and any([i is not None for i in index]):
+        return False
+
+    # No more than one '...'
+    if sum([i is Ellipsis for i in index])>1:
+        return False
+
+    return True
+
+def genindexingn(dim,fornumpy=False):
+    lst = [genindexing(n,fornumpy=fornumpy) for n in dim]
+    lst = list(itertools.product(*lst))
+    return [t for t in lst if valid(t)]
+
+        
