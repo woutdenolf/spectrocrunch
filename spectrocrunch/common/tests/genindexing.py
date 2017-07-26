@@ -26,7 +26,9 @@ import random
 
 import itertools
 
-def genindexing(dim,fornumpy=False):
+import numpy as np
+
+def genindexing(dim,advanced=False):
 
     if dim>1:
         i = random.randint(1,dim-1)
@@ -43,24 +45,30 @@ def genindexing(dim,fornumpy=False):
            slice(None),\
            slice(0)]
 
-    if fornumpy:
-        ret += [random.randint(-dim,dim-1),random.randint(-dim,dim-1),Ellipsis,None]
+    # Advanced indexing
+    if advanced:
+        ret += [[random.randint(-dim,dim-1),random.randint(-dim,dim-1)],\
+                [bool(random.getrandbits(1))]*dim,[True]*dim,[False]*dim,\
+                Ellipsis,np.newaxis]
 
     return ret
 
 def valid(index):
-    # Do not start with None unless all None
-    if index[0] is None and any([i is not None for i in index]):
-        return False
-
     # No more than one '...'
     if sum([i is Ellipsis for i in index])>1:
         return False
 
+    # More than one list: they must have the same length
+    b = [i for i in index if isinstance(i,list)]
+    if len(b)>1:
+        b = [len(i) for i in b]
+        if b.count(b[0]) != len(b):
+            return False
+
     return True
 
-def genindexingn(dim,fornumpy=False):
-    lst = [genindexing(n,fornumpy=fornumpy) for n in dim]
+def genindexingn(dim,advanced=False):
+    lst = [genindexing(n,advanced=advanced) for n in dim]
     lst = list(itertools.product(*lst))
     return [t for t in lst if valid(t)]
 
