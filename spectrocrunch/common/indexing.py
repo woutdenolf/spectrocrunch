@@ -27,6 +27,33 @@ import numpy as np
 import numbers
 import itertools
 
+def listadvanced_bool(lst,barr,bnot=False):
+    """Advanced list indexing: boolean array
+
+    Args:
+        lst(list):
+        barr(array): array of booleans
+    Returns:
+        list
+    """
+    if len(lst)!=len(barr):
+        raise IndexError("boolean index did not match indexed list; length is {} but boolean dimension is {}".format(len(lst),len(barr)))
+    if bnot:
+        return [item for i,item in enumerate(lst) if not barr[i]]
+    else:
+        return [item for i,item in enumerate(lst) if barr[i]]
+
+def listadvanced_int(lst,ind):
+    """Advanced list indexing: integer array
+
+    Args:
+        lst(list):
+        ind(array):
+    Returns:
+        list
+    """
+    return [lst[i] for i in ind]
+
 def isadvanced(index):
     """Check for advanced indexing
 
@@ -43,6 +70,22 @@ def isadvanced(index):
     else:
         return 0
 
+def indexcount(index,tp):
+    """Number of dimensions with a specific index type
+
+    Args:
+        index(index): object used in indexing or slicing
+    Returns:
+        num: length of the list indexing
+    """
+
+    if isinstance(index,tuple):
+        return sum([indexcount(i,tp) for i in index])
+    elif isinstance(index,tp):
+        return 1
+    else:
+        return 0
+
 def nadvanced(index):
     """Number of dimensions with advanced indexing
 
@@ -52,29 +95,237 @@ def nadvanced(index):
         num: length of the list indexing
     """
 
-    if isinstance(index,tuple):
-        return sum([nadvanced(i) for i in index])
-    elif isinstance(index,list):
-        return 1
-    else:
-        return 0
+    return indexcount(index,list)
 
-def adjacent(arr):
-    """Check whether list indexing is done one adjacent dimensions or not
-
-        >>> a=np.zeros((10,20,30,40))
-        >>> a[[0,1],:,:,[0,1]].shape == (2, 20, 30) # not adjacent
-        >>> a[:,[0,1],[0,1],:].shape == (10, 2, 40) # adjacent
+def nsingleton(index):
+    """Number of singleton dimensions
 
     Args:
-        arr(array): index or bool array
+        index(index): object used in indexing or slicing
     Returns:
-        bool
+        num: length of the list indexing
     """
-    if isinstance(arr,tuple):
-        arr = [isinstance(i,list) for i in arr]
 
-    return sum([k for k,g in itertools.groupby(arr)])==1
+    return indexcount(index,numbers.Number)
+
+def isdimchanging(index):
+    """Check whether a dimension may be squeezed after indexing
+
+    Args:
+        index(index): object used in indexing or slicing
+    Returns:
+        array or num
+    """
+
+    if isinstance(index,tuple):
+        return [isdimchanging(ind) for ind in index]
+    else:
+        return isinstance(index,list) or isinstance(index,numbers.Number) or index is np.newaxis
+
+def replace_dimnonchanging(index):
+    if isinstance(index,tuple):
+        return [replace_dimnonchanging(ind) for ind in index]
+    elif isdimchanging(index):
+        return index
+    else:
+        return slice(None)
+
+def extract_dimchanging(index):
+    """Separate indices that preserve the dimensions from indexing that don't
+
+        >>> index = (slice(1,2),range(5),slice(3,4),range(5))
+        >>> index1 = extract_dimchanging(index)
+        >>> index2,iadv = extract_dimnonchanging(index)
+        >>> a[index] == a[index1][index2]
+
+    Args:
+        index(index): object used in indexing or slicing (expanded) 
+    Returns:
+        index: index1
+    """
+    return tuple(replace_dimnonchanging(index))
+
+def replace_dimchanging(index):
+    if isinstance(index,tuple):
+        return [replace_dimchanging(ind) for ind in index]
+    elif isinstance(index,list):
+        return [0,0],slice(None),False
+    elif isinstance(index,numbers.Number):
+        return 0,slice(None),False
+    elif index is np.newaxis:
+        return np.newaxis,slice(None),True
+    else:
+        return slice(None),index,True
+
+def extract_dimnonchanging(index):
+    """Separate indices that preserve the dimensions from indexing that don't
+
+        >>> index = (slice(1,2),range(5),slice(3,4),range(5))
+        >>> index1 = extract_dimchanging(index)
+        >>> index2,iadv = extract_dimnonchanging(index)
+        >>> a[index] == a[index1][index2]
+
+    Args:
+        index(index): object used in indexing or slicing (expanded) 
+    Returns:
+        index,num: index2, final axis of list indexing
+    """
+
+    if len(index)==0:
+        return (),None
+
+    index1,index2,bkeepindex2 = zip(*replace_dimchanging(index))
+    index2 = listadvanced_bool(index2,bkeepindex2)
+
+    s = np.empty((1,)*len(index1))[index1].shape
+
+    # 2 -> destination axis of advanced indexing
+    # 1 -> any other dimension which is not squeezed
+    if 2 in s:
+        iadv = s.index(2)
+    else:
+        iadv = None
+
+    if iadv is not None:
+        index2.insert(iadv,slice(None))
+
+    return tuple(index2),iadv
+
+def replace_nonnewaxis(index):
+    if isinstance(index,tuple):
+        return [replace_nonnewaxis(ind) for ind in index]
+    elif isinstance(index,list):
+        return [0,0],[0,0],True
+    elif isinstance(index,numbers.Number):
+        return 0,0,True
+    elif index is np.newaxis:
+        return np.newaxis,np.newaxis,False
+    else:
+        return slice(None),slice(None),True
+
+def extract_newaxis(index):
+    """Extract np.newaxis from index and applied later.
+
+        >>> index2,addnewaxis = extract_newaxis(index1)
+        >>> a[index1] == addnewaxis(a[index2])
+
+    Args:
+        index(index): object used in indexing or slicing (expanded)
+    Returns:
+        2-tuple
+    """
+
+    ops = operators()
+
+    bnew = [ind is np.newaxis for ind in index]
+
+    if any(bnew):
+        indexwithnew,indexwithoutnew,bindexwithoutnew = zip(*replace_nonnewaxis(index))
+        indexwithoutnew = listadvanced_bool(indexwithoutnew,bindexwithoutnew)
+
+        s = (3,)*len(indexwithoutnew)
+        s1 = np.empty(s)[indexwithnew].shape
+        # 1 -> new dimension
+        # 2 -> destination axis of advanced indexing
+        # 3 -> any other dimension which is not squeezed
+
+        s1b = [i for i in s1 if i!=1]
+        if len(s)==0:
+            s2 = ()
+        else:
+            s2 = np.empty(s)[indexwithoutnew].shape
+        # 2 -> destination axis of advanced indexing
+        # 3 -> any other dimension which is not squeezed
+
+        # (1) Index without np.newaxis
+        index = tuple(listadvanced_bool(index,bnew,bnot=True))
+
+        # (2) Transpose
+        if 2 in s2:
+            axes = move_axis(len(s2),s2.index(2),s1b.index(2))
+            if axes is not None:
+                ops.append(op_transpose(axes))
+
+        # (3) Add new dimensions
+        index_newaxes = tuple([np.newaxis if i==1 else slice(None) for i in s1])
+        ops.append(op_index(index_newaxes))
+
+    return index,ops
+
+def popaxis(shape,axis):
+    shape = list(shape)
+    shapeaxis = shape.pop(axis)
+    shape = tuple(shape)
+    return shapeaxis,shape
+
+def replace_trimindex(index):
+    if isinstance(index,tuple):
+        return [replace_trimindex(ind) for ind in index]
+    elif isinstance(index,list):
+        return [0,0]
+    elif isinstance(index,numbers.Number):
+        return 0
+    else:
+        return slice(None)
+
+def extract_axis(index,axis,shapefull):
+    """Extract axis from index and applied in stacking later.
+
+    Args:
+        index(index): object used in indexing or slicing (expanded and no np.newaxis)
+        axis(num): axis index
+        shapefull(tuple): full stack dimension (without applying index)
+    Returns:
+        tuple
+    """
+
+    ops = operators()
+
+    ndim = len(index)
+
+    axis = positiveaxis(axis,ndim)
+
+    # separate axis from other dimensions
+    indexaxis,indexrest = popaxis(index,axis)
+    if shapefull is None:
+        shapeaxis = None
+        shaperest = None
+    else:
+        shapeaxis,shaperest = popaxis(shapefull,axis)
+
+    # index after dimension modifying index
+    indexadv,iadv = extract_dimnonchanging(index)
+    if isadvanced(indexaxis):# axis dimension is advanced and will the advanced destination dimension
+        axis = iadv
+    else:# axis dimension is not advanced
+
+        s = [1]*ndim
+        s[axis] = 3
+        s1 = np.empty(tuple(s))[replace_trimindex(index)].shape
+        # 1 -> any other dimension
+        # 2 -> destination axis of advanced indexing
+        # 3 -> axis after indexing (if any)
+
+        if 3 in s1: # axis not singleton
+            axis = s1.index(3)
+
+        if 2 in s1:
+            s = [1]*(ndim-1)
+            s2 = np.empty(tuple(s))[replace_trimindex(indexrest)].shape
+            # 1 -> any other dimension
+            # 2 -> destination axis of advanced indexing
+
+            # nstack([ .... ],axis=axis)
+            if 3 in s1:
+                s2 = list(s2)
+                s2.insert(axis,3)
+
+            # Transpose
+            axes = move_axis(len(s1),s1.index(2),s2.index(2))
+            if axes is not None:
+                ops.append(op_transpose(axes))
+
+    return indexrest,shaperest,indexaxis,shapeaxis,axis,ops
 
 def nonchanging(index,shape=None):
     """Check whether slicing takes the entire range or a subrange
@@ -103,7 +354,7 @@ def nonchanging(index,shape=None):
         if shape is None:
             return False # could be True, but we can't know when shape is not given
         else:
-            return index.count(True)==len(index) or index==range(shape)
+            return all(i==True and isinstance(i,bool)  for i in index) or index==range(shape)
     else:
         return False
 
@@ -176,7 +427,7 @@ def fulldim(index,ndim):
     Returns:
         num
     """
-    return ndim + sum([i is None for i in index])
+    return ndim + sum([i is np.newaxis for i in index])
 
 def replace(index,ndim,axis,rindex):
     """Replace indexing for a specified dimension
@@ -208,91 +459,6 @@ def replacefull(index,ndim,axis):
     """
 
     return replace(index,ndim,axis,slice(None))
-
-def extract_advanced(index):
-    """Replace advanced indexing
-
-        >>> index = (slice(1,2),range(5),slice(3,4),range(5))
-        >>> index1 = tuple([i if isinstance(i,list) else slice(None) for i in index])
-        >>> index2,_ = extract_advanced(index)
-        >>> a[index] == a[index1][index2]
-
-    Args:
-        index(index): object used in indexing or slicing (expanded) 
-    Returns:
-        index
-    """
-
-    i = None
-
-    if isinstance(index,tuple):
-        b = [isinstance(j,list) for j in index]
-        nlists = sum(b)
-        if nlists>0:
-            if adjacent(b):
-                i = b.index(True)
-            else:
-                i = 0
-            index = [ind for j,ind in enumerate(index) if not b[j]]
-            index.insert(i,slice(None))
-            index = tuple(index)
-
-    return index,i
-
-def advanced_index_axis(index):
-    """Get list-axis after applying advanced indexing
-
-    Args:
-        index(index): object used in indexing or slicing (expanded) 
-    Returns:
-        num
-    """
-    i = None
-
-    if isinstance(index,tuple):
-        b = [isinstance(j,list) for j in index]
-        if any(b):
-            if adjacent(b):
-                i = b.index(True)
-            else:
-                i = 0
-    elif isinstance(index,list):
-        i = 0
-
-    return i
-
-def unsqueeze_index(index,ndim):
-    """Restore singleton dimensions after they have been squeezed.
-       
-    Args:
-        index(index): object used in indexing or slicing
-        ndim(num): number of dimensions
-    Returns:
-        index or None
-    """
-
-    # Expanded index
-    index = expand(index,ndim)
-
-    # More than one list
-    index,_ = extract_advanced(index)
-
-    # Add new axis for singleton indexing
-    index = [np.newaxis if isinstance(i,numbers.Number) else slice(None) for i in index]
-
-    return tuple(index)
-
-def unsqueeze(arr,index,ndim):
-    """Restore singleton dimensions after they have been squeezed.
-
-    Args:
-        arr(array): array after applying index
-        index(index): object used in indexing or slicing
-        ndim(num): number of dimensions before indexing
-    Returns:
-        array
-    """
-    return arr[unsqueeze_index(index,ndim)]
 
 def expanddims(arr,ndim):
     """Expand array dimensions
@@ -345,7 +511,13 @@ class operators(object):
         elif isinstance(op,operators):
             self.ops += op.ops
         else:
-            self.ops.append(op)
+            if len(self.ops)>1:
+                if isinstance(self.ops[-1],op_transpose) and isinstance(op,op_transpose):
+                    self.ops[-1].axes = listadvanced_int(self.ops[-1].axes,op.axes)
+                else:
+                    self.ops.append(op)
+            else:
+                self.ops.append(op)
 
     def __call__(self,data):
         for o in self.ops:
@@ -370,97 +542,6 @@ def move_axis(ndim,i1,i2):
 
     axes.insert(i2,axes.pop(i1))
     return axes
-    
-def extract_newaxis(index):
-    """Extract np.newaxis from index and applied later.
-
-        >>> index2,addnewaxis = extract_newaxis(index1)
-        >>> unsqueeze(a[index1],index1,a.ndim) == addnewaxis(unsqueeze(a[index2],index2,a.ndim))
-
-    Args:
-        index(index): object used in indexing or slicing (expanded)
-    Returns:
-        2-tuple
-    """
-
-    ops = operators()
-
-    bnewaxes = any(i is np.newaxis for i in index)
-    if bnewaxes:
-        # index after applying the advanced part of the index
-        indexadv,iadv = extract_advanced(index)
-
-        # (1) index without np.newaxis
-        index = tuple([i for i in index if i is not np.newaxis])
-        iadv0 = advanced_index_axis(index)
-
-        # (2) add new dimensions
-        index_newaxes = tuple([i if i is np.newaxis else slice(None) for i in indexadv])
-        ops.append(op_index(index_newaxes))
-        if iadv0 is not None:
-            iadv0 += sum([i is np.newaxis for i in index_newaxes[:iadv0+1]])
-
-        # (3) shift destination axis for advanced indexing
-        axes = move_axis(len(indexadv),iadv0,iadv)
-        if axes is not None:
-            ops.append(op_transpose(axes))
-
-    return index,ops
-
-def popaxis(shape,axis):
-    shape = list(shape)
-    shapeaxis = shape.pop(axis)
-    shape = tuple(shape)
-    return shapeaxis,shape
-
-def extract_axis(index,ndim,axis,shapefull):
-    """Extract axis from index and applied in stacking later.
-
-    Args:
-        index(index): object used in indexing or slicing (expanded and no np.newaxis)
-        ndim(num): number of dimensions before indexing
-        axis(num): axis index (positive)
-        shapefull(tuple): full stack dimension (without applying index)
-    Returns:
-        tuple
-    """
-
-    ops = operators()
-
-    # index of the list-axis after advanced indexing
-    indexadv,iadv = extract_advanced(index)
-
-    # separate axis from other dimensions
-    indexaxis,indexrest = popaxis(index,axis)
-    if shapefull is None:
-        shapeaxis = None
-        shaperest = None
-    else:
-        shapeaxis,shaperest = popaxis(shapefull,axis)
-
-    if isadvanced(indexaxis):
-        # axis dimension is advanced and will the advanced destination dimension
-        axis = iadv
-    else:
-        # axis dimension is not advanced
-        if iadv is not None:
-            # indexrest is advanced
-
-            # Extracting axis can cause non-adjacent to be adjacent
-            if not adjacent(index) and adjacent(indexrest):
-                axes = move_axis(len(indexadv),advanced_index_axis(indexrest),iadv)
-                if axes is not None:
-                    ops.append(op_transpose(axes))
-
-            # Number of advanced indices before axis
-            ndisappear = sum([isinstance(i,list) for i in index[:axis]])
-
-            # Advanced destination dimension before axis
-            ndisappear -= iadv<=axis
-
-            axis -= ndisappear
-
-    return indexrest,shaperest,indexaxis,shapeaxis,axis,ops
 
 def prepare_slicedstack(index,ndim,axis,shapefull):
     """
@@ -476,26 +557,83 @@ def prepare_slicedstack(index,ndim,axis,shapefull):
 
     index = expand(index,ndim)
 
-    axis = positiveaxis(axis,ndim)
-
+    # Remove all np.newaxis and ops2 restore operation
     index,ops2 = extract_newaxis(index)
 
-    indexrest,shaperest,indexaxis,shapeaxis,axis,ops1 = extract_axis(index,ndim,axis,shapefull)
+    # Extract axis and ops1 resore operation
+    indexrest,shaperest,indexaxis,shapeaxis,axis,ops1 = extract_axis(index,axis,shapefull)
 
+    # Order of operations:
+    #   1. np.stack([data[indexrest] ...],axis=axis)
+    #   2. ops1
+    #   3. ops2
     ops1.append(ops2)
 
     return indexrest,shaperest,indexaxis,shapeaxis,axis,ops1
 
-def slicedstack(generator,arglist,index,ndim,shapefull=None,axis=-1):
+def shapefromindex(index,ndim):
+    """Minimal array shape based on index
+
+    Args:
+        index(index): object used in indexing or slicing
+        ndim(num): stack dimensions (without applying index)
+
+    Returns:
+        tuple
+    """
+    index = expand(index,ndim)
+    shape = [0]*len(index)
+
+    for j,s in enumerate(index):
+        if isinstance(s,list):
+            if len(s)==0:
+                shape[j] = 0
+            else:
+                shape[j] = max(max(s)+1,1)
+        elif isinstance(s,numbers.Number):
+            shape[j] = 1
+        elif isinstance(s,slice):
+            start = s.start
+            stop = s.stop
+            step = s.step
+            if step is None:
+                step = 1
+            if start is None:
+                start = 0
+            if stop is None:
+                stop = start # We don't know !!!!!!!!!
+            shape[j] = stop+1
+
+    return shape
+
+def emptyslicedstack(index,ndim,shapefull=None):
+    """Allocate slicedstack array
+
+    Args:
+        index(index): object used in indexing or slicing
+        ndim(num): stack dimensions (without applying index)
+        shapefull(Optional(tuple)): full stack dimension (without applying index)
+
+    Returns:
+        array
+    """
+
+    if shapefull is None:
+        # This will allocate the minimal 
+        shapefull = shapefromindex(index,ndim)
+
+    return np.empty(tuple(shapefull))[index]
+
+def slicedstack(generator,arglist,index,ndim,shapefull=None,axis=0):
     """Similar to np.stack(...,axis=...)[index] except that the data
        still needs to be generate by looping over the axis dimension.
        The data generation is minimized based in index.
 
-       >>> data = np.stack(map(generator,args),axis=-1)
+       >>> data = np.stack(map(generator,args),axis=axis)
        >>> shapefull = data.shape
        >>> ndim = data.ndim
-       >>> data2 = slicedstack(generator,args,index,ndim,shapefull=shapefull,axis=-1)
-       >>> np.testing.assert_array_equal(indexing.unsqueeze(data[index],index,ndim),data2)
+       >>> data2 = slicedstack(generator,args,index,ndim,shapefull=shapefull,axis=axis)
+       >>> np.testing.assert_array_equal(data[index],data2)
 
     Args:
         generator: data generator
@@ -508,12 +646,16 @@ def slicedstack(generator,arglist,index,ndim,shapefull=None,axis=-1):
     Returns:
         array
     """
-    
+
+    # Better to slice before stacking, even when generator does not read from disk:
+    # python -mtimeit -s'import numpy as np' 'n=50' 'np.dstack([np.zeros((n,n))[0:n//2,0:n//2]]*n)'
+    # python -mtimeit -s'import numpy as np' 'n=50' 'np.dstack([np.zeros((n,n))]*n)[0:n//2,0:n//2,:]'
+
     # Split axis indexing from indexing other dimensions
     indexrest,shaperest,indexaxis,shapeaxis,axis,ops = prepare_slicedstack(index,ndim,axis,shapefull)
-    ndimrest = ndim-1
 
     # Apply indexaxis on axis dimension
+    bargsingleton = False
     if not nonchanging(indexaxis,shape=shapeaxis):
         if isinstance(indexaxis,list):
             # No advanced indexing for list so use comprehension
@@ -521,31 +663,28 @@ def slicedstack(generator,arglist,index,ndim,shapefull=None,axis=-1):
         elif isinstance(indexaxis,numbers.Number):
             # No singleton dimension squeezing
             arglist = [arglist[indexaxis]]
+            bargsingleton = True
         else:
             arglist = arglist[indexaxis]
 
     # Apply indexrest on the other dimensions 
+    ndimgen = ndim-1
     if nonchanging(indexrest,shape=shaperest):
-        data = [expanddims(generator(arg),ndimrest) for arg in arglist]
+        data = [expanddims(generator(arg),ndimgen) for arg in arglist]
     else:
-        # Handle advanced indexing
+        # Advanced indexing along axis needs to be handled separately
         na = isadvanced(indexaxis)
         if na!=0:
-            squeezeadvanced = tuple([0 if isinstance(i,list) else slice(None) for i in indexrest])
-
             indexlist = [tuple([i[j] if isinstance(i,list) else i for i in indexrest]) for j in range(na)]
-
-            data = [unsqueeze(expanddims(generator(arg),ndimrest)[ind],ind,ndimrest)[squeezeadvanced] for arg,ind in zip(arglist,indexlist)]
+            data = [expanddims(generator(arg),ndimgen)[ind] for arg,ind in zip(arglist,indexlist)]
         else:
-            data = [unsqueeze(expanddims(generator(arg),ndimrest)[indexrest],indexrest,ndimrest) for arg in arglist]
+            data = [expanddims(generator(arg),ndimgen)[indexrest] for arg in arglist]
 
     # Stack
     if len(data)==0:
-        tmp,_ = extract_advanced(expand(index,ndim))
-
-        ndim = len(tmp)
-        shape = [0]*ndim
-        data = np.empty(tuple(shape))
+        data = emptyslicedstack(index,ndim,shapefull=shapefull)
+    elif len(data)==1 and bargsingleton:
+        data = ops(data[0])
     else:
         data = ops(np.stack(data,axis=axis))
 
