@@ -35,9 +35,14 @@ import numbers
 
 from ..common import indexing
 
+from . import edf
+
 import logging
 logger = logging.getLogger(__name__)
 
+
+
+        
 def xiaparsefilename(filename):
     """
     Args:
@@ -272,6 +277,61 @@ def xiagrouplines(files):
 
     return ret
 
+class xiadict(dict):
+
+    def __init__(self,*args,**kwargs):
+        super(xiadict,self).__init__(*args,**kwargs)
+        if "indexing" not in self:
+            self["indexing"] = {"data":True,"stats":False,"onlyicrocr":True}
+        else:
+            if "data" not in self["indexing"]:
+                self["indexing"]["data"] = True
+            if "stats" not in self["indexing"]:
+                self["indexing"]["stats"] = True
+            if "onlyicrocr" not in self["indexing"]:
+                self["indexing"]["onlyicrocr"] = True
+
+        if "overwrite" not in self:
+            self["overwrite"] = False
+
+        if "detectors" not in self:
+            self["detectors"] = {"skip":[],"keep":[]}
+        else:
+            if "skip" not in self["detectors"]:
+                self["detectors"]["skip"] = []
+            if "keep" not in self["detectors"]:
+                self["detectors"]["keep"] = []
+
+        if "dtcor" not in self:
+            self["dtcor"] = False
+
+    def skipdetectors(self,lst):
+        self["detectors"]["skip"] = lst
+
+    def keepdetectors(self,lst):
+        self["detectors"]["skip"] = lst
+
+    def onlydata(self):
+        self["indexing"]["data"] = True
+        self["indexing"]["stats"] = False
+
+    def onlystats(self):
+        self["indexing"]["data"] = False
+        self["indexing"]["stats"] = True
+
+    def dataandstats(self):
+        self["indexing"]["data"] = True
+        self["indexing"]["stats"] = True
+
+    def overwrite(self,b):
+        self["overwrite"] = b
+
+    def onlyicrocr(self,b):
+        self["indexing"]["onlyicrocr"] = b
+
+    def dtcor(self,b):
+        self["dtcor"] = b
+
 class xiadata(object):
 
     STDET = 0
@@ -281,21 +341,106 @@ class xiadata(object):
     STLT = 4
     STDT = 5
     NSTATS = 6
-    XIADTYPE = float
-    XIASTYPE = int
+    XIADTYPE = np.int32
+    XIASTYPE = np.int32
+    CORTYPE = np.float64
+
+    def __init__(self,xiaconfig=None):
+        if xiaconfig is None:
+            self._xiaconfig = xiadict()
+        else:
+            self._xiaconfig = xiaconfig
+
+    def skipdetectors(self,lst):
+        self._xiaconfig.skipdetectors(lst)
+
+    def keepdetectors(self,lst):
+        self._xiaconfig.keepdetectors(lst)
+
+    def onlydata(self):
+        self._xiaconfig.onlydata()
+
+    def onlystats(self):
+        self._xiaconfig.onlystats()
+
+    def dataandstats(self):
+        self._xiaconfig.dataandstats()
+
+    def overwrite(self,b):
+        self._xiaconfig.overwrite(b)
+
+    def onlyicrocr(self,b):
+        self._xiaconfig.onlyicrocr(b)
+
+    def dtcor(self,b):
+        self._xiaconfig.dtcor(b)
+
+    @property
+    def nstats(self):
+        if self._xiaconfig["indexing"]["onlyicrocr"]:
+            return 2
+        else:
+            return self.NSTATS
 
     @property
     def data(self):
-        return self._getdata()
+        self.onlydata()
+        return self[:]
 
     @property
     def stats(self):
-        return self._getstats()
+        self.onlystats()
+        return self[:]
 
-    @property
-    def icrocr(self):
-        stats = self._getstats()
-        return stats[...,self.STICR,:],stats[...,self.STOCR,:]
+    def __getitem__(self, index):
+        # Only data and no dtcor:  index applies on data
+        # Only data and dtcor:  index applies on data, icrocr on stats
+        # Only stats: index applies on stats
+        #             index nonchanging: full or icrocr
+        # Data and stats: index applies on data
+        #                 index applies on stats but index[-2] must be full range
+
+        if self._xiaconfig["indexing"]["data"]:
+            # ...,nchan,ndet
+            data = self._getdata(index)
+
+            if not self._xiaconfig["indexing"]["stats"] and not self._xiaconfig["dtcor"]:
+                return data
+
+        if self._xiaconfig["indexing"]["stats"] or self._xiaconfig["dtcor"]:
+            # ...,nstat,ndet
+            if self._xiaconfig["indexing"]["data"]:
+                index = indexing.replacefull(index,self.ndim,-2)
+            else:
+                if self._xiaconfig["indexing"]["onlyicrocr"]:
+                    index = indexing.replace(index,self.ndim,-2,[self.STICR,self.STOCR])
+                else:
+                    index = indexing.replacefull(index,self.ndim,-2)
+
+            stats = self._getstats(index)
+
+            if not self._xiaconfig["indexing"]["data"]:
+                return stats
+
+        if self._xiaconfig["dtcor"]:
+            index = (Ellipsis,self.STICR,slice(None))
+            icr = stats[index]
+            index = (Ellipsis,self.STOCR,slice(None))
+            ocr = stats[index]
+
+            if icr.size==1:
+                data = data * self.CORTYPE(icr[0]) / ocr[0]
+            else:
+                s = list(stats.shape)
+                s[-2] = 1
+                icr = icr.reshape(s)
+                ocr = ocr.reshape(s)
+                data = data * np.asarray(icr,dtype=self.CORTYPE) / ocr
+
+            if not self._xiaconfig["indexing"]["stats"]:
+                return data
+
+        return data,stats
 
     def _getdata(self,index=slice(None)):
         raise NotImplementedError("xiadata should not be instantiated, use one of the derived classes")
@@ -306,31 +451,32 @@ class xiadata(object):
 
 class xialine(xiadata):
 
-    def __init__(self,overwrite=False,skipdetectors=None,keepdetectors=None):
-        """
-        Args:
-            path(list): path
-            radix(list): radix
-            num(numbers.Integral): map number
-            linenum(numbers.Integral): line number
-            linenum(Optional(overwrite)): line number
-            skipdetectors(Optional(list)): detector numbers to skip when reading
-            keepdetectors(Optional(list)): detector numbers to keep when reading
-        Returns:
-            None
-        """
+    def __init__(self,**kwargs):
+        super(xialine,self).__init__(**kwargs)
 
-        self.overwrite = overwrite
-        self.skipdetectors(skipdetectors)
-        self.keepdetectors(keepdetectors)
+    def __str__(self):
+        return "xialine{}".format(str(self.dshape))
+
+    @property
+    def ndim(self):
+        return 3
 
     @property
     def dtype(self):
         files = self.datafilenames()
         if len(files)==0:
-            return self.XIADTYPE
+            if self._xiaconfig["dtcor"]:
+                return self.CORTYPE
+            else:
+                return self.XIADTYPE
         else:
-            return fabio.open(files[0]).bytecode
+            if self._xiaconfig["dtcor"]:
+                t1 = edf.edfmemmap(files[0]).dtype    
+                t2 = self.stype
+                t3 = self.CORTYPE
+                return type(t1(0)*t2(0)*t3(0))
+            else:
+                return edf.edfmemmap(files[0]).dtype
 
     @property
     def stype(self):
@@ -338,7 +484,7 @@ class xialine(xiadata):
         if f is None:
             return self.XIASTYPE
         else:
-            return fabio.open(f).bytecode
+            return edf.edfmemmap(f).dtype
 
     @property
     def dshape(self):
@@ -348,9 +494,8 @@ class xialine(xiadata):
         if n==0:
             return ()
         else:
-            s = fabio.open(files[0]).getDims()[::-1]
-            s.append(n)
-            return tuple(s)
+            s = edf.edfmemmap(files[0]).shape
+            return s+(n,)
 
     @property
     def sshape(self):
@@ -359,77 +504,27 @@ class xialine(xiadata):
         if f is None:
             return ()
         else:
-            s = fabio.open(f).getDims()[::-1]
+            s = edf.edfmemmap(f).shape
             ndet = s[1]//self.NSTATS
             ndet = len(self.xiadetectorselect(range(ndet)))
-            return (s[0],self.NSTATS,ndet)
-
-    def __getitem__(self, index):
-        data = self._getdata(index)
-        stats = self._getstats(indexing.expandindex(index,-2))
-        return data,stats
-
-    def skipdetectors(self,dets):
-        """
-        Args:
-            dets(list): detector to skip when reading
-        Returns:
-            list: formated labels
-        """
-        if dets is None:
-            self._skipdetectors = []
-        else:
-            self._skipdetectors = dets
-
-    def keepdetectors(self,dets):
-        """
-        Args:
-            dets(list): detector to keep when reading
-        Returns:
-            list: formated labels
-        """
-        if dets is None:
-            self._keepdetectors = []
-        else:
-            self._keepdetectors = dets
+            return (s[0],self.nstats,ndet)
 
     def _getdata(self,index=slice(None)):
         """
         Args:
             index(Optional(slice)):
         Returns:
-            array: nspec x nchan x ndet
+            array: nspec x nchan x ndet (before indexing)
         """
-
-        # python -mtimeit -s'import numpy as np' 'n=50' 'np.dstack([np.zeros((n,n))[0:n//2,0:n//2]]*n)'
-        # python -mtimeit -s'import numpy as np' 'n=50' 'np.dstack([np.zeros((n,n))]*n)[0:n//2,0:n//2,:]'
 
         # Select some or all detectors
         files = self.datafilenames_used()
         if len(files)==0:
             return np.empty((0,0,0),dtype=self.XIADTYPE)
 
-        if indexing.nonchangingindex(index):
-            # Full range
-            data = np.dstack([fabio.open(f).data for f in files])
-        elif isinstance(index,tuple):
-            # Separate indexing of detectors from indexing of the images
-            findex = index[-1]
-            if not indexing.nonchangingindex(findex):
-                try:
-                    files = files[findex]
-                except:
-                    files = [files[i] for i in findex]
-
-                if len(files)==0:
-                    return np.empty((0,0,0),dtype=self.XIADTYPE)
-                elif isinstance(files,str):
-                    files = [files]
-
-            index = index[:-1]
-            data = np.dstack([fabio.open(f).data[index] for f in files])
-        else:
-            data = np.dstack([fabio.open(f).data[index] for f in files])
+        # Generate sliced stack
+        generator = lambda f: edf.edfmemmap(f).data
+        data = indexing.slicedstack(generator,files,index,self.ndim,shapefull=self.dshape,axis=-1)
 
         return data
     
@@ -438,12 +533,12 @@ class xialine(xiadata):
         Args:
             index(Optional(slice)):
         Returns:
-            array: nspec x nstats x ndet
+            array: nspec x nstats x ndet (before indexing)
         """
         f = self.statfilename()
         if f is not None:
             # We have to read all stats
-            stats = fabio.open(f).data
+            stats = edf.edfmemmap(f).data
             s = stats.shape
             nspec = s[0]
             ndet = s[1]//self.NSTATS
@@ -452,21 +547,20 @@ class xialine(xiadata):
             # Select stats of some or all detectors
             ind = self.xiadetectorselect(range(ndet))
             if len(ind)==0:
-                stats = np.empty((0,0,0),dtype=self.dtype)
+                stats = np.empty((0,0,0),dtype=self.stype)
             elif len(ind)<ndet:
                 stats = stats[...,ind]
-            
-            # Apply index
-            if not indexing.nonchangingindex(index):
-                stats = stats[index]
 
+            # Apply index
+            if not indexing.nonchanging(index):
+                stats = stats[index]
         else:
             stats = np.empty((0,0,0),dtype=self.XIASTYPE)
 
         return stats
 
     def _write(self,img,filename,makedir=False):
-        if not self.overwrite:
+        if not self._xiaconfig["overwrite"]:
             if os.path.isfile(filename):
                 logger.warning("{} not saved (already exists)".format(filename))
                 return
@@ -496,7 +590,7 @@ class xialine(xiadata):
             self._write(img,self._fileformat.format("st"))
 
     def xiadetectorselect(self,lst):
-        return xiadetectorselect(lst,self._skipdetectors,self._keepdetectors)
+        return xiadetectorselect(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
 
     def datafilenames_used(self):
         files = self.datafilenames()
@@ -532,6 +626,9 @@ class xialine_number(xialine):
         self._statfile = None
 
         super(xialine_number,self).__init__(**kwargs)
+
+    def __str__(self):
+        return "xialine{}: {}".format(str(self.dshape),self._fileformat)
 
     def search(self):
         """Find data and statistics files
@@ -597,6 +694,9 @@ class xialine_files(xialine):
             self._statfile = None
 
         super(xialine_files,self).__init__(**kwargs)
+
+    def __str__(self):
+        return "xialine{}: {}".format(str(self.dshape),self._fileformat)
         
     def datafilenames(self):
         """
@@ -619,9 +719,19 @@ class xialine_files(xialine):
 
 class xiaimage(xiadata):
 
+    def __init(self,**kwargs):
+        super(xiaimage,self).__init__(**kwargs)
+
+    def __str__(self):
+        return "xiaimage{}".format(str(self.dshape))
+
     def _needlines(self,lines):
         if len(lines)==0:
             raise RuntimeError("No lines were defined")
+
+    @property
+    def ndim(self):
+        return 3
 
     @property
     def dtype(self):
@@ -659,24 +769,6 @@ class xiaimage(xiadata):
         else:
             return (nlines,) + lines[0].sshape
 
-    def __getitem__(self, index):
-        # index: tuple(slice) or slice or number
-
-        if isinstance(index,tuple):
-            pindex = index[0]
-        else:
-            pindex = index
-
-        data = self._getdata(pindex)
-        stats = self._getstats(pindex)
-
-        if isinstance(index,tuple):
-            data = data.__getitem__(index[1:])
-            if stats is not None:
-                stats = stats.__getitem__(index[1:])
-
-        return data,stats
-
     def _getdata(self,index=slice(None)):
         """
         Args:
@@ -685,11 +777,15 @@ class xiaimage(xiadata):
             array: nlines x nspec x nchan x ndet
         """
         lines = self._getlines()
-        self._needlines(lines)
+        if len(lines)==0:
+            np.empty((0,0,0,0),dtype=self.XIADTYPE)
 
-        if index is not Ellipsis:
-            lines = lines.__getitem__(index)
-        return np.stack([line.data for line in lines],axis=0)
+        pindex,index = indexing.extract(index,4,0)
+
+        if indexing.nonchanging(pindex):
+            lines = lines[pindex]
+
+        return np.stack([line[index] for line in lines],axis=0)
 
     def _getstats(self,index=slice(None)):
         """
@@ -699,7 +795,8 @@ class xiaimage(xiadata):
             array: nlines x nspec x nstats x ndet
         """
         lines = self._getlines()
-        self._needlines(lines)
+        if len(lines)==0:
+            np.empty((0,0,0,0),dtype=self.XIADTYPE)
 
         if index is not Ellipsis:
             lines = lines.__getitem__(index)
@@ -791,6 +888,8 @@ class xiaimage_linenumbers(xiaimage):
         """
         self._lines = [xialine_number(path,radix,mapnum,linenum,**kwargs) for linenum in linenums]
 
+        super(xiaimage_linenumbers,self).__init__(**kwargs)
+
 
 class xiaimage_files(xiaimage):
     """XIA image determined by a list of files
@@ -807,6 +906,8 @@ class xiaimage_files(xiaimage):
 
         files = xiagrouplines(files)
         self._lines = [xialine_files(f,**kwargs) for linenum,f in files.items()]
+
+        super(xiaimage_files,self).__init__(**kwargs)
 
 
 class xiaimage_number(xiaimage):
@@ -829,6 +930,8 @@ class xiaimage_number(xiaimage):
         self.linekwargs = kwargs
         self._fileformat = os.path.join(path,xiaformat_map(radix,mapnum))
         self._lines = []
+
+        super(xiaimage_number,self).__init__(**kwargs)
 
     def search(self):
         files = glob(self._fileformat.format("??","[0-9][0-9][0-9][0-9]*"))
