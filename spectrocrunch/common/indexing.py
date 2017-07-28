@@ -54,6 +54,20 @@ def listadvanced_int(lst,ind):
     """
     return [lst[i] for i in ind]
 
+def listadvanced(lst,ind):
+    """Advanced list indexing: integer or bool array
+
+    Args:
+        lst(list):
+        ind(array):
+    Returns:
+        list
+    """
+    if all(isinstance(i,bool) for i in ind) and len(ind)>0:
+        return listadvanced_bool(lst,ind)
+    else:
+        return listadvanced_int(lst,ind)
+
 def isadvanced(index):
     """Check for advanced indexing
 
@@ -124,7 +138,7 @@ def isdimchanging(index):
 
 def replace_dimnonchanging(index):
     if isinstance(index,tuple):
-        return [replace_dimnonchanging(ind) for ind in index]
+        return tuple([replace_dimnonchanging(ind) for ind in index])
     elif isdimchanging(index):
         return index
     else:
@@ -143,11 +157,11 @@ def extract_dimchanging(index):
     Returns:
         index: index1
     """
-    return tuple(replace_dimnonchanging(index))
+    return replace_dimnonchanging(index)
 
 def replace_dimchanging(index):
     if isinstance(index,tuple):
-        return [replace_dimchanging(ind) for ind in index]
+        return tuple([replace_dimchanging(ind) for ind in index])
     elif isinstance(index,list):
         return [0,0],slice(None),False
     elif isinstance(index,numbers.Number):
@@ -193,7 +207,7 @@ def extract_dimnonchanging(index):
 
 def replace_nonnewaxis(index):
     if isinstance(index,tuple):
-        return [replace_nonnewaxis(ind) for ind in index]
+        return tuple([replace_nonnewaxis(ind) for ind in index])
     elif isinstance(index,list):
         return [0,0],[0,0],True
     elif isinstance(index,numbers.Number):
@@ -258,9 +272,84 @@ def popaxis(shape,axis):
     shape = tuple(shape)
     return shapeaxis,shape
 
+def replace_axesorder(index):
+    if isinstance(index,tuple):
+        return tuple([replace_axesorder(ind) for ind in index])
+    elif isinstance(index,list):
+        return []
+    elif isinstance(index,numbers.Number):
+        return 0
+    elif index is np.newaxis:
+        return np.newaxis
+    else:
+        return slice(None)
+
+def axesorder_afterindexing(index,ndim):
+    """Axes order after indexing specified.
+
+    Args:
+        index(index): object used in indexing or slicing (expanded and no np.newaxis)
+        ndim(num): dimensions before indexing
+    Returns:
+        list(tuple)
+    """
+
+    index = expand(index,ndim)
+
+    # Dimensions which are indexed by lists
+    index2 = [ind for ind in index if ind is not np.newaxis]
+    ilist = [i for i,ind in enumerate(index2) if isinstance(ind,list)]
+
+    # Dimensions are recognized by their length:
+    # 0     -> destination of advanced indexing
+    # 1     -> np.newaxis
+    # else  -> original dimension (2 is the first)
+    shape = tuple(range(2,ndim+2))
+    arr = np.empty(shape)
+    index = replace_axesorder(index)
+    shape = arr[index].shape
+
+    # Axis origins
+    axes = list(shape)
+    marklist = None
+    for i,n in enumerate(axes):
+        if n==0:
+            axes[i] = ilist
+        elif n==1:
+            axes[i] = None
+        else:
+            axes[i] = n-2
+
+    return axes
+
+def shape_afterindexing(shape,index):
+    """Shape after indexing
+
+    Args:
+        shape(tuple): 
+        index(index): 
+        
+    Returns:
+        tuple,list(list)
+    """
+
+    axes = axesorder_afterindexing(index,len(shape))
+
+    # Expected shape after indexing
+    s2 = [0]*len(axes)
+    for i,iaxes in enumerate(axes):
+        if iaxes is None:
+            s2[i] = 1
+        elif isinstance(iaxes,list):
+            s2[i] = isadvanced(index)
+        else:
+            s2[i] = shape[iaxes]
+
+    return s2,axes
+
 def replace_trimindex(index):
     if isinstance(index,tuple):
-        return [replace_trimindex(ind) for ind in index]
+        return tuple([replace_trimindex(ind) for ind in index])
     elif isinstance(index,list):
         return [0,0]
     elif isinstance(index,numbers.Number):
@@ -315,15 +404,16 @@ def extract_axis(index,axis,shapefull):
             # 1 -> any other dimension
             # 2 -> destination axis of advanced indexing
 
-            # nstack([ .... ],axis=axis)
-            if 3 in s1:
-                s2 = list(s2)
-                s2.insert(axis,3)
+            if 2 in s2:
+                # nstack([ .... ],axis=axis)
+                if 3 in s1:
+                    s2 = list(s2)
+                    s2.insert(axis,3)
 
-            # Transpose
-            axes = move_axis(len(s1),s1.index(2),s2.index(2))
-            if axes is not None:
-                ops.append(op_transpose(axes))
+                # Transpose
+                axes = move_axis(len(s1),s1.index(2),s2.index(2))
+                if axes is not None:
+                    ops.append(op_transpose(axes))
 
     return indexrest,shaperest,indexaxis,shapeaxis,axis,ops
 
@@ -337,8 +427,10 @@ def nonchanging(index,shape=None):
         bool
     """
     if isinstance(index,tuple):
-        if nadvanced(index)>1:
-            return False
+        b = [isinstance(index,list) or 2*isinstance(index,numbers.Number) for ind in index]
+        if 1 in b:
+            if sum(b[:b.index(1)])>0:
+                return False
 
         if shape is None:
             return all(nonchanging(i) for i in index)
@@ -354,7 +446,13 @@ def nonchanging(index,shape=None):
         if shape is None:
             return False # could be True, but we can't know when shape is not given
         else:
-            return all(i==True and isinstance(i,bool)  for i in index) or index==range(shape)
+            if len(index)==0:
+                return index==range(shape)
+            else:
+                if all(isinstance(i,bool) for i in index):
+                    return all(index)
+                else:
+                    return index==range(shape)
     else:
         return False
 
@@ -392,6 +490,9 @@ def expand(index,ndim):
             index = index[:i] + (slice(None),)*(ndim-nindex+1) + index[i+1:]
         elif nindex!=ndim:
             index = index + (slice(None),)*(ndim-nindex)
+
+    elif isinstance(index,bool):
+        index = [index]*ndim
 
     elif index is Ellipsis:
         index = (slice(None),)*ndim
@@ -624,6 +725,28 @@ def emptyslicedstack(index,ndim,shapefull=None):
 
     return np.empty(tuple(shapefull))[index]
 
+def decompose_listindexing(index,nlist):
+    indexlist = [None]*nlist
+    nindex = len(index)
+    tpl = [0]*nindex
+    for j in range(nlist):
+        for i,ind in enumerate(index):
+            if isinstance(ind,list):
+                tpl[i] = ind[j]
+                if isinstance(tpl[i],bool):
+                    if tpl[i]:
+                        tpl[i] = j
+                    else:
+                        tpl = None
+                        break
+            else:
+                tpl[i] = ind
+        if tpl is None:
+            indexlist[j] = None
+        else:
+            indexlist[j] = tuple(tpl)
+    return indexlist
+
 def slicedstack(generator,arglist,index,ndim,shapefull=None,axis=0):
     """Similar to np.stack(...,axis=...)[index] except that the data
        still needs to be generate by looping over the axis dimension.
@@ -659,7 +782,7 @@ def slicedstack(generator,arglist,index,ndim,shapefull=None,axis=0):
     if not nonchanging(indexaxis,shape=shapeaxis):
         if isinstance(indexaxis,list):
             # No advanced indexing for list so use comprehension
-            arglist = [arglist[i] for i in indexaxis]
+            arglist = listadvanced(arglist,indexaxis)
         elif isinstance(indexaxis,numbers.Number):
             # No singleton dimension squeezing
             arglist = [arglist[indexaxis]]
@@ -667,7 +790,7 @@ def slicedstack(generator,arglist,index,ndim,shapefull=None,axis=0):
         else:
             arglist = arglist[indexaxis]
 
-    # Apply indexrest on the other dimensions 
+    # Apply indexrest on the other dimensions
     ndimgen = ndim-1
     if nonchanging(indexrest,shape=shaperest):
         data = [expanddims(generator(arg),ndimgen) for arg in arglist]
@@ -675,8 +798,11 @@ def slicedstack(generator,arglist,index,ndim,shapefull=None,axis=0):
         # Advanced indexing along axis needs to be handled separately
         na = isadvanced(indexaxis)
         if na!=0:
-            indexlist = [tuple([i[j] if isinstance(i,list) else i for i in indexrest]) for j in range(na)]
-            data = [expanddims(generator(arg),ndimgen)[ind] for arg,ind in zip(arglist,indexlist)]
+
+            indexlist = decompose_listindexing(indexrest,na)
+
+            #indexlist = [tuple([ind[j] if isinstance(ind,list) else ind for ind in indexrest]) for j in range(na)]
+            data = [expanddims(generator(arg),ndimgen)[ind] for arg,ind in zip(arglist,indexlist) if ind is not None]
         else:
             data = [expanddims(generator(arg),ndimgen)[indexrest] for arg in arglist]
 

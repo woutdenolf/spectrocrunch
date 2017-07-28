@@ -47,7 +47,7 @@ def genindexing(dim,advanced=False):
 
     # Advanced indexing
     if advanced:
-        ret += [[random.randint(-dim,dim-1),random.randint(-dim,dim-1)],\
+        ret += [[],[random.randint(-dim,dim-1)],[random.randint(-dim,dim-1) for i in range(dim//2)],\
                 [bool(random.getrandbits(1))]*dim,[True]*dim,[False]*dim,\
                 Ellipsis,np.newaxis]
 
