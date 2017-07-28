@@ -139,33 +139,25 @@ class test_xiaedf(unittest.TestCase):
         icrocr = o.stats
         np.testing.assert_allclose(dataorg,o.data*icrocr[...,0,:].reshape(ishape)/icrocr[...,1,:].reshape(ishape))
         o.onlyicrocr(False)
-
         o.dtcor(True)
         np.testing.assert_allclose(dataorg,o.data)
         
         # Test slicing
         o.skipdetectors([])
         o.dataandstats()
-        
+        o.onlyicrocr(False)
+        o.dtcor(True)
+
         indices = genindexing.genindexingn(dshape,advanced=True)
         for index in indices:
-            print ""
-            print dshape
-            print sshape
-            print index
-
             ldata,lstats = o[index]
-
-            ldata2 = indexing.unsqueeze(data[index],index,ndim)
-
-            print ldata2.shape
-
-            
+            ldata2 = dataorg[index]
 
             np.testing.assert_array_equal(ldata,ldata2)
 
             index2 = indexing.replacefull(index,ndim,-2)
-            lstats2 = indexing.unsqueeze(stats[index2],index2,ndim)
+            lstats2 = stats[index2]
+
             np.testing.assert_array_equal(lstats,lstats2)
 
         # Test slicing vs. skip detector

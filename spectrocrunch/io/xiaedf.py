@@ -392,6 +392,24 @@ class xiadata(object):
         self.onlystats()
         return self[:]
 
+    @property
+    def reducedstats(self):
+        return self._xiaconfig["indexing"]["onlyicrocr"] or not self._xiaconfig["indexing"]["stats"]
+
+    @property
+    def indexicr(self):
+        if self.reducedstats:
+            return 0
+        else:
+            return self.STICR
+
+    @property
+    def indexocr(self):
+        if self.reducedstats:
+            return 1
+        else:
+            return self.STOCR
+
     def __getitem__(self, index):
         # Only data and no dtcor:  index applies on data
         # Only data and dtcor:  index applies on data, icrocr on stats
@@ -401,38 +419,64 @@ class xiadata(object):
         #                 index applies on stats but index[-2] must be full range
 
         if self._xiaconfig["indexing"]["data"]:
-            # ...,nchan,ndet
             data = self._getdata(index)
 
             if not self._xiaconfig["indexing"]["stats"] and not self._xiaconfig["dtcor"]:
                 return data
 
         if self._xiaconfig["indexing"]["stats"] or self._xiaconfig["dtcor"]:
-            # ...,nstat,ndet
-            if self._xiaconfig["indexing"]["data"]:
-                index = indexing.replacefull(index,self.ndim,-2)
+            if self.reducedstats:
+                indexstats = indexing.replace(index,self.ndim,-2,[self.STICR,self.STOCR])
             else:
-                if self._xiaconfig["indexing"]["onlyicrocr"]:
-                    index = indexing.replace(index,self.ndim,-2,[self.STICR,self.STOCR])
-                else:
-                    index = indexing.replacefull(index,self.ndim,-2)
+                indexstats = indexing.replacefull(index,self.ndim,-2)
 
-            stats = self._getstats(index)
+            stats = self._getstats(indexstats)
 
             if not self._xiaconfig["indexing"]["data"]:
                 return stats
 
         if self._xiaconfig["dtcor"]:
-            index = (Ellipsis,self.STICR,slice(None))
-            icr = stats[index]
-            index = (Ellipsis,self.STOCR,slice(None))
-            ocr = stats[index]
+            if all(data.shape):
+                # data.shape = ...,nchan,ndet
+                # stats.shape = ...,nstats,ndet
+                axis = self.ndim-2
+                axesdata = indexing.axesorder_afterindexing(index,self.ndim)
+                axesstats = indexing.axesorder_afterindexing(indexstats,self.ndim)
 
-            if icr.size==1:
-                data = data * self.CORTYPE(icr[0]) / ocr[0]
-            else:
-                s = list(stats.shape)
-                s[-2] = 1
+                print '---'
+
+                print self.dshape
+                print index
+                print data.shape
+                print ""
+                print self.sshape
+                print indexstats
+                print stats.shape
+                print ""
+
+                # Extract ICR and OCR from stats
+                indexicr = tuple([self.indexicr if a==[axis] or a==axis else slice(None) for a in axesstats])
+                indexocr = tuple([self.indexocr if a==[axis] or a==axis else slice(None) for a in axesstats])
+                icr = stats[indexicr]
+                ocr = stats[indexocr]
+                axesiocr = indexing.axesorder_afterindexing(indexicr,stats.ndim)
+                axesiocr = indexing.listadvanced_int(axesstats,axesiocr)
+
+                # Transpose stats if needed
+                axesdata = [a for a in axesdata if a is not None]
+                axesiocr = [a for a in axesiocr if a is not None]
+
+                ind = [axesiocr.index(i) for i in axesdata if i in axesiocr]
+                if ind!=range(len(ind)):
+                    print ind
+                    icr = np.transpose(icr,ind)
+                    ocr = np.transpose(ocr,ind)
+
+                #print icr.shape
+                #print data.shape
+
+                # Apply deadtime correction
+                s = data.shape
                 icr = icr.reshape(s)
                 ocr = ocr.reshape(s)
                 data = data * np.asarray(icr,dtype=self.CORTYPE) / ocr
