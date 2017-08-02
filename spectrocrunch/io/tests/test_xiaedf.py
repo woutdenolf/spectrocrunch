@@ -26,6 +26,8 @@ import unittest
 
 from .. import xiaedf
 
+from .. import edf
+
 from . import xiagen
 
 from testfixtures import TempDirectory
@@ -45,10 +47,6 @@ from copy import copy
 from ...common import indexing
 
 from ...common.tests import genindexing
-
-
-
-
 
 class test_xiaedf(unittest.TestCase):
 
@@ -112,12 +110,28 @@ class test_xiaedf(unittest.TestCase):
         g = xiaedf.xiagrouplines(files)
         self.assertEqual(filesgrouped['a'][100],g)
 
+    def test_memmap(self):
+        path = self.dir.path
+        radix = "memmap"
+        mapnum = 0
+        linenum = 0
+        line = xiaedf.xialine_number(path,radix,mapnum,linenum)
+
+        data = np.random.rand(8,5,1)
+        line.save(data,["00"])
+
+        emap = edf.edfmemmap(line.datafilenames()[0])
+        fmap = edf.edffabio(line.datafilenames()[0])
+
+        np.testing.assert_array_equal(data[...,0],fmap.data)
+        np.testing.assert_array_equal(fmap.data,emap.data)
+
     def _testdata(self,dataorg,data,stats,o,dshape,sshape,ishape):
         # data.shape:  ....,nchan,ndet
         # stats.shape: ....,nstat,ndet
 
         ndim = len(dshape)
-
+        
         # Check data
         o.onlyicrocr(False)
         o.dtcor(False)
@@ -137,35 +151,74 @@ class test_xiaedf(unittest.TestCase):
         # Check DT correction
         o.onlyicrocr(True)
         icrocr = o.stats
-        np.testing.assert_allclose(dataorg,o.data*icrocr[...,0,:].reshape(ishape)/icrocr[...,1,:].reshape(ishape))
+        np.testing.assert_array_equal(dataorg,o.data*icrocr[...,o.indexicr,:].reshape(ishape)/icrocr[...,o.indexocr,:].reshape(ishape))
         o.onlyicrocr(False)
         o.dtcor(True)
-        np.testing.assert_allclose(dataorg,o.data)
+        np.testing.assert_array_equal(dataorg,o.data)
         
         # Test slicing
         o.skipdetectors([])
-        o.dataandstats()
-        o.onlyicrocr(False)
-        o.dtcor(True)
+        o.dtcor(False)
 
-        indices = genindexing.genindexingn(dshape,advanced=True)
-        for index in indices:
-            ldata,lstats = o[index]
-            ldata2 = dataorg[index]
+        indices = genindexing.genindexingn(dshape,advanced=True,nmax=50) #500
 
-            np.testing.assert_array_equal(ldata,ldata2)
+        for dtcor in [True,False]:
+            o.dtcor(dtcor)
+            for onlyicrocr in [True,False]:
+                o.onlyicrocr(onlyicrocr)
+                for together in [True,False]:
+                    for index in indices:
+                        #print "\n"*10
+                        #print "================",index,"================"
 
-            index2 = indexing.replacefull(index,ndim,-2)
-            lstats2 = stats[index2]
+                        if together:
+                            o.dataandstats()
+                            ldata,lstats = o[index]
+                        else:
+                            o.onlydata()
+                            ldata = o[index]
+                            o.onlystats()
+                            lstats = o[index]
 
-            np.testing.assert_array_equal(lstats,lstats2)
+                        # Check DT corrected data
+                        if dtcor:
+                            ldata2 = dataorg[index]
+                        else:
+                            ldata2 = data[index]
+                        np.testing.assert_array_equal(ldata,ldata2)
+                        
+                        # Check stats
+                        if o.nstats==2:
+                            tmp = stats[...,[o.STICR,o.STOCR],:]
+                        else:
+                            tmp = stats
+                        index2 = o._index_stats(index)
+                        lstats2 = tmp[index2]
+                        lstats2 = o._transpose_stats(index,lstats2)
+                        np.testing.assert_array_equal(lstats,lstats2)
 
         # Test slicing vs. skip detector
-        o.dataandstats()
+        o.dtcor(False)
 
         ndet = dshape[-1]
+
+        if ndet>2:
+            o.skipdetectors([])
+            ind = range(0,ndet,2)
+
+            o.dataandstats()
+            ldata,lstats = o[...,ind]
+            np.testing.assert_array_equal(data[...,ind],ldata)
+            np.testing.assert_array_equal(stats[...,ind],lstats)
+
+            o.skipdetectors([0,ndet-1])
+            np.testing.assert_array_equal(data[...,1:-1],o.data)
+            np.testing.assert_array_equal(stats[...,1:-1],o.stats)
+
         if ndet>1:
             o.skipdetectors([])
+
+            o.dataandstats()
             ldata,lstats = o[...,1:]
             np.testing.assert_array_equal(data[...,1:],ldata)
             np.testing.assert_array_equal(stats[...,1:],lstats)
@@ -176,18 +229,6 @@ class test_xiaedf(unittest.TestCase):
 
             np.testing.assert_array_equal(data[...,1:],o.data)
             np.testing.assert_array_equal(stats[...,1:],o.stats)
-
-        if ndet>2:
-            o.skipdetectors([])
-            ind = range(0,ndet,2)
-
-            ldata,lstats = o[...,ind]
-            np.testing.assert_array_equal(data[...,ind],ldata)
-            np.testing.assert_array_equal(stats[...,ind],lstats)
-
-            o.skipdetectors([0,ndet-1])
-            np.testing.assert_array_equal(data[...,1:-1],o.data)
-            np.testing.assert_array_equal(stats[...,1:-1],o.stats)
 
     def _test_line(self,path,radix,mapnum,linenum,ndet,nspec,nchan):
         # Generate some spectra + statistics
@@ -220,17 +261,6 @@ class test_xiaedf(unittest.TestCase):
         #plt.plot(data[0,:,0])
         #plt.show()
 
-    def test_line(self):
-        mapnum = 2
-        linenum = 10
-
-        i = 0
-        for ndet in [1,4]:
-            for nchan in [1,1024]:
-                for nspec in [1,10]:
-                    self._test_line(os.path.join(self.dir.path,"test_line_{}".format(i)),"test_line_{}".format(i),mapnum,linenum,ndet,nspec,nchan)
-                    i += 1
-
     def _test_image(self,path,radix,mapnum,ndet,ncol,nrow,nchan):
         # Generate some spectra + statistics
         dataorg,data,stats = xiagen.data(nrow*ncol,nchan,ndet)
@@ -258,6 +288,11 @@ class test_xiaedf(unittest.TestCase):
         self.assertEqual(image.statfilenames(),image3.statfilenames())
         self.assertEqual(image.datafilenames(),image3.datafilenames())
 
+        # Check only one config
+        for o in [image,image2,image3]:
+            tmp = [id(l._xiaconfig) for l in o._lines]
+            self.assertEqual(tmp.count(tmp[0]),len(tmp))
+
         # Check data
         dshape = (nrow,ncol,nchan,ndet)
         sshape = (nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
@@ -265,39 +300,38 @@ class test_xiaedf(unittest.TestCase):
         self._testdata(dataorg,data,stats,image,dshape,sshape,ishape)
         self._testdata(dataorg,data,stats,image2,dshape,sshape,ishape)
 
+    def test_line(self):
+        mapnum = 2
+        linenum = 10
+
+        i = 0
+        for ndet in [4,1]:
+            for nchan in [1024,1]:
+                for nspec in [10,1]:
+                    self._test_line(os.path.join(self.dir.path,"test_line_{}".format(i)),"test_line_{}".format(i),mapnum,linenum,ndet,nspec,nchan)
+                    i += 1
+
     def test_image(self):
         mapnum = 2
 
         i = 0
-        for ndet in [1,4]:
-            for nchan in [1,1024]:
-                for ncol in [1,10]:
-                    for nrow in [1,10]:
+        for ndet in [4,1]:
+            for nchan in [1024,1]:
+                for ncol in [10,1]:
+                    for nrow in [15,1]:
                         self._test_image(os.path.join(self.dir.path,"test_image_{}".format(i)),"test_image_{}".format(i),mapnum,ndet,ncol,nrow,nchan)
                         i += 1
 
 
-    def test_memmap(self):
-        path = self.dir.path
-        radix = "memmap"
-        mapnum = 0
-        linenum = 0
-        line = xiaedf.xialine_number(path,radix,mapnum,linenum)
 
-        data = np.random.rand(8,5,1)
-        line.save(data,["00"])
-
-        emap = xiaedf.edfmemmap(line.datafilenames()[0])
-
-        np.testing.assert_array_equal(data[...,0],emap.data)
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    #testSuite.addTest(test_xiaedf("test_memmap"))
-    #testSuite.addTest(test_xiaedf("test_nameparsing"))
+    testSuite.addTest(test_xiaedf("test_memmap"))
+    testSuite.addTest(test_xiaedf("test_nameparsing"))
     testSuite.addTest(test_xiaedf("test_line"))
-    #testSuite.addTest(test_xiaedf("test_image"))
+    testSuite.addTest(test_xiaedf("test_image"))
     return testSuite
     
 if __name__ == '__main__':

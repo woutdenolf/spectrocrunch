@@ -35,14 +35,15 @@ import numbers
 
 from ..common import indexing
 
-from . import edf
+from .edf import edfmemmap as edfimage
 
 import logging
 logger = logging.getLogger(__name__)
 
+import contextlib
 
 
-        
+      
 def xiaparsefilename(filename):
     """
     Args:
@@ -305,6 +306,12 @@ class xiadict(dict):
         if "dtcor" not in self:
             self["dtcor"] = False
 
+        if "maxlevel" not in self:
+            self["maxlevel"] = 0
+
+        if "dtcorlevel" not in self:
+            self["dtcorlevel"] = 0
+
     def skipdetectors(self,lst):
         self["detectors"]["skip"] = lst
 
@@ -332,6 +339,27 @@ class xiadict(dict):
     def dtcor(self,b):
         self["dtcor"] = b
 
+    def keep_getitem(self):
+        return self["indexing"]["data"],self["indexing"]["stats"]
+
+    def restore_getitem(self,data,stats):
+        self["indexing"]["data"] = data
+        self["indexing"]["stats"] = stats
+
+    def maxlevel(self,level):
+        self["maxlevel"] = max(self["maxlevel"],level)
+
+    def resetmaxlevel(self,maxlevel):
+        self["maxlevel"] = 0
+
+    def setdtcorlevel(self):
+        if self["indexing"]["stats"]:
+            # otherwise, stats will be retrieved twice
+            self["dtcorlevel"] = self["maxlevel"]
+        else:
+            # saves memory
+            self["dtcorlevel"] = 0
+
 class xiadata(object):
 
     STDET = 0
@@ -345,11 +373,16 @@ class xiadata(object):
     XIASTYPE = np.int32
     CORTYPE = np.float64
 
-    def __init__(self,xiaconfig=None):
+    def __init__(self,level,xiaconfig=None):
         if xiaconfig is None:
             self._xiaconfig = xiadict()
         else:
             self._xiaconfig = xiaconfig
+
+        self._level = level
+        self._xiaconfig.maxlevel(level)
+
+        self._cache_getitem = {"reducedstats":False,"axesstats":[],"axesdata":[],"squeezechannels":False}
 
     def skipdetectors(self,lst):
         self._xiaconfig.skipdetectors(lst)
@@ -362,6 +395,49 @@ class xiadata(object):
 
     def onlystats(self):
         self._xiaconfig.onlystats()
+
+    @property
+    def _lowestlevel(self):
+        return self._level == 0
+
+    @property
+    def _highestlevel(self):
+        return self._level == self._xiaconfig["maxlevel"]
+
+    def _dtcor(self):
+        if self._highestlevel:
+            self._xiaconfig.setdtcorlevel()
+
+        if self._xiaconfig["dtcor"]:
+            dtcor = self._level == self._xiaconfig["dtcorlevel"]
+        else:
+            dtcor = False
+
+        return dtcor
+
+    @contextlib.contextmanager
+    def env_onlydata(self):
+        if self._highestlevel:
+            p = self._xiaconfig.keep_getitem()
+            self.onlydata()
+        yield
+        if self._highestlevel:
+            self._xiaconfig.restore_getitem(*p)
+
+    @contextlib.contextmanager
+    def env_onlystats(self):
+        if self._highestlevel:
+            p = self._xiaconfig.keep_getitem()
+            self.onlystats()
+        yield
+        if self._highestlevel:
+            self._xiaconfig.restore_getitem(*p)
+
+    def _dbgmsg(self,msg):
+        return
+        #if self._level!=1:
+        #    return
+        print "{}{}".format(" "*self._level*2,msg)
 
     def dataandstats(self):
         self._xiaconfig.dataandstats()
@@ -376,13 +452,6 @@ class xiadata(object):
         self._xiaconfig.dtcor(b)
 
     @property
-    def nstats(self):
-        if self._xiaconfig["indexing"]["onlyicrocr"]:
-            return 2
-        else:
-            return self.NSTATS
-
-    @property
     def data(self):
         self.onlydata()
         return self[:]
@@ -393,97 +462,189 @@ class xiadata(object):
         return self[:]
 
     @property
-    def reducedstats(self):
-        return self._xiaconfig["indexing"]["onlyicrocr"] or not self._xiaconfig["indexing"]["stats"]
-
-    @property
     def indexicr(self):
-        if self.reducedstats:
+        if self._xiaconfig["indexing"]["onlyicrocr"]:
             return 0
         else:
             return self.STICR
 
     @property
     def indexocr(self):
-        if self.reducedstats:
+        if self._xiaconfig["indexing"]["onlyicrocr"]:
             return 1
         else:
             return self.STOCR
 
+    @property
+    def nstats(self):
+        if self._xiaconfig["indexing"]["onlyicrocr"]:
+            return 2
+        else:
+            return self.NSTATS
+
+    def _index_stats(self,index):
+        """Convert data indexing to stat indexing (i.e. remove channel indexing)
+
+        Args:
+            index(index):
+
+        Returns:
+            index
+        """
+        return indexing.replacefull(index,self.ndim,-2)
+
+    def _transpose_stats(self,index,stats):
+        """Transpose stats after indexing in order to match data after indexing
+
+        Args:
+            index(index):
+            stats(array): after indexing
+
+        Returns:
+            array
+        """
+        indexstats = self._index_stats(index)
+
+        # Make stats match data after indexing:
+        # dshape = ...,nchan,ndet
+        # sshape = ...,nstats,ndet
+        astats = self.ndim-2
+        axesdata,_ = indexing.axesorder_afterindexing(index,self.ndim)
+        axesstats,_ = indexing.axesorder_afterindexing(indexstats,self.ndim)
+
+        self._dbgmsg("axesdata {}".format(axesdata))
+        self._dbgmsg("axesstats {}".format(axesstats))
+
+        # Put channel dimension last when squeezed
+        if astats not in axesdata:
+            tmp = [isinstance(a,list) for a in axesdata]
+            if True in tmp:
+                i = tmp.index(True)
+                if astats in axesdata[i]:
+                    axesdata[i] = astats
+
+        squeezechannels = astats not in axesdata
+        if squeezechannels:
+            axesdata.append(astats)
+
+        # Transpose stats to match data after indexing
+        if len(axesdata)>0:
+            ind = [axesstats.index(a) for a in axesdata if a in axesstats]
+            if ind!=range(len(ind)) and sorted(ind)==range(len(ind)):
+                stats = np.transpose(stats,ind)
+                axesstats = indexing.listadvanced_int(axesstats,ind)
+
+        self._dbgmsg("axesdata {}".format(axesdata))
+        self._dbgmsg("axesstats {}".format(axesstats))
+
+        self._cache_getitem["axesdata"] = axesdata
+        self._cache_getitem["axesstats"] = axesstats
+        self._cache_getitem["squeezechannels"] = squeezechannels
+
+        return stats
+
+    def extract_stat(self,stats,statind):
+        """Extract specific statistics after indexing
+
+        Args:
+            stats(array): after indexing
+            statind(list): specific statistics
+
+        Returns:
+            list(array)
+        """
+
+        ndimstats = stats.ndim
+        index = [slice(None)]*ndimstats
+
+        dimchannels = self.ndim-2
+        i = self._cache_getitem["axesstats"].index(dimchannels)
+
+        breshape = len(self._cache_getitem["axesdata"]) == len(self._cache_getitem["axesstats"]) and not self._cache_getitem["squeezechannels"]
+
+        if breshape:
+            shape = list(stats.shape)
+            shape[i] = 1
+            shape = tuple(shape)
+
+        ret = []
+        for ind in statind:
+            index[i] = ind
+            stat = stats[index]
+            if breshape:
+                stat = stat.reshape(shape)
+            ret.append(stat)
+
+        return ret
+
+    def extract_icrocr(self,stats):
+        """Extract icr and ocr after indexing
+
+        Args:
+            stats(array): after indexing
+
+        Returns:
+            list(array)
+        """
+        return self.extract_stat(stats,[self.indexicr,self.indexocr])
+
     def __getitem__(self, index):
-        # Only data and no dtcor:  index applies on data
-        # Only data and dtcor:  index applies on data, icrocr on stats
-        # Only stats: index applies on stats
-        #             index nonchanging: full or icrocr
-        # Data and stats: index applies on data
-        #                 index applies on stats but index[-2] must be full range
+        # index applies on data
+        # index[-2] extended applies on stats
+
+        dtcor = self._dtcor()
+
+        self._dbgmsg("")
+        self._dbgmsg(self)
+        self._dbgmsg(self._xiaconfig)
+        self._dbgmsg("dtcor: {}".format(dtcor))
 
         if self._xiaconfig["indexing"]["data"]:
-            data = self._getdata(index)
+            with self.env_onlydata():
+                data = self._getdata(index)
 
-            if not self._xiaconfig["indexing"]["stats"] and not self._xiaconfig["dtcor"]:
+                self._dbgmsg("data:")
+                self._dbgmsg(self.dshape)
+                self._dbgmsg(index)
+                self._dbgmsg(data.shape)
+
+            if not self._xiaconfig["indexing"]["stats"] and not dtcor:
+                self._dbgmsg("return data\n")
                 return data
 
-        if self._xiaconfig["indexing"]["stats"] or self._xiaconfig["dtcor"]:
-            if self.reducedstats:
-                indexstats = indexing.replace(index,self.ndim,-2,[self.STICR,self.STOCR])
-            else:
-                indexstats = indexing.replacefull(index,self.ndim,-2)
+        if self._xiaconfig["indexing"]["stats"] or dtcor:
+            with self.env_onlystats():
+                indexstats = self._index_stats(index)
+                stats = self._getstats(indexstats)
 
-            stats = self._getstats(indexstats)
+                self._dbgmsg("stats:")
+                self._dbgmsg(self.sshape)
+                self._dbgmsg(indexstats)
+                self._dbgmsg(stats.shape)
+
+                # Make stats match data after indexing:
+                stats = self._transpose_stats(index,stats)
+
+                self._dbgmsg(stats.shape)
 
             if not self._xiaconfig["indexing"]["data"]:
+                self._dbgmsg("return stats\n")
                 return stats
 
-        if self._xiaconfig["dtcor"]:
-            if all(data.shape):
-                # data.shape = ...,nchan,ndet
-                # stats.shape = ...,nstats,ndet
-                axis = self.ndim-2
-                axesdata = indexing.axesorder_afterindexing(index,self.ndim)
-                axesstats = indexing.axesorder_afterindexing(indexstats,self.ndim)
+        if dtcor:
+            # Extract and reshape icr/ocr
+            icr,ocr = self.extract_icrocr(stats)
 
-                print '---'
+            # Apply correction
+            s = data.shape
+            data = data * np.asarray(icr,dtype=self.CORTYPE) / np.asarray(ocr,dtype=self.CORTYPE)
+            data = data.reshape(s)
 
-                print self.dshape
-                print index
-                print data.shape
-                print ""
-                print self.sshape
-                print indexstats
-                print stats.shape
-                print ""
+        if not self._xiaconfig["indexing"]["stats"]:
+            self._dbgmsg("return dtcor data\n")
+            return data
 
-                # Extract ICR and OCR from stats
-                indexicr = tuple([self.indexicr if a==[axis] or a==axis else slice(None) for a in axesstats])
-                indexocr = tuple([self.indexocr if a==[axis] or a==axis else slice(None) for a in axesstats])
-                icr = stats[indexicr]
-                ocr = stats[indexocr]
-                axesiocr = indexing.axesorder_afterindexing(indexicr,stats.ndim)
-                axesiocr = indexing.listadvanced_int(axesstats,axesiocr)
-
-                # Transpose stats if needed
-                axesdata = [a for a in axesdata if a is not None]
-                axesiocr = [a for a in axesiocr if a is not None]
-
-                ind = [axesiocr.index(i) for i in axesdata if i in axesiocr]
-                if ind!=range(len(ind)):
-                    print ind
-                    icr = np.transpose(icr,ind)
-                    ocr = np.transpose(ocr,ind)
-
-                #print icr.shape
-                #print data.shape
-
-                # Apply deadtime correction
-                s = data.shape
-                icr = icr.reshape(s)
-                ocr = ocr.reshape(s)
-                data = data * np.asarray(icr,dtype=self.CORTYPE) / ocr
-
-            if not self._xiaconfig["indexing"]["stats"]:
-                return data
-
+        self._dbgmsg("return data,stats\n")
         return data,stats
 
     def _getdata(self,index=slice(None)):
@@ -496,7 +657,7 @@ class xiadata(object):
 class xialine(xiadata):
 
     def __init__(self,**kwargs):
-        super(xialine,self).__init__(**kwargs)
+        xiadata.__init__(self,0,**kwargs)
 
     def __str__(self):
         return "xialine{}".format(str(self.dshape))
@@ -515,12 +676,12 @@ class xialine(xiadata):
                 return self.XIADTYPE
         else:
             if self._xiaconfig["dtcor"]:
-                t1 = edf.edfmemmap(files[0]).dtype    
+                t1 = edfimage(files[0]).dtype    
                 t2 = self.stype
                 t3 = self.CORTYPE
                 return type(t1(0)*t2(0)*t3(0))
             else:
-                return edf.edfmemmap(files[0]).dtype
+                return edfimage(files[0]).dtype
 
     @property
     def stype(self):
@@ -528,7 +689,7 @@ class xialine(xiadata):
         if f is None:
             return self.XIASTYPE
         else:
-            return edf.edfmemmap(f).dtype
+            return edfimage(f).dtype
 
     @property
     def dshape(self):
@@ -538,7 +699,7 @@ class xialine(xiadata):
         if n==0:
             return ()
         else:
-            s = edf.edfmemmap(files[0]).shape
+            s = edfimage(files[0]).shape
             return s+(n,)
 
     @property
@@ -548,7 +709,7 @@ class xialine(xiadata):
         if f is None:
             return ()
         else:
-            s = edf.edfmemmap(f).shape
+            s = edfimage(f).shape
             ndet = s[1]//self.NSTATS
             ndet = len(self.xiadetectorselect(range(ndet)))
             return (s[0],self.nstats,ndet)
@@ -567,7 +728,7 @@ class xialine(xiadata):
             return np.empty((0,0,0),dtype=self.XIADTYPE)
 
         # Generate sliced stack
-        generator = lambda f: edf.edfmemmap(f).data
+        generator = lambda f: indexing.expanddims(edfimage(f).data,self.ndim-1)
         data = indexing.slicedstack(generator,files,index,self.ndim,shapefull=self.dshape,axis=-1)
 
         return data
@@ -582,7 +743,7 @@ class xialine(xiadata):
         f = self.statfilename()
         if f is not None:
             # We have to read all stats
-            stats = edf.edfmemmap(f).data
+            stats = indexing.expanddims(edfimage(f).data,self.ndim-1)
             s = stats.shape
             nspec = s[0]
             ndet = s[1]//self.NSTATS
@@ -594,6 +755,10 @@ class xialine(xiadata):
                 stats = np.empty((0,0,0),dtype=self.stype)
             elif len(ind)<ndet:
                 stats = stats[...,ind]
+
+            # Only ICR and OCR
+            if self._xiaconfig["indexing"]["onlyicrocr"] and len(ind)!=0:
+                stats = stats[:,[self.STICR,self.STOCR],:]
 
             # Apply index
             if not indexing.nonchanging(index):
@@ -669,7 +834,7 @@ class xialine_number(xialine):
         self._datafiles = []
         self._statfile = None
 
-        super(xialine_number,self).__init__(**kwargs)
+        xialine.__init__(self,**kwargs)
 
     def __str__(self):
         return "xialine{}: {}".format(str(self.dshape),self._fileformat)
@@ -737,7 +902,7 @@ class xialine_files(xialine):
         else:
             self._statfile = None
 
-        super(xialine_files,self).__init__(**kwargs)
+        xialine.__init__(self,**kwargs)
 
     def __str__(self):
         return "xialine{}: {}".format(str(self.dshape),self._fileformat)
@@ -763,8 +928,8 @@ class xialine_files(xialine):
 
 class xiaimage(xiadata):
 
-    def __init(self,**kwargs):
-        super(xiaimage,self).__init__(**kwargs)
+    def __init__(self,**kwargs):
+        xiadata.__init__(self,1,**kwargs)
 
     def __str__(self):
         return "xiaimage{}".format(str(self.dshape))
@@ -775,7 +940,7 @@ class xiaimage(xiadata):
 
     @property
     def ndim(self):
-        return 3
+        return 4
 
     @property
     def dtype(self):
@@ -824,12 +989,9 @@ class xiaimage(xiadata):
         if len(lines)==0:
             np.empty((0,0,0,0),dtype=self.XIADTYPE)
 
-        pindex,index = indexing.extract(index,4,0)
-
-        if indexing.nonchanging(pindex):
-            lines = lines[pindex]
-
-        return np.stack([line[index] for line in lines],axis=0)
+        # Generate sliced stack
+        generator = lambda line: line
+        return indexing.slicedstack(generator,lines,index,self.ndim,shapefull=self.dshape,axis=0)
 
     def _getstats(self,index=slice(None)):
         """
@@ -842,9 +1004,9 @@ class xiaimage(xiadata):
         if len(lines)==0:
             np.empty((0,0,0,0),dtype=self.XIADTYPE)
 
-        if index is not Ellipsis:
-            lines = lines.__getitem__(index)
-        return np.stack([line.stats for line in lines],axis=0)
+        # Generate sliced stack
+        generator = lambda line: line
+        return indexing.slicedstack(generator,lines,index,self.ndim,shapefull=self.sshape,axis=0)
 
     def save(self,data,xialabels,stats=None):
         """
@@ -922,17 +1084,21 @@ class xiaimage_linenumbers(xiaimage):
     def __init__(self,path,radix,mapnum,linenums,**kwargs):
         """
         Args:
-            path(list): path
-            radix(list): radix
+            path(str): path
+            radix(str): radix
             mapnum(num): map number
             linenums(list(num)): line numbers
 
         Returns:
             None
         """
+
+        xiaimage.__init__(self,**kwargs)
+        kwargs["xiaconfig"] = self._xiaconfig
+
         self._lines = [xialine_number(path,radix,mapnum,linenum,**kwargs) for linenum in linenums]
 
-        super(xiaimage_linenumbers,self).__init__(**kwargs)
+        
 
 
 class xiaimage_files(xiaimage):
@@ -948,10 +1114,13 @@ class xiaimage_files(xiaimage):
             None
         """
 
+        xiaimage.__init__(self,**kwargs)
+        kwargs["xiaconfig"] = self._xiaconfig
+
         files = xiagrouplines(files)
         self._lines = [xialine_files(f,**kwargs) for linenum,f in files.items()]
 
-        super(xiaimage_files,self).__init__(**kwargs)
+        
 
 
 class xiaimage_number(xiaimage):
@@ -961,21 +1130,22 @@ class xiaimage_number(xiaimage):
     def __init__(self,path,radix,mapnum,**kwargs):
         """
         Args:
-            path(list): path
-            radix(list): radix
+            path(str): path
+            radix(str): radix
             mapnum(num): map number
 
         Returns:
             None
         """
+        xiaimage.__init__(self,**kwargs)
+        kwargs["xiaconfig"] = self._xiaconfig
+
         self.path = path
         self.radix = radix
         self.mapnum = mapnum
         self.linekwargs = kwargs
         self._fileformat = os.path.join(path,xiaformat_map(radix,mapnum))
         self._lines = []
-
-        super(xiaimage_number,self).__init__(**kwargs)
 
     def search(self):
         files = glob(self._fileformat.format("??","[0-9][0-9][0-9][0-9]*"))
@@ -1004,5 +1174,5 @@ class xiaimage_number(xiaimage):
             nlines, nspec, nchan, ndet = data.shape
             self._lines = [xialine_number(self.path,self.radix,self.mapnum,linenum,**self.linekwargs) for linenum in range(nlines)]
 
-        super(xiaimage_number,self).save(data,xialabels,stats=stats)
+        xiaimage.save(self,data,xialabels,stats=stats)
 

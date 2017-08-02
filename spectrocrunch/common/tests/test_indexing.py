@@ -64,7 +64,7 @@ class test_indexing(unittest.TestCase):
 
                 for index2 in genindexing.genindexing(n2,advanced=True):
                     index = (index1,index2)
-                    if not genindexing.valid(index):
+                    if not genindexing.valid(index,(n1,n2)):
                         continue
                     if index1 is np.newaxis:
                         index = (np.newaxis,slice(None),index2)
@@ -210,26 +210,28 @@ class test_indexing(unittest.TestCase):
     def _slicegen(self,args):
         return np.arange(np.prod(args[0])).reshape(args[0])+args[1]
 
-    def test_funcslicing(self):
+    def test_slicedstack(self):
         args = [[(20,30,40),i*1000] for i in range(10)]
-        self.test_funcslicing_help(args,[0,5])
+        self.test_slicedstack_help(self._slicegen,args,[0,5])
         
         args = [[(1,1,1),i*1000] for i in range(1)]
-        self.test_funcslicing_help(args,[0])
+        self.test_slicedstack_help(self._slicegen,args,[0])
 
-        special = [(0,0,0,[False]),\
-                    (0, 0, [True], [-1]),\
-                    (0, 0, [False], [-1]),\
-                    ]
+        args = [[(20,30,40),i*1000] for i in range(10)]
+        special = [(([0], slice(None, None, None), slice(None, None, None), [-1]),-1),\
+                   ((0,0,0,[0]),-1),\
+                   ((0, slice(None, None, None), slice(None, None, None), [0]),0)]
+
+        special = [((slice(None, 0, None), 0, slice(None, None, None), []),-1)]
+
         ndim = 4
-        axis = -1
-        for index in special:
+        for index,axis in special:
             data = np.stack(map(self._slicegen,args),axis=axis)
             shapefull = data.shape
             data2 = indexing.slicedstack(self._slicegen,args,index,ndim,shapefull=shapefull,axis=axis)
             np.testing.assert_array_equal(data[index],data2)
 
-    def test_funcslicing_help(self,args,rrange):
+    def test_slicedstack_help(self,generator,args,rrange):
         ndim = 4
         for nsingleton in range(ndim):
             for nlist in range(ndim-nsingleton):
@@ -245,14 +247,14 @@ class test_indexing(unittest.TestCase):
                                     data2 = indexing.slicedstack(self._slicegen,args,index,ndim,shapefull=shapefull,axis=axis)
                                     np.testing.assert_array_equal(data[index],data2)
 
-    def test_axisafterindexing(self):
+    def test_shape_afterindexing(self):
         a = np.arange(10*20*30*40).reshape((10,20,30,40))
-        self.test_axisafterindexing_help(a,[0,5])
+        self.test_shape_afterindexing_help(a,[0,5])
 
         a = np.ones((1,1,1,1))
-        self.test_axisafterindexing_help(a,[0])
+        self.test_shape_afterindexing_help(a,[0])
 
-    def test_axisafterindexing_help(self,a,rrange):
+    def test_shape_afterindexing_help(self,a,rrange):
         s1 = list(a.shape) # original shape
         ndim = a.ndim
         for nsingleton in range(ndim):
@@ -263,24 +265,24 @@ class test_indexing(unittest.TestCase):
                             p = [range(r)]*nlist + [0]*nsingleton + [slice(None)]*nother + [np.newaxis]*nnew
                             for index in itertools.permutations(p):
                                 # Shape after indexing
-                                s3 = list(a[index].shape)
+                                s3 = a[index].shape
 
                                 # Expected shape after indexing
-                                s2,axes = indexing.shape_afterindexing(s1,index)
+                                s2 = indexing.shape_afterindexing(s1,index)
                                 self.assertEqual(s2,s3)
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    #testSuite.addTest(test_indexing("test_list"))
-    #testSuite.addTest(test_indexing("test_numpy"))
-    #testSuite.addTest(test_indexing("test_replacefull"))
-    #testSuite.addTest(test_indexing("test_expand"))
-    #testSuite.addTest(test_indexing("test_axisindex"))
-    #testSuite.addTest(test_indexing("test_extract_dimnonchanging"))
-    #testSuite.addTest(test_indexing("test_extract_newaxis"))
-    #testSuite.addTest(test_indexing("test_axisafterindexing"))
-    testSuite.addTest(test_indexing("test_funcslicing"))
+    testSuite.addTest(test_indexing("test_list"))
+    testSuite.addTest(test_indexing("test_numpy"))
+    testSuite.addTest(test_indexing("test_replacefull"))
+    testSuite.addTest(test_indexing("test_expand"))
+    testSuite.addTest(test_indexing("test_axisindex"))
+    testSuite.addTest(test_indexing("test_extract_dimnonchanging"))
+    testSuite.addTest(test_indexing("test_extract_newaxis"))
+    testSuite.addTest(test_indexing("test_shape_afterindexing"))
+    testSuite.addTest(test_indexing("test_slicedstack"))
     return testSuite
     
 if __name__ == '__main__':

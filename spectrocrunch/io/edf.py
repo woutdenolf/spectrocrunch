@@ -86,13 +86,13 @@ class edfmemmap():
     """
 
     def __init__(self,filename,mode='r'):
+        #f = fabio.edfimage.EdfImage(filename)
         f = fabio.open(filename)
 
         self.dtype = f.bytecode
         self.shape = (f.dim2,f.dim1)
         self.ndim = len(self.shape)
         offset = f._frames[f.currentframe].start
-        
         self.mdata = np.memmap(filename,dtype=self.dtype,offset=offset,shape=self.shape,order='C')
 
         bswap = f.swap_needed()
@@ -109,8 +109,10 @@ class edffabio():
     """Access edf data with fabio
     """
 
-    def __init__(self,filename):
+    def __init__(self,filename,mode='r'):
+        #self.f = fabio.edfimage.EdfImage(filename)
         self.f = fabio.open(filename)
+
         self.ndim = 2
 
     @property

@@ -28,6 +28,10 @@ import itertools
 
 import numpy as np
 
+import numbers
+
+from .. import indexing
+
 def genindexing(dim,advanced=False):
 
     if dim>1:
@@ -47,13 +51,19 @@ def genindexing(dim,advanced=False):
 
     # Advanced indexing
     if advanced:
-        ret += [[],[random.randint(-dim,dim-1)],[random.randint(-dim,dim-1) for i in range(dim//2)],\
-                [bool(random.getrandbits(1))]*dim,[True]*dim,[False]*dim,\
+        n = dim//2
+        iarr = [random.randint(-dim,dim-1) for i in range(n)]
+        barr = [True]*n+[False]*(n + n%2)
+        random.shuffle(iarr)
+        random.shuffle(barr)
+
+        ret += [[],[random.randint(-dim,dim-1)],\
+                iarr,barr,\
                 Ellipsis,np.newaxis]
 
     return ret
 
-def valid(index):
+def valid(index,shape):
     # No more than one '...'
     if sum([i is Ellipsis for i in index])>1:
         return False
@@ -65,11 +75,34 @@ def valid(index):
         if b.count(b[0]) != len(b):
             return False
 
-    return True
+    # Check dimensions
+    index = indexing.expand(index,len(shape))
+    indexnonone = [ind for ind in index if ind is not None]
+    b = True
+    for i,ind in enumerate(indexnonone):
+        if isinstance(ind,list):
+            if len(ind)==0:
+                continue 
 
-def genindexingn(dim,advanced=False):
-    lst = [genindexing(n,advanced=advanced) for n in dim]
+            # Boolean array must have the correct size
+            if all(isinstance(j,bool) for j in ind) and len(ind)>0:
+                b &= len(ind)==shape[i]
+
+            # Integer array musn't go beyond boundaries
+            if all(isinstance(j,numbers.Number) for j in ind):
+                b &= max(ind)<shape[i] and min(ind)>=-shape[i]
+        elif isinstance(ind,numbers.Number):
+            b &= ind<shape[i] and ind >=-shape[i]
+
+    return b
+
+def genindexingn(shape,advanced=False,nmax=None):
+    lst = [genindexing(s,advanced=advanced) for s in shape]
     lst = list(itertools.product(*lst))
-    return [t for t in lst if valid(t)]
+    if nmax is not None:
+        if len(lst)>nmax:
+            random.shuffle(lst)
+            lst = lst[:nmax]
+    return [t for t in lst if valid(t,shape)]
 
         
