@@ -279,6 +279,12 @@ def xiagrouplines(files):
 
     return ret
 
+def xiagroupnfiles(files):
+    if isinstance(files,list):
+        return len(files)
+    else:
+        return sum([xiagroupnfiles(f) for k,f in files.items()])
+
 class xiadict(dict):
 
     def __init__(self,*args,**kwargs):
@@ -692,9 +698,13 @@ class xiacompound(xiadata):
         xiadata.__init__(self,level,**kwargs)
 
     def _getitems(self):
-        # May be overwritten to do some file searching for example
+        if len(self._items)==0:
+            self.search()
         return self._items
-    
+
+    def search(self):
+        pass
+
     @property
     def dtype(self):
         items = self._getitems()
@@ -773,7 +783,7 @@ class xiacompound(xiadata):
         items = self._getitems()
         nlines = data.shape[0]
         if len(items)!=nlines:
-            raise RuntimeError("The map being saved has {} items while {} items were expected".format(nlines,len(items)))
+            raise RuntimeError("The xia compound being saved has {} items while {} items were expected".format(nlines,len(items)))
             
         for i in range(nlines):
             if stats is not None:
@@ -805,7 +815,7 @@ class xiacompound(xiadata):
         items = self._getitems()
         files = []
         for l in items:
-            files.append(l.statfilename())
+            files += l.statfilenames()
         return files
 
 class xialine(xiadata):
@@ -963,10 +973,32 @@ class xialine(xiadata):
         return self.xiadetectorselect(files)
 
     def datafilenames(self):
-        raise NotImplementedError("xialine should not be instantiated, use one of the derived classes")
+        """
+        Args:
+            None
+        Returns:
+            list(str)
+        """
+        if len(self._datafiles)==0:
+            self.search()
+        return self._datafiles
 
     def statfilename(self):
-        raise NotImplementedError("xialine should not be instantiated, use one of the derived classes")
+        """
+        Args:
+            None
+        Returns:
+            str or None
+        """
+        if self._statfile is None:
+            self.search()
+        return self._statfile
+
+    def statfilenames(self):
+        return [self.statfilename()]
+
+    def search(self):
+        pass
 
 class xiaimage(xiacompound):
     """Compounds XIA lines
@@ -1046,28 +1078,6 @@ class xialine_number(xialine):
         else:
             self._statfile = None
 
-    def datafilenames(self):
-        """
-        Args:
-            None
-        Returns:
-            list(str)
-        """
-        if len(self._datafiles)==0:
-            self.search()
-        return self._datafiles
-
-    def statfilename(self):
-        """
-        Args:
-            None
-        Returns:
-            str or None
-        """
-        if self._statfile is None:
-            self.search()
-        return self._statfile
-
 class xialine_files(xialine):
     """XIA line determined by a list of files
     """
@@ -1099,24 +1109,6 @@ class xialine_files(xialine):
 
     def __str__(self):
         return "xialine{}: {}".format(str(self.dshape),self._fileformat)
-        
-    def datafilenames(self):
-        """
-        Args:
-            None
-        Returns:
-            list(str)
-        """
-        return self._datafiles
-
-    def statfilename(self):
-        """
-        Args:
-            None
-        Returns:
-            str or None
-        """
-        return self._statfile
 
 class xiaimage_linenumbers(xiaimage):
     """XIA image determined by its map number and line numbers
@@ -1184,18 +1176,16 @@ class xiaimage_number(xiaimage):
         self._fileformat = os.path.join(path,xiaformat_map(radix,mapnum))
         self._items = []
 
-    def _getitems(self):
-        if len(self._items)==0:
-            self.search()
-        return self._items
+    def __str__(self):
+        return "xiaimage{}: {}".format(str(self.dshape),self._fileformat)
 
     def search(self):
         files = glob(self._fileformat.format("??","[0-9][0-9][0-9][0-9]*"))
         if len(files)==0:
             return
         files = xiagrouplines(files)
-        n = len(files.values()[0])
-        self._items = [xialine_files(f,**self.linekwargs) for linenum,f in files.item() if len(f) == n]
+        n = xiagroupnfiles(files.values()[0])
+        self._items = [xialine_files(f,**self.linekwargs) for linenum,f in files.items() if xiagroupnfiles(f) == n]
 
     def save(self,data,xialabels,stats=None):
         """
@@ -1208,12 +1198,12 @@ class xiaimage_number(xiaimage):
         """
 
         if len(self._items)==0:
-            nlines, nspec, nchan, ndet = data.shape
+            nlines = data.shape[0]
             self._items = [xialine_number(self.path,self.radix,self.mapnum,linenum,**self.linekwargs) for linenum in range(nlines)]
 
         xiaimage.save(self,data,xialabels,stats=stats)
 
-class xiastack_files(xiaimage):
+class xiastack_files(xiastack):
     """XIA stack determined by a list of files
     """
 
@@ -1251,22 +1241,20 @@ class xiastack_radix(xiastack):
 
         self.path = path
         self.radix = radix
-        self.mapkwargs = kwargs
+        self.imagekwargs = kwargs
         self._fileformat = os.path.join(path,xiaformat_radix(radix))
         self._items = []
 
-    def _getitems(self):
-        if len(self._items)==0:
-            self.search()
-        return self._items
+    def __str__(self):
+        return "xiastack{}: {}".format(str(self.dshape),self._fileformat)
 
     def search(self):
-        files = glob(self._fileformat.format("[0-9][0-9][0-9][0-9]*","??","[0-9][0-9][0-9][0-9]*"))
+        files = glob(self._fileformat.format("??","[0-9][0-9][0-9][0-9]*","[0-9][0-9][0-9][0-9]*"))
         if len(files)==0:
             return
         files = xiagroupmaps(files)
-        n = len(files.values()[0])
-        self._items = [xialine_files(f,**self.mapkwargs) for mapnum,f in files.item() if len(f) == n]
+        n = xiagroupnfiles(files.values()[0])
+        self._items = [xiaimage_files(f,**self.imagekwargs) for mapnum,f in files.items() if xiagroupnfiles(f) == n]
 
     def save(self,data,xialabels,stats=None):
         """
@@ -1280,7 +1268,7 @@ class xiastack_radix(xiastack):
 
         if len(self._items)==0:
             nmaps = data.shape[0]
-            self._items = [xiaimage_number(self.path,self.radix,mapnum,**self.mapkwargs) for mapnum in range(nmaps)]
+            self._items = [xiaimage_number(self.path,self.radix,mapnum,**self.imagekwargs) for mapnum in range(nmaps)]
 
         xiastack.save(self,data,xialabels,stats=stats)
 

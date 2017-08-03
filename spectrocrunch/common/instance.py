@@ -22,12 +22,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-def isstring(s):
+import collections
+import numbers
+
+def isstring(x):
     try:
-        return isinstance(s, (str, unicode))
+        return isinstance(x, (str, unicode))
     except:
-        return isinstance(s, str)
+        return isinstance(x, str)
 
 def isboollist(lst):
     return all(isinstance(i,bool) for i in lst) and len(lst)>0
+
+def isarray(x):
+    return hasattr(x, "__len__") and not isstring(x)
+
+def isnumber(x):
+    return isinstance(x, numbers.Number)
 

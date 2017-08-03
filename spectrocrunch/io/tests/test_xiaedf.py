@@ -51,17 +51,17 @@ from ...common.tests import genindexing
 class test_xiaedf(unittest.TestCase):
 
     def setUp(self):
-        import cProfile
-        self.pr = cProfile.Profile()
-        self.pr.enable()
+        #import cProfile
+        #self.pr = cProfile.Profile()
+        #self.pr.enable()
 
         self.dir = TempDirectory()
 
     def tearDown(self):
         self.dir.cleanup()
 
-        self.pr.disable()
-        self.pr.dump_stats("keep.cprof")
+        #self.pr.disable()
+        #self.pr.dump_stats("keep.cprof")
 
     def test_nameparsing(self):
         paths = ['/tmp/a1','/tmp/a2','/tmp/b1']
@@ -242,14 +242,18 @@ class test_xiaedf(unittest.TestCase):
         # Check saved files
         expectedfiles = ["{}_xia{:02}_{:04}_0000_{:04}.edf".format(radix,det,mapnum,linenum) for det in range(ndet)]+\
                         ["{}_xiast_{:04}_0000_{:04}.edf".format(radix,mapnum,linenum)]
+        expectedfiles.sort()
         self.dir.compare(expectedfiles,path=path)
 
         # Check static files names
         files = xiaedf.xiasearch(path,radix=radix)
         line2 = xiaedf.xialine_files(files)
+        line3 = xiaedf.xialine_number(path,radix,mapnum,linenum)
         self.assertEqual(files,sorted([os.path.join(path,f) for f in expectedfiles],key=xiaedf.xiasortkey))
         self.assertEqual(line.statfilename(),line2.statfilename())
         self.assertEqual(line.datafilenames(),line2.datafilenames())
+        self.assertEqual(line.statfilename(),line3.statfilename())
+        self.assertEqual(line.datafilenames(),line3.datafilenames())
 
         # Check data
         dshape = (nspec,nchan,ndet)
@@ -289,17 +293,21 @@ class test_xiaedf(unittest.TestCase):
         # Check saved files
         expectedfiles = ["{}_xia{:02}_{:04}_0000_{:04}.edf".format(radix,det,mapnum,linenum) for det in range(ndet) for linenum in range(nrow)]+\
                         ["{}_xiast_{:04}_0000_{:04}.edf".format(radix,mapnum,linenum) for linenum in range(nrow)]
+        expectedfiles.sort()
         self.dir.compare(expectedfiles,path=path)
 
         # Check files names
         files = xiaedf.xiasearch(path,radix=radix)
         image2 = xiaedf.xiaimage_files(files)
         image3 = xiaedf.xiaimage_linenumbers(path,radix,mapnum,range(nrow))
+        image4 = xiaedf.xiaimage_number(path,radix,mapnum)
         self.assertEqual(files,sorted([os.path.join(path,f) for f in expectedfiles],key=xiaedf.xiasortkey))
         self.assertEqual(image.statfilenames(),image2.statfilenames())
         self.assertEqual(image.datafilenames(),image2.datafilenames())
         self.assertEqual(image.statfilenames(),image3.statfilenames())
         self.assertEqual(image.datafilenames(),image3.datafilenames())
+        self.assertEqual(image.statfilenames(),image4.statfilenames())
+        self.assertEqual(image.datafilenames(),image4.datafilenames())
 
         # Check only one config
         for o in [image,image2,image3]:
@@ -321,14 +329,26 @@ class test_xiaedf(unittest.TestCase):
         stats = stats.reshape(nenergy,nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
 
         # Save data
-        image = xiaedf.xiastack_radix(path,radix)
+        stack = xiaedf.xiastack_radix(path,radix)
         xialabels = ["{:02d}".format(i) for i in range(ndet)]
-        image.save(data,xialabels,stats=stats)
+        stack.save(data,xialabels,stats=stats)
 
         # Check saved files
         expectedfiles = ["{}_xia{:02}_{:04}_0000_{:04}.edf".format(radix,det,mapnum,linenum) for det in range(ndet) for linenum in range(nrow) for mapnum in range(nenergy)]+\
                         ["{}_xiast_{:04}_0000_{:04}.edf".format(radix,mapnum,linenum) for linenum in range(nrow) for mapnum in range(nenergy)]
+        expectedfiles.sort()
         self.dir.compare(expectedfiles,path=path)
+
+        # Check files names
+        files = xiaedf.xiasearch(path,radix=radix)
+        stack2 = xiaedf.xiastack_files(files)
+        stack3 = xiaedf.xiastack_radix(path,radix)
+        self.assertEqual(files,sorted([os.path.join(path,f) for f in expectedfiles],key=xiaedf.xiasortkey))
+        self.assertEqual(stack.statfilenames(),stack2.statfilenames())
+        self.assertEqual(stack.datafilenames(),stack2.datafilenames())
+        self.assertEqual(stack.statfilenames(),stack3.statfilenames())
+        self.assertEqual(stack.datafilenames(),stack3.datafilenames())
+
 
 
     def test_line(self):
@@ -356,11 +376,11 @@ class test_xiaedf(unittest.TestCase):
     def test_stack(self):
 
         i = 0
-        for ndet in [4,1]:
-            for nchan in [1024,1]:
-                for ncol in [10,1]:
-                    for nrow in [15,1]:
-                        for nenergy in [20,1]:
+        for ndet in [4]:
+            for nchan in [1024]:
+                for ncol in [10]:
+                    for nrow in [15]:
+                        for nenergy in [20]:
                             self._test_stack(os.path.join(self.dir.path,"test_stack_{}".format(i)),"test_stack_{}".format(i),ndet,ncol,nrow,nenergy,nchan)
                             i += 1
 
@@ -369,11 +389,11 @@ class test_xiaedf(unittest.TestCase):
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_xiaedf("test_memmap"))
-    testSuite.addTest(test_xiaedf("test_nameparsing"))
-    testSuite.addTest(test_xiaedf("test_line"))
-    testSuite.addTest(test_xiaedf("test_image"))
-    #testSuite.addTest(test_xiaedf("test_stack"))
+    #testSuite.addTest(test_xiaedf("test_memmap"))
+    #testSuite.addTest(test_xiaedf("test_nameparsing"))
+    #testSuite.addTest(test_xiaedf("test_line"))
+    #testSuite.addTest(test_xiaedf("test_image"))
+    testSuite.addTest(test_xiaedf("test_stack"))
     return testSuite
     
 if __name__ == '__main__':
