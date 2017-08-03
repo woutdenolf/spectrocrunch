@@ -26,50 +26,8 @@ import random
 import numpy as np
 import numbers
 import itertools
-
-def listadvanced_bool(lst,barr,bnot=False):
-    """Advanced list indexing: boolean array
-
-    Args:
-        lst(list):
-        barr(array or bool): array of booleans
-    Returns:
-        list
-    """
-    if len(lst)!=len(barr):
-        raise IndexError("boolean index did not match indexed list; length is {} but boolean dimension is {}".format(len(lst),len(barr)))
-    if bnot:
-        return [item for b,item in zip(barr,lst) if not b]
-    else:
-        return [item for b,item in zip(barr,lst) if b]
-
-def listadvanced_int(lst,ind):
-    """Advanced list indexing: integer array
-
-    Args:
-        lst(list):
-        ind(array):
-    Returns:
-        list
-    """
-    return [lst[i] for i in ind]
-
-def isboollist(lst):
-    return all(isinstance(i,bool) for i in lst) and len(lst)>0
-
-def listadvanced(lst,ind):
-    """Advanced list indexing: integer or bool array
-
-    Args:
-        lst(list):
-        ind(array):
-    Returns:
-        list
-    """
-    if isboollist(ind):
-        return listadvanced_bool(lst,ind)
-    else:
-        return listadvanced_int(lst,ind)
+from .instance import isboollist
+from . import listtools
 
 def isadvanced(index):
     """Check for advanced indexing
@@ -219,7 +177,7 @@ def extract_dimnonchanging(index):
         return (),None
 
     index1,index2,bkeepindex2 = zip(*replace_dimchanging(index))
-    index2 = listadvanced_bool(index2,bkeepindex2)
+    index2 = listtools.listadvanced_bool(index2,bkeepindex2)
 
     s = np.empty((1,)*len(index1))[index1].shape
 
@@ -265,7 +223,7 @@ def extract_newaxis(index):
 
     if any(bnew):
         indexwithnew,indexwithoutnew,bindexwithoutnew = zip(*replace_nonnewaxis(index))
-        indexwithoutnew = listadvanced_bool(indexwithoutnew,bindexwithoutnew)
+        indexwithoutnew = listtools.listadvanced_bool(indexwithoutnew,bindexwithoutnew)
 
         s = (3,)*len(indexwithoutnew)
         s1 = np.empty(s)[indexwithnew].shape
@@ -282,7 +240,7 @@ def extract_newaxis(index):
         # 3 -> any other dimension which is not squeezed
 
         # (1) Index without np.newaxis
-        index = tuple(listadvanced_bool(index,bnew,bnot=True))
+        index = tuple(listtools.listadvanced_bool(index,bnew,bnot=True))
 
         # (2) Transpose
         if 2 in s2:
@@ -640,7 +598,7 @@ class operators(object):
         else:
             if len(self.ops)>1:
                 if isinstance(self.ops[-1],op_transpose) and isinstance(op,op_transpose):
-                    self.ops[-1].axes = listadvanced_int(self.ops[-1].axes,op.axes)
+                    self.ops[-1].axes = listtools.listadvanced_int(self.ops[-1].axes,op.axes)
                 else:
                     self.ops.append(op)
             else:
@@ -783,7 +741,7 @@ def slicedstack(generator,arglist,index,ndim,shapefull=None,axis=0):
     if not nonchanging(indexaxis,shape=shapeaxis):
         if isadvanced(indexaxis):
             # No advanced indexing for list so use comprehension
-            arglist = listadvanced(arglist,indexaxis)
+            arglist = listtools.listadvanced(arglist,indexaxis)
         elif isinstance(indexaxis,numbers.Number):
             # No singleton dimension squeezing
             arglist = [arglist[indexaxis]]

@@ -34,6 +34,7 @@ import operator
 import numbers
 
 from ..common import indexing
+from ..common import listtools
 
 from .edf import edfmemmap as edfimage
 
@@ -361,6 +362,8 @@ class xiadict(dict):
             self["dtcorlevel"] = 0
 
 class xiadata(object):
+    """Implements XIA data access
+    """
 
     STDET = 0
     STEVT = 1
@@ -382,7 +385,7 @@ class xiadata(object):
         self._level = level
         self._xiaconfig.maxlevel(level)
 
-        self._cache_getitem = {"reducedstats":False,"axesstats":[],"axesdata":[],"squeezechannels":False}
+        self._cache_getitem = {"reducedstats":False,"axesstats":[],"axesdata":[],"channels_squeezed":False}
 
     def skipdetectors(self,lst):
         self._xiaconfig.skipdetectors(lst)
@@ -435,9 +438,8 @@ class xiadata(object):
 
     def _dbgmsg(self,msg):
         return
-        #if self._level!=1:
-        #    return
-        print "{}{}".format(" "*self._level*2,msg)
+        if self._highestlevel:
+            print "{}{}".format(" "*self._level*2,msg)
 
     def dataandstats(self):
         self._xiaconfig.dataandstats()
@@ -508,38 +510,72 @@ class xiadata(object):
         # Make stats match data after indexing:
         # dshape = ...,nchan,ndet
         # sshape = ...,nstats,ndet
-        astats = self.ndim-2
+        dimchannels = self.ndim-2
         axesdata,_ = indexing.axesorder_afterindexing(index,self.ndim)
         axesstats,_ = indexing.axesorder_afterindexing(indexstats,self.ndim)
 
         self._dbgmsg("axesdata {}".format(axesdata))
         self._dbgmsg("axesstats {}".format(axesstats))
 
-        # Put channel dimension last when squeezed
-        if astats not in axesdata:
-            tmp = [isinstance(a,list) for a in axesdata]
-            if True in tmp:
-                i = tmp.index(True)
-                if astats in axesdata[i]:
-                    axesdata[i] = astats
+        # Advanced indexing dimensions
+        idatalist = listtools.where(axesdata,lambda x:isinstance(x, list))
+        istatslist = listtools.where(axesstats,lambda x:isinstance(x, list))
+        ndatalist = 0
+        nstatlist = 0
+        if len(idatalist)==0:
+            ndatalist = 0
+        else:
+            ndatalist = len(axesdata[idatalist[0]])
+        if len(istatslist)==0:
+            nstatslist = 0
+        else:
+            nstatslist = len(axesstats[istatslist[0]])
 
-        squeezechannels = astats not in axesdata
-        if squeezechannels:
-            axesdata.append(astats)
+        # Check where the channel dimension went
+        channels_squeezed = dimchannels not in listtools.flatten(axesdata)
+        
+        if channels_squeezed:
+            reshape = False
+
+            # Put squeezed channel dimension at the end
+            axesdata.append(dimchannels)
+        else:
+            reshape = True
+
+            # Extract channel dimension when advanced
+            if ndatalist!=0 and ndatalist!=nstatslist:
+                
+                if axesdata[idatalist[0]]==[dimchannels]:
+                    reshape = True
+                    axesdata[idatalist[0]] = dimchannels
+                else:
+                    reshape = False
+                    axesdata[idatalist[0]] = [a for a in axesdata[idatalist[0]] if a!= dimchannels]
+                    axesdata.append(dimchannels)
 
         # Transpose stats to match data after indexing
-        if len(axesdata)>0:
-            ind = [axesstats.index(a) for a in axesdata if a in axesstats]
-            if ind!=range(len(ind)) and sorted(ind)==range(len(ind)):
-                stats = np.transpose(stats,ind)
-                axesstats = indexing.listadvanced_int(axesstats,ind)
+        ind = [axesstats.index(a) for a in axesdata if a in axesstats]
+        if ind!=range(len(ind)) and sorted(ind)==range(len(ind)):
+            self._dbgmsg("transpose {}".format(ind))
+            stats = np.transpose(stats,ind)
+            axesstats = listtools.listadvanced_int(axesstats,ind)
 
         self._dbgmsg("axesdata {}".format(axesdata))
         self._dbgmsg("axesstats {}".format(axesstats))
 
-        self._cache_getitem["axesdata"] = axesdata
-        self._cache_getitem["axesstats"] = axesstats
-        self._cache_getitem["squeezechannels"] = squeezechannels
+        # statistics index in stats for extracting
+        statindex = axesstats.index(dimchannels)
+        self._cache_getitem["statindex"] = statindex
+        self._dbgmsg("statindex {}".format(statindex))
+        
+        if reshape:
+            shape = list(stats.shape)
+            shape[statindex] = 1
+            shape = tuple(shape)
+            self._dbgmsg("reshape {}".format(shape))
+            self._cache_getitem["statreshape"] = lambda x:x.reshape(shape)
+        else:
+            self._cache_getitem["statreshape"] = lambda x:x
 
         return stats
 
@@ -557,22 +593,15 @@ class xiadata(object):
         ndimstats = stats.ndim
         index = [slice(None)]*ndimstats
 
-        dimchannels = self.ndim-2
-        i = self._cache_getitem["axesstats"].index(dimchannels)
+        i = self._cache_getitem["statindex"]
 
-        breshape = len(self._cache_getitem["axesdata"]) == len(self._cache_getitem["axesstats"]) and not self._cache_getitem["squeezechannels"]
-
-        if breshape:
-            shape = list(stats.shape)
-            shape[i] = 1
-            shape = tuple(shape)
+        reshape = self._cache_getitem["statreshape"]
 
         ret = []
         for ind in statind:
             index[i] = ind
             stat = stats[index]
-            if breshape:
-                stat = stat.reshape(shape)
+            stat = reshape(stat)
             ret.append(stat)
 
         return ret
@@ -625,8 +654,6 @@ class xiadata(object):
                 # Make stats match data after indexing:
                 stats = self._transpose_stats(index,stats)
 
-                self._dbgmsg(stats.shape)
-
             if not self._xiaconfig["indexing"]["data"]:
                 self._dbgmsg("return stats\n")
                 return stats
@@ -637,7 +664,10 @@ class xiadata(object):
 
             # Apply correction
             s = data.shape
+            self._dbgmsg("data.shape {}".format(data.shape))
+            self._dbgmsg("icr.shape {}".format(icr.shape))
             data = data * np.asarray(icr,dtype=self.CORTYPE) / np.asarray(ocr,dtype=self.CORTYPE)
+            self._dbgmsg("data.shape {}".format(data.shape))
             data = data.reshape(s)
 
         if not self._xiaconfig["indexing"]["stats"]:
@@ -653,6 +683,130 @@ class xiadata(object):
     def _getstats(self,index=slice(None)):
         raise NotImplementedError("xiadata should not be instantiated, use one of the derived classes")
 
+
+class xiacompound(xiadata):
+    """Implements XIA data compounding (image, image stacks, ...)
+    """
+
+    def __init__(self,level,**kwargs):
+        xiadata.__init__(self,level,**kwargs)
+
+    def _getitems(self):
+        # May be overwritten to do some file searching for example
+        return self._items
+    
+    @property
+    def dtype(self):
+        items = self._getitems()
+        if len(items)==0:
+            return self.XIADTYPE
+        else:
+            return items[0].dtype
+
+    @property
+    def stype(self):
+        items = self._getitems()
+        if len(items)==0:
+            return self.XIASTYPE
+        else:
+            return items[0].stype
+
+    @property
+    def dshape(self):
+        # ... x nspec x nchan x ndet
+        items = self._getitems()
+        nlines = len(items)
+        if nlines==0:
+            return ()
+        else:
+            return (nlines,) + items[0].dshape
+
+    @property
+    def sshape(self):
+        # ... x nspec x nstat x ndet
+        items = self._getitems()
+        nlines = len(items)
+        if nlines==0:
+            return ()
+        else:
+            return (nlines,) + items[0].sshape
+
+    def _getdata(self,index=slice(None)):
+        """
+        Args:
+            index (slice or num):
+        Returns:
+            array: ... x nspec x nchan x ndet
+        """
+        items = self._getitems()
+        if len(items)==0:
+            np.empty((0,)*self.ndim,dtype=self.XIADTYPE)
+
+        # Generate sliced stack
+        generator = lambda line: line
+        return indexing.slicedstack(generator,items,index,self.ndim,shapefull=self.dshape,axis=0)
+
+    def _getstats(self,index=slice(None)):
+        """
+        Args:
+            index (slice or num):
+        Returns:
+            array: ... x nspec x nstats x ndet
+        """
+        items = self._getitems()
+        if len(items)==0:
+            np.empty((0,)*self.ndim,dtype=self.XIADTYPE)
+
+        # Generate sliced stack
+        generator = lambda line: line
+        return indexing.slicedstack(generator,items,index,self.ndim,shapefull=self.sshape,axis=0)
+
+    def save(self,data,xialabels,stats=None):
+        """
+        Args:
+            data(array): dimensions = ... x nspec x nchan x ndet
+            xialabels(list): number of labels = ndet
+            st(Optional(array)): dimensions = ... x nspec x nstats x ndet
+        Returns:
+            None
+        """
+        items = self._getitems()
+        nlines = data.shape[0]
+        if len(items)!=nlines:
+            raise RuntimeError("The map being saved has {} items while {} items were expected".format(nlines,len(items)))
+            
+        for i in range(nlines):
+            if stats is not None:
+                stat = stats[i,...]
+            else:
+                stat = None
+            items[i].save(data[i,...],xialabels,stats=stat)
+
+    def datafilenames(self):
+        """
+        Args:
+            None
+        Returns:
+            list(str)
+        """
+        items = self._getitems()
+        files = []
+        for l in items:
+            files += l.datafilenames()
+        return files
+
+    def statfilenames(self):
+        """
+        Args:
+            None
+        Returns:
+            list(str)
+        """
+        items = self._getitems()
+        files = []
+        for l in items:
+            files.append(l.statfilename())
+        return files
 
 class xialine(xiadata):
 
@@ -814,6 +968,46 @@ class xialine(xiadata):
     def statfilename(self):
         raise NotImplementedError("xialine should not be instantiated, use one of the derived classes")
 
+class xiaimage(xiacompound):
+    """Compounds XIA lines
+    """
+    def __init__(self,**kwargs):
+        xiacompound.__init__(self,1,**kwargs)
+
+    def __str__(self):
+        return "xiaimage{}".format(str(self.dshape))
+
+    @property
+    def ndim(self):
+        return 4
+
+class xiastack(xiacompound):
+    """Compounds XIA images
+    """
+
+    def __init__(self,**kwargs):
+        xiacompound.__init__(self,2,**kwargs)
+
+    def __str__(self):
+        return "xiastack{}".format(str(self.dshape))
+
+    @property
+    def ndim(self):
+        return 5
+
+class xiahyperstack(xiacompound):
+    """Compounds XIA stacks
+    """
+
+    def __init__(self,**kwargs):
+        xiacompound.__init__(self,3,**kwargs)
+
+    def __str__(self):
+        return "xiahyperstack{}".format(str(self.dshape))
+
+    @property
+    def ndim(self):
+        return 6
 
 class xialine_number(xialine):
     """XIA line determined by its line number
@@ -874,7 +1068,6 @@ class xialine_number(xialine):
             self.search()
         return self._statfile
 
-
 class xialine_files(xialine):
     """XIA line determined by a list of files
     """
@@ -925,158 +1118,6 @@ class xialine_files(xialine):
         """
         return self._statfile
 
-
-class xiaimage(xiadata):
-
-    def __init__(self,**kwargs):
-        xiadata.__init__(self,1,**kwargs)
-
-    def __str__(self):
-        return "xiaimage{}".format(str(self.dshape))
-
-    def _needlines(self,lines):
-        if len(lines)==0:
-            raise RuntimeError("No lines were defined")
-
-    @property
-    def ndim(self):
-        return 4
-
-    @property
-    def dtype(self):
-        lines = self._getlines()
-        if len(lines)==0:
-            return self.XIADTYPE
-        else:
-            return lines[0].dtype
-
-    @property
-    def stype(self):
-        lines = self._getlines()
-        if len(lines)==0:
-            return self.XIASTYPE
-        else:
-            return lines[0].stype
-
-    @property
-    def dshape(self):
-        # nlines x nspec x nchan x ndet
-        lines = self._getlines()
-        nlines = len(lines)
-        if nlines==0:
-            return ()
-        else:
-            return (nlines,) + lines[0].dshape
-
-    @property
-    def sshape(self):
-        # nlines x nspec x nstat x ndet
-        lines = self._getlines()
-        nlines = len(lines)
-        if len(lines)==0:
-            return ()
-        else:
-            return (nlines,) + lines[0].sshape
-
-    def _getdata(self,index=slice(None)):
-        """
-        Args:
-            index (slice or num):
-        Returns:
-            array: nlines x nspec x nchan x ndet
-        """
-        lines = self._getlines()
-        if len(lines)==0:
-            np.empty((0,0,0,0),dtype=self.XIADTYPE)
-
-        # Generate sliced stack
-        generator = lambda line: line
-        return indexing.slicedstack(generator,lines,index,self.ndim,shapefull=self.dshape,axis=0)
-
-    def _getstats(self,index=slice(None)):
-        """
-        Args:
-            index (slice or num):
-        Returns:
-            array: nlines x nspec x nstats x ndet
-        """
-        lines = self._getlines()
-        if len(lines)==0:
-            np.empty((0,0,0,0),dtype=self.XIADTYPE)
-
-        # Generate sliced stack
-        generator = lambda line: line
-        return indexing.slicedstack(generator,lines,index,self.ndim,shapefull=self.sshape,axis=0)
-
-    def save(self,data,xialabels,stats=None):
-        """
-        Args:
-            data(array): dimensions = nlines x nspec x nchan x ndet
-            xialabels(list): number of labels = ndet
-            st(Optional(array)): dimensions = nlines x nspec x nstats x ndet
-        Returns:
-            None
-        """
-
-        nlines, nspec, nchan, ndet = data.shape
-        lines = self._getlines()
-        if len(lines)!=nlines:
-            raise RuntimeError("The map being saved has {} lines while {} lines were expected".format(nlines,len(lines)))
-            
-        for i in range(nlines):
-            if stats is not None:
-                stat = stats[i,...]
-            else:
-                stat = None
-            lines[i].save(data[i,...],xialabels,stats=stat)
-
-    def _getlines(self):
-        return self._lines
-
-    def skipdetectors(self,dets):
-        """
-        Args:
-            dets(list): detector to skip when reading
-        Returns:
-            list: formated labels
-        """
-        for l in self._lines:
-            l.skipdetectors(dets)
-
-    def keepdetectors(self,dets):
-        """
-        Args:
-            dets(list): detector to keep when reading
-        Returns:
-            list: formated labels
-        """
-        for l in self._lines:
-            l.keepdetectors(dets)
-
-    def datafilenames(self):
-        """
-        Args:
-            None
-        Returns:
-            list(str)
-        """
-        files = []
-        for l in self._lines:
-            files += l.datafilenames()
-        return files
-
-    def statfilenames(self):
-        """
-        Args:
-            None
-        Returns:
-            list(str)
-        """
-        files = []
-        for l in self._lines:
-            files.append(l.statfilename())
-        return 
-
 class xiaimage_linenumbers(xiaimage):
     """XIA image determined by its map number and line numbers
     """
@@ -1096,10 +1137,7 @@ class xiaimage_linenumbers(xiaimage):
         xiaimage.__init__(self,**kwargs)
         kwargs["xiaconfig"] = self._xiaconfig
 
-        self._lines = [xialine_number(path,radix,mapnum,linenum,**kwargs) for linenum in linenums]
-
-        
-
+        self._items = [xialine_number(path,radix,mapnum,linenum,**kwargs) for linenum in linenums]
 
 class xiaimage_files(xiaimage):
     """XIA image determined by a list of files
@@ -1108,7 +1146,7 @@ class xiaimage_files(xiaimage):
     def __init__(self,files,**kwargs):
         """
         Args:
-            files(list(str)): data and stat file names
+            files(list(str) or dict): data and stat file names
 
         Returns:
             None
@@ -1117,11 +1155,10 @@ class xiaimage_files(xiaimage):
         xiaimage.__init__(self,**kwargs)
         kwargs["xiaconfig"] = self._xiaconfig
 
-        files = xiagrouplines(files)
-        self._lines = [xialine_files(f,**kwargs) for linenum,f in files.items()]
+        if isinstance(files,list):
+            files = xiagrouplines(files)
 
-        
-
+        self._items = [xialine_files(f,**kwargs) for linenum,f in files.items()]
 
 class xiaimage_number(xiaimage):
     """XIA image determined by its map number
@@ -1145,7 +1182,12 @@ class xiaimage_number(xiaimage):
         self.mapnum = mapnum
         self.linekwargs = kwargs
         self._fileformat = os.path.join(path,xiaformat_map(radix,mapnum))
-        self._lines = []
+        self._items = []
+
+    def _getitems(self):
+        if len(self._items)==0:
+            self.search()
+        return self._items
 
     def search(self):
         files = glob(self._fileformat.format("??","[0-9][0-9][0-9][0-9]*"))
@@ -1153,12 +1195,7 @@ class xiaimage_number(xiaimage):
             return
         files = xiagrouplines(files)
         n = len(files.values()[0])
-        self._lines = [xialine_files(f,**self.linekwargs) for linenum,f in files.item() if len(f) == n]
-
-    def _getlines(self):
-        if len(self._lines)==0:
-            self.search()
-        return self._lines
+        self._items = [xialine_files(f,**self.linekwargs) for linenum,f in files.item() if len(f) == n]
 
     def save(self,data,xialabels,stats=None):
         """
@@ -1170,9 +1207,80 @@ class xiaimage_number(xiaimage):
             None
         """
 
-        if len(self._lines)==0:
+        if len(self._items)==0:
             nlines, nspec, nchan, ndet = data.shape
-            self._lines = [xialine_number(self.path,self.radix,self.mapnum,linenum,**self.linekwargs) for linenum in range(nlines)]
+            self._items = [xialine_number(self.path,self.radix,self.mapnum,linenum,**self.linekwargs) for linenum in range(nlines)]
 
         xiaimage.save(self,data,xialabels,stats=stats)
+
+class xiastack_files(xiaimage):
+    """XIA stack determined by a list of files
+    """
+
+    def __init__(self,files,**kwargs):
+        """
+        Args:
+            files(list(str) or dict): data and stat file names
+
+        Returns:
+            None
+        """
+
+        xiastack.__init__(self,**kwargs)
+        kwargs["xiaconfig"] = self._xiaconfig
+
+        if isinstance(files,list):
+            files = xiagroupmaps(files)
+        self._items = [xiaimage_files(f,**kwargs) for mapnum,f in files.items()]
+
+class xiastack_radix(xiastack):
+    """XIA stack determined by its radix
+    """
+
+    def __init__(self,path,radix,**kwargs):
+        """
+        Args:
+            path(str): path
+            radix(str): radix
+
+        Returns:
+            None
+        """
+        xiastack.__init__(self,**kwargs)
+        kwargs["xiaconfig"] = self._xiaconfig
+
+        self.path = path
+        self.radix = radix
+        self.mapkwargs = kwargs
+        self._fileformat = os.path.join(path,xiaformat_radix(radix))
+        self._items = []
+
+    def _getitems(self):
+        if len(self._items)==0:
+            self.search()
+        return self._items
+
+    def search(self):
+        files = glob(self._fileformat.format("[0-9][0-9][0-9][0-9]*","??","[0-9][0-9][0-9][0-9]*"))
+        if len(files)==0:
+            return
+        files = xiagroupmaps(files)
+        n = len(files.values()[0])
+        self._items = [xialine_files(f,**self.mapkwargs) for mapnum,f in files.item() if len(f) == n]
+
+    def save(self,data,xialabels,stats=None):
+        """
+        Args:
+            data(array): dimensions = nmaps x nlines x nspec x nchan x ndet
+            xialabels(list): number of labels = ndet
+            st(Optional(array)): dimensions = nmaps x nlines x nspec x nstats x ndet
+        Returns:
+            None
+        """
+
+        if len(self._items)==0:
+            nmaps = data.shape[0]
+            self._items = [xiaimage_number(self.path,self.radix,mapnum,**self.mapkwargs) for mapnum in range(nmaps)]
+
+        xiastack.save(self,data,xialabels,stats=stats)
 

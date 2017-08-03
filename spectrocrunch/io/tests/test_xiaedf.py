@@ -160,8 +160,7 @@ class test_xiaedf(unittest.TestCase):
         o.skipdetectors([])
         o.dtcor(False)
 
-        indices = genindexing.genindexingn(dshape,advanced=True,nmax=50) #500
-
+        indices = genindexing.genindexingn(dshape,advanced=True,eco=True,nmax=100)
         for dtcor in [True,False]:
             o.dtcor(dtcor)
             for onlyicrocr in [True,False]:
@@ -169,6 +168,7 @@ class test_xiaedf(unittest.TestCase):
                 for together in [True,False]:
                     for index in indices:
                         #print "\n"*10
+                        #index = (slice(8, -5, 4), slice(2, -8, 1), [-616, 854], 1)
                         #print "================",index,"================"
 
                         if together:
@@ -261,6 +261,19 @@ class test_xiaedf(unittest.TestCase):
         #plt.plot(data[0,:,0])
         #plt.show()
 
+    def _xiaconfigidcheck(self,o):
+        if isinstance(o,xiaedf.xiacompound):
+            ret = []
+            for l in o._items:
+                add = self._xiaconfigidcheck(l)
+                if isinstance(add,list):
+                    ret += add
+                else:
+                    ret.append(add)
+            return ret
+        else:
+            return id(o._xiaconfig)
+
     def _test_image(self,path,radix,mapnum,ndet,ncol,nrow,nchan):
         # Generate some spectra + statistics
         dataorg,data,stats = xiagen.data(nrow*ncol,nchan,ndet)
@@ -290,7 +303,7 @@ class test_xiaedf(unittest.TestCase):
 
         # Check only one config
         for o in [image,image2,image3]:
-            tmp = [id(l._xiaconfig) for l in o._lines]
+            tmp = self._xiaconfigidcheck(o)
             self.assertEqual(tmp.count(tmp[0]),len(tmp))
 
         # Check data
@@ -299,6 +312,24 @@ class test_xiaedf(unittest.TestCase):
         ishape = (nrow,ncol,1,ndet)
         self._testdata(dataorg,data,stats,image,dshape,sshape,ishape)
         self._testdata(dataorg,data,stats,image2,dshape,sshape,ishape)
+
+    def _test_stack(self,path,radix,ndet,ncol,nrow,nenergy,nchan):
+        # Generate some spectra + statistics
+        dataorg,data,stats = xiagen.data(nrow*ncol*nenergy,nchan,ndet)
+        dataorg = dataorg.reshape(nenergy,nrow,ncol,nchan,ndet)
+        data = data.reshape(nenergy,nrow,ncol,nchan,ndet)
+        stats = stats.reshape(nenergy,nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
+
+        # Save data
+        image = xiaedf.xiastack_radix(path,radix)
+        xialabels = ["{:02d}".format(i) for i in range(ndet)]
+        image.save(data,xialabels,stats=stats)
+
+        # Check saved files
+        expectedfiles = ["{}_xia{:02}_{:04}_0000_{:04}.edf".format(radix,det,mapnum,linenum) for det in range(ndet) for linenum in range(nrow) for mapnum in range(nenergy)]+\
+                        ["{}_xiast_{:04}_0000_{:04}.edf".format(radix,mapnum,linenum) for linenum in range(nrow) for mapnum in range(nenergy)]
+        self.dir.compare(expectedfiles,path=path)
+
 
     def test_line(self):
         mapnum = 2
@@ -322,6 +353,16 @@ class test_xiaedf(unittest.TestCase):
                         self._test_image(os.path.join(self.dir.path,"test_image_{}".format(i)),"test_image_{}".format(i),mapnum,ndet,ncol,nrow,nchan)
                         i += 1
 
+    def test_stack(self):
+
+        i = 0
+        for ndet in [4,1]:
+            for nchan in [1024,1]:
+                for ncol in [10,1]:
+                    for nrow in [15,1]:
+                        for nenergy in [20,1]:
+                            self._test_stack(os.path.join(self.dir.path,"test_stack_{}".format(i)),"test_stack_{}".format(i),ndet,ncol,nrow,nenergy,nchan)
+                            i += 1
 
 
 
@@ -332,6 +373,7 @@ def test_suite_all():
     testSuite.addTest(test_xiaedf("test_nameparsing"))
     testSuite.addTest(test_xiaedf("test_line"))
     testSuite.addTest(test_xiaedf("test_image"))
+    #testSuite.addTest(test_xiaedf("test_stack"))
     return testSuite
     
 if __name__ == '__main__':
