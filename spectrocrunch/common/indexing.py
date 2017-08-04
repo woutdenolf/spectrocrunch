@@ -273,7 +273,7 @@ def replace_axesorder(index):
         return slice(None)
 
 def axesorder_afterindexing(index,ndim):
-    """Axes order after indexing specified.
+    """Axes order after indexing specified (negative axes are np.newaxis).
 
     Args:
         index(index): object used in indexing or slicing (expanded and no np.newaxis)
@@ -299,11 +299,13 @@ def axesorder_afterindexing(index,ndim):
     # Axis origins
     axes = list(shape)
     marklist = None
+    j = -1
     for i,n in enumerate(axes):
         if n==0:
             axes[i] = ilist
         elif n==1:
-            axes[i] = np.newaxis
+            axes[i] = j
+            j -= 1
         else:
             axes[i] = n-2
 
@@ -324,7 +326,7 @@ def shape_afterindexing(shape,index):
     # Expected shape after indexing
     s2 = [0]*len(axes)
     for i,iaxes in enumerate(axes):
-        if iaxes is np.newaxis:
+        if iaxes < 0:
             s2[i] = 1
         elif isinstance(iaxes,list):
             s2[i] = lengthadvanced(indexnonew,shape)

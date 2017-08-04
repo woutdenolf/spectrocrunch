@@ -1,6 +1,6 @@
 
 import sys
-sys.path.insert(1,'/data/id21/inhouse/wout/dev/SpectroCrunch')
+sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from spectrocrunch.io.edf import get2Dscancoordinates as getcoord
 

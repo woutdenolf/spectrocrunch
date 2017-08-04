@@ -160,7 +160,7 @@ class test_xiaedf(unittest.TestCase):
         o.skipdetectors([])
         o.dtcor(False)
 
-        indices = genindexing.genindexingn(dshape,advanced=True,eco=True,nmax=100)
+        indices = genindexing.genindexingn(dshape,advanced=True,eco=True,nmax=50)
         for dtcor in [True,False]:
             o.dtcor(dtcor)
             for onlyicrocr in [True,False]:
@@ -169,6 +169,7 @@ class test_xiaedf(unittest.TestCase):
                     for index in indices:
                         #print "\n"*10
                         #index = (slice(8, -5, 4), slice(2, -8, 1), [-616, 854], 1)
+                        #index = (Ellipsis, -2, None, [False, False, True, True], None)
                         #print "================",index,"================"
 
                         if together:
@@ -260,7 +261,6 @@ class test_xiaedf(unittest.TestCase):
         sshape = (nspec,xiaedf.xiadata.NSTATS,ndet)
         ishape = (nspec,1,ndet)
         self._testdata(dataorg,data,stats,line,dshape,sshape,ishape)
-        self._testdata(dataorg,data,stats,line2,dshape,sshape,ishape)
         #import matplotlib.pyplot as plt
         #plt.plot(data[0,:,0])
         #plt.show()
@@ -310,7 +310,7 @@ class test_xiaedf(unittest.TestCase):
         self.assertEqual(image.datafilenames(),image4.datafilenames())
 
         # Check only one config
-        for o in [image,image2,image3]:
+        for o in [image,image2,image3,image4]:
             tmp = self._xiaconfigidcheck(o)
             self.assertEqual(tmp.count(tmp[0]),len(tmp))
 
@@ -319,7 +319,6 @@ class test_xiaedf(unittest.TestCase):
         sshape = (nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
         ishape = (nrow,ncol,1,ndet)
         self._testdata(dataorg,data,stats,image,dshape,sshape,ishape)
-        self._testdata(dataorg,data,stats,image2,dshape,sshape,ishape)
 
     def _test_stack(self,path,radix,ndet,ncol,nrow,nenergy,nchan):
         # Generate some spectra + statistics
@@ -349,7 +348,11 @@ class test_xiaedf(unittest.TestCase):
         self.assertEqual(stack.statfilenames(),stack3.statfilenames())
         self.assertEqual(stack.datafilenames(),stack3.datafilenames())
 
-
+        # Check data
+        dshape = (nenergy,nrow,ncol,nchan,ndet)
+        sshape = (nenergy,nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
+        ishape = (nenergy,nrow,ncol,1,ndet)
+        self._testdata(dataorg,data,stats,stack,dshape,sshape,ishape)
 
     def test_line(self):
         mapnum = 2
@@ -389,10 +392,10 @@ class test_xiaedf(unittest.TestCase):
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    #testSuite.addTest(test_xiaedf("test_memmap"))
-    #testSuite.addTest(test_xiaedf("test_nameparsing"))
-    #testSuite.addTest(test_xiaedf("test_line"))
-    #testSuite.addTest(test_xiaedf("test_image"))
+    testSuite.addTest(test_xiaedf("test_memmap"))
+    testSuite.addTest(test_xiaedf("test_nameparsing"))
+    testSuite.addTest(test_xiaedf("test_line"))
+    testSuite.addTest(test_xiaedf("test_image"))
     testSuite.addTest(test_xiaedf("test_stack"))
     return testSuite
     

@@ -561,6 +561,7 @@ class xiadata(object):
 
         # Transpose stats to match data after indexing
         ind = [axesstats.index(a) for a in axesdata if a in axesstats]
+        self._dbgmsg("transpose {} ?".format(ind))
         if ind!=range(len(ind)) and sorted(ind)==range(len(ind)):
             self._dbgmsg("transpose {}".format(ind))
             stats = np.transpose(stats,ind)
@@ -596,12 +597,11 @@ class xiadata(object):
             list(array)
         """
 
+        i = self._cache_getitem["statindex"]
+        reshape = self._cache_getitem["statreshape"]
+
         ndimstats = stats.ndim
         index = [slice(None)]*ndimstats
-
-        i = self._cache_getitem["statindex"]
-
-        reshape = self._cache_getitem["statreshape"]
 
         ret = []
         for ind in statind:
@@ -1027,7 +1027,7 @@ class xiastack(xiacompound):
     def ndim(self):
         return 5
 
-class xiahyperstack(xiacompound):
+class xiamultistack(xiacompound):
     """Compounds XIA stacks
     """
 
@@ -1035,7 +1035,7 @@ class xiahyperstack(xiacompound):
         xiacompound.__init__(self,3,**kwargs)
 
     def __str__(self):
-        return "xiahyperstack{}".format(str(self.dshape))
+        return "xiamultistack{}".format(str(self.dshape))
 
     @property
     def ndim(self):
@@ -1184,7 +1184,7 @@ class xiaimage_number(xiaimage):
         if len(files)==0:
             return
         files = xiagrouplines(files)
-        n = xiagroupnfiles(files.values()[0])
+        n = xiagroupnfiles(files.values()[0]) # number of files in the first map
         self._items = [xialine_files(f,**self.linekwargs) for linenum,f in files.items() if xiagroupnfiles(f) == n]
 
     def save(self,data,xialabels,stats=None):
@@ -1220,8 +1220,8 @@ class xiastack_files(xiastack):
         kwargs["xiaconfig"] = self._xiaconfig
 
         if isinstance(files,list):
-            files = xiagroupmaps(files)
-        self._items = [xiaimage_files(f,**kwargs) for mapnum,f in files.items()]
+            files = xiagroup(files)
+        self._items = [xiaimage_files(fmap,**kwargs) for radix,fradix in files.items() for mapnum,fmap in fradix.items()]
 
 class xiastack_radix(xiastack):
     """XIA stack determined by its radix
@@ -1230,8 +1230,8 @@ class xiastack_radix(xiastack):
     def __init__(self,path,radix,**kwargs):
         """
         Args:
-            path(str): path
-            radix(str): radix
+            path(str or list(str)): path
+            radix(str or list(str)): radix
 
         Returns:
             None
@@ -1239,22 +1239,31 @@ class xiastack_radix(xiastack):
         xiastack.__init__(self,**kwargs)
         kwargs["xiaconfig"] = self._xiaconfig
 
+        if not isinstance(path,list):
+            path = [path]
+        if not isinstance(radix,list):
+            radix = [radix]
+
         self.path = path
         self.radix = radix
+        
+        self._fileformat = [os.path.join(p,xiaformat_radix(r)) for p,r in zip(path,radix)]
+
         self.imagekwargs = kwargs
-        self._fileformat = os.path.join(path,xiaformat_radix(radix))
         self._items = []
 
     def __str__(self):
         return "xiastack{}: {}".format(str(self.dshape),self._fileformat)
 
     def search(self):
-        files = glob(self._fileformat.format("??","[0-9][0-9][0-9][0-9]*","[0-9][0-9][0-9][0-9]*"))
+        files = [glob(f.format("??","[0-9][0-9][0-9][0-9]*","[0-9][0-9][0-9][0-9]*")) for f in self._fileformat]
+        files = [f for f in listtools.flatten(files)]
         if len(files)==0:
             return
         files = xiagroupmaps(files)
-        n = xiagroupnfiles(files.values()[0])
-        self._items = [xiaimage_files(f,**self.imagekwargs) for mapnum,f in files.items() if xiagroupnfiles(f) == n]
+
+        n = xiagroupnfiles(files.values()[0].values()[0]) # number of files in the first map
+        self._items = [xiaimage_files(fmap,**self.imagekwargs) for radix,fradix in files.items() for mapnum,fmap in fradix.items() if xiagroupnfiles(fmap)==n]
 
     def save(self,data,xialabels,stats=None):
         """
@@ -1268,7 +1277,7 @@ class xiastack_radix(xiastack):
 
         if len(self._items)==0:
             nmaps = data.shape[0]
-            self._items = [xiaimage_number(self.path,self.radix,mapnum,**self.imagekwargs) for mapnum in range(nmaps)]
+            self._items = [xiaimage_number(self.path[-1],self.radix[-1],mapnum,**self.imagekwargs) for mapnum in range(nmaps)]
 
         xiastack.save(self,data,xialabels,stats=stats)
 
