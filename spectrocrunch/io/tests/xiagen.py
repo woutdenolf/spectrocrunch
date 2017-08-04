@@ -73,7 +73,7 @@ def data(nspec,nchan,ndet):
 
             data[i,:,j] = spectrumj
 
-            dataorg[i,:,j] = spectrumj*datatype(ICR)/OCR
+            dataorg[i,:,j] = spectrumj*(datatype(ICR)/OCR)
 
             stats[i,xiaedf.xiadata.STDET,j] = j
             stats[i,xiaedf.xiadata.STEVT,j] = ICR # % Not sure

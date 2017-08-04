@@ -150,8 +150,12 @@ class test_xiaedf(unittest.TestCase):
 
         # Check DT correction
         o.onlyicrocr(True)
+        o.dtcor(False)
         icrocr = o.stats
-        np.testing.assert_array_equal(dataorg,o.data*icrocr[...,o.indexicr,:].reshape(ishape)/icrocr[...,o.indexocr,:].reshape(ishape))
+        icr = icrocr[...,o.indexicr,:].reshape(ishape)
+        ocr = icrocr[...,o.indexocr,:].reshape(ishape)
+        cor = np.asarray(icr,dtype=o.CORTYPE) / np.asarray(ocr,dtype=o.CORTYPE)
+        np.testing.assert_array_equal(dataorg,o.data*cor)
         o.onlyicrocr(False)
         o.dtcor(True)
         np.testing.assert_array_equal(dataorg,o.data)
@@ -161,45 +165,48 @@ class test_xiaedf(unittest.TestCase):
         o.dtcor(False)
 
         indices = genindexing.genindexingn(dshape,advanced=True,eco=True,nmax=50)
-        for dtcor in [True,False]:
-            o.dtcor(dtcor)
-            for onlyicrocr in [True,False]:
-                o.onlyicrocr(onlyicrocr)
-                for together in [True,False]:
-                    for index in indices:
-                        #print "\n"*10
-                        #index = (slice(8, -5, 4), slice(2, -8, 1), [-616, 854], 1)
-                        #index = (Ellipsis, -2, None, [False, False, True, True], None)
-                        #print "================",index,"================"
+        for dsum in [False]:
+            o.detectorsum(dsum)
+            for dtcor in [True,False]:
+                o.dtcor(dtcor)
+                for onlyicrocr in [True,False]:
+                    o.onlyicrocr(onlyicrocr)
+                    for together in [True,False]:
+                        for index in indices:
+                            #print "\n"*10
+                            #index = (slice(8, -5, 4), slice(2, -8, 1), [-616, 854], 1)
+                            #index = (Ellipsis, -2, None, [False, False, True, True], None)
+                            #print "================",index,"================"
 
-                        if together:
-                            o.dataandstats()
-                            ldata,lstats = o[index]
-                        else:
-                            o.onlydata()
-                            ldata = o[index]
-                            o.onlystats()
-                            lstats = o[index]
+                            if together:
+                                o.dataandstats()
+                                ldata,lstats = o[index]
+                            else:
+                                o.onlydata()
+                                ldata = o[index]
+                                o.onlystats()
+                                lstats = o[index]
 
-                        # Check DT corrected data
-                        if dtcor:
-                            ldata2 = dataorg[index]
-                        else:
-                            ldata2 = data[index]
-                        np.testing.assert_array_equal(ldata,ldata2)
-                        
-                        # Check stats
-                        if o.nstats==2:
-                            tmp = stats[...,[o.STICR,o.STOCR],:]
-                        else:
-                            tmp = stats
-                        index2 = o._index_stats(index)
-                        lstats2 = tmp[index2]
-                        lstats2 = o._transpose_stats(index,lstats2)
-                        np.testing.assert_array_equal(lstats,lstats2)
+                            # Check DT corrected data
+                            if dtcor:
+                                ldata2 = dataorg[index]
+                            else:
+                                ldata2 = data[index]
+                            np.testing.assert_array_equal(ldata,ldata2)
+                            
+                            # Check stats
+                            if o.nstats==2:
+                                tmp = stats[...,[o.STICR,o.STOCR],:]
+                            else:
+                                tmp = stats
+                            index2 = o._index_stats(index)
+                            lstats2 = tmp[index2]
+                            lstats2 = o._transpose_stats(index,lstats2)
+                            np.testing.assert_array_equal(lstats,lstats2)
 
         # Test slicing vs. skip detector
         o.dtcor(False)
+        o.detectorsum(False)
 
         ndet = dshape[-1]
 
@@ -276,7 +283,7 @@ class test_xiaedf(unittest.TestCase):
                     ret.append(add)
             return ret
         else:
-            return id(o._xiaconfig)
+            return (id(o._xiaconfig),id(o._cache))
 
     def _test_image(self,path,radix,mapnum,ndet,ncol,nrow,nchan):
         # Generate some spectra + statistics

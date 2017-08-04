@@ -95,15 +95,15 @@ class edfmemmap():
         offset = f._frames[f.currentframe].start
         self.mdata = np.memmap(filename,dtype=self.dtype,offset=offset,shape=self.shape,order='C')
 
-        bswap = f.swap_needed()
-        self.data.byteswap(bswap)
+        if f.swap_needed():
+            self.mdata.byteswap(True)
 
     @property
     def data(self):
         return self.mdata
         
     def __getitem__(self,index):
-        return indexing.unsqueeze(self.mdata[index],index,self.ndim)
+        return self.data[index]
 
 class edffabio():
     """Access edf data with fabio
@@ -128,6 +128,6 @@ class edffabio():
         return self.f.data
         
     def __getitem__(self,index):
-        return indexing.unsqueeze(self.f.data[index],index,self.ndim)
+        return self.data[index]
 
 
