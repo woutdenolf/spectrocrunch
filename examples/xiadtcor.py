@@ -69,12 +69,16 @@ if __name__ == '__main__':
         mapin.detectorsum(add)
         mapout = xiaedf.xiaimage_number(outdir2,outname,scannumber)
         data = mapin.data
+        #mapin.dataandstats()
+        #data,_ = mapin[:]
+        
         if add:
             xialabels = ["S1"]
         else:
             xialabels = ["{:02d}".format(i) for i in range(data.shape[-1])]
         mapout.save(data,xialabels)
         print time()-t0
+        
     
     map1 = xiaedf.xiaimage_number(outdir1,outname,scannumber)
     map2 = xiaedf.xiaimage_number(outdir2,outname,scannumber)

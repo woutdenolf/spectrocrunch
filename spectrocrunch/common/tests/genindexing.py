@@ -99,6 +99,7 @@ def valid(index,shape):
             # Integer array musn't go beyond boundaries
             if all(isinstance(j,numbers.Number) for j in ind):
                 b &= max(ind)<shape[i] and min(ind)>=-shape[i]
+
         elif isinstance(ind,numbers.Number):
             b &= ind<shape[i] and ind >=-shape[i]
 

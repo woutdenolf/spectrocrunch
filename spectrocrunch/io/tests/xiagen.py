@@ -36,12 +36,13 @@ def peak(x, p):
 def ctsround(x,stattype):
     return stattype(round(x))
 
-def data(nspec,nchan,ndet):
-    datatype = np.float
-    stattype = np.int
+def data(nspec,nchan,ndet,concentration=None,flux=None):
+    datatype = np.int32
+    stattype = np.int32
+    cortype = np.float64
 
     # Detector characteristics
-    solidangle = np.linspace(1,1.5,ndet,dtype=datatype)
+    solidangle = np.linspace(1,1.5,ndet,dtype=cortype)
     DT = 2*np.arange(ndet)
         
     # Peak characteristics
@@ -50,31 +51,46 @@ def data(nspec,nchan,ndet):
     p = zip(random(1000,2000,npeaks),\
             random(0,nchan,npeaks),\
             random(20,30,npeaks))
+            
+    # Spectrum
+    spectrum0 = np.zeros(nchan,dtype=cortype)
+    for k in range(npeaks):
+        spectrum0 += peak(x,p[k])
+        
+    # Pixel intensity
+    if concentration is None:
+        concentration = np.ones(nspec,dtype=cortype)
+        
+    # Pixel flux
+    if flux is None:
+        flux = np.ones(nspec,dtype=cortype)
 
     # Generate data
-    dataorg = np.zeros((nspec,nchan,ndet),dtype=datatype)
+    dataorg = np.zeros((nspec,nchan,ndet,3),dtype=cortype)
     data = np.zeros((nspec,nchan,ndet),dtype=datatype)
     stats = np.zeros((nspec,xiaedf.xiadata.NSTATS,ndet),dtype=stattype)
     for i in range(nspec):
-        spectrum = np.zeros(nchan)
-        for k in range(npeaks):
-            spectrum += peak(x,p[k])
+        spectrum = spectrum0 * concentration[i] * flux[i] # cortype
 
         for j in range(ndet):
             rawspectrum = spectrum*solidangle[j]
-            rawspectrum = rawspectrum.astype(stattype)
             rawspectrum += np.random.poisson(rawspectrum)
             ICR = rawspectrum.sum()
 
             OCR = ICR*(1-j/50.)# DT = 2*j %
             spectrumj = rawspectrum*OCR/ICR
-            spectrumj = spectrumj.astype(stattype)
             OCR = spectrumj.sum()
-
+            
+            spectrumj = spectrumj.astype(datatype)
+            ICR = ICR.astype(stattype)
+            OCR = OCR.astype(stattype)
+            
             data[i,:,j] = spectrumj
 
-            dataorg[i,:,j] = spectrumj*(datatype(ICR)/OCR)
-
+            dataorg[i,:,j,0] = spectrumj*(cortype(ICR)/cortype(OCR))
+            dataorg[i,:,j,1] = spectrumj/cortype(flux[i])
+            dataorg[i,:,j,2] = spectrumj*((cortype(ICR)/cortype(OCR)))/cortype(flux[i])
+            
             stats[i,xiaedf.xiadata.STDET,j] = j
             stats[i,xiaedf.xiadata.STEVT,j] = ICR # % Not sure
             stats[i,xiaedf.xiadata.STICR,j] = ICR

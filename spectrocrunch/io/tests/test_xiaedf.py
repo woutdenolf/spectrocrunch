@@ -68,12 +68,13 @@ class test_xiaedf(unittest.TestCase):
         radix = ['a','a','b']
         mapnums = [range(0,100),range(100,200),range(0,50)]
         linenums = [range(0,100),range(0,100),range(0,50)]
-        labels = [['00','01','S0','st']]*3
+        labels = [['ctr1','ctr2','xia00','xia01','xiaS0','xiast']]*3
         
         p = zip(paths,radix,mapnums,linenums,labels)
 
         # Ordered list
-        filesordered = [os.path.join(path,"{}_xia{}_{:04d}_0000_{:04d}.edf".format(radix,label,mapnum,linenum))  for path,radix,mapnums,linenums,labels in p for mapnum in mapnums for linenum in linenums for label in labels]
+        validlabel = lambda label,linenum: linenum==0 if 'xia' not in label else True
+        filesordered = [os.path.join(path,"{}_{}_{:04d}_0000_{:04d}.edf".format(radix,label,mapnum,linenum)) for path,radix,mapnums,linenums,labels in p for mapnum in mapnums for linenum in linenums for label in labels if validlabel(label,linenum)]
 
         # Grouped
         filesgrouped = collections.OrderedDict()
@@ -84,7 +85,7 @@ class test_xiaedf(unittest.TestCase):
                 if mapnum not in filesgrouped[radix]:
                     filesgrouped[radix][mapnum] = collections.OrderedDict()
                 for linenum in linenums:
-                    filesgrouped[radix][mapnum][linenum] = [os.path.join(path,"{}_xia{}_{:04d}_0000_{:04d}.edf".format(radix,label,mapnum,linenum))  for label in labels]
+                    filesgrouped[radix][mapnum][linenum] = [os.path.join(path,"{}_{}_{:04d}_0000_{:04d}.edf".format(radix,label,mapnum,linenum))  for label in labels if validlabel(label,linenum)]
 
         # Randomize list of files
         files = copy(filesordered)
@@ -126,117 +127,148 @@ class test_xiaedf(unittest.TestCase):
         np.testing.assert_array_equal(data[...,0],fmap.data)
         np.testing.assert_array_equal(fmap.data,emap.data)
 
-    def _testdata(self,dataorg,data,stats,o,dshape,sshape,ishape):
+    def _testdata(self,dataorg,data,stats,xiaobject,dshape,sshape,ishape):
         # data.shape:  ....,nchan,ndet
         # stats.shape: ....,nstat,ndet
 
         ndim = len(dshape)
         
         # Check data
-        o.onlyicrocr(False)
-        o.dtcor(False)
-        o.skipdetectors([])
+        xiaobject.onlyicrocr(False)
+        xiaobject.dtcor(False)
+        xiaobject.skipdetectors([])
 
-        self.assertEqual(o.dshape,dshape)
-        self.assertEqual(o.sshape,sshape)
+        self.assertEqual(xiaobject.dshape,dshape)
+        self.assertEqual(xiaobject.sshape,sshape)
 
-        self.assertEqual(data.shape,o.dshape)
-        self.assertEqual(stats.shape,o.sshape)
-        self.assertEqual(data.dtype,o.dtype)
-        self.assertEqual(stats.dtype,o.stype)
+        self.assertEqual(data.shape,xiaobject.dshape)
+        self.assertEqual(stats.shape,xiaobject.sshape)
+        self.assertEqual(data.dtype,xiaobject.dtype)
+        self.assertEqual(stats.dtype,xiaobject.stype)
 
-        np.testing.assert_array_equal(data,o.data)
-        np.testing.assert_array_equal(stats,o.stats)
+        np.testing.assert_array_equal(data,xiaobject.data)
+        np.testing.assert_array_equal(stats,xiaobject.stats)
 
         # Check DT correction
-        o.onlyicrocr(True)
-        o.dtcor(False)
-        icrocr = o.stats
-        icr = icrocr[...,o.indexicr,:].reshape(ishape)
-        ocr = icrocr[...,o.indexocr,:].reshape(ishape)
-        cor = np.asarray(icr,dtype=o.CORTYPE) / np.asarray(ocr,dtype=o.CORTYPE)
-        np.testing.assert_array_equal(dataorg,o.data*cor)
-        o.onlyicrocr(False)
-        o.dtcor(True)
-        np.testing.assert_array_equal(dataorg,o.data)
+        xiaobject.onlyicrocr(True)
+        
+        xiaobject.dtcor(False)
+        xiaobject.norm("")
+        icrocr = xiaobject.stats
+        icr = icrocr[...,xiaobject.indexicr,:].reshape(ishape)
+        ocr = icrocr[...,xiaobject.indexocr,:].reshape(ishape)
+        cor = np.asarray(icr,dtype=xiaobject.CORTYPE) / np.asarray(ocr,dtype=xiaobject.CORTYPE)
+        np.testing.assert_array_equal(dataorg[...,0],xiaobject.data*cor)
+        
+        xiaobject.onlyicrocr(False)
+        xiaobject.dtcor(True)
+        xiaobject.norm("")
+        np.testing.assert_array_equal(dataorg[...,0],xiaobject.data)
         
         # Test slicing
-        o.skipdetectors([])
-        o.dtcor(False)
+        xiaobject.skipdetectors([])
 
-        indices = genindexing.genindexingn(dshape,advanced=True,eco=True,nmax=50)
-        for dsum in [False]:
-            o.detectorsum(dsum)
-            for dtcor in [True,False]:
-                o.dtcor(dtcor)
-                for onlyicrocr in [True,False]:
-                    o.onlyicrocr(onlyicrocr)
-                    for together in [True,False]:
-                        for index in indices:
-                            #print "\n"*10
-                            #index = (slice(8, -5, 4), slice(2, -8, 1), [-616, 854], 1)
-                            #index = (Ellipsis, -2, None, [False, False, True, True], None)
-                            #print "================",index,"================"
-
-                            if together:
-                                o.dataandstats()
-                                ldata,lstats = o[index]
-                            else:
-                                o.onlydata()
-                                ldata = o[index]
-                                o.onlystats()
-                                lstats = o[index]
-
-                            # Check DT corrected data
-                            if dtcor:
-                                ldata2 = dataorg[index]
-                            else:
-                                ldata2 = data[index]
-                            np.testing.assert_array_equal(ldata,ldata2)
+        indices = genindexing.genindexingn(dshape,advanced=True,eco=True,nmax=50)#,nmax=50)
+        for dsum in [False,True]:
+            xiaobject.detectorsum(dsum)
+            for norm in [False,True]:
+                xiaobject.norm("flux" if norm else "")
+                for dtcor in [False,True]:
+                    xiaobject.dtcor(dtcor)
+                    for onlyicrocr in [False,True]:
+                        xiaobject.onlyicrocr(onlyicrocr)
+                        for together in [False,True]:
                             
-                            # Check stats
-                            if o.nstats==2:
-                                tmp = stats[...,[o.STICR,o.STOCR],:]
-                            else:
-                                tmp = stats
-                            index2 = o._index_stats(index)
-                            lstats2 = tmp[index2]
-                            lstats2 = o._transpose_stats(index,lstats2)
-                            np.testing.assert_array_equal(lstats,lstats2)
+                            for index in indices:
+                                print "\n"*10
+                                #index = (slice(8, -5, 4), slice(2, -8, 1), [-616, 854], 1)
+                                #index = (Ellipsis, -2, None, [False, False, True, True], None)
+                                #index = (None,slice(None),)#(None, None, None, Ellipsis, None)
+                                #index = (9, 13, [0,0,0], 0, slice(None))
+                                #index = slice(None)
+                                #index = ([6, -8], [-8, -13], -4, slice(96, -89, 347), slice(None, None, None))
+                                #index = ([0,1], [0,1],0,0,slice(None, None, None))
+                                #index = (-14, -8, [0,1], [0,0])
+                                #index = (0,0, [1,2], [1,-1], slice(None, None, None))
+                                if dsum:
+                                    index = indexing.replace(index,ndim,[-1],[slice(None)])
+                                    
+                                print "================",index,"================"
+                                print dsum,norm,dtcor,onlyicrocr,together
+
+                                if together:
+                                    xiaobject.dataandstats()
+                                    ldata,lstats = xiaobject[index]
+                                else:
+                                    xiaobject.onlydata()
+                                    ldata = xiaobject[index]
+                                    xiaobject.onlystats()
+                                    lstats = xiaobject[index]
+
+                                # Get data directly
+                                if dtcor and norm:
+                                    ldata2 = dataorg[...,2]
+                                elif dtcor:
+                                    ldata2 = dataorg[...,0]
+                                elif norm:
+                                    ldata2 = dataorg[...,1]
+                                else:
+                                    ldata2 = data
+                                
+                                ldata2 = ldata2[index]
+                                if dsum:
+                                    ldata2 = xiaobject.sumdata(ldata2,xiaobject._getaxis(-1))
+
+                                # Get stats directly
+                                if xiaobject.nstats==2:
+                                    lstats2 = stats[...,[xiaobject.STICR,xiaobject.STOCR],:]
+                                else:
+                                    lstats2 = stats
+                                lstats2 = lstats2[indexing.replacefull(index,ndim,[-2])]
+                                
+                                # Check data
+                                np.testing.assert_allclose(ldata,ldata2)
+
+                                # Check stats
+                                np.testing.assert_array_equal(lstats,lstats2)
+
+                                #return
 
         # Test slicing vs. skip detector
-        o.dtcor(False)
-        o.detectorsum(False)
-
+        xiaobject.onlyicrocr(False)
+        xiaobject.dtcor(False)
+        xiaobject.detectorsum(False)
+        xiaobject.norm("")
+        
         ndet = dshape[-1]
 
         if ndet>2:
-            o.skipdetectors([])
+            xiaobject.skipdetectors([])
             ind = range(0,ndet,2)
 
-            o.dataandstats()
-            ldata,lstats = o[...,ind]
+            xiaobject.dataandstats()
+            ldata,lstats = xiaobject[...,ind]
             np.testing.assert_array_equal(data[...,ind],ldata)
             np.testing.assert_array_equal(stats[...,ind],lstats)
 
-            o.skipdetectors([0,ndet-1])
-            np.testing.assert_array_equal(data[...,1:-1],o.data)
-            np.testing.assert_array_equal(stats[...,1:-1],o.stats)
+            xiaobject.skipdetectors([0,ndet-1])
+            np.testing.assert_array_equal(data[...,1:-1],xiaobject.data)
+            np.testing.assert_array_equal(stats[...,1:-1],xiaobject.stats)
 
         if ndet>1:
-            o.skipdetectors([])
+            xiaobject.skipdetectors([])
 
-            o.dataandstats()
-            ldata,lstats = o[...,1:]
+            xiaobject.dataandstats()
+            ldata,lstats = xiaobject[...,1:]
             np.testing.assert_array_equal(data[...,1:],ldata)
             np.testing.assert_array_equal(stats[...,1:],lstats)
 
-            o.skipdetectors([0])
-            self.assertEqual(ldata.shape,o.dshape)
-            self.assertEqual(lstats.shape,o.sshape)
+            xiaobject.skipdetectors([0])
+            self.assertEqual(ldata.shape,xiaobject.dshape)
+            self.assertEqual(lstats.shape,xiaobject.sshape)
 
-            np.testing.assert_array_equal(data[...,1:],o.data)
-            np.testing.assert_array_equal(stats[...,1:],o.stats)
+            np.testing.assert_array_equal(data[...,1:],xiaobject.data)
+            np.testing.assert_array_equal(stats[...,1:],xiaobject.stats)
 
     def _test_line(self,path,radix,mapnum,linenum,ndet,nspec,nchan):
         # Generate some spectra + statistics
@@ -244,7 +276,7 @@ class test_xiaedf(unittest.TestCase):
 
         # Save data
         line = xiaedf.xialine_number(path,radix,mapnum,linenum)
-        xialabels = ["{:02d}".format(i) for i in range(ndet)]
+        xialabels = ["xia{:02d}".format(i) for i in range(ndet)]
         line.save(data,xialabels,stats=stats)
 
         # Check saved files
@@ -272,10 +304,10 @@ class test_xiaedf(unittest.TestCase):
         #plt.plot(data[0,:,0])
         #plt.show()
 
-    def _xiaconfigidcheck(self,o):
-        if isinstance(o,xiaedf.xiacompound):
+    def _xiaconfigidcheck(self,xiaobject):
+        if isinstance(xiaobject,xiaedf.xiacompound):
             ret = []
-            for l in o._items:
+            for l in xiaobject._items:
                 add = self._xiaconfigidcheck(l)
                 if isinstance(add,list):
                     ret += add
@@ -283,23 +315,27 @@ class test_xiaedf(unittest.TestCase):
                     ret.append(add)
             return ret
         else:
-            return (id(o._xiaconfig),id(o._cache))
+            return (id(xiaobject._xiaconfig),id(xiaobject._cache))
 
     def _test_image(self,path,radix,mapnum,ndet,ncol,nrow,nchan):
         # Generate some spectra + statistics
-        dataorg,data,stats = xiagen.data(nrow*ncol,nchan,ndet)
-        dataorg = dataorg.reshape(nrow,ncol,nchan,ndet)
+        flux = np.linspace(1,2,nrow*ncol)
+        dataorg,data,stats = xiagen.data(nrow*ncol,nchan,ndet,flux=flux)
+        dataorg = dataorg.reshape(nrow,ncol,nchan,ndet,3)
         data = data.reshape(nrow,ncol,nchan,ndet)
         stats = stats.reshape(nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
+        ctrs = {"flux":flux.reshape(nrow,ncol)}
 
         # Save data
         image = xiaedf.xiaimage_number(path,radix,mapnum)
-        xialabels = ["{:02d}".format(i) for i in range(ndet)]
-        image.save(data,xialabels,stats=stats)
+        xialabels = ["xia{:02d}".format(i) for i in range(ndet)]
+        image.save(data,xialabels,stats=stats,ctrs=ctrs)
 
         # Check saved files
         expectedfiles = ["{}_xia{:02}_{:04}_0000_{:04}.edf".format(radix,det,mapnum,linenum) for det in range(ndet) for linenum in range(nrow)]+\
-                        ["{}_xiast_{:04}_0000_{:04}.edf".format(radix,mapnum,linenum) for linenum in range(nrow)]
+                        ["{}_xiast_{:04}_0000_{:04}.edf".format(radix,mapnum,linenum) for linenum in range(nrow)]+\
+                        ["{}_{}_{:04}_0000_0000.edf".format(radix,k,mapnum) for k in ctrs]
+                        
         expectedfiles.sort()
         self.dir.compare(expectedfiles,path=path)
 
@@ -311,11 +347,16 @@ class test_xiaedf(unittest.TestCase):
         self.assertEqual(files,sorted([os.path.join(path,f) for f in expectedfiles],key=xiaedf.xiasortkey))
         self.assertEqual(image.statfilenames(),image2.statfilenames())
         self.assertEqual(image.datafilenames(),image2.datafilenames())
+        self.assertEqual(image.ctrfilenames(),image2.ctrfilenames())
+        
         self.assertEqual(image.statfilenames(),image3.statfilenames())
         self.assertEqual(image.datafilenames(),image3.datafilenames())
+        self.assertEqual(image.ctrfilenames(),image3.ctrfilenames())
+        
         self.assertEqual(image.statfilenames(),image4.statfilenames())
         self.assertEqual(image.datafilenames(),image4.datafilenames())
-
+        self.assertEqual(image.ctrfilenames(),image4.ctrfilenames())
+        
         # Check only one config
         for o in [image,image2,image3,image4]:
             tmp = self._xiaconfigidcheck(o)
@@ -329,19 +370,23 @@ class test_xiaedf(unittest.TestCase):
 
     def _test_stack(self,path,radix,ndet,ncol,nrow,nenergy,nchan):
         # Generate some spectra + statistics
-        dataorg,data,stats = xiagen.data(nrow*ncol*nenergy,nchan,ndet)
-        dataorg = dataorg.reshape(nenergy,nrow,ncol,nchan,ndet)
+        flux = np.linspace(1,2*nenergy,nrow*ncol*nenergy)
+        dataorg,data,stats = xiagen.data(nrow*ncol*nenergy,nchan,ndet,flux=flux)
+        dataorg = dataorg.reshape(nenergy,nrow,ncol,nchan,ndet,3)
         data = data.reshape(nenergy,nrow,ncol,nchan,ndet)
         stats = stats.reshape(nenergy,nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
-
+        ctrs = {"flux":flux.reshape(nenergy,nrow,ncol)}
+        
         # Save data
         stack = xiaedf.xiastack_radix(path,radix)
-        xialabels = ["{:02d}".format(i) for i in range(ndet)]
-        stack.save(data,xialabels,stats=stats)
+        xialabels = ["xia{:02d}".format(i) for i in range(ndet)]
+        stack.save(data,xialabels,stats=stats,ctrs=ctrs)
 
         # Check saved files
         expectedfiles = ["{}_xia{:02}_{:04}_0000_{:04}.edf".format(radix,det,mapnum,linenum) for det in range(ndet) for linenum in range(nrow) for mapnum in range(nenergy)]+\
-                        ["{}_xiast_{:04}_0000_{:04}.edf".format(radix,mapnum,linenum) for linenum in range(nrow) for mapnum in range(nenergy)]
+                        ["{}_xiast_{:04}_0000_{:04}.edf".format(radix,mapnum,linenum) for linenum in range(nrow) for mapnum in range(nenergy)]+\
+                        ["{}_{}_{:04}_0000_0000.edf".format(radix,k,mapnum) for mapnum in range(nenergy) for k in ctrs]
+                        
         expectedfiles.sort()
         self.dir.compare(expectedfiles,path=path)
 

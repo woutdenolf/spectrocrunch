@@ -28,6 +28,8 @@ from . import genindexing
 
 from .. import indexing
 
+from .. import listtools
+
 import numpy as np
 
 import itertools
@@ -64,41 +66,40 @@ class test_indexing(unittest.TestCase):
 
                 for index2 in genindexing.genindexing(n2,advanced=True):
                     index = (index1,index2)
-                    if not genindexing.valid(index,(n1,n2)):
-                        continue
                     if index1 is np.newaxis:
                         index = (np.newaxis,slice(None),index2)
-
+                    if not genindexing.valid(index,(n1,n2)):
+                        continue
                     sarr = arr[index]
                     self.assertEqual(indexing.nonchanging(index,[n1,n2]),np.array_equal(sarr,arr))
 
     def test_replacefull(self):
         a = np.arange(20*30*40).reshape(20,30,40)
 
-        ind = indexing.replacefull(Ellipsis,3,0)
+        ind = indexing.replacefull(Ellipsis,3,[0])
         np.testing.assert_array_equal(a,a[ind])
-        ind = indexing.replacefull(Ellipsis,3,1)
+        ind = indexing.replacefull(Ellipsis,3,[1])
         np.testing.assert_array_equal(a,a[ind])
-        ind = indexing.replacefull(Ellipsis,3,2)
-        np.testing.assert_array_equal(a,a[ind])
-
-        ind = indexing.replacefull((slice(None),Ellipsis),3,-1)
-        np.testing.assert_array_equal(a,a[ind])
-        ind = indexing.replacefull((Ellipsis,slice(None)),3,2)
-        np.testing.assert_array_equal(a,a[ind])
-        ind = indexing.replacefull((Ellipsis,slice(None)),3,0)
+        ind = indexing.replacefull(Ellipsis,3,[2])
         np.testing.assert_array_equal(a,a[ind])
 
-        ind = indexing.replacefull((slice(5,7),Ellipsis),3,0)
+        ind = indexing.replacefull((slice(None),Ellipsis),3,[-1])
         np.testing.assert_array_equal(a,a[ind])
-        ind = indexing.replacefull((Ellipsis,slice(5,7)),3,2)
+        ind = indexing.replacefull((Ellipsis,slice(None)),3,[2])
+        np.testing.assert_array_equal(a,a[ind])
+        ind = indexing.replacefull((Ellipsis,slice(None)),3,[0])
+        np.testing.assert_array_equal(a,a[ind])
+
+        ind = indexing.replacefull((slice(5,7),Ellipsis),3,[0])
+        np.testing.assert_array_equal(a,a[ind])
+        ind = indexing.replacefull((Ellipsis,slice(5,7)),3,[2])
         np.testing.assert_array_equal(a,a[ind])
         
-        ind = indexing.replacefull((slice(5,7),slice(None),slice(None)),3,0)
+        ind = indexing.replacefull((slice(5,7),slice(None),slice(None)),3,[0])
         np.testing.assert_array_equal(a,a[ind])
-        ind = indexing.replacefull((slice(None),slice(5,7),slice(None)),3,1)
+        ind = indexing.replacefull((slice(None),slice(5,7),slice(None)),3,[1])
         np.testing.assert_array_equal(a,a[ind])
-        ind = indexing.replacefull((slice(None),slice(None),slice(5,7)),3,2)
+        ind = indexing.replacefull((slice(None),slice(None),slice(5,7)),3,[2])
         np.testing.assert_array_equal(a,a[ind])
 
     def test_expand(self):
@@ -187,6 +188,20 @@ class test_indexing(unittest.TestCase):
                                 index2,iadv = indexing.extract_dimnonchanging(index)
                                 np.testing.assert_array_equal(a[index],a[index1][index2])
 
+    def test_nonchangingdims(self):
+        ndim = 4
+        axes = [0,1]
+        shape = (4,5,6,7)
+
+        self.assertTrue(indexing.nonchangingdims((slice(None),slice(None),slice(None),slice(None)),ndim,axes,shape=shape))
+        self.assertTrue(indexing.nonchangingdims((slice(None),slice(None),[0,0,0],[0,0,0]),ndim,axes,shape=shape))
+        self.assertTrue(indexing.nonchangingdims((slice(None),slice(None),0,[0,0,0]),ndim,axes,shape=shape))
+        self.assertFalse(indexing.nonchangingdims((slice(None),slice(None),0,np.newaxis,[0,0,0]),ndim,axes,shape=shape))
+        self.assertTrue(indexing.nonchangingdims(([True]*4,slice(None),slice(None),slice(None)),ndim,axes,shape=shape))
+        self.assertTrue(indexing.nonchangingdims((range(4),slice(None),slice(None),slice(None)),ndim,axes,shape=shape))
+        self.assertFalse(indexing.nonchangingdims(([False,True,True,True],slice(None),slice(None),slice(None)),ndim,axes,shape=shape))
+        self.assertFalse(indexing.nonchangingdims(([1,0,2,3],slice(None),slice(None),slice(None)),ndim,axes,shape=shape))
+
     def test_extract_newaxis(self):
         a = np.arange(10*20*30*40).reshape((10,20,30,40))
         self.test_extract_newaxis_help(a,[0,5])
@@ -271,17 +286,82 @@ class test_indexing(unittest.TestCase):
                                 s2 = indexing.shape_afterindexing(s1,index)
                                 self.assertEqual(s2,s3)
 
+    def test_replacefull_transform(self):
+        a = np.arange(10*20*30*40).reshape((10,20,30,40))
+        ndim = a.ndim
+
+        for nsingleton in range(ndim):
+            for nlist in range(ndim-nsingleton):
+                for nother in range(ndim-nsingleton-nlist):
+                    for nnew in range(0,1):
+                        for r in [5]:
+                            p = [range(r)]*nlist + [0]*nsingleton + [slice(None)]*nother + [np.newaxis]*nnew
+                            for index in itertools.permutations(p):
+                                for n in range(1,ndim):
+                                    
+                                    for fullaxes in itertools.combinations(range(ndim),n):
+                                        indexfull,postindexfull,singletonindex = indexing.replacefull_transform(index,fullaxes,ndim,restoreadvanced=False)
+ 
+                                        ind1 = indexing.expand(index,ndim)
+                                        ind2 = indexfull
+                                        ind3 = [i for i in ind1 if i is not np.newaxis]
+                                        b1 = [isinstance(i, list) for i in ind1]
+                                        b2 = [not isinstance(i, list) for i in ind2]
+                                        bseladv = np.logical_and(b1,b2)
+
+                                        if any(bseladv):
+                                            selind = [[ i if isinstance(ind3[axis],list) else 0 for axis in fullaxes] for i in range(r)]
+                                        else:
+                                            selind = [[0]*n]
+         
+                                        # Normal indexing
+                                        b = a[index]
+                                        
+                                        # Indexing without fullaxes (fullaxes might be increased because of advanced indexing)
+                                        c = postindexfull(a[indexfull])
+                                        
+                                        # Index fullaxes after indexing without fullaxes
+                                        d = singletonindex(c,selind)
+                                        
+                                        if any(bseladv):
+                                            if r in d[0].shape:
+                                                i = d[0].shape.index(r)
+                                                singletonindex = indexing.op_singletonindex([i],[False])
+                                                d = [singletonindex(x,[[i]])[0] for i,x in enumerate(d)]
+                                            d = np.stack(d,axis=b.shape.index(r))
+                                        else:
+                                            d = d[0]
+                                        
+                                        self.assertTrue(b.ndim,d.ndim)
+
+                                        # Index fullaxes after normal indexing
+                                        selaxes = np.logical_and( np.asarray(d.shape)==1,np.asarray(b.shape)!=1 )
+                                        if any(selaxes):
+                                            selaxes = np.arange(b.ndim)[selaxes]
+                                            restore = [True]*len(selaxes)
+                                            ind = [0]*len(selaxes)
+                                                
+                                            singletonindex = indexing.op_singletonindex(selaxes,restore)
+                                            b = singletonindex(b,[ind])[0]
+
+                                        np.testing.assert_array_equal(b,d)
+
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
+    testSuite.addTest(test_indexing("test_replacefull_transform"))
+    return testSuite
+    
     testSuite.addTest(test_indexing("test_list"))
     testSuite.addTest(test_indexing("test_numpy"))
     testSuite.addTest(test_indexing("test_replacefull"))
     testSuite.addTest(test_indexing("test_expand"))
     testSuite.addTest(test_indexing("test_axisindex"))
+    testSuite.addTest(test_indexing("test_nonchangingdims"))
     testSuite.addTest(test_indexing("test_extract_dimnonchanging"))
     testSuite.addTest(test_indexing("test_extract_newaxis"))
     testSuite.addTest(test_indexing("test_shape_afterindexing"))
+    testSuite.addTest(test_indexing("test_replacefull_transform"))
     testSuite.addTest(test_indexing("test_slicedstack"))
     return testSuite
     

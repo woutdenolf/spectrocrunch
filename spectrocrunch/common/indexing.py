@@ -408,8 +408,128 @@ def extract_axis(index,axis,shapefull):
 
     return indexrest,shaperest,indexaxis,shapeaxis,axis,ops
 
+class op_singletonindex(object):
+    """Apply singelton index to certain axes and restore axes when requested
+    """
+
+    def __init__(self,selaxes,restore):
+        self.selaxes = selaxes
+        self.restoreaxes = np.asarray(selaxes)[restore]
+        
+    def __str__(self):
+        return "singletonindex: select axes = {}, restore axes = {}".format(self.selaxes,self.restoreaxes)
+
+    def __call__(self,data,selind):
+        n = len(self.restoreaxes)
+        breshape = n!=0
+
+        if breshape:
+            shape = np.asarray(data.shape)
+            b = np.full(len(shape),True)
+            
+            shape[self.selaxes] = 0 # squeeze
+            b[self.selaxes] = False
+            
+            shape[self.restoreaxes] = 1 # restore
+            b[self.restoreaxes] = True
+            
+            shape = shape[b]
+            shape = tuple(shape)
+
+        indexextract = np.full(data.ndim,slice(None))
+        ret = []
+        for ind in selind:
+            if len(ind)!=len(self.selaxes):
+                raise RuntimeError("We have {} selected axes but {} indices.".format(len(self.selaxes),len(ind)))
+
+            # Index the selaxes
+            indexextract[self.selaxes] = ind
+            d = data[tuple(indexextract)]
+
+            # Restore singelton dimensions that weren't already singletons
+            if breshape:
+                if d.size==0:
+                    d = np.empty(shape,dtype=d.dtype)
+                else:
+                    d = d.reshape(shape)
+            ret.append(d)
+
+        return ret
+
+def replacefull_transform(index,fullaxes,ndim,restoreadvanced=True):
+    """
+
+    Args:
+        index(index): object used in indexing or slicing
+        fullaxes(list): axes to not index
+        ndim(num): dimensions before indexing
+    Returns:
+        list,operators
+    """
+
+    # Index after replacing
+    fullaxes = [positiveaxis(axis,ndim) for axis in fullaxes]
+    indexfull = replacefull(index,ndim,fullaxes)
+
+    # Dimensions with and without replacing
+    axes1,_ = axesorder_afterindexing(index,ndim)
+    axes2,_ = axesorder_afterindexing(indexfull,ndim)
+
+    # Advanced indexing dimensions
+    i1list = listtools.where(axes1,lambda x:isinstance(x, list))
+    if len(i1list)==0:
+        laxes1 = []
+    else:
+        laxes1 = axes1[i1list[0]]
+
+    # Check for squeezed and advanced dimensions
+    faxes1 = list(listtools.flatten(axes1))
+    restore = [False]*len(fullaxes)
+    for i,fullaxis in enumerate(fullaxes):
+        if fullaxis in faxes1:
+            # full dimension would have been preserved
+            restore[i] = True
+
+            if fullaxis in laxes1:
+                # full dimension would have been advanced
+                
+                if laxes1==[fullaxis]:
+                    # Only advanced index: keep its place
+                    restore[i] = restoreadvanced
+                    axes1[i1list[0]] = fullaxis
+                    
+                    laxes1 = []
+                else:
+                    # Not the only advanced index: extract and append
+                    restore[i] = False
+                    axes1[i1list[0]] = [a for a in laxes1 if a!= fullaxis]
+                    axes1.append(fullaxis)
+                    
+                    laxes1 = axes1[i1list[0]]
+        else:
+            # Replaced dimension would have been squeezed
+            restore[i] = False
+
+            # Put squeezed dimension at the end
+            axes1.append(fullaxis)
+
+    # Transpose data after indexfull to match data after index
+    ind = [axes2.index(a) for a in axes1 if a in axes2]
+    if ind!=range(len(ind)) and sorted(ind)==range(len(ind)):
+        postindexfull = op_transpose(ind)
+        axes2 = listtools.listadvanced_int(axes2,ind)
+    else:
+        postindexfull = lambda x:x
+    
+    # For extracting particular indices along the full dimensions
+    selaxes = [axes2.index(a) for a in fullaxes]
+        
+    singletonindex = op_singletonindex(selaxes,restore)
+    
+    return indexfull,postindexfull,singletonindex
+
 def nonchanging(index,shape=None):
-    """Check whether slicing takes the entire range or a subrange
+    """Check whether slicing is changing any axes (size or order)
 
     Args:
         index(index): object used in indexing or slicing
@@ -443,6 +563,39 @@ def nonchanging(index,shape=None):
                 return index==range(shape)
     else:
         return False
+
+def nonchangingdims(index,ndim,axes,shape=None):
+    """nonchanging for particular dimensions
+
+    Args:
+        index(index): object used in indexing or slicing (expanded)
+        ndim(num): dimensions before indexings
+        axes(array): dimensions for which you want to know the index
+        shape(Optional(tuple)): dimension before applying index
+    Returns:
+        tuple
+    """
+    index2 = [ind for ind in index if ind is not np.newaxis]
+    index2 = expand(index,ndim)
+    index2 = tuple(listtools.listadvanced(index2,axes))
+    if shape is not None:
+        shape = tuple(listtools.listadvanced(list(shape),axes))
+    b = nonchanging(index2,shape)
+
+    axesorder,_ = axesorder_afterindexing(index,ndim)
+
+    i = listtools.where(axesorder,lambda x:isinstance(x, list))
+    if len(i)==1:
+        i = i[0]
+        if len(axesorder[i])==1:
+            axesorder[i] = axesorder[i][0]
+
+    try:
+        b &= listtools.listadvanced(axesorder,axes)==axes
+    except:
+        b = False
+
+    return b
 
 def positiveaxis(axis,ndim):
     """Positive axis
@@ -516,36 +669,38 @@ def fulldim(index,ndim):
     """
     return ndim + sum([i is np.newaxis for i in index])
 
-def replace(index,ndim,axis,rindex):
+def replace(index,ndim,axes,rindices):
     """Replace indexing for a specified dimension
 
     Args:
         index(index): object used in indexing or slicing
         ndim(num): number of dimensions
-        axis(num): dimension to be replaced
-        rindex(slice, num, ...): new indexing for this dimensions
+        axes(list): dimension to be replaced
+        rindex(list): new indexing for this dimensions
     Returns:
         index
     """
 
-    index2 = expand(index,ndim)
+    index2 = list(expand(index,ndim))
 
-    axis = axisindex(index2,axis,ndim)
+    for axis,rindex in zip(axes,rindices):
+        axis = axisindex(index2,axis,ndim)
+        index2[axis] = rindex
 
-    return index2[:axis] + (rindex,) + index2[axis+1:]
+    return tuple(index2)
 
-def replacefull(index,ndim,axis):
+def replacefull(index,ndim,axes):
     """Set the specified dimension to full range
 
     Args:
         index(index): object used in indexing or slicing
         ndim(num): number of dimensions
-        axis(num): dimension to be set to full range
+        axes(list): dimension to be set to full range
     Returns:
         index
     """
 
-    return replace(index,ndim,axis,slice(None))
+    return replace(index,ndim,axes,[slice(None)]*len(axes))
 
 def expanddims(arr,ndim):
     """Expand array dimensions
@@ -556,8 +711,8 @@ def expanddims(arr,ndim):
     Returns:
         array
     """
-    n = arr.ndim-ndim
-    if n > 1:
+    n = ndim-arr.ndim
+    if n > 0:
         arr = arr[(Ellipsis,)+(np.newaxis,)*n]
     return arr
 
@@ -607,7 +762,7 @@ class operators(object):
                 self.ops.append(op)
 
     def __str__(self):
-        return "operators: {}".format('\n '.join([str(o) for o in self.ops]))
+        return "operators:\n {}".format('\n '.join([str(o) for o in self.ops]))
 
     def __call__(self,data):
         for o in self.ops:
