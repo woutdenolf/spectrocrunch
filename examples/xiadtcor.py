@@ -21,7 +21,7 @@ def gentestdata(datadir,scanname,scannumber):
     data = expand(np.arange(4096,dtype=np.int32))
     stats = expand(np.asarray([0,0,2,1,0,0],dtype=np.int32))
     o = xiaedf.xiaimage_number(datadir,scanname,scannumber)
-    xialabels = ["{:02d}".format(i) for i in range(data.shape[-1])]
+    xialabels = ["xia{:02d}".format(i) for i in range(data.shape[-1])]
     o.save(data,xialabels,stats=stats)
 
 if __name__ == '__main__':
@@ -42,12 +42,14 @@ if __name__ == '__main__':
     gendata = True
     deadtime = True
     add = True
+    norm = False
     exclude_detectors=[]
     outdir = "/data/id21/inhouse/wout/laurence/cor/"
 
     outdir1 = os.path.join(outdir,"1")
     outdir2 = os.path.join(outdir,"2")
     outname = "cor"
+    normctr = "zap_it"
 
     if gendata:
         if os.path.isdir(outdir):
@@ -64,18 +66,20 @@ if __name__ == '__main__':
         # Advanced parsing
         t0 = time()
         mapin = xiaedf.xiaimage_number(datadir,scanname,scannumber)
-        mapin.skipdetectors(["S0"]+["{:02d}".format(i) for i in exclude_detectors])
+        mapin.skipdetectors(["xiaS0"]+["xia{:02d}".format(i) for i in exclude_detectors])
         mapin.dtcor(deadtime)
+        if norm:
+            mapin.norm(normctr,m=1)
+        else:
+            mapin.norm(None)
         mapin.detectorsum(add)
         mapout = xiaedf.xiaimage_number(outdir2,outname,scannumber)
         data = mapin.data
-        #mapin.dataandstats()
-        #data,_ = mapin[:]
         
         if add:
-            xialabels = ["S1"]
+            xialabels = ["xiaS1"]
         else:
-            xialabels = ["{:02d}".format(i) for i in range(data.shape[-1])]
+            xialabels = ["xia{:02d}".format(i) for i in range(data.shape[-1])]
         mapout.save(data,xialabels)
         print time()-t0
         

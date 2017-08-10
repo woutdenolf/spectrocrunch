@@ -93,6 +93,7 @@ class test_xiaedf(unittest.TestCase):
 
         # Check sorting
         files2 = sorted(files,key=xiaedf.xiasortkey)
+        print files2
         self.assertEqual(filesordered,files2)
 
         # Check grouping
@@ -172,7 +173,7 @@ class test_xiaedf(unittest.TestCase):
         for dsum in [False,True]:
             xiaobject.detectorsum(dsum)
             for norm in [False,True]:
-                xiaobject.norm("flux" if norm else "")
+                xiaobject.norm("flux" if norm else None)
                 for dtcor in [False,True]:
                     xiaobject.dtcor(dtcor)
                     for onlyicrocr in [False,True]:
@@ -238,7 +239,7 @@ class test_xiaedf(unittest.TestCase):
         xiaobject.onlyicrocr(False)
         xiaobject.dtcor(False)
         xiaobject.detectorsum(False)
-        xiaobject.norm("")
+        xiaobject.norm(None)
         
         ndet = dshape[-1]
 
@@ -334,7 +335,7 @@ class test_xiaedf(unittest.TestCase):
         # Check saved files
         expectedfiles = ["{}_xia{:02}_{:04}_0000_{:04}.edf".format(radix,det,mapnum,linenum) for det in range(ndet) for linenum in range(nrow)]+\
                         ["{}_xiast_{:04}_0000_{:04}.edf".format(radix,mapnum,linenum) for linenum in range(nrow)]+\
-                        ["{}_{}_{:04}_0000_0000.edf".format(radix,k,mapnum) for k in ctrs]
+                        ["{}_{}_{:04}_0000.edf".format(radix,k,mapnum) for k in ctrs]
                         
         expectedfiles.sort()
         self.dir.compare(expectedfiles,path=path)
@@ -345,6 +346,7 @@ class test_xiaedf(unittest.TestCase):
         image3 = xiaedf.xiaimage_linenumbers(path,radix,mapnum,range(nrow))
         image4 = xiaedf.xiaimage_number(path,radix,mapnum)
         self.assertEqual(files,sorted([os.path.join(path,f) for f in expectedfiles],key=xiaedf.xiasortkey))
+        
         self.assertEqual(image.statfilenames(),image2.statfilenames())
         self.assertEqual(image.datafilenames(),image2.datafilenames())
         self.assertEqual(image.ctrfilenames(),image2.ctrfilenames())
@@ -385,7 +387,7 @@ class test_xiaedf(unittest.TestCase):
         # Check saved files
         expectedfiles = ["{}_xia{:02}_{:04}_0000_{:04}.edf".format(radix,det,mapnum,linenum) for det in range(ndet) for linenum in range(nrow) for mapnum in range(nenergy)]+\
                         ["{}_xiast_{:04}_0000_{:04}.edf".format(radix,mapnum,linenum) for linenum in range(nrow) for mapnum in range(nenergy)]+\
-                        ["{}_{}_{:04}_0000_0000.edf".format(radix,k,mapnum) for mapnum in range(nenergy) for k in ctrs]
+                        ["{}_{}_{:04}_0000.edf".format(radix,k,mapnum) for mapnum in range(nenergy) for k in ctrs]
                         
         expectedfiles.sort()
         self.dir.compare(expectedfiles,path=path)
@@ -397,8 +399,10 @@ class test_xiaedf(unittest.TestCase):
         self.assertEqual(files,sorted([os.path.join(path,f) for f in expectedfiles],key=xiaedf.xiasortkey))
         self.assertEqual(stack.statfilenames(),stack2.statfilenames())
         self.assertEqual(stack.datafilenames(),stack2.datafilenames())
+        self.assertEqual(stack.ctrfilenames(),stack2.ctrfilenames())
+        
         self.assertEqual(stack.statfilenames(),stack3.statfilenames())
-        self.assertEqual(stack.datafilenames(),stack3.datafilenames())
+        self.assertEqual(stack.ctrfilenames(),stack3.ctrfilenames())
 
         # Check data
         dshape = (nenergy,nrow,ncol,nchan,ndet)
@@ -444,11 +448,11 @@ class test_xiaedf(unittest.TestCase):
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_xiaedf("test_memmap"))
-    testSuite.addTest(test_xiaedf("test_nameparsing"))
-    testSuite.addTest(test_xiaedf("test_line"))
+    #testSuite.addTest(test_xiaedf("test_memmap"))
+    #testSuite.addTest(test_xiaedf("test_nameparsing"))
+    #testSuite.addTest(test_xiaedf("test_line"))
     testSuite.addTest(test_xiaedf("test_image"))
-    testSuite.addTest(test_xiaedf("test_stack"))
+    #testSuite.addTest(test_xiaedf("test_stack"))
     return testSuite
     
 if __name__ == '__main__':
