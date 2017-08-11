@@ -35,6 +35,7 @@ import numbers
 
 from ..common import indexing
 from ..common import listtools
+from ..common import instance
 
 from .edf import edfmemmap as edfimage
 
@@ -57,14 +58,20 @@ def xiaparsefilename(filename):
         label = lst[-4]
         if "xia" in label:
             return '_'.join(lst[:-4]),int(lst[-3]),int(lst[-1]),lst[-4]
-            
+    
     if lst[-4]=="zap" or lst[-4]=="xmap" or lst[-4]=="arr":
         return '_'.join(lst[:-4]),int(lst[-2]),-1,'_'.join(lst[-4:-2])
     else:
         return '_'.join(lst[:-3]),int(lst[-2]),-1,lst[-3]
     
 def xiafilename(radix,mapnum,linenum,label):
-    return "{}_{}_{:04d}_0000_{:04d}.edf".format(radix,label,mapnum,linenum)
+    if linenum==-1:
+        return "{}_{}_{:04d}_0000.edf".format(radix,label,mapnum)
+    else:
+        return "{}_{}_{:04d}_0000_{:04d}.edf".format(radix,label,mapnum,linenum)
+
+def xiaformat_line(radix,mapnum,linenum):
+    return "{}_{}_{:04d}_0000_{:04d}.edf".format(radix,'{}',mapnum,linenum)
 
 def xiaformat_line(radix,mapnum,linenum):
     return "{}_{}_{:04d}_0000_{:04d}.edf".format(radix,'{}',mapnum,linenum)
@@ -118,10 +125,11 @@ def xiasearch(path,radix=None,mapnum=None,linenum=None,label=None,sort=True,ctrl
     if ctrs:
         if ctrlabel is None:
             ctrlabel = '*'
+            
+        # Cannot be done unless using regex (or xiaparsefilename afterwards like done here)
         mask = os.path.join(path,ctrformat().format(radix,ctrlabel,mapnum))
         ctrfiles = glob(mask)
-
-        # Cannot be done unless using regex
+        
         ctrfiles = [f for f in ctrfiles if xiaparsefilename(f)[2]==-1]
         
         if onlyctrs:
@@ -378,13 +386,13 @@ class xiadict(dict):
             self["dtcor"] = False
             
         if "norm" not in self:
-            self["norm"] = {"ctr":None,"m":1}
+            self["norm"] = {"ctr":None,"func":lambda x:x}
         else:
             if "ctr" not in "norm":
                 self["norm"]["ctr"] = None
-            if "m" not in "norm":
-                self["norm"]["m"] = 1
-
+            if "func" not in "norm":
+                self["norm"]["func"] = lambda x:x
+                
         if "maxlevel" not in self:
             self["maxlevel"] = 0
 
@@ -421,9 +429,12 @@ class xiadict(dict):
     def dtcor(self,b):
         self["dtcor"] = b
 
-    def norm(self,ctr,m=1):
+    def norm(self,ctr,func=None):
         self["norm"]["ctr"] = ctr
-        self["norm"]["m"] = m
+        if callable(func):
+            self["norm"]["func"] = func
+        else:
+            self["norm"]["func"] = lambda x:x
         
     def detectorsum(self,b):
         self["detectors"]["add"] = b
@@ -599,8 +610,8 @@ class xiadata(object):
     def dtcor(self,b):
         self._xiaconfig.dtcor(b)
 
-    def norm(self,ctr,m=1):
-        self._xiaconfig.norm(ctr,m=m)
+    def norm(self,ctr,func=None):
+        self._xiaconfig.norm(ctr,func=func)
 
     def _getnormalizer(self):
         raise NotImplementedError("This object does not have normalization information")
@@ -608,8 +619,7 @@ class xiadata(object):
     def _getindexednormalizer(self,index):
         norm = self._getnormalizer()
         norm = self._index_norm(norm,index)
-        norm = norm.astype(self.CORTYPE)
-        norm /= self._xiaconfig["norm"]["m"]
+        norm = self._xiaconfig["norm"]["func"](norm.astype(self.CORTYPE))
         return norm
         
     def detectorsum(self,b):
@@ -788,11 +798,11 @@ class xiadata(object):
         with self.env_cache():
             corinfo = self._correctioninfo()
 
-            self._dbgmsg("")
-            self._dbgmsg(self)
-            self._dbgmsg(self._xiaconfig)
-            self._dbgmsg("corinfo: {}".format(corinfo))
-            self._dbgmsg("index: {}".format(index))
+            #self._dbgmsg("")
+            #self._dbgmsg(self)
+            #self._dbgmsg(self._xiaconfig)
+            #self._dbgmsg("corinfo: {}".format(corinfo))
+            #self._dbgmsg("index: {}".format(index))
             
             # What needs to be done on this level?
             correct = any(corinfo.values())
@@ -809,13 +819,13 @@ class xiadata(object):
                 with self.env_onlydata():
                     data = self._getdata(index)
 
-                    self._dbgmsg("data:")
-                    self._dbgmsg(self.dshape)
-                    self._dbgmsg(index)
-                    self._dbgmsg(data.shape)
+                    #self._dbgmsg("data:")
+                    #self._dbgmsg(self.dshape)
+                    #self._dbgmsg(index)
+                    #self._dbgmsg(data.shape)
 
                 if onlydata and not correct:
-                    self._dbgmsg("return data\n")
+                    #self._dbgmsg("return data\n")
                     return data
 
             ### Get statistics from lower levels
@@ -825,19 +835,19 @@ class xiadata(object):
                     indexstats = self._index_stats(index)
                     stats = self._getstats(indexstats)
 
-                    self._dbgmsg("stats:")
-                    self._dbgmsg(self.sshape)
-                    self._dbgmsg(indexstats)
-                    self._dbgmsg(stats.shape)
+                    #self._dbgmsg("stats:")
+                    #self._dbgmsg(self.sshape)
+                    #self._dbgmsg(indexstats)
+                    #self._dbgmsg(stats.shape)
 
                 if onlystats:
-                    self._dbgmsg("return stats\n")
+                    #self._dbgmsg("return stats\n")
                     return stats
 
             ### Apply corrections
 
             if corinfo["dt"]:
-                self._dbgmsg("dt...")
+                #self._dbgmsg("dt...")
                 
                 # Extract icr/ocr
                 icr,ocr = self.extract_icrocr(stats,index)
@@ -850,30 +860,30 @@ class xiadata(object):
                 
                 # Apply deadtime correction
                 data = data*cor
-                self._dbgmsg(data.shape)
+                #self._dbgmsg(data.shape)
 
             if corinfo["sum"]:
-                self._dbgmsg("sum...")
+                #self._dbgmsg("sum...")
 
                 # Sum along the last axis (detectors)
                 data = self.sumdata(data,-1)
-                self._dbgmsg(data.shape)
+                #self._dbgmsg(data.shape)
 
             if corinfo["norm"]:
-                self._dbgmsg("norm...")
+                #self._dbgmsg("norm...")
 
                 # Get normalizer
                 cor = self._getindexednormalizer(index)
 
                 # Apply normalization
                 data = data / cor.astype(self.CORTYPE)
-                self._dbgmsg(data.shape)
+                #self._dbgmsg(data.shape)
                 
             if onlydata:
-                self._dbgmsg("return corrected data\n")
+                #self._dbgmsg("return corrected data\n")
                 return data
 
-            self._dbgmsg("return data,stats\n")
+            #self._dbgmsg("return data,stats\n")
             return data,stats
 
     def _getdata(self,index=slice(None)):
@@ -1046,17 +1056,17 @@ class xiacompound(xiadata):
             files += l.datafilenames()
         return files
     
-    def ctrfilenames(self):
+    def ctrfilenames(self,ctr=None):
         """
         Args:
-            None
+            ctr(Optional(str or list))
         Returns:
             list(str)
         """
         items = self._getitems()
         files = []
         for l in items:
-            files += l.ctrfilenames()
+            files += l.ctrfilenames(ctr=ctr)
         return files
 
     def statfilenames(self):
@@ -1264,16 +1274,23 @@ class xiaimage(xiacompound):
     def ndim(self):
         return 4
 
-    def ctrfilenames(self):
+    def ctrfilenames(self,ctr=None):
         """
         Args:
-            None
+            ctr(Optional(str or list))
         Returns:
             list(str)
         """
         if len(self._ctrfiles)==0:
             self.search()
-        return self._ctrfiles
+            
+        if ctr is None:
+            return self._ctrfiles
+            
+        if instance.isstring(ctr):
+            ctr = [ctr]
+        
+        return list(listtools.flatten([f for c in ctr for f in self._ctrfiles if xiaparsefilename(f)[-1]==c]))
         
     def normfilename(self):
         """
@@ -1286,10 +1303,9 @@ class xiaimage(xiacompound):
         if ctr is None:
             return None
         
-        files = self.ctrfilenames()
-        ret = [f for f in files if xiaparsefilename(f)[-1]==ctr]
-        if len(ret)==1:
-            return ret[0]
+        files = self.ctrfilenames(ctr=ctr)
+        if len(files)==1:
+            return files[0]
         else:
             return None
         
@@ -1562,6 +1578,7 @@ class xiastack_radix(xiastack):
 
         self.path = path
         self.radix = radix
+        self._fileformat = [os.path.join(p,xiaformat_radix(r)) for p,r in zip(self.path,self.radix)]
 
         self.imagekwargs = kwargs
 

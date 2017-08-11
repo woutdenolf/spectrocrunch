@@ -74,7 +74,7 @@ def data(nspec,nchan,ndet,concentration=None,flux=None):
 
         for j in range(ndet):
             rawspectrum = spectrum*solidangle[j]
-            rawspectrum += np.random.poisson(rawspectrum)
+            rawspectrum = np.random.poisson(rawspectrum)
             ICR = rawspectrum.sum()
 
             OCR = ICR*(1-j/50.)# DT = 2*j %

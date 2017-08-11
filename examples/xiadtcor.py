@@ -69,7 +69,7 @@ if __name__ == '__main__':
         mapin.skipdetectors(["xiaS0"]+["xia{:02d}".format(i) for i in exclude_detectors])
         mapin.dtcor(deadtime)
         if norm:
-            mapin.norm(normctr,m=1)
+            mapin.norm(normctr)
         else:
             mapin.norm(None)
         mapin.detectorsum(add)

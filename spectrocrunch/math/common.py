@@ -24,8 +24,13 @@
 
 import numpy as np
 
+from math import log10,floor
+
 def logscale(img):
     ret = -np.log(img/np.nanmax(img))
     ret /= np.nanmax(ret)
     return 1-ret
+
+def round_sig(x, sig):
+    return round(x, sig-int(floor(log10(abs(x))))-1)
 

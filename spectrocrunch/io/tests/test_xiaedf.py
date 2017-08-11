@@ -46,6 +46,8 @@ from copy import copy
 
 from ...common import indexing
 
+from ...common import listtools
+
 from ...common.tests import genindexing
 
 class test_xiaedf(unittest.TestCase):
@@ -72,10 +74,6 @@ class test_xiaedf(unittest.TestCase):
         
         p = zip(paths,radix,mapnums,linenums,labels)
 
-        # Ordered list
-        validlabel = lambda label,linenum: linenum==0 if 'xia' not in label else True
-        filesordered = [os.path.join(path,"{}_{}_{:04d}_0000_{:04d}.edf".format(radix,label,mapnum,linenum)) for path,radix,mapnums,linenums,labels in p for mapnum in mapnums for linenum in linenums for label in labels if validlabel(label,linenum)]
-
         # Grouped
         filesgrouped = collections.OrderedDict()
         for path,radix,mapnums,linenums,labels in p:
@@ -84,16 +82,21 @@ class test_xiaedf(unittest.TestCase):
             for mapnum in mapnums:
                 if mapnum not in filesgrouped[radix]:
                     filesgrouped[radix][mapnum] = collections.OrderedDict()
+                linenum = -1
+                filesgrouped[radix][mapnum][linenum] = [os.path.join(path,xiaedf.xiafilename(radix,mapnum,linenum,label)) for label in labels if "xia" not in label]
                 for linenum in linenums:
-                    filesgrouped[radix][mapnum][linenum] = [os.path.join(path,"{}_{}_{:04d}_0000_{:04d}.edf".format(radix,label,mapnum,linenum))  for label in labels if validlabel(label,linenum)]
-
+                    filesgrouped[radix][mapnum][linenum] = [os.path.join(path,xiaedf.xiafilename(radix,mapnum,linenum,label)) for label in labels if "xia" in label]
+ 
+        # Ordered list
+        filesordered = [vline for radix,vradix in filesgrouped.items() for mapnum,vmap in vradix.items() for linenum,vline in vmap.items()]
+        filesordered = list(listtools.flatten(filesordered))
+ 
         # Randomize list of files
         files = copy(filesordered)
         shuffle(files)
 
         # Check sorting
         files2 = sorted(files,key=xiaedf.xiasortkey)
-        print files2
         self.assertEqual(filesordered,files2)
 
         # Check grouping
@@ -120,7 +123,7 @@ class test_xiaedf(unittest.TestCase):
         line = xiaedf.xialine_number(path,radix,mapnum,linenum)
 
         data = np.random.rand(8,5,1)
-        line.save(data,["00"])
+        line.save(data,["xia00"])
 
         emap = edf.edfmemmap(line.datafilenames()[0])
         fmap = edf.edffabio(line.datafilenames()[0])
@@ -154,7 +157,6 @@ class test_xiaedf(unittest.TestCase):
         xiaobject.onlyicrocr(True)
         
         xiaobject.dtcor(False)
-        xiaobject.norm("")
         icrocr = xiaobject.stats
         icr = icrocr[...,xiaobject.indexicr,:].reshape(ishape)
         ocr = icrocr[...,xiaobject.indexocr,:].reshape(ishape)
@@ -163,9 +165,8 @@ class test_xiaedf(unittest.TestCase):
         
         xiaobject.onlyicrocr(False)
         xiaobject.dtcor(True)
-        xiaobject.norm("")
         np.testing.assert_array_equal(dataorg[...,0],xiaobject.data)
-        
+
         # Test slicing
         xiaobject.skipdetectors([])
 
@@ -180,22 +181,14 @@ class test_xiaedf(unittest.TestCase):
                         xiaobject.onlyicrocr(onlyicrocr)
                         for together in [False,True]:
                             
-                            for index in indices:
-                                print "\n"*10
-                                #index = (slice(8, -5, 4), slice(2, -8, 1), [-616, 854], 1)
-                                #index = (Ellipsis, -2, None, [False, False, True, True], None)
-                                #index = (None,slice(None),)#(None, None, None, Ellipsis, None)
-                                #index = (9, 13, [0,0,0], 0, slice(None))
-                                #index = slice(None)
-                                #index = ([6, -8], [-8, -13], -4, slice(96, -89, 347), slice(None, None, None))
-                                #index = ([0,1], [0,1],0,0,slice(None, None, None))
-                                #index = (-14, -8, [0,1], [0,0])
-                                #index = (0,0, [1,2], [1,-1], slice(None, None, None))
+                            #for index in indices:
+                                #print "\n"*10
+                                #index = ([-11, 9], [-3, -3], [5, 3], slice(16, -358, 78), [-4, -1]) 
                                 if dsum:
                                     index = indexing.replace(index,ndim,[-1],[slice(None)])
                                     
-                                print "================",index,"================"
-                                print dsum,norm,dtcor,onlyicrocr,together
+                                #print "================",index,"================"
+                                #print dsum,norm,dtcor,onlyicrocr,together
 
                                 if together:
                                     xiaobject.dataandstats()
@@ -451,8 +444,8 @@ def test_suite_all():
     #testSuite.addTest(test_xiaedf("test_memmap"))
     #testSuite.addTest(test_xiaedf("test_nameparsing"))
     #testSuite.addTest(test_xiaedf("test_line"))
-    testSuite.addTest(test_xiaedf("test_image"))
-    #testSuite.addTest(test_xiaedf("test_stack"))
+    #testSuite.addTest(test_xiaedf("test_image"))
+    testSuite.addTest(test_xiaedf("test_stack"))
     return testSuite
     
 if __name__ == '__main__':
