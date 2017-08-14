@@ -65,7 +65,7 @@ def calccroproi(stack,nanval,stackdim):
         else:
             img = dataset[...,i]
         if nanval is np.nan:
-            mask &= np.isnan(img)==False
+            mask &= np.logical_not(np.isnan(img))
         else:
             mask &= img != nanval
 
