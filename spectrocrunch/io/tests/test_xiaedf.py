@@ -170,7 +170,7 @@ class test_xiaedf(unittest.TestCase):
         # Test slicing
         xiaobject.skipdetectors([])
 
-        indices = genindexing.genindexingn(dshape,advanced=True,eco=True,nmax=50)#,nmax=50)
+        indices = genindexing.genindexingn(dshape,advanced=True,eco=True,nmax=50)
         for dsum in [False,True]:
             xiaobject.detectorsum(dsum)
             for norm in [False,True]:
@@ -181,9 +181,9 @@ class test_xiaedf(unittest.TestCase):
                         xiaobject.onlyicrocr(onlyicrocr)
                         for together in [False,True]:
                             
-                            #for index in indices:
+                            for index in indices:
                                 #print "\n"*10
-                                #index = ([-11, 9], [-3, -3], [5, 3], slice(16, -358, 78), [-4, -1]) 
+                                #index = ([-11, 9], [-3, -3], [5, 3], slice(None,None,512), [-4, -1]) 
                                 if dsum:
                                     index = indexing.replace(index,ndim,[-1],[slice(None)])
                                     
@@ -225,8 +225,6 @@ class test_xiaedf(unittest.TestCase):
 
                                 # Check stats
                                 np.testing.assert_array_equal(lstats,lstats2)
-
-                                #return
 
         # Test slicing vs. skip detector
         xiaobject.onlyicrocr(False)
@@ -318,7 +316,6 @@ class test_xiaedf(unittest.TestCase):
         dataorg = dataorg.reshape(nrow,ncol,nchan,ndet,3)
         data = data.reshape(nrow,ncol,nchan,ndet)
         stats = stats.reshape(nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
-        ctrs = {"flux":flux.reshape(nrow,ncol)}
 
         # Save data
         image = xiaedf.xiaimage_number(path,radix,mapnum)
@@ -441,10 +438,10 @@ class test_xiaedf(unittest.TestCase):
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    #testSuite.addTest(test_xiaedf("test_memmap"))
-    #testSuite.addTest(test_xiaedf("test_nameparsing"))
-    #testSuite.addTest(test_xiaedf("test_line"))
-    #testSuite.addTest(test_xiaedf("test_image"))
+    testSuite.addTest(test_xiaedf("test_memmap"))
+    testSuite.addTest(test_xiaedf("test_nameparsing"))
+    testSuite.addTest(test_xiaedf("test_line"))
+    testSuite.addTest(test_xiaedf("test_image"))
     testSuite.addTest(test_xiaedf("test_stack"))
     return testSuite
     

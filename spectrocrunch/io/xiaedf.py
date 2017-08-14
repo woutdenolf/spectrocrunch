@@ -593,10 +593,10 @@ class xiadata(object):
         print "{}{}".format(" "*self._level*2,msg) 
         
     def _dbgmsg(self,msg):
-        #return
+        return
         #if self._highestlevel:
-        if self._level >= 1:
-            self._tracemsg(msg)
+        #if self._level >= 1:
+        #    self._tracemsg(msg)
 
     def dataandstats(self):
         self._xiaconfig.dataandstats()
@@ -657,7 +657,7 @@ class xiadata(object):
             return self.NSTATS
         
     def _getaxis(self,i,stats=False):
-        """Axes (...,nchan,ndet) can transpose aftr indexing. Get the new axis position.
+        """Axes (...,nchan,ndet) can transpose after indexing. Get the new axis position.
 
         Args:
             index(index):
@@ -696,19 +696,14 @@ class xiadata(object):
         
         norm = indexing.expanddims(norm,self.ndim)
 
-        levelcache = self._levelcache()
-        if "norm" not in levelcache:
-            fullaxes = [-2,-1]
-            indexfull,postindexfull,singletonindex = indexing.replacefull_transform(index,fullaxes,self.ndim)
-            levelcache["norm"] = dict()
-            levelcache["norm"]["indexfull"] = indexfull
-            levelcache["norm"]["postindexfull"] = postindexfull
-            levelcache["norm"]["singletonindex"] = singletonindex
-            
-        norm = norm[levelcache["norm"]["indexfull"]]
-        norm = levelcache["norm"]["postindexfull"](norm)
-        selind = [0]*len(levelcache["norm"]["singletonindex"].selaxes)
-        norm = levelcache["norm"]["singletonindex"](norm,[selind])[0]
+        fullaxes = [-2,-1]
+        indexfull,postindexfull,singletonindex = indexing.replacefull_transform(index,fullaxes,self.ndim)
+        # Note: cannot levelcache this because singleton values in index may change
+
+        norm = norm[indexfull]
+        norm = postindexfull(norm)
+        selind = [0]*len(singletonindex.selaxes)
+        norm = singletonindex(norm,[selind])[0]
         return norm
         
     def _index_stats(self,index):
@@ -725,6 +720,7 @@ class xiadata(object):
         """
         levelcache = self._levelcache()
         if "index" not in levelcache:
+            # Note: singleton values in index may change but this does not affect 
             levelcache["index"] = dict()
             levelcache["index"]["axesdata"],_ = indexing.axesorder_afterindexing(index,self.ndim)
             levelcache["index"]["axesstats"],_ = indexing.axesorder_afterindexing(self._index_stats(index),self.ndim)
@@ -740,25 +736,21 @@ class xiadata(object):
         Returns:
             list(array)
         """
+        fullaxes = [-2]
+        indexfull,postindexfull,singletonindex = indexing.replacefull_transform(index,fullaxes,self.ndim)
+        # Note: cannot levelcache this because singleton values in index may change
         
-        levelcache = self._levelcache()
-        if "stat" not in levelcache:
-            fullaxes = [-2]
-            indexfull,postindexfull,singletonindex = indexing.replacefull_transform(index,fullaxes,self.ndim)
-            # indexfull already applied
-            levelcache["stat"] = dict()
-            levelcache["stat"]["postindexfull"] = postindexfull
-            levelcache["stat"]["singletonindex"] = singletonindex
+        # indexfull already applied
 
-        tmp = levelcache["stat"]["postindexfull"](stats)
+        tmp = postindexfull(stats)
         
-        nexpected = len(levelcache["stat"]["singletonindex"].selaxes)
+        nexpected = len(singletonindex.selaxes)
         if nexpected==1:
             selind = [[i] for i in statind]
         else:
             selind = [[i,0] for i in statind]
 
-        tmp = levelcache["stat"]["singletonindex"](tmp,selind)
+        tmp = singletonindex(tmp,selind)
   
         return tmp
         
@@ -871,7 +863,7 @@ class xiadata(object):
 
             if corinfo["norm"]:
                 #self._dbgmsg("norm...")
-
+                
                 # Get normalizer
                 cor = self._getindexednormalizer(index)
 

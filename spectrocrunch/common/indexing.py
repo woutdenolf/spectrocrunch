@@ -512,7 +512,7 @@ def replacefull_transform(index,fullaxes,ndim,restoreadvanced=True):
 
             # Put squeezed dimension at the end
             axes1.append(fullaxis)
-
+    
     # Transpose data after indexfull to match data after index
     ind = [axes2.index(a) for a in axes1 if a in axes2]
     if ind!=range(len(ind)) and sorted(ind)==range(len(ind)):
