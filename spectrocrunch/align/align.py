@@ -156,7 +156,7 @@ class align(object):
         """Apply cropping
         """
         dim1,dim2 = img.shape
-        self.cropfromextend(dim1,dim2)
+        crop = self.cropfromextend(dim1,dim2)
         if crop[0][0]!=0 or crop[1][0]!=0 or crop[0][1]!=dim1 or crop[1][1]!=dim2:
             return img[crop[0][0]:crop[0][1],crop[1][0]:crop[1][1]]
         else:

@@ -316,7 +316,8 @@ class test_xiaedf(unittest.TestCase):
         dataorg = dataorg.reshape(nrow,ncol,nchan,ndet,3)
         data = data.reshape(nrow,ncol,nchan,ndet)
         stats = stats.reshape(nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
-
+        ctrs = {"flux":flux.reshape(nrow,ncol)}
+        
         # Save data
         image = xiaedf.xiaimage_number(path,radix,mapnum)
         xialabels = ["xia{:02d}".format(i) for i in range(ndet)]
