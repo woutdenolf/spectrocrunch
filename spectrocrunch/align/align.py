@@ -74,18 +74,20 @@ class align(object):
 
         # Data IO
         self.source = alignSource(source,sourcelist,stackdim=stackdim)
-        self.dest = alignDest(dest,destlist,extension,stackdim=stackdim,overwrite=overwrite)
+        self.dest = alignDest(dest,destlist,extension,stackdim=self.source.stackdim,overwrite=overwrite)
     
         # Missing data
         self.cval = cval
 
         # Transformation settings (set before actual transformation)
-        self.dtype = np.float32
+        self.dtype = (np.float32(1)*self.source.dtype.type(1)).dtype.type
         self.alignonraw = True
         self.usekernel = False # Doesn't work well for Elastix!
         self.pre_align = {"roi":None}
         self.pre_transform = {"pad":False}
         self.post_transform = {"crop":False}
+        self.pre_transform_requested = {"pad":False}
+        self.post_transform_requested = {"crop":False}
         self.extend = ((0,0),(0,0)) # negative: crop, positive: pad
 
         # Transformation (change of frame matrices, not change of coordinates!)
@@ -99,10 +101,12 @@ class align(object):
         # Plot
         self.plotinfo = {"ON":plot,"fig":None,"axes":None}
 
-    def defaulttransform(self,ttype=None):
-        if (ttype==None):
+    def defaulttransform(self,ttype=None,dtype=None):
+        if ttype is None:
             ttype = self.transfotype
-        return transform(ttype,dtype=self.dtype,cval=self.cval)
+        if dtype is None:
+            dtype = self.dtype
+        return transform(ttype,dtype=dtype,cval=self.cval)
 
     def enableplot(self):
         self.plotinfo["ON"] = True
@@ -130,12 +134,19 @@ class align(object):
         ax.set_title(title)
 
         plt.pause(0.01)
-
+        
+    def padfromextend(self):
+        return ((max(self.extend[0][0],0),max(self.extend[0][1],0)),\
+               (max(self.extend[1][0],0),max(self.extend[1][1],0)))
+               
+    def cropfromextend(self,dim1,dim2):
+        return  ((max(-self.extend[0][0],0),dim1-max(-self.extend[0][1],0)),\
+                (max(-self.extend[1][0],0),dim2-max(-self.extend[1][1],0)))
+                
     def pad(self,img):
         """Apply padding
         """
-        pad = ((max(self.extend[0][0],0),max(self.extend[0][1],0)),\
-               (max(self.extend[1][0],0),max(self.extend[1][1],0)))
+        pad = self.padfromextend()
         if np.count_nonzero(pad)!=0:
             return np.pad(img,pad,'constant',constant_values=(self.cval,self.cval))
         else:
@@ -145,8 +156,7 @@ class align(object):
         """Apply cropping
         """
         dim1,dim2 = img.shape
-        crop = ((max(-self.extend[0][0],0),dim1-max(-self.extend[0][1],0)),\
-                (max(-self.extend[1][0],0),dim2-max(-self.extend[1][1],0)))
+        crop = self.cropfromextend(dim1,dim2)
         if crop[0][0]!=0 or crop[1][0]!=0 or crop[0][1]!=dim1 or crop[1][1]!=dim2:
             return img[crop[0][0]:crop[0][1],crop[1][0]:crop[1][1]]
         else:
@@ -366,10 +376,10 @@ class align(object):
         raise NotImplementedError()
 
     def update_transformation(self,i,bchange):
-        """Update transformation parameters
+        """Set the active transformation
         """
         if self.usekernel:
-            if C1invC3.isidentity():
+            if self.C1invC3.isidentity():
                 self.set_transformation(self.transfos[i],bchange)
             else:
                 self.set_transformation(self.cof_in_pretransform_frame(self.transfos[i]),True)
@@ -468,46 +478,79 @@ class align(object):
         trn.settranslation(x-x0,y-y0)
         for t in self.transfos:
             t.dotinplace(trn)
-
-    def extendfromtransformation(self,p0,ps):
-        """If all transformations are known, padding/cropping can be calculated
-        """
-
-        self.extend = ((0,0),(0,0))
-
-        # Smallest rectangle that contains the union (pad) or intersection (crop) of all polygons
-        tmp = self.polygoncollectionbounds(ps,pad=self.pre_transform["pad"])
-        if len(tmp)!=4:
-            self.pre_transform["pad"] = False
-            self.pre_transform["crop"] = False
-            return
-        xmin, ymin, xmax, ymax = tmp
-
+            
+    def setextend(self,xmin, ymin, xmax, ymax):
         # Padding/cropping <> positive/negative
         o1min = -ymin
         o1max = ymax-self.source.imgsize[0]+1
         o2min = -xmin
         o2max = xmax-self.source.imgsize[1]+1
-
+        
         self.extend = ((o1min,o1max),(o2min,o2max))
+        
         self.pre_transform["pad"] = np.any(np.asarray(self.extend)>0)
         self.post_transform["crop"] = np.any(np.asarray(self.extend)<0)
+        
+    def extendfromtransformation(self,p0,ps):
+        """If all transformations are known, padding/cropping can be calculated
+        """
+        self.extend = ((0,0),(0,0))
 
+        # Smallest rectangle that contains the union (pad) or intersection (crop) of all polygons
+        tmp = self.polygoncollectionbounds(ps,pad=self.pre_transform_requested["pad"])
+        if len(tmp)!=4:
+            self.pre_transform["pad"] = False
+            self.post_transform["crop"] = False
+            return
+            
+        self.setextend(*tmp)
+        
+    def bextendfrommask(self):
+        return self.post_transform_requested["crop"] and self.cval is np.nan
+        
+    def setextendmask(self,img,reset=False):
+        mask = np.logical_not(np.isnan(img))   
+        #if self.cval is np.nan:
+        #    mask = np.logical_not(np.isnan(img))
+        #else:
+        #    mask = img != self.cval
+        
+        if reset:
+            self._extendmask = mask
+        else:
+            self._extendmask &= mask
+
+    def extendfrommask(self):
+        """If all transformations are applied, padding/cropping can be calculated
+        """
+        indvalidrow = np.argwhere(self._extendmask.sum(axis=1))
+        indvalidcol = np.argwhere(self._extendmask.sum(axis=0))
+        ymin = indvalidrow[0][0]
+        ymax = indvalidrow[-1][0]
+        xmin = indvalidcol[0][0]
+        xmax = indvalidcol[-1][0]
+        self.setextend(xmin,ymin,xmax,ymax)
+        
     def parsetransformation_beforeapplication(self):
         """Adapt transformations before applying them
         """
-
-        # Corners of the image in the transformed frame
-        p0 = self.untransformedimagepolygon()
-
-        # Corners of the transformed image in the raw frame
-        ps = self.transformedimagepolygons()
-
-        # Adapt transformation
-        if self.pre_transform["pad"] or self.post_transform["crop"]:
-            self.extendfromtransformation(p0,ps)
+        if self.bextendfrommask():
+            self.extendfrommask()
         else:
-            self.minimaltransformation(p0,ps)
+            # Corners of the image in the transformed frame
+            p0 = self.untransformedimagepolygon()
+
+            # Corners of the transformed image in the raw frame
+            ps = self.transformedimagepolygons()
+
+            # Adapt transformation
+            if self.pre_transform_requested["pad"] or self.post_transform_requested["crop"]:
+                # adapt self.extend to either crop or pad
+                self.extendfromtransformation(p0,ps)
+            else:
+                # try to fit as much data in the original image size as possible
+                self.minimaltransformation(p0,ps)
+                
         self.calccof_pretransform_to_prealign()
 
     def getaxesaftertransformation(self,axes):
@@ -554,16 +597,21 @@ class align(object):
 
             axes[j] = newaxis
 
-    def preparedestination(self):
-        """Allocate space for saving results
-        """
-        nimages = self.source.nimages
+    def dest_imgsize(self,nopost=False):
         imgsize = self.source.imgsize
-        
-        if self.pre_transform["pad"] or self.post_transform["crop"]:
+        if self.pre_transform["pad"] or (self.post_transform["crop"] and not nopost):
             imgsize = (imgsize[0] + self.extend[0][0] + self.extend[0][1],
                        imgsize[1] + self.extend[1][0] + self.extend[1][1])
-            
+        return imgsize
+        
+    def preparedestination(self,img=None):
+        """Allocate space for saving results
+        """
+        if img is not None:
+            self.setup_post_transform(img)
+        
+        nimages = self.source.nimages
+        imgsize = self.dest_imgsize()
         self.dest.prepare(nimages,imgsize,self.dtype)
 
     def set_reference(self,img,previous=False):
@@ -576,7 +624,7 @@ class align(object):
  
         pairwise = refimageindex is None
 
-        # Prepare destination
+        # Prepare destination (will be done after alignment)
         if aligntype!=alignType.calctransfo:
             self.preparedestination()
 
@@ -598,6 +646,7 @@ class align(object):
         #s1 = None
 
         # Loop over the images
+        bfirst = True
         for i in range(self.source.nimages):
             if aligntype!=alignType.usetransfo:
                 # Image i
@@ -636,10 +685,15 @@ class align(object):
                         imgref = imgaligned
                     iref = i
 
-                # Only need transformation, not the aligned result
+                # Only calculation
                 if aligntype==alignType.calctransfo:
-                    continue
-
+                    # This is still not good enough because different kernels are used
+                    # when calculating anf applying alignment
+                    if self.bextendfrommask():
+                        self.setextendmask(imgaligned,reset=bfirst)
+                    bfirst = False
+                    continue # no results needed
+                        
             # Save the transformed image i of all datasets
             if self.pureidentity(i):
                 for j in range(self.source.nsets):
@@ -649,8 +703,8 @@ class align(object):
                     self.update_transformation(i,True)
 
                 for j in range(self.source.nsets):
-                    usealignedimage = j==refdatasetindex and \
-                                      aligntype!=alignType.usetransfo and \
+                    usealignedimage = aligntype!=alignType.usetransfo and \
+                                      j==refdatasetindex and \
                                       self.nopre_align() and \
                                       self.nopre_transform() and \
                                       self.nopost_transform()
@@ -661,7 +715,7 @@ class align(object):
                         img = self.transform(img,i)
 
                     self.writeimg(img,j,i)
-
+            
     def setroi(self,roi):
         if roi is None:
             self.pre_align["roi"] = None
@@ -679,24 +733,25 @@ class align(object):
             onraw(Optional(bool)): when doing pairwise alignment, use the previous raw or aligned images to align the next one on
             pad(Optional(bool)): make sure nothing is transformed outside the field of view (has priority over crop)
             crop(Optional(bool)): make sure no missing data is added
-            redo(Optional(bool)): apply transformations without recalculating them
+            redo(Optional(bool)): apply transformations without recalculating them (all other keywords are ignored)
             roi(Optional(array-like)): use ony part of the image to align
         """
-
-        pairwise = refimageindex is None
-        if pairwise:
-            self.alignonraw = onraw
-        else:
-            self.alignonraw = True
-
-        self.setroi(roi)
-        self.pre_transform["pad"] = pad
-        self.post_transform["crop"] = crop
-        center = False
-
         if redo:
             self.doalign(refdatasetindex,aligntype=alignType.usetransfo)
         else:
+            pairwise = refimageindex is None
+            if pairwise:
+                self.alignonraw = onraw
+            else:
+                self.alignonraw = True
+
+            self.setroi(roi)
+            self.pre_transform_requested["pad"] = pad
+            self.post_transform_requested["crop"] = crop
+            self.pre_transform["pad"] = pad
+            self.post_transform["crop"] = crop
+            center = False
+        
             if roi or pad or crop or center:
                 self.doalign(refdatasetindex,refimageindex=refimageindex,aligntype=alignType.calctransfo)
                 self.parsetransformation_beforeapplication()

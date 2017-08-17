@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,20 +22,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import unittest
+import collections
+import numbers
 
-from . import test_indexing
+def isstring(x):
+    try:
+        return isinstance(x, (str, unicode))
+    except:
+        return isinstance(x, str)
 
-def test_suite_all():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_indexing.test_suite_all())
-    return testSuite
-    
-if __name__ == '__main__':
-    import sys
+def isboollist(lst):
+    return all(isinstance(i,bool) for i in lst) and len(lst)>0
 
-    mysuite = test_suite_all()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)
+def isarray(x):
+    return hasattr(x, "__len__") and not isstring(x)
+
+def isnumber(x):
+    return isinstance(x, numbers.Number)
+
