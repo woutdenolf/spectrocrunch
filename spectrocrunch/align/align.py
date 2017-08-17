@@ -80,7 +80,7 @@ class align(object):
         self.cval = cval
 
         # Transformation settings (set before actual transformation)
-        self.dtype = (np.float32(1)*self.source.dtype.type(1)).dtype
+        self.dtype = (np.float32(1)*self.source.dtype.type(1)).dtype.type
         self.alignonraw = True
         self.usekernel = False # Doesn't work well for Elastix!
         self.pre_align = {"roi":None}
@@ -101,10 +101,12 @@ class align(object):
         # Plot
         self.plotinfo = {"ON":plot,"fig":None,"axes":None}
 
-    def defaulttransform(self,ttype=None):
-        if (ttype==None):
+    def defaulttransform(self,ttype=None,dtype=None):
+        if ttype is None:
             ttype = self.transfotype
-        return transform(ttype,dtype=self.dtype,cval=self.cval)
+        if dtype is None:
+            dtype = self.dtype
+        return transform(ttype,dtype=dtype,cval=self.cval)
 
     def enableplot(self):
         self.plotinfo["ON"] = True
