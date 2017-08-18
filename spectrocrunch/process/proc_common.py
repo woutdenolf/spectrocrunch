@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 
 import os
-import spectrocrunch.io.nexus as nexus
+import ..io.nexus as nexus
 
 def hdf5base(file_in):
     tmp,ext = os.path.splitext(file_in)

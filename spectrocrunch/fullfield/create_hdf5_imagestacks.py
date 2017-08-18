@@ -29,8 +29,8 @@ import fabio
 import glob
 import re
 
-from spectrocrunch.common.dict import defaultdict
-import spectrocrunch.io.nexus as nexus
+from ..common.dict import defaultdict
+from ..io import nexus
 
 def execrebin(img,rebin):
     """

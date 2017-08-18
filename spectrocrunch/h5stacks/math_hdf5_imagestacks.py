@@ -27,10 +27,10 @@ import math_hdf5_imagestacks_copy as m_copy
 import math_hdf5_imagestacks_crop as m_crop
 import math_hdf5_imagestacks_replace as m_replace
 
-import spectrocrunch.io.nexus as nexus
-from spectrocrunch.common.integerbase import integerbase
+import ..io.nexus as nexus
+from ..common.integerbase import integerbase
 
-from spectrocrunch.common.Enum import Enum
+from ..common.Enum import Enum
 operationType = Enum(['expression','copy','crop','replace'])
 
 import re

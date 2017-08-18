@@ -22,13 +22,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from spectrocrunch.align.alignElastix import alignElastix
-from spectrocrunch.align.alignSift import alignSift
-from spectrocrunch.align.alignFFT import alignFFT
-from spectrocrunch.align.alignSimple import alignMax
-from spectrocrunch.align.alignSimple import alignMin
-from spectrocrunch.align.alignSimple import alignCentroid
-import spectrocrunch.io.nexus as nexus
+from ..align.alignElastix import alignElastix
+from ..align.alignSift import alignSift
+from ..align.alignFFT import alignFFT
+from ..align.alignSimple import alignMax
+from ..align.alignSimple import alignMin
+from ..align.alignSimple import alignCentroid
+import ..io.nexus as nexus
 
 import h5py
 

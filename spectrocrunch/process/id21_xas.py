@@ -29,10 +29,10 @@ from scipy.interpolate import InterpolatedUnivariateSpline
 from PyMca5.PyMca import ArraySave
 from PyMca5.PyMcaCore import XiaEdf
 
-from spectrocrunch.io.spec import spec
-from spectrocrunch.xrf.parse_xia import parse_xia_esrf
-from spectrocrunch.xrf.fit import PerformFit as fitter
-from spectrocrunch.common.timing import progress
+from ..io.spec import spec
+from ..xrf.parse_xia import parse_xia_esrf
+from ..xrf.fit import PerformFit as fitter
+from ..common.timing import progress
 
 import pylab
 import logging

@@ -32,7 +32,7 @@ from .alignDest import alignDest
 from .types import alignType
 from .types import transformationType
 from .transform import transform
-from spectrocrunch.common.cliproi import cliproi
+from ..common.cliproi import cliproi
 
 import logging
 

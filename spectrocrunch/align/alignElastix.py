@@ -26,7 +26,7 @@
 from .align import align
 import SimpleITK as sitk
 import numpy as np
-from spectrocrunch.common.stdout import stdout_redirect
+from ..common.stdout import stdout_redirect
 from .types import transformationType
 import logging
 import traceback

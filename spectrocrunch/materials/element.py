@@ -39,7 +39,7 @@ try:
 except:
     pass
 
-from spectrocrunch.common.hashable import Hashable
+from ..common.hashable import Hashable
 
 class fluoline(Hashable):
     _all = {s.split('_')[0]:xraylib.__dict__[s] for s in xraylib.__dict__.keys() if s.endswith("_LINE")}

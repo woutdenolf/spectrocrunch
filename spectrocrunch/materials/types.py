@@ -22,6 +22,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from spectrocrunch.common.Enum import Enum
+from ..common.Enum import Enum
 
 fractionType = Enum(['mole','weight','volume'])

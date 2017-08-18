@@ -26,7 +26,7 @@ import fnmatch
 import os
 from glob import glob
 from PyMca5.PyMcaIO import EdfFile
-from spectrocrunch.io.spec import spec
+from ..io.spec import spec
 
 def specinfo(specfolder):
     ret = {}

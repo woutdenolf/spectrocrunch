@@ -27,17 +27,17 @@ import json
 import logging
 import numpy as np
 
-from spectrocrunch.xrf.create_hdf5_imagestacks import create_hdf5_imagestacks as makestacks
-from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
-import spectrocrunch.common.timing as timing
-import spectrocrunch.io.nexus as nexus
+from ..xrf.create_hdf5_imagestacks import create_hdf5_imagestacks as makestacks
+from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
+import ..common.timing as timing
+import ..io.nexus as nexus
 
 from .proc_math import execute as normalize
 from .proc_align import execute as align
 from .proc_replacevalue import execute as replacevalue
 from .proc_crop import execute as execcrop
-from . proc_common import defaultstack
-from . proc_common import flattenstacks
+from .proc_common import defaultstack
+from .proc_common import flattenstacks
 
 def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,stackdim,\
                     counters=[],normcounter=None,mlines={},addbeforefit=True,\

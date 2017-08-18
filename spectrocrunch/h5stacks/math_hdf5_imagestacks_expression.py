@@ -30,7 +30,7 @@ import numpy as np
 import scipy.ndimage.filters as filters
 import h5py
 
-import spectrocrunch.io.nexus as nexus
+import ..io.nexus as nexus
 
 class StringParser(object):
     '''

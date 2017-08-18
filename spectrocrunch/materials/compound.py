@@ -26,7 +26,7 @@ from .element import element
 from .types import fractionType
 from . import stoichiometry
 
-from spectrocrunch.common.hashable import Hashable
+from ..common.hashable import Hashable
 
 import numpy as np
 
