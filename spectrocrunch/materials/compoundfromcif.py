@@ -29,6 +29,7 @@ try:
 except ImportError:
     iotbxcif = None
 import os
+from ..resources import resource_filename
 
 class compoundfromcif(compound):
     """Interface to a compound defined by a cif file
@@ -69,9 +70,10 @@ class compoundfromcif(compound):
 
         super(compoundfromcif,self).__init__(scatterers.keys(),scatterers.values(),fractionType.mole,density,name=name)
 
-    def _get_cif_name(self,name):
+    def _get_cif_name(self,filename):
         """Get file from the database if it doesn't exist
         """
+        name = resource_filename(name)
         if os.path.isfile(name):
             return name
         else:

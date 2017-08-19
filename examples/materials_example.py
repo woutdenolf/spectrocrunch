@@ -34,15 +34,15 @@ from spectrocrunch.materials.mixture import mixture
 from spectrocrunch.materials.types import fractionType
 
 import numpy as np
-import pylab
+import matplotlib.pyplot as plt
 import xraylib
 
 def muplot(mu1,mu2,mixture):
-    fig = pylab.figure()
+    fig = plt.figure()
     ax = fig.add_subplot(111)
 
     number = len(mu1)+1
-    cmap = pylab.get_cmap('jet')
+    cmap = plt.get_cmap('jet')
     colors = [cmap(i) for i in np.linspace(0, 1, number)]
 
     i = 0
@@ -71,7 +71,7 @@ def muplot(mu1,mu2,mixture):
     ax.set_xlabel('Energy (keV)')
     ax.set_ylabel('Mu (cm^2/g)')
     #fig.show() # doesn't block
-    pylab.show()
+    plt.show()
 
 if __name__ == '__main__':
 

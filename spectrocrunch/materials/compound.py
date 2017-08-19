@@ -192,7 +192,7 @@ class compound(Hashable):
             for e in e_wfrac:
                 ret[e] = {"frac":e_wfrac[e],"cs":getattr(e,method)(E,environ=environ,**kwargs)}
         else:
-            ret = E*0
+            ret = E*0.
             for e in e_wfrac:
                 ret += e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
 

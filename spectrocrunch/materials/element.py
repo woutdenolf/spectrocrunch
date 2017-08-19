@@ -34,6 +34,7 @@ import tempfile
 import time
 from scipy import interpolate
 import json
+import numbers
 try:
     import iotbx.cif
 except:
@@ -186,7 +187,7 @@ class element(Hashable):
             else:
                 self.Z = xraylib.SymbolToAtomicNumber(symb.title())
                 self.name = symb
-        elif isinstance(symb,int):
+        elif isinstance(symb,numbers.Integral):
             self.Z = symb
             self.name = xraylib.AtomicNumberToSymbol(self.Z)
         else:

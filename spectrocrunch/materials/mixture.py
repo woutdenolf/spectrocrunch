@@ -22,6 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from .compoundfromlist import compoundfromlist
 from .types import fractionType
 from . import stoichiometry
 import numpy as np
@@ -95,6 +96,10 @@ class mixture(object):
         # Compounds (no duplicates)
         self._compose_compounds(compounds,nfrac)
 
+    def tocompound(self,name):
+        tmp = self.elemental_molefractions()
+        return compoundfromlist(tmp.keys(),tmp.values(),fractionType.mole,self.density,name=name)
+
     def __repr__(self):
         return '\n'.join("{} {}".format(s[1],s[0]) for s in self.compounds.items())
 
@@ -127,6 +132,7 @@ class mixture(object):
             nfrac /= nfrac.sum()
             return dict(zip(self.compounds.keys(),nfrac))
 
+    @property
     def density(self):
         MM = np.asarray([c.molarmass() for c in self.compounds])
         rho = np.asarray([c.density for c in self.compounds])
@@ -178,7 +184,7 @@ class mixture(object):
                 for e in c.elements:
                     ret[c]["elements"][e] += {"frac":e_wfrac[e],"cs":getattr(e,method)(E,environ=environ,**kwargs)}
         else:
-            ret = E*0
+            ret = E*0.
             for c in c_wfrac:
                 if hasattr(c,'structure') and fine:
                     environ = c
