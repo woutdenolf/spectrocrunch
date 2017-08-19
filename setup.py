@@ -241,7 +241,7 @@ classifiers = [get_devstatus(),
 ##################
 ## Requirements ## 
 ##################
-install_requires = ["numpy", "scipy", "h5py", "six", "fabio", "silx", "pyparsing", "PyMca5", "shapely", "matplotlib", "uncertainties"] ## # nexusformat
+install_requires = ["numpy", "future", "scipy", "h5py", "fabio", "silx", "pyparsing", "PyMca5", "shapely", "matplotlib", "uncertainties","pint"]
 extras_require = {"physics":["xraylib", "cctbx", "fdmnes"],\
                   "elastix":["SimpleITK"]\
                   }
@@ -262,7 +262,7 @@ setup(name=PROJECT,
       extras_require=extras_require,
       setup_requires=setup_requires,
       packages=find_packages(),
-      package_data={'spectrocrunch.materials': ['cif/*.cif']},
+      package_data={'spectrocrunch.resources': ['cif/*.*','id21/*.*']},
       license="MIT",
       cmdclass=cmdclass
       )

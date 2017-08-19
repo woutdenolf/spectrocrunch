@@ -28,6 +28,9 @@ import numpy as np
 from uncertainties import unumpy
 from uncertainties import ufloat
 
+# bernouilli and poisson could be derived from uncertainties.Variable
+# but I want to prevent the sqrt(VAR)**2 round-off errors.
+
 class bernouilli(object):
     def __init__(self,probsuccess):
         self.probsuccess = probsuccess
@@ -54,27 +57,60 @@ def randomvariable(X,SX):
     else:
         return ufloat(X,SX)
 
-def repeat(X,n):
+def repeat(N,X):
+    """Sum of a fixed number (N) of independent random variables (Xi) with the same probability mass function.
+
+    Args:
+        N(num): number of repeats
+        X(uncertainties.unumpy.uarray): random variable
+        
+    """
+    # Normal error propagation assumes COV[Xi,Xj] = VAR[X]
+    #   For example:
+    #    VAR[X+X] = VAR[X] + VAR[X] + 2.COV[X,X]
+    #             = VAR[X] + VAR[X] + 2.VAR[X]
+    #             = 4.VAR[X]
+    #   or equivalently
+    #    VAR[2.X] = 2^2.VAR[X]
+    #   or using the uncertainties package
+    #    Y = N*X
+    #
+    # We will assume that COV[Xi,Xj] = 0
+    #   For example:
+    #    VAR[X+X] = VAR[X] + VAR[X]
+    #   or equivalently
+    #     propagate(N,X) with VARN=0
+    #   or using the uncertainties package
+    #     sum([copy.copy(X) for i in range(N)])
+
     if hasattr(X,"__iter__"):
-        return unumpy.uarray(n*unumpy.nominal_values(X),np.sqrt(n)*unumpy.std_devs(X))
+        return unumpy.uarray(N*unumpy.nominal_values(X),np.sqrt(N)*unumpy.std_devs(X))
     else:
-        return ufloat(n*X.n,np.sqrt(n)*X.s)
+        return ufloat(N*X.n,np.sqrt(N)*X.s)
     
-def propagate(N,process):
+def propagate(N,X):
     """Sum of a random number (N) of independent random variables (X_i) with the same probability mass function.
+       
+       http://www.math.unl.edu/~sdunbar1/ProbabilityTheory/Lessons/Conditionals/RandomSums/randsum.shtml
        
     Args:
         N(uncertainties.unumpy.uarray): incomming number of photons with uncertainties
-        process(process): statistical process
+        X(pmf): probability mass function of X
 
     Returns:
-        uncertainties.unumpy.uarray: X_1 + ... + X_N
+        uncertainties.unumpy.uarray: Y = X_1 + ... + X_N
     """
+
+    # 1. pmf(X) = Bernouilli (e.g. X-ray transmission) ->  Binomial selection
+    #       -> N a fixed number: pmf(Y) = Binomial
+    #       -> pmf(N) = Poisson: pmf(Y) = Poisson (binomial selection theorem)
+    # 2. pmf(X) = Poisson  (e.g. X-ray to VIS)  
+
     EN = unumpy.nominal_values(N)
     VARN = unumpy.std_devs(N)**2
 
-    EX = process.expectedvalue()
-    VARX = process.variance()
+    EX = X.expectedvalue()
+    VARX = X.variance()
 
     EY = EN*EX
     VARY = VARN*EX*EX + VARX*EN

@@ -1,7 +1,7 @@
 numpy
+future
 scipy
 h5py
-six
 silx
 fabio
 pyparsing
@@ -9,5 +9,6 @@ testfixtures
 matplotlib
 shapely
 uncertainties
+pint
 pyopencl==2015.1
 #pymca

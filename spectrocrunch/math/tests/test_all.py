@@ -26,6 +26,7 @@ import unittest
 from . import test_fit2d
 from . import test_fit1d
 from . import test_ft
+from . import test_ops
 
 def test_suite_all():
     """Test suite including all test suites"""
@@ -33,6 +34,7 @@ def test_suite_all():
     testSuite.addTest(test_fit2d.test_suite_all())
     testSuite.addTest(test_fit1d.test_suite_all())
     testSuite.addTest(test_ft.test_suite_all())
+    testSuite.addTest(test_ops.test_suite_all())
     return testSuite
     
 if __name__ == '__main__':

@@ -178,7 +178,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
 
         # Get data object
         scan = self.getDataObject("{:d}.1".format(scannumber))
- 
+
         # Extract data
         ind = []
         labels = scan.info["LabelNames"]

@@ -22,8 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common.classfactory import FactoryBase
-import collections
+from .simul import SimulBase
 
 from . import noisepropagation
 
@@ -31,16 +30,14 @@ from ..materials.compoundfromformula import compound as compound
 from ..materials.mixture import mixture
 from ..materials.types import fractionType
 
-from .constants import LambdaEnergy
+from .constants import wavelengthenergy
 
 import numpy as np
 
-class Scintillator(FactoryBase):
+class Scintillator(SimulBase):
     """
     Class representing an area scintillator
     """
-    registry = collections.OrderedDict()
-    registry2 = collections.OrderedDict()
 
     def __init__(self, thickness=None, material=None, nvisperkeV=None):
         """
@@ -49,12 +46,9 @@ class Scintillator(FactoryBase):
             material(spectrocrunch.materials.compound|spectrocrunch.materials.mixture): scintillator compoisition
             nvisperkeV(num): number of VIS photons generated per keV
         """
-        if thickness is None:
-            raise RuntimeError("Thickness not defined for {}".format(self.__class__.__name__))
-        if material is None:
-            raise RuntimeError("Material not defined for {}".format(self.__class__.__name__))
-        if nvisperkeV is None:
-            raise RuntimeError("nvisperkeV not defined for {}".format(self.__class__.__name__))
+        self.required(material,"material")
+        self.required(thickness,"thickness")
+        self.required(nvisperkeV,"nvisperkeV")
 
         self.thickness = float(thickness)
         self.nvisperkeV = float(nvisperkeV)
@@ -102,6 +96,9 @@ class Scintillator(FactoryBase):
         Nout = noisepropagation.propagate(N,process)
 
         # Fluorescence of visible photons
+        # https://doi.org/10.1088/0031-9155/57/15/4885
+        # http://arizona.openrepository.com/arizona/handle/10150/577317
+        # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4669903/
         gain = energy*self.nvisperkeV
         process = noisepropagation.poisson(gain)
         Nout = noisepropagation.propagate(Nout,process)
@@ -143,7 +140,7 @@ class GGG_ID21(Scintillator):
 
         ret = np.zeros(n,dtype=float)
         for l in [595,610,715]: # Eu
-            ret[energy==LambdaEnergy(l)] = 1/3.
+            ret[energy==wavelengthenergy(l)] = 1/3.
         return ret
 
 class LSO_ID21(Scintillator):
@@ -177,9 +174,11 @@ class LSO_ID21(Scintillator):
             n = 1
 
         ret = np.zeros(n,dtype=float)
-        ret[energy==LambdaEnergy(550)] = 1 # Tb
+        ret[energy==wavelengthenergy(550)] = 1 # Tb
         return ret
 
-registry = Scintillator.registry
+classes = Scintillator.clsregistry
+aliases = Scintillator.aliasregistry
 factory = Scintillator.factory
+
 

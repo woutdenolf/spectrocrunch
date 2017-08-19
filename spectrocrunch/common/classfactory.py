@@ -22,53 +22,83 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from six import with_metaclass
+from collections import OrderedDict
 
+#https://blog.ionelmc.ro/2015/02/09/understanding-python-metaclasses/
+
+
+# Instance creation:
+#   metaclass.__call__()
+#       instance = class.__new__(self,)
+#       class.__init__(instance,...)
+#       return instance
+#
+# Class creation:
+#   metametaclass.__call__()
+#       class = metaclass.__new__(self,)
+#       metaclass.__init__(class,...)
+#       return class
+
+def factory(cls, name, *args,**kwargs):
+    """
+    Args:
+        cls(class): factory base class
+        name(str): name of class that needs to be created
+
+    Returns:
+        class
+    """
+    
+    if name in cls.clsregistry:
+        return cls.clsregistry[name](*args,**kwargs)
+    elif name in cls.aliasregistry:
+        return cls.aliasregistry[name](*args,**kwargs)
+    else:
+        raise RuntimeError("Class {} is not known:\n registered classes: {}\n aliases: {}".format(name,cls.clsregistry.keys(),cls.aliasregistry.keys()))
+
+def register(cls,regcls,name):
+    """
+    Args:
+        cls(class): factory base class
+        regcls(class): class to be registered
+        name(str): name of the class to be registered
+
+    Returns:
+        None
+    """
+    
+    lname = name.lower()
+    cls.clsregistry[name] = regcls
+    if lname!=name:
+        cls.aliasregistry[lname] = regcls
+    if hasattr(regcls, "aliases"):
+        for alias in regcls.aliases:
+            lalias = alias.lower()
+            cls.aliasregistry[alias] = regcls
+            if lalias!=alias:
+                cls.aliasregistry[lalias] = regcls
+        
 class FactoryMeta(type):
     """
     Metaclass used to register all lens classes inheriting from FactoryBase 
     """
-    def __init__(cls, name, bases, dct):
-        if name!="FactoryBase":
-            lname = name.lower()
-            cls.registry[name] = cls
-            if lname!=name:
-                cls.registry2[lname] = cls
-            if hasattr(cls, "aliases"):
-                for alias in cls.aliases:
-                    lalias = alias.lower()
-                    cls.registry2[alias] = cls
-                    if lalias!=alias:
-                        cls.registry2[lalias] = cls
-        super(FactoryMeta, cls).__init__(name, bases, dct)
+    
+    def __new__(self, name, bases, attr):
+        cls = super(FactoryMeta, self).__new__(self, name, bases, attr)
+        
+        if not hasattr(cls,"register"):
+            cls.clsregistry = OrderedDict()
+            cls.aliasregistry = OrderedDict()
+            cls.factory = classmethod(factory)
+            cls.register = classmethod(register)
+            
+        return cls
+        
+    def __init__(cls, name, bases, attr):
+        cls.register(cls,name)
+        for b in bases:
+            if hasattr(b,"register"):
+                b.register(cls,name)
+        super(FactoryMeta, cls).__init__(name, bases, attr)
 
-class FactoryBase(with_metaclass(FactoryMeta, object)):
-    """
-    Class representing a factory class
-    """
-
-    @classmethod
-    def factory(cls, name, **kwargs):
-        """
-        Args:
-            name(str): class name
-
-        Returns:
-            object: class instance
-        """
-        if name in cls.registry:
-            return cls.registry[name](**kwargs)
-        elif name in cls.registry2:
-            return cls.registry2[name](**kwargs)
-        else:
-            raise RuntimeError("Class {} is not one of the registered classes: {}".format(name, cls.registry.keys()+cls.registry2.keys()))
-
-def ClassFactory(name):
-    """
-    Example of a factory function (not useful by itself)
-    """
-    def __init__(self, **kwargs):
-        FactoryBase.__init__(self, **kwargs)
-    newclass = type(name, (FactoryBase,),{"__init__": __init__})
-    return newclass
 

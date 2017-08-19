@@ -22,36 +22,31 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common.classfactory import FactoryBase
-import collections
+from .simul import SimulBase
 
 from . import noisepropagation
 
-from ..materials.compoundfromformula import compound as compound
+from ..materials.compoundfromlist import compoundfromlist as compound
 from ..materials.mixture import mixture
 from ..materials.types import fractionType
-import xraylib
+from ..math.fit1d import lstsq
 
 import numpy as np
 
-class Material(FactoryBase):
+class Multilayer(SimulBase):
     """
     Class representing an area material
     """
-    registry = collections.OrderedDict()
-    registry2 = collections.OrderedDict()
-
+    
     def __init__(self, material=None, thickness=None):
         """
         Args:
             material(list(spectrocrunch.materials.compound|mixture)): material composition
             thickness(num): thickness in micron
         """
-        if thickness is None:
-            raise RuntimeError("Thickness not defined for {}".format(self.__class__.__name__))
-        if material is None:
-            raise RuntimeError("Material not defined for {}".format(self.__class__.__name__))
-
+        self.required(material,"material")
+        self.required(thickness,"thickness")
+        
         if hasattr(thickness,"__iter__"):
             self.thickness = np.asarray(thickness,dtype=float)
         else:
@@ -72,6 +67,25 @@ class Material(FactoryBase):
     def transmission_prob(self,energy,layer):
         return np.exp(-self.material[layer].density*self.thickness[layer]*1e-4*self.material[layer].mass_att_coeff(energy))
 
+    def refinethickness(self,energy,absorbance,layerfixed=None):
+        if layerfixed is None:
+            layerfixed = []
+        y = absorbance
+
+        A = [self.material[layer].density*1e-4*self.material[layer].mass_att_coeff(energy) for layer in range(self.nlayers) if layer not in layerfixed]
+
+        for layer in range(self.nlayers):
+            if layer in layerfixed:
+                y -= self.material[layer].density*1e-4*self.material[layer].mass_att_coeff(energy)
+
+        A = np.vstack(A).T
+        thickness = lstsq(A,y)
+        ind = [layer not in layerfixed for layer in range(self.nlayers)]
+        self.thickness[ind] = thickness
+
+    def absorbance(self,energy):
+        return sum([self.material[layer].density*self.thickness[layer]*1e-4*self.material[layer].mass_att_coeff(energy) for layer in range(self.nlayers)])
+
     def propagate(self,N,energy):
         """Error propagation of a number of photons.
                
@@ -86,7 +100,7 @@ class Material(FactoryBase):
         Nout = N
 
         if any([m.hasabsorbers() for m in self.material]):
-            prob = self.fluo_prob
+            prob = self.fluo_prob # Poisson instead of Bernouilli?
         else:
             prob = self.transmission_prob
 
@@ -97,40 +111,8 @@ class Material(FactoryBase):
 
         return Nout
 
-class Vacuum(Material):
-    """
-    Vacuum
-    """
-
-    def __init__(self,thickness):
-        material = compound([],[],fractionType.mole,0,name="vacuum")
-        super(Vacuum, self).__init__(material=material,thickness=thickness)
-
-class Ultralene(Material):
-    """
-    Ultralene
-    """
-
-    def __init__(self,thickness=None):
-        data = xraylib.GetCompoundDataNISTByName("Kapton Polyimide Film")
-        material = compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name=data["name"])
-        super(Ultralene, self).__init__(material=material,thickness=thickness)
-
-def NistFactory(nistname):
-    def __init__(self,thickness=None):
-        data = xraylib.GetCompoundDataNISTByName(nistname)
-        material = compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name=data["name"])
-        Material.__init__(self, material=material,thickness=thickness)
-    newclass = type(nistname.replace(" ","_"), (Material,),{"__init__": __init__,"aliases":[nistname,nistname.lower()]})
-    return newclass
-
-try:
-    for c in xraylib.GetCompoundDataNISTList():
-        c = NistFactory(c)
-except ImportError:
-    pass
-
-registry = Material.registry
-factory = Material.factory
+classes = Multilayer.clsregistry
+aliases = Multilayer.aliasregistry
+factory = Multilayer.factory
 
 

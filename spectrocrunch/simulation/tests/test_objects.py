@@ -28,11 +28,18 @@ from .. import areadetectors
 from .. import scintillators
 from .. import lenses
 from .. import materials
-from ...materials.compoundfromformula import compound as compound
+from .. import diodes
+from ...materials.compoundfromformula import compoundfromformula as compound
+from ...materials.compoundfromname import compoundfromname as compoundname
 
 import numpy as np
 from uncertainties import unumpy
 from uncertainties import ufloat
+
+from ...resources import resource_filename
+from scipy import constants
+from scipy import interpolate
+from ...math.linop import linop
 
 class test_objects(unittest.TestCase):
 
@@ -101,7 +108,7 @@ class test_objects(unittest.TestCase):
 
     def test_scintillators(self):
         self.assertRaises(RuntimeError, scintillators.factory, "noclassname")
-        for cname in scintillators.registry:
+        for cname in scintillators.classes:
             self.assertRaises(RuntimeError, scintillators.factory, cname)
 
         o = scintillators.factory("GGG ID21",thickness=13)
@@ -122,10 +129,65 @@ class test_objects(unittest.TestCase):
 
     def test_materials(self):
         self.assertRaises(RuntimeError, materials.factory, "noclassname")
-
-        o = materials.factory("ultralene",thickness=4)
+        o = materials.factory("multilayer",material=compoundname("ultralene"),thickness=4)
         self._checkprop(o)
-        
+
+    def _spec_calc_photons(self,ph_E,ph_I,ph_gain):
+        """Photon calculation in spec
+
+        Args:
+            ph_E(array): keV
+            ph_I(array): idet counts
+            ph_gain(array): V/A
+        """
+
+        PH_DIST = 0
+        ph_coeff = 0
+
+        ph_I = ph_I * 10.**(-5-ph_gain)
+
+        ptb = np.loadtxt(resource_filename('id21/ptb.dat'))
+        fptb = interpolate.interp1d(ptb[:,0],ptb[:,1])
+        ird = np.loadtxt(resource_filename('id21/ird.dat'))
+        fird = interpolate.interp1d(ird[:,0],ird[:,1])
+
+        ph_PTB = fptb(ph_E)
+        ph_factor = fird(ph_E)
+
+        ph_calib  = ph_factor * ph_PTB
+        return ph_I / (ph_E * constants.elementary_charge * np.exp(-ph_coeff * PH_DIST) * ph_calib)
+
+    def test_diodes(self):
+        gain = 8
+        I = np.arange(5,8)*1e5
+
+        for energy in np.arange(3,9):
+            for model in [True,False]:
+                o = diodes.factory("sxmidet",model=model)
+                o.setgain(10**gain)
+
+                o2 = o.pndiode.op_cpstocurrent()*o.pndiode.op_currenttocps()
+                self.assertEqual(o2.m,1.)
+                self.assertEqual(o2.b,0.)
+
+                o2 = o.pndiode.op_fluxtocurrent(energy)*o.pndiode.op_currenttoflux(energy)
+                self.assertAlmostEqual(o2.m,1.)
+                self.assertEqual(o2.b,0.)
+
+                o2 = o.pndiode.op_fluxtocps(energy)*o.pndiode.op_cpstoflux(energy)
+                self.assertAlmostEqual(o2.m,1.)
+                self.assertEqual(o2.b,0.)
+
+                np.testing.assert_array_almost_equal(o.fluxtocps(energy,o.cpstoflux(energy,I)),I)
+                
+                flux1 = self._spec_calc_photons(energy,I,gain)
+                flux2 = o.cpstoflux(energy,I)
+                if model:
+                    for f1,f2 in zip(flux1,flux2):
+                        np.testing.assert_approx_equal(f1,f2,significant=1)
+                else:
+                    np.testing.assert_array_almost_equal(flux1,flux2)
+
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
@@ -133,6 +195,7 @@ def test_suite_all():
     testSuite.addTest(test_objects("test_scintillators"))
     testSuite.addTest(test_objects("test_lenses"))
     testSuite.addTest(test_objects("test_materials"))
+    testSuite.addTest(test_objects("test_diodes"))
 
     return testSuite
     

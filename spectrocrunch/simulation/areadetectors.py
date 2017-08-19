@@ -22,22 +22,20 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common.classfactory import FactoryBase
-import collections
+from .simul import SimulBase
 
 from . import noisepropagation
 
 from uncertainties import ufloat
+
 import numpy as np
 
-class AreaDetector(FactoryBase):
+class AreaDetector(SimulBase):
     """
     Class representing an area detector
     """
-    registry = collections.OrderedDict()
-    registry2 = collections.OrderedDict()
 
-    def __init__(self, etoadu, qe, aduoffset, darkcurrent, readoutnoise):
+    def __init__(self, etoadu=None, qe=None, aduoffset=None, darkcurrent=None, readoutnoise=None):
         """
         Args:
             etoadu(num): number of ADU per electron
@@ -46,7 +44,12 @@ class AreaDetector(FactoryBase):
             darkcurrent(num): dark current (e/sec)
             readoutnoise(num): readout noise (e)
         """
-
+        self.required(etoadu,"etoadu")
+        self.required(qe,"qe")
+        self.required(aduoffset,"aduoffset")
+        self.required(darkcurrent,"darkcurrent")
+        self.required(readoutnoise,"readoutnoise")
+        
         self.etoadu = float(etoadu)
         self.qe = float(qe)
         self.aduoffset = float(aduoffset)
@@ -80,6 +83,7 @@ class AreaDetector(FactoryBase):
         Nout += self.darkcurrent*tframe # units: e
 
         # Add read-out noise
+        # https://spie.org/samples/PM170.pdf
         Nout += self.readoutnoise # units: e
 
         # Convert to ADU
@@ -89,7 +93,7 @@ class AreaDetector(FactoryBase):
         Nout += self.aduoffset # units: ADU
 
         # Number of frames
-        Nout = noisepropagation.repeat(Nout,nframe) # units: ADU
+        Nout = noisepropagation.repeat(nframe,Nout) # units: ADU
 
         # Repeat with number of energies
         if not hasattr(Nout,"__iter__") and hasattr(energy,"__iter__"):
@@ -106,6 +110,7 @@ class pcoedge55(AreaDetector):
     def __init__(self):
         super(pcoedge55, self).__init__(etoadu=65536/30000., qe=0.7, aduoffset=95.5, darkcurrent=7.4, readoutnoise=0.95)
 
-registry = AreaDetector.registry
+classes = AreaDetector.clsregistry
+aliases = AreaDetector.aliasregistry
 factory = AreaDetector.factory
 

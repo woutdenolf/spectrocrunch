@@ -71,11 +71,20 @@ class test_mixture(unittest.TestCase):
         n2 = m2.molefractions(total=True)
         self.assertEqual(n1,n2)
 
+    def test_tocompound(self):
+        c1 = compound("Co2O3",1.5)
+        c2 = compound("Fe2O3",1.6)
+        c3 = mixture([c1,c2],[2,3],fractionType.mole).tocompound("mix")
+        c4 = compound("Co4O15Fe6",c3.density)
+        for e in c3.elements:
+            self.assertEqual(c3.elements[e],c4.elements[e])
+
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_mixture("test_molefractions"))
     testSuite.addTest(test_mixture("test_addcompound"))
+    testSuite.addTest(test_mixture("test_tocompound"))
     return testSuite
     
 if __name__ == '__main__':

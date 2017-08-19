@@ -22,19 +22,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common.classfactory import FactoryBase
-import collections
+from .simul import SimulBase
 
 from . import noisepropagation
 
 import numpy as np
 
-class Lens(FactoryBase):
+class Lens(SimulBase):
     """
     Class representing a lens
     """
-    registry = collections.OrderedDict()
-    registry2 = collections.OrderedDict()
 
     def __init__(self, magnification=None, NA=None, transmission=None):
         """
@@ -43,13 +40,10 @@ class Lens(FactoryBase):
             NA(num): numerical aperture
             transmission(num): transmission
         """
-        if magnification is None:
-            raise RuntimeError("Magnifiction not defined for {}".format(self.__class__.__name__))
-        if NA is None:
-            raise RuntimeError("NA not defined for {}".format(self.__class__.__name__))
-        if transmission is None:
-            raise RuntimeError("Transmission not defined for {}".format(self.__class__.__name__))
-
+        self.required(magnification,"magnification")
+        self.required(NA,"NA")
+        self.required(transmission,"transmission")
+        
         self.magnification = float(magnification)
         self.NA = float(NA)
         self.transmission = float(transmission)
@@ -98,6 +92,7 @@ class mitutoyoid21_20x(Lens):
     def __init__(self):
         super(mitutoyoid21_20x, self).__init__(magnification=20, NA=0.42, transmission=0.95)
 
-registry = Lens.registry
+classes = Lens.clsregistry
+aliases = Lens.aliasregistry
 factory = Lens.factory
 

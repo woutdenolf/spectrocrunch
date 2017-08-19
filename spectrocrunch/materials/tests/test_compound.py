@@ -28,8 +28,10 @@ from ..compound import compound as compoundraw
 from ..compoundfromformula import compoundfromformula
 from ..compoundfromlist import compoundfromlist
 from ..compoundfromcif import compoundfromcif
+from ..compoundfromname import compoundfromname as compoundfromname
 from ..types import fractionType
 from ..element import element
+
 
 try:
     import iotbx.cif as iotbxcif
@@ -45,9 +47,11 @@ class test_compound(unittest.TestCase):
         c2 = compoundfromformula("C6H2(NO2)3CH3",1.2,name="compound")
         c3 = compoundfromformula("C6H2(NO2)3CH3",1.21,name="compound")
         c4 = compoundfromformula("C6H2(NO2)3CH3",1.2,name="compoundx")
+        c5 = compoundfromformula("C6H2(NO2)3CH2",1.2,name="compound")
         self.assertEqual(c1,c2)
         self.assertEqual(c1,c3)
         self.assertNotEqual(c1,c4)
+        self.assertEqual(c1,c5) # this is by design but may be unwanted?
 
         self.assertEqual(element("Ca"),element("Ca"))
         self.assertNotEqual(element("Ca"),element("C"))
@@ -116,6 +120,19 @@ class test_compound(unittest.TestCase):
         self.assertEqual(c.molarmass(),0)
         self.assertEqual(c.density,0)
 
+    def test_name(self):
+        c = compoundfromname("vacuum")
+        self.assertEqual(len(c.elements),0)
+        self.assertEqual(len(c.weightfractions()),0)
+        self.assertEqual(len(c.molefractions()),0)
+        self.assertEqual(c.molarmass(),0)
+        self.assertEqual(c.density,0)
+
+        c = compoundfromname("linseedoil")
+
+        with self.assertRaises(KeyError) as context:
+            c = compoundfromname("linseedoill")
+
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
@@ -125,6 +142,7 @@ def test_suite_all():
     testSuite.addTest(test_compound("test_cif"))
     testSuite.addTest(test_compound("test_addelement"))
     testSuite.addTest(test_compound("test_vacuum"))
+    testSuite.addTest(test_compound("test_name"))
     return testSuite
     
 if __name__ == '__main__':

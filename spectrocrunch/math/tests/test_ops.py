@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -24,45 +24,35 @@
 
 import unittest
 
-from .. import calcnoise
-from .. import materials
+from ..linop import linop
 
-from ...materials.compoundfromformula import compoundfromformula as compound
+class test_ops(unittest.TestCase):
 
-import numpy as np
-from uncertainties import unumpy
+    def test_linop(self):
+        for x in range(-2,2):
+            for m1 in range(-11,11,3):
+                for b1 in range(-11,11,3):
+                    o1 = linop(m1,b1)
+                    o1i = o1**(-1)
 
-class test_calcnoise(unittest.TestCase):
+                    self.assertAlmostEqual(o1(x),o1.m*x+o1.b)
+                    self.assertAlmostEqual(o1i(x),(x-o1.b)/float(o1.m))
+                    self.assertEqual(o1*o1,o1**2)
+                    self.assertEqual(o1*o1*o1,o1**3)
+                    self.assertAlmostEqual((o1i*o1i)(x),(o1**(-2))(x))
+                    self.assertAlmostEqual((o1i*o1i*o1i)(x),(o1**(-3))(x))
 
-    def test_ffnoise(self):
-        I0 = 1e5
-        energy = np.linspace(3,5,100)
-        tframe = 0.07
-        nframe = 100
-        ndark = 30
+                    for m2 in range(-11,11,3):
+                        for b2 in range(-11,11,3):
+                            o2 = linop(m2,b2)
+                            o2i = o2**(-1)
+                            self.assertAlmostEqual((o1*o2)(x),o2(o1(x)))
+                            self.assertAlmostEqual((o1/o2)(x),o2i(o1(x)))
 
-        sample = materials.factory("Multilayer",material=compound("CaCO3",2.71),thickness=5)
-
-        N,N0,D,D0 = calcnoise.id21_ffnoise(I0,energy,sample,\
-                    tframe_data=tframe,nframe_data=nframe,\
-                    tframe_flat=tframe,nframe_flat=nframe,\
-                    nframe_dark=ndark)
-
-        XAS = -unumpy.log((N-D)/(N0-D0))
-
-        signal = unumpy.nominal_values(XAS)
-        noise = unumpy.std_devs(XAS)
-
-        #import matplotlib.pyplot as plt
-        #plt.figure()
-        #plt.plot(energy,noise/signal*100)
-        #plt.show()
-        
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_calcnoise("test_ffnoise"))
-
+    testSuite.addTest(test_ops("test_linop"))
     return testSuite
     
 if __name__ == '__main__':

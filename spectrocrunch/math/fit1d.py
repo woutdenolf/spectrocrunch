@@ -50,3 +50,20 @@ def fitgaussian(x,data):
 
     return p, success
 
+def lstsq(A,b,errors=False):
+    # A.x = b
+    x = np.linalg.lstsq(A, b)[0]
+
+    if errors:
+        resid = b - np.dot(A, x)
+        covx = np.linalg.inv(np.dot(A.T, A)) * np.var(resid, ddof=len(x))
+        xstd = np.sqrt(np.diag(covx))
+        return x,xstd
+    else:
+        return x
+
+def linfit(x,y,errors=False):
+    # A.x = b
+    A = np.vstack([x, np.ones(len(x))]).T
+    return lstsq(A,y,errors=errors)
+
