@@ -1,6 +1,6 @@
 #!/bin/bash
 # 
-# Install cmake on Linux.
+# Install swig on Linux.
 # 
 
 # ============Initialize environment============
@@ -8,18 +8,25 @@ SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $SCRIPT_ROOT/funcs.sh
 initEnv
 
-# ============Install cmake============
-cprint "Download cmake ..."
-mkdir -p cmake
-cd cmake
-if [[ $NOTDRY == true && ! -d cmake-3.7.2 ]]; then
-    wget --no-check-certificate http://www.cmake.org/files/v3.7/cmake-3.7.2.tar.gz
-    tar -xzf cmake-3.7.2.tar.gz
+# ============Install dependencies============
+cprint "Install swig dependencies ..."
+if [[ $NOTDRY == true && $SYSTEM_PRIVILIGES == true ]]; then
+    mexec "apt-get -y install libpcre3 libpcre3-dev"
+    mexec "apt-get -y remove swig2.0" # Otherwise you get conflicts
 fi
-cd cmake-3.7.2
+
+# ============Install swig============
+cprint "Download swig ..."
+mkdir -p swig
+cd swig
+if [[ $NOTDRY == true && ! -d swig-3.0.12 ]]; then
+    wget https://sourceforge.net/projects/swig/files/swig/swig-3.0.12/swig-3.0.12.tar.gz
+    tar -xzf swig-3.0.12.tar.gz
+fi
+cd swig-3.0.12
 
 if [[ ! -f Makefile ]]; then
-    cprint "Configure cmake ..."
+    cprint "Configure swig ..."
     if [[ $NOTDRY == true ]]; then
         if [[ $INSTALL_SYSTEMWIDE == true ]]; then
             ./configure
@@ -28,14 +35,15 @@ if [[ ! -f Makefile ]]; then
             ./configure --prefix=$SPECTROCRUNCHLOCAL
         fi
     fi
-    cprint "Build cmake ..."
+    cprint "Build swig ..."
     if [[ $NOTDRY == true ]]; then
         make -s -j2
     fi
 fi
 
 
-cprint "Install cmake ..."
+cprint "Install swig ..."
+ls
 if [[ $NOTDRY == true ]]; then
     mmakeinstall
 
