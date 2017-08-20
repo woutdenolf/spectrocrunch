@@ -40,10 +40,25 @@ import warnings
 warnings.filterwarnings("ignore")
 import logging
 
+def ReadPyMcaConfigFile(filename):
+    # Read the configuration
+    if not os.path.exists(filename):
+        raise IOError("File <%s> does not exists" % filename)
+    cfg = ConfigDict.ConfigDict()
+    cfg.read(filename)
+    if len(cfg)==0:
+        raise IOError("File <%s> couldn't be loaded" % filename)
+    return cfg
+
+def AdaptPyMcaConfigFile(filename,energy,addhigh=True,mlines={}):
+    cfg = ReadPyMcaConfigFile(filename)
+    AdaptPyMcaConfig(cfg,energy,addhigh=addhigh,mlines=mlines)
+    configuration.write(filename)
+
 def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
     """
     Args:
-        cfg(str): pymca config file
+        cfg(ConfigDict): pymca configuration
         energy(float): primary beam energy in keV
         addhigh(Optional(num)): add high primary energy with very low weight
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
@@ -53,26 +68,18 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
     if energy is np.nan and len(mlines)==0:
         return
 
-    # Read the configuration
-    if not os.path.exists(cfg):
-        raise IOError("File <%s> does not exists" % cfg)
-    configuration = ConfigDict.ConfigDict()
-    configuration.read(cfg)
-    if len(configuration)==0:
-        raise IOError("File <%s> couldn't be loaded" % cfg)
-
     if energy is not np.nan:
-        # Adapt the configuration
-        ftype = type(configuration["fit"]["energyweight"][0])
-        itype = type(configuration["fit"]["energyflag"][0])
-        n = len(configuration["fit"]["energy"])
+        # Adapt the cfg
+        ftype = type(cfg["fit"]["energyweight"][0])
+        itype = type(cfg["fit"]["energyflag"][0])
+        n = len(cfg["fit"]["energy"])
 
         # Adapt energy
         sourcelines = [None]*n
         sourcelines[0] = ftype(energy)
         if addhigh:
             sourcelines[1] = ftype(3*energy)
-        configuration["fit"]["energy"] = sourcelines
+        cfg["fit"]["energy"] = sourcelines
 
         sourcelines = [ftype(0)]*n
         if addhigh:
@@ -80,25 +87,25 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
             sourcelines[1] = ftype(1e-5)
         else:
             sourcelines[0] = ftype(1)
-        configuration["fit"]["energyweight"] = sourcelines
+        cfg["fit"]["energyweight"] = sourcelines
 
         sourcelines = [itype(0)]*n
         sourcelines[0] = itype(1)
         if addhigh:
             sourcelines[1] = itype(1)
-        configuration["fit"]["energyflag"] = sourcelines
+        cfg["fit"]["energyflag"] = sourcelines
 
         sourcelines = [itype(0)]*n
         sourcelines[0] = itype(1)
-        configuration["fit"]["energyscatter"] = sourcelines
+        cfg["fit"]["energyscatter"] = sourcelines
 
         # Dummy matrix (aparently needed for multi-energy)
-        if (configuration["attenuators"]["Matrix"][0]==0 and addhigh):
-            density = configuration["materials"]["Air"]["Density"]
-            configuration["attenuators"]["Matrix"][0] = 1
-            configuration["attenuators"]["Matrix"][1] = "Air"
-            configuration["attenuators"]["Matrix"][2] = density
-            configuration["attenuators"]["Matrix"][3] = density*0 # thickness in cm
+        if (cfg["attenuators"]["Matrix"][0]==0 and addhigh):
+            density = cfg["materials"]["Air"]["Density"]
+            cfg["attenuators"]["Matrix"][0] = 1
+            cfg["attenuators"]["Matrix"][1] = "Air"
+            cfg["attenuators"]["Matrix"][2] = density
+            cfg["attenuators"]["Matrix"][3] = density*0 # thickness in cm
 
     # Split M-lines
     # /usr/local/lib/python2.7/dist-packages/PyMca5/PyMcaPhysics/xrf/Elements.py
@@ -137,12 +144,9 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
             logging.getLogger(__name__).error("PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting.")
             raise ImportError("PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting.")
     for el in mlines:
-        if el in configuration["peaks"]:
-            if "M" in configuration["peaks"][el]:
-                configuration["peaks"][el] = [group for group in configuration["peaks"][el] if group != "M"] + mlines[el]
-
-    # Write the configuration
-    configuration.write(cfg)
+        if el in cfg["peaks"]:
+            if "M" in cfg["peaks"][el]:
+                cfg["peaks"][el] = [group for group in cfg["peaks"][el] if group != "M"] + mlines[el]
 
 def PerformRoi(filelist,rois,norm=None):
     """ROI XRF spectra in batch with changing primary beam energy.
@@ -185,12 +189,12 @@ def PerformRoi(filelist,rois,norm=None):
 
     return ret
 
-def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plot=False):
+def PerformFit(filelist,cfgfile,energies,mlines={},norm=None,fast=True,prog=None,plot=False):
     """Fit XRF spectra in batch with changing primary beam energy.
 
     Args:
         filelist(list(str)|np.array): spectra to fit
-        cfg(str): configuration file to use
+        cfgfile(str): configuration file to use
         energies(np.array): primary beam energies
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
         norm(Optional(np.array)): normalization array
@@ -207,6 +211,7 @@ def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plo
         dataStack = EDFStack.EDFStack(filelist, dtype=np.float32).data
     else:
         dataStack = filelist
+
     nfiles,nenergies,nchannels = dataStack.shape
 
     # MCA channels
@@ -240,6 +245,17 @@ def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plo
         fig = pylab.figure(1)
         ax = pylab.subplot(111)
 
+    # Prepare fit
+    #ClassMcaTheory.DEBUG = 1
+    mcafit = ClassMcaTheory.McaTheory()
+    if hasattr(mcafit, "useFisxEscape"):
+        mcafit.useFisxEscape(True)
+    if fast:
+        mcafit.enableOptimizedLinearFit()
+    else:
+        mcafit.disableOptimizedLinearFit()
+    cfg = mcafit.configure(ReadPyMcaConfigFile(cfgfile))
+
     # Fit at each energy
     if prog is not None:
         prog.setnfine(nenergies*nfiles)
@@ -248,11 +264,7 @@ def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plo
     for j in range(nenergies):
         # Prepare fit with this energy
         AdaptPyMcaConfig(cfg,energies[j],mlines=mlines)
-        mcafit = ClassMcaTheory.McaTheory(cfg)
-        if fast:
-            mcafit.enableOptimizedLinearFit()
-        else:
-            mcafit.disableOptimizedLinearFit()
+        mcafit.configure(cfg)
 
         # Fit all spectra with this energy
         for i in range(nfiles):
@@ -285,6 +297,7 @@ def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plo
             else:
                 mcafitresult = mcafit.imagingDigestResult()
 
+            # Store result
             for k in mcafitresult["groups"]:
                 if k not in ret:
                     ret[k] = np.zeros((nenergies,nfiles),dtype=type(mcafitresult[k]["fitarea"]))
@@ -301,7 +314,7 @@ def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plo
 
     return ret
 
-def PerformBatchFit(filelist,outdir,outname,cfg,energy,mlines={},fast=True):
+def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},fast=True):
     """Fit XRF spectra in batch with one primary beam energy.
 
         Least-square fitting. If you intend a linear fit, modify the configuration:
@@ -316,7 +329,7 @@ def PerformBatchFit(filelist,outdir,outname,cfg,energy,mlines={},fast=True):
         filelist(list(str)): spectra to fit
         outdir(str): directory for results
         outname(str): output radix
-        cfg(str): configuration file to use
+        cfgfile(str): configuration file to use
         energy(num): primary beam energy
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
         fast(Optional(bool)): fast fitting (linear)
@@ -328,12 +341,12 @@ def PerformBatchFit(filelist,outdir,outname,cfg,energy,mlines={},fast=True):
     # Adapt file (not adapting the fitobject's member variables because it's unclear 
     # what other things need to be changed when changing the energy)
     if energy is not np.nan:
-        AdaptPyMcaConfig(cfg,energy,mlines=mlines)
+        AdaptPyMcaConfig(cfgfile,energy,mlines=mlines)
 
     if fast:
         # Prepare fit
         fastFit = FastXRFLinearFit.FastXRFLinearFit()
-        fastFit.setFitConfigurationFile(cfg)
+        fastFit.setFitConfigurationFile(cfgfile)
         dataStack = EDFStack.EDFStack(filelist, dtype=np.float32)
 
         # Fit
@@ -383,7 +396,7 @@ def PerformBatchFit(filelist,outdir,outname,cfg,energy,mlines={},fast=True):
         #ArraySave.save2DArrayListAsASCII(imageList, fileName, labels=labels)
     else:
         # Parallelize this:
-        b = McaAdvancedFitBatch.McaAdvancedFitBatch(cfg,filelist=filelist,outputdir=outdir,fitfiles=0)
+        b = McaAdvancedFitBatch.McaAdvancedFitBatch(cfgfile,filelist=filelist,outputdir=outdir,fitfiles=0)
         b.processList()
 
         filemask = os.path.join(outdir,"IMAGES","*.edf")
