@@ -19,8 +19,7 @@ cache:
 environment:
     global:
         WIN_SDK_ROOT: "C:\\Program Files\\Microsoft SDKs\\Windows"
-        VENV_BUILD_DIR: "venv_build"
-        VENV_TEST_DIR: "venv_test"
+        VENV_NAME: "venv_build"
 
         CACHED_FOLDER: "%LOCALAPPDATA%\\cashed"
 
@@ -104,22 +103,23 @@ install:
 
 build_script:
     # Create build virtualenv
-    - "virtualenv --clear %VENV_BUILD_DIR%"
-    - "%VENV_BUILD_DIR%\\Scripts\\activate.bat"
+    - "virtualenv --clear %VENV_NAME%"
+    - "%VENV_NAME%\\Scripts\\activate.bat"
+
+    # Configure MSVC environment
+    - ps: |
+          If (($env:PYTHON_ARCH -eq "64")) {
+            call "C:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\SetEnv.cmd" /x64
+            call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86_amd64
+          } else {
+            call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86
+          }
 
     # Build the ICD loader
     - cd %OPENCL_BUILD_FOLDER%
-    - cmake --help
     - cmake -G "NMake Makefiles" ..
     - nmake
     - cd %APPVEYOR_BUILD_FOLDER%
-
-    # Configure MSVC environment
-    # Python 3.3 x64 and Python 3.4 x64 need a special configuration
-    - ps: |
-          If (($env:PYTHON_ARCH -eq "64") -And (($env:PYTHON_VERSION -Like "3.3.*") -Or ($env:PYTHON_VERSION -Like "3.4.*"))) {
-            & "C:\\Program Files\\Microsoft SDKs\\Windows\\v7.1\\Bin\\SetEnv.cmd" /x64
-          }
 
     # Build GEOS
     - ps: |
@@ -149,14 +149,9 @@ build_script:
 
     # Build
     - "python setup.py build %BUILD_ARGS%"
-    - "python setup.py test"
     - "python setup.py bdist_wheel bdist_msi"
     - ps: "ls dist"
-    - "pip install --pre --no-index --find-links dist/ Spectrocrunch"
-
-    # Leave build virtualenv
-    - "%VENV_BUILD_DIR%\\Scripts\\deactivate.bat"
-    - "rmdir %VENV_BUILD_DIR% /s /q"
+    - "pip install --pre --no-index --find-links=dist/ %APPVEYOR_PROJECT_NAME%"
 
 test_script:
     # Test GEOS
@@ -168,22 +163,14 @@ test_script:
           if ($LastExitCode -ne 0) { $host.SetShouldExit($LastExitCode) }
           cd $env:APPVEYOR_BUILD_FOLDER
 
-    # Create test virtualenv
-    - "virtualenv --clear %VENV_TEST_DIR%"
-    - "%VENV_TEST_DIR%\\Scripts\\activate.bat"
+    # Test installation
+    - cd %HOMEDRIVE%%HOMEPATH%
+    - "python -m %APPVEYOR_PROJECT_NAME%.tests.test_all"
+    - cd %APPVEYOR_BUILD_FOLDER%
 
-    # Upgrade distribution modules
-    - "python -m pip install --upgrade pip"
-    - "pip install --pre --find-links dist/ Spectrocrunch"
-
-    # Print Python info
-    - "python ci\\info_platform.py"
-    - "pip list"
-    - "python setup.py test"
-
-    # Leave test virtualenv
-    - "%VENV_TEST_DIR%\\Scripts\\deactivate.bat"
-    - "rmdir %VENV_TEST_DIR% /s /q"
+    # Leave build virtualenv
+    - "%VENV_NAME%\\Scripts\\deactivate.bat"
+    - "rmdir %VENV_NAME% /s /q"
 
 artifacts:
     # Archive the generated wheel package in the ci.appveyor.com build report.

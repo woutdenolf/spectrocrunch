@@ -1,72 +1,61 @@
-spectrocrunch.h5stacks package
-==============================
+spectrocrunch.h5stacks
+======================
 
-Data processing organized in a software independent hdf5 pipeline.
+.. automodule:: spectrocrunch.h5stacks
 
-Submodules
-----------
-
-spectrocrunch.h5stacks.align_hdf5_imagestacks module
-----------------------------------------------------
+spectrocrunch.h5stacks.align_hdf5_imagestacks
+---------------------------------------------
 
 .. automodule:: spectrocrunch.h5stacks.align_hdf5_imagestacks
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.h5stacks.get_hdf5_imagestacks module
---------------------------------------------------
+spectrocrunch.h5stacks.get_hdf5_imagestacks
+-------------------------------------------
 
 .. automodule:: spectrocrunch.h5stacks.get_hdf5_imagestacks
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.h5stacks.math_hdf5_imagestacks module
----------------------------------------------------
+spectrocrunch.h5stacks.math_hdf5_imagestacks
+--------------------------------------------
 
 .. automodule:: spectrocrunch.h5stacks.math_hdf5_imagestacks
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.h5stacks.math_hdf5_imagestacks_copy module
---------------------------------------------------------
+spectrocrunch.h5stacks.math_hdf5_imagestacks_copy
+-------------------------------------------------
 
 .. automodule:: spectrocrunch.h5stacks.math_hdf5_imagestacks_copy
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.h5stacks.math_hdf5_imagestacks_crop module
---------------------------------------------------------
+spectrocrunch.h5stacks.math_hdf5_imagestacks_crop
+-------------------------------------------------
 
 .. automodule:: spectrocrunch.h5stacks.math_hdf5_imagestacks_crop
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.h5stacks.math_hdf5_imagestacks_expression module
---------------------------------------------------------------
+spectrocrunch.h5stacks.math_hdf5_imagestacks_expression
+-------------------------------------------------------
 
 .. automodule:: spectrocrunch.h5stacks.math_hdf5_imagestacks_expression
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.h5stacks.math_hdf5_imagestacks_replace module
------------------------------------------------------------
+spectrocrunch.h5stacks.math_hdf5_imagestacks_replace
+----------------------------------------------------
 
 .. automodule:: spectrocrunch.h5stacks.math_hdf5_imagestacks_replace
     :members:
     :undoc-members:
     :show-inheritance:
 
-
-Module contents
----------------
-
-.. automodule:: spectrocrunch.h5stacks
-    :members:
-    :undoc-members:
-    :show-inheritance:

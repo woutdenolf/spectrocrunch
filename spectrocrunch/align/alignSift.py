@@ -53,6 +53,7 @@ class alignSift(align):
         self.queue = pyopencl.CommandQueue(self.ctx)
         
         # Prepare alignment kernel
+        self.siftdtype = np.float32
         self.max_workgroup_size = None
         sift.param.par.Scales = 8
         sift.param.par.PeakThresh = 0.
@@ -71,15 +72,18 @@ class alignSift(align):
         
         # Prepare transformation kernel
         self.workgroupshape = (8, 4)
-        self.transformix = pyopencl.Program(self.ctx, get_opencl_code("transform.cl")).build()#('-D WORKGROUP_SIZE=%s' % self.max_workgroup_size)
+        try:
+            self.transformix = pyopencl.Program(self.ctx, get_opencl_code("transform.cl")).build()#('-D WORKGROUP_SIZE=%s' % self.max_workgroup_size)
+        except IOError:
+            self.transformix = pyopencl.Program(self.ctx, get_opencl_code("sift/transform.cl")).build()
         self.newtransformixshape()
         
         # Prepare transformation buffers
         self.buffers = {}
         self.newtransformationIObuffer()
-        self._transform = self.defaulttransform()
-        self.buffers["matrix"] = pyopencl.array.empty(self.queue, shape=(2, 2), dtype=self.dtype)
-        self.buffers["offset"] = pyopencl.array.empty(self.queue, shape=(1, 2), dtype=self.dtype)
+        self._transform = self.defaulttransform(dtype=self.siftdtype)
+        self.buffers["matrix"] = pyopencl.array.empty(self.queue, shape=(2, 2), dtype=self.siftdtype)
+        self.buffers["offset"] = pyopencl.array.empty(self.queue, shape=(1, 2), dtype=self.siftdtype)
         self.updatecofbuffer()
 
     def updatecofbuffer(self):
@@ -90,13 +94,13 @@ class alignSift(align):
     def newsiftplan(self):
         """New kernel for finding keypoints
         """
-        self.siftplan = sift.SiftPlan(shape = self.inshape, dtype = self.dtype, context=self.ctx, max_workgroup_size=self.max_workgroup_size)
+        self.siftplan = sift.SiftPlan(shape = self.inshape, dtype = self.siftdtype, context=self.ctx, max_workgroup_size=self.max_workgroup_size)
 
     def newtransformationIObuffer(self):
         """New IO buffers for the transformation kernel
         """
-        self.buffers["input"] = pyopencl.array.empty(self.queue, shape=self.inshape, dtype=self.dtype)
-        self.buffers["output"] = pyopencl.array.empty(self.queue, shape=self.outshape, dtype=self.dtype)
+        self.buffers["input"] = pyopencl.array.empty(self.queue, shape=self.inshape, dtype=self.siftdtype)
+        self.buffers["output"] = pyopencl.array.empty(self.queue, shape=self.outshape, dtype=self.siftdtype)
 
     def newtransformixshape(self):
         shape = self.inshape[::-1]
@@ -130,7 +134,7 @@ class alignSift(align):
         self.changeshape(img.shape)
 
         # Copy image to buffer
-        data = np.ascontiguousarray(img, self.dtype)
+        data = np.ascontiguousarray(img, self.siftdtype)
         cpy = pyopencl.enqueue_copy(self.queue, self.buffers["input"].data, data)
         cpy.wait()
 
@@ -143,7 +147,7 @@ class alignSift(align):
         """
 
         # Copy image to buffer
-        data = np.ascontiguousarray(img, self.dtype)
+        data = np.ascontiguousarray(img, self.siftdtype)
         cpy = pyopencl.enqueue_copy(self.queue, self.buffers["input"].data, data)
         cpy.wait()
 
@@ -390,7 +394,7 @@ class alignSift(align):
                                    np.int32(self.inshape[0]), # input height
                                    np.int32(self.outshape[1]), # output width
                                    np.int32(self.outshape[0]), # output height
-                                   np.float32(self.cval), # fill
+                                   self.siftdtype(self.cval), # fill
                                    #self.siftplan.buffers["min"].get()[0],
                                    np.int32(1)) # bilinear interpolation
 
@@ -403,7 +407,7 @@ class alignSift(align):
         if previous:
             self.kp1 = self.kp2
         else:
-            self.kp1 = self.siftplan.keypoints(np.ascontiguousarray(img, self.dtype))
+            self.kp1 = self.siftplan.keypoints(np.ascontiguousarray(img, self.siftdtype))
 
         self.buffers["ref_kp_gpu"] = pyopencl.array.to_device(self.matchplan.queue, self.kp1)
 

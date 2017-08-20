@@ -32,10 +32,12 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.animation as animation
 
+from ..math.common import logscale
+
 class shape_object(object):
     
     def __init__(self,nframes,noborder=False,noROIborder=False,notitle=False,noimage=False,notext=False,static=True,ROIs=[],\
-                cmap="jet",rellim=[[0.,1.]],abslim=[],offset=[0,0],name="",figindex=0,xanesnormalize={}):
+                cmap="jet",rellim=[[0.,1.]],abslim=[],log=[],offset=[0,0],name="",figindex=0,xanesnormalize={}):
         self.noborder = noborder
         self.noROIborder = noROIborder
         self.notitle = notitle
@@ -45,6 +47,7 @@ class shape_object(object):
         self.cmap = cmap
         self.rellim = rellim
         self.abslim = abslim
+        self.log = log
         self.img = None
         self.im = None
         self.markers = []
@@ -275,6 +278,10 @@ class shape_object(object):
         if not self.noimage and ax is not None:
             # Images scaling
             for i in range(nchan):
+                if len(self.log)!=0:
+                    if self.log[i]:
+                        img[...,i] = logscale(img[...,i])
+                        
                 if len(self.abslim)==0:
                     j = min(len(self.rellim),i)
                     mi = np.nanmin(img[...,i])
@@ -371,11 +378,12 @@ class shape_object(object):
 
 class shape_hdf5(shape_object):
 
-    def __init__(self,filename,subpaths,subindices,coordinatesindex=None,**kwargs):
+    def __init__(self,filename,subpaths,subindices,coordinatesindex=None,ignoremotorpositions=False,**kwargs):
         self.filename = filename
         self.subpaths = subpaths
         self.subindices = subindices
         self.coordinatesindex = coordinatesindex
+        self.ignoremotorpositions = ignoremotorpositions
 
         shape_object.__init__(self,len(subindices),**kwargs)
 
@@ -390,11 +398,14 @@ class shape_hdf5(shape_object):
         dim2name = "samy"
         dim2mult = 1
 
-        if self.coordinatesindex is not None:
-            frame2 = self.coordinatesindex
+        if self.ignoremotorpositions:
+            frame2 = 0
         else:
-            frame2 = frame
-
+            if self.coordinatesindex is not None:
+                frame2 = self.coordinatesindex
+            else:
+                frame2 = frame
+            
         ocoord = oh5["coordinates"]
         for f in ocoord:
             if f == "samz":

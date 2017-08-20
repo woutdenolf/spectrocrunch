@@ -44,9 +44,11 @@ install:
   - "python setup.py sdist bdist_wheel"
 
   # Install package
-  - "pip install --pre --no-index --find-links dist/"
+  - PROJECTNAME=`python setup.py name|tail -1`
+  - "pip install --pre --no-index --find-links=dist/ ${PROJECTNAME}"
 
 script:
   # Test the installed package
-  - "python -m spectrocrunch.tests.test_all"
+  - cd $HOME
+  - "python -m ${PROJECTNAME}.tests.test_all"
 

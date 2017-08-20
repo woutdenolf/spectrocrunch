@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -21,5 +21,12 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-"""Subpackage used by the other subpackages.
-"""
+
+import inspect
+
+def printstack(i):
+    frame,filename,line_number,function_name,lines,index = inspect.stack()[i]
+    print "Caller: file = {}, function = {}, line {}".format(filename,function_name,line_number)
+
+def printcaller():
+    printstack(3)

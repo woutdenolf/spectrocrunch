@@ -144,6 +144,47 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
     # Write the configuration
     configuration.write(cfg)
 
+def PerformRoi(filelist,rois,norm=None):
+    """ROI XRF spectra in batch with changing primary beam energy.
+
+    Args:
+        filelist(list(str)|np.array): spectra to fit
+        rois(dict(2-tuple)): ROIs
+        norm(Optional(np.array)): normalization array
+    Returns:
+        dict: {label:nenergies x nfiles,...}
+    """
+    # Load data
+    # Each spectrum (each row) in 1 edf file is acquired at a different energy
+    if isinstance(filelist,list):
+        dataStack = EDFStack.EDFStack(filelist, dtype=np.float32).data
+    else:
+        dataStack = filelist
+    nfiles,nenergies,nchannels = dataStack.shape
+
+    # Normalization
+    if norm is None:
+        norm = [1]*nenergies
+    else:
+        if hasattr(norm,"__iter__"):
+            if len(norm)==1:
+                norm = [norm[0]]*nenergies
+            elif len(norm)!=nenergies:
+                raise ValueError("Expected {} normalization values ({} given)".format(nenergies,len(norm)))
+        else:
+            norm = [norm]*nenergies
+
+    # ROI
+    ret = {}
+    for k in rois:
+        ret[k] = np.zeros((nenergies,nfiles),dtype=type(dataStack))
+
+    for i in range(nfiles):
+        for k,roi in rois.items():
+            ret[k][:,i] = np.sum(dataStack[i,:,roi[0]:roi[1]],axis=1)/norm
+
+    return ret
+
 def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plot=False):
     """Fit XRF spectra in batch with changing primary beam energy.
 
@@ -230,13 +271,13 @@ def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plo
                 mcafitresult = mcafit.digestresult()
                 ax.cla()
 
-                if plot==2 or not any(np.isfinite(np.log(mcafitresult["ydata"]))):
+                if plot==2 or not any(np.isfinite(np.log(mcafitresult["ydata"]))) or not any(mcafitresult["ydata"]>0):
                     ax.plot(mcafitresult["energy"],mcafitresult["ydata"])
                     ax.plot(mcafitresult["energy"],mcafitresult["yfit"],color='red')
                 else:
                     ax.semilogy(mcafitresult["energy"],mcafitresult["ydata"])
                     ax.semilogy(mcafitresult["energy"],mcafitresult["yfit"],color='red')
-                ax.set_ylim(bottom=1)
+                    ax.set_ylim(ymin=np.nanmin(mcafitresult["ydata"][np.nonzero(mcafitresult["ydata"])]))
                 ax.set_title("Primary energy: {} keV".format(energies[j]))
                 ax.set_xlabel("Energy (keV)")
                 ax.set_ylabel("Intensity (cts)")
@@ -252,13 +293,6 @@ def PerformFit(filelist,cfg,energies,mlines={},norm=None,fast=True,prog=None,plo
             if "chisq" not in ret:
                 ret["chisq"] = np.zeros((nenergies,nfiles),dtype=type(mcafit.chisq))
             ret["chisq"][j,i] = mcafit.chisq
-
-
-            #import pdb; pdb.set_trace()
-
-            # ROI (TODO: implement separately for general use)
-            #ret["S K"][j,i] = sum(y[440:460])
-            #ret["Pb M"][j,i] = sum(y[475:515])
 
         # Print progress
         if prog is not None:

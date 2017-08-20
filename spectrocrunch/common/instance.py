@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -21,5 +21,22 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-"""Subpackage used by the other subpackages.
-"""
+
+import collections
+import numbers
+
+def isstring(x):
+    try:
+        return isinstance(x, (str, unicode))
+    except:
+        return isinstance(x, str)
+
+def isboollist(lst):
+    return all(isinstance(i,bool) for i in lst) and len(lst)>0
+
+def isarray(x):
+    return hasattr(x, "__len__") and not isstring(x)
+
+def isnumber(x):
+    return isinstance(x, numbers.Number)
+

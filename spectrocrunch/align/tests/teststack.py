@@ -170,7 +170,12 @@ def transformation(t,n,subpixel=True):
 def random(a,b,n):
     return a+(b-a)*np.random.random(n)
 
-def teststack(transfotype,vector=False,transposed=False,nimages = 5,realistic = True, subpixel = True):
+def teststack(transfotype,\
+        ndim1 = 71,\
+        ndim2 = 61,\
+        nimages = 5,\
+        ndim = 100,vector=False,transposed=False,\
+        realistic = True, subpixel = True):
     """
     Returns:
         3-tuple: list of image stacks, change-of-coordinate matrix between the subsequent images, stack dimensions

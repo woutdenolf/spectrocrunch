@@ -1,32 +1,21 @@
-spectrocrunch.visualization package
-===================================
+spectrocrunch.visualization
+===========================
 
-Plotting things.
+.. automodule:: spectrocrunch.visualization
 
-Submodules
-----------
-
-spectrocrunch.visualization.id21_scanoverlap module
----------------------------------------------------
+spectrocrunch.visualization.id21_scanoverlap
+--------------------------------------------
 
 .. automodule:: spectrocrunch.visualization.id21_scanoverlap
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.visualization.id21_showspec module
-------------------------------------------------
+spectrocrunch.visualization.id21_showspec
+-----------------------------------------
 
 .. automodule:: spectrocrunch.visualization.id21_showspec
     :members:
     :undoc-members:
     :show-inheritance:
 
-
-Module contents
----------------
-
-.. automodule:: spectrocrunch.visualization
-    :members:
-    :undoc-members:
-    :show-inheritance:

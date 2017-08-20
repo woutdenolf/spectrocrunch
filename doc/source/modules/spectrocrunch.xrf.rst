@@ -1,40 +1,29 @@
-spectrocrunch.xrf package
-=========================
+spectrocrunch.xrf
+=================
 
-X-ray fluorescence data processing.
+.. automodule:: spectrocrunch.xrf
 
-Submodules
-----------
-
-spectrocrunch.xrf.create_hdf5_imagestacks module
-------------------------------------------------
+spectrocrunch.xrf.create_hdf5_imagestacks
+-----------------------------------------
 
 .. automodule:: spectrocrunch.xrf.create_hdf5_imagestacks
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.xrf.fit module
-----------------------------
+spectrocrunch.xrf.fit
+---------------------
 
 .. automodule:: spectrocrunch.xrf.fit
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.xrf.parse_xia module
-----------------------------------
+spectrocrunch.xrf.parse_xia
+---------------------------
 
 .. automodule:: spectrocrunch.xrf.parse_xia
     :members:
     :undoc-members:
     :show-inheritance:
 
-
-Module contents
----------------
-
-.. automodule:: spectrocrunch.xrf
-    :members:
-    :undoc-members:
-    :show-inheritance:

@@ -1,24 +1,14 @@
-spectrocrunch.fullfield package
-===============================
+spectrocrunch.fullfield
+=======================
 
-Fullfield XAS data processing.
+.. automodule:: spectrocrunch.fullfield
 
-Submodules
-----------
 
-spectrocrunch.fullfield.create_hdf5_imagestacks module
-------------------------------------------------------
+spectrocrunch.fullfield.create_hdf5_imagestacks
+-----------------------------------------------
 
 .. automodule:: spectrocrunch.fullfield.create_hdf5_imagestacks
     :members:
     :undoc-members:
     :show-inheritance:
 
-
-Module contents
----------------
-
-.. automodule:: spectrocrunch.fullfield
-    :members:
-    :undoc-members:
-    :show-inheritance:

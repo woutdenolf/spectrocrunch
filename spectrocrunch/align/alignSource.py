@@ -112,7 +112,8 @@ class alignSource(object):
         if len(s) > 3:
             raise ValueError("Datasets should have 3 dimensions.")
         if len(s) < 3:
-            return np.concatenate(s,np.ones(3-len(s)))
+            self.stackdim = 2
+            return s+(1,)*(3-len(s))
         return s
 
     def readimg(self,datasetindex,imageindex):
@@ -134,6 +135,15 @@ class alignSource(object):
             data = data[...,np.newaxis]
 
         return data
+       
+    @property 
+    def dtype(self):
+        if self.sourcetype==dataType.h5 or self.sourcetype==dataType.h5ext or self.sourcetype==dataType.nparray:
+            return self.datasets[0].dtype
+        elif self.sourcetype==dataType.singlefile:
+            return fabio.open(self.datasets[0][0]).bytecode
+        else:
+            raise ValueError("Source type is not implemented.")
 
     def readimgas(self,datasetindex,imageindex,dtype):
         return self.readimg(datasetindex,imageindex).astype(dtype)

@@ -27,6 +27,7 @@ import h5py
 import numpy as np
 import pylab
 from scipy import interpolate
+from ..math.common import logscale
 
 def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fliphor=False,color='#ffffff',defaultorigin=False,printpos=False,outname=None):
     """
@@ -148,7 +149,7 @@ def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fli
     else:
         pylab.savefig(outname)
 
-def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=False,flipvert=True,fliphor=False,defaultorigin=False,showlabels=False,color='#ffffff',printpos=False,outname=None):
+def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=False,flipvert=True,fliphor=False,defaultorigin=False,showlabels=False,color='#ffffff',printpos=False,outname=None,log=False):
     """
     Args:
         hdf5filename(str)
@@ -206,6 +207,10 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=Fa
             img = img.T
         if i==0:
             images = np.zeros((3,)+img.shape,dtype=img.dtype)
+
+        if log:
+            img = logscale(img)
+
         mi = np.min(img)
         ma = np.max(img)
         d = ma-mi
@@ -225,15 +230,18 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=Fa
     n = len(specnumbers)
     pdim1 = np.empty(n)
     pdim2 = np.empty(n)
+    if not hasattr(offsamz, '__len__'):
+        offsamz = [offsamz]*n
+    if not hasattr(offsamy, '__len__'):
+        offsamy = [offsamy]*n
     for i in range(n):
         v = ospec.getmotorvalues(specnumbers[i],motors)
         if printpos:
             print("Spec number {}",format(i))
             for a,b in zip(motors,v):
                 print(" {} = {}".format(a,b))
-        
-        pdim1[i] = v[0]*1000+v[1]+offsamz
-        pdim2[i] = v[2]*1000+v[3]+offsamy
+        pdim1[i] = v[0]*1000+v[1]+offsamz[i]
+        pdim2[i] = v[2]*1000+v[3]+offsamy[i]
 
     # Make axes values readable
     m1 = min(dim1)

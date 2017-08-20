@@ -32,7 +32,7 @@ from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
 import ..common.timing as timing
 import ..io.nexus as nexus
 
-from .proc_math import execute as normalize
+from .proc_math import execute as math
 from .proc_align import execute as align
 from .proc_replacevalue import execute as replacevalue
 from .proc_crop import execute as execcrop
@@ -69,6 +69,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
 
             # Deadtime correction
             "dtcor": dtcor,
+            "dtcorifsingle":True,
 
             # Configuration for fitting
             "detectorcfg": cfgfiles,
@@ -95,7 +96,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
 
     return jsonfile,config["hdf5output"]
 
-def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignreference,\
+def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignreference,\
         refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,\
         crop=False,roialign=None,plot=True,counters=[],normcounter=None,mlines={},\
         addbeforefit=True,exclude_detectors=[]):
@@ -117,11 +118,11 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
         preprocessingexists = os.path.isfile(h5file)
 
     if preprocessingexists:
-        stacks, axes = getstacks(h5file,["counters","detectorsum"])
+        stacks, axes = getstacks(h5file,["counters","^detector([0-9]+|sum)$"])
     else:
         logger.info("Creating image stacks ...")
         jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,\
-                                            cfgfile,dtcor,stackdim,counters=counters,\
+                                            cfgfiles,dtcor,stackdim,counters=counters,\
                                             normcounter=normcounter,mlines=mlines,\
                                             addbeforefit=addbeforefit,exclude_detectors=exclude_detectors)
         stacks, axes = makestacks(jsonfile)
@@ -143,7 +144,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfile,alignmethod,alignre
     if not skipnormalization and normcounter is not None:
         expression = "{{}}/{{{}}}".format(normcounter)
         skip = [normcounter]
-        h5file,stacks,axes = normalize(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="norm")
+        h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="norm")
 
     # Alignment
     if alignmethod is None or alignreference is None:

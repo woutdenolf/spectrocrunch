@@ -26,12 +26,13 @@ import math_hdf5_imagestacks_expression as m_expression
 import math_hdf5_imagestacks_copy as m_copy
 import math_hdf5_imagestacks_crop as m_crop
 import math_hdf5_imagestacks_replace as m_replace
+import math_hdf5_imagestacks_resample as m_resample
 
 import ..io.nexus as nexus
 from ..common.integerbase import integerbase
 
-from ..common.Enum import Enum
-operationType = Enum(['expression','copy','crop','replace'])
+from spectrocrunch.common.Enum import Enum
+operationType = Enum(['expression','copy','crop','replace','resample'])
 
 import re
 import logging
@@ -89,6 +90,8 @@ def math_hdf5_imagestacks(filein,fileout,axes,operation,varargs,fixedargs,ret,ex
         m_copy.evaluate(operation,fin,varargs,retstacks)
     elif operation["type"]==operationType.replace:
         m_replace.evaluate(operation,fin,varargs,retstacks)
+    elif operation["type"]==operationType.resample:
+        axesdata = m_resample.evaluate(operation,fin,varargs,retstacks,axes)
 
     # New axes
     if len(axesdata)==0:
@@ -97,6 +100,7 @@ def math_hdf5_imagestacks(filein,fileout,axes,operation,varargs,fixedargs,ret,ex
             axesdata = [fin[a["fullname"]] for a in axes]
         else:
             axesdata = [fin[a["fullname"]][:] for a in axes]
+
     retaxes = nexus.newaxes(fout,axes,axesdata,extension)
 
     # Link groups to axes
@@ -179,5 +183,11 @@ def crop_hdf5_imagestacks(filein,fileout,axes,stacks,retstack,cropinfo,overwrite
 def replacevalue_hdf5_imagestacks(filein,fileout,axes,stacks,retstack,orgvalue,newvalue,overwrite=False,info=None,copygroups=None,stackdim=None):
     operation = {"type":operationType.replace,"v1":orgvalue,"v2":newvalue,"sliced":stackdim is not None,"stackdim":stackdim}
     return math_hdf5_imagestacks(filein,fileout,axes,operation,stacks,{},retstack,extension="replace",overwrite=overwrite,info=info,copygroups=copygroups)
+
+def resample_hdf5_imagestacks(filein,fileout,axes,stacks,retstack,resampleinfo,overwrite=False,info=None,copygroups=None):
+    operation = resampleinfo
+    operation["type"] = operationType.resample
+    return math_hdf5_imagestacks(filein,fileout,axes,operation,stacks,{},retstack,extension="resample",overwrite=overwrite,info=info,copygroups=copygroups)
+
 
 

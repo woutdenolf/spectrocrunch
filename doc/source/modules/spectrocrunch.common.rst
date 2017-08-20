@@ -1,88 +1,77 @@
-spectrocrunch.common package
-============================
+spectrocrunch.common
+====================
 
-Subpackage used by the other subpackages.
+.. automodule:: spectrocrunch.common
 
-Submodules
-----------
-
-spectrocrunch.common.Enum module
---------------------------------
+spectrocrunch.common.Enum
+-------------------------
 
 .. automodule:: spectrocrunch.common.Enum
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.common.arraytricks module
----------------------------------------
+spectrocrunch.common.arraytricks
+--------------------------------
 
 .. automodule:: spectrocrunch.common.arraytricks
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.common.cliproi module
------------------------------------
+spectrocrunch.common.cliproi
+----------------------------
 
 .. automodule:: spectrocrunch.common.cliproi
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.common.comparable module
---------------------------------------
+spectrocrunch.common.comparable
+-------------------------------
 
 .. automodule:: spectrocrunch.common.comparable
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.common.dict module
---------------------------------
+spectrocrunch.common.dict
+-------------------------
 
 .. automodule:: spectrocrunch.common.dict
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.common.hashable module
-------------------------------------
+spectrocrunch.common.hashable
+-----------------------------
 
 .. automodule:: spectrocrunch.common.hashable
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.common.integerbase module
----------------------------------------
+spectrocrunch.common.integerbase
+--------------------------------
 
 .. automodule:: spectrocrunch.common.integerbase
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.common.stdout module
-----------------------------------
+spectrocrunch.common.stdout
+---------------------------
 
 .. automodule:: spectrocrunch.common.stdout
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.common.timing module
-----------------------------------
+spectrocrunch.common.timing
+---------------------------
 
 .. automodule:: spectrocrunch.common.timing
     :members:
     :undoc-members:
     :show-inheritance:
 
-
-Module contents
----------------
-
-.. automodule:: spectrocrunch.common
-    :members:
-    :undoc-members:
-    :show-inheritance:

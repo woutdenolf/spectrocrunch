@@ -24,9 +24,12 @@
 
 import unittest
 
+from . import test_xiaedf
+
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
+    testSuite.addTest(test_xiaedf.test_suite_all())
     return testSuite
     
 if __name__ == '__main__':

@@ -49,6 +49,10 @@ def fitgaussian(x,data):
         success = success>0 and success<5
 
     return p, success
+    
+def xyremovenan(x,y):
+    b = np.logical_and(~np.isnan(x),~np.isnan(y))
+    x[b],y[b]
 
 def lstsq(A,b,errors=False):
     # A.x = b
@@ -66,4 +70,53 @@ def linfit(x,y,errors=False):
     # A.x = b
     A = np.vstack([x, np.ones(len(x))]).T
     return lstsq(A,y,errors=errors)
+    
+def linfit2(x,y,errors=False):
+    n = len(x)
+    Sxy = (x*y).sum()
+    Sxx = (x*x).sum()
+    Sx = x.sum()
+    Sy = y.sum()
+    denom = float(n*Sxx-Sx*Sx)
+    mnum = n*Sxy-Sx*Sy
+    bnum = Sxx*Sy-Sx*Sxy
+    m = mnum / denom
+    b = bnum / denom
+    
+    if errors:
+        Syy = (y*y).sum()
+        num = n*Syy-Sy*Sy-m*mnum
+        mstd = np.sqrt(    num / ((n-2.)*denom)  )
+        bstd = np.sqrt(num*Sxx / (n*(n-2.)*denom))
+        return [m,b],[mstd,bstd]
+    else:
+        return [m,b]
 
+def nanlinfit(x,y,errors=False):
+    x,y = xyremovenan(x,y)
+    return linfit(x,y,errors=errors)
+
+def nanlinfit2(x,y,errors=False):
+    x,y = xyremovenan(x,y)
+    return linfit2(x,y,errors=errors)
+
+def linfit_zerointercept(x,y,errors=False):
+    # A.x = b
+    A = np.vstack([x]).T
+    if errors:
+        m,mstd = lstsq(A,y,errors=True)
+        return m[0],mstd[0]
+    else:
+        return lstsq(A,y)[0]
+    
+def linfit_zerointercept2(x,y,errors=False):
+    Sxy = (x*y).sum()
+    Sxx = float((x*x).sum())
+    m = Sxy/Sxx
+    if errors:
+        n = len(x)
+        Syy = (y*y).sum()
+        mstd = np.sqrt( (Syy+m*m*Sxx-2*m*Sxy) / ((n-1.)*Sxx) ) # Not sure
+        return m,mstd
+    return m
+    

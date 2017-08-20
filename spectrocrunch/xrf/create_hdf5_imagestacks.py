@@ -29,7 +29,7 @@ import numpy as np
 import h5py
 import re
 from glob import glob
-from PyMca5.PyMcaIO import EdfFile
+import fabio
 
 from ..xrf.parse_xia import parse_xia_esrf
 from ..xrf.fit import PerformBatchFit as fitter
@@ -47,11 +47,13 @@ def filecounter(sourcepath,scanname,counter,scannumber,idet=None,getcount=False,
                     "%s_%sst_%04d_0000_%s.edf.1"%(scanname,counter,scannumber,f)]
     elif idet is not None:
         filename = ["%s_%s_%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f),\
+                    "%s_PUZ_%s_%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f),\
                     "%s_%s_%02d_%04d_%s.edf.1"%(scanname,counter,idet,scannumber,f),\
                     "%s_%s%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f),\
                     "%s_%s%02d_%04d_%s.edf.1"%(scanname,counter,idet,scannumber,f)]
     else:
         filename = ["%s_%s_%04d_%s.edf"%(scanname,counter,scannumber,f),\
+                    "%s_PUZ_%s_%04d_%s.edf"%(scanname,counter,scannumber,f),\
                     "%s_%s_%04d_%s.edf.1"%(scanname,counter,scannumber,f)]
 
     n = 0
@@ -196,9 +198,6 @@ def getimagestacks(config):
         nscanstot += len(config["scannumbers"][ipath])
 
     # DT correction, sum detector and fit
-    onlycountdetectors = config["fit"]==False and \
-                         config["dtcor"]==False and \
-                         config["addbeforefitting"]==False
     nfilestofit = None
     for ipath in range(npaths):
         counterpath = os.path.abspath(os.path.join(config["sourcepath"][ipath],config["counter_reldir"]))
@@ -219,9 +218,9 @@ def getimagestacks(config):
                     else:
                         idet = None
                     metafilename = filecounter(counterpath,scanname,metacounter,scannumber,idet=idet)
-                    metafile = EdfFile.EdfFile(metafilename)
-                    header = metafile.GetHeader(0)
-                    
+                    metafile = fabio.open(metafilename)
+                    header = metafile.header
+
                     if iscan == 0 and ipath == 0:
                         try:
                             motfast,motslow,sfast,sslow = getscanpositions(config,header)
@@ -229,7 +228,7 @@ def getimagestacks(config):
                             motfast = "fast"
                             motslow = "slow"
 
-                            tmp = int(metafile.Images[0].StaticHeader["Dim_2"])
+                            tmp = int(header["Dim_2"])
                             sfast = {"name":motfast,"data":np.arange(tmp)}
 
                             tmp = filecounter(counterpath,scanname,metacounter,scannumber,idet=idet,getcount=True)
@@ -271,7 +270,7 @@ def getimagestacks(config):
             filestofit,detnums = parse_xia_esrf(xrfpath,scanname,
                     scannumber,config["outdatapath"],parsename,add=config["addbeforefitting"],
                     exclude_detectors=config["exclude_detectors"],deadtime=config["dtcor"],
-                    onlycountdetectors=onlycountdetectors)
+                    willbefitted=config["fit"],deadtimeifsingle=config["dtcorifsingle"])
             ndet = len(detnums)
             noxia = ndet==0
 
@@ -397,15 +396,12 @@ def exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=False):
             nscans = len(stacks[k1][k2])
             for iscan in range(nscans):
                 try:
-                    fdata = EdfFile.EdfFile(stacks[k1][k2][iscan])
+                    fdata = fabio.open(stacks[k1][k2][iscan])
                 except IOError as e:
                     logger.error(str.format("Error opening file {}",stacks[k1][k2][iscan]))
                     raise e
 
-                if fdata.GetNumImages() == 0:
-                    continue
-
-                data = fdata.GetData(0)
+                data = fdata.data
                 if k2 in grp:
                     dset = grp[k2][grp[k2].attrs["signal"]]
                 else:

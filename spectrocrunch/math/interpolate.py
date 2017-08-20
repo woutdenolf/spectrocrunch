@@ -41,3 +41,4 @@ def extrap1d(interpolator):
         return array(map(pointwise, array(xs)))
 
     return ufunclike
+

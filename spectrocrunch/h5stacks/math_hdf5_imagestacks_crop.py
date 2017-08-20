@@ -65,17 +65,17 @@ def calccroproi(stack,nanval,stackdim):
         else:
             img = dataset[...,i]
         if nanval is np.nan:
-            mask &= np.isnan(img)==False
+            mask &= np.logical_not(np.isnan(img))
         else:
             mask &= img != nanval
 
     # Valid row and columns (not all False)
-    indvalidrow = np.argwhere(mask.sum(axis=1))[0]
-    indvalidcol = np.argwhere(mask.sum(axis=0))[0]
-    arow = indvalidrow[0]
-    brow = indvalidrow[-1]+1
-    acol = indvalidcol[0]
-    bcol = indvalidcol[-1]+1
+    indvalidrow = np.argwhere(mask.sum(axis=1))
+    indvalidcol = np.argwhere(mask.sum(axis=0))
+    arow = indvalidrow[0][0]
+    brow = indvalidrow[-1][0]+1
+    acol = indvalidcol[0][0]
+    bcol = indvalidcol[-1][0]+1
 
     # Roi to keep
     if brow-arow == dim1 and bcol-acol == dim2:

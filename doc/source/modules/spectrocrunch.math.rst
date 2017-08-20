@@ -1,56 +1,45 @@
-spectrocrunch.math package
-==========================
+spectrocrunch.math
+==================
 
-Another subpackage used by the other subpackages, more specifically grouping all math.
+.. automodule:: spectrocrunch.math
 
-Submodules
-----------
-
-spectrocrunch.math.center module
---------------------------------
+spectrocrunch.math.center
+-------------------------
 
 .. automodule:: spectrocrunch.math.center
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.math.fit1d module
--------------------------------
+spectrocrunch.math.fit1d
+------------------------
 
 .. automodule:: spectrocrunch.math.fit1d
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.math.fit2d module
--------------------------------
+spectrocrunch.math.fit2d
+------------------------
 
 .. automodule:: spectrocrunch.math.fit2d
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.math.ft module
-----------------------------
+spectrocrunch.math.ft
+---------------------
 
 .. automodule:: spectrocrunch.math.ft
     :members:
     :undoc-members:
     :show-inheritance:
 
-spectrocrunch.math.interpolate module
--------------------------------------
+spectrocrunch.math.interpolate
+------------------------------
 
 .. automodule:: spectrocrunch.math.interpolate
     :members:
     :undoc-members:
     :show-inheritance:
 
-
-Module contents
----------------
-
-.. automodule:: spectrocrunch.math
-    :members:
-    :undoc-members:
-    :show-inheritance:
