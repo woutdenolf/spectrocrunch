@@ -10,7 +10,7 @@ cd $BUILD_FOLDER
 
 if [ ! -d ${PYTHONV} ]; then
     FILE=spectrocrunch.travis.python${PYTHONV}.tgz
-    LINK1=https://transfer.sh/GhIuO/$FILE
+    LINK1=https://transfer.sh/12avMO/$FILE
     LINK2=http://ftp.esrf.fr/tmp/$FILE
 
     # Download to cache folder
