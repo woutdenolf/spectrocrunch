@@ -28,8 +28,7 @@ if [ ! -d ${PYTHONV} ]; then
     fi
     
     echo "Pre-build libraries:"
-    ls -all
-    
     cd $BUILD_FOLDER
+    ls
 fi
 
