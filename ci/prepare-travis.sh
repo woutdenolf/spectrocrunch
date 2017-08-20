@@ -26,6 +26,10 @@ if [ ! -d ${PYTHONV} ]; then
         echo "Unpack pre-build libraries ..."
         tar -xzf $FILE -C $BUILD_FOLDER
     fi
+    
+    echo "Pre-build libraries:"
+    ls
+    
     cd $BUILD_FOLDER
 fi
 
