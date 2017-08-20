@@ -51,7 +51,7 @@ def parse_xia_esrf(datadir,scanname,scannumber,outdir,outname,exclude_detectors=
         deadtime(Optional(bool)): apply deadtime correction to spectra
         add(Optional(bool)): add spectra (after deadtime correction if any)
         willbefitted(Optional(bool)): spectra will be fitted
-        deadtimeifsingle(Optional(bool)): deadtime can be skipped when a single detector (will be done afterwards)
+        deadtimeifsingle(Optional(bool)): deadtime can be skipped for a single detector (will be done afterwards)
     """
 
     # Raw data
@@ -60,7 +60,7 @@ def parse_xia_esrf(datadir,scanname,scannumber,outdir,outname,exclude_detectors=
     
     # Check files
     xiafiles = XiaCorrect.parseFiles(files_raw,log_cb=log_dummy)
-    # - files with only differ by their xianum are grouped together (i.e. each linescan or ct)
+    # - files which only differ by their xianum are grouped together (i.e. each linescan or ct)
     # - missing but existing xianum's are added
     if xiafiles is None:
         return [[]],[]

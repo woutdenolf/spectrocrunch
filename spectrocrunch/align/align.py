@@ -651,13 +651,15 @@ class align(object):
             if aligntype!=alignType.usetransfo:
                 # Image i
                 rawprep = self.readimgrawprep(refdatasetindex,i)
-
+                #np.save("img{}.npy".format(i),rawprep)
+                
                 # Update fixed image
                 if pairwise:
                     self.set_reference(imgref)
-                    
+                
                 # Get align transformation
                 logger.debug("Align index %d on %d"%(i,iref))
+                
                 if i == iref:
                     self.settransformidentity(i)
                     imgaligned = rawprep
@@ -676,6 +678,8 @@ class align(object):
                     self.plot(rawprep,2,"To align %d"%i)
                     self.plot(imgaligned,1,"Aligned %d"%i)
                     self.gettransformation(i,pairwise)
+                
+                logger.debug("Aligned index %d on %d"%(i,iref))
 
                 # Reference for the next image
                 if pairwise:

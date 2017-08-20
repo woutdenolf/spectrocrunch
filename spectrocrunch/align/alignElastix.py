@@ -29,7 +29,6 @@ import numpy as np
 from spectrocrunch.common.stdout import stdout_redirect
 from .types import transformationType
 import logging
-import traceback
 
 class alignElastix(align):
 
@@ -41,7 +40,11 @@ class alignElastix(align):
             raise ValueError("Elastix can only be applied on images, not 1D vectors.")
 
         # Prepare alignment kernel
-        self.elastix = sitk.SimpleElastix()
+        try:
+            self.elastix = sitk.ElastixImageFilter()
+        except:
+            self.elastix = sitk.SimpleElastix()
+ 
         #self.elastix.LogToFolder("")
         #self.elastix.LogToFolderOff()
         self.elastix.LogToConsoleOff()
@@ -50,7 +53,11 @@ class alignElastix(align):
         self.moving = None
 
         # Prepare transformation kernel
-        self.transformix = sitk.SimpleTransformix()
+        try:
+            self.transformix = sitk.TransformixImageFilter()
+        except:
+            self.transformix = sitk.SimpleTransformix()
+        
 
     def replacecval(self,img):
         if self.cval is not np.nan or self.defaultvalue is not np.nan:
@@ -129,6 +136,7 @@ class alignElastix(align):
                 return self.elastix.GetTransformParameterMap()
             except:
                 logger = logging.getLogger(__name__)
+                #import traceback
                 #logger.debug(traceback.format_exc())
                 logger.info("Elastix couldn't align images")
                 return []

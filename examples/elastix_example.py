@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import fabio
 
 def align(fixedImage,movingImage):
-    o = sitk.SimpleElastix()
+    o = sitk.ElastixImageFilter()
     #o.LogToConsoleOn()
 
     o.SetFixedImage(sitk.GetImageFromArray(fixedImage))
@@ -68,8 +68,34 @@ def test3():
 
     plt.show()
 
+def test4():
+    
+    breinit = False
+    bstart = 1
+    #bstart = 2
+    
+    o = sitk.ElastixImageFilter()
+    o.SetParameterMap(sitk.GetDefaultParameterMap("translation"))
+    o.LogToConsoleOff()
+    
+    for i in range(bstart,4):
+        print i
+        imgref = np.load("/data/visitor/hc3130/id21/spectrocrunch/img{}.npy".format(i-1))
+        img = np.load("/data/visitor/hc3130/id21/spectrocrunch/img{}.npy".format(i))
+        o.SetFixedImage(sitk.GetImageFromArray(imgref))
+        o.SetMovingImage(sitk.GetImageFromArray(img))
+        try:
+            o.Execute()
+        except:
+            print "error"
+            if breinit:
+                o = sitk.ElastixImageFilter()
+                o.SetParameterMap(sitk.GetDefaultParameterMap("translation"))
+                o.LogToConsoleOff()
+            
+            
 if __name__ == '__main__':
-    test3()
+    test4()
     
 
 

@@ -349,9 +349,6 @@ class test_indexing(unittest.TestCase):
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_indexing("test_replacefull_transform"))
-    return testSuite
-    
     testSuite.addTest(test_indexing("test_list"))
     testSuite.addTest(test_indexing("test_numpy"))
     testSuite.addTest(test_indexing("test_replacefull"))

@@ -342,6 +342,7 @@ def getnormalizedimage(fileslist,darklib,config):
     rebin = config["rebin"]
 
     img = None
+    time = None
     for f in fileslist:
         fh = fabio.open(f)
         h = fh.header
