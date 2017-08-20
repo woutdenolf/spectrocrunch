@@ -29,8 +29,8 @@ import fabio
 import glob
 import re
 
-from spectrocrunch.common.dict import defaultdict
-import spectrocrunch.io.nexus as nexus
+from ..common.dict import defaultdict
+from ..io import nexus
 
 def execrebin(img,rebin):
     """
@@ -86,8 +86,8 @@ def darklibrary(config):
 
     # Library
     dark = defaultdict()
-    dark.setdefaultfactory(lambda frametime: config["darkcurrentzero"] + config["darkcurrentgain"]*frametime)
-    ndark = {}
+    dark.setdefaultfactory(lambda frametime: {"data":config["darkcurrentzero"] + config["darkcurrentgain"]*frametime,"nframes":1})
+
     for f in darkfiles:
         fh = fabio.open(f)
         h = fh.header
@@ -110,15 +110,10 @@ def darklibrary(config):
     
         # Add to library
         if frametime in dark:
-            dark[frametime] += data
-            ndark[frametime] += nframes
+            dark[frametime]["data"] += data
+            dark[frametime]["nframes"] += nframes
         else:
-            dark[frametime] = data
-            ndark[frametime] = nframes
-
-    # Single frame (rebinned)
-    for frametime in dark:
-        dark[frametime] /= ndark[frametime]
+            dark[frametime] = {"data":data,"nframes":nframes}
 
     return dark
 
@@ -326,6 +321,36 @@ def dimensions(config):
         imgdim = [0,1]
     return stackdim,imgdim
 
+def getsingleimage(filename,darklib,config):
+    """ Get image and corresponding information (dark, expo time, nframes)
+    """
+    # Labels
+    frametimelabel = config["frametimelabel"]
+    frametimedefault = str(config["frametimedefault"])
+    dtype = eval(config["dtype"])
+    nflabel = config["nbframeslabel"]
+
+    fh = fabio.open(filename)
+    h = fh.header
+
+    # Raw data
+    data = fh.data.astype(dtype)
+    data = procraw(data,config)
+
+    # Frame time
+    if frametimelabel in h:
+        frametime = h[frametimelabel]
+    else:
+        frametime = frametimedefault
+
+    # Number of frames
+    if nflabel in h:
+        nframes = dtype(h[nflabel])
+    else:
+        nframes = dtype(1)
+
+    return data,frametime,nframes,darklib[frametime]
+
 def getnormalizedimage(fileslist,darklib,config):
     """ Get dark subtracted images from a list of files with intensity in ADU/sec
         
@@ -339,7 +364,6 @@ def getnormalizedimage(fileslist,darklib,config):
     frametimedefault = str(config["frametimedefault"])
     dtype = eval(config["dtype"])
     nflabel = config["nbframeslabel"]
-    rebin = config["rebin"]
 
     img = None
     time = None
@@ -363,11 +387,12 @@ def getnormalizedimage(fileslist,darklib,config):
         else:
             nframes = dtype(1)
 
+        data -= darklib[frametime]["data"]/darklib[frametime]["nframes"]*nframes
         if img is None:
-            img = data - darklib[frametime]*nframes
+            img = data
             time = dtype(frametime)*nframes
         else:
-            img += data - darklib[frametime]*nframes
+            img += data
             time += dtype(frametime)*nframes
 
     img /= time

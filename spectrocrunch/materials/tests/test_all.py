@@ -26,11 +26,13 @@ import unittest
 from . import test_stoichiometry
 from . import test_compound
 from . import test_mixture
+from . import test_element
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_stoichiometry.test_suite_all())
+    testSuite.addTest(test_element.test_suite_all())
     testSuite.addTest(test_compound.test_suite_all())
     testSuite.addTest(test_mixture.test_suite_all())
     return testSuite

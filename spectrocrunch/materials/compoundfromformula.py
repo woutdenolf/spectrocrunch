@@ -83,6 +83,8 @@ class compoundfromformula(compound):
 
         p = FormulaParser()
         elements, mults = p.eval(formula)
+        if name is None:
+            name = formula
         super(compoundfromformula,self).__init__(elements,mults,fractionType.mole,density,name=name)
 
 

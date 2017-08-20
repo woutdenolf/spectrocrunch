@@ -26,7 +26,7 @@ import fnmatch
 import os
 from glob import glob
 import fabio
-from spectrocrunch.io.spec import spec
+from ..io.spec import spec
 
 def specinfo(specfolder):
     ret = {}

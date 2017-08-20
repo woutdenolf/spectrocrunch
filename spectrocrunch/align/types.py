@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from spectrocrunch.common.Enum import Enum
+from ..common.Enum import Enum
 
 dataType = Enum(['h5','h5ext','singlefile','nparray'])
 alignType = Enum(['full','usetransfo','calctransfo'])

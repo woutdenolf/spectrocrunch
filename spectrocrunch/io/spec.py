@@ -274,7 +274,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
             scan = self.getDataObject("{:d}.1".format(scannumber))
         except TypeError:
             raise TypeError("Error loading scan number {}".format(scannumber))
-            
+        
         # Extract data
         ind = []
         labels = scan.info["LabelNames"]

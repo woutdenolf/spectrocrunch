@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from spectrocrunch.io.spec import spec
+from ..io.spec import spec
 import h5py
 import numpy as np
 import pylab

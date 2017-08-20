@@ -31,10 +31,10 @@ import re
 from glob import glob
 import fabio
 
-from spectrocrunch.xrf.parse_xia import parse_xia_esrf
-from spectrocrunch.xrf.fit import PerformBatchFit as fitter
-import spectrocrunch.io.nexus as nexus
-from spectrocrunch.io.spec import zapline_values, ascan_values
+from ..xrf.parse_xia import parse_xia_esrf
+from ..xrf.fit import PerformBatchFit as fitter
+import ..io.nexus as nexus
+from ..io.spec import zapline_values, ascan_values
 
 def filecounter(sourcepath,scanname,counter,scannumber,idet=None,getcount=False,debug=False):
     if getcount:

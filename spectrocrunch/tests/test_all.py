@@ -23,15 +23,15 @@
 # THE SOFTWARE.
 
 import unittest
-from spectrocrunch.align.tests import test_all as test_align
-from spectrocrunch.common.tests import test_all as test_common
-from spectrocrunch.io.tests import test_all as test_io
-from spectrocrunch.materials.tests import test_all as test_materials
-from spectrocrunch.math.tests import test_all as test_math
-from spectrocrunch.process.tests import test_all as test_process
-from spectrocrunch.visualization.tests import test_all as test_visualization
-from spectrocrunch.xrf.tests import test_all as test_xrf
-from spectrocrunch.h5stacks.tests import test_all as test_h5stacks
+from ..align.tests import test_all as test_align
+from ..common.tests import test_all as test_common
+from ..io.tests import test_all as test_io
+from ..materials.tests import test_all as test_materials
+from ..math.tests import test_all as test_math
+from ..process.tests import test_all as test_process
+from ..visualization.tests import test_all as test_visualization
+from ..xrf.tests import test_all as test_xrf
+from ..h5stacks.tests import test_all as test_h5stacks
 
 def test_suite_all():
     """Test suite including all test suites"""

@@ -26,7 +26,7 @@
 from .align import align
 from .types import transformationType
 import numpy as np
-import spectrocrunch.math.center as center
+import ..math.center as center
 
 class alignSimple(align):
 

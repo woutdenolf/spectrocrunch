@@ -149,3 +149,12 @@ def density_from_molefrac(nfrac,rho,MM):
     """
     return((nfrac*MM).sum()/(nfrac*MM/rho).sum())
 
+def add_frac(xfrac,frac):
+    """
+    Args:
+        xfrac(np.array): fraction of each compound
+        frac(num): fraction of the new compound
+    """
+    return np.append(xfrac*(1-frac),frac)
+
+

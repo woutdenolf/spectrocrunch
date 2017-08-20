@@ -24,7 +24,7 @@
 
 import logging
 
-from spectrocrunch.h5stacks.math_hdf5_imagestacks import crop_hdf5_imagestacks as cropstacks
+from ..h5stacks.math_hdf5_imagestacks import crop_hdf5_imagestacks as cropstacks
 
 from . import proc_common
 

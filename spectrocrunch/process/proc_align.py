@@ -24,7 +24,7 @@
 
 import logging
 
-from spectrocrunch.h5stacks.align_hdf5_imagestacks import align_hdf5_imagestacks as alignstacks
+from ..h5stacks.align_hdf5_imagestacks import align_hdf5_imagestacks as alignstacks
 
 from . import proc_common
 

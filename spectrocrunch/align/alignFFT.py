@@ -28,8 +28,8 @@ import scipy.ndimage.interpolation
 
 from .align import align
 from .types import transformationType
-import spectrocrunch.math.center as center
-import spectrocrunch.math.ft as ft
+import ..math.center as center
+import ..math.ft as ft
 
 class alignFFT(align):
 

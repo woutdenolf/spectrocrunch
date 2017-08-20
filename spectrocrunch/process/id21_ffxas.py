@@ -27,17 +27,17 @@ import os
 import json
 import numpy as np
 
-import spectrocrunch.common.timing as timing
-from spectrocrunch.fullfield.create_hdf5_imagestacks import create_hdf5_imagestacks as makestacks
-from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
+import ..common.timing as timing
+from ..fullfield.create_hdf5_imagestacks import create_hdf5_imagestacks as makestacks
+from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
 
-import spectrocrunch.io.nexus as nexus
+import ..io.nexus as nexus
 
 from .proc_math import execute as normalizefunc
 from .proc_align import execute as align
 from .proc_crop import execute as execcrop
-from . proc_common import defaultstack
-from . proc_common import flattenstacks
+from .proc_common import defaultstack
+from .proc_common import flattenstacks
 
 def createconfig_pre(sourcepath,destpath,radix,ext,rebin,roi,stackdim,normalize):
 
