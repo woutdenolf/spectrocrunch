@@ -8,17 +8,17 @@ PYTHONV=`python -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[
 
 if [ ! -d ${PYTHONV} ]; then
     FILE=spectrocrunch.travis.python${PYTHONV}.tgz
-    if [[ ${PYTHONV} == "2.7" ]]; then
-        LINK=https://transfer.sh/fGRlO/$FILE
-    else
-        http://ftp.esrf.fr/tmp/$FILE
-    fi
+    LINK1=https://transfer.sh/fGRlO/$FILE
+    LINK2=http://ftp.esrf.fr/tmp/$FILE
 
     # Download
     cd $CACHED_FOLDER
     if [ ! -f $FILE ]; then
         echo "Download pre-build libraries ..."
-        wget ${LINK}
+        wget ${LINK1}
+        if [ -f $FILE ]; then
+            wget ${LINK2}
+        fi
     fi
 
     # Unpack
@@ -26,6 +26,10 @@ if [ ! -d ${PYTHONV} ]; then
         echo "Unpack pre-build libraries ..."
         tar -xzf $FILE -C $BUILD_FOLDER
     fi
+    
+    echo "Pre-build libraries:"
+    ls -all
+    
     cd $BUILD_FOLDER
 fi
 
