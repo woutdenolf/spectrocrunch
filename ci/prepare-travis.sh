@@ -6,30 +6,38 @@
 # Download pre-build libraries
 PYTHONV=`python -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)";`
 
+cd $BUILD_FOLDER
+
 if [ ! -d ${PYTHONV} ]; then
     FILE=spectrocrunch.travis.python${PYTHONV}.tgz
-    if [[ ${PYTHONV} == "2.7" ]]; then
-        LINK=https://transfer.sh/fGRlO/$FILE
-    else
-        http://ftp.esrf.fr/tmp/$FILE
-    fi
+    LINK1=https://transfer.sh/GhIuO/$FILE
+    LINK2=http://ftp.esrf.fr/tmp/$FILE
 
-    # Download
+    # Download to cache folder
     cd $CACHED_FOLDER
     if [ ! -f $FILE ]; then
         echo "Download pre-build libraries ..."
-        wget ${LINK}
+        wget ${LINK1}
+        if [ -f $FILE ]; then
+            wget ${LINK2}
+        fi
     fi
 
-    # Unpack
+    # Unpack in build folder
     if [ -f $FILE ]; then
         echo "Unpack pre-build libraries ..."
         tar -xzf $FILE -C $BUILD_FOLDER
     fi
+fi
+
+# List pre-build libraries
+cd $BUILD_FOLDER
+ls -all
     
+if [ -d ${PYTHONV} ]; then
     echo "Pre-build libraries:"
-    ls -all
-    
-    cd $BUILD_FOLDER
+    ls ${PYTHONV}
+else
+    echo "No pre-build libraries"
 fi
 
