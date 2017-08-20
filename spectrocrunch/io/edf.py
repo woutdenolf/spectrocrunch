@@ -26,6 +26,8 @@ import spectrocrunch.io.spec as spec
 
 import numpy as np
 
+import fabio
+
 def get2Dscancoordinates(header,scanlabel="",fastlabel="",slowlabel=""):
     """Get scan coordinates from header
 
@@ -78,5 +80,54 @@ def get2Dscancoordinates(header,scanlabel="",fastlabel="",slowlabel=""):
         ret = (sfast,sslow)
 
     return ret
+
+class edfmemmap():
+    """Access edf data with memmaps (cannot handle certain things like compression)
+    """
+
+    def __init__(self,filename,mode='r'):
+        #f = fabio.edfimage.EdfImage(filename)
+        f = fabio.open(filename)
+
+        self.dtype = f.bytecode
+        self.shape = (f.dim2,f.dim1)
+        self.ndim = len(self.shape)
+        offset = f._frames[f.currentframe].start
+        self.mdata = np.memmap(filename,dtype=self.dtype,offset=offset,shape=self.shape,order='C')
+
+        if f.swap_needed():
+            self.mdata.byteswap(True)
+
+    @property
+    def data(self):
+        return self.mdata
+        
+    def __getitem__(self,index):
+        return self.data[index]
+
+class edffabio():
+    """Access edf data with fabio
+    """
+
+    def __init__(self,filename,mode='r'):
+        #self.f = fabio.edfimage.EdfImage(filename)
+        self.f = fabio.open(filename)
+
+        self.ndim = 2
+
+    @property
+    def dtype(self):
+        return self.f.bytecode
+
+    @property
+    def shape(self):
+        return (self.f.dim2,self.f.dim1)
+
+    @property
+    def data(self):
+        return self.f.data
+        
+    def __getitem__(self,index):
+        return self.data[index]
 
 

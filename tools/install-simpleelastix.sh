@@ -22,6 +22,13 @@ if [ $? = 0 ]; then
     cd $INSTALL_WD
 fi
 
+# swig
+dpkg --compare-versions "$(swig -version | head -2 | tail -1 | awk '{print $3}')" "lt" "3.0.0"
+if [ $? = 0 ]; then
+    source $SCRIPT_ROOT/install-swig.sh
+    cd $INSTALL_WD
+fi
+
 # ITK
 #source $SCRIPT_ROOT/install-itk.sh
 #cd $INSTALL_WD
@@ -46,8 +53,8 @@ if [ ! -f simpleelastix/build/SimpleITK-build/Wrapping/Python/Packaging/setup.py
             CMAKE_PARAMS="-DBUILD_EXAMPLES:BOOL=OFF \
                           -DBUILD_SHARED_LIBS:BOOL=OFF \
                           -DBUILD_TESTING:BOOL=OFF \
-                          -DUSE_SYSTEM_SWIG:BOOL=ON \
-                          -DUSE_SYSTEM_LUA:BOOL=OFF \
+                          -DSIMPLEITK_USE_SYSTEM_SWIG:BOOL=ON \
+                          -DSIMPLEITK_USE_SYSTEM_LUA:BOOL=OFF \
                           -DUSE_SYSTEM_VIRTUALENV:BOOL=OFF \
                           -DUSE_SYSTEM_ELASTIX:BOOL=OFF \
                           -DUSE_SYSTEM_ITK:BOOL=OFF \

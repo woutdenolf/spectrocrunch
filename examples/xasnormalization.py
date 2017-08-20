@@ -78,7 +78,7 @@
 execfile("initcctbx.py")
 
 import os, sys
-sys.path.insert(1,'/data/id21/inhouse/wout/dev/SpectroCrunch')
+sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 import matplotlib.pyplot as plt
