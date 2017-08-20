@@ -27,8 +27,13 @@ if [ ! -d ${PYTHONV} ]; then
         tar -xzf $FILE -C $BUILD_FOLDER
     fi
     
-    echo "Pre-build libraries:"
     cd $BUILD_FOLDER
-    ls
+    
+    if [ -d ${PYTHONV} ]; then
+        echo "Pre-build libraries:"
+        ls ${PYTHONV}
+    else
+        echo "No pre-build libraries"
+    fi
 fi
 
