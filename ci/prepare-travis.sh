@@ -15,9 +15,11 @@ if [ ! -d ${PYTHONV} ]; then
 
     # Download to cache folder
     cd $CACHED_FOLDER
+    ls -all
     if [ ! -f $FILE ]; then
         echo "Download pre-build libraries ..."
         wget ${LINK1}
+        ls -all
         if [ -f $FILE ]; then
             wget ${LINK2}
         fi
@@ -28,10 +30,11 @@ if [ ! -d ${PYTHONV} ]; then
         echo "Unpack pre-build libraries ..."
         tar -xzf $FILE -C $BUILD_FOLDER
     fi
+    
+    cd $BUILD_FOLDER
 fi
 
 # List pre-build libraries
-cd $BUILD_FOLDER
 ls -all
     
 if [ -d ${PYTHONV} ]; then

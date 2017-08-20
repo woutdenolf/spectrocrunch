@@ -39,7 +39,7 @@ def hms(seconds):
 
 def printtimeelapsed(T0,logger,text="Elapsed time"):
     hours,min,sec = hms((datetime.datetime.now()-T0).seconds)
-    logger.info("%s: %dh %dm %ds" % (text,hours,min,sec))
+    logger.info("  %s: %dh %dm %ds" % (text,hours,min,sec))
 
 class progress(object):
     def __init__(self,logger):
@@ -82,6 +82,6 @@ class progress(object):
 
         pdone = int(ncurrent/float(nmax)*100)
 
-        self.logger.info("Elapsed: %dh %dm %ds (%d%%)  Left: %dh %dm %ds (%d%%)" % (hours,min,sec,pdone,hours2,min2,sec2,100-pdone))
+        self.logger.info("  Elapsed: %dh %dm %ds (%d%%)  Left: %dh %dm %ds (%d%%)" % (hours,min,sec,pdone,hours2,min2,sec2,100-pdone))
         sys.stdout.flush()
 
