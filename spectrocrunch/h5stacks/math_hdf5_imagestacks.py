@@ -28,7 +28,7 @@ import math_hdf5_imagestacks_crop as m_crop
 import math_hdf5_imagestacks_replace as m_replace
 import math_hdf5_imagestacks_resample as m_resample
 
-import ..io.nexus as nexus
+from ..io import nexus as nexus
 from ..common.integerbase import integerbase
 
 from spectrocrunch.common.Enum import Enum

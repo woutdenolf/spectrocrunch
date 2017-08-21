@@ -26,7 +26,7 @@
 from .align import align
 from .types import transformationType
 import numpy as np
-import ..math.center as center
+from ..math import center
 
 class alignSimple(align):
 

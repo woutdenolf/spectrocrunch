@@ -28,8 +28,8 @@ import scipy.ndimage.interpolation
 
 from .align import align
 from .types import transformationType
-import ..math.center as center
-import ..math.ft as ft
+from ..math import center
+from ..math import ft
 
 class alignFFT(align):
 

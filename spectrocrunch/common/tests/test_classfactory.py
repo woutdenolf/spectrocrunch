@@ -27,9 +27,9 @@ import unittest
 from ..classfactory import FactoryMeta
 from future.utils import with_metaclass
 
-class test_inheritance(unittest.TestCase):
+class test_classfactory(unittest.TestCase):
 
-    def test_test(self):
+    def test_inheritance(self):
         class root(object):
             def __init__(self,arg0,kw0=None):
                 self.arg0 = arg0

@@ -30,7 +30,7 @@ import numpy as np
 import scipy.ndimage.filters as filters
 import h5py
 
-import ..io.nexus as nexus
+from ..io import nexus as nexus
 
 class StringParser(object):
     '''

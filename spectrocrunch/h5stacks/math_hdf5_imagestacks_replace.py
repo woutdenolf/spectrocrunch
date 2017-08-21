@@ -24,7 +24,7 @@
 
 import numpy as np
 
-import ..io.nexus as nexus
+from ..io import nexus as nexus
 
 def evaluate_entire(operation,fin,varargs,retstacks):
     """ Replace a particular value in image stacks

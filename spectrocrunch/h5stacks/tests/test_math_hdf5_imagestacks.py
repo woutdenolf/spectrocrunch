@@ -30,7 +30,7 @@ import numpy as np
 import h5py
 
 from .. import math_hdf5_imagestacks as math
-import ...io.nexus as nexus
+from ...io import nexus as nexus
 
 class test_math_hdf5_imagestacks(unittest.TestCase):
     def setUp(self):
