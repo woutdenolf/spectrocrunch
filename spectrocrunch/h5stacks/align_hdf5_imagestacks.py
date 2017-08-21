@@ -28,7 +28,7 @@ from ..align.alignFFT import alignFFT
 from ..align.alignSimple import alignMax
 from ..align.alignSimple import alignMin
 from ..align.alignSimple import alignCentroid
-import ..io.nexus as nexus
+from ..io import nexus
 
 import h5py
 

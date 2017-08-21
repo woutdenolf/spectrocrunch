@@ -130,4 +130,7 @@ class edffabio():
     def __getitem__(self,index):
         return self.data[index]
 
+def saveedf(filename,data,header):
+    fabio.edfimage.EdfImage(data=data,header=header).write(filename)
+            
 

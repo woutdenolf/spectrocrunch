@@ -54,10 +54,7 @@ if hasattr(os, 'link'):
     try:
         os.link(__file__, tempfile)
     except OSError as e:
-        if e.errno == 1:  ## # Operation not permitted
-            del os.link
-        else:
-            raise
+        del os.link
     finally:
         if os.path.exists(tempfile):
             os.remove(tempfile)

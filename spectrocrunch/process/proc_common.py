@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 
 import os
-import ..io.nexus as nexus
+from ..io import nexus
 
 def hdf5base(file_in):
     tmp,ext = os.path.splitext(file_in)

@@ -86,8 +86,8 @@ def darklibrary(config):
 
     # Library
     dark = defaultdict()
-    dark.setdefaultfactory(lambda frametime: {"data":config["darkcurrentzero"] + config["darkcurrentgain"]*frametime,"nframes":1})
-
+    dark.setdefaultfactory(lambda frametime: {"data":config["darkcurrentzero"] + config["darkcurrentgain"]*float(frametime),"nframes":1})
+    
     for f in darkfiles:
         fh = fabio.open(f)
         h = fh.header
@@ -129,8 +129,7 @@ def getroi(roilabel,h,fh):
 
     # ROI from dimensions
     if len(roi)!=4:
-        sh = fh.GetStaticHeader(0)
-        roi = [0,0,int(sh["Dim_1"]),int(sh["Dim_2"])]
+        roi = [0,0,int(fh.dim1),int(fh.dim2)]
 
     return roi
 
@@ -386,7 +385,7 @@ def getnormalizedimage(fileslist,darklib,config):
             nframes = dtype(h[nflabel])
         else:
             nframes = dtype(1)
-
+        
         data -= darklib[frametime]["data"]/darklib[frametime]["nframes"]*nframes
         if img is None:
             img = data

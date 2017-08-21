@@ -31,7 +31,7 @@ Module for version handling (adopted from silx)
 
 MAJOR = 0
 MINOR = 0
-MICRO = 2 # <=15
+MICRO = 3 # <=15
 RELEV = "dev"
 SERIAL = 1 # <=15
 

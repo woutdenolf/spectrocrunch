@@ -4,7 +4,8 @@ Change Log
 `develop`_ (unreleased)
 -----------------------
 
-* Add changes here
+* Noise propagation for fullfield XANES and micro-XANES (fluo and transmission)
+* Alignment of XRF maps on raw spectrum (integrated with dead time correction, flux normalization and detector summing)
 
 
 `0.0.1-alpha2`_ (unreleased)

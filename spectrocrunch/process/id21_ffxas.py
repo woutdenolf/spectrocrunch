@@ -27,11 +27,11 @@ import os
 import json
 import numpy as np
 
-import ..common.timing as timing
+from ..common import timing
 from ..fullfield.create_hdf5_imagestacks import create_hdf5_imagestacks as makestacks
 from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
 
-import ..io.nexus as nexus
+from ..io import nexus
 
 from .proc_math import execute as normalizefunc
 from .proc_align import execute as align
