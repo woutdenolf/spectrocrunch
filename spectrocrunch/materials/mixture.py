@@ -95,13 +95,37 @@ class mixture(object):
 
         # Compounds (no duplicates)
         self._compose_compounds(compounds,nfrac)
+        
+    def change_fractions(self,dfrac,fractype):
+        """Change the compound fractions
 
+        Args:
+            frac(dict): compound fractions
+            fractype(fractionType): element fraction type
+        """
+        compounds = dfrac.keys()
+        frac = dfrac.values()
+        
+        fractions = np.asarray(frac)
+        if fractype == fractionType.mole:
+            nfrac = fractions
+        elif fractype == fractionType.volume:
+            MM = np.asarray([c.molarmass() for c in compounds])
+            rho = np.asarray([c.density for c in compounds])
+            nfrac = stoichiometry.frac_volume_to_mole(fractions,rho,MM)
+        else:
+            MM = np.asarray([c.molarmass() for c in compounds])
+            nfrac = stoichiometry.frac_weight_to_mole(fractions,MM)
+
+        self._compose_compounds(compounds,nfrac)
+        
     def tocompound(self,name):
         tmp = self.elemental_molefractions()
         return compoundfromlist(tmp.keys(),tmp.values(),fractionType.mole,self.density,name=name)
 
-    def __repr__(self):
-        return '\n'.join("{} {}".format(s[1],s[0]) for s in self.compounds.items())
+    def __str__(self):
+        ws = self.weightfractions()
+        return ' + '.join("{} wt% {}".format(s[1],s[0]) for s in ws.items())
 
     def __getitem__(self,compound):
         return self.compounds[compound]
@@ -126,7 +150,7 @@ class mixture(object):
 
     def molefractions(self,total=True):
         if total:
-            return self.compounds
+            return dict(self.compounds)
         else:
             nfrac = np.asarray(self.compounds.values())
             nfrac /= nfrac.sum()
@@ -232,11 +256,6 @@ class mixture(object):
         """
         return self._crosssection("xrf_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def xrf_cross_section_decomposed(self,E,fine=False,**kwargs):
-        """XRF cross section (cm^2/g, E in keV).
-        """
-        return self._crosssection("xrf_cross_section_decomposed",E,fine=fine,decomposed=True,**kwargs)
-
     def markabsorber(self,symb,shells=[],fluolines=[]):
         """
         Args:
@@ -249,6 +268,9 @@ class mixture(object):
         for c in self.compounds:
             c.markasabsorber()
 
+    def hasabsorbers(self):
+        return any([c.hasabsorbers() for c in self.compounds])
+        
     def get_energy(self,energyrange,defaultinc=1):
         """Get absolute energies (keV) from a relative energy range (eV)
         """

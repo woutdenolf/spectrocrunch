@@ -121,18 +121,39 @@ class compound(Hashable):
         # Elements (no duplicates)
         self._compose_elements(elements,nfrac)
 
-    def _cmpkey(self):
-        """For comparing and sorting
+    def change_fractions(self,frac,fractype):
+        """Change the element fractions
+
+        Args:
+            frac(array): element fractions
+            fractype(fractionType): element fraction type
         """
-        return self._stringrepr()
+    
+        elements = self.elements.keys()
+    
+        # Element mole fractions
+        if fractype == fractionType.mole:
+            nfrac = frac # keep unnormalized!
+        elif fractype == fractionType.volume:
+            # would be possible if you give the element densities in the compound
+            # (which is not the same as the pure element density) but that's an unlikely given
+            raise ValueError("Cannot create a compound from elemental volume fractions")
+        else:
+            MM = np.asarray([e.MM for e in elements])
+            nfrac = stoichiometry.frac_weight_to_mole(np.asarray(frac),MM) # normalized
+            
+        # Elements
+        self._compose_elements(elements,nfrac)
+
+    def _cmpkey(self):
+        return self.name
 
     def _stringrepr(self):
-        """Unique representation of an instance
-        """
         return self.name
-        #return '{}\n Composition: '.format(self.name) + \
-        #        ', '.join("{} {}".format(s[1],s[0]) for s in sorted(self.elements.items())) + \
-        #        '\n Density: {} g/cm^3'.format(self.density)
+        return '{}: {} ({} g/cm^3)'.format(\
+                    self.name,\
+                    ', '.join("{} {}".format(s[1],s[0]) for s in sorted(self.elements.items())),\
+                    self.density )
 
     def __getitem__(self,element):
         return self.elements[element]
@@ -150,7 +171,7 @@ class compound(Hashable):
 
     def molefractions(self,total=True):
         if total:
-            return self.elements
+            return dict(self.elements)
         else:
             nfrac = np.asarray(self.elements.values())
             nfrac /= nfrac.sum()
@@ -232,11 +253,6 @@ class compound(Hashable):
         """XRF cross section (cm^2/g, E in keV). Use for fluorescence XAS.
         """
         return self._crosssection("xrf_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def xrf_cross_section_decomposed(self,E,fine=False,**kwargs):
-        """XRF cross section (cm^2/g, E in keV).
-        """
-        return self._crosssection("xrf_cross_section",E,fine=fine,decomposed=True,**kwargs)
 
     def get_energy(self,energyrange,defaultinc=1):
         """Get absolute energies (keV) from a relative energy range (eV)

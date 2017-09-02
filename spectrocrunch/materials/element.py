@@ -120,7 +120,9 @@ class fluoline(Hashable):
 
         return list(set(lines)) # remove duplicates
 
-
+    def lineenergy(self,Z):
+        return xraylib.LineEnergy(Z,self.code)
+        
 class shell(Hashable):
     _all = {xraylib.__dict__[s]:s.split('_')[0] for s in xraylib.__dict__.keys() if s.endswith("_SHELL")}
 
@@ -169,7 +171,6 @@ class shell(Hashable):
 
     def edgenergy(self,Z):
         return xraylib.EdgeEnergy(Z,self.code)
-
 
 class element(Hashable):
     """Interface to chemical elements
@@ -378,13 +379,7 @@ class element(Hashable):
         else:
             return cs
 
-    def xrf_cross_section(self,E,**kwargs):
-        return self._xrf_cross_section(E,decomposed=False,**kwargs)
-
-    def xrf_cross_section_decomposed(self,E,**kwargs):
-        return self._xrf_cross_section(E,decomposed=True,**kwargs)
-
-    def _xrf_cross_section(self,E,environ=None,decimals=6,refresh=False,decomposed=False):
+    def xrf_cross_section(self,E,environ=None,decimals=6,refresh=False,decomposed=False):
         """XRF cross section for the selected shells and lines (cm^2/g, E in keV). Use for fluorescence XAS.
 
             muXRF(E) = sum_{S}[tau(E,S)*fluoyield(S)*sum_{L}[radrate(S,L)]]
