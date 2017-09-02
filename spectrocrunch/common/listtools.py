@@ -23,8 +23,12 @@
 # THE SOFTWARE.
 
 import collections
+import operator
+import itertools
 
 from . import instance
+
+
 
 def flatten(l):
     """Flatten list
@@ -93,4 +97,28 @@ def where(lst,func):
     """
     return [i for i,l in enumerate(lst) if func(l)]
     
+def sort2lists(list1, list2):
+    """Sort list1 and list2 based on list1
 
+    Args:
+        list1(list):
+        list2(list):
+    Returns:
+        list,list
+    """
+    return tuple(list(t) for t in itertools.izip( *sorted(itertools.izip(list1, list2),key=operator.itemgetter(0)) ))
+
+def weightedsum(labels, counts):
+    """
+
+    Args:
+        list1(list):
+        list2(list):
+    Returns:
+        list,list
+    """
+    c = collections.Counter()
+    for l,cnt in itertools.izip(labels,counts):
+        c.update({l:cnt})
+    return c.keys(),c.values()
+        
