@@ -27,6 +27,8 @@ from ..common import listtools
 
 from ..common.instance import isarray
 
+from .. import ureg
+
 import numpy as np
 
 class discrete(object):
@@ -34,64 +36,84 @@ class discrete(object):
     def __init__(self,lines,intensities=None):
         """
         Args:
-            lines(array(ureg.Quantity)): in keV, nm, ...
+            lines(ureg.Quantity): in keV, nm, ...
             intensities(array): line intensities
         """
-        self.bnumber = not isarray(lines)
 
-        if self.bnumber:
-            lines = [lines]
-    
-        # Parse input
-        if intensities is None:
-            n = len(lines)
-            intensities = [1./n]*n
+        unit = lines.units
+        lines = lines.magnitude
+            
+        self.bnumber = not isarray(lines)
+        
+        if isarray(lines):
+            self.bnumber = False
+            self.size = len(lines)
         else:
-            if isarray(intensities):
-                self.bnumber = 0
+            self.bnumber = True
+            self.size = 1
+
+        # Intensities
+        if intensities is None:
+            if self.bnumber:
+                intensities = 1.
             else:
+                intensities = [1./self.size]*self.size
+        else:
+            if not isarray(intensities) and not self.bnumber:
                 intensities = [intensities]
 
-        # Sum equal lines
-        lines,intensities = listtools.weightedsum(lines,intensities)
-    
-        # Sort by line
-        self._lines,self._intensities = listtools.sort2lists(lines,intensities)
+        # Handle duplicates
+        if self.bnumber:
+            self.intensities = intensities
+        else:
+            # Sum equal lines
+            lines,intensities = listtools.weightedsum(lines,intensities)
+        
+            # Sort by line
+            lines,self.intensities = listtools.sort2lists(lines,intensities)
+        
+        # Lines
+        self.lines = ureg.Quantity(lines,unit)
         
     def __add__(self, val):
         if isinstance(val,self.__class__):
-            return self.__class__(self.lines + val.lines,\
-                                  self.intensities + val.intensities)
+            lines1 = self.lines.magnitude
+            intensities1 = self.intensities
+            if self.bnumber:
+                lines1 = [lines1]
+                intensities1 = [intensities1]
+                
+            lines2 = val.lines.to(self.lines.units).magnitude
+            intensities2 = val.intensities
+            if val.bnumber:
+                lines2 = [lines2]
+                intensities2 = [intensities2]
+
+            if isinstance(lines1,np.ndarray):
+                lines1 = lines1.tolist()
+            if isinstance(lines2,np.ndarray):
+                lines2 = lines2.tolist()
+                
+            return self.__class__(ureg.Quantity(lines1 + lines2,self.lines.units),\
+                                  intensities1 + intensities2)
         else:
             raise NotImplementedError
     
     @property
     def total(self):
-        return sum(self._intensities)
-    
-    @property
-    def size(self):
-        return len(self._lines)
+        if self.bnumber:
+            return self.intensities
+        else:
+            return sum(self.intensities)
      
     @property   
     def ratios(self):
         if self.bnumber:
-            return self._intensities[0]
+            return 1
         else:
-            return np.asarray(self._intensities)/float(self.total)
-    
-    @property
-    def lines(self):
-        if self.bnumber:
-            return self._lines[0]
-        else:
-            return self._lines
+            return np.asarray(self.intensities)/float(self.total)
             
     @property
     def energies(self):
-        if self.bnumber:
-            return self._lines[0].to('keV','spectroscopy').magnitude
-        else:
-            return np.vertorize(lambda x:x.to('keV','spectroscopy').magnitude,otypes=[float])(self._lines)
-
+        return self.lines.to('keV','spectroscopy').magnitude
         

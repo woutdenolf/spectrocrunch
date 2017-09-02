@@ -33,12 +33,12 @@ class test_visirlib(unittest.TestCase):
 
     def test_linatt(self):
         mat = visirlib.Material("main","Al","Rakic")
-        linatt = mat.linear_attenuation_coefficient(ureg.Quantity([1.0332,103.32,1033.2],'nm'))
-        linatt2 = np.asarray([1.5628E-05,7.7163E-01,9.8914E+00])
+        linatt = mat.linear_attenuation_coefficient(ureg.Quantity([1.0332,10.332],'micrometer'))
+        linatt2 = np.asarray([9.8914E+00,8.8197E+01])
         np.testing.assert_allclose(linatt,linatt2)
         
         mat = visirlib.Material("other","air","Ciddor")
-        n = mat.refractive_index(ureg.Quantity([230,960],'nm'))
+        n = mat.refractive_index(ureg.Quantity([230.,960.],'nm'))
         n2 = np.asarray([1.0003080029552,1.0002742989071])
         np.testing.assert_allclose(n,n2)
         

@@ -117,7 +117,7 @@ class GGG_ID21(Scintillator):
         material = compound(["Gd","Ga","O"],[3,5,12],fractionType.mole,7.08,nrefrac=1.8,name="GGG")
         Scintillator.doping(material,{"Eu":0.03},fractionType.weight)
         
-        visspectrum = emspectrum.discrete([ureg.Quantity(l,"nm") for l in [595,610,715]])
+        visspectrum = emspectrum.discrete(ureg.Quantity([595,610,715],"nm"))
         
         super(GGG_ID21, self).__init__(thickness=thickness,material=material,nvisperkeV=32,visspectrum=visspectrum)
 

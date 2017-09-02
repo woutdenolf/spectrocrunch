@@ -128,10 +128,10 @@ class test_compound(unittest.TestCase):
         self.assertEqual(c.molarmass(),0)
         self.assertEqual(c.density,0)
 
-        c = compoundfromname("linseedoil")
+        c = compoundfromname("linseed oil")
 
         with self.assertRaises(KeyError) as context:
-            c = compoundfromname("linseedoill")
+            c = compoundfromname("linseed oill")
 
 def test_suite_all():
     """Test suite including all test suites"""

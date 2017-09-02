@@ -31,6 +31,8 @@ from ..common.instance import isarray
 
 db = PyTMM.refractiveIndex.RefractiveIndex(os.path.join(site.getsitepackages()[0],"visirlib"))
 
+from .. import ureg
+
 class Material(PyTMM.refractiveIndex.Material):
 
     def __init__(self,shelf, book, page):
@@ -41,15 +43,16 @@ class Material(PyTMM.refractiveIndex.Material):
         """Linear absorption coefficient (1/cm)
 
         Args:
-            lines(array(lines)): keV, nm, ...
+            lines(ureg.Quantity): keV, nm, ...
 
         Returns:
             num|array
         """
-        if isarray(lines):
-            return [self.getExtinctionCoefficient(l.to("nm","spectroscopy").magnitude) for l in lines]
+        wl = lines.to("nm","spectroscopy").magnitude
+        if isarray(wl):
+            return [self.getExtinctionCoefficient(l) for l in wl]
         else:
-            return self.getExtinctionCoefficient(lines.to("nm","spectroscopy").magnitude)
+            return self.getExtinctionCoefficient(wl)
     
     def refractive_index(self,lines):
         """Refractive index
@@ -60,8 +63,9 @@ class Material(PyTMM.refractiveIndex.Material):
         Returns:
             num|array
         """
-        if isarray(lines):
-            return [self.getRefractiveIndex(l.to("nm","spectroscopy").magnitude) for l in lines]
+        wl = lines.to("nm","spectroscopy").magnitude
+        if isarray(wl):
+            return [self.getRefractiveIndex(l) for l in wl]
         else:
-            return self.getRefractiveIndex(lines.to("nm","spectroscopy").magnitude)
+            return self.getRefractiveIndex(wl)
             

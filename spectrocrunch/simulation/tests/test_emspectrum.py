@@ -24,59 +24,23 @@
 
 import unittest
 
-from .. import calcnoise
-from .. import materials
-
-from ...materials.compoundfromformula import compoundfromformula as compound
+from .. import emspectrum
+from ... import ureg
 
 import numpy as np
-from uncertainties import unumpy
 
-class test_calcnoise(unittest.TestCase):
+class test_emspectrum(unittest.TestCase):
 
-    def test_ffnoise(self):
-        I0 = 1e5
-        energy = np.linspace(3,5,100)
-        tframe = 0.07
-        nframe = 100
-        ndark = 30
-
-        sample = materials.factory("Multilayer",material=compound("CaCO3",2.71),thickness=5,anglein=0,angleout=np.radians(135))
-
-        N,N0,D,D0 = calcnoise.id21_ffnoise(I0,energy,sample,\
-                    tframe_data=tframe,nframe_data=nframe,\
-                    tframe_flat=tframe,nframe_flat=nframe,\
-                    nframe_dark=ndark)
-
-        T = calcnoise.transmission(N,N0,D=D,D0=D0,\
-                tframe_data=tframe,nframe_data=nframe,\
-                tframe_flat=tframe,nframe_flat=nframe,\
-                nframe_dark=ndark)
-
-        XAS = calcnoise.absorbance(T)
-
-        num = N - D/ndark*nframe
-        num /= nframe*tframe
-        
-        denom = N0 - D0/ndark*nframe
-        denom /= nframe*tframe
-        
-        XAS = -unumpy.log(num/denom)
-
-        signal = unumpy.nominal_values(XAS)
-        noise = unumpy.std_devs(XAS)
-        
-        self.assertEqual(XAS.shape,(100,1))
-
-        #import matplotlib.pyplot as plt
-        #plt.figure()
-        #plt.plot(energy,noise/signal*100)
-        #plt.show()
+    def test_discrete(self):
+        s1 = emspectrum.discrete(ureg.Quantity([100,300],'nm'))
+        s2 = emspectrum.discrete(ureg.Quantity(200,'nm'))
+        s3 = s1+s2
+        np.testing.assert_array_equal(s3.energies,ureg.Quantity([100,200,300],'nm').to('keV','spectroscopy'))
         
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_calcnoise("test_ffnoise"))
+    testSuite.addTest(test_emspectrum("test_discrete"))
 
     return testSuite
     
