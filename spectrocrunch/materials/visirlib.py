@@ -1,0 +1,67 @@
+# -*- coding: utf-8 -*-
+#
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
+#
+#   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+import os
+import site
+
+import PyTMM.refractiveIndex
+
+from ..common.instance import isarray
+
+db = PyTMM.refractiveIndex.RefractiveIndex(os.path.join(site.getsitepackages()[0],"visirlib"))
+
+class Material(PyTMM.refractiveIndex.Material):
+
+    def __init__(self,shelf, book, page):
+        filename = db.getMaterialFilename(shelf.lower(), book, page)
+        PyTMM.refractiveIndex.Material.__init__(self,filename)
+
+    def linear_attenuation_coefficient(self,lines):
+        """Linear absorption coefficient (1/cm)
+
+        Args:
+            lines(array(lines)): keV, nm, ...
+
+        Returns:
+            num|array
+        """
+        if isarray(lines):
+            return [self.getExtinctionCoefficient(l.to("nm","spectroscopy").magnitude) for l in lines]
+        else:
+            return self.getExtinctionCoefficient(lines.to("nm","spectroscopy").magnitude)
+    
+    def refractive_index(self,lines):
+        """Refractive index
+
+        Args:
+            lines(array(lines)): keV, nm, ...
+            
+        Returns:
+            num|array
+        """
+        if isarray(lines):
+            return [self.getRefractiveIndex(l.to("nm","spectroscopy").magnitude) for l in lines]
+        else:
+            return self.getRefractiveIndex(lines.to("nm","spectroscopy").magnitude)
+            
