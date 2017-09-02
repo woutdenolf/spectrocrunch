@@ -53,7 +53,7 @@ def ReadPyMcaConfigFile(filename):
 def AdaptPyMcaConfigFile(filename,energy,addhigh=True,mlines={}):
     cfg = ReadPyMcaConfigFile(filename)
     AdaptPyMcaConfig(cfg,energy,addhigh=addhigh,mlines=mlines)
-    configuration.write(filename)
+    cfg.write(filename)
 
 def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
     """
@@ -341,7 +341,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},fast=True):
     # Adapt file (not adapting the fitobject's member variables because it's unclear 
     # what other things need to be changed when changing the energy)
     if energy is not np.nan:
-        AdaptPyMcaConfig(cfgfile,energy,mlines=mlines)
+        AdaptPyMcaConfigFile(cfgfile,energy,mlines=mlines)
 
     if fast:
         # Prepare fit

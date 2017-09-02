@@ -24,7 +24,7 @@
 
 import logging
 
-from ..h5stacks.math_hdf5_imagestacks import math_hdf5_imagestacks as math
+from ..h5stacks import math_hdf5_imagestacks as math
 
 from . import proc_common
 
