@@ -160,6 +160,9 @@ cprint "Install python modules not available on pypi..."
 source $SCRIPT_ROOT/install-xraylib.sh
 cd $INSTALL_WD
 
+source $SCRIPT_ROOT/install-pytmm.sh
+cd $INSTALL_WD
+
 source $SCRIPT_ROOT/install-fdmnes.sh
 cd $INSTALL_WD
 

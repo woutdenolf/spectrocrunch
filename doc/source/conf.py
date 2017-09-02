@@ -58,9 +58,15 @@ copyright = u'2015-%s, European Synchrotron Radiation Facility, Grenoble' % now.
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
+import os
+import sys
+dirname = os.path.dirname
+root_dir = dirname(dirname(dirname(os.path.abspath(__file__))))
+import sys
+sys.path.insert(0, root_dir)
 #
 # The short X.Y version.
-from _version import strictversion as version
+from _version import version
 # The full version, including alpha/beta/rc tags.
 from _version import strictversion as release
 

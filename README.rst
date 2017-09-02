@@ -33,7 +33,9 @@ Test:
 
 Documentation:
 
-http://pythonhosted.org/spectrocrunch
+ Release: http://pythonhosted.org/spectrocrunch
+
+ Latest: http://spectrocrunch.readthedocs.io/en/latest/
 
 
 Developers
@@ -63,7 +65,7 @@ to the top of your script
 .. code-block::
 
     import sys
-    sys.path.insert(1,'/data/id21/inhouse/wout/dev/Spectrocrunch')
+    sys.path.insert(1,'.../spectrocrunch')
 
 
 Import as follows:
