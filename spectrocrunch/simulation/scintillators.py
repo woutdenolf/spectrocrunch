@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .simul import SimulBase
+from .simul import with_simulmetaclass
 
 from . import noisepropagation
 
@@ -30,45 +30,40 @@ from ..materials.compoundfromformula import compound as compound
 from ..materials.mixture import mixture
 from ..materials.types import fractionType
 
-from .constants import wavelengthenergy
-
 import numpy as np
 
-class Scintillator(SimulBase):
+from . import emspectrum
+
+from .. import ureg
+
+
+class Scintillator(with_simulmetaclass()):
     """
     Class representing an area scintillator
     """
 
-    def __init__(self, thickness=None, material=None, nvisperkeV=None):
+    def __init__(self, thickness=None, material=None, nvisperkeV=None, visspectrum=None):
         """
         Args:
             thickness(num): thickness in micron
             material(spectrocrunch.materials.compound|spectrocrunch.materials.mixture): scintillator compoisition
             nvisperkeV(num): number of VIS photons generated per keV
+            visspectrum(visspectrum.discrete): VIS visspectrum
         """
         self.required(material,"material")
         self.required(thickness,"thickness")
         self.required(nvisperkeV,"nvisperkeV")
-
+        self.required(visspectrum,"visspectrum")
+        
         self.thickness = float(thickness)
         self.nvisperkeV = float(nvisperkeV)
         self.material = material
-
+        self.visspectrum = visspectrum
+        
     @staticmethod
-    def doping(material,dopants):
-        for el, wfrac in dopants.iteritems():
-            material.addelement(el,wfrac,fractionType.weight)
-
-    def visenergyprofile(self,energy):
-        """Energy profile of visible photons
-
-        Args:
-            energy(array-like): energy in keV
-
-        Returns:
-            np.array: normalized intensity
-        """
-        return energy*0
+    def doping(material,dopants,ftype):
+        for el, frac in dopants.iteritems():
+            material.addelement(el,frac,ftype)
 
     def absorption(self,energy):
         return 1-np.exp(-self.material.density*self.thickness*1e-4*self.material.mass_abs_coeff(energy))
@@ -83,17 +78,17 @@ class Scintillator(SimulBase):
         """Error propagation of a number of photons.
                
         Args:
-            N(num or numpy.array(uncertainties.core.Variable)): incomming number of photons with uncertainties
-            energy(num or numpy.array): associated energies
+            N(num|array): incomming number of photons with uncertainties
+            energy(num|array): associated energies
 
         Returns:
-            uncertainties.core.Variable or numpy.array(uncertainties.core.Variable)
+            numpy.array,dict
         """
-
+        
         # Absorption of X-rays
         probsuccess = self.absorption(energy)
         process = noisepropagation.bernouilli(probsuccess)
-        Nout = noisepropagation.propagate(N,process)
+        Nout = noisepropagation.compound(N,process)
 
         # Fluorescence of visible photons
         # https://doi.org/10.1088/0031-9155/57/15/4885
@@ -101,13 +96,13 @@ class Scintillator(SimulBase):
         # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4669903/
         gain = energy*self.nvisperkeV
         process = noisepropagation.poisson(gain)
-        Nout = noisepropagation.propagate(Nout,process)
-
+        Nout = noisepropagation.compound(Nout,process)
+        
         return Nout
-
+        
     def get_nrefrac(self):
         return self.material.nrefrac
-
+    
 class GGG_ID21(Scintillator):
     """
     Eu doped GGG
@@ -120,28 +115,11 @@ class GGG_ID21(Scintillator):
             thickness(num): thickness in micron
         """
         material = compound(["Gd","Ga","O"],[3,5,12],fractionType.mole,7.08,nrefrac=1.8,name="GGG")
-        Scintillator.doping(material,{"Eu":0.03})
-        super(GGG_ID21, self).__init__(thickness=thickness,material=material,nvisperkeV=32)
-
-    def visenergyprofile(self,energy):
-        """Energy profile of visible photons
-
-        Args:
-            energy(array-like): energy in keV
-
-        Returns:
-            np.array: normalized intensity
-        """
-
-        if hasattr(energy,"__iter__"):
-            n = len(energy)
-        else:
-            n = 1
-
-        ret = np.zeros(n,dtype=float)
-        for l in [595,610,715]: # Eu
-            ret[energy==wavelengthenergy(l)] = 1/3.
-        return ret
+        Scintillator.doping(material,{"Eu":0.03},fractionType.weight)
+        
+        visspectrum = emspectrum.discrete([ureg.Quantity(l,"nm") for l in [595,610,715]])
+        
+        super(GGG_ID21, self).__init__(thickness=thickness,material=material,nvisperkeV=32,visspectrum=visspectrum)
 
 class LSO_ID21(Scintillator):
     """
@@ -155,27 +133,11 @@ class LSO_ID21(Scintillator):
             thickness(num): thickness in micron
         """
         material = compound(["Lu","Si","O"],[2,1,5],fractionType.mole,7.4,nrefrac=1.82,name="LSO")
-        Scintillator.doping(material,{"Tb":0.03})
-        super(LSO_ID21, self).__init__(thickness=thickness,material=material,nvisperkeV=40)
+        Scintillator.doping(material,{"Tb":0.03},fractionType.weight)
         
-    def visenergyprofile(self,energy):
-        """Energy profile of visible photons
-
-        Args:
-            energy(array-like): energy in keV
-
-        Returns:
-            np.array: normalized intensity
-        """
-
-        if hasattr(energy,"__iter__"):
-            n = len(energy)
-        else:
-            n = 1
-
-        ret = np.zeros(n,dtype=float)
-        ret[energy==wavelengthenergy(550)] = 1 # Tb
-        return ret
+        visspectrum = emspectrum.discrete(ureg.Quantity(550,"nm"))
+        
+        super(LSO_ID21, self).__init__(thickness=thickness,material=material,nvisperkeV=40,visspectrum=visspectrum)
 
 classes = Scintillator.clsregistry
 aliases = Scintillator.aliasregistry

@@ -22,45 +22,34 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import pint
-ureg = pint.UnitRegistry()
-Q_ = ureg.Quantity
-
-def speedoflight():
-    return Q_(299792458, ureg.m/ureg.s)
-
-def planckconstant():
-    return Q_(4.13566743E-15, ureg.eV*ureg.s)
-
-def wavelengthenergy(x,keV=False):
-    # E(keV) = h(eV sec) . c(m/sec)
-    #          ------------------
-    #           lambda(nm).10^-9
-    
-    if not isinstance(x,Q_):
-        x = Q_(x, ureg.nm)
-    x.ito(ureg.m)
-    ret = (planckconstant()*speedoflight())/x
-    if kev:
-        ret.ito(ureg.keV)
-    return ret
-
-def elementarycharge():
-    return Q_(1.60217662E-19, ureg.C) # C or J/eV
+from .. import ureg
 
 def temperatureinkelvin(T):
-    if not isinstance(T,Q_):
-        T = Q_(T,ureg.degC)
+    """
+    Args:
+        T(num|array): temperature in deg C
+    Returns:
+        num|array: keV
+    """
+    if not isinstance(T,ureg.Quantity):
+        T = ureg.Quantity(T,ureg.degC)
     return T.to(ureg.kelvin)
        
 def eholepair_si(T=21):
+    """
+    Args:
+        T(num|array): temperature in deg C
+    Returns:
+        num|array: keV
+    """
     # https://doi.org/10.1016/j.nima.2007.03.020
     T = temperatureinkelvin(T)
-    x = [80,270] * ureg.kelvin
-    y = [3.77,3.68] * ureg.eV
+    x = ureg.Quantity([80,270], ureg.kelvin)
+    y = ureg.Quantity([0.00377,0.00368], ureg.keV)
     
     m = (y[1]-y[0])/(x[1]-x[0])
     b = y[1]-m*x[1]
     
-    return m*T+b # eV
+    return (m*T+b).magnitude
+    
     

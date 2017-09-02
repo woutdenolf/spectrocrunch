@@ -22,55 +22,83 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .simul import SimulBase
+from .simul import with_simulmetaclass
 
 from . import noisepropagation
 
 import numpy as np
 
-class Lens(SimulBase):
+from ..materials.visirlib import Material
+
+class Lens(with_simulmetaclass()):
     """
     Class representing a lens
     """
 
-    def __init__(self, magnification=None, NA=None, transmission=None):
+    def __init__(self, magnification=None, NA=None, thickness=None, material=None):
         """
         Args:
             magnification(num): magnification
             NA(num): numerical aperture
-            transmission(num): transmission
+            thickness(num): in cm
+            transmission(Material): transmission
         """
         self.required(magnification,"magnification")
         self.required(NA,"NA")
-        self.required(transmission,"transmission")
+        self.required(thickness,"thickness")
+        self.required(material,"material")
         
         self.magnification = float(magnification)
         self.NA = float(NA)
-        self.transmission = float(transmission)
+        self.thickness = float(thickness)
+        self.material = material
 
-    def propagate(self,N,energy,nrefrac=None):
+    def transmission(self,visspectrum):
+        linatt = np.asarray(self.material.linear_attenuation_coefficient(visspectrum.lines))
+        ratios = visspectrum.ratios
+        return np.sum(ratios * np.exp(-linatt*self.thickness))
+    
+    def propagate(self,N,visspectrum,nrefrac=None):
         """Error propagation of a number of photons.
                
         Args:
-            N(num or numpy.array(uncertainties.core.Variable)): incomming number of photons with uncertainties
-            energy(num or numpy.array): associated energies
+            N(unumpy.uarray): incomming number of photons with uncertainties
+            visspectrum(dict): visible light spectrum
             nrefrac(num): refraction index of the scintillator
 
         Returns:
-            uncertainties.core.Variable or numpy.array(uncertainties.core.Variable)
+            numpy.array
         """
 
         if nrefrac is None:
             ValueError("Refractive index of the scintillator not specified.")
 
-        # Transmission of X-rays
-        probsuccess = self.transmission*(self.NA*self.magnification/(self.magnification+1.)/(2.*nrefrac**2))**2
+        # Transmission of visible light
+        #
+        # http://onlinelibrary.wiley.com/doi/10.1118/1.598055/pdf
+        # Non-Lambertian:
+        # coupling efficiency = T.(M / (4.F#.(1+M).nscint))^2
+        #
+        #   1/So + 1/Si = 1/f
+        #   F# = f/d
+        #   M = Si/So
+        #   NA = nmedium*sin(theta)
+        #   tan(theta) = d/(2.f) = 1/(2.F#)
+        #   2.F# = 1/tan(asin(NA/nmedium))
+        #
+        #   So = distance between scintillator and lens
+        #   Si = distance between lens and ccd
+        #   f = focal length
+        #   M = geometrical maginification
+        #   d = lens diameter
+        #   nmedium = refractive index of air
+        
+        #air = visirlib.Material("other","air","Ciddor")
+        #nmedium = np.mean(air.refractive_index(visspectrum.lines))
+        nair = 1
+        probsuccess = self.transmission(visspectrum) * ( np.tan(np.arcsin(self.NA/nair))*self.magnification/(2*(self.magnification+1.)*nrefrac) )**2
         process = noisepropagation.bernouilli(probsuccess)
-        Nout = noisepropagation.propagate(N,process)
-
-        # Repeat with number of energies
-        if not hasattr(Nout,"__iter__") and hasattr(energy,"__iter__"):
-            Nout = np.repeat(Nout,len(energy))
+        Nout = noisepropagation.compound(N,process)
 
         return Nout
 
@@ -81,7 +109,7 @@ class mitutoyoid21_10x(Lens):
     aliases = ["Mitutoyo ID21 10x"]
 
     def __init__(self):
-        super(mitutoyoid21_10x, self).__init__(magnification=10, NA=0.42, transmission=0.95)
+        super(mitutoyoid21_10x, self).__init__(magnification=10, NA=0.42, thickness=7.5, material=Material("glass","BK7","SCHOTT"))
 
 class mitutoyoid21_20x(Lens):
     """
@@ -90,7 +118,7 @@ class mitutoyoid21_20x(Lens):
     aliases = ["Mitutoyo ID21 20x"]
 
     def __init__(self):
-        super(mitutoyoid21_20x, self).__init__(magnification=20, NA=0.42, transmission=0.95)
+        super(mitutoyoid21_20x, self).__init__(magnification=20, NA=0.42, thickness=8., material=Material("glass","BK7","SCHOTT"))
 
 classes = Lens.clsregistry
 aliases = Lens.aliasregistry

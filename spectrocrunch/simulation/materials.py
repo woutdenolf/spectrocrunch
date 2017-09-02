@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .simul import SimulBase
+from .simul import with_simulmetaclass
 
 from . import noisepropagation
 
@@ -33,19 +33,23 @@ from ..math.fit1d import lstsq
 
 import numpy as np
 
-class Multilayer(SimulBase):
+class Multilayer(with_simulmetaclass()):
     """
     Class representing an area material
     """
     
-    def __init__(self, material=None, thickness=None):
+    def __init__(self, material=None, thickness=None, anglein=None, angleout=None):
         """
         Args:
             material(list(spectrocrunch.materials.compound|mixture)): material composition
             thickness(num): thickness in micron
+            anglein(num): angle between primary beam and surface normal (pointing inwards)
+            angleout(num): angle between fluorescene path to detector and surface normal (pointing inwards)
         """
         self.required(material,"material")
         self.required(thickness,"thickness")
+        self.required(anglein,"anglein")
+        self.required(angleout,"angleout")
         
         if hasattr(thickness,"__iter__"):
             self.thickness = np.asarray(thickness,dtype=float)
@@ -56,16 +60,20 @@ class Multilayer(SimulBase):
             self.material = material
         else:
             self.material = [material]
-
+            
+        self.cosanglein = np.cos(anglein)
+        self.cosangleout = np.cos(angleout)
+        
         self.nlayers = len(self.material)
 
-    def fluo_prob(self,energy,layer):
-        self.material[layer].xrf_cross_section_decomposed(energy)
+    def fluo_gain(self,energy,layer):
+        return self.material[layer].xrf_cross_section(energy)
         
-        return 1-self.transmission_prob(energy,layer)
 
     def transmission_prob(self,energy,layer):
-        return np.exp(-self.material[layer].density*self.thickness[layer]*1e-4*self.material[layer].mass_att_coeff(energy))
+        """Transmission probability for one layer
+        """
+        return np.exp(-self.material[layer].density*self.thickness[layer]*self.cosanglein*1e-4*self.material[layer].mass_att_coeff(energy))
 
     def refinethickness(self,energy,absorbance,layerfixed=None):
         if layerfixed is None:
@@ -90,27 +98,30 @@ class Multilayer(SimulBase):
         """Error propagation of a number of photons.
                
         Args:
-            N(num or numpy.array(uncertainties.core.Variable)): incomming number of photons with uncertainties
-            energy(num or numpy.array): associated energies
+            N(num|array): incomming number of photons with uncertainties
+            energy(num|array): energies
 
         Returns:
-            uncertainties.core.Variable or numpy.array(uncertainties.core.Variable)
+            num|numpy.array
         """
 
-        Nout = N
-
         if any([m.hasabsorbers() for m in self.material]):
-            prob = self.fluo_prob # Poisson instead of Bernouilli?
+            # TODO
+            prob = self.fluo_prob # Poisson gains for each line
         else:
-            prob = self.transmission_prob
-
-        for layer in range(self.nlayers):
-            probsuccess = prob(energy,layer)
+            # Bernouilli processes: compounding is the same as multiplication
+            probsuccess = 1.
+            for layer in range(self.nlayers):
+                probsuccess = probsuccess*self.transmission_prob(energy,layer)
             process = noisepropagation.bernouilli(probsuccess)
-            Nout = noisepropagation.propagate(Nout,process)
+            Nout = noisepropagation.compound(N,process)
 
         return Nout
 
+    def __str__(self):
+        layers = "\n ".join("{}. {}: {} μm".format(i,m,t) for i,(m,t) in enumerate(zip(self.material,self.thickness)))
+        return "Multilayer (ordered top-bottom):\n {}".format(layers)
+        
 classes = Multilayer.clsregistry
 aliases = Multilayer.aliasregistry
 factory = Multilayer.factory

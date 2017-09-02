@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .simul import SimulBase
+from .simul import with_simulmetaclass
 
 from . import noisepropagation
 
@@ -36,8 +36,6 @@ import silx.math.fit as fit
 
 from ..resources import resource_filename
 
-from scipy import constants
-
 from scipy import interpolate
 
 from ..math.linop import linop
@@ -45,6 +43,10 @@ from ..math.linop import linop
 from ..math.fit1d import linfit
 
 import warnings
+
+from .. import ureg
+
+from . import constants
 
 class _lineardevice(object):
 
@@ -157,7 +159,9 @@ class _pndiode(object):
     def __init__(self, material, Rout, darkcurrent):
         """
         Args:
-            material(list(spectrocrunch.materials.compound|mixture)): material composition
+            material(compound|mixture): material composition
+            Rout(num): output resistance (Ohm)
+            darkcurrent(num): C/s
         """
         self.material = material
         self.setgain(Rout)
@@ -189,7 +193,8 @@ class _pndiode(object):
         Returns:
             num or array-like: C/ph
         """
-        return constants.elementary_charge/self.ehole*energy*self._attenuation(energy,self.thickness)
+        e = ureg.Quantity(1,ureg.elementary_charge).to(ureg.C).magnitude
+        return e/self.ehole*energy*self._attenuation(energy,self.thickness)
 
     def setgain(self,Rout):
         """Set output resistance of the picoamperemeter(keithley)
@@ -420,7 +425,8 @@ class _calibrated_pndiode(_pndiode):
 
         refresponse = self.absdiode.spectral_responsivity(energy)
 
-        return constants.elementary_charge*energy*refresponse*ratio
+        e = ureg.Quantity(1,ureg.elementary_charge).to(ureg.C).magnitude
+        return e*energy*refresponse*ratio
 
 class _noncalibrated_pndiode(_pndiode):
 
@@ -439,7 +445,7 @@ class _noncalibrated_pndiode(_pndiode):
         self.ehole = float(ehole)
 
 
-class Diode(SimulBase):
+class Diode(with_simulmetaclass()):
     """
     Class representing a diode working on the following principle:
 
@@ -527,10 +533,10 @@ class Diode(SimulBase):
         """Error propagation of a number of photons.
                
         Args:
-            N(num or numpy.array(uncertainties.core.Variable)): incomming number of photons within a tframe timespan with uncertainties
-            energy(num or numpy.array): associated energies
-            tframe(num or numpy.array): time per frame (sec)
-            nframe(num or numpy.array): number of frames (sec)
+            N(unumpy.uarray): incomming number of photons with uncertainties
+            energy(numpy.array): associated energies
+            tframe(num|numpy.array): time per frame (sec)
+            nframe(num|numpy.array): number of frames (sec)
 
         Returns:
             uncertainties.core.Variable or numpy.array(uncertainties.core.Variable): detector signal in ADU
@@ -542,9 +548,9 @@ class Diode(SimulBase):
             ValueError("Number of frames not specified.")
 
         # Generation of electrons
-        gain = self.qe
+        gain = self.qe(energy)
         process = noisepropagation.poisson(gain)
-        Nout = noisepropagation.propagate(N,process) # units: e
+        Nout = noisepropagation.compound(N,process) # units: e
 
         # Add dark current
         Nout += self.darkcurrent*tframe # units: e
@@ -560,10 +566,6 @@ class Diode(SimulBase):
 
         # Number of frames
         Nout = noisepropagation.repeat(nframe,Nout) # units: ADU
-
-        # Repeat with number of energies
-        if not hasattr(Nout,"__iter__") and hasattr(energy,"__iter__"):
-            Nout = np.repeat(len(energy),Nout)
 
         return Nout # units: ADU
 
@@ -594,7 +596,7 @@ class xrdpico1(Diode):
     def __init__(self,model=True):
         material = compound("Si",0,name="Si")
 
-        pico1 = _noncalibrated_pndiode(material, 0, 1e3, 3.6e-3, 10/2.1e-6, model=model) # darkcurrent = 0A, thickness = 1mm, ehole = 3.6 eV, Rout = 10V / 2.1e-6A (change with setgain)
+        pico1 = _noncalibrated_pndiode(material, 0, 1e3, constants.eholepair_si(), 10/2.1e-6, model=model) # darkcurrent = 0A, thickness = 1mm, ehole = ... keV, Rout = 10V / 2.1e-6A (change with setgain)
 
         super(xrdpico1, self).__init__(pndiode=pico1)
 

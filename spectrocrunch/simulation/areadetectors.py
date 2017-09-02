@@ -22,15 +22,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .simul import SimulBase
+from .simul import with_simulmetaclass
 
 from . import noisepropagation
 
-from uncertainties import ufloat
-
 import numpy as np
 
-class AreaDetector(SimulBase):
+class AreaDetector(with_simulmetaclass()):
     """
     Class representing an area detector
     """
@@ -38,7 +36,7 @@ class AreaDetector(SimulBase):
     def __init__(self, etoadu=None, qe=None, aduoffset=None, darkcurrent=None, readoutnoise=None):
         """
         Args:
-            etoadu(num): number of ADU per electron
+            etoadu(num): number of ADU per electron (ADU/e)
             qe(num): detector quantum efficiency (e/ph)
             aduoffset(num): pixel intensity offset (ADU)
             darkcurrent(num): dark current (e/sec)
@@ -51,34 +49,32 @@ class AreaDetector(SimulBase):
         self.required(readoutnoise,"readoutnoise")
         
         self.etoadu = float(etoadu)
-        self.qe = float(qe)
+        self.qe = qe
         self.aduoffset = float(aduoffset)
-        self.darkcurrent = ufloat(darkcurrent,np.sqrt(darkcurrent))
-        self.readoutnoise = ufloat(0,readoutnoise)
+        self.darkcurrent = noisepropagation.poisson(darkcurrent)
+        self.readoutnoise = noisepropagation.randomvariable(0,readoutnoise)
 
-    def propagate(self,N,energy,tframe=None,nframe=None):
+    def propagate(self,N,visspectrum,tframe=None,nframe=None):
         """Error propagation of a number of photons.
                
         Args:
-            N(num or numpy.array(uncertainties.core.Variable)): incomming number of photons within a tframe timespan with uncertainties
-            energy(num or numpy.array): associated energies
-            tframe(num or numpy.array): time per frame (sec)
-            nframe(num or numpy.array): number of frames (sec)
+            N(unumpy.uarray): incomming number of photons within a tframe timespan with uncertainties
+            visspectrum(spectrum): visible light spectrum
+            tframe(num|numpy.array): time per frame (sec)
+            nframe(num|numpy.array): number of frames (sec)
 
         Returns:
-            uncertainties.core.Variable or numpy.array(uncertainties.core.Variable): detector signal in ADU
+            numpy.array:
         """
 
-        if tframe is None:
-            ValueError("Frame exposure time not specified.")
-        if nframe is None:
-            ValueError("Number of frames not specified.")
-
+        self.defined(self.propagate,tframe,"frame exposure time")
+        self.defined(self.propagate,nframe,"number of frames")
+        
         # Generation of electrons
-        gain = self.qe
+        gain = self.qe(visspectrum)  
         process = noisepropagation.poisson(gain)
-        Nout = noisepropagation.propagate(N,process) # units: e
-
+        Nout = noisepropagation.compound(N,process)
+        
         # Add dark current
         Nout += self.darkcurrent*tframe # units: e
 
@@ -95,10 +91,6 @@ class AreaDetector(SimulBase):
         # Number of frames
         Nout = noisepropagation.repeat(nframe,Nout) # units: ADU
 
-        # Repeat with number of energies
-        if not hasattr(Nout,"__iter__") and hasattr(energy,"__iter__"):
-            Nout = np.repeat(Nout,len(energy))
-
         return Nout # units: ADU
 
 class pcoedge55(AreaDetector):
@@ -108,8 +100,33 @@ class pcoedge55(AreaDetector):
     aliases = ["PCO Edge 5.5"]
 
     def __init__(self):
-        super(pcoedge55, self).__init__(etoadu=65536/30000., qe=0.7, aduoffset=95.5, darkcurrent=7.4, readoutnoise=0.95)
+        qe = lambda visspectrum: 0.7
+        super(pcoedge55, self).__init__(etoadu=65536/30000., qe=qe, aduoffset=95.5, darkcurrent=7.4, readoutnoise=0.95)
 
+class frelon2k16(AreaDetector):
+    """
+    Frelon 2K 16
+    """
+    aliases = ["Frelon 2K 16"]
+
+    def __init__(self):
+        # https://doi.org/10.1063/1.2783112
+        # https://doi.org/10.1107/S0909049506000550
+        qe = lambda visspectrum: 0.7
+        super(pcoedge55, self).__init__(etoadu=65536/320000., qe=qe, aduoffset=100., darkcurrent=1., readoutnoise=19.)
+
+class frelon2k14(AreaDetector):
+    """
+    Frelon 2K 14
+    """
+    aliases = ["Frelon 2K 14"]
+
+    def __init__(self):
+        # https://doi.org/10.1063/1.2783112
+        # https://doi.org/10.1107/S0909049506000550
+        qe = lambda energy: [0.7]*energy.size
+        super(pcoedge55, self).__init__(etoadu=16384/320000., qe=qe, aduoffset=100., darkcurrent=1., readoutnoise=24.)
+        
 classes = AreaDetector.clsregistry
 aliases = AreaDetector.aliasregistry
 factory = AreaDetector.factory

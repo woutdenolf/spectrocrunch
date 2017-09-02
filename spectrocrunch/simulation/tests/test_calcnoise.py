@@ -41,17 +41,32 @@ class test_calcnoise(unittest.TestCase):
         nframe = 100
         ndark = 30
 
-        sample = materials.factory("Multilayer",material=compound("CaCO3",2.71),thickness=5)
+        sample = materials.factory("Multilayer",material=compound("CaCO3",2.71),thickness=5,anglein=0,angleout=np.radians(135))
 
         N,N0,D,D0 = calcnoise.id21_ffnoise(I0,energy,sample,\
                     tframe_data=tframe,nframe_data=nframe,\
                     tframe_flat=tframe,nframe_flat=nframe,\
                     nframe_dark=ndark)
 
-        XAS = -unumpy.log((N-D)/(N0-D0))
+        T = calcnoise.transmission(N,N0,D=D,D0=D0,\
+                tframe_data=tframe,nframe_data=nframe,\
+                tframe_flat=tframe,nframe_flat=nframe,\
+                nframe_dark=ndark)
+
+        XAS = calcnoise.absorbance(T)
+
+        num = N - D/ndark*nframe
+        num /= nframe*tframe
+        
+        denom = N0 - D0/ndark*nframe
+        denom /= nframe*tframe
+        
+        XAS = -unumpy.log(num/denom)
 
         signal = unumpy.nominal_values(XAS)
         noise = unumpy.std_devs(XAS)
+        
+        self.assertEqual(XAS.shape,(100,1))
 
         #import matplotlib.pyplot as plt
         #plt.figure()

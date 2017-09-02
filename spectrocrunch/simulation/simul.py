@@ -24,13 +24,42 @@
 
 from ..common.classfactory import FactoryMeta
 from future.utils import with_metaclass
+import numpy as np
 
 class SimulClass(object):
     
+    @staticmethod
+    def raiseabstract():
+        raise NotImplementedError("SimulClass is an abstract class and shouldn't be instantiated.")  
+        
     @classmethod
     def required(cls,arg,strarg):
         if arg is None:
             raise RuntimeError("{} not defined for {}".format(strarg.capitalize(),cls.__name__))
     
-SimulBase = with_metaclass(FactoryMeta,SimulClass)
+    @staticmethod
+    def defined(func,var,strvar):
+        if var is None:
+            raise RuntimeError("{} not defined for {}".format(strvar,func.__name__))
 
+    @staticmethod
+    def broadcastold(N,energy):
+        """
+        Args:
+            N(num|array): incomming number of photons with uncertainties
+            energy(num|array): associated energies
+            
+        Returns:
+            unumpy.uarray: len(energy) x len(N)
+        """
+        nen = np.asarray(energy).size
+        N = np.asarray(N)
+        if N.ndim==2:
+            return np.broadcast_to(N,[nen,N.shape[1]])
+        return np.broadcast_to(N,[nen,N.size])
+
+def with_simulmetaclass(bases=None):
+    if bases is None:
+        return with_metaclass(FactoryMeta,SimulClass)
+    else:
+        return with_metaclass(FactoryMeta,SimulClass,*bases)

@@ -37,39 +37,39 @@ class linop(object):
 
     def __mul__(self,rother):
         # first self, then rother
-        if isinstance(rother,linop): 
-            return linop(self.m*rother.m,self.b*rother.m+rother.b)
+        if isinstance(rother,self.__class__): 
+            return self.__class__(self.m*rother.m,self.b*rother.m+rother.b)
         else:
             raise NotImplementedError
 
     def __div__(self,rother):
         # first self, then rother
-        if isinstance(rother,linop):
-            return linop(self.m/rother.m,self.b/rother.m-rother.b/rother.m)
+        if isinstance(rother,self.__class__):
+            return self.__class__(self.m/rother.m,self.b/rother.m-rother.b/rother.m)
         else:
             raise NotImplementedError
 
     def __rmul__(self,lother):
         # first lother, then self
-        if isinstance(lother,linop): 
+        if isinstance(lother,self.__class__): 
             return lother.__mul__(self)
         else:
             raise NotImplementedError
 
     def __rdiv__(self,lother):
         # first lother, then self
-        if isinstance(lother,linop): 
+        if isinstance(lother,self.__class__): 
             return lother.__div__(self)
         else:
             raise NotImplementedError
 
     def __pow__(self,p):
         if isinstance(p,numbers.Integral):
-            ret = linop(self.m,self.b)
+            ret = self.__class__(self.m,self.b)
             for i in range(1,abs(p)):
-                ret *= linop(self.m,self.b)
+                ret *= self.__class__(self.m,self.b)
             if p<0:
-                ret = linop(1/ret.m,-ret.b/ret.m)
+                ret = self.__class__(1/ret.m,-ret.b/ret.m)
             return ret
         else:
             raise NotImplementedError
@@ -84,4 +84,4 @@ class linop(object):
         return "y = {} x{:+}".format(self.m,self.b)
 
     def __repr__(self):
-        return "linop({},{})".format(self.m,self.b)
+        return "{}({},{})".format(self.__class__,self.m,self.b)

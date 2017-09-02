@@ -23,50 +23,92 @@
 # THE SOFTWARE.
 
 from ..common.Enum import Enum
+from ..common.instance import isarray
 
 import numpy as np
+
+from uncertainties.core import Variable as RandomVariable
+
 from uncertainties import unumpy
-from uncertainties import ufloat
 
-# bernouilli and poisson could be derived from uncertainties.Variable
-# but I want to prevent the sqrt(VAR)**2 round-off errors.
+# Uncertainties: linear approximation to error propagation
+#
+#   Variable.std_dev():
+#       sqrt(Da^2 + Db^2 + ...)
+#
+#   Variable.error_components():
+#       {a:Da,b:Db,...}
+#       Da = abs(da * sa)
+#
+#   Variable.derivatives:
+#       {a:da,b:db,...}
+#   
+#   covariance_matrix([x,y,...]):
+#       C[x,y] = sum( x.derivatives[a] * y.derivatives[a] * sa^2 + 
+#                     x.derivatives[b] * y.derivatives[b] * sb^2 + ... )
+#
 
-class bernouilli(object):
-    def __init__(self,probsuccess):
-        self.probsuccess = probsuccess
+class Bernouilli(RandomVariable):
+    def __init__(self,probsuccess,**kwargs):
+        super(Bernouilli,self).__init__(probsuccess,np.sqrt(probsuccess*(1-probsuccess)),**kwargs)
 
-    def expectedvalue(self):
-        return self.probsuccess
+class Poisson(RandomVariable):
+    def __init__(self,gain,**kwargs):
+        super(Poisson,self).__init__(gain,np.sqrt(gain),**kwargs)
 
-    def variance(self):
-        return self.probsuccess*(1-self.probsuccess)
-
-class poisson(object):
-    def __init__(self,gain):
-        self.gain = gain
-
-    def expectedvalue(self):
-        return self.gain
-
-    def variance(self):
-        return self.gain
-
-def randomvariable(X,SX):
-    if hasattr(X,"__iter__"):
-        return unumpy.uarray(X,SX)
+def bernouilli(p):
+    if isarray(p):
+        return np.vectorize(Bernouilli,otypes=[object])(p)
     else:
-        return ufloat(X,SX)
+        return Bernouilli(p)
 
+def poisson(p):
+    if isarray(p):
+        return np.vectorize(Poisson,otypes=[object])(p)
+    else:
+        return Poisson(p)
+        
+def randomvariable(X,SX):
+    if isarray(X):
+        return np.vectorize(lambda x, s: RandomVariable(x, s), otypes=[object])(X,SX)
+    else:
+        return RandomVariable(X,SX)
+        
+def E(X):
+    if isinstance(X,RandomVariable):
+        return X.nominal_value
+    else:
+        return unumpy.nominal_values(X)
+    
+def S(X):
+    if isinstance(X,RandomVariable):
+        return X.std_dev
+    else:
+        return unumpy.std_devs(X)
+
+def VAR(X):
+    return S(X)**2
+        
+def SNR(X):
+    return E(X)/S(X)
+
+def NSR(X):
+    return S(X)/E(X)
+    
+def RVAR(X):
+    return VAR(X)/E(X)**2
+    
 def repeat(N,X):
     """Sum of a fixed number (N) of independent random variables (Xi) with the same probability mass function.
 
+        ISSUE: loose correlation with X
+
     Args:
         N(num): number of repeats
-        X(uncertainties.unumpy.uarray): random variable
+        X(num|array): random variable
         
     """
-    # Normal error propagation assumes COV[Xi,Xj] = VAR[X]
-    #   For example:
+    # Linear error propagation of X+X:
     #    VAR[X+X] = VAR[X] + VAR[X] + 2.COV[X,X]
     #             = VAR[X] + VAR[X] + 2.VAR[X]
     #             = 4.VAR[X]
@@ -75,45 +117,67 @@ def repeat(N,X):
     #   or using the uncertainties package
     #    Y = N*X
     #
-    # We will assume that COV[Xi,Xj] = 0
-    #   For example:
+    # => SNR[n.X] = SNR[X]
+    #
+    # However we want repeats in the sense COV[X,X] = 0
     #    VAR[X+X] = VAR[X] + VAR[X]
     #   or equivalently
-    #     propagate(N,X) with VARN=0
+    #     propagate(ufloat(N,0),X)
     #   or using the uncertainties package
-    #     sum([copy.copy(X) for i in range(N)])
-
-    if hasattr(X,"__iter__"):
-        return unumpy.uarray(N*unumpy.nominal_values(X),np.sqrt(N)*unumpy.std_devs(X))
-    else:
-        return ufloat(N*X.n,np.sqrt(N)*X.s)
+    #     see below
+    #
+    # => SNR[n.X] = SNR[X] * sqrt(n)
     
-def propagate(N,X):
-    """Sum of a random number (N) of independent random variables (X_i) with the same probability mass function.
+    return randomvariable(N*E(X),np.sqrt(N)*S(X))
+
+def compound(N,X):
+    """Sum of a random number (N) of independent random variables (X_i) with E[X_i]=E[X_j], VAR[X_i]=VAR[X_j]
+       (which is weaker than saying the have the same pmf). This is called a "compound random variable".
+       
+       S. K. Ross, Introduction to Probability Models, Eleventh Edition, Academic Press, 2014, example 3.10 and 3.19.
        
        http://www.math.unl.edu/~sdunbar1/ProbabilityTheory/Lessons/Conditionals/RandomSums/randsum.shtml
+       https://mathmodelsblog.wordpress.com/2010/01/17/an-introduction-to-compound-distributions/
        
+        ISSUE: loose correlation with N and X
+        
     Args:
-        N(uncertainties.unumpy.uarray): incomming number of photons with uncertainties
-        X(pmf): probability mass function of X
+        N(num|array): incomming number of photons with uncertainties
+        X(num|array): probability mass function of X
 
     Returns:
-        uncertainties.unumpy.uarray: Y = X_1 + ... + X_N
+        array: Y = X_1 + ... + X_N  (nX x nN)
     """
 
     # 1. pmf(X) = Bernouilli (e.g. X-ray transmission) ->  Binomial selection
     #       -> N a fixed number: pmf(Y) = Binomial
     #       -> pmf(N) = Poisson: pmf(Y) = Poisson (binomial selection theorem)
     # 2. pmf(X) = Poisson  (e.g. X-ray to VIS)  
+    
+    bexpand = isarray(X) or isarray(N)
+    
+    EN = E(N)
+    VARN = VAR(N)
+    EX = E(X)
+    VARX = VAR(X)
+    
+    if bexpand:
+        nN = np.asarray(N).shape
+        if len(nN)==2:
+            nN = nN[1]
+        else:
+            nN = int(np.product(nN))
+        nX = np.asarray(X).size
 
-    EN = unumpy.nominal_values(N)
-    VARN = unumpy.std_devs(N)**2
+        EN = np.broadcast_to(EN,[nX,nN])
+        VARN = np.broadcast_to(VARN,[nX,nN])
 
-    EX = X.expectedvalue()
-    VARX = X.variance()
-
+        EX = np.broadcast_to(EX,[nN,nX]).T
+        VARX = np.broadcast_to(VARX,[nN,nX]).T
+    
     EY = EN*EX
     VARY = VARN*EX*EX + VARX*EN
-    
+
     return randomvariable(EY,np.sqrt(VARY))
+
 

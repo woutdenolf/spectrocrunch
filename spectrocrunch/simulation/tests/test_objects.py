@@ -29,82 +29,98 @@ from .. import scintillators
 from .. import lenses
 from .. import materials
 from .. import diodes
+from .. import noisepropagation
+from .. import emspectrum
 from ...materials.compoundfromformula import compoundfromformula as compound
 from ...materials.compoundfromname import compoundfromname as compoundname
 
 import numpy as np
-from uncertainties import unumpy
-from uncertainties import ufloat
 
 from ...resources import resource_filename
 from scipy import constants
 from scipy import interpolate
 from ...math.linop import linop
+from ...common.instance import isarray
+from ... import ureg
 
 class test_objects(unittest.TestCase):
 
-    def _checkprop(self,o,**kwargs):
+    def _assertRV(self,RV):
+        if isarray(RV):
+            tmp = noisepropagation.E(RV)
+            self.assertTrue(np.all(tmp==tmp[0]))
+            tmp = noisepropagation.S(RV)
+            self.assertTrue(np.all(tmp==tmp[0]))
+
+    def _checkprop(self,o,vis=False,**kwargs):
         # Both arrays
-        energy = np.array([7.,7.])
-        N = np.array([1e5,1e5])
-        N = unumpy.uarray(N,np.sqrt(N))
+        if vis:
+            s = emspectrum.discrete([ureg.Quantity(500,'nm'),ureg.Quantity(500,'nm')])
+        else:
+            s = np.asarray([7.,7.])
+        N = noisepropagation.poisson([1e5,1e5,1e5])
 
-        Nout = o.propagate(N,energy,**kwargs)
+        Nout = o.propagate(N,s,**kwargs)
 
-        self.assertEqual(len(Nout),2)
-        tmp = unumpy.nominal_values(Nout)
-        self.assertEqual(tmp[0],tmp[1])
-        tmp = unumpy.std_devs(Nout)
-        self.assertEqual(tmp[0],tmp[1])
+        if vis:
+            self.assertEqual(Nout.shape,(1,3))
+        else:
+            self.assertEqual(Nout.shape,(2,3))
+        self._assertRV(Nout)
 
         # N array
-        energy = 7.
-        N = np.array([1e5,1e5])
-        N = unumpy.uarray(N,np.sqrt(N))
+        if vis:
+            s = emspectrum.discrete(ureg.Quantity(500,'nm'))
+        else:
+            s = 7.
+        N = noisepropagation.poisson([1e5,1e5,1e5])
 
-        Nout = o.propagate(N,energy,**kwargs)
+        Nout = o.propagate(N,s,**kwargs)
 
-        self.assertEqual(len(Nout),2)
-        tmp = unumpy.nominal_values(Nout)
-        self.assertEqual(tmp[0],tmp[1])
-        tmp = unumpy.std_devs(Nout)
-        self.assertEqual(tmp[0],tmp[1])
+        self.assertEqual(Nout.shape,(1,3))
+        self._assertRV(Nout)
 
         # Energy array
-        energy = np.array([7.,7.])
-        N = 1e5
-        N = ufloat(N,np.sqrt(N))
+        if vis:
+            s = emspectrum.discrete([ureg.Quantity(500,'nm'),ureg.Quantity(500,'nm')])
+        else:
+            s = np.asarray([7.,7.])
+        N = noisepropagation.poisson(1e5)
+        
+        Nout = o.propagate(N,s,**kwargs)
 
-        Nout = o.propagate(N,energy,**kwargs)
-
-        self.assertEqual(len(Nout),2)
-        tmp = unumpy.nominal_values(Nout)
-        self.assertEqual(tmp[0],tmp[1])
-        tmp = unumpy.std_devs(Nout)
-        self.assertEqual(tmp[0],tmp[1])
+        if vis:
+            self.assertFalse(isarray(Nout))
+        else:
+            self.assertEqual(Nout.shape,(2,1))
+        self._assertRV(Nout)
 
         # Not arrays
-        energy = 7.
-        N = 1e5
-        N = ufloat(N,np.sqrt(N))
+        if vis:
+            s = emspectrum.discrete(ureg.Quantity(500,'nm'))
+        else:
+            s = 7.
+        N = noisepropagation.poisson(1e5)
         
-        Nout = o.propagate(N,energy,**kwargs)
-        self.assertFalse(hasattr(Nout,"__iter__"))
-
+        Nout = o.propagate(N,s,**kwargs)
+        
+        self.assertFalse(isarray(Nout))
+        self._assertRV(Nout)
+        
     def test_detectors(self):
         self.assertRaises(RuntimeError, areadetectors.factory, "noclassname")
 
         o = areadetectors.factory("PCO Edge 5.5")
-        self._checkprop(o,tframe=2,nframe=10)
+        self._checkprop(o,tframe=2,nframe=10,vis=True)
     
     def test_lenses(self):
         self.assertRaises(RuntimeError, lenses.factory, "noclassname")
 
         o = lenses.factory("Mitutoyo ID21 10x")
-        self._checkprop(o,nrefrac=1.1)
+        self._checkprop(o,nrefrac=1.1,vis=True)
 
         o = lenses.factory("Mitutoyo ID21 10x")
-        self._checkprop(o,nrefrac=1.1)
+        self._checkprop(o,nrefrac=1.1,vis=True)
 
     def test_scintillators(self):
         self.assertRaises(RuntimeError, scintillators.factory, "noclassname")
@@ -114,7 +130,7 @@ class test_objects(unittest.TestCase):
         o = scintillators.factory("GGG ID21",thickness=13)
         self._checkprop(o)
 
-        #SNR = unumpy.nominal_values(N)/unumpy.std_devs(N)
+        #SNR = noisepropagation.SNR(N)
 
         #import matplotlib.pyplot as plt
         #plt.figure()
@@ -129,11 +145,11 @@ class test_objects(unittest.TestCase):
 
     def test_materials(self):
         self.assertRaises(RuntimeError, materials.factory, "noclassname")
-        o = materials.factory("multilayer",material=compoundname("ultralene"),thickness=4)
+        o = materials.factory("multilayer",material=compoundname("ultralene"),thickness=4,anglein=0,angleout=np.radians(135))
         self._checkprop(o)
 
-    def _spec_calc_photons(self,ph_E,ph_I,ph_gain):
-        """Photon calculation in spec
+    def _vis_calc_photons(self,ph_E,ph_I,ph_gain):
+        """Photon calculation in vis
 
         Args:
             ph_E(array): keV
@@ -180,22 +196,22 @@ class test_objects(unittest.TestCase):
 
                 np.testing.assert_array_almost_equal(o.fluxtocps(energy,o.cpstoflux(energy,I)),I)
                 
-                flux1 = self._spec_calc_photons(energy,I,gain)
+                flux1 = self._vis_calc_photons(energy,I,gain)
                 flux2 = o.cpstoflux(energy,I)
                 if model:
                     for f1,f2 in zip(flux1,flux2):
                         np.testing.assert_approx_equal(f1,f2,significant=1)
                 else:
-                    np.testing.assert_array_almost_equal(flux1,flux2)
+                    np.testing.assert_allclose(flux1,flux2)
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_objects("test_detectors"))
+    #testSuite.addTest(test_objects("test_materials"))
     testSuite.addTest(test_objects("test_scintillators"))
-    testSuite.addTest(test_objects("test_lenses"))
-    testSuite.addTest(test_objects("test_materials"))
-    testSuite.addTest(test_objects("test_diodes"))
+    #testSuite.addTest(test_objects("test_detectors"))
+    #testSuite.addTest(test_objects("test_lenses"))
+    #testSuite.addTest(test_objects("test_diodes"))
 
     return testSuite
     
