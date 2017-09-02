@@ -24,6 +24,7 @@
 
 import collections
 import numbers
+import numpy as np
 
 def isstring(x):
     try:
@@ -35,7 +36,7 @@ def isboollist(lst):
     return all(isinstance(i,bool) for i in lst) and len(lst)>0
 
 def isarray(x):
-    return hasattr(x, "__len__") and not isstring(x)
+    return isinstance(x, (list, set, tuple, np.ndarray))
 
 def isnumber(x):
     return isinstance(x, numbers.Number)
