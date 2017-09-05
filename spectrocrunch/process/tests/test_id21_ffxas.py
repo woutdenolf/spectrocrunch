@@ -91,6 +91,8 @@ class test_alignSource(unittest.TestCase):
         return {"energy":energy,\
                 "intensity":intensity,\
                 "transmission":transmission,\
+                "xv":xv,\
+                "yv":yv,\
                 "n1":n1,\
                 "n2":n2,\
                 "n":n}
@@ -119,6 +121,8 @@ class test_alignSource(unittest.TestCase):
     def checkresult(self,sourcepath,outname,params):
         destpath = os.path.join(sourcepath,"results",outname)
 
+        # Check normalized results
+        imgshape = (params["n1"],params["n2"])
         shape = tuple(move([params["n1"],params["n2"],params["n"]],2,params["stackdim"]))
         
         with h5py.File(os.path.join(destpath,"{}.h5".format(outname))) as f:
@@ -128,24 +132,52 @@ class test_alignSource(unittest.TestCase):
             
             fdata = f["detector0"]["sample"]["data"]
             self.assertEqual(shape,fdata.shape)
+            for i,(t,x,y) in enumerate(zip(params["transmission"],params["xv"],params["yv"])):
+                index = tuple(move([slice(None),slice(None),i],2,params["stackdim"]))
+                data = f["detector0"]["sample"]["data"][index]
+                
+                data2 = np.zeros(imgshape,dtype=np.float32)
+                data2[y,x] = -np.log(t)
+                np.testing.assert_allclose(data,data2,atol=1e-6)
+
+        # Check aligned results
+        off = [1,-1]
+        totaloff = [off[0]*(params["n"]-1),off[1]*(params["n"]-1)]
+
+        if params["crop"]:
+            imgshape = (params["n1"]-abs(totaloff[0]),params["n2"]-abs(totaloff[1]))
+        else:
+            imgshape = (params["n1"]+abs(totaloff[0]),params["n2"]+abs(totaloff[1]))
+        shape = [imgshape[0],imgshape[1],params["n"]]
+        shape = tuple(move(shape,2,params["stackdim"]))
+        
+        with h5py.File(os.path.join(destpath,"{}.align.h5".format(outname))) as f:
+            np.testing.assert_allclose(params["energy"],f["detector0"]["sample"]["energy"])
+            
+            if params["crop"]:
+                row = np.arange(max(totaloff[0],0),params["n1"]+min(totaloff[0],0))
+                col = np.arange(max(totaloff[1],0),params["n2"]+min(totaloff[1],0))
+            else:
+                row = np.arange(min(totaloff[0],0),params["n1"]+max(totaloff[0],0))
+                col = np.arange(min(totaloff[1],0),params["n2"]+max(totaloff[1],0))
+            np.testing.assert_array_equal(row,f["detector0"]["sample"]["row"])
+            np.testing.assert_array_equal(col,f["detector0"]["sample"]["col"])
+            
+            fdata = f["detector0"]["sample"]["data"]
+            self.assertEqual(shape,fdata.shape)
+            
+            y = np.nanargmin(np.abs(row-params["yv"][0]))
+            x = np.nanargmin(np.abs(col-params["xv"][0]))
+            data2 = np.zeros(imgshape,dtype=np.float32)
+            
             for i,t in enumerate(params["transmission"]):
                 index = tuple(move([slice(None),slice(None),i],2,params["stackdim"]))
                 data = f["detector0"]["sample"]["data"][index]
-
-        off = [1,-1]
-
-        if params["crop"]:
-            shape = [params["n1"]-abs(off[0])*(params["n"]-1),params["n2"]-off[0]*(params["n"]-1),params["n"]]
-        else:
-            shape = [params["n1"]+off[0]*(params["n"]-1),params["n2"]+off[0]*(params["n"]-1),params["n"]]
-        shape = tuple(move(shape,2,params["stackdim"]))
-
-        with h5py.File(os.path.join(destpath,"{}.align.h5".format(outname))) as f:
-            np.testing.assert_allclose(params["energy"],f["detector0"]["sample"]["energy"])
-    
-            fdata = f["detector0"]["sample"]["data"]
-            self.assertEqual(shape,fdata.shape)
-  
+                data[np.isnan(data)] = 0
+                     
+                data2[y,x] = -np.log(t)
+                np.testing.assert_allclose(data,data2,atol=1e-6)
+                
             trn = np.arange(params["n"])
             trn = np.stack([trn,-trn],axis=1)
             np.testing.assert_allclose(f["processing"]["2.align"]["changeofframes"][:],trn)

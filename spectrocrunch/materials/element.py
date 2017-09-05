@@ -42,6 +42,8 @@ except:
 
 from ..common.hashable import Hashable
 
+from ..common.instance import isarray
+
 class fluoline(Hashable):
     _all = {s.split('_')[0]:xraylib.__dict__[s] for s in xraylib.__dict__.keys() if s.endswith("_LINE")}
     
@@ -64,6 +66,14 @@ class fluoline(Hashable):
         return self.name
 
     def radrate(self,Z):
+        """Radiative rate of a line: probability of this line / probabilty of fluorescence
+        
+        Args:
+            Z(num): atomic number
+            
+        Returns:
+            num
+        """
         return xraylib.RadRate(Z,self.code)
 
     @classmethod
@@ -100,13 +110,14 @@ class fluoline(Hashable):
 
         Args:
             codes(array(int)): xraylib line codes
+            shellname(str): lines belonging to a shell
 
         Returns:
             list(fluoline)
         """
         if codes is None:
-            return []
-        elif not hasattr(codes,"__iter__"):
+            return [] # All lines
+        elif not isarray(codes):
             codes = [codes]
 
         # line belongs to shell
@@ -117,10 +128,19 @@ class fluoline(Hashable):
                                         (code<0 or line!=selname)
 
         lines = [fluoline(cls._all[name]) for code in codes for name in cls._all if use(name,cls.getname(code),code)] # decompose composites
-
-        return list(set(lines)) # remove duplicates
+        
+        if len(lines)==0:
+            return None
+        else:
+            return list(set(lines)) # remove duplicates
 
     def lineenergy(self,Z):
+        """
+        Args:
+            Z(num): atomic number
+        Returns:
+            num
+        """
         return xraylib.LineEnergy(Z,self.code)
         
 class shell(Hashable):
@@ -158,16 +178,31 @@ class shell(Hashable):
         self.fluolines = fluoline.factory(fluolines,self.name)
 
     def fluoyield(self,Z):
+        """Fluorescence yield for this shell: probability for fluorescence / probability of shell ionization
+        """
         return xraylib.FluorYield(Z,self.code)
 
     def radrate(self,Z):
+        """Radiative rate of a shell: probabilities of selected lines / probabilty of fluorescence 
+        """
+        if self.fluolines is None:
+            return []
+            
         if len(self.fluolines)==0:
             return [1] # ALL lines
         else:
             return [l.radrate(Z) for l in self.fluolines]
 
-    def fluofrac(self,Z):
-        return self.fluoyield(Z)*sum(self.radrate(Z))
+    def partial_fluoyield(self,Z):
+        """ probability of selected lines / probability of shell ionization
+        """
+        if self.fluolines is None:
+            return 0
+        
+        if len(self.fluolines)==0:
+            return self.fluoyield(Z)
+        else:
+            return self.fluoyield(Z)*sum(self.radrate(Z))
 
     def edgenergy(self,Z):
         return xraylib.EdgeEnergy(Z,self.code)
@@ -199,7 +234,14 @@ class element(Hashable):
 
         # Information for calculating partial cross-sections
         self.shells = []
+        self._simulate = False
 
+    def simulate(self):
+        self._simulate = True
+        
+    def database(self):
+        self._simulate = False
+        
     def _cmpkey(self):
         """For comparing and sorting
         """
@@ -224,11 +266,11 @@ class element(Hashable):
         if self.name==symb:
             # Shell names
             if shells is None:
-                self.shells = []
-            elif not hasattr(shells,"__iter__"):
-                self.shells = [shell(shells,fluolines=fluolines)]
-            else:
+                shells = range(xraylib.K_SHELL,xraylib.Q3_SHELL+1)
+            if isarray(shells):
                 self.shells = list(set([shell(s,fluolines=fluolines) for s in shells]))
+            else:
+                self.shells = [shell(shells,fluolines=fluolines)]
 
     def unmarkabsorber(self):
         self.shells = []
@@ -282,7 +324,7 @@ class element(Hashable):
         Returns:
             num or np.array
         """
-        bnum = not hasattr(E,"__iter__")
+        bnum = not isarray(E)
         if bnum:
             E = [E]
         cs = np.empty(len(E),dtype=np.float64)
@@ -311,7 +353,7 @@ class element(Hashable):
         Returns:
             num or np.array
         """
-        bnum = not hasattr(E,"__iter__")
+        bnum = not isarray(E)
         if bnum:
             E = [E]
         cs = np.empty(len(E),dtype=np.float64)
@@ -331,7 +373,7 @@ class element(Hashable):
     def _replace_partial_mass_abs_coeff(self,cs,E,environ=None,decimals=6,refresh=False):
         """
         """
-        if environ is not None and self.isabsorber():
+        if environ is not None and self._simulate:
             # Subtract partial cross-sections (summed over selected shells)
             cs -= sum(self._CS_Photo_Partial_DB(E).values())
 
@@ -358,7 +400,7 @@ class element(Hashable):
         Returns:
             num or array: sum_S[tau(E,S)]
         """
-        bnum = not hasattr(E,"__iter__")
+        bnum = not isarray(E)
         if bnum:
             E = [E]
 
@@ -368,7 +410,7 @@ class element(Hashable):
             else:
                 return np.zeros(len(E),dtype=np.float64)
 
-        if environ is None:
+        if environ is None and not self._simulate:
             cs = self._CS_Photo_Partial_DB(E)
         else:
             cs = self._CS_Photo_Partial_SIM(E,environ,decimals=decimals,refresh=refresh)
@@ -395,7 +437,7 @@ class element(Hashable):
             num or np.array: muXRF
             dict: S:tau(E,S)
         """
-        bnum = not hasattr(E,"__iter__")
+        bnum = not isarray(E)
         if bnum:
             E = [E]
 
@@ -405,7 +447,7 @@ class element(Hashable):
             else:
                 return np.zeros(len(E),dtype=np.float64)
 
-        if environ is None:
+        if environ is None and not self._simulate:
             cs = self._CS_Photo_Partial_DB(E)
         else:
             cs = self._CS_Photo_Partial_SIM(E,environ,decimals=decimals,refresh=refresh)
@@ -413,7 +455,7 @@ class element(Hashable):
         if decomposed:
             return cs
         else:
-            cs = sum([c*s.fluofrac(self.Z) for s,c in cs.items()])
+            cs = sum([c*s.partial_fluoyield(self.Z) for s,c in cs.items()])
             if bnum:
                 return cs[0]
             else:
@@ -431,7 +473,7 @@ class element(Hashable):
         Returns:
             num or np.array
         """
-        if hasattr(E,"__iter__"):
+        if isarray(E):
             ret = np.empty(len(E),dtype=np.float64)
 
             for i in range(len(E)):
@@ -453,7 +495,7 @@ class element(Hashable):
         Returns:
             num or np.array
         """
-        if hasattr(E,"__iter__"):
+        if isarray(E):
             ret = np.empty(len(E),dtype=np.float64)
 
             for i in range(len(E)):
@@ -475,7 +517,7 @@ class element(Hashable):
         Returns:
             num or np.array
         """
-        if hasattr(E,"__iter__"):
+        if isarray(E):
             ret = np.empty(len(E),dtype=np.float64)
 
             for i in range(len(E)):
