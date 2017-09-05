@@ -25,12 +25,14 @@
 import unittest
 from ..id21_ffxas import process
 from ...io.edf import saveedf
+from ...common.listtools import move
 
 from testfixtures import TempDirectory
 
 import os
 
 import numpy as np
+import h5py
 
 class test_alignSource(unittest.TestCase):
 
@@ -39,94 +41,141 @@ class test_alignSource(unittest.TestCase):
 
     def tearDown(self):
         self.dir.cleanup()
-        
+
     def getdata(self,path,radix):
         n1,n2 = 55,65
 
         xv = range(int(n2/3),int(2*n2/3))
-        yv = range(int(n2/3),int(2*n2/3))
-        energy = np.linspace(7,7.3,len(xv))
-        intensity = np.linspace(200,100,len(xv)) # cts/sec
-        att = np.linspace(1,0.3,len(xv))
+        yv = range(int(2*n2/3),int(n2/3),-1)
+        n = min(len(xv),3)
+        energy = np.linspace(7,7.3,n) # keV
+        intensity = np.linspace(200,100,n) # ADU/sec
+        transmission = np.linspace(0.9,0.3,n)
         nbdata = 8
         nbflat = 2
         tdata = 0.4 # sec
-        tflat = 0.1
+        tflat = 0.1 # sec
         
-        darkoff = 50
-        darkgain = 33
-        ndark = 10
+        darkoff = 50 # ADU
+        darkgain = 33 # ADU/sec
+        nbdark = 10
         
-        darkdata = np.full((n1,n2),(darkoff+darkgain*tdata)*ndark)
-        hdark = {"energy":energy.max(),"exposure_time":tdata,"nb_frames":ndark}
+        darkdata = np.full((n1,n2),(darkoff+darkgain*tdata)*nbdark)
+        hdark = {"energy":energy.max(),"exposure_time":tdata,"nb_frames":nbdark}
         filename = os.path.join(path,"{}_dark_{}_0000.edf".format(radix,tdata))
         saveedf(filename,darkdata,hdark)
         
-        flatm = 10/11.
-        
         if tflat!=tdata:
-            darkflat = np.full((n1,n2),(darkoff+darkgain*tflat)*ndark)
-            hdark = {"energy":energy.max(),"exposure_time":tflat,"nb_frames":ndark}
-            filename = os.path.join(path,"{}_dark_{}_0000.edf".format(radix,tdata))
-            saveedf(filename,darkdata,hdark)
+            darkflat = np.full((n1,n2),(darkoff+darkgain*tflat)*nbdark)
+            hdark = {"energy":energy.max(),"exposure_time":tflat,"nb_frames":nbdark}
+            filename = os.path.join(path,"{}_dark_{}_0000.edf".format(radix,tflat))
+            saveedf(filename,darkflat,hdark)
         
-        for c,(x,y,e,i,a) in enumerate(zip(xv,yv,energy,intensity,att)):
-            data = np.zeros((n1,n2))
-            data[y,x] = (darkoff + (a*i + darkgain)*tdata)*nbdata
+        for c,(x,y,e,i,t) in enumerate(zip(xv,yv,energy,intensity,transmission)):
+            data = np.full((n1,n2),(darkoff + (i + darkgain)*tdata)*nbdata)
+            data[y,x] = (darkoff + (t*i + darkgain)*tdata)*nbdata
+            
             hdata = {"energy":e,"exposure_time":tdata,"nb_frames":nbdata}
             filename = os.path.join(path,"{}_data_0000_{:04d}_0000.edf".format(radix,c))
             saveedf(filename,data,hdata)
             
-            flat1 = np.full((n1,n2),(darkoff + (i*flatm + darkgain)*tflat)*nbflat)
-            flat2 = np.full((n1,n2),(darkoff + (i/flatm + darkgain)*tflat)*nbflat)
+            flat1 = np.full((n1,n2),(darkoff + (i*1.05 + darkgain)*tflat)*nbflat)
+            flat2 = np.full((n1,n2),(darkoff + (i*0.95 + darkgain)*tflat)*nbflat)
             hflat = {"energy":e,"exposure_time":tflat,"nb_frames":nbflat}
             filename = os.path.join(path,"{}_ref_0000_{:04d}_{:04d}.edf".format(radix,c,0))
             saveedf(filename,flat1,hflat)
             filename = os.path.join(path,"{}_ref_0000_{:04d}_{:04d}.edf".format(radix,c,1))
             saveedf(filename,flat2,hflat)
+        
+        
+        return {"energy":energy,\
+                "intensity":intensity,\
+                "transmission":transmission,\
+                "n1":n1,\
+                "n2":n2,\
+                "n":n}
     
-    def align(self,sourcepath,radix,outname,ext,alignmethod,refimageindex,roiraw,roialign,roiresult):
-        path = sourcepath
-
+    def align(self,sourcepath,radix,outname,ext,alignmethod,refimageindex,roiraw,roialign,roiresult,crop,stackdim):
         # Raw data
         rebin = (1,1)
         skippreprocessing = False
 
         # Result
-        destpath = os.path.join(path,"results",outname)
+        destpath = os.path.join(sourcepath,"results",outname)
 
         # Normalization
         skipnormalization = False
 
         # Alignment
         skipalign = False
-        crop = True
-        plot = True
+        plot = False
 
         # Process
         process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
             skippre=skippreprocessing,skipnormalization=skipnormalization,skipalign=skipalign,\
             roiraw=roiraw,roialign=roialign,roiresult=roiresult,\
-            refimageindex=refimageindex,crop=crop,plot=plot)
+            refimageindex=refimageindex,crop=crop,plot=plot,stackdim=stackdim)
+    
+    def checkresult(self,sourcepath,outname,params):
+        destpath = os.path.join(sourcepath,"results",outname)
+
+        shape = tuple(move([params["n1"],params["n2"],params["n"]],2,params["stackdim"]))
+        
+        with h5py.File(os.path.join(destpath,"{}.h5".format(outname))) as f:
+            np.testing.assert_allclose(params["energy"],f["detector0"]["sample"]["energy"])
+            np.testing.assert_array_equal(range(params["n1"]),f["detector0"]["sample"]["row"])
+            np.testing.assert_array_equal(range(params["n2"]),f["detector0"]["sample"]["col"])
+            
+            fdata = f["detector0"]["sample"]["data"]
+            self.assertEqual(shape,fdata.shape)
+            for i,t in enumerate(params["transmission"]):
+                index = tuple(move([slice(None),slice(None),i],2,params["stackdim"]))
+                data = f["detector0"]["sample"]["data"][index]
+
+        off = [1,-1]
+
+        if params["crop"]:
+            shape = [params["n1"]-abs(off[0])*(params["n"]-1),params["n2"]-off[0]*(params["n"]-1),params["n"]]
+        else:
+            shape = [params["n1"]+off[0]*(params["n"]-1),params["n2"]+off[0]*(params["n"]-1),params["n"]]
+        shape = tuple(move(shape,2,params["stackdim"]))
+
+        with h5py.File(os.path.join(destpath,"{}.align.h5".format(outname))) as f:
+            np.testing.assert_allclose(params["energy"],f["detector0"]["sample"]["energy"])
+    
+            fdata = f["detector0"]["sample"]["data"]
+            self.assertEqual(shape,fdata.shape)
+  
+            trn = np.arange(params["n"])
+            trn = np.stack([trn,-trn],axis=1)
+            np.testing.assert_allclose(f["processing"]["2.align"]["changeofframes"][:],trn)
     
     def test_process(self):
         sourcepath = self.dir.path
         radix = "ff"
-        self.getdata(sourcepath,radix)
+        params = self.getdata(sourcepath,radix)
+        
         roiraw = None
         roialign = None
         roiresult = None
         ext = ""
-        alignmethod = "sift"
+        alignmethod = "max"
         refimageindex = None
         outname = radix
-        roialign = ((1,-1),(2,-2))
-        self.align(sourcepath,radix,outname,ext,alignmethod,refimageindex,roiraw,roialign,roiresult)
+        roialign = ((3,-3),(4,-4))
+
+        for crop in [True,False]:
+            for roialign in [None,((3,-3),(4,-4))]:
+                for stackdim in [0,1,2]:
+                    self.align(sourcepath,radix,outname,ext,alignmethod,refimageindex,roiraw,roialign,roiresult,crop,stackdim)
+                    params["stackdim"] = stackdim
+                    params["crop"] = crop
+                    self.checkresult(sourcepath,outname,params)
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    #testSuite.addTest(test_alignSource("test_process"))
+    testSuite.addTest(test_alignSource("test_process"))
     return testSuite
     
 if __name__ == '__main__':

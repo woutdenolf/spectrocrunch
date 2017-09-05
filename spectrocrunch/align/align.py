@@ -505,8 +505,11 @@ class align(object):
             
         self.setextend(*tmp)
         
-    def bextendfrommask(self):
-        return self.post_transform_requested["crop"] and self.cval is np.nan
+    def bextendfrommask(self,pairwise):
+        return self.post_transform_requested["crop"] and\
+               self.cval is np.nan and\
+               (self.pre_align["roi"] is None or self.transfotype==transformationType.translation) and\
+               not pairwise
         
     def setextendmask(self,img,reset=False):
         mask = np.logical_not(np.isnan(img))   
@@ -525,16 +528,19 @@ class align(object):
         """
         indvalidrow = np.argwhere(self._extendmask.sum(axis=1))
         indvalidcol = np.argwhere(self._extendmask.sum(axis=0))
+        
+        # When pre_align["roi"]: only valid for translations
         ymin = indvalidrow[0][0]
-        ymax = indvalidrow[-1][0]
+        ymax = indvalidrow[-1][0]-self._extendmask.shape[0]+self.source.imgsize[0]
         xmin = indvalidcol[0][0]
-        xmax = indvalidcol[-1][0]
+        xmax = indvalidcol[-1][0]-self._extendmask.shape[1]+self.source.imgsize[1]
+        
         self.setextend(xmin,ymin,xmax,ymax)
         
-    def parsetransformation_beforeapplication(self):
+    def parsetransformation_beforeapplication(self,pairwise):
         """Adapt transformations before applying them
         """
-        if self.bextendfrommask():
+        if self.bextendfrommask(pairwise):
             self.extendfrommask()
         else:
             # Corners of the image in the transformed frame
@@ -568,7 +574,6 @@ class align(object):
 
         for i in range(len(ind)):
             j = ind[i]
-
             nleft = self.extend[i][0]
             nright = self.extend[i][1]
             naxis = len(axes[j])
@@ -693,7 +698,7 @@ class align(object):
                 if aligntype==alignType.calctransfo:
                     # This is still not good enough because different kernels are used
                     # when calculating anf applying alignment
-                    if self.bextendfrommask():
+                    if self.bextendfrommask(pairwise):
                         self.setextendmask(imgaligned,reset=bfirst)
                     bfirst = False
                     continue # no results needed
@@ -758,7 +763,7 @@ class align(object):
         
             if roi or pad or crop or center:
                 self.doalign(refdatasetindex,refimageindex=refimageindex,aligntype=alignType.calctransfo)
-                self.parsetransformation_beforeapplication()
+                self.parsetransformation_beforeapplication(pairwise)
                 self.doalign(refdatasetindex,refimageindex=refimageindex,aligntype=alignType.usetransfo)
             else:
                 self.doalign(refdatasetindex,refimageindex=refimageindex)

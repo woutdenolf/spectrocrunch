@@ -20,7 +20,7 @@ if [ ! -d ${PYTHONV} ]; then
         echo "Download pre-build libraries ..."
         wget ${LINK1}
         ls -all
-        if [ -f $FILE ]; then
+        if [ ! -f $FILE ]; then
             wget ${LINK2}
         fi
     fi

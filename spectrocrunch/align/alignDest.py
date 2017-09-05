@@ -30,6 +30,7 @@ import glob
 import sys
 
 from .types import dataType
+from ..common.listtools import move
 
 class alignDest(object):
     """Interface for storing Elastix alignment results (list of image stacks).
@@ -102,12 +103,7 @@ class alignDest(object):
             raise ValueError("Destination type is not implemented.")
 
     def destshape(self,nimages,imgsize):
-        if self.stackdim == 0:
-            return (nimages,imgsize[0],imgsize[1])
-        elif self.stackdim == 1:
-            return (imgsize[0],nimages,imgsize[1])
-        else:
-            return (imgsize[0],imgsize[1],nimages)
+        return tuple(move([imgsize[0],imgsize[1],nimages],2,self.stackdim))
 
     def h5_composesetname(self,path,name):
         if path == "/":
@@ -230,12 +226,8 @@ class alignDest(object):
 
     def writeimg(self,img,datasetindex,imageindex):
         if self.desttype == dataType.h5 or self.desttype == dataType.nparray or self.desttype == dataType.h5ext:
-            if self.stackdim == 0:
-                self.datasets[datasetindex][imageindex,...] = img
-            elif self.stackdim == 1:
-                self.datasets[datasetindex][:,imageindex,:] = img
-            else:
-                self.datasets[datasetindex][...,imageindex] = img
+            index = tuple(move([slice(None),slice(None),imageindex],2,self.stackdim))
+            self.datasets[datasetindex][index] = img
         elif self.desttype == dataType.singlefile:
             h = self.singlefile_getfabiohandle(img)
             filename = self.singlefile_composefilename(datasetindex,imageindex)

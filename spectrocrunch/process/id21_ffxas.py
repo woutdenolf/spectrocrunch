@@ -85,12 +85,11 @@ def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
         skippre=False,skipnormalization=False,skipalign=False,\
         roiraw=None,roialign=None,roiresult=None,\
         refimageindex=None,crop=False,plot=True,\
-        flatbefore=True,flatafter=True,normalizeonload=True):
+        flatbefore=True,flatafter=True,normalizeonload=True,stackdim = 2):
 
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
 
-    stackdim = 2
     bsamefile = False
     cropalign = crop
 

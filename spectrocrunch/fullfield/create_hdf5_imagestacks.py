@@ -129,7 +129,7 @@ def getroi(roilabel,h,fh):
 
     # ROI from dimensions
     if len(roi)!=4:
-        roi = [0,0,int(fh.dim1),int(fh.dim2)]
+        roi = [0,0,int(fh.dim2),int(fh.dim1)] # edf: dim2 => rows, dim1 => cols
 
     return roi
 
@@ -385,7 +385,7 @@ def getnormalizedimage(fileslist,darklib,config):
             nframes = dtype(h[nflabel])
         else:
             nframes = dtype(1)
-        
+
         data -= darklib[frametime]["data"]/darklib[frametime]["nframes"]*nframes
         if img is None:
             img = data

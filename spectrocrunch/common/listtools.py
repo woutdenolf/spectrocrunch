@@ -28,8 +28,6 @@ import itertools
 
 from . import instance
 
-
-
 def flatten(l):
     """Flatten list
 
@@ -121,4 +119,22 @@ def weightedsum(labels, counts):
     for l,cnt in itertools.izip(labels,counts):
         c.update({l:cnt})
     return c.keys(),c.values()
-        
+
+def swap(lst,i,j):
+    if i!=j:
+        lst[i],lst[j] = lst[j],lst[i]
+    return lst
+
+def roll(lst,n):
+    if n!=0:
+        n = abs(n)
+        lst = list(itertools.islice(itertools.cycle(lst),n,n+len(lst)))
+    return lst
+
+def move(lst,i,j):
+    if i!=j:
+        lst.insert(j, lst.pop(i))
+    return lst
+    
+
+    
