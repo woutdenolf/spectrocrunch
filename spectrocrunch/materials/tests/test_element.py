@@ -35,8 +35,8 @@ class test_element(unittest.TestCase):
 
     def test_fluoline(self):
         self.assertEqual(len(fluoline.factory(None,"K")),0)
-        self.assertEqual(len(fluoline.factory([],"K")),0)
-        self.assertEqual(len(fluoline.factory(xraylib.KA_LINE,"L")),0)
+        self.assertTrue(fluoline.factory([],"K") is None)
+        self.assertTrue(fluoline.factory(xraylib.KA_LINE,"L") is None)
         self.assertEqual(fluoline.factory(xraylib.KA1_LINE,"K"),fluoline.factory([xraylib.KA1_LINE],"K"))
         self.assertEqual(fluoline.factory(xraylib.KA_LINE,"K"),fluoline.factory([xraylib.KA1_LINE,xraylib.KA2_LINE,xraylib.KA3_LINE],"K"))
         self.assertEqual(fluoline.factory(xraylib.KA_LINE,"K"),fluoline.factory([xraylib.KA_LINE,xraylib.LA_LINE],"K"))
@@ -45,7 +45,7 @@ class test_element(unittest.TestCase):
     def test_shell(self):
         self.assertEqual(shell(xraylib.K_SHELL).radrate(26),[1])
         self.assertEqual(len(shell(xraylib.K_SHELL,fluolines=xraylib.KA_LINE).radrate(26)),3)
-        self.assertEqual(len(shell(xraylib.K_SHELL,fluolines=xraylib.LA_LINE).radrate(26)),1)
+        self.assertEqual(len(shell(xraylib.K_SHELL,fluolines=xraylib.LA_LINE).radrate(26)),0)
         self.assertEqual(len(shell(xraylib.K_SHELL,fluolines=[xraylib.LA_LINE,xraylib.KA_LINE]).radrate(26)),3)
         self.assertEqual(sum(shell(xraylib.K_SHELL,fluolines=[xraylib.KA_LINE,xraylib.KB_LINE]).radrate(26)),1)
 
