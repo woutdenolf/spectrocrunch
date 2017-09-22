@@ -49,15 +49,15 @@ class test_alignSource(unittest.TestCase):
         yv = range(int(2*n2/3),int(n2/3),-1)
         n = min(len(xv),3)
         energy = np.linspace(7,7.3,n) # keV
-        intensity = np.linspace(200,100,n) # ADU/sec
+        intensity = np.linspace(200,100,n) # DU/sec
         transmission = np.linspace(0.9,0.3,n)
         nbdata = 8
         nbflat = 2
         tdata = 0.4 # sec
         tflat = 0.1 # sec
         
-        darkoff = 50 # ADU
-        darkgain = 33 # ADU/sec
+        darkoff = 50 # DU
+        darkgain = 33 # DU/sec
         nbdark = 10
         
         darkdata = np.full((n1,n2),(darkoff+darkgain*tdata)*nbdark)

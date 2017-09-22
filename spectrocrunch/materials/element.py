@@ -44,6 +44,21 @@ from ..common.hashable import Hashable
 
 from ..common.instance import isarray
 
+def parseelementsymbol(symb):
+    if isinstance(symb,str):
+        if symb.isdigit():
+            Z = int(symb)
+            name = xraylib.AtomicNumberToSymbol(Z)
+        else:
+            Z = xraylib.SymbolToAtomicNumber(symb.title())
+            name = symb
+    elif isinstance(symb,numbers.Integral):
+        Z = symb
+        name = xraylib.AtomicNumberToSymbol(Z)
+    else:
+        raise ValueError("Unknown element symbol or number")
+    return Z,name  
+
 class fluoline(Hashable):
     _all = {s.split('_')[0]:xraylib.__dict__[s] for s in xraylib.__dict__.keys() if s.endswith("_LINE")}
     
@@ -81,7 +96,7 @@ class fluoline(Hashable):
         """IUPAC name
         """
         names = [name for name,c in cls._all.items() if c == code]
-
+        
         n = len(names)
         if n==1:
             return names[0]
@@ -116,24 +131,56 @@ class fluoline(Hashable):
             list(fluoline)
         """
         if codes is None:
-            return [] # All lines
+            return None # no lines
+        elif codes == []:
+            return [] # all lines
         elif not isarray(codes):
             codes = [codes]
+
+        if isinstance(codes[0],fluoline):
+            return codes
 
         # line belongs to shell
         # line is selected (directly or under composite)
         # line is not a composite
-        use = lambda line,selname,code: line.startswith(shellname) and\
+        valid = lambda line,selname,code: line.startswith(shellname) and\
                                         line.startswith(selname) and\
                                         (code<0 or line!=selname)
 
-        lines = [fluoline(cls._all[name]) for code in codes for name in cls._all if use(name,cls.getname(code),code)] # decompose composites
+        lines = [fluoline(cls._all[name]) for code in codes for name in cls._all if valid(name,cls.getname(code),code)] # decompose composites
         
         if len(lines)==0:
             return None
         else:
-            return list(set(lines)) # remove duplicates
+            ret = list(set(lines)) # remove duplicates
+            ret.sort(reverse=True)
+            return ret
 
+    @classmethod
+    def energyfactory(cls,energy0,energy1,symb):
+        """Generate fluoline instances between energies
+
+        Args:
+            energy0(num): 
+            energy1(num): 
+
+        Returns:
+            list(fluoline)
+        """
+
+        Z,_ = parseelementsymbol(symb)
+        
+        valid = lambda energy: energy >= energy0 and energy <= energy1
+        
+        lines = [fluoline(code) for code in range(-1,-384,-1) if valid(xraylib.LineEnergy(Z,code))]
+        
+        if len(lines)==0:
+            return None
+        else:
+            ret = list(set(lines)) # remove duplicates
+            ret.sort(reverse=True)
+            return ret
+    
     def lineenergy(self,Z):
         """
         Args:
@@ -150,7 +197,7 @@ class shell(Hashable):
         """
         Args:
             code(int): xraylib shell code
-            fluolines(Optional(array(int))): xraylib line codes (all lines when None)
+            fluolines(Optional(array(int))): xraylib line codes
         """
 
         self.code = code
@@ -216,31 +263,13 @@ class element(Hashable):
         """
         
         # Atomic number
-        if isinstance(symb,str):
-            if symb.isdigit():
-                self.Z = int(symb)
-                self.name = xraylib.AtomicNumberToSymbol(self.Z)
-            else:
-                self.Z = xraylib.SymbolToAtomicNumber(symb.title())
-                self.name = symb
-        elif isinstance(symb,numbers.Integral):
-            self.Z = symb
-            self.name = xraylib.AtomicNumberToSymbol(self.Z)
-        else:
-            raise ValueError("Element symbol Z.")
+        self.Z,self.name = parseelementsymbol(symb)
         
         # Atomic properties
         self.MM = xraylib.AtomicWeight(self.Z)
 
         # Information for calculating partial cross-sections
         self.shells = []
-        self._simulate = False
-
-    def simulate(self):
-        self._simulate = True
-        
-    def database(self):
-        self._simulate = False
         
     def _cmpkey(self):
         """For comparing and sorting
@@ -254,7 +283,6 @@ class element(Hashable):
 
     def markasabsorber(self,symb,shells=None,fluolines=None):
         """Marking an element's shells and lines has following effect:
-            - replace cross-section data with simulations for the selected shells
             - partial absorption cross-section is not zero
             - when no fluolines are given: all lines for each shell are taken into account
 
@@ -331,7 +359,7 @@ class element(Hashable):
 
         # Total
         for i in range(len(E)):
-            cs[i] = xraylib.CS_Total_Kissel(self.Z,E[i])
+            cs[i] = xraylib.CS_Total_Kissel(self.Z,np.float64(E[i]))
 
         # Replace part by simulation
         cs = self._replace_partial_mass_abs_coeff(cs,E,environ=environ,decimals=decimals,refresh=refresh)
@@ -360,7 +388,7 @@ class element(Hashable):
 
         # Total
         for i in range(len(E)):
-            cs[i] = xraylib.CS_Photo_Total(self.Z,E[i])
+            cs[i] = xraylib.CS_Photo_Total(self.Z,np.float64(E[i]))
 
         # Replace part by simulation
         cs = self._replace_partial_mass_abs_coeff(cs,E,environ=environ,decimals=decimals,refresh=refresh)
@@ -373,7 +401,7 @@ class element(Hashable):
     def _replace_partial_mass_abs_coeff(self,cs,E,environ=None,decimals=6,refresh=False):
         """
         """
-        if environ is not None and self._simulate:
+        if environ is not None:
             # Subtract partial cross-sections (summed over selected shells)
             cs -= sum(self._CS_Photo_Partial_DB(E).values())
 
@@ -410,7 +438,7 @@ class element(Hashable):
             else:
                 return np.zeros(len(E),dtype=np.float64)
 
-        if environ is None and not self._simulate:
+        if environ is None:
             cs = self._CS_Photo_Partial_DB(E)
         else:
             cs = self._CS_Photo_Partial_SIM(E,environ,decimals=decimals,refresh=refresh)
@@ -421,7 +449,7 @@ class element(Hashable):
         else:
             return cs
 
-    def xrf_cross_section(self,E,environ=None,decimals=6,refresh=False,decomposed=False):
+    def fluorescence_cross_section(self,E,environ=None,decimals=6,refresh=False,decomposed=False):
         """XRF cross section for the selected shells and lines (cm^2/g, E in keV). Use for fluorescence XAS.
 
             muXRF(E) = sum_{S}[tau(E,S)*fluoyield(S)*sum_{L}[radrate(S,L)]]
@@ -447,7 +475,7 @@ class element(Hashable):
             else:
                 return np.zeros(len(E),dtype=np.float64)
 
-        if environ is None and not self._simulate:
+        if environ is None:
             cs = self._CS_Photo_Partial_DB(E)
         else:
             cs = self._CS_Photo_Partial_SIM(E,environ,decimals=decimals,refresh=refresh)
@@ -477,9 +505,9 @@ class element(Hashable):
             ret = np.empty(len(E),dtype=np.float64)
 
             for i in range(len(E)):
-                ret[i] = xraylib.CS_Rayl(self.Z,E[i])+xraylib.CS_Compt(self.Z,E[i])
+                ret[i] = xraylib.CS_Rayl(self.Z,np.float64(E[i]))+xraylib.CS_Compt(self.Z,np.float64(E[i]))
         else:
-            ret = xraylib.CS_Rayl(self.Z,E)+xraylib.CS_Compt(self.Z,E)
+            ret = xraylib.CS_Rayl(self.Z,np.float64(E))+xraylib.CS_Compt(self.Z,np.float64(E))
 
         return ret
 
@@ -499,9 +527,9 @@ class element(Hashable):
             ret = np.empty(len(E),dtype=np.float64)
 
             for i in range(len(E)):
-                ret[i] = xraylib.CS_Rayl(self.Z,E[i])
+                ret[i] = xraylib.CS_Rayl(self.Z,np.float64(E[i]))
         else:
-            ret = xraylib.CS_Rayl(self.Z,E)
+            ret = xraylib.CS_Rayl(self.Z,np.float64(E))
 
         return ret
 
@@ -521,9 +549,9 @@ class element(Hashable):
             ret = np.empty(len(E),dtype=np.float64)
 
             for i in range(len(E)):
-                ret[i] = xraylib.CS_Compt(self.Z,E[i])
+                ret[i] = xraylib.CS_Compt(self.Z,np.float64(E[i]))
         else:
-            ret = xraylib.CS_Compt(self.Z,E)
+            ret = xraylib.CS_Compt(self.Z,np.float64(E))
 
         return ret
 

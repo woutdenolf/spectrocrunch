@@ -165,7 +165,8 @@ class _pndiode(object):
         """
         self.material = material
         self.setgain(Rout)
-        self.darkcurrent = float(darkcurrent)
+        #self.darkcurrent = noisepropagation.poisson(darkcurrent)
+        self.darkcurrent = darkcurrent
         self.oscillator = None
 
     def link(self,oscillator):
@@ -529,7 +530,7 @@ class Diode(with_simulmetaclass()):
         op = self.pndiode.op_fluxtocps(energy)
         return op(flux)
 
-    def propagate(self,N,energy,tframe=None,nframe=None):
+    def propagate(self,N,energy,tframe=None,nframe=None,withnoise=True):
         """Error propagation of a number of photons.
                
         Args:
@@ -539,7 +540,7 @@ class Diode(with_simulmetaclass()):
             nframe(num|numpy.array): number of frames (sec)
 
         Returns:
-            uncertainties.core.Variable or numpy.array(uncertainties.core.Variable): detector signal in ADU
+            uncertainties.core.Variable or numpy.array(uncertainties.core.Variable): detector signal in DU
         """
 
         if tframe is None:
@@ -547,27 +548,9 @@ class Diode(with_simulmetaclass()):
         if nframe is None:
             ValueError("Number of frames not specified.")
 
-        # Generation of electrons
-        gain = self.qe(energy)
-        process = noisepropagation.poisson(gain)
-        Nout = noisepropagation.compound(N,process) # units: e
+        # TODO: 
 
-        # Add dark current
-        Nout += self.darkcurrent*tframe # units: e
-
-        # Add read-out noise
-        Nout += self.readoutnoise # units: e
-
-        # Convert to ADU
-        Nout *= self.etoadu # units: ADU
-
-        # Add ADU offset
-        Nout += self.aduoffset # units: ADU
-
-        # Number of frames
-        Nout = noisepropagation.repeat(nframe,Nout) # units: ADU
-
-        return Nout # units: ADU
+        return Nout # units: DU
 
 class sxmidet(Diode):
     """

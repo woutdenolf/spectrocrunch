@@ -58,12 +58,18 @@ class Lens(with_simulmetaclass()):
         ratios = visspectrum.ratios
         return np.sum(ratios * np.exp(-linatt*self.thickness))
     
-    def propagate(self,N,visspectrum,nrefrac=None):
+    def lightyield(self,nrefrac):
+        #air = visirlib.Material("other","air","Ciddor")
+        #nmedium = np.mean(air.refractive_index(visspectrum.energies))
+        nmedium = 1 # vacuum
+        return ( np.tan(np.arcsin(self.NA/nmedium))*self.magnification/(2*(self.magnification+1.)*nrefrac) )**2
+        
+    def propagate(self,N,visspectrum,nrefrac=None,withnoise=True,forward=True):
         """Error propagation of a number of photons.
                
         Args:
             N(unumpy.uarray): incomming number of photons with uncertainties
-            visspectrum(dict): visible light spectrum
+            visspectrum(emspectrum): visible light spectrum
             nrefrac(num): refraction index of the scintillator
 
         Returns:
@@ -93,13 +99,28 @@ class Lens(with_simulmetaclass()):
         #   d = lens diameter
         #   nmedium = refractive index of air
         
-        #air = visirlib.Material("other","air","Ciddor")
-        #nmedium = np.mean(air.refractive_index(visspectrum.lines))
-        nair = 1
-        probsuccess = self.transmission(visspectrum) * ( np.tan(np.arcsin(self.NA/nair))*self.magnification/(2*(self.magnification+1.)*nrefrac) )**2
-        process = noisepropagation.bernouilli(probsuccess)
-        Nout = noisepropagation.compound(N,process)
+        probsuccess = self.transmission(visspectrum)
+        
+        N,probsuccess = self.propagate_broadcast(N,probsuccess)
+        
+        lightyield = self.lightyield(nrefrac)
+        
+        if withnoise:
+            if forward:
+                proc1 = noisepropagation.bernouilli(probsuccess)
+                proc2 = noisepropagation.poisson(lightyield)
+            else:
+                proc2 = noisepropagation.bernouilli(probsuccess)
+                proc1 = noisepropagation.poisson(lightyield)
 
+            Nout = noisepropagation.compound(N,proc1,forward=forward)
+            Nout = noisepropagation.compound(Nout,proc2,forward=forward)
+        else:
+            if forward:
+                Nout = N*(probsuccess*lightyield)
+            else:
+                Nout = N/(probsuccess*lightyield)
+                
         return Nout
 
 class mitutoyoid21_10x(Lens):

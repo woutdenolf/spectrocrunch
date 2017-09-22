@@ -125,7 +125,7 @@ class mixture(object):
 
     def __str__(self):
         ws = self.weightfractions()
-        return ' + '.join("{} wt% {}".format(s[1],s[0]) for s in ws.items())
+        return ' + '.join("{:.0f} wt% {}".format(s[1]*100,s[0]) for s in ws.items())
 
     def __getitem__(self,compound):
         return self.compounds[compound]
@@ -189,27 +189,44 @@ class mixture(object):
                     ret[e] = c_wfrac[c]*e_wfrac[e]
         return ret
 
+    @staticmethod
+    def _cs_scattering(method):
+        return method=="scattering_cross_section" or method=="compton_cross_section" or method=="rayleigh_cross_section"
+        
     def _crosssection(self,method,E,fine=False,decomposed=False,**kwargs):
         """Calculate compound cross-sections
         """
+        
+        bscat = self._cs_scattering(method)
+        if bscat and not self.hasscatterers:
+            if decomposed:
+                return {}
+            else:
+                return E*0.
 
         c_wfrac = self.weightfractions()
         if decomposed:
             ret = {}
             for c in c_wfrac:
+                if bscat and not c.isscatterer:
+                    continue
+                
+                ret[c] = {"w":c_wfrac[c],"elements":{}}
+                
                 if hasattr(c,'structure') and fine:
                     environ = c
                 else:
                     environ = None
 
                 e_wfrac = c.weightfractions()
-
-                ret[c] = {"frac":c_wfrac[c],"elements":{}}
-                for e in c.elements:
-                    ret[c]["elements"][e] += {"frac":e_wfrac[e],"cs":getattr(e,method)(E,environ=environ,**kwargs)}
+                for e in e_wfrac:
+                    ret[c]["elements"][e] = {"w":e_wfrac[e],"cs":getattr(e,method)(E,environ=environ,**kwargs)}
         else:
             ret = E*0.
             for c in c_wfrac:
+                if self._cs_scattering(method) and not c.isscatterer:
+                    continue
+                    
                 if hasattr(c,'structure') and fine:
                     environ = c
                 else:
@@ -218,7 +235,7 @@ class mixture(object):
                 e_wfrac = c.weightfractions()
                 for e in c.elements:
                     ret += c_wfrac[c]*e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
-
+        
         return ret
 
     def mass_att_coeff(self,E,fine=False,decomposed=False,**kwargs):
@@ -251,10 +268,10 @@ class mixture(object):
         """
         return self._crosssection("rayleigh_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def xrf_cross_section(self,E,fine=False,decomposed=False,**kwargs):
+    def fluorescence_cross_section(self,E,fine=False,decomposed=False,**kwargs):
         """XRF cross section (cm^2/g, E in keV). Use for fluorescence XAS.
         """
-        return self._crosssection("xrf_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
+        return self._crosssection("fluorescence_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
     def markabsorber(self,symb,shells=[],fluolines=[]):
         """
@@ -266,11 +283,26 @@ class mixture(object):
 
     def unmarkabsorber(self):
         for c in self.compounds:
-            c.markasabsorber()
+            c.unmarkabsorber()
 
     def hasabsorbers(self):
         return any([c.hasabsorbers() for c in self.compounds])
         
+    def markscatterer(self,name):
+        """
+        Args:
+            name(str): compound name
+        """
+        for c in self.compounds:
+            c.markscatterer(symb,shells=shells,fluolines=fluolines)
+
+    def unmarkscatterer(self):
+        for c in self.compounds:
+            c.unmarkscatterer()
+
+    def hasscatterers(self):
+        return any([c.isscatterer() for c in self.compounds])
+            
     def get_energy(self,energyrange,defaultinc=1):
         """Get absolute energies (keV) from a relative energy range (eV)
         """

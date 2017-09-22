@@ -73,7 +73,7 @@ class compoundfromcif(compound):
     def _get_cif_name(self,filename):
         """Get file from the database if it doesn't exist
         """
-        name = resource_filename(name)
+        name = resource_filename(filename)
         if os.path.isfile(name):
             return name
         else:

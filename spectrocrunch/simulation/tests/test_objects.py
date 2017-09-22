@@ -52,10 +52,14 @@ class test_objects(unittest.TestCase):
             tmp = noisepropagation.S(RV)
             self.assertTrue(np.all(tmp==tmp[0]))
 
-    def _checkprop(self,o,vis=False,**kwargs):
+    def _checkprop(self,o,**kwargs):
+        self._checkprop1(o,**kwargs)
+        self._checkprop2(o,**kwargs)
+        
+    def _checkprop1(self,o,vis=False,**kwargs):
         # Both arrays
         if vis:
-            s = emspectrum.discrete([ureg.Quantity(500,'nm'),ureg.Quantity(500,'nm')])
+            s = emspectrum.discrete(ureg.Quantity([500,500],'nm'))
         else:
             s = np.asarray([7.,7.])
         N = noisepropagation.poisson([1e5,1e5,1e5])
@@ -82,7 +86,7 @@ class test_objects(unittest.TestCase):
 
         # Energy array
         if vis:
-            s = emspectrum.discrete([ureg.Quantity(500,'nm'),ureg.Quantity(500,'nm')])
+            s = emspectrum.discrete(ureg.Quantity([500,500],'nm'))
         else:
             s = np.asarray([7.,7.])
         N = noisepropagation.poisson(1e5)
@@ -106,22 +110,40 @@ class test_objects(unittest.TestCase):
         
         self.assertFalse(isarray(Nout))
         self._assertRV(Nout)
+    
+    def _checkprop2(self,o,vis=False,**kwargs):
+        if vis:
+            s = emspectrum.discrete(ureg.Quantity(500,'nm'))
+        else:
+            s = 7.
+        N = noisepropagation.poisson(1e5)
+        
+        Nout = o.propagate(N,s,withnoise=True,forward=True,**kwargs)
+        N2 = o.propagate(Nout,s,withnoise=True,forward=False,**kwargs)
+        
+        Nout2 = o.propagate(noisepropagation.E(N),s,withnoise=False,forward=True,**kwargs)
+        N3 = o.propagate(Nout2,s,withnoise=False,forward=False,**kwargs)
+
+        self.assertAlmostEqual(noisepropagation.E(N),noisepropagation.E(N2))
+        self.assertAlmostEqual(noisepropagation.S(N),noisepropagation.S(N2))
+        self.assertAlmostEqual(noisepropagation.E(N),N3)
+        self.assertAlmostEqual(noisepropagation.E(Nout),Nout2)
         
     def test_detectors(self):
         self.assertRaises(RuntimeError, areadetectors.factory, "noclassname")
 
         o = areadetectors.factory("PCO Edge 5.5")
         self._checkprop(o,tframe=2,nframe=10,vis=True)
-    
+        
     def test_lenses(self):
         self.assertRaises(RuntimeError, lenses.factory, "noclassname")
 
         o = lenses.factory("Mitutoyo ID21 10x")
         self._checkprop(o,nrefrac=1.1,vis=True)
-
+        
         o = lenses.factory("Mitutoyo ID21 10x")
         self._checkprop(o,nrefrac=1.1,vis=True)
-
+        
     def test_scintillators(self):
         self.assertRaises(RuntimeError, scintillators.factory, "noclassname")
         for cname in scintillators.classes:
@@ -129,7 +151,7 @@ class test_objects(unittest.TestCase):
 
         o = scintillators.factory("GGG ID21",thickness=13)
         self._checkprop(o)
-
+        
         #SNR = noisepropagation.SNR(N)
 
         #import matplotlib.pyplot as plt
@@ -139,13 +161,14 @@ class test_objects(unittest.TestCase):
         
         o = scintillators.factory("LSO ID21",thickness=10)
         self._checkprop(o)
-
+        self._checkprop2(o)
+        
         #plt.plot(energy,o.transmission(energy))
         #plt.show()
 
     def test_materials(self):
         self.assertRaises(RuntimeError, materials.factory, "noclassname")
-        o = materials.factory("multilayer",material=compoundname("ultralene"),thickness=4,anglein=0,angleout=np.radians(135))
+        o = materials.factory("multilayer",material=compoundname("ultralene"),thickness=4,anglein=0,angleout=135)
         self._checkprop(o)
 
     def _vis_calc_photons(self,ph_E,ph_I,ph_gain):
@@ -207,11 +230,11 @@ class test_objects(unittest.TestCase):
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    #testSuite.addTest(test_objects("test_materials"))
+    testSuite.addTest(test_objects("test_materials"))
     testSuite.addTest(test_objects("test_scintillators"))
-    #testSuite.addTest(test_objects("test_detectors"))
-    #testSuite.addTest(test_objects("test_lenses"))
-    #testSuite.addTest(test_objects("test_diodes"))
+    testSuite.addTest(test_objects("test_detectors"))
+    testSuite.addTest(test_objects("test_lenses"))
+    testSuite.addTest(test_objects("test_diodes"))
 
     return testSuite
     

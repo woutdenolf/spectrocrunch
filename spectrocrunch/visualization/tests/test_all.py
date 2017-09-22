@@ -24,9 +24,12 @@
 
 import unittest
 
+from . import test_scene
+
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
+    testSuite.addTest(test_scene.test_suite_all())
     return testSuite
     
 if __name__ == '__main__':

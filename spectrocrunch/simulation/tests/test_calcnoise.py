@@ -35,38 +35,21 @@ from uncertainties import unumpy
 class test_calcnoise(unittest.TestCase):
 
     def test_ffnoise(self):
-        I0 = 1e5
+        flux = 1e5
         energy = np.linspace(3,5,100)
         tframe = 0.07
         nframe = 100
-        ndark = 30
+        ndark = 10
 
-        sample = materials.factory("Multilayer",material=compound("CaCO3",2.71),thickness=5,anglein=0,angleout=np.radians(135))
-
-        N,N0,D,D0 = calcnoise.id21_ffnoise(I0,energy,sample,\
-                    tframe_data=tframe,nframe_data=nframe,\
-                    tframe_flat=tframe,nframe_flat=nframe,\
-                    nframe_dark=ndark)
-
-        T = calcnoise.transmission(N,N0,D=D,D0=D0,\
-                tframe_data=tframe,nframe_data=nframe,\
-                tframe_flat=tframe,nframe_flat=nframe,\
-                nframe_dark=ndark)
-
-        XAS = calcnoise.absorbance(T)
-
-        num = N - D/ndark*nframe
-        num /= nframe*tframe
+        sample = materials.factory("Multilayer",material=compound("CaCO3",2.71),thickness=5,anglein=0,angleout=135)
         
-        denom = N0 - D0/ndark*nframe
-        denom /= nframe*tframe
+        o = calcnoise.id21_ffsetup(composition=sample)
         
-        XAS = -unumpy.log(num/denom)
-
-        signal = unumpy.nominal_values(XAS)
-        noise = unumpy.std_devs(XAS)
+        kwargs = {"tframe_data":tframe,"nframe_data":nframe,"tframe_flat":tframe,"nframe_flat":nframe,"nframe_dark":ndark}
         
-        self.assertEqual(XAS.shape,(100,1))
+        signal,noise = o.xanes(flux,energy,**kwargs)
+        
+        self.assertEqual(signal.shape,(100,1))
 
         #import matplotlib.pyplot as plt
         #plt.figure()

@@ -31,27 +31,26 @@ class Hashable(Comparable):
     """
 
     def _compare(self, other, method):
-        try:
-            if isinstance(other,str):
-                return method(str(self), other)
-            else:
-                return method(self._cmpkey(), other._cmpkey())
-        except (AttributeError, TypeError):
-            # _cmpkey not implemented, or return different type,
-            # so I can't compare with "other".
-            return NotImplemented
+        if isinstance(other,str):
+            return method(str(self), other)
+        else:
+            return method(self._cmpkey(), other._cmpkey())
+
+
+    def _cmpkey():
+        return str(self)
 
     def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
         try:
             return self._stringrepr()
         except (AttributeError):
-            return NotImplemented
-
-    def __str__(self):
-        return self.__repr__()
-
+            return str(id(self))
+            
     def __hash__(self):
-        return hash(self.__repr__())
+        return hash(self.__str__())
 
     
 

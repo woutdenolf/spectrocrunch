@@ -33,28 +33,33 @@ class AreaDetector(with_simulmetaclass()):
     Class representing an area detector
     """
 
-    def __init__(self, etoadu=None, qe=None, aduoffset=None, darkcurrent=None, readoutnoise=None):
+    def __init__(self, etoDU=None, qe=None, DUoffset=None, darkcurrent=None, readoutnoise=None):
         """
         Args:
-            etoadu(num): number of ADU per electron (ADU/e)
+            etoDU(num): number of DU per electron (DU/e)
             qe(num): detector quantum efficiency (e/ph)
-            aduoffset(num): pixel intensity offset (ADU)
+            DUoffset(num): pixel intensity offset (DU)
             darkcurrent(num): dark current (e/sec)
             readoutnoise(num): readout noise (e)
         """
-        self.required(etoadu,"etoadu")
+        self.required(etoDU,"etoDU")
         self.required(qe,"qe")
-        self.required(aduoffset,"aduoffset")
+        self.required(DUoffset,"DUoffset")
         self.required(darkcurrent,"darkcurrent")
         self.required(readoutnoise,"readoutnoise")
         
-        self.etoadu = float(etoadu)
+        self.etoDU = float(etoDU)
         self.qe = qe
-        self.aduoffset = float(aduoffset)
+        
+        self.DUoffset = float(DUoffset)
+        
         self.darkcurrent = noisepropagation.poisson(darkcurrent)
+        
+        # Read-out noise
+        # https://spie.org/samples/PM170.pdf
         self.readoutnoise = noisepropagation.randomvariable(0,readoutnoise)
 
-    def propagate(self,N,visspectrum,tframe=None,nframe=None):
+    def propagate(self,N,visspectrum,tframe=None,nframe=None,withnoise=True,forward=True):
         """Error propagation of a number of photons.
                
         Args:
@@ -69,29 +74,31 @@ class AreaDetector(with_simulmetaclass()):
 
         self.defined(self.propagate,tframe,"frame exposure time")
         self.defined(self.propagate,nframe,"number of frames")
+
+        qe = self.qe(visspectrum) 
         
-        # Generation of electrons
-        gain = self.qe(visspectrum)  
-        process = noisepropagation.poisson(gain)
-        Nout = noisepropagation.compound(N,process)
+        N,qe = self.propagate_broadcast(N,qe)
         
-        # Add dark current
-        Nout += self.darkcurrent*tframe # units: e
+        if withnoise:
+            process = noisepropagation.poisson(qe)
 
-        # Add read-out noise
-        # https://spie.org/samples/PM170.pdf
-        Nout += self.readoutnoise # units: e
-
-        # Convert to ADU
-        Nout *= self.etoadu # units: ADU
-
-        # Add ADU offset
-        Nout += self.aduoffset # units: ADU
-
-        # Number of frames
-        Nout = noisepropagation.repeat(nframe,Nout) # units: ADU
-
-        return Nout # units: ADU
+            if forward:
+                Nout = noisepropagation.compound(N,process,forward=forward)
+                Nout = (Nout + self.darkcurrent*tframe)*self.etoDU + self.DUoffset
+                Nout = noisepropagation.repeat(nframe,Nout,forward=forward)
+            else:
+                Nout = noisepropagation.repeat(nframe,N,forward=forward)
+                Nout = noisepropagation.reverse_add(Nout,self.DUoffset)
+                Nout = noisepropagation.reverse_mult(Nout,self.etoDU )
+                Nout = noisepropagation.reverse_add(Nout,self.darkcurrent*tframe )
+                Nout = noisepropagation.compound(Nout,process,forward=forward)
+        else:
+            if forward:
+                Nout = nframe* ((N*qe + noisepropagation.E(self.darkcurrent)*tframe)*self.etoDU + self.DUoffset)
+            else:
+                Nout = ((N/nframe - self.DUoffset)/self.etoDU - noisepropagation.E(self.darkcurrent)*tframe)/qe
+        
+        return Nout
 
 class pcoedge55(AreaDetector):
     """
@@ -101,7 +108,7 @@ class pcoedge55(AreaDetector):
 
     def __init__(self):
         qe = lambda visspectrum: 0.7
-        super(pcoedge55, self).__init__(etoadu=65536/30000., qe=qe, aduoffset=95.5, darkcurrent=7.4, readoutnoise=0.95)
+        super(pcoedge55, self).__init__(etoDU=65536/30000., qe=qe, DUoffset=95.5, darkcurrent=7.4, readoutnoise=0.95)
 
 class frelon2k16(AreaDetector):
     """
@@ -113,7 +120,7 @@ class frelon2k16(AreaDetector):
         # https://doi.org/10.1063/1.2783112
         # https://doi.org/10.1107/S0909049506000550
         qe = lambda visspectrum: 0.7
-        super(pcoedge55, self).__init__(etoadu=65536/320000., qe=qe, aduoffset=100., darkcurrent=1., readoutnoise=19.)
+        super(pcoedge55, self).__init__(etoDU=65536/320000., qe=qe, DUoffset=100., darkcurrent=1., readoutnoise=19.)
 
 class frelon2k14(AreaDetector):
     """
@@ -125,7 +132,7 @@ class frelon2k14(AreaDetector):
         # https://doi.org/10.1063/1.2783112
         # https://doi.org/10.1107/S0909049506000550
         qe = lambda energy: [0.7]*energy.size
-        super(pcoedge55, self).__init__(etoadu=16384/320000., qe=qe, aduoffset=100., darkcurrent=1., readoutnoise=24.)
+        super(pcoedge55, self).__init__(etoDU=16384/320000., qe=qe, DUoffset=100., darkcurrent=1., readoutnoise=24.)
         
 classes = AreaDetector.clsregistry
 aliases = AreaDetector.aliasregistry

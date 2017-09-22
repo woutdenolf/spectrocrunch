@@ -48,6 +48,12 @@ from uncertainties import unumpy
 #                     x.derivatives[b] * y.derivatives[b] * sb^2 + ... )
 #
 
+def israndomvariable(X):
+    if isarray(X):
+        return instance(X[0],RandomVariable)
+    else:
+        return instance(X,RandomVariable)
+        
 class Bernouilli(RandomVariable):
     def __init__(self,probsuccess,**kwargs):
         super(Bernouilli,self).__init__(probsuccess,np.sqrt(probsuccess*(1-probsuccess)),**kwargs)
@@ -73,7 +79,7 @@ def randomvariable(X,SX):
         return np.vectorize(lambda x, s: RandomVariable(x, s), otypes=[object])(X,SX)
     else:
         return RandomVariable(X,SX)
-        
+  
 def E(X):
     if isinstance(X,RandomVariable):
         return X.nominal_value
@@ -98,7 +104,7 @@ def NSR(X):
 def RVAR(X):
     return VAR(X)/E(X)**2
     
-def repeat(N,X):
+def repeat(N,X,forward=True):
     """Sum of a fixed number (N) of independent random variables (Xi) with the same probability mass function.
 
         ISSUE: loose correlation with X
@@ -128,9 +134,12 @@ def repeat(N,X):
     #
     # => SNR[n.X] = SNR[X] * sqrt(n)
     
-    return randomvariable(N*E(X),np.sqrt(N)*S(X))
-
-def compound(N,X):
+    if forward:
+        return randomvariable(E(X)*N,S(X)*np.sqrt(N))
+    else:
+        return randomvariable(E(X)/N,S(X)/np.sqrt(N))
+        
+def compound(N,X,forward=True):
     """Sum of a random number (N) of independent random variables (X_i) with E[X_i]=E[X_j], VAR[X_i]=VAR[X_j]
        (which is weaker than saying the have the same pmf). This is called a "compound random variable".
        
@@ -152,32 +161,88 @@ def compound(N,X):
     # 1. pmf(X) = Bernouilli (e.g. X-ray transmission) ->  Binomial selection
     #       -> N a fixed number: pmf(Y) = Binomial
     #       -> pmf(N) = Poisson: pmf(Y) = Poisson (binomial selection theorem)
-    # 2. pmf(X) = Poisson  (e.g. X-ray to VIS)  
-    
-    bexpand = isarray(X) or isarray(N)
+    # 2. pmf(X) = Poisson  (e.g. X-ray to VIS)
     
     EN = E(N)
     VARN = VAR(N)
     EX = E(X)
     VARX = VAR(X)
     
-    if bexpand:
-        nN = np.asarray(N).shape
-        if len(nN)==2:
-            nN = nN[1]
-        else:
-            nN = int(np.product(nN))
-        nX = np.asarray(X).size
+    #if isarray(N) or isarray(X):
+    #    nN = np.asarray(N).shape
+    #    if len(nN)==2:
+    #        nN = nN[1]
+    #    else:
+    #        nN = int(np.product(nN))
+    #    nX = np.asarray(X).size
 
-        EN = np.broadcast_to(EN,[nX,nN])
-        VARN = np.broadcast_to(VARN,[nX,nN])
+    #    EN = np.broadcast_to(EN,[nX,nN])
+    #    VARN = np.broadcast_to(VARN,[nX,nN])
 
-        EX = np.broadcast_to(EX,[nN,nX]).T
-        VARX = np.broadcast_to(VARX,[nN,nX]).T
+    #    EX = np.broadcast_to(EX,[nN,nX]).T
+    #    VARX = np.broadcast_to(VARX,[nN,nX]).T
     
-    EY = EN*EX
-    VARY = VARN*EX*EX + VARX*EN
-
+    if forward:
+        EY = EN*EX
+        VARY = VARN*EX*EX + VARX*EN
+    else:
+        # Y <-> N
+        EY = EN/EX
+        VARY = (VARN - VARX*EY)/(EX*EX)
+        
     return randomvariable(EY,np.sqrt(VARY))
+    
+def reverse_add(Z,Y):
+    """Z = X + Y (assume X and Y independent)
+       VARZ = VARX + VARY
+       
+       Y = Z - Y
+       VARX = VARZ - VARY
+    
+    """
+    return randomvariable( E(Z)-E(Y), (VAR(Z)-VAR(Y))**0.5 )
 
+def reverse_sub(Z,Y):
+    """Z = X - Y (assume X and Y independent)
+       VARZ = VARX + VARY
+       
+       X = Z + Y
+       VARX = VARZ - VARY
+    
+    """
+    return randomvariable( E(Z)+E(Y), (VAR(Z)-VAR(Y))**0.5 )
+    
+def reverse_mult(Z,Y):
+    """Z = X * Y (assume X and Y independent)
+       VARZ = Y^2 * VARX + X^2 * VARY
+       
+       X = Z/Y
+       VARX = (VARZ - X^2 * VARY)/Y^2
+    
+    """
+    EY = E(Y)
+    EX = E(Z)/EY
+    return randomvariable( EX, (  (VAR(Z)-EX*EX*VAR(Y))/(EY*EY)  )**0.5 )
 
+def reverse_div(Z,Y):
+    """Z = X/Y (assume X and Y independent)
+       VARZ = 1/Y^2 * VARX + X^2/Y^4 * VARY
+       
+       X = Z*Y
+       VARX = VARZ*Y^2 - X^2/Y^2 * VARY
+    """
+    EY = E(Y)
+    EX = E(Z)*EY
+    return randomvariable( EX, (  VAR(Z)*EY*EY - EX*EX*VAR(Y)/(EY*EY)  )**0.5 )
+
+def reverse_log(Z):
+    """Z = ln(X)
+       VARZ = VARX/X^2
+       
+       X = exp(Z)
+       VARX = X^2*VARZ
+    """
+    EX = np.exp(E(Z))
+    return randomvariable( EX, (  VAR(Z)*EX*EX  )**0.5 )
+    
+    

@@ -74,7 +74,7 @@ class Scintillator(with_simulmetaclass()):
     def transmission(self,energy):
         return np.exp(-self.material.density*self.thickness*1e-4*self.material.mass_att_coeff(energy))
 
-    def propagate(self,N,energy):
+    def propagate(self,N,energy,withnoise=True,forward=True):
         """Error propagation of a number of photons.
                
         Args:
@@ -84,20 +84,34 @@ class Scintillator(with_simulmetaclass()):
         Returns:
             numpy.array,dict
         """
-        
+
         # Absorption of X-rays
         probsuccess = self.absorption(energy)
-        process = noisepropagation.bernouilli(probsuccess)
-        Nout = noisepropagation.compound(N,process)
-
+        
         # Fluorescence of visible photons
         # https://doi.org/10.1088/0031-9155/57/15/4885
         # http://arizona.openrepository.com/arizona/handle/10150/577317
         # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4669903/
         gain = energy*self.nvisperkeV
-        process = noisepropagation.poisson(gain)
-        Nout = noisepropagation.compound(Nout,process)
         
+        N,probsuccess,gain = self.propagate_broadcast(N,probsuccess,gain)
+        
+        if withnoise:
+            if forward:
+                proc1 = noisepropagation.bernouilli(probsuccess)
+                proc2 = noisepropagation.poisson(gain)
+            else:
+                proc2 = noisepropagation.bernouilli(probsuccess)
+                proc1 = noisepropagation.poisson(gain)
+                
+            Nout = noisepropagation.compound(N,proc1,forward=forward)
+            Nout = noisepropagation.compound(Nout,proc2,forward=forward)
+        else:
+            if forward:
+                Nout = N*(probsuccess*gain)
+            else:
+                Nout = N/(probsuccess*gain)
+                
         return Nout
         
     def get_nrefrac(self):

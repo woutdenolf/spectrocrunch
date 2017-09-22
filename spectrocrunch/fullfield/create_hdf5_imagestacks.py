@@ -351,7 +351,7 @@ def getsingleimage(filename,darklib,config):
     return data,frametime,nframes,darklib[frametime]
 
 def getnormalizedimage(fileslist,darklib,config):
-    """ Get dark subtracted images from a list of files with intensity in ADU/sec
+    """ Get dark subtracted images from a list of files with intensity in DU/sec
         
         img = (img1 - nf1*dark1) + (img2 - nf2*dark2) + ...
         time = nf1*tframe1 + nf2*tframe2 + ...
@@ -526,7 +526,7 @@ def create_hdf5_imagestacks(jsonfile):
 
     # Add processing info
     #nexus.addinfogroup(f,"fromraw",config)
-    nexus.addinfogroup(f,"fromraw",{"config":jsonfile,"pixel unit":"ADU/sec","dark current":"subtracted"})
+    nexus.addinfogroup(f,"fromraw",{"config":jsonfile,"pixel unit":"DU/sec","dark current":"subtracted"})
 
     f.close()
 

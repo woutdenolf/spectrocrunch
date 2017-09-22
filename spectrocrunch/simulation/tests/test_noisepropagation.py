@@ -28,6 +28,8 @@ from .. import noisepropagation
 
 import numpy as np
 
+import uncertainties
+
 import itertools
 
 class test_noisepropagation(unittest.TestCase):
@@ -44,7 +46,19 @@ class test_noisepropagation(unittest.TestCase):
         np.testing.assert_allclose(noisepropagation.S(Y1),noisepropagation.S(Y2))
         np.testing.assert_allclose(noisepropagation.SNR(X),noisepropagation.SNR(N*X))
         np.testing.assert_allclose(noisepropagation.SNR(Y1),noisepropagation.SNR(X)*N**0.5)
-        
+    
+    def _RVequal(self,N1,N2):
+        self.assertEqual(noisepropagation.E(N1),noisepropagation.E(N2))
+        self.assertEqual(noisepropagation.S(N1),noisepropagation.S(N2))
+    
+    def _RValmostequal(self,N1,N2):
+        self.assertAlmostEqual(noisepropagation.E(N1),noisepropagation.E(N2))
+        self.assertAlmostEqual(noisepropagation.S(N1),noisepropagation.S(N2))
+         
+    def _RVnotequal(self,N1,N2):
+        self.assertNotEqual(noisepropagation.E(N1),noisepropagation.E(N2))
+        self.assertNotEqual(noisepropagation.S(N1),noisepropagation.S(N2))
+    
     def test_compound(self):
     
         N0 = noisepropagation.randomvariable([100.,200],[100**0.5,200**0.5])
@@ -92,15 +106,13 @@ class test_noisepropagation(unittest.TestCase):
         
         N1 = noisepropagation.compound(noisepropagation.compound(N,g1),g2)
         N2 = noisepropagation.compound(N,g3)
-        self.assertEqual(noisepropagation.E(N1),noisepropagation.E(N2))
-        self.assertEqual(noisepropagation.S(N1),noisepropagation.S(N2))
+        self._RVequal(N1,N2)
         
         # Bernouilli compounding of Poisson gives Poisson
         N = noisepropagation.poisson(100)
         N1 = noisepropagation.compound(N,g1)
         N2 = noisepropagation.poisson(noisepropagation.E(N)*noisepropagation.E(g1))
-        self.assertEqual(noisepropagation.E(N1),noisepropagation.E(N2))
-        self.assertEqual(noisepropagation.S(N1),noisepropagation.S(N2))
+        self._RVequal(N1,N2)
         
     def test_poisson(self):
         # Poisson processes cannot be multiplied
@@ -121,6 +133,41 @@ class test_noisepropagation(unittest.TestCase):
         N2 = noisepropagation.poisson(noisepropagation.E(N)*noisepropagation.E(g1))
         self.assertEqual(noisepropagation.E(N1),noisepropagation.E(N2))
         self.assertNotEqual(noisepropagation.S(N1),noisepropagation.S(N2))
+    
+    def test_reverse(self):
+        
+        X = noisepropagation.randomvariable(10.,1.3)
+        X2 = noisepropagation.randomvariable(10.,1.3)
+        Y = noisepropagation.randomvariable(3.,0.2)
+        Y2 = noisepropagation.randomvariable(3.,0.2)
+        
+        Z = X+Y
+        XX = noisepropagation.reverse_add(Z,Y2)
+        self._RVequal(X,XX)
+        
+        Z = X-Y
+        XX = noisepropagation.reverse_sub(Z,Y2)
+        self._RVequal(X,XX)
+        
+        Z = X*Y
+        XX = noisepropagation.reverse_mult(Z,Y2)
+        self._RVequal(X,XX)
+        
+        Z = X/Y
+        XX = noisepropagation.reverse_div(Z,Y2)
+        self._RValmostequal(X,XX)
+        
+        Z = uncertainties.unumpy.log(X2)
+        XX = noisepropagation.reverse_log(Z)
+        self._RValmostequal(X,XX)
+        
+        Z = noisepropagation.repeat(10,X)
+        XX = noisepropagation.repeat(10,Z,forward=False)
+        self._RValmostequal(X,XX)
+        
+        Z = noisepropagation.compound(X,Y)
+        XX = noisepropagation.compound(Z,Y,forward=False)
+        self._RValmostequal(X,XX)
         
 def test_suite_all():
     """Test suite including all test suites"""
@@ -129,6 +176,7 @@ def test_suite_all():
     testSuite.addTest(test_noisepropagation("test_compound"))
     testSuite.addTest(test_noisepropagation("test_bernouilli"))
     testSuite.addTest(test_noisepropagation("test_poisson"))
+    testSuite.addTest(test_noisepropagation("test_reverse"))
     return testSuite
     
 if __name__ == '__main__':

@@ -23,6 +23,7 @@
 # THE SOFTWARE.
 
 from ..common.classfactory import FactoryMeta
+from ..common import instance
 from future.utils import with_metaclass
 import numpy as np
 
@@ -43,20 +44,29 @@ class SimulClass(object):
             raise RuntimeError("{} not defined for {}".format(strvar,func.__name__))
 
     @staticmethod
-    def broadcastold(N,energy):
+    def propagate_broadcast(N,*args):
         """
         Args:
-            N(num|array): incomming number of photons with uncertainties
-            energy(num|array): associated energies
+            N(num|array): incomming number of photons
+            arg1(num|array): energy related variable
             
         Returns:
             unumpy.uarray: len(energy) x len(N)
         """
-        nen = np.asarray(energy).size
-        N = np.asarray(N)
-        if N.ndim==2:
-            return np.broadcast_to(N,[nen,N.shape[1]])
-        return np.broadcast_to(N,[nen,N.size])
+        
+        if instance.isarray(N) or instance.isarray(args[0]):
+            nN = np.asarray(N).shape
+            if len(nN)==2:
+                nN = nN[1]
+            else:
+                nN = int(np.product(nN))
+            nenergy = np.asarray(args[0]).size
+
+            N = np.broadcast_to(N,[nenergy,nN])
+
+            args = tuple(np.broadcast_to(arg,[nN,nenergy]).T for arg in args)
+            
+        return (N,)+args
 
 def with_simulmetaclass(bases=None):
     if bases is None:

@@ -187,11 +187,21 @@ class compound(Hashable):
 
     def unmarkabsorber(self):
         for e in self.elements:
-            e.markasabsorber()
+            e.unmarkabsorber()
 
     def hasabsorbers(self):
         return any([e.isabsorber() for e in self.elements])
 
+    def markscatterer(self,name):
+        """
+        Args:
+            name(str): compound name
+        """
+        self.isscatterer = self==name
+
+    def unmarkscatterer(self):
+        self.isscatterer = False
+        
     def getabsorberinfo(self):
         ret = {}
         for e in self.elements:
@@ -199,9 +209,20 @@ class compound(Hashable):
                 ret[e] = e.getfluoinfo()
         return ret
 
+    @staticmethod
+    def _cs_scattering(method):
+        return method=="scattering_cross_section" or method=="compton_cross_section" or method=="rayleigh_cross_section"
+
     def _crosssection(self,method,E,fine=False,decomposed=False,**kwargs):
         """Calculate compound cross-sections
         """
+        
+        if self._cs_scattering(method) and not self.isscatterer:
+            if decomposed:
+                return {}
+            else:
+                return E*0.
+
         if hasattr(self,'structure') and fine:
             environ = self
         else:
@@ -211,7 +232,7 @@ class compound(Hashable):
         if decomposed:
             ret = {}
             for e in e_wfrac:
-                ret[e] = {"frac":e_wfrac[e],"cs":getattr(e,method)(E,environ=environ,**kwargs)}
+                ret[e] = {"w":e_wfrac[e],"cs":getattr(e,method)(E,environ=environ,**kwargs)}
         else:
             ret = E*0.
             for e in e_wfrac:
@@ -249,10 +270,10 @@ class compound(Hashable):
         """
         return self._crosssection("rayleigh_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def xrf_cross_section(self,E,fine=False,decomposed=False,**kwargs):
+    def fluorescence_cross_section(self,E,fine=False,decomposed=False,**kwargs):
         """XRF cross section (cm^2/g, E in keV). Use for fluorescence XAS.
         """
-        return self._crosssection("xrf_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
+        return self._crosssection("fluorescence_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
     def get_energy(self,energyrange,defaultinc=1):
         """Get absolute energies (keV) from a relative energy range (eV)

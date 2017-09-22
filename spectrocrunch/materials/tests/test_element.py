@@ -34,8 +34,8 @@ import xraylib
 class test_element(unittest.TestCase):
 
     def test_fluoline(self):
-        self.assertEqual(len(fluoline.factory(None,"K")),0)
-        self.assertTrue(fluoline.factory([],"K") is None)
+        self.assertEqual(fluoline.factory(None,"K"),None)
+        self.assertEqual(fluoline.factory([],"K"),[])
         self.assertTrue(fluoline.factory(xraylib.KA_LINE,"L") is None)
         self.assertEqual(fluoline.factory(xraylib.KA1_LINE,"K"),fluoline.factory([xraylib.KA1_LINE],"K"))
         self.assertEqual(fluoline.factory(xraylib.KA_LINE,"K"),fluoline.factory([xraylib.KA1_LINE,xraylib.KA2_LINE,xraylib.KA3_LINE],"K"))
@@ -43,7 +43,8 @@ class test_element(unittest.TestCase):
         self.assertNotEqual(fluoline.factory(xraylib.KA_LINE,"K"),fluoline.factory([xraylib.KA1_LINE,xraylib.KA3_LINE],"K"))
 
     def test_shell(self):
-        self.assertEqual(shell(xraylib.K_SHELL).radrate(26),[1])
+        self.assertEqual(shell(xraylib.K_SHELL).radrate(26),[])
+        self.assertEqual(shell(xraylib.K_SHELL,fluolines=[]).radrate(26),[1])
         self.assertEqual(len(shell(xraylib.K_SHELL,fluolines=xraylib.KA_LINE).radrate(26)),3)
         self.assertEqual(len(shell(xraylib.K_SHELL,fluolines=xraylib.LA_LINE).radrate(26)),0)
         self.assertEqual(len(shell(xraylib.K_SHELL,fluolines=[xraylib.LA_LINE,xraylib.KA_LINE]).radrate(26)),3)
@@ -59,7 +60,7 @@ class test_element(unittest.TestCase):
             mu2 += xraylib.CS_Photo_Partial(26,s,8.)*xraylib.FluorYield(26,s)
         e.markasabsorber("Fe",shells=shell._all.keys())
         mu3 = e.partial_mass_abs_coeff(8.)
-        mu4 = e.xrf_cross_section(8.)
+        mu4 = e.fluorescence_cross_section(8.)
         self.assertEqual(mu1,mu3)
         self.assertEqual(mu2,mu4)
 
@@ -67,12 +68,12 @@ class test_element(unittest.TestCase):
         mu2 = xraylib.CS_Photo_Partial(26,xraylib.K_SHELL,8.)*xraylib.FluorYield(26,xraylib.K_SHELL)
         e.markasabsorber("Fe",shells=xraylib.K_SHELL)
         mu3 = e.partial_mass_abs_coeff(8.)
-        mu4 = e.xrf_cross_section(8.)
+        mu4 = e.fluorescence_cross_section(8.)
         self.assertEqual(mu1,mu3)
         self.assertEqual(mu2,mu4)
         e.markasabsorber("Fe",shells=xraylib.K_SHELL,fluolines=[xraylib.KA_LINE,xraylib.KB_LINE,xraylib.KA_LINE,xraylib.KB_LINE])
         mu3 = e.partial_mass_abs_coeff(8.)
-        mu4 = e.xrf_cross_section(8.)
+        mu4 = e.fluorescence_cross_section(8.)
         self.assertEqual(mu1,mu3)
         self.assertEqual(mu2,mu4)
 
@@ -80,7 +81,7 @@ class test_element(unittest.TestCase):
         mu2 = xraylib.CS_Photo_Partial(26,xraylib.K_SHELL,8.)*xraylib.FluorYield(26,xraylib.K_SHELL)*xraylib.RadRate(26,xraylib.KA_LINE)
         e.markasabsorber("Fe",shells=xraylib.K_SHELL,fluolines=[xraylib.KA1_LINE,xraylib.KA2_LINE,xraylib.KA3_LINE,xraylib.LA_LINE])
         mu3 = e.partial_mass_abs_coeff(8.)
-        mu4 = e.xrf_cross_section(8.)
+        mu4 = e.fluorescence_cross_section(8.)
         self.assertEqual(mu1,mu3)
         self.assertEqual(mu2,mu4)
 
