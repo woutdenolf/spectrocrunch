@@ -26,13 +26,17 @@ from PyMca5.PyMcaCore import SpecFileDataSource
 import re
 import numpy as np
 from collections import OrderedDict
+from ..common.instance import isarray
+import logging
+
+logger = logging.getLogger(__name__)
 
 def zapline_values(start,end,npixels):
     inc = (end-start)/np.float(npixels)
     return start + inc/2 + inc*np.arange(npixels)
 
 def zapline_range(start,end,npixels):
-    inc = (end-start)/npixels
+    inc = (end-start)/np.float(npixels)
     return [start + inc/2, end - inc/2]
 
 def ascan_values(start,end,nsteps):
@@ -41,6 +45,98 @@ def ascan_values(start,end,nsteps):
 
 def ascan_range(start,end,nsteps):
     return [start,end]
+
+def zapimage_submap(header,cmdlabel,scanrange,currentpos,microntounits):
+    """
+    Args:
+        header(dict): edf header
+        cmdlabel(str): scan command header key
+        scanrange(num): in micron
+        currentpos(dict): current motor positions
+        microntounits(dict): factors to convert microns to motor units 
+    """
+
+    # Old map motor values
+    o = cmd_parser()
+    result = o.parsezapimage(header[cmdlabel])
+    if result["name"]!='zapimage':
+        raise RuntimeError("Cannot extract zapimage information from edf header")
+    fastvalues = zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])
+    slowvalues = ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])
+    
+    # New map motor values
+    pfasta = currentpos[result["motfast"]]-scanrange*microntounits[result["motfast"]]/2.
+    pfastb = currentpos[result["motfast"]]+scanrange*microntounits[result["motfast"]]/2.
+    pslowa = currentpos[result["motslow"]]-scanrange*microntounits[result["motslow"]]/2.
+    pslowb = currentpos[result["motslow"]]+scanrange*microntounits[result["motslow"]]/2.
+    
+    ifasta = (np.abs(fastvalues-pfasta)).argmin()
+    ifastb = (np.abs(fastvalues-pfastb)).argmin()
+    islowa = (np.abs(slowvalues-pslowa)).argmin()
+    islowb = (np.abs(slowvalues-pslowb)).argmin()
+    
+    result["startfast"] = fastvalues[ifasta]
+    result["endfast"] = fastvalues[ifastb]
+    result["npixelsfast"] = abs(ifastb-ifasta)+1
+    
+    result["startslow"] = slowvalues[islowa]
+    result["endslow"] = slowvalues[islowb]
+    result["nstepsslow"] = abs(islowb-islowa)
+    
+    startpositions = {mot:header[mot] for mot in currentpos}
+    startpositions[result["motfast"]] = result["startfast"]
+    startpositions[result["motslow"]] = result["startslow"]
+
+    d = (result["endfast"]-result["startfast"])/(result["npixelsfast"]-1.)
+
+    scancmd = "zapimage {} {} {} {} {} {} {} {} {} 0".format(\
+              result["motfast"],result["startfast"]+d/2.,result["endfast"]+d/2.,result["npixelsfast"],\
+              result["motslow"],result["startslow"],result["endslow"],result["nstepsslow"],\
+              int(result["time"]*1000))
+    
+    mvcmd = "mv "+" ".join("{} {}".format(mot,pos) for mot,pos in startpositions.items())
+    
+    if ifasta>ifastb:
+        ifast = -1
+    else:
+        ifast = 1
+    if islowa>islowb:
+        islow = -1
+    else:
+        islow = 1
+    
+    for k,v in currentpos.items():
+        if k!=result["motfast"] and k!=result["motslow"]:
+            if v!=startpositions[k]:
+                logger.warning("Current position of {} ({}) is ignored and set to {}".format(k,v,startpositions[k]))
+    
+    return scancmd,mvcmd,[[ifasta,ifastb+1,ifast],[islowa,islowb+1,islow]]
+    
+class edfheader_parser(object):
+
+    def __init__(self,fastlabel=None,slowlabel=None,timelabel=None):
+        self.fastlabel = fastlabel
+        self.slowlabel = slowlabel
+        self.timelabel = timelabel
+
+    def parsezapimage(self,header,name="zapimage"):
+        try:
+            if self.timelabel in header:
+                time = np.float(header[self.timelabel])
+            else:
+                time = 0.
+            return {'name':name,\
+                    'motfast':str(header[self.fastlabel+"_mot"]),\
+                    'startfast':np.float(header[self.fastlabel+"_start"]),\
+                    'endfast':np.float(header[self.fastlabel+"_end"]),\
+                    'npixelsfast':np.int(header[self.fastlabel+"_nbp"]),\
+                    'time':time,\
+                    'motslow':str(header[self.slowlabel+"_mot"]),\
+                    'startslow':np.float(header[self.slowlabel+"_start"]),\
+                    'endslow':np.float(header[self.slowlabel+"_end"]),\
+                    'nstepsslow':np.int(header[self.slowlabel+"_nbp"])}
+        except:
+            return {'name':'unknown'}
 
 class cmd_parser(object):
     def __init__(self):
@@ -69,6 +165,8 @@ class cmd_parser(object):
 
     def parsezapimage(self,cmd,name="zapimage"):
         #scanname = cmd.split(' ')[0]
+        
+        # legacy error at ID21
         expr = name + self.blanks +\
                    "("+ self.motor +")" + self.blanks +\
                    "("+ self.fnumber +")" + self.blanks +\
@@ -91,8 +189,32 @@ class cmd_parser(object):
                     'startslow':np.float(result[0][6]),\
                     'endslow':np.float(result[0][7]),\
                     'nstepsslow':np.int(result[0][8])}
-        else:
-            return {'name':'unknown'}
+        
+        # proper formatting
+        expr = name + self.blanks +\
+           "("+ self.motor +")" + self.blanks +\
+           "("+ self.fnumber +")" + self.blanks +\
+           "("+ self.fnumber +")" + self.blanks +\
+           "("+ self.inumber +")" + self.blanks +\
+           "("+ self.motor +")" + self.blanks +\
+           "("+ self.fnumber +")" + self.blanks +\
+           "("+ self.fnumber +")" + self.blanks +\
+           "("+ self.inumber +")" + self.blanks +\
+           "("+ self.inumber +")"
+        result = re.findall(expr,cmd)
+        if len(result)==1:
+            return {'name':name,\
+                'motfast':str(result[0][0]),\
+                'startfast':np.float(result[0][1]),\
+                'endfast':np.float(result[0][2]),\
+                'npixelsfast':np.int(result[0][3]),\
+                'motslow':str(result[0][4]),\
+                'startslow':np.float(result[0][5]),\
+                'endslow':np.float(result[0][6]),\
+                'nstepsslow':np.int(result[0][7]),\
+                'time':np.float(result[0][8])/1000}
+        
+        return {'name':'unknown'}
 
     def parsepuzzle(self,cmd,name="puzzle"):
         expr = name + self.blanks +\

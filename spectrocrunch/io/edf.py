@@ -22,64 +22,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from . import spec
-
 import numpy as np
 
 import fabio
-
-def get2Dscancoordinates(header,scanlabel="",fastlabel="",slowlabel=""):
-    """Get scan coordinates from header
-
-    Args:
-        header(dict): edf header
-        scanlabel(optional(str)): header key which value is the scan command
-        fastlabel(optional(str)): header key which value is the fast motor name
-        slowlabel(optional(str)): header key which value is the slow motor name
-
-    Returns:
-        (dict,dict): {"name":str,"data":array}
-    """
-
-    ret = ({"name":"","data":[]},{"name":"","data":[]})
-
-    scaninfo = {"name":""}
-
-    if len(scanlabel)>0:
-        if scanlabel in header:
-            cmd = header[scanlabel]
-            o = spec.cmd_parser()
-            scaninfo = o.parse(cmd)
-
-    if scaninfo["name"] != "zapimage":
-        if len(fastlabel)>0 and len(slowlabel)>0:
-            label = fastlabel
-            if label+"_mot" in header:
-                scaninfo["motfast"] = str(header[label+"_mot"])
-                scaninfo["startfast"] = np.float(header[label+"_start"])
-                scaninfo["endfast"] = np.float(header[label+"_end"])
-                scaninfo["npixelsfast"] = np.float(header[label+"_nbp"])
-            else:
-                return ret
-
-            label = slowlabel
-            if label+"_mot" in header:
-                scaninfo["motslow"] = str(header[label+"_mot"])
-                scaninfo["startslow"] = np.float(header[label+"_start"])
-                scaninfo["endslow"] = np.float(header[label+"_end"])
-                scaninfo["nstepsslow"] = np.float(header[label+"_nbp"])
-            else:
-                return ret
-
-            scaninfo["name"] = "zapimage"
-
-    if scaninfo["name"] == "zapimage":
-        sfast = {"name":scaninfo["motfast"],"data":spec.zapline_values(scaninfo["startfast"],scaninfo["endfast"],scaninfo["npixelsfast"])}
-        sslow = {"name":scaninfo["motslow"],"data":spec.ascan_values(scaninfo["startslow"],scaninfo["endslow"],scaninfo["nstepsslow"])}
-
-        ret = (sfast,sslow)
-
-    return ret
 
 class edfmemmap():
     """Access edf data with memmaps (cannot handle certain things like compression)
@@ -105,14 +50,13 @@ class edfmemmap():
     def __getitem__(self,index):
         return self.data[index]
 
-class edffabio():
+class edfimage():
     """Access edf data with fabio
     """
 
     def __init__(self,filename,mode='r'):
         #self.f = fabio.edfimage.EdfImage(filename)
         self.f = fabio.open(filename)
-
         self.ndim = 2
 
     @property
@@ -130,7 +74,11 @@ class edffabio():
     def __getitem__(self,index):
         return self.data[index]
 
+    @property
+    def header(self):
+        return self.f.header
+        
 def saveedf(filename,data,header):
     fabio.edfimage.EdfImage(data=data,header=header).write(filename)
-            
+
 

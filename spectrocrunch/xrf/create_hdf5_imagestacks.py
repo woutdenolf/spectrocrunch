@@ -27,14 +27,13 @@ import json
 import logging
 import numpy as np
 import h5py
-import re
 from glob import glob
 import fabio
 
 from ..xrf.parse_xia import parse_xia_esrf
 from ..xrf.fit import PerformBatchFit as fitter
 from ..io import nexus
-from ..io.spec import zapline_values, ascan_values
+from ..io import spec
 
 def filecounter(sourcepath,scanname,counter,scannumber,idet=None,getcount=False,debug=False):
     if getcount:
@@ -88,71 +87,25 @@ def dimensions(config):
         imgdim = [0,1]
     return stackdim,imgdim
 
-def parsezapimage(cmd,name="zapimage"):
-    """Get scan dimensions from spec command "zapimage"
-    """
-    fnumber = "(?:[+-]?[0-9]*\.?[0-9]+)"
-    inumber = "\d+"
-    blanks = "\s+"
-    motor = "[a-zA-Z]+"
-    expr = name + blanks +\
-           "("+ motor +")" + blanks +\
-           "("+ fnumber +")" + blanks +\
-           "("+ fnumber +")" + blanks +\
-           "("+ inumber +")" + blanks +\
-           "("+ inumber +")" + blanks +\
-           "("+ motor +")" + blanks +\
-           "("+ fnumber +")" + blanks +\
-           "("+ fnumber +")" + blanks +\
-           "("+ inumber +")"
-    result = re.findall(expr,cmd)
-
-    if len(result)==1:
-        motfast = str(result[0][0])
-        start = np.float(result[0][1])
-        end = np.float(result[0][2])
-        npixels = np.float(result[0][3])
-        sfast = {"name":motfast,"data":zapline_values(start,end,npixels)} 
-
-        motslow = str(result[0][5])
-        start = np.float(result[0][6])
-        end = np.float(result[0][7])
-        nsteps = np.float(result[0][8])
-        sslow = {"name":motslow,"data":ascan_values(start,end,nsteps)} 
-        return (motfast,motslow,sfast,sslow)
-    else:
-        return None
-
 def getscanpositions(config,header):
     """Get scan dimensions from header
     """
-    ret = None
+    result = {"name":"unknown"}
+    
     if "scanlabel" in config:
         if config["scanlabel"] in header:
-            cmd = header[config["scanlabel"]]
-            if "zapimage" in cmd:
-                ret = parsezapimage(cmd)
+            o = spec.cmd_parser()
+            result = o.parsezapimage(header[config["scanlabel"]])
     elif "fastlabel" in config and "slowlabel" in config:
-        label = config["fastlabel"]
-        motfast = str(header[label+"_mot"])
-        start = np.float(header[label+"_start"])
-        end = np.float(header[label+"_end"])
-        npixels = np.float(header[label+"_nbp"])
-        sfast = {"name":motfast,"data":zapline_values(start,end,npixels)}
+        o = spec.edfheader_parser(fastlabel=config["fastlabel"],slowlabel=config["slowlabel"])
+        result = o.parsezapimage(header)
 
-        label = config["slowlabel"]
-        motslow = str(header[label+"_mot"])
-        start = np.float(header[label+"_start"])
-        end = np.float(header[label+"_end"])
-        nsteps = np.float(header[label+"_nbp"])
-        sslow = {"name":motslow,"data":ascan_values(start,end,nsteps)}
-
-        ret = (motfast,motslow,sfast,sslow)
-
-    if ret is None:
-        raise NotImplementedError("Scan command cannot be parsed for motor positions.")
-
-    return ret
+    if result["name"]=="zapimage":
+        sfast = {"name":result["motfast"],"data":spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])} 
+        sslow = {"name":result["motslow"],"data":spec.ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])} 
+        return (sfast["name"],sslow["name"],sfast,sslow)
+    else:
+        raise RuntimeError("Scan command cannot be parsed for motor positions.")
 
 def getimagestacks(config):
     """Get image stacks (counters, ROI's, fitted maps)
