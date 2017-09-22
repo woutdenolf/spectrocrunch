@@ -126,7 +126,7 @@ class test_xiaedf(unittest.TestCase):
         line.save(data,["xia00"])
 
         emap = edf.edfmemmap(line.datafilenames()[0])
-        fmap = edf.edffabio(line.datafilenames()[0])
+        fmap = edf.edfimage(line.datafilenames()[0])
 
         np.testing.assert_array_equal(data[...,0],fmap.data)
         np.testing.assert_array_equal(fmap.data,emap.data)
