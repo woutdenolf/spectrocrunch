@@ -50,7 +50,7 @@ from uncertainties import unumpy
 
 def israndomvariable(X):
     if isarray(X):
-        return isinstance(X[0],RandomVariable)
+        return isinstance(X.flat[0],RandomVariable)
     else:
         return isinstance(X,RandomVariable)
         

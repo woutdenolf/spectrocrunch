@@ -145,10 +145,10 @@ class Multilayer(with_simulmetaclass()):
         
         return sum(player)
         
-    def prob_transmission(self,energy):
+    def prob_transmission(self,energy,fine=True):
         """Transmission probability for one layer
         """
-        T = [np.exp(-self.material[layer].density*self.thickness[layer]*self.cosanglein*self.material[layer].mass_att_coeff(energy)) for layer in range(self.nlayers)]
+        T = [np.exp(-self.material[layer].density*self.thickness[layer]*self.cosanglein*self.material[layer].mass_att_coeff(energy,fine=fine)) for layer in range(self.nlayers)]
 
         #density = self.layerproperties("density")
         #thickness = self.thickness*self.cosanglein
@@ -165,12 +165,12 @@ class Multilayer(with_simulmetaclass()):
             layerfixed = []
         y = absorbance
 
-        A = [self.material[layer].density*self.material[layer].mass_att_coeff(energy) for layer in range(self.nlayers) if layer not in layerfixed]
+        A = [self.material[layer].density*self.cosanglein*self.material[layer].mass_att_coeff(energy) for layer in range(self.nlayers) if layer not in layerfixed]
 
         for layer in range(self.nlayers):
             if layer in layerfixed:
-                y -= self.material[layer].density*self.material[layer].mass_att_coeff(energy)
-
+                y = y-self.material[layer].density*self.thickness[layer]*self.cosanglein*self.material[layer].mass_att_coeff(energy)
+        
         A = np.vstack(A).T
         thickness = lstsq(A,y)
         ind = [layer not in layerfixed for layer in range(self.nlayers)]
@@ -214,7 +214,7 @@ class Multilayer(with_simulmetaclass()):
         return Nout
 
     def __str__(self):
-        layers = "\n ".join("{}. {}: {} μm".format(i,m,t) for i,(m,t) in enumerate(zip(self.material,self.thickness)))
+        layers = "\n ".join("{}. {}: {} μm".format(i,m,t) for i,(m,t) in enumerate(zip(self.material,self.thickness*1e4)))
         return "Multilayer (ordered top-bottom):\n {}".format(layers)
 
     @contextlib.contextmanager

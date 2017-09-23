@@ -71,17 +71,16 @@ class AreaDetector(with_simulmetaclass()):
         Returns:
             numpy.array:
         """
-
+        
         self.defined(self.propagate,tframe,"frame exposure time")
         self.defined(self.propagate,nframe,"number of frames")
 
         qe = self.qe(visspectrum) 
         
         N,qe = self.propagate_broadcast(N,qe)
-        
+
         if noisepropagation.israndomvariable(N):
             process = noisepropagation.poisson(qe)
-
             if forward:
                 Nout = noisepropagation.compound(N,process,forward=forward)
                 Nout = (Nout + self.darkcurrent*tframe)*self.etoDU + self.DUoffset

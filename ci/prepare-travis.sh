@@ -42,3 +42,8 @@ else
     echo "No pre-build libraries"
 fi
 
+# Display when needed
+export DISPLAY=:99.0
+sh -e /etc/init.d/xvfb start
+
+

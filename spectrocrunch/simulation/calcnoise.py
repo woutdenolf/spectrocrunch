@@ -79,7 +79,6 @@ class id21_ffsetup(object):
         bsample = samplein and self.composition is not None
 
         if forward:
-        
             if bsample:
                 N = self.composition.propagate(N,E,forward=forward)
             N = self.oscint.propagate(N,E,forward=forward)
@@ -206,8 +205,9 @@ class id21_ffsetup(object):
         return signal,noise
     
     def costfunc(self,flux,energy,**kwargs):
-        signal,noise = self.xanes(flux,energy,**kwargs) 
-        return np.max(noise)/(signal[-1]-signal[0])
+        signal,noise = self.xanes(flux,energy,**kwargs)
+        jump = np.abs(signal[-1]-signal[0])
+        return np.max(noise)/jump
     
     def __str__(self):
         return str(self.composition)

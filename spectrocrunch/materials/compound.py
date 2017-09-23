@@ -183,7 +183,7 @@ class compound(Hashable):
             symb(str): element symbol
         """
         for e in self.elements:
-            e.markasabsorber(symb,shells=shells,fluolines=fluolines)
+            e.markabsorber(symb,shells=shells,fluolines=fluolines)
 
     def unmarkabsorber(self):
         for e in self.elements:

@@ -251,7 +251,7 @@ class shell(Hashable):
         else:
             return self.fluoyield(Z)*sum(self.radrate(Z))
 
-    def edgenergy(self,Z):
+    def edgeenergy(self,Z):
         return xraylib.EdgeEnergy(Z,self.code)
 
 class element(Hashable):
@@ -281,7 +281,7 @@ class element(Hashable):
         """
         return self.name
 
-    def markasabsorber(self,symb,shells=None,fluolines=None):
+    def markabsorber(self,symb,shells=None,fluolines=None):
         """Marking an element's shells and lines has following effect:
             - partial absorption cross-section is not zero
             - when no fluolines are given: all lines for each shell are taken into account
@@ -405,11 +405,11 @@ class element(Hashable):
             # Subtract partial cross-sections (summed over selected shells)
             cs -= sum(self._CS_Photo_Partial_DB(E).values())
 
-            ind = np.argwhere(ret<0)
+            ind = np.argwhere(cs<0)
             if len(ind)>0:
-                ind2 = np.argwhere(ret>=0)
-                f = interpolate.interp1d(E[ind2].flatten(),ret[ind2].flatten(),bounds_error=False)
-                ret[ind] = f(E[ind])
+                ind2 = np.argwhere(cs>=0)
+                f = interpolate.interp1d(E[ind2].flatten(),cs[ind2].flatten(),bounds_error=False)
+                cs[ind] = f(E[ind])
 
             # Add partial cross-sections (summed over selected shells)
             cs += sum(self._CS_Photo_Partial_SIM(E,environ,decimals=decimals,refresh=refresh).values())
@@ -443,6 +443,7 @@ class element(Hashable):
         else:
             cs = self._CS_Photo_Partial_SIM(E,environ,decimals=decimals,refresh=refresh)
 
+        # sum over selected shells
         cs = sum(cs.values())
         if bnum:
             return cs[0]
@@ -483,6 +484,7 @@ class element(Hashable):
         if decomposed:
             return cs
         else:
+            # sum over selected shells, weighted but the total fluoyield of the selected lines
             cs = sum([c*s.partial_fluoyield(self.Z) for s,c in cs.items()])
             if bnum:
                 return cs[0]
@@ -555,18 +557,6 @@ class element(Hashable):
 
         return ret
 
-    def _get_cif_name(self,name):
-        """Get file from the database if it doesn't exist
-        """
-        if os.path.isfile(name):
-            return name
-        else:
-            f = os.path.join(os.path.dirname(os.path.abspath(__file__)),"cif",os.path.splitext(os.path.basename(name))[0]+".cif")
-            if os.path.isfile(f):
-                return f
-            else:
-                return None
-
     def _get_multiplicity(self,struct):
         scat = struct.scatterers()
         ret = 0.
@@ -613,7 +603,7 @@ class element(Hashable):
 
         # Simultation settings
         #sim.P.Radius = 3.5 # Radius of the cluster for calculation
-        sim.P.Radius = 5.
+        sim.P.Radius = 8.
         sim.P.Rpotmax = sim.P.Radius + 5 # Radius of the cluster for potential calculation
         sim.P.Quadrupole = True # multipole approximation
         sim.P.Green = False # MS instead of FDM (faster but less accurate)
@@ -692,7 +682,7 @@ class element(Hashable):
             with open(fcfg,'w') as f:
                 json.dump(config,f,indent=2)
 
-        return ret
+        return cs
 
     def get_energy(self,energyrange,defaultinc=1):
         """Get absolute energies (keV) from a relative energy range (eV)

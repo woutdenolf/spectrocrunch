@@ -92,8 +92,8 @@ class test_compound(unittest.TestCase):
             raise unittest.SkipTest("cctbx not available")
 
         elements = ["Ca","C","O"]
-        a = [6,6,18.]
-        c = compoundfromcif("calcite",name="calcite") 
+        a = [6,6,18.] # unit cell content
+        c = compoundfromcif("cif/calcite.cif",name="calcite") 
 
         elements2 = c.molefractions()
         for i in range(len(elements)):

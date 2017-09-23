@@ -58,7 +58,7 @@ class test_element(unittest.TestCase):
         for s in shell._all:
             mu1 += xraylib.CS_Photo_Partial(26,s,8.)
             mu2 += xraylib.CS_Photo_Partial(26,s,8.)*xraylib.FluorYield(26,s)
-        e.markasabsorber("Fe",shells=shell._all.keys(),fluolines=[])
+        e.markabsorber("Fe",shells=shell._all.keys(),fluolines=[])
         mu3 = e.partial_mass_abs_coeff(8.)
         mu4 = e.fluorescence_cross_section(8.)
         self.assertEqual(mu1,mu3)
@@ -66,12 +66,12 @@ class test_element(unittest.TestCase):
 
         mu1 = xraylib.CS_Photo_Partial(26,xraylib.K_SHELL,8.)
         mu2 = xraylib.CS_Photo_Partial(26,xraylib.K_SHELL,8.)*xraylib.FluorYield(26,xraylib.K_SHELL)
-        e.markasabsorber("Fe",shells=xraylib.K_SHELL,fluolines=[])
+        e.markabsorber("Fe",shells=xraylib.K_SHELL,fluolines=[])
         mu3 = e.partial_mass_abs_coeff(8.)
         mu4 = e.fluorescence_cross_section(8.)
         self.assertEqual(mu1,mu3)
         self.assertEqual(mu2,mu4)
-        e.markasabsorber("Fe",shells=xraylib.K_SHELL,fluolines=[xraylib.KA_LINE,xraylib.KB_LINE,xraylib.KA_LINE,xraylib.KB_LINE])
+        e.markabsorber("Fe",shells=xraylib.K_SHELL,fluolines=[xraylib.KA_LINE,xraylib.KB_LINE,xraylib.KA_LINE,xraylib.KB_LINE])
         mu3 = e.partial_mass_abs_coeff(8.)
         mu4 = e.fluorescence_cross_section(8.)
         self.assertEqual(mu1,mu3)
@@ -79,7 +79,7 @@ class test_element(unittest.TestCase):
 
         mu1 = xraylib.CS_Photo_Partial(26,xraylib.K_SHELL,8.)
         mu2 = xraylib.CS_Photo_Partial(26,xraylib.K_SHELL,8.)*xraylib.FluorYield(26,xraylib.K_SHELL)*xraylib.RadRate(26,xraylib.KA_LINE)
-        e.markasabsorber("Fe",shells=xraylib.K_SHELL,fluolines=[xraylib.KA1_LINE,xraylib.KA2_LINE,xraylib.KA3_LINE,xraylib.LA_LINE])
+        e.markabsorber("Fe",shells=xraylib.K_SHELL,fluolines=[xraylib.KA1_LINE,xraylib.KA2_LINE,xraylib.KA3_LINE,xraylib.LA_LINE])
         mu3 = e.partial_mass_abs_coeff(8.)
         mu4 = e.fluorescence_cross_section(8.)
         self.assertEqual(mu1,mu3)
@@ -91,7 +91,7 @@ class test_element(unittest.TestCase):
         mu2 = e.mass_abs_coeff(8.) + e.rayleigh_cross_section(8.) + e.compton_cross_section(8.)
         self.assertEqual(mu1,mu2)
 
-        e.markasabsorber("Fe",shells=shell._all.keys(),fluolines=[])
+        e.markabsorber("Fe",shells=shell._all.keys(),fluolines=[])
         energy = np.linspace(5,10,500)
         mu1 = e.partial_mass_abs_coeff(energy)
         mu2 = e.mass_abs_coeff(energy)
