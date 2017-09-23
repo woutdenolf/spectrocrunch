@@ -29,7 +29,10 @@ if [[ $NOTDRY == true ]]; then
     $PYTHONBIN setup.py install
     
     cd ../db
-    cp -R database $PYTHON_PACKAGEDIR/visirlib
+
+    TMP=`$PYTHONBIN -c "import PyTMM,os; print(os.path.dirname(PyTMM.__file__));"`
+    
+    cp -R database $TMP/visirlib
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))

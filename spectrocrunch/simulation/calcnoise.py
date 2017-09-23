@@ -72,29 +72,67 @@ class id21_ffsetup(object):
 
         self.odet = areadetectors.factory("pcoedge55")
     
-    def propagate(self,E,N,tframe,nframe,samplein=False):
+    def propagate(self,N,E,tframe,nframe,samplein=False,withnoise=True,forward=True):
         if isarray(E):
             E = np.asarray(E)
+
+        bsample = samplein and self.composition is not None
+
+        if forward:
         
-        if samplein and self.composition is not None:
-            N = self.composition.propagate(N,E)
-        N = self.oscint.propagate(N,E)
-        E = self.oscint.visspectrum
-        
-        if isarray(N):
-            s = N.shape
-            N = N.flatten()
-        N = self.olens.propagate(N,E,nrefrac=self.oscint.get_nrefrac())
-        N = self.odet.propagate(N,E,tframe=tframe,nframe=nframe)
-        
-        if isarray(N):
-            N = N.reshape(s)
+            if bsample:
+                N = self.composition.propagate(N,E,forward=forward)
+            N = self.oscint.propagate(N,E,forward=forward)
+
+            if isarray(N):
+                s = N.shape
+                N = N.flatten()
+            N = self.olens.propagate(N,self.oscint.visspectrum,\
+                                    nrefrac=self.oscint.get_nrefrac(),\
+                                    forward=forward)
+            N = self.odet.propagate(N,self.oscint.visspectrum,\
+                                    tframe=tframe,nframe=nframe,\
+                                    forward=forward)
+            
+            if isarray(N):
+                N = N.reshape(s)
+        else:
+            if isarray(N):
+                s = N.shape
+                N = N.flatten()
+            N = self.odet.propagate(N,self.oscint.visspectrum,\
+                                    tframe=tframe,nframe=nframe,\
+                                    forward=forward)
+            N = self.olens.propagate(N,self.oscint.visspectrum,\
+                                    nrefrac=self.oscint.get_nrefrac(),\
+                                    forward=forward)
+            if isarray(N):
+                N = N.reshape(s)
+                
+            N = self.oscint.propagate(N,E,forward=forward)
+            if bsample:
+                N = self.composition.propagate(N,E,forward=forward)
+
         return N
     
+    def photontoDU(self,energy,tframe,nframe,samplein=False,withnoise=True):
+        """Linear relation between incomming photons and DU
+        
+        Args:
+            energy(num):
+        
+        Returns:
+            num: DU/ph,DU
+        """
+        N0 = self.propagate(1,energy,tframe,nframe,samplein=samplein)
+        D0 = self.odet.propagate(0,energy,tframe=tframe,nframe=nframe)
+
+        return N0-D0,D0
+
     def measurement(self,flux,energy,\
                     tframe_data=None,nframe_data=None,\
                     tframe_flat=None,nframe_flat=None,\
-                    nframe_dark=None):
+                    nframe_dark=None,withnoise=True):
         """ID21 fullfield noise propagation
 
         Args:
@@ -115,43 +153,29 @@ class id21_ffsetup(object):
     
         # With sample
         N = flux*tframe_data
-        N = noisepropagation.poisson(N)
-        N = self.propagate(energy,N,tframe_data,nframe_data,samplein=True)
+        if withnoise:
+            N = noisepropagation.poisson(N)
+        N = self.propagate(N,energy,tframe_data,nframe_data,samplein=True)
         
         # Without sample
         N0 = flux*tframe_flat
-        N0 = noisepropagation.poisson(N0)
-        N0 = self.propagate(energy,N0,tframe_flat,nframe_flat,samplein=False)
+        if withnoise:
+            N0 = noisepropagation.poisson(N0)
+        N0 = self.propagate(N0,energy,tframe_flat,nframe_flat,samplein=False)
         
         # Without beam
-        if nframe_dark==0:
+        if withnoise:
             D = noisepropagation.randomvariable(0,0)
             D0 = noisepropagation.randomvariable(0,0)
         else:
-            D = self.odet.propagate(noisepropagation.randomvariable(0,0),energy,tframe=tframe_data,nframe=nframe_dark)
-            D0 = self.odet.propagate(noisepropagation.randomvariable(0,0),energy,tframe=tframe_flat,nframe=nframe_dark)
+            D = 0
+            D0 = 0
+            
+        if nframe_dark!=0:
+            D = self.odet.propagate(D,energy,tframe=tframe_data,nframe=nframe_dark)
+            D0 = self.odet.propagate(D0,energy,tframe=tframe_flat,nframe=nframe_dark)
     
         return N,N0,D,D0
-    
-    def fluxquant(self,energy,tframe_flat=None,nframe_flat=None,nframe_dark=None):
-        """ From a dark subtract flat field image (DU/sec) we can calculate the flux as follows:
-                flux = img/fluxquant
-        
-        Args:
-            energy(num):
-        
-        Returns:
-            num: fluxquant (DU/ph)
-        """
-        
-        # Without sample
-        N0 = noisepropagation.randomvariable(1,0)
-        N0 = self.propagate(energy,N0,tframe_flat,nframe_flat,samplein=False)
-        D0 = self.odet.propagate(noisepropagation.randomvariable(0,0),energy,tframe=tframe_flat,nframe=nframe_dark)
-        ret = N0/nframe_flat
-        if nframe_dark!=0:
-            ret -= D0/nframe_dark
-        return noisepropagation.E(ret)
     
     @staticmethod
     def getnframes(totaltime,frametime,fracflat):
@@ -193,7 +217,7 @@ class id21_ffsetup(object):
         signal = np.random.normal(signal,noise)
         plt.plot(energy,signal)
         plt.xlabel("Energy (keV)")
-        plt.ylabel("N/S (%)")
+        plt.ylabel("Absorbance")
        
     def plotxanesNSR(self,flux,energy,**kwargs):
         signal,noise = self.xanes(flux,energy,**kwargs)

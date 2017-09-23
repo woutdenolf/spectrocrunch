@@ -50,9 +50,9 @@ from uncertainties import unumpy
 
 def israndomvariable(X):
     if isarray(X):
-        return instance(X[0],RandomVariable)
+        return isinstance(X[0],RandomVariable)
     else:
-        return instance(X,RandomVariable)
+        return isinstance(X,RandomVariable)
         
 class Bernouilli(RandomVariable):
     def __init__(self,probsuccess,**kwargs):

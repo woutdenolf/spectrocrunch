@@ -23,13 +23,12 @@
 # THE SOFTWARE.
 
 import os
-import site
 
 import PyTMM.refractiveIndex
 
 from ..common.instance import isarray
 
-db = PyTMM.refractiveIndex.RefractiveIndex(os.path.join(site.getsitepackages()[0],"visirlib"))
+db = PyTMM.refractiveIndex.RefractiveIndex(os.path.join(os.path.dirname(PyTMM.__file__),"visirlib"))
 
 from .. import ureg
 

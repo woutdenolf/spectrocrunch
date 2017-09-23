@@ -34,9 +34,7 @@ if [ ! -d ${PYTHONV} ]; then
     cd $BUILD_FOLDER
 fi
 
-# List pre-build libraries
-ls -all
-    
+# List pre-build libraries   
 if [ -d ${PYTHONV} ]; then
     echo "Pre-build libraries:"
     ls ${PYTHONV}

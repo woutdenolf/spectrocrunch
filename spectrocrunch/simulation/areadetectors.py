@@ -59,7 +59,7 @@ class AreaDetector(with_simulmetaclass()):
         # https://spie.org/samples/PM170.pdf
         self.readoutnoise = noisepropagation.randomvariable(0,readoutnoise)
 
-    def propagate(self,N,visspectrum,tframe=None,nframe=None,withnoise=True,forward=True):
+    def propagate(self,N,visspectrum,tframe=None,nframe=None,forward=True):
         """Error propagation of a number of photons.
                
         Args:
@@ -79,7 +79,7 @@ class AreaDetector(with_simulmetaclass()):
         
         N,qe = self.propagate_broadcast(N,qe)
         
-        if withnoise:
+        if noisepropagation.israndomvariable(N):
             process = noisepropagation.poisson(qe)
 
             if forward:

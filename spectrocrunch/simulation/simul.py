@@ -54,7 +54,7 @@ class SimulClass(object):
             unumpy.uarray: len(energy) x len(N)
         """
         
-        if instance.isarray(N) or instance.isarray(args[0]):
+        if instance.isarray(N) or instance.isarray(args[0]):        
             nN = np.asarray(N).shape
             if len(nN)==2:
                 nN = nN[1]

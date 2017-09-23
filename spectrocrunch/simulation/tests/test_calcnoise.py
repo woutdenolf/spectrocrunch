@@ -26,11 +26,11 @@ import unittest
 
 from .. import calcnoise
 from .. import materials
+from .. import noisepropagation
 
 from ...materials.compoundfromformula import compoundfromformula as compound
 
 import numpy as np
-from uncertainties import unumpy
 
 class test_calcnoise(unittest.TestCase):
 
@@ -40,27 +40,80 @@ class test_calcnoise(unittest.TestCase):
         tframe = 0.07
         nframe = 100
         ndark = 10
+        
+        sample = materials.factory("Multilayer",material=compound("CaCO3",2.71),thickness=5,anglein=0,angleout=135)
+        
+        kwargs = {"tframe_data":tframe,"nframe_data":nframe,"tframe_flat":tframe,"nframe_flat":nframe,"nframe_dark":ndark}
+        
+        o = calcnoise.id21_ffsetup(composition=sample)
+        
+        signal,noise = o.xanes(flux,energy,**kwargs)
+        
+        self.assertEqual(signal.shape,(energy.size,1))
 
+        o.plotxanesnoise(flux,energy,**kwargs)
+        #plt.show()
+        
+    def test_reverse(self):
+        flux = np.linspace(1e4,1e5,2)
+        energy = np.linspace(3,5,3)
+        tframe = 0.07
+        nframe = 100
+        
         sample = materials.factory("Multilayer",material=compound("CaCO3",2.71),thickness=5,anglein=0,angleout=135)
         
         o = calcnoise.id21_ffsetup(composition=sample)
         
-        kwargs = {"tframe_data":tframe,"nframe_data":nframe,"tframe_flat":tframe,"nframe_flat":nframe,"nframe_dark":ndark}
+        ph1 = np.broadcast_to(flux*tframe,(energy.size,flux.size))
         
-        signal,noise = o.xanes(flux,energy,**kwargs)
+        for withnoise in [False,True]:
+            if withnoise:
+                N = noisepropagation.poisson(flux*tframe)
+            else:
+                N = flux*tframe
+                
+            Ndet = o.propagate(N,energy,tframe=tframe,nframe=nframe,forward=True,samplein=True)
+            
+            if withnoise:
+                np.testing.assert_allclose(Ndet2,noisepropagation.E(Ndet))
+            
+            self.assertEqual(Ndet.shape,(energy.size,flux.size))
+            
+            ph2 = o.propagate(Ndet,energy,tframe=tframe,nframe=nframe,forward=False,samplein=True)
+            
+            self.assertEqual(ph2.shape,(energy.size,flux.size))
+            
+            if withnoise:
+                np.testing.assert_allclose(ph1,noisepropagation.E(ph2))
+                np.testing.assert_allclose(ph1,noisepropagation.VAR(ph2))
+            else:
+                np.testing.assert_allclose(ph1,ph2)
+    
+            Ndet2 = Ndet
+    
+    def test_totalgain(self):
+        flux = np.linspace(1e4,1e5,10)
+        energy = 5
+        tframe = 0.07
+        nframe = 100
         
-        self.assertEqual(signal.shape,(100,1))
+        o = calcnoise.id21_ffsetup()
+        
+        ph = flux*tframe
+        
+        DU = o.propagate(ph,energy,tframe=tframe,nframe=nframe)
 
-        #import matplotlib.pyplot as plt
-        #plt.figure()
-        #plt.plot(energy,noise/signal*100)
-        #plt.show()
+        m,b = o.photontoDU(energy,tframe,nframe)
+        
+        np.testing.assert_allclose(np.squeeze(DU),ph*m+b)
+
         
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_calcnoise("test_ffnoise"))
-
+    testSuite.addTest(test_calcnoise("test_reverse"))
+    testSuite.addTest(test_calcnoise("test_totalgain"))
     return testSuite
     
 if __name__ == '__main__':

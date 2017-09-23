@@ -73,11 +73,11 @@ class test_noisepropagation(unittest.TestCase):
         Eg2 = noisepropagation.E(g2)
         Eg3 = noisepropagation.E(g3)
         Eg4 = noisepropagation.E(g4)
-                
-        N1 = noisepropagation.compound(N0,g1)[0,:]
-        N2 = noisepropagation.compound(N1,g2)[0,:]
-        N3 = noisepropagation.compound(N2,g3)[0,:]
-        N4 = noisepropagation.compound(N3,g4)[0,:]
+          
+        N1 = noisepropagation.compound(N0,g1)
+        N2 = noisepropagation.compound(N1,g2)
+        N3 = noisepropagation.compound(N2,g3)
+        N4 = noisepropagation.compound(N3,g4)
         
         a = Eg1*Eg2*Eg3*Eg4
         

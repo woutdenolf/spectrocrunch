@@ -118,11 +118,11 @@ class test_objects(unittest.TestCase):
             s = 7.
         N = noisepropagation.poisson(1e5)
         
-        Nout = o.propagate(N,s,withnoise=True,forward=True,**kwargs)
-        N2 = o.propagate(Nout,s,withnoise=True,forward=False,**kwargs)
+        Nout = o.propagate(N,s,forward=True,**kwargs)
+        N2 = o.propagate(Nout,s,forward=False,**kwargs)
         
-        Nout2 = o.propagate(noisepropagation.E(N),s,withnoise=False,forward=True,**kwargs)
-        N3 = o.propagate(Nout2,s,withnoise=False,forward=False,**kwargs)
+        Nout2 = o.propagate(noisepropagation.E(N),s,forward=True,**kwargs)
+        N3 = o.propagate(Nout2,s,forward=False,**kwargs)
 
         self.assertAlmostEqual(noisepropagation.E(N),noisepropagation.E(N2))
         self.assertAlmostEqual(noisepropagation.S(N),noisepropagation.S(N2))

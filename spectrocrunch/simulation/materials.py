@@ -179,7 +179,7 @@ class Multilayer(with_simulmetaclass()):
     def absorbance(self,energy):
         return sum([self.material[layer].density*self.thickness[layer]*self.material[layer].mass_att_coeff(energy) for layer in range(self.nlayers)])
 
-    def propagate(self,N,energy,interaction=interactionType.transmission,withnoise=True,forward=True):
+    def propagate(self,N,energy,interaction=interactionType.transmission,forward=True):
         """Error propagation of a number of photons.
                
         Args:
@@ -202,7 +202,7 @@ class Multilayer(with_simulmetaclass()):
 
         N,probsuccess = self.propagate_broadcast(N,probsuccess)
 
-        if withnoise:
+        if noisepropagation.israndomvariable(N):
             process = noisepropagation.bernouilli(probsuccess)
             Nout = noisepropagation.compound(N,process,forward=forward)
         else:

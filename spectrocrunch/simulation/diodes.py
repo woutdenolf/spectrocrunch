@@ -530,7 +530,7 @@ class Diode(with_simulmetaclass()):
         op = self.pndiode.op_fluxtocps(energy)
         return op(flux)
 
-    def propagate(self,N,energy,tframe=None,nframe=None,withnoise=True):
+    def propagate(self,N,energy,tframe=None,nframe=None):
         """Error propagation of a number of photons.
                
         Args:
@@ -549,6 +549,7 @@ class Diode(with_simulmetaclass()):
             ValueError("Number of frames not specified.")
 
         # TODO: 
+        
 
         return Nout # units: DU
 

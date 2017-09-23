@@ -64,7 +64,7 @@ class Lens(with_simulmetaclass()):
         nmedium = 1 # vacuum
         return ( np.tan(np.arcsin(self.NA/nmedium))*self.magnification/(2*(self.magnification+1.)*nrefrac) )**2
         
-    def propagate(self,N,visspectrum,nrefrac=None,withnoise=True,forward=True):
+    def propagate(self,N,visspectrum,nrefrac=None,forward=True):
         """Error propagation of a number of photons.
                
         Args:
@@ -105,7 +105,7 @@ class Lens(with_simulmetaclass()):
         
         lightyield = self.lightyield(nrefrac)
         
-        if withnoise:
+        if noisepropagation.israndomvariable(N):
             if forward:
                 proc1 = noisepropagation.bernouilli(probsuccess)
                 proc2 = noisepropagation.poisson(lightyield)

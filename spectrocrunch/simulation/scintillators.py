@@ -74,7 +74,7 @@ class Scintillator(with_simulmetaclass()):
     def transmission(self,energy):
         return np.exp(-self.material.density*self.thickness*1e-4*self.material.mass_att_coeff(energy))
 
-    def propagate(self,N,energy,withnoise=True,forward=True):
+    def propagate(self,N,energy,forward=True):
         """Error propagation of a number of photons.
                
         Args:
@@ -96,7 +96,7 @@ class Scintillator(with_simulmetaclass()):
         
         N,probsuccess,gain = self.propagate_broadcast(N,probsuccess,gain)
         
-        if withnoise:
+        if noisepropagation.israndomvariable(N):
             if forward:
                 proc1 = noisepropagation.bernouilli(probsuccess)
                 proc2 = noisepropagation.poisson(gain)
