@@ -161,6 +161,8 @@ def getimagestacks(config):
 
         for iscan in range(nscans):
             scannumber = config["scannumbers"][ipath][iscan]
+            
+            logger.info("{} ({})...".format(scanname,scannumber))
 
             # Extract stack axes values
             stackvalue = np.nan

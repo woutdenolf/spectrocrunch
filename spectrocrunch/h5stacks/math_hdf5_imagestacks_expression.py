@@ -116,9 +116,11 @@ class StringParser(object):
                 "abs" : abs,
                 "trunc" : lambda a: int(a),
                 "round" : round,
-                "sgn" : lambda a: abs(a)>epsilon and cmp(a,0) or 0,
+                "sgn" : lambda a: abs(a)>epsilon and cmp(a,0) or 0, #TODO: or 0?
                 "max": np.nanmax,
                 "min": np.nanmin,
+                "nanone": lambda a: self._fn_nan(a,1), 
+                "nanzero": lambda a: self._fn_nan(a,0), 
                 "mean": np.nanmean,
                 "median": np.nanmedian if hasattr(np, 'nanmedian') else np.median,
                 "ln": np.log,
@@ -126,6 +128,11 @@ class StringParser(object):
 
         self.variables = {}
 
+    @staticmethod
+    def _fn_nan(a,v):
+        a[np.isnan(a)] = v
+        return a
+        
     def evaluateStack(self, s ):
         op = s.pop()
         if op == 'unary -':

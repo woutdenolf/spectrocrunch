@@ -184,9 +184,9 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
         # Create normalization expression
         if dtcor:
             if normcounter is None:
-                expression = "{{}}*{{xmap_icr}}/{{xmap_ocr}}"
+                expression = "{{}}*nanone({{xmap_icr}}/{{xmap_ocr}})"
             else:
-                expression = "{{}}*{{xmap_icr}}/({}*{{xmap_ocr}})".format(normcounter)
+                expression = "{{}}*nanone({{xmap_icr}}/({}*{{xmap_ocr}}))".format(normcounter)
             skip += [normcounter,"xmap_icr","xmap_ocr"]
         else:
             skip += [normcounter]
