@@ -72,7 +72,7 @@ class id21_ffsetup(object):
 
         self.odet = areadetectors.factory("pcoedge55")
     
-    def propagate(self,N,E,tframe,nframe,samplein=False,withnoise=True,forward=True):
+    def propagate(self,N,E,tframe,nframe,samplein=False,withnoise=True,forward=True,poissonapprox=False):
         if isarray(E):
             E = np.asarray(E)
 
@@ -91,7 +91,7 @@ class id21_ffsetup(object):
                                     forward=forward)
             N = self.odet.propagate(N,self.oscint.visspectrum,\
                                     tframe=tframe,nframe=nframe,\
-                                    forward=forward)
+                                    forward=forward,poissonapprox=poissonapprox)
             
             if isarray(N):
                 N = N.reshape(s)

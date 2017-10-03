@@ -59,7 +59,7 @@ class AreaDetector(with_simulmetaclass()):
         # https://spie.org/samples/PM170.pdf
         self.readoutnoise = noisepropagation.randomvariable(0,readoutnoise)
 
-    def propagate(self,N,visspectrum,tframe=None,nframe=None,forward=True):
+    def propagate(self,N,visspectrum,tframe=None,nframe=None,forward=True,poissonapprox=False):
         """Error propagation of a number of photons.
                
         Args:
@@ -83,13 +83,23 @@ class AreaDetector(with_simulmetaclass()):
             process = noisepropagation.poisson(qe)
             if forward:
                 Nout = noisepropagation.compound(N,process,forward=forward)
+                
+                if poissonapprox:
+                    ENout = noisepropagation.E(Nout)
+                    Nout = noisepropagation.randomvariable(ENout,ENout**0.5)
+                    
                 Nout = (Nout + self.darkcurrent*tframe)*self.etoDU + self.DUoffset
                 Nout = noisepropagation.repeat(nframe,Nout,forward=forward)
             else:
                 Nout = noisepropagation.repeat(nframe,N,forward=forward)
                 Nout = noisepropagation.reverse_add(Nout,self.DUoffset)
-                Nout = noisepropagation.reverse_mult(Nout,self.etoDU )
-                Nout = noisepropagation.reverse_add(Nout,self.darkcurrent*tframe )
+                Nout = noisepropagation.reverse_mult(Nout,self.etoDU)
+                Nout = noisepropagation.reverse_add(Nout,self.darkcurrent*tframe)
+                
+                if poissonapprox:
+                    ENout = noisepropagation.E(Nout)
+                    Nout = noisepropagation.randomvariable(ENout,ENout**0.5)
+                
                 Nout = noisepropagation.compound(Nout,process,forward=forward)
         else:
             if forward:
