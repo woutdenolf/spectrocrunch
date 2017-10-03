@@ -147,7 +147,7 @@ def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fli
     if outname is None:
         pylab.show()
     else:
-        pylab.savefig(outname)
+        pylab.savefig(outname,bbox_inches='tight',dpi=300)
 
 def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=False,flipvert=True,fliphor=False,defaultorigin=False,showlabels=False,color='#ffffff',printpos=False,outname=None,log=False):
     """

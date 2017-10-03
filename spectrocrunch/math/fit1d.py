@@ -54,18 +54,38 @@ def xyremovenan(x,y):
     b = np.logical_and(~np.isnan(x),~np.isnan(y))
     x[b],y[b]
 
+def lstsq_cov(A,b,x):
+    resid = b - np.dot(A, x)
+    return np.linalg.inv(np.dot(A.T, A)) * np.var(resid, ddof=len(x))
+
+def lstsq_std(A,b,x):
+    return np.sqrt(np.diag(lstsq_cov(A,b,x)))
+        
 def lstsq(A,b,errors=False):
     # A.x = b
     x = np.linalg.lstsq(A, b)[0]
 
     if errors:
-        resid = b - np.dot(A, x)
-        covx = np.linalg.inv(np.dot(A.T, A)) * np.var(resid, ddof=len(x))
-        xstd = np.sqrt(np.diag(covx))
-        return x,xstd
+        return x,lstsq_std(A,b,x)
     else:
         return x
 
+def lstsq_nonnegative(A,b,errors=False):
+    # A.x = b  x>=0
+    x = scipy.optimize.nnls(A, b)[0]
+    if errors:
+        return x,lstsq_std(A,b,x)
+    else:
+        return x
+        
+def lstsq_bound(A,b,lb,ub,errors=False):
+    # A.x = b  x>=0
+    x = scipy.optimize.lsq_linear(A, b, bounds=(lb,ub)).x
+    if errors:
+        return x,lstsq_std(A,b,x)
+    else:
+        return x
+        
 def linfit(x,y,errors=False):
     # A.x = b
     A = np.vstack([x, np.ones(len(x))]).T

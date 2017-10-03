@@ -31,7 +31,7 @@ from . import noisepropagation
 from ..materials.compoundfromlist import compoundfromlist as compound
 from ..materials.mixture import mixture
 from ..materials.types import fractionType
-from ..math.fit1d import lstsq
+from ..math import fit1d
 from ..common.Enum import Enum
 from ..common.instance import isarray
 
@@ -160,7 +160,7 @@ class Multilayer(with_simulmetaclass()):
         
         return np.prod(T,axis=0)
         
-    def refinethickness(self,energy,absorbance,layerfixed=None):
+    def refinethickness(self,energy,absorbance,layerfixed=None,constant=False,constraint=True):
         if layerfixed is None:
             layerfixed = []
         y = absorbance
@@ -171,8 +171,25 @@ class Multilayer(with_simulmetaclass()):
             if layer in layerfixed:
                 y = y-self.material[layer].density*self.thickness[layer]*self.cosanglein*self.material[layer].mass_att_coeff(energy)
         
-        A = np.vstack(A).T
-        thickness = lstsq(A,y)
+        if constant:
+            A.append(np.ones_like(energy))
+            A = np.vstack(A).T
+            
+            if constraint:
+                lb = np.zeros(len(A),dtype=float)
+                lb[-1] = -np.inf
+                ub = np.inf
+                thickness = fit1d.lstsq_bound(A,y,lb,ub)
+            else:
+                thickness = fit1d.lstsq(A,y)
+            thickness = thickness[:-1]
+        else:
+            A = np.vstack(A).T
+            if constraint:
+                thickness = fit1d.lstsq_nonnegative(A,y)
+            else:
+                thickness = fit1d.lstsq(A,y)
+                
         ind = [layer not in layerfixed for layer in range(self.nlayers)]
         self.thickness[ind] = thickness
 
