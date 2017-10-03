@@ -491,6 +491,18 @@ class element(Hashable):
             else:
                 return cs
 
+    def _xraylib_method(self,method,E):
+        method = getattr(xraylib,method)
+        if isarray(E):
+            ret = np.empty(len(E),dtype=np.float64)
+
+            for i in range(len(E)):
+                ret[i] = method(self.Z,np.float64(E[i]))
+        else:
+            ret = method(self.Z,np.float64(E))
+
+        return ret
+        
     def scattering_cross_section(self,E,environ=None,decimals=6,refresh=False):
         """Scattering cross section (cm^2/g, E in keV).
 
@@ -503,15 +515,8 @@ class element(Hashable):
         Returns:
             num or np.array
         """
-        if isarray(E):
-            ret = np.empty(len(E),dtype=np.float64)
 
-            for i in range(len(E)):
-                ret[i] = xraylib.CS_Rayl(self.Z,np.float64(E[i]))+xraylib.CS_Compt(self.Z,np.float64(E[i]))
-        else:
-            ret = xraylib.CS_Rayl(self.Z,np.float64(E))+xraylib.CS_Compt(self.Z,np.float64(E))
-
-        return ret
+        return self._xraylib_method("CS_Rayl",E)+self._xraylib_method("CS_Compt",E)
 
     def rayleigh_cross_section(self,E,environ=None,decimals=6,refresh=False):
         """Rayleigh cross section (cm^2/g, E in keV).
@@ -525,15 +530,7 @@ class element(Hashable):
         Returns:
             num or np.array
         """
-        if isarray(E):
-            ret = np.empty(len(E),dtype=np.float64)
-
-            for i in range(len(E)):
-                ret[i] = xraylib.CS_Rayl(self.Z,np.float64(E[i]))
-        else:
-            ret = xraylib.CS_Rayl(self.Z,np.float64(E))
-
-        return ret
+        return self._xraylib_method("CS_Rayl",E)
 
     def compton_cross_section(self,E,environ=None,decimals=6,refresh=False):
         """Rayleigh cross section (cm^2/g, E in keV).
@@ -547,16 +544,36 @@ class element(Hashable):
         Returns:
             num or np.array
         """
-        if isarray(E):
-            ret = np.empty(len(E),dtype=np.float64)
+        return self._xraylib_method("CS_Compt",E)
+        
+    def scatfact_re(self,E,environ=None,decimals=6,refresh=False):
+        """Real part of atomic form factor
 
-            for i in range(len(E)):
-                ret[i] = xraylib.CS_Compt(self.Z,np.float64(E[i]))
-        else:
-            ret = xraylib.CS_Compt(self.Z,np.float64(E))
+        Args:
+            E(num or array-like): energy (keV)
+            environ(dict): chemical environment of this element
+            decimals(Optional(num)): precision of energy in keV
+            refresh(Optional(bool)): force re-simulation if used
 
-        return ret
+        Returns:
+            num or np.array
+        """
+        return self._xraylib_method("Fi",E)
+    
+    def scatfact_im(self,E,environ=None,decimals=6,refresh=False):
+        """Imaginary part of atomic form factor
 
+        Args:
+            E(num or array-like): energy (keV)
+            environ(dict): chemical environment of this element
+            decimals(Optional(num)): precision of energy in keV
+            refresh(Optional(bool)): force re-simulation if used
+
+        Returns:
+            num or np.array
+        """
+        return self._xraylib_method("Fii",E)
+        
     def _get_multiplicity(self,struct):
         scat = struct.scatterers()
         ret = 0.
@@ -603,7 +620,7 @@ class element(Hashable):
 
         # Simultation settings
         #sim.P.Radius = 3.5 # Radius of the cluster for calculation
-        sim.P.Radius = 8.
+        sim.P.Radius = 7.
         sim.P.Rpotmax = sim.P.Radius + 5 # Radius of the cluster for potential calculation
         sim.P.Quadrupole = True # multipole approximation
         sim.P.Green = False # MS instead of FDM (faster but less accurate)

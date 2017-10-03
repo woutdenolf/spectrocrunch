@@ -30,3 +30,10 @@ except ImportError:
 
 import pint
 ureg = pint.UnitRegistry()
+
+
+import scipy.constants
+r = scipy.constants.physical_constants["classical electron radius"]
+ureg.re = ureg.Quantity(r[0],r[1])
+
+

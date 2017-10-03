@@ -27,6 +27,7 @@ from .types import fractionType
 from . import stoichiometry
 
 from ..common.hashable import Hashable
+from .. import ureg
 
 import numpy as np
 
@@ -275,6 +276,46 @@ class compound(Hashable):
         """
         return self._crosssection("fluorescence_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
+    def refractive_index_re(self,E,fine=False,decomposed=False,**kwargs):
+        """
+        """
+        if hasattr(self,'structure') and fine:
+            environ = self
+        else:
+            environ = None
+        
+        e_wfrac = self.weightfractions()
+        
+        ret = E*0.
+        
+        for e in e_wfrac:
+            ret += e_wfrac[e]*(e.Z+e.scatfact_re(E,environ=environ,**kwargs))/e.MM
+        ret = 1 - ureg.Quantity(ret,'mol/g') *\
+                  ureg.Quantity(E,'keV').to("cm","spectroscopy")**2 *\
+                  (ureg.re*ureg.avogadro_number*ureg.Quantity(self.density,'g/cm^3')/(2*np.pi))
+        
+        return ret.to("dimensionless").magnitude
+
+    def refractive_index_im(self,E,fine=False,decomposed=False,**kwargs):
+        """
+        """
+        if hasattr(self,'structure') and fine:
+            environ = self
+        else:
+            environ = None
+        
+        e_wfrac = self.weightfractions()
+        
+        ret = E*0.
+        
+        for e in e_wfrac:
+            ret += e_wfrac[e]*e.scatfact_im(E,environ=environ,**kwargs)/e.MM
+        ret = ureg.Quantity(ret,'mol/g') *\
+              ureg.Quantity(E,'keV').to("cm","spectroscopy")**2 *\
+              (-ureg.re*ureg.avogadro_number*ureg.Quantity(self.density,'g/cm^3')/(2*np.pi))
+        
+        return ret.to("dimensionless").magnitude
+        
     def get_energy(self,energyrange,defaultinc=1):
         """Get absolute energies (keV) from a relative energy range (eV)
 

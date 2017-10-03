@@ -31,7 +31,7 @@ from ..compoundfromcif import compoundfromcif
 from ..compoundfromname import compoundfromname as compoundfromname
 from ..types import fractionType
 from ..element import element
-
+from ... import ureg
 
 try:
     import iotbx.cif as iotbxcif
@@ -39,6 +39,7 @@ except ImportError:
     iotbxcif = None
 
 import numpy as np
+import xraylib
 
 class test_compound(unittest.TestCase):
 
@@ -133,6 +134,46 @@ class test_compound(unittest.TestCase):
         with self.assertRaises(KeyError) as context:
             c = compoundfromname("linseed oill")
 
+    def test_refractiveindex(self):
+        density = 2.328
+        c = compoundfromformula("Si",density,name="calcite")
+        energy = np.asarray([5,10])
+        
+        Z = 14
+        
+        # Xraylib
+        n_re0 = np.asarray([xraylib.Refractive_Index_Re("Si",e,density) for e in energy])
+        n_im0 = np.asarray([xraylib.Refractive_Index_Im("Si",e,density) for e in energy])
+        
+        # Exactly like Xraylib
+        n_re1 = 1-density*4.15179082788e-4*(Z+np.asarray([xraylib.Fi(Z, e) for e in energy]))/xraylib.AtomicWeight(Z)/energy**2;
+        n_im1 = np.asarray([xraylib.CS_Total(Z, e) for e in energy])*density*9.8663479e-9/energy
+        
+        np.testing.assert_allclose(n_re0,n_re1)
+        np.testing.assert_allclose(n_im0,n_im1)
+        
+        # Im: Kissel
+        n_im1b = np.asarray([xraylib.CS_Total_Kissel(Z, e) for e in energy])*density*9.8663479e-9/energy
+        
+        # Im: Kissel with pint
+        n_im1d = ureg.Quantity(c.mass_att_coeff(energy),'cm^2/g') *\
+                ureg.Quantity(c.density,'g/cm^3') *\
+                ureg.Quantity(energy,'keV').to("cm",'spectroscopy')/(4*np.pi)
+        n_im1d = n_im1d.to('dimensionless').magnitude
+        
+        r = n_im1b/n_im1d
+        np.testing.assert_allclose(r,r[0])
+
+        # Im: other formula
+        n_im1c = -density*4.15179082788e-4*(np.asarray([xraylib.Fii(Z, e) for e in energy]))/xraylib.AtomicWeight(Z)/energy**2;
+
+        # Spectrocrunch
+        n_re2 = c.refractive_index_re(energy)
+        n_im2 = c.refractive_index_im(energy)
+
+        np.testing.assert_allclose(n_re2,n_re0)
+        np.testing.assert_allclose(n_im2,n_im1c,rtol=1e-6)
+        
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
@@ -143,6 +184,7 @@ def test_suite_all():
     testSuite.addTest(test_compound("test_addelement"))
     testSuite.addTest(test_compound("test_vacuum"))
     testSuite.addTest(test_compound("test_name"))
+    testSuite.addTest(test_compound("test_refractiveindex"))
     return testSuite
     
 if __name__ == '__main__':
