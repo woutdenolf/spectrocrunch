@@ -97,6 +97,8 @@ cprint "Python library: $PYTHON_LIBRARY"
 cprint "Pip:$($PIPBIN --version| awk '{$1= ""; print $0}')"
 cprint "Root priviliges: $SYSTEM_PRIVILIGES"
 cprint "System wide installation: $INSTALL_SYSTEMWIDE"
+cprint "Prefix for dependencies: $SPECTROCRUNCHLOCAL"
+cprint "Opt directory: $SPECTROCRUNCHOPT"
 
 if [[ -z $FORCECHOICE ]]; then
     read -p "Approximately 12GB of data will added to \"$(pwd)\". Continue (Y/n)?" CHOICE
