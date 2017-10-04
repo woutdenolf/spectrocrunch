@@ -228,28 +228,25 @@ _initEnv()
     fi
 
     if [[ $INSTALL_SYSTEMWIDE == true ]]; then
-        SPECTROCRUNCHLOCAL="/usr/local"
-    else
-        SPECTROCRUNCHLOCAL="$HOME/.local"
-    fi
-
-    if [[ $INSTALL_SYSTEMWIDE == true ]]; then
         SPECTROCRUNCHLOCALSTR="/usr/local"
     else
-        SPECTROCRUNCHLOCALSTR="\$HOME/.local"
+        if [[ -z $SPECTROCRUNCHPREFIX ]]; then
+            SPECTROCRUNCHLOCALSTR="\$HOME/.local"
+        else
+            SPECTROCRUNCHLOCALSTR=$SPECTROCRUNCHPREFIX
+        fi
     fi
 
-    if [[ $INSTALL_SYSTEMWIDE == true ]]; then
-        SPECTROCRUNCHOPT="/opt"
-    else
-        SPECTROCRUNCHOPT="$HOME/.local"
-    fi
+    SPECTROCRUNCHLOCAL=`eval "echo $SPECTROCRUNCHLOCALSTR"`
 
     if [[ $INSTALL_SYSTEMWIDE == true ]]; then
         SPECTROCRUNCHOPTSTR="/opt"
     else
-        SPECTROCRUNCHOPTSTR="\$HOME/.local"
+        SPECTROCRUNCHOPTSTR=$SPECTROCRUNCHLOCALSTR
     fi
+
+    SPECTROCRUNCHOPT=`eval "echo $SPECTROCRUNCHOPTSTR"`
+
 
     # ============Installation progress============
     if [[ -z $NOTDRY || $RESET == true ]]; then
