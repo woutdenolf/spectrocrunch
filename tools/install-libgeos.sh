@@ -12,7 +12,7 @@ initEnv
 cprint "Install libgeos dependencies ..."
 
 # cmake
-dpkg --compare-versions "$(cmake --version | head -1 | awk '{print $3}')" "lt" "3.0.0"
+dpkg --compare-versions "$(cmake --version | head -1 | awk '{print $3}')" "lt" "3.1.3"
 if [ $? = 0 ]; then
     source $SCRIPT_ROOT/install-cmake.sh
     cd $INSTALL_WD
