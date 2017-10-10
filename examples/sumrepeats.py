@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(1,'/data/id21/inhouse/wout/dev/Spectrocrunch')
+#sys.path.insert(1,'/data/id21/inhouse/wout/dev/Spectrocrunch')
 
 from spectrocrunch.io.xiaedf import xiastack_radix as xiareader
 from spectrocrunch.io.xiaedf import xiaimage_number as xiawriter
