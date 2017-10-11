@@ -22,12 +22,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import xraylib
-xraylib.XRayInit()
-xraylib.SetErrorMessages(0)
-
-import fdmnes
-
 import numpy as np
 import os
 import tempfile
@@ -40,9 +34,11 @@ try:
 except:
     pass
 
-from ..common.hashable import Hashable
+import fdmnes
 
+from ..common.hashable import Hashable
 from ..common.instance import isarray
+from .. import xraylib
 
 def parseelementsymbol(symb):
     if isinstance(symb,str):
@@ -55,20 +51,127 @@ def parseelementsymbol(symb):
     elif isinstance(symb,numbers.Integral):
         Z = symb
         name = xraylib.AtomicNumberToSymbol(Z)
+    elif isinstance(symb,Element):
+        Z,name = symb.Z,symb.name
     else:
         raise ValueError("Unknown element symbol or number")
     return Z,name  
 
-class fluoline(Hashable):
-    _all = {s.split('_')[0]:xraylib.__dict__[s] for s in xraylib.__dict__.keys() if s.endswith("_LINE")}
+class FluoLine(Hashable):
+
+    @staticmethod
+    def getlinename(line):
+        # Return IUPAC instead of SIEGBAHN when possible
+        if isinstance(line,FluoLine):
+            return line.name
+        elif isinstance(line,numbers.Number):
+            names = xraylib._code_to_line[line]
+            
+            n = len(names)
+            if n==1:
+                return names[0]
+            elif n==2:
+                n0 = len(names[0])
+                n1 = len(names[1])
+                if n0==n1:
+                    candidate = names[0]
+                    if names[0][1]=='A' or names[0][1]=='B':
+                        return names[1]
+                    else:
+                        return names[0]
+                elif n0>n1:
+                    return names[0]
+                else:
+                    return names[1]
+            else:
+                return names[np.argmax([len(name) for name in names])]
+        else:
+            if line not in xraylib._line_to_code.keys():
+                raise ValueError("Unknown line name {}".format(line))
+            return line
+
+    @staticmethod
+    def getlinecode(line):
+        if isinstance(line,FluoLine):
+            return line.code
+        elif isinstance(line,numbers.Number):
+            if line not in xraylib._code_to_line.keys():
+                raise ValueError("Unknown line code {}".format(line))
+            return line
+        else:
+            return xraylib._line_to_code[line]
     
-    def __init__(self,code):
+    @staticmethod
+    def decompose(code):
         """
         Args:
-            code(int): xraylib line code
+            code(int):
+        Return:
+            list(int): sub lines
         """
-        self.code = code
-        self.name = fluoline.getname(self.code)
+        if code in xraylib._composites:
+            return xraylib._composites[code]
+        else:
+            return [code]
+        
+    @classmethod
+    def all_lines(cls):
+        return list(set(cls(code) for line in range(xraylib._line_max,xraylib._line_min-1,-1) for code in cls.decompose(line)))
+    
+    @classmethod
+    def factory(cls,shells=None,fluolines=None,energybounds=None):
+        """Generate FluoLine instances, possibly limited by shell or energy range
+
+        Args:
+            shells(Optional(array(int or str or Shell))): 
+            fluolines(Optional(array(int or str or FluoLine))):  None or [] -> explicit all
+            energybounds(Optional(3-tuple)): element or num or str, lower energy bound, higher energy bound
+            
+        Returns:
+            list(FluoLine)
+        """
+
+        # All lines or the lines given
+        if fluolines is None:
+            lines = cls.all_lines()
+        else:
+            if isarray(fluolines):
+                if fluolines==[]:
+                    lines = cls.all_lines()
+                else:
+                    lines = [FluoLine(line) for line in fluolines]
+            else:
+                lines = [FluoLine(fluolines)]
+                
+        # Shell selection
+        if shells is not None:
+            if isarray(shells):
+                shellnames = [Shell.getshellname(s) for s in shells]
+            else:
+                shellnames = [Shell.getshellname(shells)]
+            valid = lambda linecode: any(any(cls.getlinename(code).startswith(shellname) for shellname in shellnames) for code in cls.decompose(linecode)) 
+            lines = [line for line in lines if valid(line.code)]
+
+        # Energy selection
+        if energybounds is not None:
+            Z,_ = parseelementsymbol(energybounds[0])
+            valid = lambda energy: energy >= energybounds[1] and energy <= energybounds[2]
+            lines = [line for line in lines if valid(line.lineenergy(Z))]
+        
+        # Return
+        return lines
+            
+    def __init__(self,line):
+        """
+        Args:
+            code(int or str): xraylib line
+        """
+        if isinstance(line,self.__class__):
+            self.code = line.code
+            self.name = line.name
+        else:
+            self.code = self.getlinecode(line)
+            self.name = self.getlinename(line)
 
     def _cmpkey(self):
         """For comparing and sorting
@@ -89,97 +192,21 @@ class fluoline(Hashable):
         Returns:
             num
         """
-        return xraylib.RadRate(Z,self.code)
-
-    @classmethod
-    def getname(cls,code):
-        """IUPAC name
-        """
-        names = [name for name,c in cls._all.items() if c == code]
+        rate = xraylib.RadRate(Z,self.code)
         
-        n = len(names)
-        if n==1:
-            return names[0]
-        elif n==2:
-            n0 = len(names[0])
-            n1 = len(names[1])
-            if n0==n1:
-                candidate = names[0]
-                if names[0][1]=='A' or names[0][1]=='B':
-                    return names[1]
-                else:
-                    return names[0]
-            elif n0>n1:
-                return names[0]
-            else:
-                return names[1]
-        else:
-            return names[np.argmax([len(name) for name in names])]
-    
-    @classmethod
-    def factory(cls,codes,shellname):
-        """Generate fluoline instances from codes
-            - only from given shell
-            - decompose composite lines
-            - remove duplicates
-
-        Args:
-            codes(array(int)): xraylib line codes
-            shellname(str): lines belonging to a shell
-
-        Returns:
-            list(fluoline)
-        """
-        if codes is None:
-            return None # no lines
-        elif codes == []:
-            return [] # all lines
-        elif not isarray(codes):
-            codes = [codes]
-
-        if isinstance(codes[0],fluoline):
-            return codes
-
-        # line belongs to shell
-        # line is selected (directly or under composite)
-        # line is not a composite
-        valid = lambda line,selname,code: line.startswith(shellname) and\
-                                        line.startswith(selname) and\
-                                        (code<0 or line!=selname)
-
-        lines = [fluoline(cls._all[name]) for code in codes for name in cls._all if valid(name,cls.getname(code),code)] # decompose composites
-        
-        if len(lines)==0:
-            return None
-        else:
-            ret = list(set(lines)) # remove duplicates
-            ret.sort(reverse=True)
-            return ret
-
-    @classmethod
-    def energyfactory(cls,energy0,energy1,symb):
-        """Generate fluoline instances between energies
-
-        Args:
-            energy0(num): 
-            energy1(num): 
-
-        Returns:
-            list(fluoline)
-        """
-
-        Z,_ = parseelementsymbol(symb)
-        
-        valid = lambda energy: energy >= energy0 and energy <= energy1
-        
-        lines = [fluoline(code) for code in range(-1,-384,-1) if valid(xraylib.LineEnergy(Z,code))]
-        
-        if len(lines)==0:
-            return None
-        else:
-            ret = list(set(lines)) # remove duplicates
-            ret.sort(reverse=True)
-            return ret
+        if rate==0:
+            # Maybe the radiative rate of one of its composites is known
+            if self.code in xraylib._rcomposites:
+                for comp in xraylib._rcomposites[self.code]:
+                    if comp!=xraylib.KO_LINE and comp!=xraylib.KP_LINE:
+                        continue
+                    rate = xraylib.RadRate(Z,comp)
+                    if rate!=0:
+                        # In abscence of a better assumption, assume all lines
+                        # in the composite are equally probable
+                        return rate/len(xraylib._composites[comp])
+                        
+        return rate
     
     def lineenergy(self,Z):
         """
@@ -188,21 +215,78 @@ class fluoline(Hashable):
         Returns:
             num
         """
-        return xraylib.LineEnergy(Z,self.code)
+        energy = xraylib.LineEnergy(Z,self.code)
         
-class shell(Hashable):
-    _all = {xraylib.__dict__[s]:s.split('_')[0] for s in xraylib.__dict__.keys() if s.endswith("_SHELL")}
+        if energy==0:
+            # Maybe the energy of one of its composites is known
+            if self.code in xraylib._rcomposites:
+                for comp in xraylib._rcomposites[self.code]:
+                    energy = xraylib.LineEnergy(Z,comp)
+                    if energy!=0:
+                        return energy
+                        
+        return energy
 
-    def __init__(self,code,fluolines=None):
+    def shell(self):
+        """Shell to which this line belongs to
+        """
+        for shellname in xraylib._shell_to_code:
+            if self.name.startswith(shellname):
+                return Shell(shellname)
+        raise RuntimeError("Cannot find the shell of fluorescence line {}".format(self))
+
+
+class Shell(Hashable):
+
+    @staticmethod
+    def getshellname(shell):
+        if isinstance(shell,Shell):
+            return shell.name
+        elif isinstance(shell,numbers.Number):
+            return xraylib._code_to_shell[shell]
+        else:
+            if shell not in xraylib._shell_to_code.keys():
+                raise ValueError("Unknown shell name {}".format(shell))
+            return shell
+            
+    @staticmethod
+    def getshellcode(shell):
+        if isinstance(shell,Shell):
+            return shell.code
+        elif isinstance(shell,numbers.Number):
+            if shell not in xraylib._code_to_shell.keys():
+                raise ValueError("Unknown shell code {}".format(shell))
+            return shell
+        else:
+            return xraylib._shell_to_code[shell]
+
+    @classmethod
+    def all_shells(cls,fluolines=None):
+        shells = range(xraylib._shell_min,xraylib._shell_max+1)
+        return [cls(shell,fluolines=fluolines) for shell in shells]       
+
+    def __init__(self,shell,fluolines=None):
         """
         Args:
-            code(int): xraylib shell code
-            fluolines(Optional(array(int))): xraylib line codes
+            code(int or str or Shell): shell code or name
+            fluolines(Optional(array(int or str or Fluoline))): emission lines
         """
+        self.code = self.getshellcode(shell)
+        self.name = self.getshellname(shell)
+        if isinstance(shell,Shell) and fluolines is None:
+            self._fluolines = shell._fluolines
+        else:
+            if fluolines is None:
+                self._fluolines = None # all lines
+            else:
+                self._fluolines = FluoLine.factory(shells=[self],fluolines=fluolines)
 
-        self.code = code
-        self.name = self.getname()
-        self.setfluo(fluolines=fluolines)
+    @property
+    def fluolines(self):
+        if self._fluolines is None:
+            return FluoLine.factory(shells=[self])
+        else:
+            return self._fluolines
 
     def _cmpkey(self):
         """For comparing and sorting
@@ -214,16 +298,6 @@ class shell(Hashable):
         """
         return self.name
 
-    def getname(self):
-        return shell._all[self.code]
-
-    def setfluo(self,fluolines=None):
-        """
-        Args:
-            fluolines(Optional(array(int))): xraylib line codes
-        """
-        self.fluolines = fluoline.factory(fluolines,self.name)
-
     def fluoyield(self,Z):
         """Fluorescence yield for this shell: probability for fluorescence / probability of shell ionization
         """
@@ -232,21 +306,15 @@ class shell(Hashable):
     def radrate(self,Z):
         """Radiative rate of a shell: probabilities of selected lines / probabilty of fluorescence 
         """
-        if self.fluolines is None:
-            return []
-            
-        if len(self.fluolines)==0:
+        if self._fluolines is None:
             return [1] # ALL lines
         else:
-            return [l.radrate(Z) for l in self.fluolines]
+            return [l.radrate(Z) for l in self._fluolines]
 
     def partial_fluoyield(self,Z):
-        """ probability of selected lines / probability of shell ionization
+        """Probability of selected lines / probability of shell ionization
         """
-        if self.fluolines is None:
-            return 0
-        
-        if len(self.fluolines)==0:
+        if self._fluolines is None:
             return self.fluoyield(Z)
         else:
             return self.fluoyield(Z)*sum(self.radrate(Z))
@@ -254,12 +322,14 @@ class shell(Hashable):
     def edgeenergy(self,Z):
         return xraylib.EdgeEnergy(Z,self.code)
 
-class element(Hashable):
+class Element(Hashable):
     """Interface to chemical elements
     """
 
     def __init__(self,symb):
-        """symb is a string or an integer
+        """
+        Args:
+            symb(int or str or Element)
         """
         
         # Atomic number
@@ -288,17 +358,18 @@ class element(Hashable):
 
         Args:
             symb(str): element symbol
-            shells(Optional(array(int))): xraylib shell codes
-            fluolines(Optional(array(int))): xraylib line codes
+            shells(Optional(array(int))): None -> all
+            fluolines(Optional(array(int))): None -> all, [] -> explicit all
         """
         if self.name==symb:
             # Shell names
             if shells is None:
-                shells = range(xraylib.K_SHELL,xraylib.Q3_SHELL+1)
-            if isarray(shells):
-                self.shells = list(set([shell(s,fluolines=fluolines) for s in shells]))
+                self.shells = Shell.all_shells(fluolines=fluolines)
             else:
-                self.shells = [shell(shells,fluolines=fluolines)]
+                if isarray(shells):
+                    self.shells = [Shell(shell,fluolines=fluolines) for shell in shells]
+                else:
+                    self.shells = [Shell(shells,fluolines=fluolines)]
 
     def unmarkabsorber(self):
         self.shells = []
@@ -485,7 +556,7 @@ class element(Hashable):
             return cs
         else:
             # sum over selected shells, weighted but the total fluoyield of the selected lines
-            cs = sum([c*s.partial_fluoyield(self.Z) for s,c in cs.items()])
+            cs = sum([c*shell.partial_fluoyield(self.Z) for shell,c in cs.items()])
             if bnum:
                 return cs[0]
             else:
@@ -573,7 +644,7 @@ class element(Hashable):
             num or np.array
         """
         return self._xraylib_method("Fii",E)
-        
+    
     def _get_multiplicity(self,struct):
         scat = struct.scatterers()
         ret = 0.
@@ -589,13 +660,13 @@ class element(Hashable):
             E(array): energy (keV)
 
         Returns
-            dict: shell:tau(E,shell)
+            dict: Shell:tau(E,Shell)
         """
         cs = {}
-        for s in self.shells:
-            cs[s] = np.empty(len(E),dtype=np.float64)
+        for shell in self.shells:
+            cs[shell] = np.empty(len(E),dtype=np.float64)
             for i in range(len(E)):
-                cs[s][i] = xraylib.CS_Photo_Partial(self.Z,s.code,E[i])
+                cs[shell][i] = xraylib.CS_Photo_Partial(self.Z,shell.code,E[i])
 
         return cs
 
@@ -609,7 +680,7 @@ class element(Hashable):
             refresh(Optional(bool)): force re-simulation if used
 
         Returns
-            dict: shell:tau(E,shell)
+            dict: Shell:tau(E,Shell)
         """
 
         # Initialize simulation
@@ -631,15 +702,15 @@ class element(Hashable):
         # Do simulation
         cs = {}
 
-        for s in self.shells:
-            cs[s] = np.empty(len(E),dtype=np.float64)
+        for shell in self.shells:
+            cs[shell] = np.empty(len(E),dtype=np.float64)
 
             # Select edge
-            sim.P.Edge = s.name
+            sim.P.Edge = shell.name
             filebase = os.path.splitext(os.path.basename(environ.ciffile))[0]+"_"+self.name+"_"+sim.P.Edge
 
             # Relative energy range in eV
-            Range = self._get_fdmnes_energyrange(E,s.edgeenergy(self.Z),decimals=decimals)
+            Range = self._get_fdmnes_energyrange(E,shell.edgeenergy(self.Z),decimals=decimals)
             sim.P.Range = tuple(Range)
 
             # Read previous configuration file
@@ -678,7 +749,7 @@ class element(Hashable):
 
             # Convert data to absorbance
             data[:,0] /= 1000. # ev -> keV
-            data[:,0] += s.edgeenergy(self.Z) # rel -> abs
+            data[:,0] += shell.edgeenergy(self.Z) # rel -> abs
             data[:,1] *= xraylib.AVOGNUM*1E6/self.MM # Absorption cross section (Mbarn) -> mass absorption coefficient (cm^2/g)
 
             # Element multiplicity in the unit cell
@@ -687,13 +758,13 @@ class element(Hashable):
             else:
                 # TODO: cctbx is too heavy (information is also in the bav file)
                 nmult = self._get_multiplicity(environ.structure)
-                #nmult = np.round(data[-1,1]/xraylib.CS_Photo_Partial(self.Z,shell,E[-1])) # not precise enough
+                #nmult = np.round(data[-1,1]/xraylib.CS_Photo_Partial(self.Z,Shell,E[-1])) # not precise enough
                 config["nmult"] = nmult
             data[:,1] /= nmult
 
             # Energy interpolation and keep
             f = interpolate.interp1d(data[:,0],data[:,1],bounds_error=False)
-            cs[s] = f(E)
+            cs[shell] = f(E)
         
             # Write configuration file
             with open(fcfg,'w') as f:
@@ -784,3 +855,4 @@ class element(Hashable):
 
         return newrange
 
+        

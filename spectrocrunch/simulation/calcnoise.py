@@ -215,22 +215,25 @@ class id21_ffsetup(object):
     def plotxanesnoise(self,flux,energy,**kwargs):
         signal,noise = self.xanes(flux,energy,**kwargs)
         signal = np.random.normal(signal,noise)
-        plt.plot(energy,signal)
+        p = plt.plot(energy,signal)
         plt.xlabel("Energy (keV)")
         plt.ylabel("Absorbance")
+        return p
        
     def plotxanesNSR(self,flux,energy,**kwargs):
         signal,noise = self.xanes(flux,energy,**kwargs)
-        plt.plot(energy,noise/signal*100)
+        p = plt.plot(energy,noise/signal*100)
         plt.xlabel("Energy (keV)")
         plt.ylabel("N/S (%)")
-   
+        return p
+        
     def plotxanes(self,flux,energy,**kwargs):
         signal,_ = self.xanes(flux,energy,**kwargs)
-        plt.plot(energy,signal)
+        p = plt.plot(energy,signal)
         plt.xlabel("Energy (keV)")
         plt.ylabel("Absorbance")
-
+        return p
+        
 def id21_transmissionnoise(flux,energy,time,iodetgain,idetgain,iodet="1"):
     """ID21 transmission noise propagation
     """

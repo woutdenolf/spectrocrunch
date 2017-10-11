@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .compound import compound
+from . import compound
 from .types import fractionType
 import pyparsing as pp
 
@@ -69,7 +69,7 @@ class FormulaParser(object):
         self.parseresult(result,1.)
         return self.elements.keys(),self.elements.values()
 
-class compoundfromformula(compound):
+class CompoundFromFormula(compound.Compound):
     """Interface to a compound defined by a chemical formula
     """
 
@@ -85,6 +85,6 @@ class compoundfromformula(compound):
         elements, mults = p.eval(formula)
         if name is None:
             name = formula
-        super(compoundfromformula,self).__init__(elements,mults,fractionType.mole,density,name=name)
+        super(CompoundFromFormula,self).__init__(elements,mults,fractionType.mole,density,name=name)
 
 

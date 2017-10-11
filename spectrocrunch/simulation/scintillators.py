@@ -26,8 +26,8 @@ from .simul import with_simulmetaclass
 
 from . import noisepropagation
 
-from ..materials.compoundfromformula import compound as compound
-from ..materials.mixture import mixture
+from ..materials.compound import Compound as compound
+from ..materials.mixture import Mixture as mixture
 from ..materials.types import fractionType
 
 import numpy as np

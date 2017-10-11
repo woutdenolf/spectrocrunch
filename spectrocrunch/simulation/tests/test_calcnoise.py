@@ -28,7 +28,7 @@ from .. import calcnoise
 from .. import materials
 from .. import noisepropagation
 
-from ...materials.compoundfromformula import compoundfromformula as compound
+from ...materials.compoundfromformula import CompoundFromFormula as compound
 
 import numpy as np
 

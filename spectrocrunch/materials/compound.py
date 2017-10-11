@@ -22,16 +22,18 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .element import element
+from . import element
+from . import interaction
 from .types import fractionType
 from . import stoichiometry
 
 from ..common.hashable import Hashable
+from ..common import listtools
 from .. import ureg
 
 import numpy as np
 
-class compound(Hashable):
+class Compound(Hashable):
     """Interface to a compound
     """
 
@@ -61,7 +63,7 @@ class compound(Hashable):
             # (which is not the same as the pure element density) but that's an unlikely given
             raise ValueError("Cannot create a compound from elemental volume fractions")
         else:
-            elements = [element(e) for e in elements]
+            elements = [element.Element(e) for e in elements]
             MM = np.asarray([e.MM for e in elements])
             nfrac = stoichiometry.frac_weight_to_mole(np.asarray(frac),MM) # normalized
 
@@ -81,11 +83,13 @@ class compound(Hashable):
                 else:
                     self.density = 1. # approx. density of water
 
+        self.isscatterer = True
+
     def _compose_elements(self,elements,nfrac):
         self.elements = {}
         for e,n in zip(elements,nfrac):
-            if not isinstance(e,element):
-                e = element(e)
+            if not isinstance(e,element.Element):
+                e = element.Element(e)
             if e in self.elements:
                 self.elements[e] += float(n)
             else:
@@ -108,14 +112,14 @@ class compound(Hashable):
             else:
                 nfrac = np.append(nfrac,frac)
 
-            elements = self.elements.keys()+[element(el)]
+            elements = self.elements.keys()+[element.Element(el)]
         elif fractype == fractionType.volume:
             raise ValueError("Cannot create a compound from elemental volume fractions")
         else:
             wfrac = np.asarray(self.weightfractions().values())
             wfrac = stoichiometry.add_frac(wfrac,frac)
 
-            elements = self.elements.keys()+[element(el)]
+            elements = self.elements.keys()+[element.Element(el)]
             MM = np.asarray([e.MM for e in elements])
             nfrac = stoichiometry.frac_weight_to_mole(wfrac,MM) # normalized
 
@@ -156,8 +160,8 @@ class compound(Hashable):
                     ', '.join("{} {}".format(s[1],s[0]) for s in sorted(self.elements.items())),\
                     self.density )
 
-    def __getitem__(self,element):
-        return self.elements[element]
+    def __getitem__(self,el):
+        return self.elements[el]
 
     def molarmass(self):
         MM = np.asarray([e.MM for e in self.elements])
@@ -328,4 +332,15 @@ class compound(Hashable):
                 return ret
         return None
 
+    def fluointeractions(self):
+        """Fluorescence interactions
+        """
+        for e in self.elements:
+            for s in e.shells:
+                for l in s.fluolines:
+                    fl = interaction.InteractionFluo(e,s,l)
+                    if fl.energy!=0:
+                        yield fl
+                        
 
+        

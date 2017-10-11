@@ -22,12 +22,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .compoundfromlist import compoundfromlist
+from . import compoundfromlist
 from .types import fractionType
 from . import stoichiometry
 import numpy as np
 
-class mixture(object):
+class Mixture(object):
 
     def __init__(self,compounds,frac,fractype):
         """
@@ -121,7 +121,7 @@ class mixture(object):
         
     def tocompound(self,name):
         tmp = self.elemental_molefractions()
-        return compoundfromlist(tmp.keys(),tmp.values(),fractionType.mole,self.density,name=name)
+        return compoundfromlist.CompoundFromList(tmp.keys(),tmp.values(),fractionType.mole,self.density,name=name)
 
     def __str__(self):
         ws = self.weightfractions()
@@ -312,4 +312,7 @@ class mixture(object):
                 return ret
         return None
 
-
+    def fluointeractions(self):
+        for c in self.compounds:
+            yield c.fluointeractions()
+            

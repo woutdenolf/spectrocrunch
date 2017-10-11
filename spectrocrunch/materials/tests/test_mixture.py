@@ -24,8 +24,8 @@
 
 import unittest
 
-from ..compoundfromformula import compoundfromformula as compound
-from ..mixture import mixture
+from ..compoundfromformula import CompoundFromFormula as compound
+from ..mixture import Mixture as mixture
 from ..types import fractionType
 
 import numpy as np

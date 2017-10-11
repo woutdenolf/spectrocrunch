@@ -22,9 +22,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .compound import compound
+from . import compound
 
-class compoundfromlist(compound):
+class CompoundFromList(compound.Compound):
     """Interface to a compound defined by a list of elements
     """
 
@@ -38,7 +38,7 @@ class compoundfromlist(compound):
             name(Optional[str]): compound name
         """
 
-        super(compoundfromlist,self).__init__(elements,frac,fractype,density,name=name)
+        super(CompoundFromList,self).__init__(elements,frac,fractype,density,name=name)
         
 
 

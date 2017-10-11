@@ -31,7 +31,7 @@ from .. import materials
 from .. import diodes
 from .. import noisepropagation
 from .. import emspectrum
-from ...materials.compoundfromformula import compoundfromformula as compound
+from ...materials.compoundfromformula import CompoundFromFormula as compound
 from ...materials.compoundfromname import compoundfromname as compoundname
 
 import numpy as np

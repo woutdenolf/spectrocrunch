@@ -22,32 +22,32 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .compound import compound
-from .compoundfromlist import compoundfromlist
-from .compoundfromformula import compoundfromformula
-from .mixture import mixture
+from . import compound
+from . import compoundfromlist
+from . import compoundfromformula
+from . import mixture
 from .types import fractionType
 import xraylib
 
 compounddb = {}
-compounddb["vacuum"] = compoundfromlist([],[],fractionType.mole,0,name="vacuum")
+compounddb["vacuum"] = compoundfromlist.CompoundFromList([],[],fractionType.mole,0,name="vacuum")
 
 # triglycerides:
-compounddb["trilinolein"] = compoundfromformula("C57H98O6",0.925,name="trilinolein")
-compounddb["trilinolenin"] = compoundfromformula("C57H92O6",0.946,name="trilinolenin")
-compounddb["triolein"] = compoundfromformula("C57H104O6",0.95,name="triolein")
-compounddb["tripalmitin"] = compoundfromformula("C51H98O6",0.8752,name="tripalmitin")
-compounddb["tristearin"] = compoundfromformula("C57H110O6",0.909,name="tristearin")
-compounddb["tripalmitolein"] = compoundfromformula("C51H92O6",0.929,name="tripalmitolein")
-compounddb["triarachidin"] = compoundfromformula("C63H122O6",0.9540,name="triarachidin")
-#compounddb["eicosenoin"] = compoundfromformula("C23H44O4",0.9540,name="eicosenoin")
+compounddb["trilinolein"] = compoundfromformula.CompoundFromFormula("C57H98O6",0.925,name="trilinolein")
+compounddb["trilinolenin"] = compoundfromformula.CompoundFromFormula("C57H92O6",0.946,name="trilinolenin")
+compounddb["triolein"] = compoundfromformula.CompoundFromFormula("C57H104O6",0.95,name="triolein")
+compounddb["tripalmitin"] = compoundfromformula.CompoundFromFormula("C51H98O6",0.8752,name="tripalmitin")
+compounddb["tristearin"] = compoundfromformula.CompoundFromFormula("C57H110O6",0.909,name="tristearin")
+compounddb["tripalmitolein"] = compoundfromformula.CompoundFromFormula("C51H92O6",0.929,name="tripalmitolein")
+compounddb["triarachidin"] = compoundfromformula.CompoundFromFormula("C63H122O6",0.9540,name="triarachidin")
+#compounddb["eicosenoin"] = compoundfromformula.CompoundFromFormula("C23H44O4",0.9540,name="eicosenoin")
 
 # oils:
 # http://www.journal-of-agroalimentary.ro/admin/articole/61602L07_Popa_Vol.18%282%29_2012.pdf
 # linolenic (53.21%), oleic (18.51%), linoleic (17.25%), palmitic (6.58 %) and stearic (4.43%).
 # https://link.springer.com/content/pdf/10.1007%2Fs11746-004-0879-6.pdf
 # linolenic (58.5%), oleic (16.1%), linoleic (14.7%), palmitic (7 %) and stearic (2.9%).
-compounddb["linseed oil"] = mixture([compounddb["trilinolenin"],\
+compounddb["linseed oil"] = mixture.Mixture([compounddb["trilinolenin"],\
                                     compounddb["triolein"],\
                                     compounddb["trilinolein"],\
                                     compounddb["tripalmitin"],\
@@ -57,69 +57,69 @@ compounddb["linseed oil"] = mixture([compounddb["trilinolenin"],\
                                     fractionType.mole).tocompound("linseed oil")
 
 # organics:
-compounddb["cellulose"] = compoundfromformula("C6H10O5",1.5,name="")
+compounddb["cellulose"] = compoundfromformula.CompoundFromFormula("C6H10O5",1.5,name="")
 
 # low-Z minerals
-compounddb["diamond"] = compoundfromformula("C",3.51,name="")
-compounddb["silica"] = compoundfromformula("SiO2",2.648,name="silica")
-compounddb["quartz"] = compoundfromformula("SiO2",2.66,name="quartz")
+compounddb["diamond"] = compoundfromformula.CompoundFromFormula("C",3.51,name="")
+compounddb["silica"] = compoundfromformula.CompoundFromFormula("SiO2",2.648,name="silica")
+compounddb["quartz"] = compoundfromformula.CompoundFromFormula("SiO2",2.66,name="quartz")
 
 # Ca minerals
-compounddb["calcite"] = compoundfromformula("CaCO3",2.7102,name="calcite")
-compounddb["gypsum"] = compoundfromformula("CaSO6H4",2.31,name="gypsum")
-compounddb["lazurite"] = compoundfromformula("Na3CaAl3Si3O12S",2.4,name="lazurite")
-compounddb["hydroxyapatite"] = compoundfromformula("Ca5(PO4)3(OH)",3.,name="hydroxyapatite")
+compounddb["calcite"] = compoundfromformula.CompoundFromFormula("CaCO3",2.7102,name="calcite")
+compounddb["gypsum"] = compoundfromformula.CompoundFromFormula("CaSO6H4",2.31,name="gypsum")
+compounddb["lazurite"] = compoundfromformula.CompoundFromFormula("Na3CaAl3Si3O12S",2.4,name="lazurite")
+compounddb["hydroxyapatite"] = compoundfromformula.CompoundFromFormula("Ca5(PO4)3(OH)",3.,name="hydroxyapatite")
 
 # Ti minerals
-compounddb["rutile"] = compoundfromformula("TiO2",4.25,name="rutile")
+compounddb["rutile"] = compoundfromformula.CompoundFromFormula("TiO2",4.25,name="rutile")
 
 # Co pigments
-compounddb["cobalt blue"] = compoundfromformula("CoAl2O4",8.9,name="cobalt blue")
+compounddb["cobalt blue"] = compoundfromformula.CompoundFromFormula("CoAl2O4",8.9,name="cobalt blue")
 
 # Fe minerals
-compounddb["hematite"] = compoundfromformula("Fe2O3",5.26,name="hematite")
-compounddb["magnetite"] = compoundfromformula("Fe2O3",5.15,name="magnetite")
-compounddb["goethite"] = compoundfromformula("FeOOH",3.8,name="magnetite")
-compounddb["vivianite"] = compoundfromformula("Fe3P2O12H16",2.65,name="")
-compounddb["prussian blue"] = compoundfromformula("C18Fe7N18",1.83,name="prussian blue")
-compounddb["potassium ferricyanide"] = compoundfromformula("K3Fe(CN)6",1.89,name="potassium ferricyanide")
-compounddb["potassium ferrocyanide"] = compoundfromformula("K4Fe(CN)6(H2O)3",1.85,name="potassium ferrocyanide")
-compounddb["ferrous oxalate"] = compoundfromformula("FeC2O4(H2O)2",2.28,name="ferrous oxalate")
-compounddb["ferric oxalate"] = compoundfromformula("Fe2(C2O4)3(H2O)6",2.28,name="ferric oxalate")
-compounddb["ferrous sulfate"] = compoundfromformula("FeSO4(H2O)7",1.895,name="ferrous sulfate")
-compounddb["ferric sulfate"] = compoundfromformula("Fe2(SO4)3(H2O)5",1.898,name="ferric sulfate")
-compounddb["ferric chloride"] = compoundfromformula("FeCl3(H2O)6",1.82,name="ferric chloride")
+compounddb["hematite"] = compoundfromformula.CompoundFromFormula("Fe2O3",5.26,name="hematite")
+compounddb["magnetite"] = compoundfromformula.CompoundFromFormula("Fe2O3",5.15,name="magnetite")
+compounddb["goethite"] = compoundfromformula.CompoundFromFormula("FeOOH",3.8,name="magnetite")
+compounddb["vivianite"] = compoundfromformula.CompoundFromFormula("Fe3P2O12H16",2.65,name="")
+compounddb["prussian blue"] = compoundfromformula.CompoundFromFormula("C18Fe7N18",1.83,name="prussian blue")
+compounddb["potassium ferricyanide"] = compoundfromformula.CompoundFromFormula("K3Fe(CN)6",1.89,name="potassium ferricyanide")
+compounddb["potassium ferrocyanide"] = compoundfromformula.CompoundFromFormula("K4Fe(CN)6(H2O)3",1.85,name="potassium ferrocyanide")
+compounddb["ferrous oxalate"] = compoundfromformula.CompoundFromFormula("FeC2O4(H2O)2",2.28,name="ferrous oxalate")
+compounddb["ferric oxalate"] = compoundfromformula.CompoundFromFormula("Fe2(C2O4)3(H2O)6",2.28,name="ferric oxalate")
+compounddb["ferrous sulfate"] = compoundfromformula.CompoundFromFormula("FeSO4(H2O)7",1.895,name="ferrous sulfate")
+compounddb["ferric sulfate"] = compoundfromformula.CompoundFromFormula("Fe2(SO4)3(H2O)5",1.898,name="ferric sulfate")
+compounddb["ferric chloride"] = compoundfromformula.CompoundFromFormula("FeCl3(H2O)6",1.82,name="ferric chloride")
 
 # Cd pigments
-compounddb["cadmium sulfide"] = compoundfromformula("CdS",4.826,name="cadmium sulfide")
+compounddb["cadmium sulfide"] = compoundfromformula.CompoundFromFormula("CdS",4.826,name="cadmium sulfide")
 
 # Hg pigments
-compounddb["corderoite"] = compoundfromformula("Hg3S2Cl2",6.845,name="corderoite")
+compounddb["corderoite"] = compoundfromformula.CompoundFromFormula("Hg3S2Cl2",6.845,name="corderoite")
 
 # Pb pigments
-compounddb["hydrocerussite"] = compoundfromformula("Pb3C2O8H2",6.8,name="hydrocerussite")
-compounddb["lead chromate"] = compoundfromformula("PbCrO4",6.3,name="lead chromate")
+compounddb["hydrocerussite"] = compoundfromformula.CompoundFromFormula("Pb3C2O8H2",6.8,name="hydrocerussite")
+compounddb["lead chromate"] = compoundfromformula.CompoundFromFormula("PbCrO4",6.3,name="lead chromate")
 
 # Cu pigments
-compounddb["copper acetate"] = compoundfromformula("Cu(CH3CO2)2", 1.882,name="copper acetate")
-compounddb["verdigris"] = compoundfromformula("Cu2(CH3CO2)4(H2O)2", 1.882,name="verdigris")
-compounddb["paris green"] = compoundfromformula("Cu2(CH3CO2)4(H2O)2", 1.1,name="paris green")
+compounddb["copper acetate"] = compoundfromformula.CompoundFromFormula("Cu(CH3CO2)2", 1.882,name="copper acetate")
+compounddb["verdigris"] = compoundfromformula.CompoundFromFormula("Cu2(CH3CO2)4(H2O)2", 1.882,name="verdigris")
+compounddb["paris green"] = compoundfromformula.CompoundFromFormula("Cu2(CH3CO2)4(H2O)2", 1.1,name="paris green")
 
 # tapes/foils:
 data = xraylib.GetCompoundDataNISTByName("Kapton Polyimide Film")
-compounddb["kapton"] = compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="kapton")
-compounddb["ultralene"] = compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="ultralene")
+compounddb["kapton"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="kapton")
+compounddb["ultralene"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="ultralene")
 
 # polymers:
-compounddb["pmma"] = compoundfromformula("C5O2H8",1.18,name="pmma")
-compounddb["pp"] = compoundfromformula("C3H6",0.86,name="pp")
-compounddb["pe"] = compoundfromformula("C2H4",0.95,name="pe")
-compounddb["pet"] = compoundfromformula("C10H8O4",1.38,name="pet")
-compounddb["pan"] = compoundfromformula("C3H3N",1.184,name="pan")
-compounddb["pva"] = compoundfromformula("C3H3N",1.19,name="pva")
+compounddb["pmma"] = compoundfromformula.CompoundFromFormula("C5O2H8",1.18,name="pmma")
+compounddb["pp"] = compoundfromformula.CompoundFromFormula("C3H6",0.86,name="pp")
+compounddb["pe"] = compoundfromformula.CompoundFromFormula("C2H4",0.95,name="pe")
+compounddb["pet"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="pet")
+compounddb["pan"] = compoundfromformula.CompoundFromFormula("C3H3N",1.184,name="pan")
+compounddb["pva"] = compoundfromformula.CompoundFromFormula("C3H3N",1.19,name="pva")
 
 # tape (adhesive on a plastic)
-compounddb["sulfur-free tape"] = mixture([compounddb["pva"],compounddb["pe"]],\
+compounddb["sulfur-free tape"] = mixture.Mixture([compounddb["pva"],compounddb["pe"]],\
                                     [0.5,0.5],fractionType.mole).tocompound("sulfur-free tape")
 
 def compoundfromname(name):

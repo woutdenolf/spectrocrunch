@@ -366,7 +366,10 @@ def createaxes(fout,axes):
                      {"name":"name2","fullname":"/axes/name2/data"},
                      {"name":"name3","fullname":"/axes/name3/data"}]
     """
-    grp = newNXentry(fout,"axes")
+    if "axes" in fout:
+        grp = fout["axes"]
+    else:
+        grp = newNXentry(fout,"axes")
     naxes = len(axes)
     ret = [None]*naxes
     for i in range(naxes):

@@ -24,13 +24,12 @@
 
 import unittest
 
-from ..compound import compound as compoundraw
-from ..compoundfromformula import compoundfromformula
-from ..compoundfromlist import compoundfromlist
-from ..compoundfromcif import compoundfromcif
-from ..compoundfromname import compoundfromname as compoundfromname
+from .. import compound as compoundraw
+from .. import compoundfromformula
+from .. import compoundfromlist
+from .. import compoundfromcif
+from .. import compoundfromname
 from ..types import fractionType
-from ..element import element
 from ... import ureg
 
 try:
@@ -44,26 +43,21 @@ import xraylib
 class test_compound(unittest.TestCase):
 
     def test_comparable(self):
-        c1 = compoundfromformula("C6H2(NO2)3CH3",1.2,name="compound")
-        c2 = compoundfromformula("C6H2(NO2)3CH3",1.2,name="compound")
-        c3 = compoundfromformula("C6H2(NO2)3CH3",1.21,name="compound")
-        c4 = compoundfromformula("C6H2(NO2)3CH3",1.2,name="compoundx")
-        c5 = compoundfromformula("C6H2(NO2)3CH2",1.2,name="compound")
+        c1 = compoundfromformula.CompoundFromFormula("C6H2(NO2)3CH3",1.2,name="compound")
+        c2 = compoundfromformula.CompoundFromFormula("C6H2(NO2)3CH3",1.2,name="compound")
+        c3 = compoundfromformula.CompoundFromFormula("C6H2(NO2)3CH3",1.21,name="compound")
+        c4 = compoundfromformula.CompoundFromFormula("C6H2(NO2)3CH3",1.2,name="compoundx")
+        c5 = compoundfromformula.CompoundFromFormula("C6H2(NO2)3CH2",1.2,name="compound")
         self.assertEqual(c1,c2)
         self.assertEqual(c1,c3)
         self.assertNotEqual(c1,c4)
         self.assertEqual(c1,c5) # this is by design but may be unwanted?
 
-        self.assertEqual(element("Ca"),element("Ca"))
-        self.assertNotEqual(element("Ca"),element("C"))
-        self.assertEqual(element("Ca"),"Ca")
-        self.assertNotEqual(element("Ca"),"C")
-
     def test_formula(self):
         elements = ["C","N","O","H"]
         a = [7,3,6,5]
         density = 2.3
-        c = compoundfromformula("C6H2(NO2)3CH3",density)
+        c = compoundfromformula.CompoundFromFormula("C6H2(NO2)3CH3",density)
 
         elements2 = c.molefractions()
         for i in range(len(elements)):
@@ -75,7 +69,7 @@ class test_compound(unittest.TestCase):
         elements = ["Fe","S","O"]
         a = [1,1,4.]
         density = 2.3
-        c = compoundfromlist(elements,a,fractionType.mole,density)
+        c = compoundfromlist.CompoundFromList(elements,a,fractionType.mole,density)
 
         elements2 = c.molefractions()
         for i in range(len(elements)):
@@ -83,7 +77,7 @@ class test_compound(unittest.TestCase):
 
         self.assertEqual(c.density,density)
 
-        c = compoundfromlist(elements,a,fractionType.weight,density)
+        c = compoundfromlist.CompoundFromList(elements,a,fractionType.weight,density)
         wfrac = c.weightfractions()
         for i in range(len(elements)):
             self.assertAlmostEqual(wfrac[elements[i]],a[i]/float(sum(a)))
@@ -94,27 +88,27 @@ class test_compound(unittest.TestCase):
 
         elements = ["Ca","C","O"]
         a = [6,6,18.] # unit cell content
-        c = compoundfromcif("cif/calcite.cif",name="calcite") 
+        c = compoundfromcif.CompoundFromCif("cif/calcite.cif",name="calcite") 
 
         elements2 = c.molefractions()
         for i in range(len(elements)):
             self.assertEqual(elements2[elements[i]],a[i])
 
     def test_addelement(self):
-        c1 = compoundraw(["Fe","O"],[2,3],fractionType.mole,density=1)
-        c2 = compoundraw(["Fe"],[2],fractionType.mole,density=1)
+        c1 = compoundraw.Compound(["Fe","O"],[2,3],fractionType.mole,density=1)
+        c2 = compoundraw.Compound(["Fe"],[2],fractionType.mole,density=1)
         c2.addelement("O",3,fractionType.mole)
         self.assertEqual(c1.elements,c2.elements)
 
-        c1 = compoundraw(["Fe","O"],[2,3],fractionType.weight,density=1)
-        c2 = compoundraw(["Fe"],[2],fractionType.weight,density=1)
+        c1 = compoundraw.Compound(["Fe","O"],[2,3],fractionType.weight,density=1)
+        c2 = compoundraw.Compound(["Fe"],[2],fractionType.weight,density=1)
         c2.addelement("O",3/5.,fractionType.weight)
         self.assertEqual(c1.elements.keys(),c2.elements.keys())
         for v1,v2 in zip(c1.elements.values(),c2.elements.values()):
             self.assertAlmostEqual(v1,v2)
 
     def test_vacuum(self):
-        c = compoundraw([],[],fractionType.mole,0,name="vacuum")
+        c = compoundraw.Compound([],[],fractionType.mole,0,name="vacuum")
         self.assertEqual(len(c.elements),0)
         self.assertEqual(len(c.weightfractions()),0)
         self.assertEqual(len(c.molefractions()),0)
@@ -122,21 +116,21 @@ class test_compound(unittest.TestCase):
         self.assertEqual(c.density,0)
 
     def test_name(self):
-        c = compoundfromname("vacuum")
+        c = compoundfromname.compoundfromname("vacuum")
         self.assertEqual(len(c.elements),0)
         self.assertEqual(len(c.weightfractions()),0)
         self.assertEqual(len(c.molefractions()),0)
         self.assertEqual(c.molarmass(),0)
         self.assertEqual(c.density,0)
 
-        c = compoundfromname("linseed oil")
+        c = compoundfromname.compoundfromname("linseed oil")
 
         with self.assertRaises(KeyError) as context:
-            c = compoundfromname("linseed oill")
+            c = compoundfromname.compoundfromname("linseed oill")
 
     def test_refractiveindex(self):
         density = 2.328
-        c = compoundfromformula("Si",density,name="calcite")
+        c = compoundfromformula.CompoundFromFormula("Si",density,name="calcite")
         energy = np.asarray([5,10])
         
         Z = 14

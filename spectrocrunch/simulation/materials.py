@@ -26,15 +26,17 @@ from .simul import with_simulmetaclass
 
 import numpy as np
 import contextlib
+import itertools
 
 from . import noisepropagation
-from ..materials.compoundfromlist import compoundfromlist as compound
-from ..materials.mixture import mixture
+from ..materials.compoundfromlist import CompoundFromList as compound
+from ..materials.mixture import Mixture
 from ..materials.types import fractionType
+from ..materials import element
+from ..materials import interaction
 from ..math import fit1d
 from ..common.Enum import Enum
 from ..common.instance import isarray
-
 from ..common import listtools
 
 interactionType = Enum(["transmission","fluorescence","elastic","inelastix"])
@@ -44,18 +46,20 @@ class Multilayer(with_simulmetaclass()):
     Class representing an area material
     """
     
-    def __init__(self, material=None, thickness=None, anglein=None, angleout=None):
+    def __init__(self, material=None, thickness=None, anglein=None, angleout=None, solidangle=None):
         """
         Args:
             material(list(spectrocrunch.materials.compound|mixture)): material composition
             thickness(num): thickness in micron
             anglein(num): angle (deg) between primary beam and surface normal (pointing inwards)
             angleout(num): angle (deg) between fluorescene path to detector and surface normal (pointing inwards)
+            solidangle: detector solid angle in srad
         """
         self.required(material,"material")
         self.required(thickness,"thickness")
         self.required(anglein,"anglein")
         self.required(angleout,"angleout")
+        self.required(angleout,"solidangle")
         
         if hasattr(thickness,"__iter__"):
             self.thickness = np.asarray(thickness,dtype=float)
@@ -70,23 +74,30 @@ class Multilayer(with_simulmetaclass()):
             
         self.cosanglein = np.cos(np.radians(anglein))
         self.cosangleout = np.cos(np.radians(angleout))
+        self.solidangle = solidangle
         
         self.nlayers = len(self.material)
         
         self._cache = {}
+    
+    def __iter__(self):
+        return itertools.izip(self.material,self.thickness)
+    
+    def __getitem__(self,index):
+        return self.material[index]
         
     def layerproperties(self,prop):
-        return np.asarray([getattr(self.material[layer],prop) for layer in range(self.nlayers)])
+        return np.asarray([getattr(mat,prop) for mat in self.material])
             
     def layercs(self,method,energy,**kwargs):
-        cs = [getattr(self.material[layer],method)(energy,**kwargs) for layer in range(self.nlayers)]
+        cs = [getattr(mat,method)(energy,**kwargs) for mat in self.material]
         if "decomposed" not in kwargs:
             cs = np.asarray(cs)
         return cs
         
     def layermethod(self,method,*args,**kwargs):
-        for layer in range(self.nlayers):
-            getattr(self.material[layer],method)(*args,**kwargs)
+        for mat in self.material:
+            getattr(mat,method)(*args,**kwargs)
     
     def markscatterer(self,name):
         self.layermethod("markscatterer",name)
@@ -148,7 +159,7 @@ class Multilayer(with_simulmetaclass()):
     def prob_transmission(self,energy,fine=True):
         """Transmission probability for one layer
         """
-        T = [np.exp(-self.material[layer].density*self.thickness[layer]*self.cosanglein*self.material[layer].mass_att_coeff(energy,fine=fine)) for layer in range(self.nlayers)]
+        T = [np.exp(-mat.density*thickness*self.cosanglein*mat.mass_att_coeff(energy,fine=fine)) for mat,thickness in self]
 
         #density = self.layerproperties("density")
         #thickness = self.thickness*self.cosanglein
@@ -194,7 +205,7 @@ class Multilayer(with_simulmetaclass()):
         self.thickness[ind] = thickness
 
     def absorbance(self,energy):
-        return sum([self.material[layer].density*self.thickness[layer]*self.material[layer].mass_att_coeff(energy) for layer in range(self.nlayers)])
+        return sum([mat.density*thickness*self.cosanglein*mat.mass_att_coeff(energy,fine=fine) for mat,thickness in self])
 
     def propagate(self,N,energy,interaction=interactionType.transmission,forward=True):
         """Error propagation of a number of photons.
@@ -231,32 +242,66 @@ class Multilayer(with_simulmetaclass()):
         return Nout
 
     def __str__(self):
-        layers = "\n ".join("{}. {}: {} μm".format(i,m,t) for i,(m,t) in enumerate(zip(self.material,self.thickness*1e4)))
+        layers = "\n ".join("{}. {}: {} μm".format(i,m,t*1e4) for i,(m,t) in enumerate(self))
         return "Multilayer (ordered top-bottom):\n {}".format(layers)
 
     @contextlib.contextmanager
-    def _layer_cache_ctx(self,energy):
+    def _interaction_cache_ctx(self,topic,*args,**kwargs):
         # Already cashed or not
         cached = False
-        if "layers" in self._cache:
-            cached = self._cache["layers"]["cached"]
+        if "interaction" in self._cache:
+            cached = self._cache["interaction"]["cached"]
         else:
-            self._cache["layers"] = {"cached":cached}
+            self._cache["interaction"] = {"cached":cached}
         
         # Cache
         if not cached:
-            self._layers_cache(energy)
-            self._cache["layers"]["cached"] = True
+            if topic=="attenuation":
+                self._attenuation_cache(*args,**kwargs)
+            elif topic=="generation":
+                self._generation_cache(*args,**kwargs)
+                
+            self._cache["interaction"]["cached"] = True
         
         # Use cache
         yield
         
         # Keep cache?
-        self._cache["layers"]["cached"] = cached
-        
-    def _layers_cache(self,energy):
+        self._cache["interaction"]["cached"] = cached
+
+    def _generation_cache(self,energy):
         """
+        Args:
+            energy(num|array): primary beam energy
+            
+        Returns:
+            None
+        """
+        interactions = set()
+        for mat in self.material:
+            interactions = interactions | set(listtools.flatten(mat.fluointeractions()))
+        if not isarray(energy):
+            energy = [energy]
+        interactions = interactions | set(interaction.InteractionElScat(e,i) for i,e in enumerate(energy))
+        interactions = interactions | set(interaction.InteractionInelScat(e,45,i) for i,e in enumerate(energy)) # TODO: angle not fixed!
         
+        
+        interactions = sorted(interactions)
+        energy = np.array([l.energy for l in interactions])
+
+        print interactions
+        print energy
+
+        self._attenuation_cache(energy)
+        
+        print self.layercs("fluorescence_cross_section",energy,decomposed=True)
+        
+        #print self.layercs("rayleigh_cross_section",energy,decomposed=True)
+        
+        #print self.layercs("compton_cross_section",energy,decomposed=True)
+        
+    def _attenuation_cache(self,energy):
+        """
         Args:
             energy(num|array): energies to be attenuation
             
@@ -264,10 +309,29 @@ class Multilayer(with_simulmetaclass()):
             None
         """
 
+        # Borders
+        t = np.empty(self.nlayers+1)
+        np.cumsum(self.thickness,out=t[1:])
+        t[0] = 0
+        self._cache["interaction"]["t"] = t
+        
+        # Attenuation
+        linatt,cor = self._cumulated_linear_attenuation_coefficient(energy)
+        self._cache["interaction"]["linatt"] = linatt # nlayers+2 x nenergy
+        self._cache["interaction"]["linatt_cumulcor"] = cor # nlayers+2 x nenergy
+        
+    def _cumulated_linear_attenuation_coefficient(self,energy):
+        """
+        Args:
+            energy(num|array): energies to be attenuation
+            
+        Returns:
+            None
+        """
         density = self.layerproperties("density")
         thickness = self.thickness
         mu = self.layercs("mass_att_coeff",energy)
-        
+
         # nlayers x nenergy
         if mu.ndim!=2:
             mu = mu.reshape((self.nlayers,1))
@@ -275,36 +339,28 @@ class Multilayer(with_simulmetaclass()):
         thickness = thickness.reshape((nlayers,1))
         density = density.reshape((nlayers,1))
         
-        # total attenuation
-        murho = mu * density
-        attall = (murho*thickness).sum(axis=0)
-        att = np.empty((nlayers+2,nenergies),dtype=attall.dtype)
-        att[0,:] = 0
-        att[-1,:] = attall
+        # linear attenuation coefficient for each layer
+        linatt = mu * density
+        linattout = np.empty((nlayers+2,nenergies),dtype=linatt.dtype)
+        linattout[1:-1,:] = linatt
+        linattout[[0,-1],:] = 0 # outside sample (assume no attenuation)
+
+        # cumulative linear attenuation coefficient (= linatt*z + correction)
+        attall = (linatt*thickness).sum(axis=0)
+        A = np.empty((nlayers+2,nenergies),dtype=attall.dtype)
+        A[0,:] = 0
+        A[-1,:] = attall
         
-        # for each layer: the attenuation of previous layers 
-        #                 minus the attenuation of previous layers
-        #                 if they all had the same composition as this layer
         for i in range(nenergies):
-            tmp = np.subtract.outer(murho[:,i],murho[:,i])
+            tmp = np.subtract.outer(linatt[:,i],linatt[:,i])
             tmp *= thickness
-            att[1:-1,i] = np.triu(tmp).sum(axis=0)
-        
-        # nlayers+2 x nenergy
-        tmp = np.empty((nlayers+2,nenergies),dtype=attall.dtype)
-        tmp[1:-1,:] = murho
-        tmp[[0,-1],:] = 0
-        self._cache["layers"]["murho"] = tmp   # as if all previous layers had the same composition
-        self._cache["layers"]["cor"] = att     # correction on this assumption
-    
-        # borders
-        t = np.empty(self.nlayers+1)
-        np.cumsum(self.thickness,out=t[1:])
-        t[0] = 0
-        self._cache["layers"]["t"] = t
+            A[1:-1,i] = np.triu(tmp).sum(axis=0)
+
+        return linattout,A
     
     def _zlayer(self,z):
-        """
+        """Get layer in which z falls
+        
         Args:
             z(num|array): depth
         
@@ -314,10 +370,11 @@ class Multilayer(with_simulmetaclass()):
                 n+1 when z>totalthickness
                 {1,...,n} otherwise
         """
-        return np.digitize(z, self._cache["layers"]["t"], right=True)
+        return np.digitize(z, self._cache["interaction"]["t"], right=True)
         
     def _cum_attenuation(self,z,energy):
-        """
+        """Total attenuation from surface to z
+        
         Args:
             z(num|array): depth of attenuation
             energy(num|array): energies to be attenuation
@@ -326,13 +383,14 @@ class Multilayer(with_simulmetaclass()):
             array: nz x nenergy
         """
         
-        with self._layer_cache_ctx(energy):
-            layers = self._zlayer(z)
-            att = z.reshape((z.size,1)) * self._cache["layers"]["murho"][layers,:] + self._cache["layers"]["cor"][layers,:]
+        with self._interaction_cache_ctx("attenuation",energy):
+            lz = self._zlayer(z)
+            att = z.reshape((z.size,1)) * self._cache["interaction"]["linatt"][lz,:] + self._cache["interaction"]["linatt_cumulcor"][lz,:]
             return att
         
     def _transmission(self,zi,zj,cosaij,energy):
-        """
+        """Transmission from depth zi to zj
+        
         Args:
             zi(num|array): start depth of attenuation (dims: nz)
             zj(num|array): end depth of attenuation (dims: nz)
@@ -343,29 +401,26 @@ class Multilayer(with_simulmetaclass()):
             array: nz x nenergy
         """
         
-        with self._layer_cache_ctx(energy):
+        with self._interaction_cache_ctx("attenuation",energy):
             datt = self._cum_attenuation(zj,energy)-self._cum_attenuation(zi,energy)
             if isarray(cosaij) and datt.ndim==2:
                 cosaij = cosaij.reshape((cosaij.size,1))
             return np.exp(-datt/cosaij)
-        
+
     def _fluorescence(self,energy):
-        mufluo = self.layercs("fluorescence_cross_section",energy,decomposed=True)
+        """
         
-        interactions = [{}]*self.nlayers
-        for l in range(self.nlayers):
-            for k,v in mufluo[l].items():
-                if "elements" in v:
-                    for k,v in v["elements"].items():
-                        if k not in lines:
-                            if k.isabsorber():
-                                lines[k] = list(listtools.flatten(s.fluolines for s in k.shells))
-                else:
-                    if k not in lines:
-                        if k.isabsorber():
-                                lines[k] = list(listtools.flatten(s.fluolines for s in k.shells))
-                    
-        print lines    
+        Args:
+            energy(num|array): primary beam energy
+        """
+        
+        
+        with self._interaction_cache_ctx("generation",energy):
+            pass
+                
+        
+        
+
     
 classes = Multilayer.clsregistry
 aliases = Multilayer.aliasregistry

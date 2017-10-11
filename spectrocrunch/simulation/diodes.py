@@ -30,7 +30,7 @@ from uncertainties import ufloat
 
 import numpy as np
 
-from ..materials.compoundfromformula import compoundfromformula as compound
+from ..materials.compoundfromformula import CompoundFromFormula as compound
 
 import silx.math.fit as fit
 

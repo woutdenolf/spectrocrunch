@@ -24,7 +24,7 @@
 
 
 class Comparable(object):
-    """A derived class with method _cmpkey() will be comparable
+    """A derived class with method _cmpkey() and _sortkey() will be comparable
     """
     def _compare(self, other, method):
         try:
@@ -34,20 +34,29 @@ class Comparable(object):
             # so I can't compare with "other".
             return NotImplemented
 
+    def _sort(self, other, method):
+        try:
+            return method(self._sortkey(), other._sortkey())
+        except (AttributeError, TypeError):
+            # _cmpkey not implemented, or return different type,
+            # so I can't compare with "other".
+            return NotImplemented
+    
     def __lt__(self, other):
-        return self._compare(other, lambda s,o: s < o)
+        return self._sort(other, lambda s,o: s < o)
 
     def __le__(self, other):
-        return self._compare(other, lambda s,o: s <= o)
+        return self._sort(other, lambda s,o: s <= o)
+
+    def __ge__(self, other):
+        return self._sort(other, lambda s,o: s >= o)
+
+    def __gt__(self, other):
+        return self._sort(other, lambda s,o: s > o)
 
     def __eq__(self, other):
        return self._compare(other, lambda s,o: s == o)
-
-    def __ge__(self, other):
-        return self._compare(other, lambda s,o: s >= o)
-
-    def __gt__(self, other):
-        return self._compare(other, lambda s,o: s > o)
-
+       
     def __ne__(self, other):
         return self._compare(other, lambda s,o: s != o)
+        

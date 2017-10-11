@@ -36,10 +36,18 @@ class Hashable(Comparable):
         else:
             return method(self._cmpkey(), other._cmpkey())
 
+    def _sort(self, other, method):
+        if isinstance(other,str):
+            return method(str(self), other)
+        else:
+            return method(self._sortkey(), other._sortkey())
+            
+    def _cmpkey(self):
+        return self.__str__()
 
-    def _cmpkey():
-        return str(self)
-
+    def _sortkey(self):
+        return self.__str__()
+        
     def __repr__(self):
         return self.__str__()
 
