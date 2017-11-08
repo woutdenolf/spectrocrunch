@@ -195,16 +195,24 @@ def xiadetectorselect(lst,skipdetectors,keepdetectors):
         skip = []
         for i in range(len(skipdetectors)):
             if isinstance(skipdetectors[i],str):
-                if skipdetectors[i].isdigit(): #"00", "01", ... (there are no statistics for sums)
-                    skip.append(int(skipdetectors[i]))
+                if skipdetectors[i].startswith("xia"):
+                    s = skipdetectors[i][3:]
+                else:
+                    s = skipdetectors[i]
+                if s.isdigit(): #"00", "01", ... (there are no statistics for sums)
+                    skip.append(int(s))
             else:
                 skip.append(skipdetectors[i]) # number
 
         keep = []
         for i in range(len(keepdetectors)):
             if isinstance(keepdetectors[i],str):
-                if keepdetectors[i].isdigit(): #"00", "01", ... (there are no statistics for sums)
-                    keep.append(int(keepdetectors[i]))
+                if keepdetectors[i].startswith("xia"):
+                    s = keepdetectors[i][3:]
+                else:
+                    s = keepdetectors[i]
+                if s[i].isdigit(): #"00", "01", ... (there are no statistics for sums)
+                    keep.append(int(s))
             else:
                 keep.append(keepdetectors[i]) # number
 
