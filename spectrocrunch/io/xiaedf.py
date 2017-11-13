@@ -37,7 +37,7 @@ from ..common import indexing
 from ..common import listtools
 from ..common import instance
 
-from .edf import edfmemmap as edfimage
+from . import edf
 
 import logging
 logger = logging.getLogger(__name__)
@@ -528,7 +528,10 @@ class xiadata(object):
         if filename in self._cache["imagehandles"]:
             img = self._cache["imagehandles"][filename]
         else:
-            img = edfimage(filename)
+            try:
+                img = edf.edfmemmap(filename)
+            except:
+                img = edf.edfimage(filename)
             if cache:
                 self._cache["imagehandles"][filename] = img
         return img
