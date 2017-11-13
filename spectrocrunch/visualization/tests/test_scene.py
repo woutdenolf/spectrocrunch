@@ -54,7 +54,7 @@ class test_scene(unittest.TestCase):
         
         p0 = sorted(o1.datarange(0,border=False))
         p1 = sorted(o1.datarange(1,border=False))
-        o = scene.Polygon([p0[0],p0[1],p0[1],p0[0]],[p1[0],p1[0],p1[1],p1[1]],scatter=True)
+        o = scene.Polyline([p0[0],p0[1],p0[1],p0[0]],[p1[0],p1[0],p1[1],p1[1]],scatter=True)
         s1.register(o)
         s2.register(o)
 
@@ -64,7 +64,7 @@ class test_scene(unittest.TestCase):
         
         p0 = sorted(o2.datarange(0,border=False))
         p1 = sorted(o2.datarange(1,border=False))
-        o = scene.Polygon([p0[0],p0[1],p0[1],p0[0]],[p1[0],p1[0],p1[1],p1[1]],scatter=True)
+        o = scene.Polyline([p0[0],p0[1],p0[1],p0[0]],[p1[0],p1[0],p1[1],p1[1]],scatter=True)
         s1.register(o)
         s2.register(o)
         

@@ -22,8 +22,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as pltcolors
+
 import numpy as np
 
 from ..common import listtools
@@ -135,7 +137,17 @@ class Scene(Object):
         
     def setaxes(self,ax):
         self.ax = ax
-        
+    
+    def showaxes(self):
+        self.ax.set_axis_on()
+        self.ax.get_xaxis().set_visible(True)
+        self.ax.get_yaxis().set_visible(True)
+    
+    def hideaxes(self):
+        self.ax.set_axis_off()
+        self.ax.get_xaxis().set_visible(False)
+        self.ax.get_yaxis().set_visible(False)
+     
     def transpose(self,tr):
         self.transposed = tr
 
@@ -172,6 +184,9 @@ class Scene(Object):
         self.dataoffset[dim] = off
         self.datascale[dim] = scale
     
+    def flipdim(self,dim):
+        self.setdatarange(dim,self.datarange(dim)[::-1])
+
     def origin(self,dim,off):
         self.dataoffset[dim] = off-self.dataoffset[dim]
     
@@ -207,22 +222,29 @@ class Scene(Object):
             return None
         ylim = self.ylim
         xlim = self.xlim
-        return abs(xlim[1]-xlim[0])/abs(ylim[1]-ylim[0])*self.aspectratio
+        dx = abs(xlim[1]-xlim[0])
+        dy = abs(ylim[1]-ylim[0])
+        return dx/dy*self.aspectratio
         
     def crop(self):
         lim = self.xmagnitude(self.xlim)
         self.ax.set_xlim(lim[0],lim[1])
+        #self.ax.set_xbound(lim[0],lim[1])
         lim = self.ymagnitude(self.ylim)
         self.ax.set_ylim(lim[0],lim[1])
-
+        #self.ax.set_ybound(lim[0],lim[1])
+        
     def update(self,**kwargs):
         for item in self.items:
             item.update(**kwargs)
         self.crop()
         
-        self.ax.set_title(self.title)
-        self.ax.set_xlabel(self.xlabel)
-        self.ax.set_ylabel(self.ylabel)
+        if self.title is not None:
+            self.ax.set_title(self.title)
+        if self.xlabel is not None:
+            self.ax.set_xlabel(self.xlabel)
+        if self.ylabel is not None:
+            self.ax.set_ylabel(self.ylabel)
     
     @property
     def vminmax(self):
@@ -255,7 +277,7 @@ class Item(Hashable,Object):
     
     def __init__(self,dim0name="Dim0",dim1name="Dim1"):
         self._scenes = []
-        self._plotobjs = []
+        self._plotobjs = [] # list of lists, each list belonging to a scene
         self._sceneindex = -1
         self.dim0name = dim0name
         self.dim1name = dim1name
@@ -296,19 +318,33 @@ class Item(Hashable,Object):
        
     @property
     def plotobjs(self):
-        for ind,o in enumerate(self._plotobjs):
-            for i in o:
-                if i is not None:
-                    if self.scene.ax == i.axes:
-                        return o
+        """Objects belonging to the active scene
+        """
+        for objs in self._plotobjs:
+            for o in objs:
+                if o is not None:
+                    if self.scene.ax == o.axes:
+                        return objs
         return []
     
-    def addobjs(self,o):
-        if isinstance(o,list):
-            self._plotobjs.append(o)
+    def addobjs(self,objs):
+        """Objects belonging to the active scene
+        """
+        self.delobjs()
+        if isinstance(objs,list):
+            self._plotobjs.append(objs)
         else:
-            self._plotobjs.append([o])
+            self._plotobjs.append([objs])
     
+    def delobjs(self):
+        objs = self.plotobjs
+        if len(objs)>0:
+            for o in objs:
+                if o is not None:
+                    o.remove()
+            self._plotobjs.remove(objs)
+            
+
     def datarange(self,dim):
         raise NotImplementedError("Item is an abstract class")
     
@@ -339,6 +375,8 @@ class Image(Item):
             lim1 = [lim1[0],lim1[-1]]
     
         self.lim = [lim0,lim1]
+
+        self.cax = None
         
         super(Image,self).__init__(**kwargs)
     
@@ -357,25 +395,25 @@ class Image(Item):
         self.set_setting("vmin",vmin)
         self.set_setting("vmax",vmax)
     
-    def selfscale(self,mvmin=0,mvmax=1):
+    def selfscale(self,pmin=0,pmax=1):
         vmin,vmax = self.vminmax
         d = vmax-vmin
         if instance.isarray(d):
-            if instance.isarray(mvmin):
-                mvmin = np.asarray(mvmin)
-            if instance.isarray(mvmax):
-                mvmax = np.asarray(mvmax)
-        vmax = vmin + d*mvmax
-        vmin = vmin + d*mvmin
+            if instance.isarray(pmin):
+                pmin = np.asarray(pmin)
+            if instance.isarray(pmax):
+                pmax = np.asarray(pmax)
+        vmax = vmin + d*pmax
+        vmin = vmin + d*pmin
         self.scale(vmin=vmin,vmax=vmax)
     
     @staticmethod
     def defaultsettings():
         return {"cmap":None,\
                   "aspect":None,\
-                  "plotborder":True,\
+                  "border":False,\
                   "color":None,\
-                  "plotimage":True,\
+                  "image":True,\
                   "linewidth":2,\
                   "alpha":1,\
                   "vmin":None,\
@@ -415,8 +453,17 @@ class Image(Item):
     @property
     def rgb(self):
         return self.img.ndim>2
-        
-    def update(self):  
+    
+    @property
+    def aspect(self):
+        scene = self.scene
+        settings = scene.getitemsettings(self)
+        if settings["aspect"] is None:
+            return scene.aspect
+        else:
+            return settings["aspect"]
+            
+    def update(self):
         scene = self.scene
         
         settings = scene.getitemsettings(self)
@@ -435,16 +482,13 @@ class Image(Item):
             vmin = settings["vmin"]   
         if settings["vmax"] is not None:
             vmax = settings["vmax"]
-        image = self.image
-            
+        image = self.image.copy()
+        
         if self.rgb:
             if not instance.isarray(vmin):
                 vmin = [vmin]*self.img.ndim
             if not instance.isarray(vmax):
                 vmax = [vmax]*self.img.ndim
-
-            print ""
-            print vmin,vmax
 
             for i in range(self.img.ndim):
                 if settings["cnorm"] is None:
@@ -452,8 +496,8 @@ class Image(Item):
                 else:
                     norm = settings["cnorm"](vmin=vmin[i],vmax=vmax[i],clip=True)
                     
-                print np.nanmin(image[...,i]),np.nanmax(image[...,i])
                 image[...,i] = norm(image[...,i]).data
+                
                 #print np.nanmin(imgi),np.nanmax(imgi)
                 
                 #if vmin[i]==vmax[i]:
@@ -461,7 +505,7 @@ class Image(Item):
                 #else:
                 #    image[...,i] = (imgi-vmin[i])/(vmax[i]-vmin[i])
                 
-                print np.nanmin(image[...,i]),np.nanmax(image[...,i])
+                #print np.nanmin(image[...,i]),np.nanmax(image[...,i])
                 
             norm = None
         else:
@@ -469,8 +513,6 @@ class Image(Item):
                 norm = pltcolors.Normalize(vmin=vmin,vmax=vmax)
             else:
                 norm = settings["cnorm"](vmin=vmin,vmax=vmax)
-            
-        
         
         extent = scene.xmagnitude(self.xlim)+scene.ymagnitude(self.ylim)
         
@@ -481,7 +523,7 @@ class Image(Item):
         o = self.plotobjs
         if len(o)==0:
             # matplotlib.image.AxesImage
-            o1 = scene.ax.imshow(image,\
+            self.cax = o1 = scene.ax.imshow(image,\
                         interpolation = 'nearest',\
                         extent = extent,\
                         cmap = cmap,\
@@ -489,10 +531,10 @@ class Image(Item):
                         norm = norm,\
                         alpha = alpha,\
                         aspect = aspect)
-            o1.set_visible(settings["plotimage"])
+            o1.set_visible(settings["image"])
             
             o2 = scene.ax.plot(x, y, color=settings["color"], linewidth=settings["linewidth"])[0]
-            o2.set_visible(settings["plotborder"])
+            o2.set_visible(settings["border"])
             settings["color"] = o2.get_color()
             
             self.addobjs([o1,o2])
@@ -503,18 +545,66 @@ class Image(Item):
                         norm = norm,\
                         alpha = alpha,\
                         cmap = cmap)
-            o[0].set_visible(settings["plotimage"])
+            o[0].set_visible(settings["image"])
             
             o[1].set_data(x,y)
             plt.setp(o[1], color=settings["color"], linewidth=settings["linewidth"])
-            o[1].set_visible(settings["plotborder"])
+            o[1].set_visible(settings["border"])
             settings["color"] = o[1].get_color()
             
-class Polygon(Item):
+class Polyline(Item):
 
     def __init__(self,pdim0,pdim1,scatter=False,closed=True,**kwargs):
         self._pdim = [pdim0,pdim1]
         self.scatter = scatter
+        self.closed = closed
+
+        super(Polyline,self).__init__(**kwargs)
+    
+    @staticmethod
+    def defaultsettings():
+        return {"color":None,"linewidth":2}
+    
+    def datarange(self,dim):
+        ran = self.scene.datatransform(self._pdim[dim],dim)
+        return min(ran),max(ran)
+    
+    def pdim(self,dim):
+        idim = self.dimindex(dim)
+        return self.scene.datatransform(self._pdim[idim],idim)
+    
+    def update(self):
+        scene = self.scene
+        settings = scene.getitemsettings(self)
+        
+        x = scene.xmagnitude(self.pdim(1))
+        y = scene.ymagnitude(self.pdim(0))
+        
+        bscatter = not instance.isarray(x) or self.scatter
+        if not bscatter and self.closed:
+            x = list(x)
+            y = list(y)
+            x.append(x[0])
+            y.append(y[0])
+        
+        o = self.plotobjs
+        if len(o)==0:
+            # matplotlib.lines.Line2D
+            if bscatter:
+                o = [scene.ax.plot(x, y, marker='o', linestyle = 'None', color=settings["color"], linewidth=settings["linewidth"])[0]]
+            else:
+                o = [scene.ax.plot(x, y, color=settings["color"], linewidth=settings["linewidth"])[0]]
+            self.addobjs(o)
+        else:
+            o[0].set_data(x,y)
+            plt.setp(o[0], color=settings["color"], linewidth=settings["linewidth"])
+            
+        settings["color"] = o[0].get_color()
+
+class Polygon(Item):
+
+    def __init__(self,pdim0,pdim1,closed=True,**kwargs):
+        self._pdim = [pdim0,pdim1]
         self.closed = closed
 
         super(Polygon,self).__init__(**kwargs)
@@ -538,22 +628,62 @@ class Polygon(Item):
         x = scene.xmagnitude(self.pdim(1))
         y = scene.ymagnitude(self.pdim(0))
         
-        bscatter = not instance.isarray(x) or self.scatter
-        if not bscatter and self.closed:
+        if self.closed:
+            x = list(x)
+            y = list(y)
             x.append(x[0])
             y.append(y[0])
         
-        o = self.plotobjs
-        if len(o)==0:
-            # matplotlib.lines.Line2D
-            if bscatter:
-                o = [scene.ax.plot(x, y, marker='o', linestyle = 'None', color=settings["color"], linewidth=settings["linewidth"])[0]]
-            else:
-                o = [scene.ax.plot(x, y, color=settings["color"], linewidth=settings["linewidth"])[0]]
-            self.addobjs(o)
+        o = [matplotlib.patches.Polygon(zip(x, y), color=settings["color"], linewidth=settings["linewidth"])]
+        scene.ax.add_patch(o[0])
+        self.addobjs(o)
+
+        settings["color"] = o[0].get_facecolor()
+        
+        
+class Text(Item):
+
+    def __init__(self,text,p0,p1,**kwargs):
+        self._text = text
+        self._pdim = [[p0],[p1]]
+
+        super(Text,self).__init__(**kwargs)
+    
+    @staticmethod
+    def defaultsettings():
+        return {"color":None,"linewidth":2,"horizontalalignment":"left","verticalalignment":"bottom","xytext":None,"fontsize":15,"fontweight":1}
+    
+    def datarange(self,dim):
+        ran = self.scene.datatransform(self._pdim[dim],dim)
+        return min(ran),max(ran)
+    
+    def pdim(self,dim):
+        idim = self.dimindex(dim)
+        return self.scene.datatransform(self._pdim[idim],idim)
+    
+    def update(self):
+        scene = self.scene
+        settings = scene.getitemsettings(self)
+        
+        x = scene.xmagnitude(self.pdim(1))[0]
+        y = scene.ymagnitude(self.pdim(0))[0]
+
+        if settings["xytext"]!=(0,0):
+            arrowprops = dict(facecolor=settings["color"], shrink=0.05)
         else:
-            o[0].set_data(x,y)
-            plt.setp(o[0], color=settings["color"], linewidth=settings["linewidth"])
+            arrowprops = None
+
+        if settings["xytext"] is None:
+            xytext = (x,y)
+        else:
+            xytext = settings["xytext"]
             
+        o = [scene.ax.annotate(self._text, xy=(x,y),  xycoords='data',\
+                xytext=xytext, textcoords='data',\
+                horizontalalignment=settings["horizontalalignment"], verticalalignment=settings["verticalalignment"],\
+                color=settings["color"], arrowprops=arrowprops,fontsize=settings["fontsize"],fontweight=settings["fontweight"])]
+
+        self.addobjs(o)
+
         settings["color"] = o[0].get_color()
         

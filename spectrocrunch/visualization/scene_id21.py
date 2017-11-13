@@ -24,6 +24,7 @@
 
 from . import scene
 from ..io import spec
+from ..io import nexus
 from .. import ureg
 from ..common import instance
 
@@ -43,17 +44,22 @@ class ZapRoiMap(scene.Image):
         if instance.isstring(filenames):
             filenames = [filenames]
         
-        f = fabio.open(filenames[0])
-        
+        for filename in filenames:
+            if filename is None:
+                continue
+            f = fabio.open(filename)
+            break
+
         header = f.header
         lim0,lim1,transpose = self.limits(header,"Title")
-        
+
         if len(filenames)>1:
             tmp = f.data
             img = np.zeros(tmp.shape+(3,),dtype=tmp.dtype)
-            img[...,0] = tmp
-            for i in range(1,min(len(filenames),3)):
-                f = fabio.open(filenames[i])
+            for i,filename in enumerate(filenames):
+                if filename is None:
+                    continue
+                f = fabio.open(filename)
                 img[...,i] = f.data
             if transpose:
                 img = np.swapaxes(img,0,1)
@@ -69,7 +75,7 @@ class ZapRoiMap(scene.Image):
         o = spec.cmd_parser()
         cmd = header[cmdlabel]
         result = o.parsezapimage(cmd)
-        
+
         if result["name"]!='zapimage':
             raise RuntimeError("Cannot extract zapimage information from \"{}\"".format(cmd))
         fastvalues = spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])
@@ -83,6 +89,7 @@ class ZapRoiMap(scene.Image):
         for mot in self.MOTOFF[result["motslow"]]:
             slowvalues = slowvalues+ureg.Quantity(float(header[mot]),self.UNITS[mot])
         
+        # Image saved: slow x fast
         transpose = "z" in result["motfast"]
         if transpose:
             lim0 = fastvalues
@@ -90,6 +97,105 @@ class ZapRoiMap(scene.Image):
         else:
             lim0 = slowvalues
             lim1 = fastvalues
+
+        print lim0[[0,-1]]
+        print lim1[[0,-1]]
         
         return lim0,lim1,transpose
+
+class Nexus(scene.Image):
+
+    UNITS = {"samy":ureg.millimeter,"samz":ureg.millimeter,"samx":ureg.millimeter,"sampy":ureg.micrometer,"sampz":ureg.micrometer}
+    MOTOFF = {"samy":["sampy"],\
+              "samz":["sampz"],\
+              "sampy":["samy"],\
+              "sampz":["samz"]}
+
+    def __init__(self,filename,groups,originzero=False):
+
+        if not instance.isarray(groups):
+            groups = [groups]
+            
+        oh5 = nexus.File(filename)
+        
+        ocoord = oh5["coordinates"]
+        ocoord = {a:ureg.Quantity(np.atleast_1d(ocoord[a].value),self.UNITS[a]) for a in ocoord}
+
+        img = None
+
+        for igroup,group in enumerate(groups):
+            if group is None:
+                continue
+            data,axes,axesnames = nexus.parse_NXdata(oh5[group["path"]])
+
+            if img is None:
+            
+                stackindex = np.where([a not in self.UNITS for a in axesnames])[0][0]
+                if stackindex==0:
+                    data = data[group["ind"],...]
+                elif stackindex==1:
+                    data = data[:,group["ind"],:]
+                else:
+                    data = data[...,group["ind"]]
+  
+                del axes[stackindex]
+                del axesnames[stackindex]
+
+                dim0values = ureg.Quantity(axes[0][:],self.UNITS[axesnames[0]])
+                dim1values = ureg.Quantity(axes[1][:],self.UNITS[axesnames[1]])
+                dim0mot,dim1mot = axesnames
+                
+                for mot in self.MOTOFF[dim0mot]:
+                    add = ocoord[mot]
+                    if len(add)==1:
+                        add = add[0]
+                    else:
+                        add = add[group["ind"]]
+                    dim0values = dim0values+add
+                for mot in self.MOTOFF[dim1mot]:
+                    add = ocoord[mot]
+                    if len(add)==1:
+                        add = add[0]
+                    else:
+                        add = add[group["ind"]]
+                    dim1values = dim1values+add
+
+                dim1values = dim1values[[0,-1]]
+                dim0values = dim0values[[0,-1]]
+                if originzero:
+                    dim1values -= np.min(dim1values)
+                    dim0values -= np.min(dim0values)
+                
+                transpose = "y" in dim0mot
+                if transpose:
+                    lim0 = dim1values
+                    lim1 = dim0values
+                else:
+                    lim0 = dim0values
+                    lim1 = dim1values
+            
+                if transpose:
+                    data = data.T
+
+                
+                if len(groups)==1:
+                    img = data
+                else:
+                    img = np.zeros(data.shape+(3,),dtype=data.dtype)
+                    img[...,0] = data
+            else:
+                if stackindex==0:
+                    data = data[group["ind"],...]
+                elif stackindex==1:
+                    data = data[:,group["ind"],:]
+                else:
+                    data = data[...,group["ind"]]
+                if transpose:
+                    data = data.T
+                    
+                img[...,igroup] = data
+
+        oh5.close()
+
+        super(Nexus,self).__init__(img,lim0=lim0,lim1=lim1,dim0name="Z",dim1name="Y")
         
