@@ -27,6 +27,7 @@ import re
 import numpy as np
 from collections import OrderedDict
 from ..common.instance import isarray
+from .. import ureg
 import logging
 
 logger = logging.getLogger(__name__)
@@ -92,7 +93,7 @@ def zapimage_submap(header,cmdlabel,scanrange,currentpos,microntounits):
     scancmd = "zapimage {} {} {} {} {} {} {} {} {} 0".format(\
               result["motfast"],result["startfast"]+d/2.,result["endfast"]+d/2.,result["npixelsfast"],\
               result["motslow"],result["startslow"],result["endslow"],result["nstepsslow"],\
-              int(result["time"]*1000))
+              int(result["time"].to("ms").magitude))
     
     mvcmd = "mv "+" ".join("{} {}".format(mot,pos) for mot,pos in startpositions.items())
     
@@ -111,33 +112,7 @@ def zapimage_submap(header,cmdlabel,scanrange,currentpos,microntounits):
                 logger.warning("Current position of {} ({}) is ignored and set to {}".format(k,v,startpositions[k]))
     
     return scancmd,mvcmd,[[ifasta,ifastb+1,ifast],[islowa,islowb+1,islow]]
-    
-class edfheader_parser(object):
-
-    def __init__(self,fastlabel=None,slowlabel=None,timelabel=None):
-        self.fastlabel = fastlabel
-        self.slowlabel = slowlabel
-        self.timelabel = timelabel
-
-    def parsezapimage(self,header,name="zapimage"):
-        try:
-            if self.timelabel in header:
-                time = np.float(header[self.timelabel])
-            else:
-                time = 0.
-            return {'name':name,\
-                    'motfast':str(header[self.fastlabel+"_mot"]),\
-                    'startfast':np.float(header[self.fastlabel+"_start"]),\
-                    'endfast':np.float(header[self.fastlabel+"_end"]),\
-                    'npixelsfast':np.int(header[self.fastlabel+"_nbp"]),\
-                    'time':time,\
-                    'motslow':str(header[self.slowlabel+"_mot"]),\
-                    'startslow':np.float(header[self.slowlabel+"_start"]),\
-                    'endslow':np.float(header[self.slowlabel+"_end"]),\
-                    'nstepsslow':np.int(header[self.slowlabel+"_nbp"])}
-        except:
-            return {'name':'unknown'}
-
+        
 class cmd_parser(object):
     def __init__(self):
         self.fnumber = "(?:[+-]?[0-9]*\.?[0-9]+)"
@@ -184,7 +159,7 @@ class cmd_parser(object):
                     'startfast':np.float(result[0][1]),\
                     'endfast':np.float(result[0][2]),\
                     'npixelsfast':np.int(result[0][3]),\
-                    'time':np.float(result[0][4])/1000,\
+                    'time':ureg.Quantity(np.float(result[0][4]),"ms"),\
                     'motslow':str(result[0][5]),\
                     'startslow':np.float(result[0][6]),\
                     'endslow':np.float(result[0][7]),\
@@ -212,7 +187,7 @@ class cmd_parser(object):
                 'startslow':np.float(result[0][5]),\
                 'endslow':np.float(result[0][6]),\
                 'nstepsslow':np.int(result[0][7]),\
-                'time':np.float(result[0][8])/1000}
+                'time':ureg.Quantity(np.float(result[0][9]),"ms")}
         
         return {'name':'unknown'}
 
@@ -238,7 +213,7 @@ class cmd_parser(object):
                     'startslow':np.float(result[0][5]),\
                     'endslow':np.float(result[0][6]),\
                     'nstepsslow':np.int(result[0][7]),\
-                    'time':np.float(result[0][8])/1000}
+                    'time':ureg.Quantity(np.float(result[0][8]),"ms")}
         else:
             return {'name':'unknown'}
 
@@ -265,7 +240,7 @@ class cmd_parser(object):
                     'startslow':np.float(result[0][5]),\
                     'endslow':np.float(result[0][6]),\
                     'nstepsslow':np.int(result[0][7]),\
-                    'time':np.float(result[0][8])}
+                    'time':ureg.Quantity(np.float(result[0][8]),"s")}
         else:
             return {'name':'unknown'}
 
@@ -287,17 +262,15 @@ class cmd_parser(object):
         if len(result)==1:
             return {'name':name,\
                     'repeats':np.int(result[0][0]),\
-                    'time':np.float(result[0][1])}
+                    'time':ureg.Quantity(np.float(result[0][1]),"ms")}
         else:
             return {'name':'unknown'}
 
     def parsezapline(self,cmd):
-        ret = self.parseascan(cmd,name="zapline")
-        if "time" in ret:
-            ret["time"] /= 1000
+        ret = self.parseascan(cmd,name="zapline",timeunit="ms")
         return ret
 
-    def parseascan(self,cmd,name="ascan"):
+    def parseascan(self,cmd,name="ascan",timeunit="s"):
         expr = name + self.blanks + \
                    "("+ self.motor +")" + self.blanks +\
                    "("+ self.fnumber +")" + self.blanks +\
@@ -311,10 +284,69 @@ class cmd_parser(object):
                     'startfast':np.float(result[0][1]),\
                     'endfast':np.float(result[0][2]),\
                     'nstepsfast':np.int(result[0][3]),\
-                    'time':np.float(result[0][4])}
+                    'time':ureg.Quantity(np.float(result[0][4]),timeunit)}
         else:
             return {'name':'unknown'}
 
+class edfheader_parser(object):
+
+    def __init__(self,fastlabel=None,slowlabel=None,\
+                    timelabel=None,timeunit=None,\
+                    energylabel=None,energyunit=None,\
+                    speclabel=None):
+        self.fastlabel = fastlabel
+        self.slowlabel = slowlabel
+        self.timelabel = timelabel
+        if timeunit is None:
+            self.timeunit = "s"
+        else:
+            self.timeunit = timeunit
+        self.energylabel = energylabel
+        if energyunit is None:
+            self.energyunit = "keV"
+        else:
+            self.energyunit = energyunit
+        self.speclabel = speclabel
+        self.specparser = cmd_parser()
+
+    def parse(self,header):
+        try:
+            r = self.specparser.parse(str(header[self.speclabel]))
+        except:
+            r = {}
+            
+        try:
+            r['motfast'] = str(header[self.fastlabel+"_mot"])
+            r['startfast'] = np.float(header[self.fastlabel+"_start"])
+            r['endfast'] = np.float(header[self.fastlabel+"_end"])
+            r['npixelsfast'] = np.int(header[self.fastlabel+"_nbp"])
+        except:
+            pass
+            
+        try:
+            r['motslow'] = str(header[self.slowlabel+"_mot"])
+            r['startslow'] = np.float(header[self.slowlabel+"_start"])
+            r['endslow'] = np.float(header[self.slowlabel+"_end"])
+            r['npixelsslow'] = np.int(header[self.slowlabel+"_nbp"])
+        except:
+            pass
+
+        try:
+            r['time'] = ureg.Quantity(np.float(header[self.timelabel]),self.timeunit)
+        except:
+            pass
+
+        try:
+            r['energy'] = ureg.Quantity(np.float(header[self.energylabel]),self.energyunit)
+        except:
+            pass
+                     
+        if 'name' not in r:
+            r['name'] = 'unknown'
+        
+        return r
+        
+        
 class spec(SpecFileDataSource.SpecFileDataSource):
     """An interface to a spec file
     """
@@ -493,7 +525,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
                 else:
                     names = info["MotorNames"]
                     values = info["MotorValues"]
-                    add["motors"] = [values[names.index(mot)] for mot in motors]
+                    add["motors"] = [values[names.index(mot)] if mot in names else np.nan for mot in motors]
 
                 ret['{}_{}'.format(h[1],int(h[2]))] = add
 
