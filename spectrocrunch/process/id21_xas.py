@@ -307,9 +307,9 @@ def processEnergySynchronized(specfile,specnumbers,destpath,pymcacfg,mlines={},r
             # Check energy synchronization
             if "energy" in xasspectrum:
                 if xasspectrum["nenergy"]!=data.shape[0]:
-                    raise ValueError("Number of energies in spec scan {} is are not the same as for spec scan {}".format(specnumbers[i],specnumbers[0]))
+                    raise ValueError("Number of energies in spec scan {} are not the same as for spec scan {}".format(specnumbers[i],specnumbers[0]))
                 if not np.allclose(xasspectrum["energy"],data[:,0],rtol=0,atol=1e-6):
-                    raise ValueError("Energies in spec scan {} is are not synchronized with energies in {}".format(specnumbers[i],specnumbers[0]))
+                    raise ValueError("Energies in spec scan {} are not synchronized with energies in {}".format(specnumbers[i],specnumbers[0]))
             else:
                 xasspectrum["nenergy"] = data.shape[0]
                 xasspectrum["energy"] = data[:,0]
