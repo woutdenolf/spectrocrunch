@@ -23,33 +23,17 @@
 # THE SOFTWARE.
 
 from .. import ureg
-from ..common.units import Quantity
 
-def temperatureinkelvin(T):
+def Quantity(x,units=None):
+    """Add units when not present
     """
-    Args:
-        T(num|array): temperature in deg C
-    Returns:
-        num|array: keV
-    """
-    T = Quantity(T,ureg.degC)
-    return T.to(ureg.kelvin)
-       
-def eholepair_si(T=21):
-    """
-    Args:
-        T(num|array): temperature in deg C
-    Returns:
-        num|array: keV
-    """
-    # https://doi.org/10.1016/j.nima.2007.03.020
-    T = temperatureinkelvin(T)
-    x = ureg.Quantity([80,270], ureg.kelvin)
-    y = ureg.Quantity([0.00377,0.00368], ureg.keV)
-    
-    m = (y[1]-y[0])/(x[1]-x[0])
-    b = y[1]-m*x[1]
-    
-    return m*T+b
-    
-    
+    if isinstance(x,ureg.Quantity):
+        return x
+    else:
+        return ureg.Quantity(x,units=units)
+
+def magnitude(x,units=None):
+    if isinstance(x,ureg.Quantity):
+        return x.to(units).magnitude
+    else:
+        return x
