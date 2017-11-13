@@ -28,7 +28,6 @@ import numpy as np
 import os
 import pkg_resources
 
-
 def hdf5pathparse(path):
     """
     Args:
@@ -434,4 +433,9 @@ def linkaxes(fout,axes,groups):
             createlink(fout,a["fullname"],nxdatagrp.name,a["name"],soft=True)
             nxdatagrp.attrs[a["name"]+"_indices"]=i
 
-
+def parse_NXdata(grp):
+    axesnames = grp.attrs["axes"].split(':')
+    data = grp[grp.attrs["signal"]]
+    axes = [grp[a] for a in axesnames]
+    return data,axes,axesnames
+    
