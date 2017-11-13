@@ -42,3 +42,20 @@ def extrap1d(interpolator):
 
     return ufunclike
 
+def interp(z,x=None,y=None,**kwargs):
+    ndim = sum(i > 1 for i in z.shape)
+    z = z.squeeze()
+    
+    if ndim<=1:
+        if x is None:
+            x = np.arange(z.size)
+        return scipy.interpolate.interp1d(x,z,**kwargs)
+        
+    if ndim==2:
+        x = np.arange(z.shape[1])
+        y = np.arange(z.shape[0])
+        xx, yy = np.meshgrid(x, y)
+        return scipy.interpolate.interp2d(x, y, z ,**kwargs)
+    
+    raise NotImplementedError("Did not implement {}-interpolator.",ndim)
+    

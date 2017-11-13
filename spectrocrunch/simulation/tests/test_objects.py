@@ -198,34 +198,41 @@ class test_objects(unittest.TestCase):
 
     def test_diodes(self):
         gain = 8
-        I = np.arange(5,8)*1e5
+        I = np.arange(5,8)*ureg.Quantity(1e5,"1/s")
+        
+        o1 = diodes.factory("sxmidet",model=True)
+        o2 = diodes.factory("sxmidet",model=False)
+        self.assertAlmostEqual(o1.pndiode._chargeperphoton(5.2).magnitude,o2.pndiode._chargeperphoton(5.2).magnitude)
 
-        for energy in np.arange(3,9):
-            for model in [True,False]:
-                o = diodes.factory("sxmidet",model=model)
-                o.setgain(10**gain)
+        for model in [True,False]:
+            o = diodes.factory("sxmidet",model=model)
+            o.setgain(ureg.Quantity(10**gain,'V/A'))
 
-                o2 = o.pndiode.op_cpstocurrent()*o.pndiode.op_currenttocps()
-                self.assertEqual(o2.m,1.)
-                self.assertEqual(o2.b,0.)
+            o2 = o.pndiode.op_cpstocurrent()*o.pndiode.op_currenttocps()
+            self.assertEqual(o2.m,1.)
+            self.assertEqual(o2.b.magnitude,0.)
 
+            for energy in np.arange(3,9):
+                energy = ureg.Quantity(energy,"keV")
                 o2 = o.pndiode.op_fluxtocurrent(energy)*o.pndiode.op_currenttoflux(energy)
                 self.assertAlmostEqual(o2.m,1.)
-                self.assertEqual(o2.b,0.)
+                self.assertEqual(o2.b.magnitude,0.)
 
                 o2 = o.pndiode.op_fluxtocps(energy)*o.pndiode.op_cpstoflux(energy)
                 self.assertAlmostEqual(o2.m,1.)
-                self.assertEqual(o2.b,0.)
+                self.assertEqual(o2.b.magnitude,0.)
 
                 np.testing.assert_array_almost_equal(o.fluxtocps(energy,o.cpstoflux(energy,I)),I)
                 
-                flux1 = self._vis_calc_photons(energy,I,gain)
+                flux1 = self._vis_calc_photons(energy.magnitude,I.magnitude,gain)
                 flux2 = o.cpstoflux(energy,I)
+
                 if model:
                     for f1,f2 in zip(flux1,flux2):
-                        np.testing.assert_approx_equal(f1,f2,significant=1)
+                        np.testing.assert_approx_equal(f1,f2.magnitude,significant=1)
                 else:
                     np.testing.assert_allclose(flux1,flux2)
+
 
 def test_suite_all():
     """Test suite including all test suites"""

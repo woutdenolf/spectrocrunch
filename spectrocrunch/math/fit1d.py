@@ -89,7 +89,7 @@ def lstsq_bound(A,b,lb,ub,errors=False):
 def linfit(x,y,errors=False):
     # A.x = b
     A = np.vstack([x, np.ones(len(x))]).T
-    return lstsq(A,y,errors=errors)
+    return lstsq(A,y,errors=errors) # slope,intercept
     
 def linfit2(x,y,errors=False):
     n = len(x)
