@@ -130,6 +130,10 @@ class Mixture(object):
     def __getitem__(self,compound):
         return self.compounds[compound]
 
+    @property
+    def elements(self):
+        return list(set(e for c in self.compounds for e in c.elements))
+
     def molarmass(self):
         MM = np.asarray([c.molarmass() for c in self.compounds])
         nfrac = np.asarray(self.molefractions(total=True).values())
@@ -312,6 +316,11 @@ class Mixture(object):
                 return ret
         return None
 
+    def pymcaformat(self,name="New material",thickness=0.0):
+        tmp = self.elemental_molefractions()
+        c = compoundfromlist.CompoundFromList(tmp.keys(),tmp.values(),fractionType.mole,self.density,name=name)
+        return c.pymcaformat(thickness=thickness)
+    
     def fluointeractions(self):
         for c in self.compounds:
             yield c.fluointeractions()

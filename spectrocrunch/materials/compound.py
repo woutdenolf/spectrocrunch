@@ -74,9 +74,9 @@ class Compound(Hashable):
         self.density = float(density)
         if self.density==0:
             if len(self.elements)==1:
-                self.density = self.elements.keys()[0].get_pure_density()
+                self.density = self.elements.keys()[0].density
             else:
-                #rho = [e.get_pure_density() for e in self.elements]
+                #rho = [e.density for e in self.elements]
                 #self.density = np.mean(rho) # not based on anything, just a value
                 if len(self.elements)==0:
                     self.density = 0.
@@ -293,7 +293,7 @@ class Compound(Hashable):
         ret = E*0.
         
         for e in e_wfrac:
-            ret += e_wfrac[e]*(e.Z+e.scatfact_re(E,environ=environ,**kwargs))/e.MM
+            ret += e_wfrac[e]*e.scatfact_re(E,environ=environ,**kwargs)/e.MM
         ret = 1 - ureg.Quantity(ret,'mol/g') *\
                   ureg.Quantity(E,'keV').to("cm","spectroscopy")**2 *\
                   (ureg.re*ureg.avogadro_number*ureg.Quantity(self.density,'g/cm^3')/(2*np.pi))
@@ -331,6 +331,19 @@ class Compound(Hashable):
             if ret is not None:
                 return ret
         return None
+
+    def pymcaformat(self,thickness=0.0):
+        key = self.name
+        
+        r = self.weightfractions()
+        
+        value = {'Comment': self.name,
+                'CompoundFraction': r.values(),
+                'Thickness': thickness,
+                'Density': self.density,
+                'CompoundList': ['{}1'.format(e) for e in r]}
+
+        return key,value
 
     def fluointeractions(self):
         """Fluorescence interactions
