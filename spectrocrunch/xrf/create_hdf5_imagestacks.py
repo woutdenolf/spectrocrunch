@@ -35,7 +35,17 @@ from ..xrf.fit import PerformBatchFit as fitter
 from ..io import nexus
 from ..io import spec
 
-def filecounter(sourcepath,scanname,counter,scannumber,idet=None,getcount=False,debug=False):
+def filecounter_nocheck(sourcepath,scanname,counter,scannumber,idet=None):
+    f = '0000'
+    if counter=="xia":
+        filename = "%s_%sst_%04d_0000_%s.edf"%(scanname,counter,scannumber,f)
+    elif idet is not None:
+        filename = "%s_%s_%02d_%04d_%s.edf"%(scanname,counter,idet,scannumber,f)
+    else:
+        filename = "%s_%s_%04d_%s.edf"%(scanname,counter,scannumber,f)
+    return os.path.join(sourcepath,filename)
+          
+def filecounter(sourcepath,scanname,counter,scannumber,idet=None,getcount=False):
     if getcount:
         f = '*'
     else:
@@ -63,11 +73,14 @@ def filecounter(sourcepath,scanname,counter,scannumber,idet=None,getcount=False,
         n = len(files)
         if n!=0:
             break
-
+        
     if getcount:
         return n
     else:
-        return counterfile
+        if n==0:
+            return None
+        else:
+            return counterfile
 
 def detectorname(config,ndet,idet,counter=False):
     if ndet == 0:
@@ -208,6 +221,8 @@ def getimagestacks(config):
                         stackvalue = np.float(header[config["stacklabel"]])
                     break
                 except:
+                    if metafilename is None:
+                        metafilename = filecounter_nocheck(counterpath,scanname,metacounter,scannumber,idet=idet)
                     logger.exception("Something wrong with extracting info from meta file {}.".format(metafilename))
 
             # Stack axis
@@ -235,7 +250,7 @@ def getimagestacks(config):
                 if len(detcounters)!=0:
                     idet = 0
                     while True:                      
-                        tmp = filecounter(counterpath,scanname,detcounters[0],scannumber,idet=idet,getcount=True,debug=True)
+                        tmp = filecounter(counterpath,scanname,detcounters[0],scannumber,idet=idet,getcount=True)
                         if tmp==0:
                             break
                         idet += 1
@@ -350,13 +365,11 @@ def exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=False):
             # stacks[k1][k2]: list of files
             nscans = len(stacks[k1][k2])
             for iscan in range(nscans):
-                try:
-                    fdata = fabio.open(stacks[k1][k2][iscan])
-                except IOError as e:
-                    logger.error(str.format("Error opening file {}",stacks[k1][k2][iscan]))
-                    raise e
+                filename = stacks[k1][k2][iscan]
+                if filename is None:
+                    continue
+                data = fabio.open(filename).data
 
-                data = fdata.data
                 if k2 in grp:
                     dset = grp[k2][grp[k2].attrs["signal"]]
                 else:

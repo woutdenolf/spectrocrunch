@@ -78,7 +78,7 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
         sourcelines = [None]*n
         sourcelines[0] = ftype(energy)
         if addhigh:
-            sourcelines[1] = ftype(3*energy)
+            sourcelines[1] = ftype(10*energy)
         cfg["fit"]["energy"] = sourcelines
 
         sourcelines = [ftype(0)]*n
@@ -248,8 +248,10 @@ def PerformFit(filelist,cfgfile,energies,mlines={},norm=None,fast=True,prog=None
     # Prepare fit
     #ClassMcaTheory.DEBUG = 1
     mcafit = ClassMcaTheory.McaTheory()
-    if hasattr(mcafit, "useFisxEscape"):
+    try:
         mcafit.useFisxEscape(True)
+    except:
+        pass
     if fast:
         mcafit.enableOptimizedLinearFit()
     else:
