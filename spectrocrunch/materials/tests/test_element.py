@@ -26,8 +26,10 @@ import unittest
 
 from .. import element
 from ... import xraylib
+from ... import ureg
 
 import numpy as np
+from scipy import integrate
 
 class test_element(unittest.TestCase):
 
@@ -184,7 +186,60 @@ class test_element(unittest.TestCase):
         self.assertNotEqual(element.Element("Ca"),element.Element("C"))
         self.assertEqual(element.Element("Ca"),"Ca")
         self.assertNotEqual(element.Element("Ca"),"C")
+    
+    def test_diffcs_elastic(self):
+        e = element.Element("Fe")
         
+        energy = 30
+        theta = np.radians(45)
+        np.testing.assert_allclose(xraylib.FF_Rayl(e.Z,xraylib.MomentTransf(energy,theta)),e.scatfact_classic_re(energy,theta=theta),rtol=1e-5)
+        
+        # Elastic scattering cross-section (muR) as an integral of the atomic form factor (f)
+        #
+        #from sage.all import *
+        #from sage.symbolic.integration.integral import definite_integral
+        #
+        #var('P')
+        #var('theta')
+        #var('phi')
+        #
+        #K(phi) = (1-P*cos(2*phi))/2
+        #ElasticDiff2(theta,phi) = 1-K(phi)+K(phi)*(cos(theta))**2
+        #
+        #ElasticDiff1(theta) = definite_integral(ElasticDiff2(theta,phi),phi,0,2*pi)
+        #
+        #print ElasticDiff1(theta)
+        #
+        #assert(definite_integral(ElasticDiff1(theta)*sin(theta),theta,0,pi)==8*pi/3)
+        #
+        # muR = re^2 . NA/MM . pi . int_0^pi [(1+cos(theta)^2) . f(theta)^2 . sin(theta) . dtheta]
+        
+        energy = np.linspace(4,30,2)
+        fim2 = e.scatfact_im(energy)**2
+        
+        def integrand1(theta,energy,a):
+            return (1+np.cos(theta)**2)*np.sin(theta)*(e.scatfact_re(energy,theta=theta)**2+a)
+            
+        def integrand2(theta,energy):
+            return (1+np.cos(theta)**2)*np.sin(theta)*e.scatfact_classic_re(energy,theta=theta)**2
+        
+        fac = (np.pi*ureg.re**2*ureg.avogadro_number/ureg.Quantity(e.MM,'g/mol')).to("cm^2/g").magnitude
+        
+        #cs1 = [fac*integrate.quad(integrand1, 0, np.pi, args = (energy[i],fim2[i]))[0]  for i in range(len(energy))]
+        
+        cs2 = [fac*integrate.quad(integrand2, 0, np.pi, args = (E))[0]  for E in energy]
+        
+        cs3 = e.rayleigh_cross_section(energy)
+
+        np.testing.assert_allclose(cs2,cs3,rtol=1e-1)
+        
+        #import matplotlib.pyplot as plt
+        #plt.plot(energy,cs1,label='Int Full')
+        #plt.plot(energy,cs2,label='Int Classic')
+        #plt.plot(energy,cs3,label='Tab')
+        #plt.legend()
+        #plt.show()
+            
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
@@ -192,6 +247,7 @@ def test_suite_all():
     testSuite.addTest(test_element("test_shell"))
     testSuite.addTest(test_element("test_fluo"))
     testSuite.addTest(test_element("test_comparable"))
+    testSuite.addTest(test_element("test_diffcs_elastic"))
     return testSuite
     
 if __name__ == '__main__':

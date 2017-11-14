@@ -29,6 +29,7 @@ import time
 from scipy import interpolate
 import json
 import numbers
+import re
 try:
     import iotbx.cif
 except:
@@ -39,6 +40,7 @@ import fdmnes
 from ..common.hashable import Hashable
 from ..common.instance import isarray
 from .. import xraylib
+from .. import ureg
 
 def parseelementsymbol(symb):
     if isinstance(symb,str):
@@ -198,7 +200,7 @@ class FluoLine(Hashable):
             # Maybe the radiative rate of one of its composites is known
             if self.code in xraylib._rcomposites:
                 for comp in xraylib._rcomposites[self.code]:
-                    if comp!=xraylib.KO_LINE and comp!=xraylib.KP_LINE:
+                    if comp>=0:
                         continue
                     rate = xraylib.RadRate(Z,comp)
                     if rate!=0:
@@ -221,6 +223,8 @@ class FluoLine(Hashable):
             # Maybe the energy of one of its composites is known
             if self.code in xraylib._rcomposites:
                 for comp in xraylib._rcomposites[self.code]:
+                    if comp>=0:
+                        continue
                     energy = xraylib.LineEnergy(Z,comp)
                     if energy!=0:
                         return energy
@@ -265,6 +269,20 @@ class Shell(Hashable):
         shells = range(xraylib._shell_min,xraylib._shell_max+1)
         return [cls(shell,fluolines=fluolines) for shell in shells]       
 
+    @classmethod
+    def factory(cls,energybounds=None):
+        alls = cls.all_shells()
+        if energybounds==0:
+            return alls
+        else:
+            Z,_ = parseelementsymbol(energybounds[0])
+            valid = lambda energy: energy >= energybounds[1] and energy <= energybounds[2]
+            return [s for s in alls if valid(s.edgeenergy(Z))]
+    
+    @classmethod
+    def pymcafactory(cls,energybounds=None):
+        return list(set("".join(re.split("[^a-zA-Z]*", str(s))) for s in cls.factory(energybounds=energybounds)))
+    
     def __init__(self,shell,fluolines=None):
         """
         Args:
@@ -321,7 +339,8 @@ class Shell(Hashable):
 
     def edgeenergy(self,Z):
         return xraylib.EdgeEnergy(Z,self.code)
-
+        
+    
 class Element(Hashable):
     """Interface to chemical elements
     """
@@ -377,7 +396,8 @@ class Element(Hashable):
     def isabsorber(self):
         return len(self.shells)!=0
 
-    def get_pure_density(self):
+    @property
+    def density(self):
         return xraylib.ElementDensity(self.Z)
 
     def _get_fdmnes_energyrange(self,Eabs,edgeenergy,decimals=6):
@@ -616,12 +636,13 @@ class Element(Hashable):
             num or np.array
         """
         return self._xraylib_method("CS_Compt",E)
-        
-    def scatfact_re(self,E,environ=None,decimals=6,refresh=False):
+
+    def scatfact_classic_re(self,E,theta=None,environ=None,decimals=6,refresh=False):
         """Real part of atomic form factor
 
         Args:
             E(num or array-like): energy (keV)
+            theta(Optional(num or array-like)): scattering angle (rad)
             environ(dict): chemical environment of this element
             decimals(Optional(num)): precision of energy in keV
             refresh(Optional(bool)): force re-simulation if used
@@ -629,7 +650,27 @@ class Element(Hashable):
         Returns:
             num or np.array
         """
-        return self._xraylib_method("Fi",E)
+        if theta is None:
+            return self.Z
+        else:
+            #q = Q/4.pi
+            q = np.sin(theta/2)/ureg.Quantity(E,'keV').to("angstrom","spectroscopy").magnitude
+            return self._xraylib_method("FF_Rayl",q)
+            
+    def scatfact_re(self,E,theta=None,environ=None,decimals=6,refresh=False):
+        """Real part of atomic form factor
+
+        Args:
+            E(num or array-like): energy (keV)
+            theta(Optional(num or array-like)): scattering angle (degrees)
+            environ(dict): chemical environment of this element
+            decimals(Optional(num)): precision of energy in keV
+            refresh(Optional(bool)): force re-simulation if used
+
+        Returns:
+            num or np.array
+        """
+        return self.scatfact_classic_re(E,theta=theta,environ=environ,decimals=decimals,refresh=refresh) + self._xraylib_method("Fi",E)
     
     def scatfact_im(self,E,environ=None,decimals=6,refresh=False):
         """Imaginary part of atomic form factor

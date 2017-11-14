@@ -40,7 +40,7 @@ class Interaction(Hashable):
     @property
     def energy(self):
         return self._energy
-
+        
     def _cmpkey(self):
         """For comparing
         """
@@ -55,6 +55,13 @@ class Interaction(Hashable):
         """Unique representation of an instance
         """
         return self._name
+
+class InteractionSource(Interaction):
+
+    def __init__(self,energy,index):
+        name = "Source-{}".format(index)
+        prob = 1
+        super(InteractionSource,self).__init__(name,energy,prob)
 
 class InteractionFluo(Interaction):
 
@@ -75,19 +82,19 @@ class InteractionFluo(Interaction):
 
 class InteractionElScat(Interaction):
 
-    def __init__(self,energy,index):
-        name = "ElScat-{}".format(index)
+    def __init__(self,source):
+        name = "RScat({})".format(source)
         prob = 1
-        super(InteractionElScat,self).__init__(name,energy,prob)
+        super(InteractionElScat,self).__init__(name,source.energy,prob)
         
 class InteractionInelScat(Interaction):
         
-    def __init__(self,energy,theta,index):
-        name = "InelScat-{}".format(index)
+    def __init__(self,source,theta):
+        name = "CScat({})".format(source)
         prob = 1
         self.theta = theta # scattering angle
         
-        super(InteractionInelScat,self).__init__(name,energy,prob)
+        super(InteractionInelScat,self).__init__(name,source.energy,prob)
 
     @property
     def energy(self):
