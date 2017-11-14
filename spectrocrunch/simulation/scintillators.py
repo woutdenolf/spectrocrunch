@@ -62,7 +62,7 @@ class Scintillator(with_simulmetaclass()):
         
     @staticmethod
     def doping(material,dopants,ftype):
-        for el, frac in dopants.iteritems():
+        for el, frac in dopants.items():
             material.addelement(el,frac,ftype)
 
     def absorption(self,energy):

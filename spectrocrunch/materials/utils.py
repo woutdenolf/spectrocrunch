@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,29 +22,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import unittest
-from . import test_stoichiometry
-from . import test_compound
-from . import test_mixture
-from . import test_element
-from . import test_visirlib
-from . import test_multilayer
+from . import element
 
-def test_suite_all():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_stoichiometry.test_suite_all())
-    testSuite.addTest(test_element.test_suite_all())
-    testSuite.addTest(test_compound.test_suite_all())
-    testSuite.addTest(test_mixture.test_suite_all())
-    testSuite.addTest(test_visirlib.test_suite_all())
-    testSuite.addTest(test_multilayer.test_suite_all())
-    return testSuite
-    
-if __name__ == '__main__':
-    import sys
-
-    mysuite = test_suite_all()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)
+def elemental_crosssections(dictin,dictout=None,w=1):
+    if dictout is None:
+        dictout = {}
+        
+    for k,v in dictin.items():
+        if "elements" in v:
+            elemental_crosssections(v["elements"],w=v["w"],dictout=dictout)
+        else:
+            if k in dictout:
+                dictout[k] += w*v["w"]*v["cs"]
+            else:
+                dictout[k] = w*v["w"]*v["cs"]
+                
+    return dictout

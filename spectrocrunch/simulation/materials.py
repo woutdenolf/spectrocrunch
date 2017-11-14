@@ -31,6 +31,7 @@ import itertools
 from . import noisepropagation
 from ..materials.compoundfromlist import CompoundFromList as compound
 from ..materials.mixture import Mixture
+from ..materials.multilayer import Multilayer as _Multilayer
 from ..materials.types import fractionType
 from ..materials import element
 from ..materials import interaction
@@ -41,79 +42,15 @@ from ..common import listtools
 
 interactionType = Enum(["transmission","fluorescence","elastic","inelastix"])
 
-class Multilayer(with_simulmetaclass()):
+class Multilayer(with_simulmetaclass(_Multilayer)):
     """
     Class representing an area material
     """
     
-    def __init__(self, material=None, thickness=None, anglein=None, angleout=None, solidangle=None):
-        """
-        Args:
-            material(list(spectrocrunch.materials.compound|mixture)): material composition
-            thickness(num): thickness in micron
-            anglein(num): angle (deg) between primary beam and surface normal (pointing inwards)
-            angleout(num): angle (deg) between fluorescene path to detector and surface normal (pointing inwards)
-            solidangle: detector solid angle in srad
-        """
-        self.required(material,"material")
-        self.required(thickness,"thickness")
-        self.required(anglein,"anglein")
-        self.required(angleout,"angleout")
-        self.required(angleout,"solidangle")
-        
-        if hasattr(thickness,"__iter__"):
-            self.thickness = np.asarray(thickness,dtype=float)
-        else:
-            self.thickness = np.asarray([thickness],dtype=float)
-        self.thickness *= 1e-4
-        
-        if hasattr(material,"__iter__"):
-            self.material = material
-        else:
-            self.material = [material]
-            
-        self.cosanglein = np.cos(np.radians(anglein))
-        self.cosangleout = np.cos(np.radians(angleout))
-        self.solidangle = solidangle
-        
-        self.nlayers = len(self.material)
+    def __init__(self, **kwargs):
+        super(Multilayer, self).__init__(**kwargs)
         
         self._cache = {}
-    
-    def __iter__(self):
-        return itertools.izip(self.material,self.thickness)
-    
-    def __getitem__(self,index):
-        return self.material[index]
-        
-    def layerproperties(self,prop):
-        return np.asarray([getattr(mat,prop) for mat in self.material])
-            
-    def layercs(self,method,energy,**kwargs):
-        cs = [getattr(mat,method)(energy,**kwargs) for mat in self.material]
-        if "decomposed" not in kwargs:
-            cs = np.asarray(cs)
-        return cs
-        
-    def layermethod(self,method,*args,**kwargs):
-        for mat in self.material:
-            getattr(mat,method)(*args,**kwargs)
-    
-    def markscatterer(self,name):
-        self.layermethod("markscatterer",name)
-    
-    def ummarkscatterer(self):
-        self.layermethod("ummarkscatterer")
-   
-    def markabsorber(self,symb,shells=[],fluolines=[]):
-        """
-        Args:
-            symb(str): element symbol
-        """
-        self.layermethod("markabsorber",symb,shells=shells,fluolines=fluolines)
-
-    def unmarkabsorber(self):
-        self.layermethod("unmarkabsorber")
 
     def prob_elastic(self,energy):
         density = self.layerproperties("density")
@@ -156,57 +93,6 @@ class Multilayer(with_simulmetaclass()):
         
         return sum(player)
         
-    def prob_transmission(self,energy,fine=True):
-        """Transmission probability for one layer
-        """
-        T = [np.exp(-mat.density*thickness*self.cosanglein*mat.mass_att_coeff(energy,fine=fine)) for mat,thickness in self]
-
-        #density = self.layerproperties("density")
-        #thickness = self.thickness*self.cosanglein
-        #mu = self.layercs("mass_att_coeff",energy)
-        #if mu.ndim==2:
-        #   thickness = thickness.reshape((self.nlayers,1))
-        #   density = density.reshape((self.nlayers,1))
-        #T = np.exp(-mu*density*thickness)
-        
-        return np.prod(T,axis=0)
-        
-    def refinethickness(self,energy,absorbance,layerfixed=None,constant=False,constraint=True):
-        if layerfixed is None:
-            layerfixed = []
-        y = absorbance
-
-        A = [self.material[layer].density*self.cosanglein*self.material[layer].mass_att_coeff(energy) for layer in range(self.nlayers) if layer not in layerfixed]
-
-        for layer in range(self.nlayers):
-            if layer in layerfixed:
-                y = y-self.material[layer].density*self.thickness[layer]*self.cosanglein*self.material[layer].mass_att_coeff(energy)
-        
-        if constant:
-            A.append(np.ones_like(energy))
-            A = np.vstack(A).T
-            
-            if constraint:
-                lb = np.zeros(len(A),dtype=float)
-                lb[-1] = -np.inf
-                ub = np.inf
-                thickness = fit1d.lstsq_bound(A,y,lb,ub)
-            else:
-                thickness = fit1d.lstsq(A,y)
-            thickness = thickness[:-1]
-        else:
-            A = np.vstack(A).T
-            if constraint:
-                thickness = fit1d.lstsq_nonnegative(A,y)
-            else:
-                thickness = fit1d.lstsq(A,y)
-                
-        ind = [layer not in layerfixed for layer in range(self.nlayers)]
-        self.thickness[ind] = thickness
-
-    def absorbance(self,energy):
-        return sum([mat.density*thickness*self.cosanglein*mat.mass_att_coeff(energy,fine=fine) for mat,thickness in self])
-
     def propagate(self,N,energy,interaction=interactionType.transmission,forward=True):
         """Error propagation of a number of photons.
                
@@ -220,7 +106,7 @@ class Multilayer(with_simulmetaclass()):
         # Bernouilli processes: compounding is the same as multiplication
         #                       so we can multiply the probabilities
         if interaction==interactionType.transmission:
-            probsuccess = self.prob_transmission(energy)
+            probsuccess = self.transmission(energy)
         elif interaction==interactionType.fluorescence:
             raise RuntimeError("Fluorescence not implemented yet")
         elif interaction==interactionType.elastic:
@@ -240,10 +126,6 @@ class Multilayer(with_simulmetaclass()):
                 Nout = N/probsuccess
                 
         return Nout
-
-    def __str__(self):
-        layers = "\n ".join("{}. {}: {} μm".format(i,m,t*1e4) for i,(m,t) in enumerate(self))
-        return "Multilayer (ordered top-bottom):\n {}".format(layers)
 
     @contextlib.contextmanager
     def _interaction_cache_ctx(self,topic,*args,**kwargs):
@@ -277,24 +159,31 @@ class Multilayer(with_simulmetaclass()):
         Returns:
             None
         """
-        interactions = set()
-        for mat in self.material:
-            interactions = interactions | set(listtools.flatten(mat.fluointeractions()))
+        
         if not isarray(energy):
             energy = [energy]
-        interactions = interactions | set(interaction.InteractionElScat(e,i) for i,e in enumerate(energy))
-        interactions = interactions | set(interaction.InteractionInelScat(e,45,i) for i,e in enumerate(energy)) # TODO: angle not fixed!
+        
+        finteractions = set()
+        for mat in self.material:
+            finteractions = finteractions | set(listtools.flatten(mat.fluointeractions()))   
+        
+        source = set(interaction.InteractionSource(e,i) for i,e in enumerate(energy))
         
         
-        interactions = sorted(interactions)
-        energy = np.array([l.energy for l in interactions])
+        n = 3
+        
+        for i in range(1,n+1):
+            interactions = finteractions
+            interactions = interactions | set(interaction.InteractionElScat(s) for s in source)
+            interactions = interactions | set(interaction.InteractionInelScat(s,45) for s in source) # TODO: angle not fixed!
+            
+            source = sorted(interactions)
+            print source
+            print np.array([l.energy for l in source])
 
-        print interactions
-        print energy
-
-        self._attenuation_cache(energy)
+        #self._attenuation_cache(energy)
         
-        print self.layercs("fluorescence_cross_section",energy,decomposed=True)
+        #print self.layercs("fluorescence_cross_section",energy,decomposed=True)
         
         #print self.layercs("rayleigh_cross_section",energy,decomposed=True)
         

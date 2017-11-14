@@ -122,6 +122,9 @@ compounddb["pva"] = compoundfromformula.CompoundFromFormula("C3H3N",1.19,name="p
 compounddb["sulfur-free tape"] = mixture.Mixture([compounddb["pva"],compounddb["pe"]],\
                                     [0.5,0.5],fractionType.mole).tocompound("sulfur-free tape")
 
+# windows
+compounddb["silicon nitride"] = compoundfromformula.CompoundFromFormula("Si3N4",3.44,name="silicon nitride")
+
 def compoundfromname(name):
     return compounddb[name]
 

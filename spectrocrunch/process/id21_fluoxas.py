@@ -189,6 +189,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
                 expression = "{{}}*nanone({{xmap_icr}}/({}*{{xmap_ocr}}))".format(normcounter)
             skip += [normcounter,"xmap_icr","xmap_ocr"]
         else:
+            expression = "{{}}/{}".format(normcounter)
             skip += [normcounter]
 
         h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="norm")

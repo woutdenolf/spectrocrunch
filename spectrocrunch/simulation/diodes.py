@@ -28,7 +28,9 @@ from . import noisepropagation
 
 import numpy as np
 
-from ..materials.compoundfromformula import CompoundFromFormula as compound
+from ..materials import compoundfromformula 
+
+from ..materials import multilayer 
 
 import silx.math.fit as fit
 
@@ -48,6 +50,8 @@ from ..common import units
 
 from . import constants
 
+#
+#
 # Unit of elementary charge: 1 e = 1.6e-19 C 
 # Electronvolt: 1 eV = 1.6e-19 J
 # 1 A/W = 1 C/J = 1.6e-19 C/eV = 1 e/eV
@@ -78,10 +82,11 @@ from . import constants
 #    g: transmission of the optics (KB)
 #
 #
-#
 
 class Oscillator(object):
-
+    """This class describes a voltage-to-frequency convertor
+    """
+    
     def __init__(self,Fmax=None,F0=None,Vmax=None):
         """
         Args:
@@ -93,10 +98,6 @@ class Oscillator(object):
         self.F0 = F0.to("Hz")
         self.Vmax = Vmax.to("volt")
         self.pndiode = None
-
-    def link(self,pndiode):
-        self.pndiode = pndiode
-        pndiode.oscillator = self
         
     def _countspercoulomb(self):
         """Return counts-per-coulomb
@@ -142,48 +143,30 @@ class Oscillator(object):
         """
         return (self.op_currenttocps())**(-1)
 
-    def op_cpstoflux(self,energy):
-        """Operator to convert counts-per-second to flux
-
-        Args:
-            energy(num): keV
-
-        Returns:
-            spectrocrunch.math.linop: slope (ph/cts), intercept(ph/s)
-        """
-        return self.op_cpstocurrent()*self.pndiode.op_currenttoflux(energy)
-
-    def op_fluxtocps(self,energy):
-        """Operator to convert flux to counts-per-second 
-
-        Args:
-            energy(num): keV
-
-        Returns:
-            spectrocrunch.math.linop: slope (cts/ph), intercept(cts/s)
-        """
-        return self.pndiode.op_fluxtocurrent(energy)*self.op_currenttocps()
-
-
+    
 class PNdiode(object):
 
-    def __init__(self, material=None, Rout=None, darkcurrent=None):
+    def __init__(self, material=None, Rout=None, darkcurrent=None, oscillator=None, secondarytarget=None):
         """
         Args:
             material(compound|mixture): material composition
             Rout(num): output resistance (Ohm)
             darkcurrent(num): C/s
+            oscillator(Oscillator): 
+            secondarytarget(multilayer): optional secondary target
         """
         self.material = material
         self.setgain(Rout)
         #self.darkcurrent = noisepropagation.poisson(darkcurrent)
         self.darkcurrent = darkcurrent
-        self.oscillator = None
-        self.ehole = None
-
-    def link(self,oscillator):
+        self.secondarytarget = secondarytarget
         self.oscillator = oscillator
-        oscillator.pndiode = self
+        if oscillator is not None:
+            oscillator.pndiode = self
+        
+        # To be defined by the parent class for charge generation per photon
+        self.thickness = None
+        self.ehole = None
 
     def setgain(self,Rout):
         """Set output resistance of the picoamperemeter(keithley)
@@ -196,7 +179,7 @@ class PNdiode(object):
         """
         self.Rout = Rout.to("V/A")
         
-    def _attenuation(self,energy,thickness):
+    def _diode_attenuation(self,energy,thickness):
         """Calculate attenuation: 1-exp(-mu.rho.thickness)
 
         Args:
@@ -208,6 +191,12 @@ class PNdiode(object):
         """
         return (1-np.exp(-self.material.mass_att_coeff(units.magnitude(energy,"keV"))*self.material.density*units.magnitude(thickness,"cm")))
     
+    def _target_yield(self,energy):
+        if self.secondarytarget is None:
+            return energy,1
+        else:
+            return self.secondarytarget.spectrum()
+        
     def _chargeperphoton(self,energy):
         """Return charge-per-photon generated for one or more photon energies
 
@@ -217,7 +206,10 @@ class PNdiode(object):
         Returns:
             num or array-like: C/ph
         """
-        return (ureg.Quantity(1,ureg.elementary_charge)/self.ehole*units.Quantity(energy,"keV")).to("coulomb")*self._attenuation(energy,self.thickness)
+        energy,targetyield = self._target_yield(energy)
+        diodeatt = self._diode_attenuation(energy,self.thickness)
+        chargeperphoton = (ureg.Quantity(1,ureg.elementary_charge)/self.ehole*units.Quantity(energy,"keV")).to("coulomb")
+        return targetyield*diodeatt*chargeperphoton
 
     def _dark(self):
         """Return dark current
@@ -283,7 +275,7 @@ class PNdiode(object):
         Returns:
             spectrocrunch.math.linop: slope (ph/cts), intercept(ph/s)
         """
-        return self.oscillator.op_cpstoflux(energy)
+        return self.oscillator.op_cpstocurrent()*self.op_currenttoflux(energy)
 
     def op_fluxtocps(self,energy):
         """Operator to convert flux to counts-per-second 
@@ -294,20 +286,18 @@ class PNdiode(object):
         Returns:
             spectrocrunch.math.linop: slope (cts/ph), intercept(cts/s)
         """
-        return self.oscillator.op_fluxtocps(energy)
+        return self.op_fluxtocurrent(energy)*self.oscillator.op_currenttocps()
 
 
 class AbsolutePNdiode(PNdiode):
 
-    def __init__(self, material=None, Rout=None, darkcurrent=None, energy=None, response=None, model=True):
+    def __init__(self, energy=None, response=None, model=True, **kwargs):
         """
         Args:
-            material(list(spectrocrunch.materials.compound|mixture)): material composition
             energy(array-like): keV
             response(array-like): spectral responsivity (A/W)
-            model(Optional(bool)): model the response for interpolation
         """
-        super(AbsolutePNdiode,self).__init__(material=material,Rout=Rout,darkcurrent=darkcurrent)
+        super(AbsolutePNdiode,self).__init__(**kwargs)
 
         response = response.to("A/W") # or e/eV
 
@@ -325,17 +315,17 @@ class AbsolutePNdiode(PNdiode):
             num or array-like: A/W
         """
         if self.model:
-            r = self._attenuation(energy,self.thickness)/self.ehole*ureg.Quantity(1,ureg.elementary_charge)
+            r = self._diode_attenuation(energy,self.thickness)/self.ehole*ureg.Quantity(1,ureg.elementary_charge)
         else:
             try:
                 r = self.finterpol(energy)
             except:
-                r = self._attenuation(energy,self.thickness)/self.ehole*ureg.Quantity(1,ureg.elementary_charge)
+                r = self._diode_attenuation(energy,self.thickness)/self.ehole*ureg.Quantity(1,ureg.elementary_charge)
          
         return units.Quantity(r,"A/W")
 
     def _fmodel(self,energy,thickness,ehole):
-        return self._attenuation(energy,thickness)/ehole
+        return self._diode_attenuation(energy,thickness)/ehole
 
     def _fit(self,energy,response):
         """Calculate d and Ehole by fitting:
@@ -376,18 +366,15 @@ class AbsolutePNdiode(PNdiode):
 
 class CalibratedPNdiode(PNdiode):
 
-    def __init__(self, material=None, darkcurrent=None, Rout=None, energy=None, reponseratio=None, absdiode=None, model=True):
+    def __init__(self, energy=None, reponseratio=None, absdiode=None, model=True, **kwargs):
         """
         Args:
-            material(list(spectrocrunch.materials.compound|mixture)): material composition
-            darkcurrent(num): dark current (A)
             energy(num): keV
             reponseratio(array-like): diode current (dark subtracted) divided by the corresponding absdiode current at the same energy
             absdiode(AbsolutePNdiode): absolute diode used for calibration
-            Rout(num): output resistance (Ohm)
             model(Optional(bool)): model the ratio for interpolation
         """
-        super(CalibratedPNdiode,self).__init__(material=material,Rout=Rout,darkcurrent=darkcurrent)
+        super(CalibratedPNdiode,self).__init__(**kwargs)
 
         self.model = model
         self._fit(energy,reponseratio)
@@ -459,16 +446,13 @@ class CalibratedPNdiode(PNdiode):
 
 class NonCalibratedPNdiode(PNdiode):
 
-    def __init__(self, material=None, darkcurrent=None, Rout=None, thickness=None, ehole=None):
+    def __init__(self, thickness=None, ehole=None, **kwargs):
         """
         Args:
-            material(list(spectrocrunch.materials.compound|mixture)): material composition
-            darkcurrent(num): dark current (A)
             thickness(num): thickness in micron
             ehole(num): energy needed to create an electron-hole pair (keV)
-            Rout(num): output resistance (Ohm)
         """
-        super(NonCalibratedPNdiode,self).__init__(material=material,Rout=Rout,darkcurrent=darkcurrent)
+        super(NonCalibratedPNdiode,self).__init__(**kwargs)
 
         if thickness is None:
             self.thickness = None
@@ -480,6 +464,7 @@ class NonCalibratedPNdiode(PNdiode):
         else:
             self.ehole = ureg.Quantity(ehole,"eV")
 
+    
 
 class Diode(with_simulmetaclass()):
     """
@@ -489,7 +474,7 @@ class Diode(with_simulmetaclass()):
      I(A) = I(ph/s) . E(keV/ph)/Ehole(keV).1(e) . (1-exp(-mu.rho.d)) + D(A)
 
      Counts after an oscillator:
-     I(cts/s) = F0(cts/s) + Fmax(cts/s)/Vmax(V) . Rk(Ohm) . I(A)
+     I(cts/s) = Fmax(cts/s)/Vmax(V) . Rk(Ohm) . I(A) + F0(cts/s)
 
     """
 
@@ -595,21 +580,29 @@ class sxmidet(Diode):
     aliases = ["sxmidet"]
 
     def __init__(self,model=True):
-        material = compound("Si",0,name="Si")
+        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
 
         ptb = np.loadtxt(resource_filename('id21/ptb.dat'))
         energy = ureg.Quantity(ptb[:,0],"keV")
         response = ureg.Quantity(ptb[:,1],"milliampere/watt")
-        ptb = AbsolutePNdiode(material, Rout=ureg.Quantity(1e5,"volt/ampere"), darkcurrent=ureg.Quantity(0,"ampere"),\
-                              energy=energy, response=response, model=model)
+        ptb = AbsolutePNdiode(material=diodematerial,\
+                            Rout=ureg.Quantity(1e5,"volt/ampere"),\
+                            darkcurrent=ureg.Quantity(0,"ampere"),\
+                            energy=energy,response=response,model=model)
+
+        vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
+                        F0=ureg.Quantity(0,"Hz"),\
+                        Vmax=ureg.Quantity(10,"volt"))
 
         ird = np.loadtxt(resource_filename('id21/ird.dat'))
-        ird = CalibratedPNdiode(material=material, Rout=ureg.Quantity(1e5,"volt/ampere"), darkcurrent=ureg.Quantity(0,"ampere"),\
-                                energy=ureg.Quantity(ird[:-1,0],"keV"), reponseratio=ird[:-1,1], absdiode=ptb,\
-                                model=model) 
-                                
-        ird.link(Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),F0=ureg.Quantity(0,"Hz"),Vmax=ureg.Quantity(10,"volt")))
-
+        energy = ureg.Quantity(ird[:-1,0],"keV")
+        responseratio = ird[:-1,1]
+        ird = CalibratedPNdiode(material=diodematerial,\
+                            Rout=ureg.Quantity(1e5,"volt/ampere"),\
+                            darkcurrent=ureg.Quantity(0,"ampere"),\
+                            energy=energy, reponseratio=responseratio, model=model ,absdiode=ptb,\
+                            oscillator=vtof) 
+        
         super(sxmidet, self).__init__(pndiode=ird)
 
 class xrdpico1(Diode):
@@ -619,12 +612,74 @@ class xrdpico1(Diode):
     aliases = ["xrdpico1"]
 
     def __init__(self,model=True):
-        material = compound("Si",0,name="Si")
+        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
 
-        pico1 = NonCalibratedPNdiode(material=material, Rout=ureg.Quantity(10,"volt")/ureg.Quantity(2.1e-6,"ampere"), darkcurrent=ureg.Quantity(0,"ampere"),
-                                    thickness=ureg.Quantity(1,"mm"), ehole=constants.eholepair_si(), model=model)
+        pico1 = NonCalibratedPNdiode(material=diodematerial,\
+                                    Rout=ureg.Quantity(10,"volt")/ureg.Quantity(2.1e-6,"ampere"),\
+                                    darkcurrent=ureg.Quantity(0,"ampere"),
+                                    thickness=ureg.Quantity(1,"mm"),\
+                                    ehole=constants.eholepair_si(),\
+                                    model=model)
 
         super(xrdpico1, self).__init__(pndiode=pico1)
+
+class sxmiodet1(Diode):
+    """
+    SXM iodet (cts before the KB)
+    """
+    aliases = ["sxmiodet1"]
+
+    def __init__(self,model=True):
+
+        diodematerial = compound("Si",0,name="Si")
+        
+        window = compoundfromname.compoundfromname("silicon nitride")
+        coating = compoundfromformula.CompoundFromFormula("Ti",0,name="Ti")
+        secondarytarget = multilayer.Multilayer(material=[coating,window],thickness=[1,0.5],anglein=0,angleout=135,solidangle=0.1*4*np.pi)
+
+        vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
+                            F0=ureg.Quantity(0,"Hz"),\
+                            Vmax=ureg.Quantity(10,"volt"))
+
+        iodet1 = NonCalibratedPNdiode(material=diodematerial,\
+                                Rout=ureg.Quantity(1e5,"volt/ampere"),\
+                                darkcurrent=ureg.Quantity(0,"ampere"),\
+                                thickness=ureg.Quantity(1,"mm"),\
+                                ehole=constants.eholepair_si(),\
+                                model=model,\
+                                oscillator=vtof)
+        
+        super(sxmiodet1, self).__init__(pndiode=iodet1)
+
+class sxmiodet2(Diode):
+    """
+    SXM iodet (cts before the KB)
+    """
+    aliases = ["sxmiodet2"]
+
+    def __init__(self,model=True):
+        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
+        
+        window = compoundfromname.compoundfromname("silicon nitride")
+        secondarytarget = multilayer.Multilayer(material=window,thickness=0.5,anglein=0,angleout=135,solidangle=0.1*4*np.pi)
+
+        vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
+                        F0=ureg.Quantity(0,"Hz"),\
+                        Vmax=ureg.Quantity(10,"volt"))
+
+        iodet2 = NonCalibratedPNdiode(material=diodematerial,\
+                        Rout=ureg.Quantity(1e5,"volt/ampere"),\
+                        darkcurrent=ureg.Quantity(0,"ampere"),\
+                        thickness=ureg.Quantity(1,"mm"),\
+                        ehole=constants.eholepair_si(),\
+                        model=model,\
+                        oscillator = vtof,\
+                        secondarytarget=secondarytarget)
+        
+        super(sxmiodet2, self).__init__(pndiode=iodet2)
+
+        
+
 
 classes = Diode.clsregistry
 aliases = Diode.aliasregistry

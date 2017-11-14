@@ -72,4 +72,6 @@ def with_simulmetaclass(bases=None):
     if bases is None:
         return with_metaclass(FactoryMeta,SimulClass)
     else:
+        if not instance.isarray(bases):
+            bases = (bases,)
         return with_metaclass(FactoryMeta,SimulClass,*bases)

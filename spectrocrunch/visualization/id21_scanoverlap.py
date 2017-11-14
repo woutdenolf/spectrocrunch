@@ -25,7 +25,7 @@
 from ..io.spec import spec
 import h5py
 import numpy as np
-import pylab
+import matplotlib.pyplot as plt
 from scipy import interpolate
 from ..math.common import logscale
 
@@ -58,7 +58,7 @@ def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fli
     # Interpolate
     for i in range(nimg):
         f = interpolate.interp2d(x,y,images[i,...],kind='cubic') # Use another algorithm
-        images[i,...] = f(xnew,ynew)
+        images[i,...] = np.clip(f(xnew,ynew),0,1)
 
     # Plot range
     dx = (xnew[1]-xnew[0])/2.
@@ -113,10 +113,10 @@ def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fli
     #rgb = images[0:3,...].transpose((1,2,0))
 
     # Plot
-    pylab.figure(1)
-    pylab.clf()
-    im = pylab.imshow(rgb,extent=extent,origin=origin,interpolation='nearest',aspect=1)#,cmap=pylab.get_cmap("gray")
-    axes = im.get_axes()
+    plt.figure(1)
+    plt.clf()
+    im = plt.imshow(rgb,extent=extent,origin=origin,interpolation='nearest',aspect=1)#,cmap=plt.get_cmap("gray")
+    axes = plt.gca()
     axes.set_xlabel(xlabel)
     axes.set_ylabel(ylabel)
     xlim,ylim = axes.get_xlim(),axes.get_ylim()
@@ -145,9 +145,9 @@ def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fli
     axes.set_xlim(xlim)
     axes.set_ylim(ylim)
     if outname is None:
-        pylab.show()
+        plt.show()
     else:
-        pylab.savefig(outname,bbox_inches='tight',dpi=300)
+        plt.savefig(outname,bbox_inches='tight',dpi=300)
 
 def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=False,flipvert=True,fliphor=False,defaultorigin=False,showlabels=False,color='#ffffff',printpos=False,outname=None,log=False):
     """
@@ -237,7 +237,7 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=Fa
     for i in range(n):
         v = ospec.getmotorvalues(specnumbers[i],motors)
         if printpos:
-            print("Spec number {}",format(i))
+            print("Spec number {}".format(i))
             for a,b in zip(motors,v):
                 print(" {} = {}".format(a,b))
         pdim1[i] = v[0]*1000+v[1]+offsamz[i]
