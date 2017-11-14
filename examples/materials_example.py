@@ -27,7 +27,6 @@ execfile("initcctbx.py")
 # Don't use the installed version
 import os, sys
 sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-#sys.path.insert(1,'/data/id21/inhouse/wout/dev/pyFDMNES')
 
 from spectrocrunch.materials.compoundfromcif import compoundfromcif
 from spectrocrunch.materials.mixture import mixture
@@ -75,11 +74,10 @@ def muplot(mu1,mu2,mixture):
 
 if __name__ == '__main__':
 
-    compound1 = compoundfromcif("cinnabar",name='cinnabar')
-    compound2 = compoundfromcif("gypsum",name='gypsum')
+    compound1 = compoundfromcif("cif/cinnabar.cif",name='cinnabar')
+    compound2 = compoundfromcif("cif/gypsum.cif",name='gypsum')
     mixture = mixture([compound1,compound2],[0.5,0.5],fractionType.weight)
-
-    mixture = compoundfromcif("gypsum",name='gypsum')
+    #mixture = compoundfromcif("gypsum.cif",name='gypsum')
 
     # Shells
     #shells = [xraylib.L1_SHELL,xraylib.L2_SHELL,xraylib.L3_SHELL]

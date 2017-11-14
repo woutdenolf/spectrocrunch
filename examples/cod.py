@@ -191,7 +191,7 @@ if __name__ == '__main__':
 
     with codtunnel():
         
-        query = Data.namequery("gypsum")
+        query = Data.namequery("copper acetate")
         #for entry in query:
         #    print entry
         for entry in query:

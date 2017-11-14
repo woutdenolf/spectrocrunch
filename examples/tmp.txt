@@ -1,0 +1,33 @@
+
+
++ \expectation{\Re{a}\Re{b}\Re{\Phi_x}\Re{\Phi_y}}
++ \expectation{\Re{a}\Re{b}\Im{\Phi_x}\Im{\Phi_y}}
+
+- \expectation{\Re{a}\Im{b}\Re{\Phi_x}\Im{\Phi_y}}
++ \expectation{\Re{a}\Im{b}\Im{\Phi_x}\Re{\Phi_y}}
+
++ \expectation{\Im{a}\Re{b}\Re{\Phi_x}\Im{\Phi_y}}
+- \expectation{\Im{a}\Re{b}\Im{\Phi_x}\Re{\Phi_y}}
+
++ \expectation{\Im{a}\Im{b}\Re{\Phi_x}\Re{\Phi_y}}
++ \expectation{\Im{a}\Im{b}\Im{\Phi_x}\Im{\Phi_y}}
+
+=================================================
+
++ i\(
+- \expectation{\Re{a}\Re{b}\Re{\Phi_x}\Im{\Phi_y}}
++ \expectation{\Re{a}\Re{b}\Im{\Phi_x}\Re{\Phi_y}}
+
+- \expectation{\Re{a}\Im{b}\Re{\Phi_x}\Re{\Phi_y}}
+- \expectation{\Re{a}\Im{b}\Im{\Phi_x}\Im{\Phi_y}}
+
++ \expectation{\Im{a}\Re{b}\Re{\Phi_x}\Re{\Phi_y}}
++ \expectation{\Im{a}\Re{b}\Im{\Phi_x}\Im{\Phi_y}}
+
+- \expectation{\Im{a}\Im{b}\Re{\Phi_x}\Im{\Phi_y}}
++ \expectation{\Im{a}\Im{b}\Im{\Phi_x}\Re{\Phi_y}}
+\)
+
+
+
+

@@ -185,7 +185,7 @@ if __name__ == '__main__':
     exclude_detectors=[]
     
     # Align
-    align = False
+    align = True
     
     # Flux normalization
     norm = True

@@ -88,8 +88,8 @@ class sample_hg115(sample):
         ultralene = compoundfromname("ultralene")
         sfreetape = compoundfromname("sulfur-free tape")
 
-        ultralene = compoundfromname("vacuum")
-        sfreetape = compoundfromname("vacuum")
+        #ultralene = compoundfromname("vacuum")
+        #sfreetape = compoundfromname("vacuum")
         
         m = [ultralene,paint,sfreetape]
         thickness = [4,paintthickness,10]
@@ -184,7 +184,7 @@ class sample_hg115(sample):
         
         return result.x,result.success 
         
-def hg115():
+def hg115_ff():
     sample = sample_hg115()
 
     I0 = 1e6
@@ -243,10 +243,23 @@ def hg115():
           
     plt.show()
 
+def hg115_xrd():
+    sample = sample_hg115()
+    energy = 8.5
+    sample.set_wpigment(100)
     
+    r = np.linspace(10,20,50)
+    n = [None]*len(r)
+    for i,t in enumerate(r):
+        sample.set_paintthickness(t)
+        n[i] = noisepropagation.E(sample.composition.propagate(noisepropagation.poisson(1e7),energy,interaction=materials.interactionType.elastic))
+
+    print n[-1]/n[0]
+    plt.plot(r,n)
+    plt.show()
 
 if __name__ == '__main__':
-    hg115()
+    hg115_ff()
 
 
 #        I0 = 1e5

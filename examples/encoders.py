@@ -2,12 +2,65 @@
 import sys
 sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from spectrocrunch.io.edf import get2Dscancoordinates as getcoord
-
 import fabio
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+
+from spectrocrunch.io import spec
+
+def getcoord(header,scanlabel="",fastlabel="",slowlabel=""):
+    """Get scan coordinates from header
+
+    Args:
+        header(dict): edf header
+        scanlabel(optional(str)): header key which value is the scan command
+        fastlabel(optional(str)): header key which value is the fast motor name
+        slowlabel(optional(str)): header key which value is the slow motor name
+
+    Returns:
+        (dict,dict): {"name":str,"data":array}
+    """
+
+    ret = ({"name":"","data":[]},{"name":"","data":[]})
+
+    scaninfo = {"name":""}
+
+    if len(scanlabel)>0:
+        if scanlabel in header:
+            cmd = header[scanlabel]
+            o = spec.cmd_parser()
+            scaninfo = o.parse(cmd)
+
+    if scaninfo["name"] != "zapimage":
+        if len(fastlabel)>0 and len(slowlabel)>0:
+            label = fastlabel
+            if label+"_mot" in header:
+                scaninfo["motfast"] = str(header[label+"_mot"])
+                scaninfo["startfast"] = np.float(header[label+"_start"])
+                scaninfo["endfast"] = np.float(header[label+"_end"])
+                scaninfo["npixelsfast"] = np.float(header[label+"_nbp"])
+            else:
+                return ret
+
+            label = slowlabel
+            if label+"_mot" in header:
+                scaninfo["motslow"] = str(header[label+"_mot"])
+                scaninfo["startslow"] = np.float(header[label+"_start"])
+                scaninfo["endslow"] = np.float(header[label+"_end"])
+                scaninfo["nstepsslow"] = np.float(header[label+"_nbp"])
+            else:
+                return ret
+
+            scaninfo["name"] = "zapimage"
+
+    if scaninfo["name"] == "zapimage":
+        sfast = {"name":scaninfo["motfast"],"data":spec.zapline_values(scaninfo["startfast"],scaninfo["endfast"],scaninfo["npixelsfast"])}
+        sslow = {"name":scaninfo["motslow"],"data":spec.ascan_values(scaninfo["startslow"],scaninfo["endslow"],scaninfo["nstepsslow"])}
+
+        ret = (sfast,sslow)
+
+    return ret
 
 def getpos(path,sample,scannr,zapctr):
     f = os.path.join(path,sample,"zap","{}_arr_{}_{:04}_0000.edf".format(sample,zapctr,scannr))
