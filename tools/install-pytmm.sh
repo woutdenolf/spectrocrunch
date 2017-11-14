@@ -32,7 +32,9 @@ if [[ $NOTDRY == true ]]; then
 
     TMP=`$PYTHONBIN -c "import PyTMM,os; print(os.path.dirname(PyTMM.__file__));"`
     
+    echo "Copy database to $TMP/visirlib ..."
     cp -R database $TMP/visirlib
+    ls $TMP/visirlib
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))

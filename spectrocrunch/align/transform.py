@@ -28,11 +28,17 @@ import scipy.ndimage.interpolation
 
 class transform(object):
 
-    def __init__(self,transfotype,dtype=np.float,cval=np.nan):
+    def __init__(self,transfotype,dtype=np.float,cval=np.nan,**interpolationargs):
         self.transfotype = transfotype
         self.dtype = dtype
         self.cval = cval
 
+        if "order" not in interpolationargs:
+            interpolationargs["order"] = 1
+        if "mode" not in interpolationargs:
+            interpolationargs["mode"] = "constant"
+        self.interpolationargs = interpolationargs
+        
         # (change of frame matrices, not change of coordinates!)
         self.cof = self.getidentity()
 
@@ -354,14 +360,14 @@ class transform(object):
             return img
         if self.transfotype==transformationType.translation:
             # shift: takes transformation vector for coordinates (y,x)
-            return scipy.ndimage.interpolation.shift(img,-self.cof[1::-1],cval = self.cval,order=1,mode="constant")
+            return scipy.ndimage.interpolation.shift(img,-self.cof[1::-1],cval = self.cval,**self.interpolationargs)
         else:
             if self.islinearidentity():
                 # shift: takes transformation vector for coordinates (y,x)
-                return scipy.ndimage.interpolation.shift(img,-self.cof[1::-1,2],cval = self.cval,order=1,mode="constant")
+                return scipy.ndimage.interpolation.shift(img,-self.cof[1::-1,2],cval = self.cval,**self.interpolationargs)
             elif self.isprojidentity():
                 # affine_transform: takes change-of-frame matrix for coordinates (y,x)
-                return scipy.ndimage.interpolation.affine_transform(img,self.cof[0:2,0:2].T,offset=self.cof[1::-1,2],cval = self.cval,order=1,mode="constant")
+                return scipy.ndimage.interpolation.affine_transform(img,self.cof[0:2,0:2].T,offset=self.cof[1::-1,2],cval = self.cval,**self.interpolationargs)
             else:
                 raise NotImplementedError()
 

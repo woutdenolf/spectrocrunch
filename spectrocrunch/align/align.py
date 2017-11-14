@@ -68,7 +68,9 @@ class align(object):
             C4: post transformation (crop)
     """
 
-    def __init__(self,source,sourcelist,dest,destlist,extension,stackdim=None,overwrite=False,cval=np.nan,plot=False,transfotype=transformationType.translation):
+    def __init__(self,source,sourcelist,dest,destlist,extension,\
+                stackdim=None,overwrite=False,cval=np.nan,plot=False,\
+                transfotype=transformationType.translation):
         """
         """
 
