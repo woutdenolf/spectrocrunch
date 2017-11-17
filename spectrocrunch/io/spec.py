@@ -321,15 +321,15 @@ class edfheader_parser(object):
             r['endfast'] = np.float(header[self.fastlabel+"_end"])
             r['npixelsfast'] = np.int(header[self.fastlabel+"_nbp"])
         except:
-            pass
+            r['name'] = 'unknown'
             
         try:
             r['motslow'] = str(header[self.slowlabel+"_mot"])
             r['startslow'] = np.float(header[self.slowlabel+"_start"])
             r['endslow'] = np.float(header[self.slowlabel+"_end"])
-            r['npixelsslow'] = np.int(header[self.slowlabel+"_nbp"])
+            r['nstepsslow'] = np.int(header[self.slowlabel+"_nbp"])
         except:
-            pass
+            r['name'] = 'unknown'
 
         try:
             r['time'] = ureg.Quantity(np.float(header[self.timelabel]),self.timeunit)
@@ -342,7 +342,7 @@ class edfheader_parser(object):
             pass
                      
         if 'name' not in r:
-            r['name'] = 'unknown'
+            r['name'] = 'zapimage'
         
         return r
         

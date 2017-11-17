@@ -103,22 +103,23 @@ def dimensions(config):
 def getscanpositions(config,header):
     """Get scan dimensions from header
     """
-    result = {"name":"unknown"}
     
+    result = {"name":"unknown"}
+
     if "scanlabel" in config:
         if config["scanlabel"] in header:
             o = spec.cmd_parser()
             result = o.parsezapimage(header[config["scanlabel"]])
     elif "fastlabel" in config and "slowlabel" in config:
         o = spec.edfheader_parser(fastlabel=config["fastlabel"],slowlabel=config["slowlabel"])
-        result = o.parsezapimage(header)
+        result = o.parse(header)
 
     if result["name"]=="zapimage":
         sfast = {"name":result["motfast"],"data":spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])} 
         sslow = {"name":result["motslow"],"data":spec.ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])} 
         return (sfast["name"],sslow["name"],sfast,sslow)
     else:
-        raise RuntimeError("Scan command cannot be parsed for motor positions.")
+        raise RuntimeError("Header cannot be parsed for motor positions.")
 
 def getimagestacks(config):
     """Get image stacks (counters, ROI's, fitted maps)
@@ -188,7 +189,7 @@ def getimagestacks(config):
                     metafilename = filecounter(counterpath,scanname,metacounter,scannumber,idet=idet)
                     metafile = fabio.open(metafilename)
                     header = metafile.header
-
+ 
                     if iscan == 0 and ipath == 0:
                         try:
                             motfast,motslow,sfast,sslow = getscanpositions(config,header)
@@ -201,7 +202,7 @@ def getimagestacks(config):
 
                             tmp = filecounter(counterpath,scanname,metacounter,scannumber,idet=idet,getcount=True)
                             sslow = {"name":motslow,"data":np.arange(tmp)}
-                            
+
                         stackaxes[imgdim[1]] = sfast
                         stackaxes[imgdim[0]] = sslow
                         stackaxes[stackdim] = {"name":str(config["stacklabel"]),"data":np.full(nscanstot,np.nan,dtype=np.float32)}
