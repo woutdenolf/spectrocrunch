@@ -40,6 +40,8 @@ from ..common import units
 
 from ..materials import compoundfromformula 
 
+from ..materials import compoundfromname
+
 from ..materials import multilayer 
 
 from ..resources import resource_filename
@@ -47,6 +49,8 @@ from ..resources import resource_filename
 from ..optics import KB 
 
 from ..common import constants
+
+from ..math.common import round_sig
 
 #
 #
@@ -79,10 +83,12 @@ from ..common import constants
 #
 # An absolute diode measures both I(A) and P(W) so that
 # another diode which only measures I(A) can be calibrated:
-#  I(A) = P(W).FACT.K_abs(C/eV) + D(A)
-#    KR = K(C/eV)/K_abs(C/eV)
-#       = [I(A)-D(A)]/[I_abs(A)-D_abs(A)]
-#       = (1-T)/Ehole(eV) . Ehole_abs(eV)/(1-T_abs)
+#  I_abs(A) = P(W).R_abs(e/eV) + D_abs(A)
+#  I(A) = P(W).FACT.R_abs(e/eV) + D(A)
+#
+#   FACT = R(e/eV)/R_abs(e/eV)
+#        = [I(A)-D(A)]/[I_abs(A)-D_abs(A)] 
+#        = (1-T)/Ehole(eV) . Ehole_abs(eV)/(1-T_abs)
 #
 #
 
@@ -102,7 +108,10 @@ class Oscillator(object):
         self.F0 = F0.to("Hz")
         self.Vmax = Vmax.to("volt")
         self.pndiode = None
-        
+    
+    def __str__(self):
+        return "y hertz = {}/{} * x volt + {}".format(self.Fmax,self.Vmax,self.F0)
+    
     def _countspercoulomb(self):
         """Return counts-per-coulomb
 
@@ -161,8 +170,7 @@ class PNdiode(object):
         """
         self.material = material
         self.setgain(Rout)
-        #self.darkcurrent = noisepropagation.poisson(darkcurrent)
-        self.darkcurrent = units.Quantity(darkcurrent,"ampere")
+        self.setdark(darkcurrent)
         self.secondarytarget = secondarytarget
         self.optics = optics
         self.oscillator = oscillator
@@ -173,6 +181,13 @@ class PNdiode(object):
         self.thickness = None
         self.ehole = None
 
+    def __str__(self):
+        return "Diode material: {}\nEhole: {}\nthickness: {}\ngain: {:e}\ndarkcurrent: {}\nSecondary target: {}\nOptics: {}\nVoltage-to-Frequency: {}\n"\
+                .format(self.material,self.ehole,self.thickness,\
+                self.Rout,self.darkcurrent,self.secondarytarget,\
+                self.optics,self.oscillator)    
+    
+    
     def setgain(self,Rout):
         """Set output resistance of the picoamperemeter(keithley)
 
@@ -182,8 +197,19 @@ class PNdiode(object):
         Returns:
             None
         """
-        self.Rout = Rout.to("V/A")
-        
+        self.Rout = units.Quantity(Rout,"V/A")
+    
+    def setdark(self,dark):
+        """Set dark current
+
+        Args:
+            dark(num): dark current (Ampere)
+
+        Returns:
+            None
+        """
+        self.darkcurrent = units.Quantity(dark,"A")
+
     def _diode_attenuation(self,energy,thickness):
         """Calculate attenuation: 1-exp(-mu.rho.thickness)
 
@@ -195,6 +221,19 @@ class PNdiode(object):
             num or array-like: attenuation
         """
         return (1-np.exp(-self.material.mass_att_coeff(units.magnitude(energy,"keV"))*self.material.density*units.magnitude(thickness,"cm")))
+    
+    def _diode_thickness(self,energy,attenuation):
+        """Calculate thickness: att = 1-exp(-mu.rho.thickness)
+
+        Args:
+            energy(num): keV
+            attenuation: 
+
+        Returns:
+            num or array-like: attenuation
+        """
+        thickness = -np.log(1-attenuation)/(self.material.mass_att_coeff(units.magnitude(energy,"keV"))*self.material.density)
+        self.thickness = ureg.Quantity(thickness[0],"cm")
     
     def spectral_responsivity(self,energy):
         """Generated current per radiative power
@@ -229,7 +268,7 @@ class PNdiode(object):
             T = 1
         else:
             # TODO: should loop over energy when multilayer does the proper calculation
-            energy,Y = self.secondarytarget.spectrum(energy)
+            energy,Y = self.secondarytarget.spectrum(units.magnitude(energy,"keV"))
             T = self.secondarytarget.transmission(energy)
         
         return energy,T,Y
@@ -342,8 +381,8 @@ class PNdiode(object):
             num or array-like: current (A)
         """
 
-        op = self.op_fluxtocurrent(energy.to("keV"))
-        return op(flux.to("Hertz"))
+        op = self.op_fluxtocurrent(units.Quantity(energy,"keV"))
+        return op(units.Quantity(flux,"Hertz")).to("ampere")
 
     def currenttoflux(self,energy,current):
         """
@@ -355,8 +394,8 @@ class PNdiode(object):
             num or array-like: flux (ph/s)
         """
 
-        op = self.op_currenttoflux(energy.to("keV"))
-        return op(current.to("ampere"))
+        op = self.op_currenttoflux(units.Quantity(energy,"keV"))
+        return op(units.Quantity(current,"ampere")).to("hertz")
 
     def cpstoflux(self,energy,cps):
         """
@@ -368,8 +407,8 @@ class PNdiode(object):
             num or array-like: flux (ph/s)
         """
 
-        op = self.op_cpstoflux(energy.to("keV"))
-        return op(cps.to("hertz"))
+        op = self.op_cpstoflux(units.Quantity(energy,"keV"))
+        return op(units.Quantity(cps,"hertz")).to("hertz")
 
     def fluxtocps(self,energy,flux):
         """
@@ -381,8 +420,8 @@ class PNdiode(object):
             num or array-like: cps (cts/s)
         """
 
-        op = self.op_fluxtocps(energy.to("keV"))
-        return op(flux.to("hertz"))
+        op = self.op_fluxtocps(units.Quantity(energy,"keV"))
+        return op(units.Quantity(flux,"hertz")).to("hertz")
 
     def currenttocps(self,current):
         """
@@ -393,7 +432,7 @@ class PNdiode(object):
             num or array-like: cps (cts/s)
         """
         op = self.op_currenttocps()
-        return op(current.to("ampere"))
+        return op(units.Quantity(current,"ampere")).to("hertz")
         
     def cpstocurrent(self,cps):
         """
@@ -404,7 +443,70 @@ class PNdiode(object):
             num or array-like: current (A)
         """
         op = self.op_cpstocurrent()
-        return op(cps.to("herz"))
+        return op(units.Quantity(cps,"hertz")).to("ampere")
+
+    def xrfnormop(self,energy,time,refcts):
+        """ Operator to convert the raw diode signal to a flux normalizing signal
+        
+            XRF flux normalization:
+            Ixrf(cts) = F(cps).t(s).cxrf          (measured xrf)
+            Ixrf(cts)/norm = F'(cps).t(s).cxrf    (desired xrf)
+            norm = F/F' = cpstoflux(Idiode/t)/cpstoflux(Idioderef/t) = op(Idiode)
+            op: x-> cpstoflux(x/t)/cpstoflux(Idioderef/t)
+                        
+        Args:
+            energy(num): keV
+            time(num): sec
+            refcts(num): average expected diode counts within time
+
+        Returns:
+            op(linop): 
+            refflux(num): reference flux ph/s, op(refcts)~=1
+        """
+
+        # op = cpstoflux(.../t)
+        op = self.op_cpstoflux(energy)
+        op.m /= units.Quantity(time,"s")
+        
+        # F' = op(Idioderef)
+        refflux = units.Quantity(round_sig(units.magnitude(op(refcts),"hertz"),2),"hertz")
+        
+        # op = op/op(Idioderef)
+        op.m /= refflux
+        op.b /= refflux
+        op.m = units.magnitude(op.m,"dimensionless")
+        op.b = units.magnitude(op.b,"dimensionless")
+        
+        return op,refflux
+        
+    def gainfromcps(self,energy,cps,fluxest):
+        """Estimate the gain, assuming it is 10^x V/A
+        
+        Args:
+            energy(num): keV
+            cps(num): 
+            fluxest(num): estimated flux 
+
+        Returns:
+            None
+        """
+        fluxcalc = self.cpstoflux(energy,cps)
+        r = np.log10(fluxcalc/units.magnitude(units.Quantity(fluxest,"hertz"),"dimensionless"))
+        r = int(round(np.nanmedian(r)))
+        R = units.Quantity(10**(np.log10(units.magnitude(self.Rout,"V/A"))+r),"V/A")
+        self.setgain(R)
+
+    def darkfromcps(self,darkcps):
+        """Dark current from cps
+        
+        Args:
+            darkcps(num): measured dark counts per second
+
+        Returns:
+            None
+        """
+        darkcurrent = self.cpstocurrent(np.nanmedian(darkcps))
+        self.setdark(darkcurrent)
         
         
 class AbsolutePNdiode(PNdiode):
@@ -482,7 +584,6 @@ class AbsolutePNdiode(PNdiode):
         #ax.set_ylabel(response.units)
         #plt.show()
 
-
 class CalibratedPNdiode(PNdiode):
 
     def __init__(self, energy=None, reponseratio=None, absdiode=None, model=True, **kwargs):
@@ -553,7 +654,7 @@ class CalibratedPNdiode(PNdiode):
         #energy = ureg.Quantity(np.linspace(min(energy)*0.9,max(energy)*1.1,100),'keV')
         #plt.plot(energy,self._spectral_responsivity_ratio(energy))
         #plt.show()
-
+        
 
 class NonCalibratedPNdiode(PNdiode):
 
@@ -568,41 +669,65 @@ class NonCalibratedPNdiode(PNdiode):
         if thickness is None:
             self.thickness = None
         else:
-            self.thickness = ureg.Quantity(thickness,"micrometer")
+            self.thickness = units.Quantity(thickness,"micrometer")
             
         if ehole is None:
             self.ehole = None
         else:
-            self.ehole = ureg.Quantity(ehole,"eV")
+            self.ehole = units.Quantity(ehole,"eV")
 
-    def calibrate_cps(self,energy,cps,sampleflux):
+    def calibrate(self,cps,sampleflux,energy,calibtarget=False):
         """Calibrate with another diode measuring the flux at the sample position
-        
-            I(A) = Is(ph/s).Y/(Ts.To).E(eV/ph).1(e).(1-T)/Ehole(eV) + D(A)
-        
+
         Args:
-            energy(num):
-            cps(array): 
-            sampleflux(array): Is
-        
+            cps(array): count rate measured by this diode (cts/s)
+            sampleflux(array): flux measured at the sample position (ph/s)
+            energy(num): keV
+            calibtarget(Optional(bool)): this only works when you need calibration at 1 energy
+            
         Returns:
             None
         """
-        current = self.cpstocurrent(cps)
+        energy = units.Quantity(energy,"keV")
+
+        if self.optics is None and self.secondarytarget is None:
+            raise RuntimeError("Optics or secondary target need for calibration")
+        
+        current = self.cpstocurrent(units.Quantity(cps,"hertz"))
 
         # I(A) = Is(ph/s).slope + intercept
         # I(A) = Is(ph/s).chargepersamplephoton/cor + D(A)
         # chargepersamplephoton = Y/(Ts.To).E(eV/ph).1(e).(1-T)/Ehole(eV)
         
-        slope,intercept = linfit(sampleflux,current)
+        slope,intercept = linfit(units.magnitude(sampleflux,"hertz"),units.magnitude(current,"ampere"))
         slope = units.Quantity(slope,"ampere/hertz")
         self.darkcurrent = units.Quantity(intercept,"ampere")
         
-        cor = self._chargepersamplephoton(energy)/slope
-        
-        To = self.optics.transmission(energy)
-        self.optics.set_transmission(energy,To*cor)
+        cor = units.magnitude(self._chargepersamplephoton(energy)/slope,"dimensionless")
 
+        if calibtarget:
+            # Y' = Y/cor
+            sa = self.secondarytarget.geometry.solidangle/cor
+            if sa<0 or sa>(2*np.pi):
+                    raise RuntimeError("Diode solid angle of {} srad is not valid (possible wrong parameters: optics transmission, diode thickness)".format(attenuation))
+            self.secondarytarget.geometry.solidangle = sa
+        else:
+            # (1-T')/To' = (1-T)/(To.cor)
+            # diode transmission (function of thickness): 0 < T' <= 1
+            # optics transmission: 0 < To' <= 1
+            
+            if self.optics is None:
+                attenuation = self._diode_attenuation(energy,self.thickness)/cor
+                if attenuation<0 or attenuation>1:
+                    raise RuntimeError("Diode attenuation of {} is not valid (possible wrong parameters: optics transmission, diode solid angle)".format(attenuation))
+                self._diode_thickness(energy,attenuation)
+            else:
+                To = self.optics.transmission(units.magnitude(energy,"keV"))*cor
+                if To<0 or To>1:
+                    raise RuntimeError("Optics transmission of {} is not valid (possible wrong parameters: diode thickness, diode solid angle)".format(To))
+                
+                self.optics.set_transmission(units.magnitude(energy,"keV"),To)
+                
 def sxmptb(model=True):
     diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
     
@@ -633,18 +758,42 @@ def sxmidet(model=True):
                         energy=energy,reponseratio=responseratio,model=model,absdiode=absdiode,\
                         oscillator=vtof)
     return ird
+
+def sxmidettest(model=True):
+    # This is a test: assumes sxmidet responds like an absolute diode (which is not the case)
+    diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
+
+    absdiode = sxmptb(model=model)
+
+    vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
+                    F0=ureg.Quantity(0,"Hz"),\
+                    Vmax=ureg.Quantity(10,"volt"))
+
+    ird = np.loadtxt(resource_filename('id21/ird.dat'))
+    energy = ureg.Quantity(ird[:-1,0],"keV")
+    responseratio = ird[:-1,1]
+    response = responseratio*absdiode.spectral_responsivity(energy)
     
-def sxmiodet(num=2):
-    diodematerial = compound("Si",0,name="Si")
+    ird = AbsolutePNdiode(material=diodematerial,\
+                        Rout=ureg.Quantity(1e5,"volt/ampere"),\
+                        darkcurrent=ureg.Quantity(0,"ampere"),\
+                        energy=energy,response=response,model=model,\
+                        oscillator=vtof)
+    return ird
+      
+def sxmiodet(num=-1,model=True):
+    diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
     
     window = compoundfromname.compoundfromname("silicon nitride")
     if num==1:
         coating = compoundfromformula.CompoundFromFormula("Ti",0,name="Ti")
-        secondarytarget = multilayer.Multilayer(material=[coating,window],thickness=[1,0.5],anglein=0,angleout=135,solidangle=0.1*4*np.pi)
+        secondarytarget = multilayer.Multilayer(material=[coating,window],thickness=[0.5,0.5],anglein=0,angleout=135,solidangle=0.15*4*np.pi)
+    elif num==2:
+        secondarytarget = multilayer.Multilayer(material=[window],thickness=[0.5],anglein=0,angleout=135,solidangle=0.15*4*np.pi)
     else:
-        secondarytarget = multilayer.Multilayer(material=[window],thickness=[0.5],anglein=0,angleout=135,solidangle=0.1*4*np.pi)
+        raise RuntimeError("Unknown SXM iodet")
         
-    optics = KB.KB(transmission=0.3)
+    optics = KB.KB()
 
     vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
                         F0=ureg.Quantity(0,"Hz"),\
@@ -655,19 +804,18 @@ def sxmiodet(num=2):
                             darkcurrent=ureg.Quantity(0,"ampere"),\
                             thickness=ureg.Quantity(1,"mm"),\
                             ehole=constants.eholepair_si(),\
-                            model=model,\
                             oscillator=vtof,\
                             secondarytarget=secondarytarget,\
                             optics=optics)
     return iodet
     
-def sxmiodet1():
-    return sxmiodet(num1)
+def sxmiodet1(**kwargs):
+    return sxmiodet(num=1,**kwargs)
 
-def sxmiodet2():
-    return sxmiodet(num2)
+def sxmiodet2(**kwargs):
+    return sxmiodet(num=2,**kwargs)
 
-def xrdpico1():
+def xrdpico1(model=True):
     diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
 
     pico1 = NonCalibratedPNdiode(material=diodematerial,\
@@ -676,4 +824,12 @@ def xrdpico1():
                                 thickness=ureg.Quantity(1,"mm"),\
                                 ehole=constants.eholepair_si(),\
                                 model=model)
-                                    
+
+diodes = {"idet":sxmidet,\
+          "iodet1":sxmiodet1,\
+          "iodet2":sxmiodet2,\
+          "pico1":xrdpico1}
+
+def factory(name,**kwargs):
+    return diodes[name](**kwargs)
+

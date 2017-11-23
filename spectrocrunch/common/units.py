@@ -25,15 +25,18 @@
 from .. import ureg
 
 def Quantity(x,units=None):
-    """Add units when not present
+    """Add units when not present. Use instead of ureg.Quantity in case x may already be a Quantity.
     """
-    if isinstance(x,ureg.Quantity):
+    try:
+        x.units
         return x
-    else:
+    except:
         return ureg.Quantity(x,units=units)
 
 def magnitude(x,units=None):
-    if isinstance(x,ureg.Quantity):
+    """Magnitude when Quantity, untouched otherwise.
+    """
+    try:
         return x.to(units).magnitude
-    else:
+    except:
         return x

@@ -26,20 +26,33 @@ from scipy import interpolate
 
 from operator import itemgetter
 
+import numpy as np
+
+from ..common import instance
+
 class KB(object):
 
     def __init__(self):
         self._tbl = {}
         self._transmission = lambda energy: 1
     
+    def __str__(self):
+        s = '\n '.join("{} keV: {} %".format(k,v*100) for k,v in self._tbl.items())
+        return "KB transmission:\n {}".format(s)
+    
     def transmission(self,energy):
         return self._transmission(energy)
     
     def set_transmission(self,energy,transmission):
-        self._tbl.update(dict(zip(energy,transmission)))
+        if instance.isnumber(energy):
+            self._tbl[energy] = transmission
+        else:
+            self._tbl.update(dict(zip(energy,transmission)))
+ 
         (x,y) = zip(*sorted(self._tbl.items(), key=itemgetter(0)))
 
         if len(x)==1:
-            self._transmission = lambda energy: y
+            self._transmission = lambda energy: y[0]
         else:
-            self._transmission = interpolate.interp1d(x,y,bounds_error=False,fill_value=(x[0],x[-1]))
+            self._transmission = interpolate.interp1d(list(x),list(y),bounds_error=False,fill_value=(x[0],x[-1]))
+

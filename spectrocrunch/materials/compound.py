@@ -182,6 +182,14 @@ class Compound(Hashable):
             nfrac /= nfrac.sum()
             return dict(zip(self.elements.keys(),nfrac))
 
+    def arealdensity(self):
+        """Areal density in ng/mm^2
+        """
+        # arealdensity (ng/mm^2) = w * density(g/cm^3) * 2e-5 (cm) * 1e-2 (cm^2/mm^2) * 1e9 (ng/g)
+        w = self.weightfractions()
+        arealdensity = np.asarray(w.values())*(self.density*200)
+        return dict(zip(w.keys(),arealdensity))
+        
     def markabsorber(self,symb,shells=[],fluolines=[]):
         """
         Args:
@@ -332,12 +340,16 @@ class Compound(Hashable):
                 return ret
         return None
 
-    def pymcaformat(self,thickness=0.0):
-        key = self.name
+    def pymcaformat(self,thickness=0.0,name=None):
         
         r = self.weightfractions()
         
-        value = {'Comment': self.name,
+        if name is None:
+            name = self.name
+        
+        key = name
+        
+        value = {'Comment': name,
                 'CompoundFraction': r.values(),
                 'Thickness': thickness,
                 'Density': self.density,

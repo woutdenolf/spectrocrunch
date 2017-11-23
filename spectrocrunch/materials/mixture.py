@@ -160,6 +160,20 @@ class Mixture(object):
             nfrac /= nfrac.sum()
             return dict(zip(self.compounds.keys(),nfrac))
 
+    def arealdensity(self):
+        """Areal density in ng/mm^2
+        """
+        arealdensity = {}
+        for c in self.compounds:
+            tmp = c.arealdensity()
+            for e,ad in tmp.items():
+                if e in arealdensity:
+                    arealdensity[e] += ad
+                else:
+                    arealdensity[e] = ad
+        
+        return arealdensity
+        
     @property
     def density(self):
         MM = np.asarray([c.molarmass() for c in self.compounds])

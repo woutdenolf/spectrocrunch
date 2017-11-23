@@ -101,12 +101,25 @@ class test_objects(unittest.TestCase):
                     np.testing.assert_allclose(flux1,flux2)
 
     def test_noncalibrateddiode(self):
-        pass
+    
+        for calibtarget in [False,True]:
+            o = diode.sxmiodet1()
+
+            energy = ureg.Quantity(7.1,"keV")
+            cps = ureg.Quantity(np.linspace(1e4,1e5,10),"Hz")
+            sampleflux = o.cpstoflux(energy,cps)*0.5
+
+            o.calibrate(cps,sampleflux,energy,calibtarget=calibtarget)
+            
+            np.testing.assert_allclose(sampleflux,o.cpstoflux(energy,cps))
+        
+        
+        
     
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_objects("test_calibrateddiode"))
+    #testSuite.addTest(test_objects("test_calibrateddiode"))
     testSuite.addTest(test_objects("test_noncalibrateddiode"))
     
     return testSuite

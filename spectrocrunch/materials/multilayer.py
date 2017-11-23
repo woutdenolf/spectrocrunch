@@ -41,6 +41,9 @@ class Geometry(object):
         self.cosangleout = np.cos(np.radians(angleout))
         self.solidangle = solidangle
         
+    def __str__(self):
+        return "Solid angle = 4*pi*{} srad \n In = {} deg\n Out = {} deg"\
+        .format(self.solidangle/(4*np.pi),np.degrees(np.arccos(self.cosanglein)),np.degrees(np.arccos(self.cosangleout)))
         
 class Layer(object):
 
@@ -53,19 +56,19 @@ class Layer(object):
             geometry(Geometry): multilayer geometry
         """
         self.material = material
-        self._thickness = thickness*1e-4
+        self._thickness = thickness
         self.fixed = fixed
         self.geometry = geometry
 
     def __str__(self):
-        return "{}: {} μm".format(self.material,self._thickness*1e4)
+        return "{}: {} μm".format(self.material,self._thickness)
         
     def __getattr__(self,name):
         return getattr(self.material,name)
     
     @property
     def thickness(self):
-        return self._thickness*self.geometry.cosanglein
+        return self._thickness*self.geometry.cosanglein*1e-4
     
     def absorbance(self,energy,fine=False,decomposed=False):
         if decomposed:
@@ -118,7 +121,7 @@ class Multilayer(object):
   
     def __str__(self):
         layers = "\n ".join("{}. {}".format(i,str(layer)) for i,layer in enumerate(self))
-        return "Multilayer (ordered top-bottom):\n {}".format(layers)
+        return "Multilayer (ordered top-bottom):\n {}\nGeometry\n {}".format(layers,self.geometry)
 
     def markscatterer(self,name):
         for layer in self:
