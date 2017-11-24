@@ -32,6 +32,7 @@ import itertools
 import collections
 import operator
 import numbers
+import re
 
 from ..common import indexing
 from ..common import listtools
@@ -43,26 +44,54 @@ import logging
 logger = logging.getLogger(__name__)
 
 import contextlib
-      
+
+class XiaRegex():
+
+    def __init__(self,counters=None):
+        defaultcounters = ["xmap","arr","PUZ_arr","PUZ_xmap","zap"]
+        
+        number = "[0-9]{4,}"
+        fnumber = "[0-9]{{4,}}"
+        
+        xiafmt = "^(?P<radix>.+)_(?P<label>xia..)_(?P<mapnum>{})_0000_(?P<linenum>{}).edf$"
+        ctrfmt = "^(?P<radix>.+)_(?P<label>{{}}.+)_(?P<mapnum>{})_0000.edf$".format(fnumber)
+
+        self.xianames = [re.compile(xiafmt.format(number,number))]
+        self.xianames += [re.compile(ctrfmt.format(ctr)) for ctr in defaultcounters]
+        if counters is not None:
+            self.xianames += [re.compile(ctrfmt.format(ctr)) for ctr in counters]
+        
+    def parse(self,filename):
+        filename = os.path.basename(filename)
+        for xianame in self.xianames:
+            m = xianame.match(filename)
+            if m:
+                return m.groupdict()
+        return {}
+
+xiaregex = XiaRegex()
+
 def xiaparsefilename(filename):
     """
     Args:
-        filename(str): [path]/[radix]_[label]_[num]_0000_[linenumber].edf  ->  spectra
-                       [path]/[radix]_[label]_[num]_0000.edf               ->  counters
+        filename(str): path/[radix]_[label]_[num]_0000_[linenumber].edf  ->  spectra
+                       path/[radix]_[label]_[num]_0000.edf               ->  counters
     Returns
         tuple: radix, mapnum, linenum, label
     """
-    lst = os.path.splitext(os.path.basename(filename))[0].split('_')
     
-    if len(lst)>4:
-        label = lst[-4]
-        if "xia" in label:
-            return '_'.join(lst[:-4]),int(lst[-3]),int(lst[-1]),lst[-4]
-    
-    if lst[-4]=="zap" or lst[-4]=="xmap" or lst[-4]=="arr":
-        return '_'.join(lst[:-4]),int(lst[-2]),-1,'_'.join(lst[-4:-2])
+    m = xiaregex.parse(filename)
+    if m:
+        radix = m["radix"]
+        label = m["label"]
+        mapnum = int(m["mapnum"])
+        if "linenum" in m:
+            linenum = int(m["linenum"])
+        else:
+            linenum = -1
+        return radix, mapnum, linenum, label
     else:
-        return '_'.join(lst[:-3]),int(lst[-2]),-1,lst[-3]
+        raise RuntimeError("{} does not have the proper XIA format".format(filename))
     
 def xiafilename(radix,mapnum,linenum,label):
     if linenum==-1:
@@ -410,6 +439,9 @@ class xiadict(dict):
         if "envactive" not in self:
             self["envactive"] = False
 
+        if "counter_reldir" not in self:
+            self["counter_reldir"] = "." # relative to the path of the xia files
+
     def skipdetectors(self,lst):
         self["detectors"]["skip"] = lst
 
@@ -436,7 +468,7 @@ class xiadict(dict):
 
     def dtcor(self,b):
         self["dtcor"] = b
-
+        
     def norm(self,ctr,func=None):
         self["norm"]["ctr"] = ctr
         if callable(func):
@@ -480,6 +512,9 @@ class xiadict(dict):
         # Normalization info is only available on level 1
         self["correctionlevel"]["norm"] = 1
 
+    def counter_reldir(self,reldir):
+        self["counter_reldir"] = reldir
+        
 class cachedict(dict):
 
     def __init__(self,*args,**kwargs):
@@ -624,6 +659,9 @@ class xiadata(object):
     def norm(self,ctr,func=None):
         self._xiaconfig.norm(ctr,func=func)
 
+    def counter_reldir(self,reldir):
+        self._xiaconfig.counter_reldir(reldir)
+        
     def _getnormalizer(self):
         raise NotImplementedError("This object does not have normalization information")
         
@@ -1321,6 +1359,10 @@ class xiaimage(xiacompound):
             m = self._getedfimage(f)
 
         return m
+    
+    def ctrsearch(self):
+        path = os.path.abspath(os.path.join(self.path,self._xiaconfig["counter_reldir"]))
+        self._ctrfiles = xiasearch(path,radix=self.radix,mapnum=self.mapnum,onlyctrs=True)
         
 class xiastack(xiacompound):
     """Compounds XIA images
@@ -1450,7 +1492,7 @@ class xiaimage_linenumbers(xiaimage):
         self._items = [xialine_number(path,radix,mapnum,linenum,**kwargs) for linenum in linenums]
 
     def search(self):
-        self._ctrfiles = xiasearch(self.path,radix=self.radix,mapnum=self.mapnum,onlyctrs=True)
+        self.ctrsearch()
         
 class xiaimage_files(xiaimage):
     """XIA image determined by a list of files
@@ -1517,8 +1559,8 @@ class xiaimage_number(xiaimage):
             n = xiagroupnxiafiles(files.values()[0]) # number of files in the first map
             self._items = [xialine_files(f,**self.linekwargs) for linenum,f in files.items() if xiagroupnxiafiles(f) == n]
         
-        self._ctrfiles = xiasearch(self.path,radix=self.radix,mapnum=self.mapnum,onlyctrs=True)
-
+        self.ctrsearch()
+        
     def save(self,data,xialabels,stats=None,ctrs=None):
         """
         Args:
@@ -1559,7 +1601,7 @@ class xiastack_files(xiastack):
         self._items = [xiaimage_files(fmap,**kwargs) for radix,fradix in files.items() for mapnum,fmap in fradix.items()]
 
 class xiastack_radix(xiastack):
-    """XIA stack determined by its radix
+    """XIA stack determined by its radices
     """
 
     def __init__(self,path,radix,**kwargs):
@@ -1616,3 +1658,68 @@ class xiastack_radix(xiastack):
 
         xiastack.save(self,data,xialabels,stats=stats,ctrs=ctrs)
 
+class xiastack_mapnumbers(xiastack):
+    """XIA stack determined by its radices and mapnumbers
+    """
+
+    def __init__(self,path,radix,mapnumbers,**kwargs):
+        """
+        Args:
+            path(str or list(str)): path
+            radix(str or list(str)): radix
+            mapnumbers(list(int) or list(list(int))): mapnumbers
+
+        Returns:
+            None
+        """
+        xiastack.__init__(self,**kwargs)
+        self._update_kwargs(kwargs)
+
+        if not isinstance(path,list):
+            path = [path]
+        if not isinstance(radix,list):
+            radix = [radix]
+        if not isinstance(mapnumbers[0],list):
+            mapnumbers = [mapnumbers]*len(radix) # each radix the same map numbers
+
+        self.path = path
+        self.radix = radix
+        self.mapnumbers = dict(zip(radix,mapnumbers))
+        
+        self._fileformat = [os.path.join(p,xiaformat_radix(r)) for p,r in zip(self.path,self.radix)]
+
+        self.imagekwargs = kwargs
+
+    def __str__(self):
+        return "xiastack{}: {}".format(str(self.dshape),self._fileformat)
+
+    def search(self):
+        files = [xiasearch(p,radix=r) for p,r in zip(self.path,self.radix)]
+        files = list(listtools.flatten(files))
+        if len(files)==0:
+            return
+            
+        files = xiagroup(files)
+
+        n = xiagroupnxiafiles(files.values()[0].values()[0]) # number of files in the first map
+        self._items = [xiaimage_files(fmap,**self.imagekwargs) for radix,fradix in files.items()\
+                                                     for mapnum,fmap in fradix.items()\
+                                                     if mapnum in self.mapnumbers[radix] and xiagroupnxiafiles(fmap)==n]
+
+    def save(self,data,xialabels,stats=None,ctrs=None):
+        """
+        Args:
+            data(array): dimensions = nmaps x nlines x nspec x nchan x ndet
+            xialabels(list): number of labels = ndet
+            stats(Optional(array)): dimensions = nmaps x nlines x nspec x nstats x ndet
+            ctrs(Optional(dict)): dimensions = nlines x nspec
+        Returns:
+            None
+        """
+
+        if len(self._items)==0:
+            nmaps = data.shape[0]
+            self._items = [xiaimage_number(self.path[-1],self.radix[-1],mapnum,**self.imagekwargs) for mapnum in range(nmaps)]
+
+        xiastack.save(self,data,xialabels,stats=stats,ctrs=ctrs)
+        

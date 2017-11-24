@@ -65,12 +65,22 @@ class test_xiaedf(unittest.TestCase):
         #self.pr.disable()
         #self.pr.dump_stats("keep.cprof")
 
+    def test_nameparsing_special(self):
+        self.assertEqual(xiaedf.xiaparsefilename("l1e1_zap_roi_frelon2_fr2_avg_0001_0000.edf"),\
+                        ("l1e1",1,-1,"zap_roi_frelon2_fr2_avg"))
+    
+        
+        #xiaedf.xiaparsefilename("test_puz_PUZ_xmap_x1_00_0009_0000.edf")
+        #xiaedf.xiaparsefilename("samB6_mapa_xmap_x3c_00_0002_0000.edf")
+        #xiaedf.xiaparsefilename("samB6_mapa_xiast_0002_0000_0069.edf")
+
+        
     def test_nameparsing(self):
         paths = ['/tmp/a1','/tmp/a2','/tmp/b1']
         radix = ['a','a','b']
         mapnums = [range(0,100),range(100,200),range(0,50)]
         linenums = [range(0,100),range(0,100),range(0,50)]
-        labels = [['ctr1','ctr2','xia00','xia01','xiaS0','xiast']]*3
+        labels = [['arr_1','arr_2','xia00','xia01','xiaS0','xiast']]*3
         
         p = zip(paths,radix,mapnums,linenums,labels)
 
@@ -174,7 +184,7 @@ class test_xiaedf(unittest.TestCase):
         for dsum in [False,True]:
             xiaobject.detectorsum(dsum)
             for norm in [False,True]:
-                xiaobject.norm("flux" if norm else None)
+                xiaobject.norm("arr_flux" if norm else None)
                 for dtcor in [False,True]:
                     xiaobject.dtcor(dtcor)
                     for onlyicrocr in [False,True]:
@@ -316,7 +326,7 @@ class test_xiaedf(unittest.TestCase):
         dataorg = dataorg.reshape(nrow,ncol,nchan,ndet,3)
         data = data.reshape(nrow,ncol,nchan,ndet)
         stats = stats.reshape(nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
-        ctrs = {"flux":flux.reshape(nrow,ncol)}
+        ctrs = {"arr_flux":flux.reshape(nrow,ncol)}
         
         # Save data
         image = xiaedf.xiaimage_number(path,radix,mapnum)
@@ -368,7 +378,7 @@ class test_xiaedf(unittest.TestCase):
         dataorg = dataorg.reshape(nenergy,nrow,ncol,nchan,ndet,3)
         data = data.reshape(nenergy,nrow,ncol,nchan,ndet)
         stats = stats.reshape(nenergy,nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
-        ctrs = {"flux":flux.reshape(nenergy,nrow,ncol)}
+        ctrs = {"arr_flux":flux.reshape(nenergy,nrow,ncol)}
         
         # Save data
         stack = xiaedf.xiastack_radix(path,radix)
@@ -387,13 +397,20 @@ class test_xiaedf(unittest.TestCase):
         files = xiaedf.xiasearch(path,radix=radix)
         stack2 = xiaedf.xiastack_files(files)
         stack3 = xiaedf.xiastack_radix(path,radix)
+        stack4 = xiaedf.xiastack_mapnumbers(path,radix,range(nenergy))
+        
         self.assertEqual(files,sorted([os.path.join(path,f) for f in expectedfiles],key=xiaedf.xiasortkey))
         self.assertEqual(stack.statfilenames(),stack2.statfilenames())
         self.assertEqual(stack.datafilenames(),stack2.datafilenames())
         self.assertEqual(stack.ctrfilenames(),stack2.ctrfilenames())
         
         self.assertEqual(stack.statfilenames(),stack3.statfilenames())
+        self.assertEqual(stack.datafilenames(),stack3.datafilenames())
         self.assertEqual(stack.ctrfilenames(),stack3.ctrfilenames())
+
+        self.assertEqual(stack.statfilenames(),stack4.statfilenames())
+        self.assertEqual(stack.datafilenames(),stack4.datafilenames())
+        self.assertEqual(stack.ctrfilenames(),stack4.ctrfilenames())
 
         # Check data
         dshape = (nenergy,nrow,ncol,nchan,ndet)
@@ -441,6 +458,7 @@ def test_suite_all():
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_xiaedf("test_memmap"))
     testSuite.addTest(test_xiaedf("test_nameparsing"))
+    testSuite.addTest(test_xiaedf("test_nameparsing_special"))
     testSuite.addTest(test_xiaedf("test_line"))
     testSuite.addTest(test_xiaedf("test_image"))
     testSuite.addTest(test_xiaedf("test_stack"))
