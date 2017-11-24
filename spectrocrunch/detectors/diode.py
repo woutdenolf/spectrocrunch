@@ -222,7 +222,7 @@ class PNdiode(object):
         """
         return (1-np.exp(-self.material.mass_att_coeff(units.magnitude(energy,"keV"))*self.material.density*units.magnitude(thickness,"cm")))
     
-    def _diode_thickness(self,energy,attenuation):
+    def thicknessfromattenuation(self,energy,attenuation):
         """Calculate thickness: att = 1-exp(-mu.rho.thickness)
 
         Args:
@@ -507,6 +507,29 @@ class PNdiode(object):
         """
         darkcurrent = self.cpstocurrent(np.nanmedian(darkcps))
         self.setdark(darkcurrent)
+    
+    def setsolidangle(self,solidangle):
+        """Set solid angle of a diode with secondary target
+        
+        Args:
+            solidangle(num): srad
+
+        Returns:
+            None
+        """
+        self.secondarytarget.geometry.solidangle = solidangle
+        
+    def setopticstransmission(self,energy,transmission):
+        """Set optics transmission for a particular energy
+        
+        Args:
+            energy(num): keV
+            transmission(num)
+
+        Returns:
+            None
+        """
+        self.optics.set_transmission(units.magnitude(energy,"keV"),transmission)
         
         
 class AbsolutePNdiode(PNdiode):
@@ -690,8 +713,8 @@ class NonCalibratedPNdiode(PNdiode):
         """
         energy = units.Quantity(energy,"keV")
 
-        if self.optics is None and self.secondarytarget is None:
-            raise RuntimeError("Optics or secondary target need for calibration")
+        if calibtarget and self.secondarytarget is None:
+            raise RuntimeError("Secondary target need for calibration")
         
         current = self.cpstocurrent(units.Quantity(cps,"hertz"))
 
@@ -701,32 +724,40 @@ class NonCalibratedPNdiode(PNdiode):
         
         slope,intercept = linfit(units.magnitude(sampleflux,"hertz"),units.magnitude(current,"ampere"))
         slope = units.Quantity(slope,"ampere/hertz")
-        self.darkcurrent = units.Quantity(intercept,"ampere")
+        intercept = units.Quantity(intercept,"ampere")
         
+        # Adapt dark current:
+        self.setdark(intercept)
+        
+        # Adapt diode thickness, solid angle or transmission
         cor = units.magnitude(self._chargepersamplephoton(energy)/slope,"dimensionless")
 
         if calibtarget:
+            # Correct the secondary target yield by changing the diode solid angle
             # Y' = Y/cor
             sa = self.secondarytarget.geometry.solidangle/cor
             if sa<0 or sa>(2*np.pi):
-                    raise RuntimeError("Diode solid angle of {} srad is not valid (possible wrong parameters: optics transmission, diode thickness)".format(attenuation))
-            self.secondarytarget.geometry.solidangle = sa
+                    raise RuntimeError("Diode solid angle of 4*pi*{} srad is not valid (possible wrong parameters: optics transmission, diode thickness)".format(sa/(4*np.pi)))
+            self.setsolidangle(sa)
         else:
             # (1-T')/To' = (1-T)/(To.cor)
             # diode transmission (function of thickness): 0 < T' <= 1
             # optics transmission: 0 < To' <= 1
             
             if self.optics is None:
+                # Correct the diode thickness
                 attenuation = self._diode_attenuation(energy,self.thickness)/cor
                 if attenuation<0 or attenuation>1:
-                    raise RuntimeError("Diode attenuation of {} is not valid (possible wrong parameters: optics transmission, diode solid angle)".format(attenuation))
-                self._diode_thickness(energy,attenuation)
+                    raise RuntimeError("Diode attenuation of {} % is not valid (possible wrong parameters: optics transmission, diode solid angle)".format(attenuation*100))
+                
+                self.thicknessfromattenuation(energy,attenuation)
             else:
+                # Correct the optics transmission
                 To = self.optics.transmission(units.magnitude(energy,"keV"))*cor
                 if To<0 or To>1:
-                    raise RuntimeError("Optics transmission of {} is not valid (possible wrong parameters: diode thickness, diode solid angle)".format(To))
+                    raise RuntimeError("Optics transmission of {} % is not valid (possible wrong parameters: diode thickness, diode solid angle)".format(To*100))
                 
-                self.optics.set_transmission(units.magnitude(energy,"keV"),To)
+                self.setopticstransmission(energy,To)
                 
 def sxmptb(model=True):
     diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
@@ -781,7 +812,7 @@ def sxmidettest(model=True):
                         oscillator=vtof)
     return ird
       
-def sxmiodet(num=-1,model=True):
+def sxmiodet(num=-1,optics=False,model=True):
     diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
     
     window = compoundfromname.compoundfromname("silicon nitride")
@@ -792,9 +823,12 @@ def sxmiodet(num=-1,model=True):
         secondarytarget = multilayer.Multilayer(material=[window],thickness=[0.5],anglein=0,angleout=135,solidangle=0.15*4*np.pi)
     else:
         raise RuntimeError("Unknown SXM iodet")
+    
+    if optics:
+        optics = KB.KB()
+    else:
+        optics = None
         
-    optics = KB.KB()
-
     vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
                         F0=ureg.Quantity(0,"Hz"),\
                         Vmax=ureg.Quantity(10,"volt"))
