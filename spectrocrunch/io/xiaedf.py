@@ -24,7 +24,6 @@
 
 import os
 from glob import glob
-import numbers
 import fabio
 import numpy as np
 from copy import copy
@@ -146,7 +145,7 @@ def xiasearch(path,radix=None,mapnum=None,linenum=None,label=None,sort=True,ctrl
         radix = "*"
     if mapnum is None:
         mapnum = "[0-9][0-9][0-9][0-9]*"
-    if isinstance(mapnum,numbers.Integral):
+    if instance.isnumber(mapnum):
         mapnum = "{:04d}".format(mapnum)
     if onlyctrs:
         ctrs = True
@@ -168,7 +167,7 @@ def xiasearch(path,radix=None,mapnum=None,linenum=None,label=None,sort=True,ctrl
         label = "xia*"
     if linenum is None:
         linenum = "[0-9][0-9][0-9][0-9]*"
-    if isinstance(linenum,numbers.Integral):
+    if instance.isnumber(linenum):
         linenum = "{:04d}".format(linenum)
         
     mask = os.path.join(path,xiaformat().format(radix,label,mapnum,linenum))
@@ -182,77 +181,87 @@ def xiasearch(path,radix=None,mapnum=None,linenum=None,label=None,sort=True,ctrl
 
     return files
 
-def xiadetectorselect(lst,skipdetectors,keepdetectors):
+def xiadetectorselect_tostring(detectors):
+    # Possible detector format: 0, "xia00", "00", "S0", "xiaS0", "st", "xiast"
+
+    lst = copy(detectors)
+    for i,s in enumerate(detectors):
+        if instance.isnumber(s):
+            lst[i] = "xia{:02}".format(s)
+        elif instance.isstring(s):
+            if not s.startswith("xia"):
+                lst[i] = "xia{}".format(s)
+        else:
+            print s
+    return lst
+
+def xiadetectorselect_tonumber(detectors):
+    # Possible detector format: 0, "xia00", "00", "S0", "xiaS0", "st", "xiast"
+    # sums and statistics are skipped
+    
+    lst = []
+
+    for s in detectors:
+        if instance.isstring(s):
+            if s.startswith("xia"):
+                s = s[3:]
+            if s.isdigit():
+                lst.append(int(s))
+        elif instance.isnumber(s):
+            lst.append(s)
+            
+    return lst
+            
+def xiadetectorselect_files(filenames,skipdetectors,keepdetectors):
     """Select xia detectors
 
     Args:
-        lst(list): 
+        filenames(list(str)): filenames
+        skip(list): xia labels to be skipped (numbers or strings)
+        keep(list): xia labels to be kept (numbers or strings)
+    Returns:
+        list(str)
+    """
+    
+    if len(filenames)==0:
+        return filenames
+
+    skip = xiadetectorselect_tostring(skipdetectors)
+    keep = xiadetectorselect_tostring(keepdetectors)
+
+    if len(skip)==0 and len(keep)==0:
+        return filenames
+        
+    valid = lambda x: x not in skip or x in keep
+    filenames = [f for f in filenames if valid(xiaparsefilename(f)[3])]
+    
+    return filenames
+
+def xiadetectorselect_numbers(detectors,skipdetectors,keepdetectors):
+    """Select xia detectors
+
+    Args:
+        detectors(list(int)): 
         skip(list): xia labels to be skipped (numbers or strings)
         keep(list): xia labels to be kept (numbers or strings)
     Returns:
         list(str)
     """
 
-    if len(lst)==0 or (len(skipdetectors)==0 and len(keepdetectors)==0):
-        return lst
+    if len(detectors)==0:
+        return detectors
+        
+    skip = xiadetectorselect_tonumber(skipdetectors)
+    keep = xiadetectorselect_tonumber(keepdetectors)
 
-    if isinstance(lst[0],str):
-        # Format: "xia00", "xia01", "xiaS0", "xiaS1", ...
+    if len(skip)==0 and len(keep)==0:
+        return detectors
+        
+    valid = lambda x: x not in skip or x in keep
+    detectors = [i for i in detectors if valid(i)]
 
-        skip = copy(skipdetectors)
-        for i in range(len(skip)):
-            if isinstance(skip[i],numbers.Integral):
-                skip[i] = "xia{:02}".format(skip[i])
-
-        keep = copy(keepdetectors)
-        for i in range(len(keep)):
-            if isinstance(keep[i],numbers.Integral):
-                keep[i] = "xia{:02}".format(keep[i])
-
-        #Assume str format [path]/[radix]_[label]_[num]_0000_[linenumber].edf
-        labels = [xiaparsefilename(f)[3] for f in lst]
-
-        if len(skip)==0:
-            if len(keep)!=0:
-                lst = [f for l,f in zip(labels,lst) if l in keep]
-        else:
-            lst = [f for l,f in zip(labels,lst) if l not in skip or l in keep]
-
-    else:
-        # Format: 0, 1, ...
-
-        skip = []
-        for i in range(len(skipdetectors)):
-            if isinstance(skipdetectors[i],str):
-                if skipdetectors[i].startswith("xia"):
-                    s = skipdetectors[i][3:]
-                else:
-                    s = skipdetectors[i]
-                if s.isdigit(): #"00", "01", ... (there are no statistics for sums)
-                    skip.append(int(s))
-            else:
-                skip.append(skipdetectors[i]) # number
-
-        keep = []
-        for i in range(len(keepdetectors)):
-            if isinstance(keepdetectors[i],str):
-                if keepdetectors[i].startswith("xia"):
-                    s = keepdetectors[i][3:]
-                else:
-                    s = keepdetectors[i]
-                if s[i].isdigit(): #"00", "01", ... (there are no statistics for sums)
-                    keep.append(int(s))
-            else:
-                keep.append(keepdetectors[i]) # number
-
-        if len(skip)==0:
-            if len(keep)!=0:
-                lst = [i for i in lst if i in keep]
-        else:
-            lst = [i for i in lst if i not in skip or i in keep]
-
-    return lst
-
+    return detectors
+    
 def xiagroupkey(filename):
     """Group sorted files like this:
 
@@ -958,14 +967,14 @@ class xiacompound(xiadata):
         
         self._items = []
 
-    def _getitems(self):
+    def getitems(self):
         if len(self._items)==0:
             self.search()
         return self._items
 
     @property
     def dtype(self):
-        items = self._getitems()
+        items = self.getitems()
         if len(items)==0:
             return self.XIADTYPE
         else:
@@ -973,7 +982,7 @@ class xiacompound(xiadata):
 
     @property
     def stype(self):
-        items = self._getitems()
+        items = self.getitems()
         if len(items)==0:
             return self.XIASTYPE
         else:
@@ -982,7 +991,7 @@ class xiacompound(xiadata):
     @property
     def dshape(self):
         # ... x nspec x nchan x ndet
-        items = self._getitems()
+        items = self.getitems()
         nlines = len(items)
         if nlines==0:
             return ()
@@ -993,7 +1002,7 @@ class xiacompound(xiadata):
     @property
     def sshape(self):
         # ... x nspec x nstat x ndet
-        items = self._getitems()
+        items = self.getitems()
         nlines = len(items)
         if nlines==0:
             return ()
@@ -1007,7 +1016,7 @@ class xiacompound(xiadata):
         Returns:
             array: ... x nspec x nchan x ndet
         """
-        items = self._getitems()
+        items = self.getitems()
         if len(items)==0:
             np.empty((0,)*self.ndim,dtype=self.XIADTYPE)
 
@@ -1036,7 +1045,7 @@ class xiacompound(xiadata):
         Returns:
             array: ... x nspec x nstats x ndet
         """
-        items = self._getitems()
+        items = self.getitems()
         if len(items)==0:
             np.empty((0,)*self.ndim,dtype=self.XIADTYPE)
 
@@ -1054,7 +1063,7 @@ class xiacompound(xiadata):
         Returns:
             None
         """
-        items = self._getitems()
+        items = self.getitems()
         nitems = data.shape[0]
         if len(items)!=nitems:
             raise RuntimeError("The xia compound being saved has {} items while {} items were expected".format(nlines,len(items)))
@@ -1091,7 +1100,7 @@ class xiacompound(xiadata):
         Returns:
             list(str)
         """
-        items = self._getitems()
+        items = self.getitems()
         files = []
         for l in items:
             files += l.datafilenames()
@@ -1104,7 +1113,7 @@ class xiacompound(xiadata):
         Returns:
             list(str)
         """
-        items = self._getitems()
+        items = self.getitems()
         files = []
         for l in items:
             files += l.ctrfilenames(ctr=ctr)
@@ -1117,7 +1126,7 @@ class xiacompound(xiadata):
         Returns:
             list(str)
         """
-        items = self._getitems()
+        items = self.getitems()
         files = []
         for l in items:
             files += l.statfilenames()
@@ -1180,7 +1189,7 @@ class xialine(xiadata):
         else:
             s = self._getedfimage(f,cache=True).shape
             ndet = s[1]//self.NSTATS
-            ndet = len(self.xiadetectorselect(range(ndet)))
+            ndet = len(self.xiadetectorselect_numbers(range(ndet)))
             return (s[0],self.nstats,ndet)
 
     def _getdata(self,index=slice(None)):
@@ -1220,7 +1229,7 @@ class xialine(xiadata):
             stats = np.swapaxes(stats,1,2)
 
             # Select stats of some or all detectors
-            ind = self.xiadetectorselect(range(ndet))
+            ind = self.xiadetectorselect_numbers(range(ndet))
             if len(ind)==0:
                 stats = np.empty((0,0,0),dtype=self.stype)
             elif len(ind)<ndet:
@@ -1265,15 +1274,18 @@ class xialine(xiadata):
             img = fabio.edfimage.EdfImage(data=tmp,header=header)
             self._write(img,self._fileformat.format("xiast"))
 
-    def xiadetectorselect(self,lst):
-        return xiadetectorselect(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
+    def xiadetectorselect_files(self,lst):
+        return xiadetectorselect_files(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
+
+    def xiadetectorselect_numbers(self,lst):
+        return xiadetectorselect_numbers(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
 
     def datafilenames_used(self):
         files = self.datafilenames()
         if len(files)==0:
             return files
 
-        return self.xiadetectorselect(files)
+        return self.xiadetectorselect_files(files)
 
     def datafilenames(self):
         """

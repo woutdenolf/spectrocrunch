@@ -92,7 +92,9 @@ def normfunc(datadirs,normctr,pymcaflux,logger):
     #thickness = 0.05 # cm
     #print "thickness = {} cm".format( np.log(2500e+12*(17050.*1.60217662e-19)/3.6)/linatt )
     #g = 3.6/(17050.*1.60217662e-19)*np.exp(linatt*thickness)
-    
+    #g = "{:e}".format(3.6/(17050.*1.60217662e-19)*np.exp(linatt*0.0389067609507))
+    #So lower thickness or it has some window
+
     g = 2500e+12 # ph/C
     dark = 0 # ph/s
     #b = 1.2e-5 # A
