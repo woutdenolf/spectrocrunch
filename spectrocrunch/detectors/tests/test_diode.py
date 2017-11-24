@@ -102,20 +102,42 @@ class test_objects(unittest.TestCase):
 
     def test_noncalibrateddiode(self):
     
-        for calibtarget in [False,True]:
-            o = diode.sxmiodet1()
+        for calibtarget in [False]:
+            o = diode.sxmiodet1(optics=True)
+            sa = o.secondarytarget.geometry.solidangle
 
-            energy = ureg.Quantity(7.1,"keV")
-            cps = ureg.Quantity(np.linspace(1e4,1e5,10),"Hz")
-            sampleflux = o.cpstoflux(energy,cps)*0.5
-
-            o.calibrate(cps,sampleflux,energy,calibtarget=calibtarget)
+            cps = np.linspace(1e4,1e5,10)
             
-            np.testing.assert_allclose(sampleflux,o.cpstoflux(energy,cps))
-        
-        
-        
-    
+            energy = 7.
+            energy2 = 7.2
+            energy3 = 7.1
+            sampleflux = o.cpstoflux(energy,cps)
+            sampleflux2 = o.cpstoflux(energy2,cps)
+            sampleflux3 = o.cpstoflux(energy3,cps)
+
+            if calibtarget:
+                # Same counts but the flux is m times higher -> diode yield (solid angle) is m times lower
+                m = 2.
+                o.calibrate(cps,sampleflux*m,energy,calibtarget=calibtarget)
+                np.testing.assert_allclose(sampleflux*m,o.cpstoflux(energy,cps))
+                np.testing.assert_allclose(o.secondarytarget.geometry.solidangle,sa/m)
+            else:
+                # Same counts but the flux is m times lower -> optics transmission is m times lower
+                m1 = 0.5
+                m2 = 0.25
+                m3 = (m1+m2)/2.
+
+                o.calibrate(cps,sampleflux*m1,energy,calibtarget=calibtarget)
+                o.calibrate(cps,sampleflux2*m2,energy2,calibtarget=calibtarget)
+
+                np.testing.assert_allclose(o.optics.transmission(energy),m1)
+                np.testing.assert_allclose(o.optics.transmission(energy2),m2)
+                np.testing.assert_allclose(o.optics.transmission(energy3),m3)
+                
+                np.testing.assert_allclose(sampleflux*m1,o.cpstoflux(energy,cps))
+                np.testing.assert_allclose(sampleflux2*m2,o.cpstoflux(energy2,cps))
+                np.testing.assert_allclose(sampleflux3*m3,o.cpstoflux(energy3,cps))
+
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()

@@ -233,7 +233,7 @@ class PNdiode(object):
             num or array-like: attenuation
         """
         thickness = -np.log(1-attenuation)/(self.material.mass_att_coeff(units.magnitude(energy,"keV"))*self.material.density)
-        self.thickness = ureg.Quantity(thickness[0],"cm")
+        self.thickness = ureg.Quantity(thickness,"cm")
     
     def spectral_responsivity(self,energy):
         """Generated current per radiative power
@@ -812,7 +812,7 @@ def sxmidettest(model=True):
                         oscillator=vtof)
     return ird
       
-def sxmiodet(num=-1,optics=False,model=True):
+def sxmiodet(num=-1,optics=True,model=True):
     diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
     
     window = compoundfromname.compoundfromname("silicon nitride")
