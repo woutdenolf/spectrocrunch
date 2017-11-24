@@ -150,7 +150,12 @@ class Sample(with_metaclass(object)):
     def defmatrix(self,config,name):
         anglein = self.detector.geom.anglein
         angleout = self.detector.geom.angleout 
-        config["attenuators"]["Matrix"] = [1, name, 0.0, 0.0, anglein, angleout, 0, anglein+angleout]
+        if name=="MULTILAYER":
+            density,thickness = 0.,0.
+        else:
+            v = config["materials"][name]
+            density,thickness = v["Density"], v["Thickness"]
+        config["attenuators"]["Matrix"] = [1, name, density, thickness, anglein, angleout, 0, anglein+angleout]
     
     def deflayer(self,config,index,name):
         v = config["materials"][name]
@@ -174,9 +179,9 @@ class Sample(with_metaclass(object)):
             name = self.addmaterial(config,layer,t,name=name)
             self.defmatrix(config,name)
         else:
-            for i,(layer,t,name) in enumerate(self):
+            for index,(layer,t,name) in enumerate(self):
                 name = self.addmaterial(config,layer,t,name=name)
-                self.deflayer(config,name)
+                self.deflayer(config,index,name)
  
             self.defmatrix(config,'MULTILAYER')
         
@@ -204,7 +209,7 @@ def axo(name,elements,ad,windowthickness,filmthickness):
         return [layer1],[windowthickness*1e-7],[name]
     
     else:
-        elements = [compoundlist.CompoundFromList([e],[1],types.fractionType.mole,0,name=e) for e in elements]
+        elements = [compoundfromlist.CompoundFromList([e],[1],types.fractionType.mole,0,name=e) for e in elements]
         layer1 = mixture.Mixture(elements,ad,types.fractionType.weight)
 
         layer2 = compoundfromname.compoundfromname("silicon nitride")

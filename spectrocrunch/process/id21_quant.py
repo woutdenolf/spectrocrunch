@@ -87,7 +87,7 @@ class FluxMonitor(object):
     def calibiodet(self):
         if True:
             # Reset the idet gain based on the flux given by spec (fluxest)
-            self.idet.gainfromcps(self.energy,self.idetcps,self.fluxest)
+            #self.idet.gainfromcps(self.energy,self.idetcps,self.fluxest)
             
             flux = self.idet.cpstoflux(self.energy,self.idetcps)
         else:
@@ -114,14 +114,18 @@ class FluxMonitor(object):
         ax2.set_title("{:.0e}".format(self.iodet.Rout))
         ax2.legend(loc="best")
     
+        plt.tight_layout()
+    
+    def initdiodes(self,gainiodet,gainidet):
+        self.iodet.setgain(gainiodet)
+        self.idet.setgain(gainidet)
+        
     def initspec(self,specfile,specnr,gainiodet,gainidet):
         self.parsespec(specfile,specnr)
         self.setiodet()
-        
-        self.iodet.setgain(gainiodet)
-        self.idet.setgain(gainidet)
-    
-    def dark(self,specfile,specnr,gainiodet,gainidet,plot=True):
+        self.initdiodes(gainiodet,gainidet)
+
+    def dark(self,specfile,specnr,gainiodet,gainidet,plot=False):
         self.initspec(specfile,specnr,gainiodet,gainidet)
         
         self.darkiodet()
@@ -131,7 +135,7 @@ class FluxMonitor(object):
             self.checkdark()
             plt.show()
  
-    def calib(self,specfile,specnr,gainiodet,gainidet,plot=True):
+    def calib(self,specfile,specnr,gainiodet,gainidet,plot=False):
         self.initspec(specfile,specnr,gainiodet,gainidet)
 
         self.calibiodet()
@@ -140,6 +144,10 @@ class FluxMonitor(object):
             self.checkflux()
             plt.show()
 
-    def manual(self,energy,transmission):
+    def manualcalib(self,energy,transmission,gainiodet,gainidet):
+        self.initdiodes(gainiodet,gainidet)
         self.iodet.optics.set_transmission(energy,transmission)
+    
+    def xrfnormop(self,energy,time,reference):
+        return self.iodet.xrfnormop(energy,time,reference)
         

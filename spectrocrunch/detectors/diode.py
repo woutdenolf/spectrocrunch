@@ -159,6 +159,9 @@ class Oscillator(object):
     
 class PNdiode(object):
 
+    ELCHARGE = ureg.Quantity(1,ureg.elementary_charge)
+    #ELCHARGE = ureg.Quantity(1.6e-19,ureg.coulomb) # approx. in spec
+
     def __init__(self, material=None, Rout=None, darkcurrent=None, oscillator=None, secondarytarget=None, optics=None):
         """
         Args:
@@ -249,7 +252,7 @@ class PNdiode(object):
         else:
             diodeatt = self._diode_attenuation(energy,self.thickness)
             
-        return diodeatt*(ureg.Quantity(1,ureg.elementary_charge)/self.ehole).to("A/W")
+        return diodeatt*(self.ELCHARGE/self.ehole).to("A/W")
 
     def _chargeperdiodephoton(self,energy):
         """Charge generated per photon absorbed by the diode
@@ -445,39 +448,56 @@ class PNdiode(object):
         op = self.op_cpstocurrent()
         return op(units.Quantity(cps,"hertz")).to("ampere")
 
-    def xrfnormop(self,energy,time,refcts):
-        """ Operator to convert the raw diode signal to a flux normalizing signal
+    def xrfnormop(self,energy,time,ref):
+        """Operator to convert the raw diode signal to a flux normalizing signal.
+           Either 
         
             XRF flux normalization:
-            Ixrf(cts) = F(cps).t(s).cxrf          (measured xrf)
-            Ixrf(cts)/norm = F'(cps).t(s).cxrf    (desired xrf)
-            norm = F/F' = cpstoflux(Idiode/t)/cpstoflux(Idioderef/t) = op(Idiode)
-            op: x-> cpstoflux(x/t)/cpstoflux(Idioderef/t)
-                        
+            
+            Measured XRF:
+            Ixrf(cts) = F(cps).t(s).cxrf
+            
+            Desired XRF signal:
+            Ixrf(cts)/norm = Fref(cps).t(s).cxrf
+            
+            Normalization function to be apply on the raw diode signal Idiode
+            norm = F/Fref = cpstoflux(Idiode/t)/Fref = op(Idiode)
+            op: x-> cpstoflux(x/t)/Fref
+            
+            In case reference in counts instead of photons/sec
+            Fref = round_sig(cpstoflux(Idioderef/t),2)
+    
         Args:
             energy(num): keV
             time(num): sec
-            refcts(num): average expected diode counts within time
+            ref(num): reference in counts or photons/sec
 
         Returns:
-            op(linop): 
-            refflux(num): reference flux ph/s, op(refcts)~=1
+            op(linop): raw diode conversion operator
+            Fref(num): reference flux in photons/s
         """
 
+        # Convert from counts to photons/sec
         # op = cpstoflux(.../t)
         op = self.op_cpstoflux(energy)
         op.m /= units.Quantity(time,"s")
         
-        # F' = op(Idioderef)
-        refflux = units.Quantity(round_sig(units.magnitude(op(refcts),"hertz"),2),"hertz")
-        
-        # op = op/op(Idioderef)
-        op.m /= refflux
-        op.b /= refflux
+        # Reference flux to which the XRF signal should be normalized
+        if ref.units==ureg.hertz: # photons/sec
+            Fref = ref
+        elif ref.units==ureg.dimensionless: # counts
+            # Fref = op(Idioderef)
+            Fref = units.Quantity(round_sig(units.magnitude(op(ref),"hertz"),2),"hertz")
+        else:
+            raise RuntimeError("Reference {} should be in photons/sec or counts.".format(ref))
+            
+        # Convert from counts to counts at reference flux Fref
+        op.m /= Fref
+        op.b /= Fref
         op.m = units.magnitude(op.m,"dimensionless")
         op.b = units.magnitude(op.b,"dimensionless")
         
-        return op,refflux
+        return op,Fref
         
     def gainfromcps(self,energy,cps,fluxest):
         """Estimate the gain, assuming it is 10^x V/A
@@ -558,12 +578,12 @@ class AbsolutePNdiode(PNdiode):
             num or array-like: A/W
         """
         if self.model:
-            r = self._diode_attenuation(energy,self.thickness)/self.ehole*ureg.Quantity(1,ureg.elementary_charge)
+            r = self._diode_attenuation(energy,self.thickness)/self.ehole*self.ELCHARGE
         else:
             try:
                 r = self.finterpol(energy)
             except:
-                r = self._diode_attenuation(energy,self.thickness)/self.ehole*ureg.Quantity(1,ureg.elementary_charge)
+                r = self._diode_attenuation(energy,self.thickness)/self.ehole*self.ELCHARGE
          
         return units.Quantity(r,"A/W")
 
