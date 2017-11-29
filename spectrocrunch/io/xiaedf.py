@@ -44,7 +44,9 @@ logger = logging.getLogger(__name__)
 
 import contextlib
 
-class XiaRegex():
+XiaName = collections.namedtuple('XiaName', ['radix', 'mapnum', 'linenum', 'label', 'baselabel', 'detector'])
+
+class XiaNameParser():
 
     def __init__(self,counters=None):
         defaultcounters = ["PUZ_arr","PUZ_xmap","xmap","arr","zap"]
@@ -59,8 +61,8 @@ class XiaRegex():
         self.xianames += [re.compile(ctrfmt.format(ctr)) for ctr in defaultcounters]
         if counters is not None:
             self.xianames += [re.compile(ctrfmt.format(ctr)) for ctr in counters]
-        
-    def parse(self,filename):
+
+    def _parse(self,filename):
         filename = os.path.basename(filename)
         for xianame in self.xianames:
             m = xianame.match(filename)
@@ -68,31 +70,40 @@ class XiaRegex():
                 return m.groupdict()
         return {}
 
-xiaregex = XiaRegex()
-
-def xiaparsefilename(filename):
-    """
-    Args:
-        filename(str): path/[radix]_[label]_[num]_0000_[linenumber].edf  ->  spectra
-                       path/[radix]_[label]_[num]_0000.edf               ->  counters
-    Returns
-        tuple: radix, mapnum, linenum, label
-    """
-    
-    m = xiaregex.parse(filename)
-    if m:
-        radix = m["radix"]
-        label = m["label"]
-        mapnum = int(m["mapnum"])
-        if "linenum" in m:
-            linenum = int(m["linenum"])
+    @staticmethod
+    def xiaparselabel(label):
+        if label.startswith("xia"):
+            return "xia",label[3:]
+        elif any(label.startswith(ctr) for ctr in ["PUZ_xmap","xmap","zap"]):
+            tmp = label.split("_")
+            return '_'.join(tmp[:-1]),tmp[-1]
         else:
-            linenum = -1
-        return radix, mapnum, linenum, label
-    else:
-        raise RuntimeError("{} does not have the proper XIA format".format(filename))
+            return label,""
 
+    def parse(self,filename):
+        """
+        Args:
+            filename(str): path/[radix]_[label]_[num]_0000_[linenumber].edf  ->  spectra
+                           path/[radix]_[label]_[num]_0000.edf               ->  counters
+        Returns
+            dict
+        """
+        
+        m = self._parse(filename)
+        if m:
+            radix = m["radix"]
+            label = m["label"]
+            mapnum = int(m["mapnum"])
+            if "linenum" in m:
+                linenum = int(m["linenum"])
+            else:
+                linenum = -1
+            baselabel,detector = self.xiaparselabel(label)
+            return XiaName(radix=radix,mapnum=mapnum,linenum=linenum,label=label,baselabel=baselabel,detector=detector)
+        else:
+            raise RuntimeError("{} does not have the proper XIA format".format(filename))
 
+xianameparser = XiaNameParser()
 
 def xiafilename(radix,mapnum,linenum,label):
     if linenum==-1:
@@ -139,8 +150,8 @@ def xiasortkey(filename):
         tuple: sort key
     """
 
-    radix,mapnum,linenum,label = xiaparsefilename(filename)
-    return radix,mapnum,linenum,label
+    o = xianameparser.parse(filename)
+    return o.radix,o.mapnum,o.linenum,o.label
 
 def xiasearch(path,radix=None,mapnum=None,linenum=None,label=None,sort=True,ctrlabel=None,ctrs=True,onlyctrs=False):
     if radix is None:
@@ -156,11 +167,11 @@ def xiasearch(path,radix=None,mapnum=None,linenum=None,label=None,sort=True,ctrl
         if ctrlabel is None:
             ctrlabel = '*'
             
-        # Cannot be done unless using regex (or xiaparsefilename afterwards like done here)
+        # Cannot be done unless using regex (or xianameparser.parse afterwards like done here)
         mask = os.path.join(path,ctrformat().format(radix,ctrlabel,mapnum))
         ctrfiles = glob(mask)
         
-        ctrfiles = [f for f in ctrfiles if xiaparsefilename(f)[2]==-1]
+        ctrfiles = [f for f in ctrfiles if xianameparser.parse(f).linenum==-1]
 
         if onlyctrs:
             ctrfiles.sort(key=xiasortkey)
@@ -236,7 +247,7 @@ def xiadetectorselect_files(filenames,skipdetectors,keepdetectors):
         return filenames
         
     valid = lambda x: x not in skip or x in keep
-    filenames = [f for f in filenames if valid(xiaparsefilename(f)[3])]
+    filenames = [f for f in filenames if valid(xianameparser.parse(f).label)]
     
     return filenames
 
@@ -268,7 +279,7 @@ def xiadetectorselect_numbers(detectors,skipdetectors,keepdetectors):
 def xiagroupkey(filename):
     """Group sorted files like this:
 
-        [path]/[radix(1)]_xia[label]_[num(2)]_0000_[linenumber(3)].edf
+        [path]/[radix(1)]_[label]_[num(2)]_0000_[linenumber(3)].edf
 
     Args:
         filename(str): 
@@ -276,9 +287,9 @@ def xiagroupkey(filename):
         tuple: sort key
     """
 
-    radix,mapnum,linenum,label = xiaparsefilename(filename)
-    return radix,mapnum,linenum,filename
-
+    o = xianameparser.parse(filename)
+    return o.radix,o.mapnum,o.linenum,filename
+    
 def xiagroup(files):
     """
     Args:
@@ -302,7 +313,43 @@ def xiagroup(files):
                 ret[radix][mapnum][linenum] = [v[-1] for v in v2]
 
     return ret
+
+def xiagroupdetectorskey(filename):
+    """Group sorted files like this:
+
+        [path]/[radix(1)]_[label]_[num(2)]_0000_[linenumber(3)].edf
+
+    Args:
+        filename(str): 
+    Returns:
+        tuple: sort key
+    """
+
+    o = xianameparser.parse(filename)
+    return o.detector,o.baselabel,filename
     
+def xiagroupdetectors(files):
+    """
+    Args:
+        files(list(str)): unsorted file names
+
+    Returns:
+        OrderedDict(OrderedDict(list(str))): ret[detector][baselabel] = ["...xmap_x1c_00...","...xmap_x1c_00...",...]
+    """
+    
+    files.sort(key=xiasortkey)
+
+    keys = [xiagroupdetectorskey(f) for f in files]
+
+    ret = collections.OrderedDict()
+    
+    for detector, v0 in itertools.groupby(keys, operator.itemgetter(0)):
+        ret[detector] = collections.OrderedDict()
+        for baselabel, v1 in itertools.groupby(v0, operator.itemgetter(1)):
+            ret[detector][baselabel] = [v[-1] for v in v1]
+
+    return ret
+
 def xiagroupmaps2(files):
     """
     Args:
@@ -338,8 +385,8 @@ def xiagroupmapskey(filename):
         tuple: sort key
     """
 
-    radix,mapnum,linenum,label = xiaparsefilename(filename)
-    return mapnum,linenum,filename
+    o = xianameparser.parse(filename)
+    return o.mapnum,o.linenum,filename
 
 def xiagroupmaps(files):
     """
@@ -374,8 +421,8 @@ def xiagrouplineskey(filename):
         tuple: sort key
     """
 
-    radix,mapnum,linenum,label = xiaparsefilename(filename)
-    return linenum,filename
+    o = xianameparser.parse(filename)
+    return o.linenum,filename
 
 def xiagrouplines(files):
     """
@@ -400,7 +447,7 @@ def xiagrouplines(files):
 
 def xiagroupnxiafiles(files):
     if isinstance(files,list):
-        return len([f for f in files if "xia" in xiaparsefilename(f)[-1]])
+        return len([f for f in files if xianameparser.parse(f).baselabel=="xia"])
     else:
         return sum([xiagroupnxiafiles(f) for k,f in files.items()])
 
@@ -1235,7 +1282,7 @@ class xiacompound(xiadata):
     def ctrfilenames(self,ctr=None):
         """
         Args:
-            ctr(Optional(str or list))
+            ctr(Optional(str or list)): counter base name
         Returns:
             list(str)
         """
@@ -1258,10 +1305,10 @@ class xiacompound(xiadata):
             files += l.statfilenames()
         return files
 
-    def counternames(self):
+    def counterbasenames(self):
         items = self.getitems()
         if items:
-            return items[0].counternames()
+            return items[0].counterbasenames()
         else:
             return []
 
@@ -1494,7 +1541,7 @@ class xiaimage(xiacompound):
     def ctrfilenames(self,ctr=None):
         """
         Args:
-            ctr(Optional(str or list))
+            ctr(Optional(str or list)): counter base names
         Returns:
             list(str)
         """
@@ -1507,7 +1554,7 @@ class xiaimage(xiacompound):
         if instance.isstring(ctr):
             ctr = [ctr]
         
-        return list(listtools.flatten([f for c in ctr for f in self._ctrfiles if xiaparsefilename(f)[-1]==c]))
+        return list(listtools.flatten([f for c in ctr for f in self._ctrfiles if xianameparser.parse(f).baselabel==c]))
         
     def normfilename(self):
         """
@@ -1540,8 +1587,8 @@ class xiaimage(xiacompound):
         path = os.path.abspath(os.path.join(self.path,self._xiaconfig["counter_reldir"]))
         self._ctrfiles = xiasearch(path,radix=self.radix,mapnum=self.mapnum,onlyctrs=True)
     
-    def counternames(self):
-        return [xiaparsefilename(f)[-1] for f in self._ctrfiles]
+    def counterbasenames(self):
+        return [xianameparser.parse(f).baselabel for f in self._ctrfiles]
         
 class xiastack(xiacompound):
     """Compounds XIA images
@@ -1602,10 +1649,10 @@ class xialine_number(xialine):
         files.sort(key = xiasortkey)
 
         valid = lambda x: "xia" in x and x!= "xiast"
-        self._datafiles = [f for f in files if valid(xiaparsefilename(f)[-1])]
+        self._datafiles = [f for f in files if valid(xianameparser.parse(f).label)]
 
         valid = lambda x: x == "xiast"
-        f = [f for f in files if valid(xiaparsefilename(f)[-1])]
+        f = [f for f in files if valid(xianameparser.parse(f).label)]
         if len(f)==1:
             self._statfile = f[0]
         else:
@@ -1624,16 +1671,17 @@ class xialine_files(xialine):
         """
 
         # filename format for saving
-        radix,mapnum,linenum,_ = xiaparsefilename(files[0])
+        o = xianameparser.parse(files[0])
+        radix,mapnum,linenum = o.radix,o.mapnum,o.linenum
         path = os.path.dirname(files[0])
         self._fileformat = os.path.join(path,xiaformat_line(radix,mapnum,linenum))
 
         # data file names
         valid = lambda x: x!="xiast" and "xia" in x
-        self._datafiles = [f for f in files if valid(xiaparsefilename(f)[3])]
+        self._datafiles = [f for f in files if valid(xianameparser.parse(f).label)]
 
         # stat file name
-        tmp = [f for f in files if xiaparsefilename(f)[3]=='xiast']
+        tmp = [f for f in files if xianameparser.parse(f).label=='xiast']
         if len(tmp)!=0:
             self._statfile = tmp[0]
         else:
@@ -1699,7 +1747,8 @@ class xiaimage_files(xiaimage):
             filename = self._ctrfiles[0]
         else:
             filename = files.values()[0][0]
-        self.radix, self.mapnum, _ , _ = xiaparsefilename(filename) 
+        o = xianameparser.parse(filename) 
+        self.radix, self.mapnum = o.radix, o.mapnum
         self.path = os.path.dirname(filename)
         self._ctrformat = os.path.join(self.path,xiaformat_ctr(self.radix,self.mapnum)) 
         

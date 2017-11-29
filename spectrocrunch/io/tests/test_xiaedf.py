@@ -66,18 +66,17 @@ class test_xiaedf(unittest.TestCase):
         #self.pr.dump_stats("keep.cprof")
 
     def test_nameparsing_special(self):
-        self.assertEqual(xiaedf.xiaparsefilename("l1e1_zap_roi_frelon2_fr2_avg_0001_0000.edf"),\
-                        ("l1e1",1,-1,"zap_roi_frelon2_fr2_avg"))
-    
-        self.assertEqual(xiaedf.xiaparsefilename("test_puz_PUZ_xmap_x1_00_0009_0000.edf"),\
-                ("test_puz",9,-1,"PUZ_xmap_x1_00"))
-    
-        self.assertEqual(xiaedf.xiaparsefilename("samB6_mapa_xmap_x3c_00_0002_0000.edf"),\
-            ("samB6_mapa",2,-1,"xmap_x3c_00"))
-            
-        self.assertEqual(xiaedf.xiaparsefilename("samB6_mapa_xiast_0002_0000_0069.edf"),\
-            ("samB6_mapa",2,69,"xiast"))
-                
+        self.assertEqual(xiaedf.xianameparser.parse("l1e1_zap_roi_frelon2_fr2_avg_0001_0000.edf"),\
+        xiaedf.XiaName(radix="l1e1",mapnum=1,linenum=-1,label="zap_roi_frelon2_fr2_avg",baselabel="zap_roi_frelon2_fr2",detector="avg"))
+
+        self.assertEqual(xiaedf.xianameparser.parse("test_puz_PUZ_xmap_x1_00_0009_0000.edf"),\
+        xiaedf.XiaName(radix="test_puz",mapnum=9,linenum=-1,label="PUZ_xmap_x1_00",baselabel="PUZ_xmap_x1",detector="00"))
+ 
+        self.assertEqual(xiaedf.xianameparser.parse("samB6_mapa_xmap_x3c_00_0002_0000.edf"),\
+        xiaedf.XiaName(radix="samB6_mapa",mapnum=2,linenum=-1,label="xmap_x3c_00",baselabel="xmap_x3c",detector="00"))
+        
+        self.assertEqual(xiaedf.xianameparser.parse("samB6_mapa_xiast_0002_0000_0069.edf"),\
+        xiaedf.XiaName(radix="samB6_mapa",mapnum=2,linenum=69,label="xiast",baselabel="xia",detector="st"))
 
     def test_nameparsing(self):
         paths = ['/tmp/a1','/tmp/a2','/tmp/b1']
@@ -491,12 +490,12 @@ class test_xiaedf(unittest.TestCase):
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    #testSuite.addTest(test_xiaedf("test_memmap"))
-    #testSuite.addTest(test_xiaedf("test_nameparsing"))
+    testSuite.addTest(test_xiaedf("test_memmap"))
+    testSuite.addTest(test_xiaedf("test_nameparsing"))
     testSuite.addTest(test_xiaedf("test_nameparsing_special"))
-    #testSuite.addTest(test_xiaedf("test_line"))
-    #testSuite.addTest(test_xiaedf("test_image"))
-    #testSuite.addTest(test_xiaedf("test_stack"))
+    testSuite.addTest(test_xiaedf("test_line"))
+    testSuite.addTest(test_xiaedf("test_image"))
+    testSuite.addTest(test_xiaedf("test_stack"))
     return testSuite
     
 if __name__ == '__main__':
