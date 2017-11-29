@@ -28,6 +28,7 @@ import logging
 import numpy as np
 import copy
 
+#from ..xrf.create_hdf5_imagestacks_old import create_hdf5_imagestacks as makestacks
 from ..xrf.create_hdf5_imagestacks import create_hdf5_imagestacks as makestacks
 from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
 from ..common import timing

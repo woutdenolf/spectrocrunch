@@ -143,6 +143,10 @@ class Sample(with_metaclass(object)):
         return itertools.izip(self.layers,self.thickness,self.names)
 
     def addmaterial(self,config,mat,thickness,name=None):
+        print ""
+        print name
+        for k,v in mat.weightfractions().items():
+            print k,v
         k,v = mat.pymcaformat(thickness=thickness,name=name)
         config["materials"][k] = v
         return k
