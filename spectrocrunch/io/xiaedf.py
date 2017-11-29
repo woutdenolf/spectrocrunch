@@ -47,7 +47,7 @@ import contextlib
 class XiaRegex():
 
     def __init__(self,counters=None):
-        defaultcounters = ["xmap","arr","PUZ_arr","PUZ_xmap","zap"]
+        defaultcounters = ["PUZ_arr","PUZ_xmap","xmap","arr","zap"]
         
         number = "[0-9]{4,}"
         fnumber = "[0-9]{{4,}}"
@@ -91,7 +91,9 @@ def xiaparsefilename(filename):
         return radix, mapnum, linenum, label
     else:
         raise RuntimeError("{} does not have the proper XIA format".format(filename))
-    
+
+
+
 def xiafilename(radix,mapnum,linenum,label):
     if linenum==-1:
         return "{}_{}_{:04d}_0000.edf".format(radix,label,mapnum)
@@ -159,8 +161,9 @@ def xiasearch(path,radix=None,mapnum=None,linenum=None,label=None,sort=True,ctrl
         ctrfiles = glob(mask)
         
         ctrfiles = [f for f in ctrfiles if xiaparsefilename(f)[2]==-1]
-        
+
         if onlyctrs:
+            ctrfiles.sort(key=xiasortkey)
             return ctrfiles
             
     if label is None:
@@ -442,9 +445,9 @@ class xiadict(dict):
         if "maxlevel" not in self:
             self["maxlevel"] = 0
 
-        if "correctionlevel" not in self:
-            self["correctionlevel"] = {"dt":0,"sum":0,"norm":1}
-
+        if "levelinfo" not in self:
+            self["levelinfo"] = {"dt":0,"sum":0,"norm":1,"ctr":1}
+            
         if "envactive" not in self:
             self["envactive"] = False
 
@@ -460,15 +463,28 @@ class xiadict(dict):
     def onlydata(self):
         self["indexing"]["data"] = True
         self["indexing"]["stats"] = False
-
+        self["indexing"]["counters"] = False
+        
     def onlystats(self):
         self["indexing"]["data"] = False
         self["indexing"]["stats"] = True
-
+        self["indexing"]["counters"] = False
+        
+    def onlycounters(self):
+        self["indexing"]["data"] = False
+        self["indexing"]["stats"] = False
+        self["indexing"]["counters"] = True
+                  
     def dataandstats(self):
         self["indexing"]["data"] = True
         self["indexing"]["stats"] = True
-
+        self["indexing"]["counters"] = False
+    
+    def dataall(self):
+        self["indexing"]["data"] = True
+        self["indexing"]["stats"] = True
+        self["indexing"]["counters"] = True
+        
     def overwrite(self,b):
         self["overwrite"] = b
 
@@ -504,23 +520,26 @@ class xiadict(dict):
     def resetmaxlevel(self,maxlevel):
         self["maxlevel"] = 0
 
-    def setcorrectionlevel(self):
+    def setlevelinfo(self):
         if self["envactive"]:
             return
 
         if self["indexing"]["stats"]:
             # otherwise, stats will be retrieved twice
-            self["correctionlevel"]["dt"] = self["maxlevel"]
+            self["levelinfo"]["dt"] = self["maxlevel"]
         else:
             # saves memory
-            self["correctionlevel"]["dt"] = 0
+            self["levelinfo"]["dt"] = 0
 
         # Sum detector right after dt correction
-        self["correctionlevel"]["sum"] = self["correctionlevel"]["dt"]
+        self["levelinfo"]["sum"] = self["levelinfo"]["dt"]
 
         # Normalization info is only available on level 1
-        self["correctionlevel"]["norm"] = 1
+        self["levelinfo"]["norm"] = 1
 
+        # Counter info is only available on level 1
+        self["levelinfo"]["ctr"] = 1
+        
     def counter_reldir(self,reldir):
         self["counter_reldir"] = reldir
         
@@ -603,6 +622,9 @@ class xiadata(object):
     def onlystats(self):
         self._xiaconfig.onlystats()
 
+    def onlycounters(self):
+        self._xiaconfig.onlycounters()
+        
     @property
     def _lowestlevel(self):
         return self._level == 0
@@ -611,16 +633,14 @@ class xiadata(object):
     def _highestlevel(self):
         return self._level == self._xiaconfig["maxlevel"]
 
-    def _needsstatsforcorrection(self):
-        return self._xiaconfig["dtcor"]
-
-    def _correctioninfo(self):
+    def _levelinfo(self):
         if self._highestlevel:   
-            self._xiaconfig.setcorrectionlevel() 
+            self._xiaconfig.setlevelinfo() 
 
-        return {"dt":self._xiaconfig["dtcor"] and self._level == self._xiaconfig["correctionlevel"]["dt"],\
-                "sum":self._xiaconfig["detectors"]["add"] and self._level == self._xiaconfig["correctionlevel"]["sum"],\
-                "norm":self._xiaconfig["norm"]["ctr"] is not None and self._level == self._xiaconfig["correctionlevel"]["norm"]}
+        return {"dt":self._xiaconfig["dtcor"] and self._level == self._xiaconfig["levelinfo"]["dt"],\
+                "sum":self._xiaconfig["detectors"]["add"] and self._level == self._xiaconfig["levelinfo"]["sum"],\
+                "norm":self._xiaconfig["norm"]["ctr"] is not None and self._level == self._xiaconfig["levelinfo"]["norm"],\
+                "counters":self._level == self._xiaconfig["levelinfo"]["ctr"]}
 
     @contextlib.contextmanager
     def env_onlydata(self):
@@ -639,6 +659,14 @@ class xiadata(object):
         self._xiaconfig.restore_getitem(*p)
 
     @contextlib.contextmanager
+    def env_onlycounters(self):
+        p = self._xiaconfig.keep_getitem()
+        self.onlycounters()
+        self._xiaconfig.envactive(True)
+        yield
+        self._xiaconfig.restore_getitem(*p)
+        
+    @contextlib.contextmanager
     def env_cache(self):
         if self._highestlevel:
             self._cache.flush()
@@ -656,6 +684,9 @@ class xiadata(object):
     def dataandstats(self):
         self._xiaconfig.dataandstats()
 
+    def dataall(self):
+        self._xiaconfig.dataall()
+        
     def overwrite(self,b):
         self._xiaconfig.overwrite(b)
 
@@ -694,6 +725,11 @@ class xiadata(object):
         return self[:]
 
     @property
+    def counters(self):
+        self.onlycounters()
+        return self[:]
+        
+    @property
     def indexicr(self):
         if self._xiaconfig["indexing"]["onlyicrocr"]:
             return 0
@@ -714,7 +750,7 @@ class xiadata(object):
         else:
             return self.NSTATS
         
-    def _getaxis(self,i,stats=False):
+    def _getaxis(self,i,stats=False,counters=False):
         """Axes (...,nchan,ndet) can transpose after indexing. Get the new axis position.
 
         Args:
@@ -726,6 +762,8 @@ class xiadata(object):
         levelcache = self._levelcache()
         if stats:
             axes = levelcache["index"]["axesstats"]
+        elif counters:
+            axes = levelcache["index"]["axescounters"]
         else:
             axes = levelcache["index"]["axesdata"]
         if i<0:
@@ -767,6 +805,9 @@ class xiadata(object):
     def _index_stats(self,index):
         return indexing.replacefull(index,self.ndim,[-2])
 
+    def _index_counters(self,index):
+        return indexing.replacefull(index,self.ndim,[-2,-1])
+        
     def _cacheaxesorder(self,index):
         """Cache index and its derived information
 
@@ -782,7 +823,8 @@ class xiadata(object):
             levelcache["index"] = dict()
             levelcache["index"]["axesdata"],_ = indexing.axesorder_afterindexing(index,self.ndim)
             levelcache["index"]["axesstats"],_ = indexing.axesorder_afterindexing(self._index_stats(index),self.ndim)
-
+            levelcache["index"]["axescounters"],_ = indexing.axesorder_afterindexing(self._index_counters(index),self.ndim)
+            
     def extract_stat(self,stats,index,statind):
         """Extract specific statistics after indexing
 
@@ -846,20 +888,28 @@ class xiadata(object):
         # index[-2] extended applies on stats
         
         with self.env_cache():
-            corinfo = self._correctioninfo()
+            levelinfo = self._levelinfo()
 
             #self._dbgmsg("")
             #self._dbgmsg(self)
             #self._dbgmsg(self._xiaconfig)
-            #self._dbgmsg("corinfo: {}".format(corinfo))
+            #self._dbgmsg("levelinfo: {}".format(levelinfo))
             #self._dbgmsg("index: {}".format(index))
             
             # What needs to be done on this level?
-            correct = any(corinfo.values())
-            needdata = self._xiaconfig["indexing"]["data"]
-            onlydata = not self._xiaconfig["indexing"]["stats"]
-            needstats = self._xiaconfig["indexing"]["stats"] or (corinfo["dt"] and self._needsstatsforcorrection())
-            onlystats = not self._xiaconfig["indexing"]["data"]
+            correct = levelinfo["dt"] or levelinfo["sum"] or levelinfo["norm"]
+            
+            returndata = self._xiaconfig["indexing"]["data"]
+            returnstats = self._xiaconfig["indexing"]["stats"]
+            returncounters = self._xiaconfig["indexing"]["counters"]
+
+            onlydata = not returnstats and not returncounters
+            onlystats = not returndata and not returncounters
+            onlycounters = not returndata and not returnstats
+            
+            needdata = returndata
+            needstats = returnstats or (levelinfo["dt"] and self._xiaconfig["dtcor"])
+            needcounters = returncounters
             
             # Cache index and its derived information
             self._cacheaxesorder(index)
@@ -894,9 +944,25 @@ class xiadata(object):
                     #self._dbgmsg("return stats\n")
                     return stats
 
+            ### Get counters from lower levels
+            if needcounters:
+                with self.env_onlycounters():
+                    levelcache = self._levelcache()
+                    indexcounters = self._index_counters(index)
+                    counters = self._getcounters(indexcounters)
+
+                    #self._dbgmsg("counters:")
+                    #self._dbgmsg(self.cshape)
+                    #self._dbgmsg(indexcounters)
+                    #self._dbgmsg(counters.shape)
+
+                if onlycounters:
+                    #self._dbgmsg("return counters\n")
+                    return counters
+                    
             ### Apply corrections
 
-            if corinfo["dt"]:
+            if levelinfo["dt"]:
                 #self._dbgmsg("dt...")
                 
                 # Extract icr/ocr
@@ -912,14 +978,14 @@ class xiadata(object):
                 data = data*cor
                 #self._dbgmsg(data.shape)
 
-            if corinfo["sum"]:
+            if levelinfo["sum"]:
                 #self._dbgmsg("sum...")
 
                 # Sum along the last axis (detectors)
                 data = self.sumdata(data,-1)
                 #self._dbgmsg(data.shape)
 
-            if corinfo["norm"]:
+            if levelinfo["norm"]:
                 #self._dbgmsg("norm...")
                 
                 # Get normalizer
@@ -928,13 +994,30 @@ class xiadata(object):
                 # Apply normalization
                 data = data / cor.astype(self.CORTYPE)
                 #self._dbgmsg(data.shape)
-                
+            
+            # Return tuple
             if onlydata:
                 #self._dbgmsg("return corrected data\n")
                 return data
-
+            if onlystats:
+                #self._dbgmsg("return stats\n")
+                return stats
+            if onlycounters:
+                #self._dbgmsg("return counters\n")
+                return counters
+                
+            ret = tuple()
+            if returndata:
+                #self._dbgmsg("return corrected data\n")
+                ret = ret + (data,)
+            if returnstats:
+                #self._dbgmsg("return stats\n")
+                ret = ret + (stats,)
+            if returncounters:
+                #self._dbgmsg("return counters\n")
+                ret = ret + (counters,)
             #self._dbgmsg("return data,stats\n")
-            return data,stats
+            return ret
 
     def _getdata(self,index=slice(None)):
         raise NotImplementedError("xiadata should not be instantiated, use one of the derived classes")
@@ -958,6 +1041,12 @@ class xiadata(object):
 
         img.write(filename)
         
+    def xiadetectorselect_files(self,lst):
+        return xiadetectorselect_files(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
+
+    def xiadetectorselect_numbers(self,lst):
+        return xiadetectorselect_numbers(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
+        
 class xiacompound(xiadata):
     """Implements XIA data compounding (image, image stacks, ...)
     """
@@ -966,6 +1055,9 @@ class xiacompound(xiadata):
         xiadata.__init__(self,level,**kwargs)
         
         self._items = []
+
+    def __iter__(self):
+        return iter(self.getitems())
 
     def getitems(self):
         if len(self._items)==0:
@@ -989,6 +1081,14 @@ class xiacompound(xiadata):
             return items[0].stype
 
     @property
+    def ctype(self):
+        items = self.getitems()
+        if len(items)==0:
+            return self.XIADTYPE
+        else:
+            return items[0].ctype
+            
+    @property
     def dshape(self):
         # ... x nspec x nchan x ndet
         items = self.getitems()
@@ -1008,6 +1108,16 @@ class xiacompound(xiadata):
             return ()
         else:
             return (nlines,) + items[0].sshape
+
+    @property
+    def cshape(self):
+        # ... x nrow x ncol x nctr x 1
+        items = self.getitems()
+        nimages = len(items)
+        if nimages==0:
+            return ()
+        else:
+            return (nimages,) + items[0].cshape
 
     def _getdata(self,index=slice(None)):
         """
@@ -1030,14 +1140,29 @@ class xiacompound(xiadata):
         return data
         
     def _reshapeemptydata(self,data):
-        # slicedstack does not call the sublevels when the compound dimensions is reduced to zero
-        if self._xiaconfig["detectors"]["add"] and self._level > self._xiaconfig["correctionlevel"]["sum"]:
+        # slicedstack does not call the sublevels when the compound dimension is reduced to zero
+        if self._xiaconfig["detectors"]["add"] and self._level > self._xiaconfig["levelinfo"]["sum"]:
             s = list(data.shape)
             s[self._getaxis(-1)] = 1
             data = data.reshape(s)
             
         return data
 
+    def _getcounters(self,index=slice(None)):
+        """
+        Args:
+            index (slice or num):
+        Returns:
+            array: ... x nspec x nctrs x 1
+        """
+        items = self.getitems()
+        if len(items)==0:
+            np.empty((0,)*self.ndim,dtype=self.XIADTYPE)
+
+        # Generate sliced stack
+        generator = lambda image: image
+        return indexing.slicedstack(generator,items,index,self.ndim,shapefull=self.cshape,axis=0)
+        
     def _getstats(self,index=slice(None)):
         """
         Args:
@@ -1052,14 +1177,15 @@ class xiacompound(xiadata):
         # Generate sliced stack
         generator = lambda line: line
         return indexing.slicedstack(generator,items,index,self.ndim,shapefull=self.sshape,axis=0)
-
-    def save(self,data,xialabels,stats=None,ctrs=None):
+        
+    def save(self,data,xialabels,stats=None,ctrs=None,ctrnames=None):
         """
         Args:
             data(array): dimensions = ... x nspec x nchan x ndet
             xialabels(list): number of labels = ndet
             stats(Optional(array)): dimensions = ... x nspec x nstats x ndet
-            ctrs(Optional(dict)): dimensions = ... x nspec
+            ctrs(Optional(array)): dimensions = ... nrow x ncol x ncounters
+            ctrnames(Optional(list)):
         Returns:
             None
         """
@@ -1069,27 +1195,27 @@ class xiacompound(xiadata):
             raise RuntimeError("The xia compound being saved has {} items while {} items were expected".format(nlines,len(items)))
 
         bctrsave = False
-
+        
         for i in range(nitems):
             if stats is None:
                 statsi = None
             else:
                 statsi = stats[i,...]
-                
+
             if isinstance(items[i],xiacompound):
                 if ctrs is None:
                     ctrsi = None
                 else:
-                    ctrsi = {k:ctrs[k][i,...] for k in ctrs}
+                    ctrsi = ctrs[i,...]
 
-                items[i].save(data[i,...],xialabels,stats=statsi,ctrs=ctrsi)
+                items[i].save(data[i,...],xialabels,stats=statsi,ctrs=ctrsi,ctrnames=ctrnames)
             else:
+                # self: xiaimage, item[i]: xialine
                 bctrsave = ctrs is not None
-                
                 items[i].save(data[i,...],xialabels,stats=statsi)
                 
         if bctrsave:
-            for k,v in ctrs.items():
+            for k,v in zip(ctrnames,np.moveaxis(ctrs, -1, 0)):
                 img = fabio.edfimage.EdfImage(data=v)
                 self._write(img,self._ctrformat.format(k))
                     
@@ -1131,6 +1257,13 @@ class xiacompound(xiadata):
         for l in items:
             files += l.statfilenames()
         return files
+
+    def counternames(self):
+        items = self.getitems()
+        if items:
+            return items[0].counternames()
+        else:
+            return []
 
 class xialine(xiadata):
 
@@ -1274,12 +1407,6 @@ class xialine(xiadata):
             img = fabio.edfimage.EdfImage(data=tmp,header=header)
             self._write(img,self._fileformat.format("xiast"))
 
-    def xiadetectorselect_files(self,lst):
-        return xiadetectorselect_files(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
-
-    def xiadetectorselect_numbers(self,lst):
-        return xiadetectorselect_numbers(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
-
     def datafilenames_used(self):
         files = self.datafilenames()
         if len(files)==0:
@@ -1327,6 +1454,43 @@ class xiaimage(xiacompound):
     def ndim(self):
         return 4
 
+    @property
+    def ctype(self):
+        files = self.ctrfilenames()
+        if files:
+            return self._getedfimage(files[0],cache=True).dtype
+        else:
+            return self.XIADTYPE  
+
+    @property
+    def cshape(self):
+        # nrow x ncol x nctrs x 1
+        files = self.ctrfilenames()
+        if files:
+            s = self._getedfimage(files[0],cache=True).shape
+            return s+(len(files),1)
+        else:
+            return ()
+            
+    def _getcounters(self,index=slice(None)):
+        """
+        Args:
+            index(Optional(slice)):
+        Returns:
+            array: nrow x ncol x nctrs x 1 (before indexing)
+        """
+
+        # Select all counters
+        files = self.ctrfilenames()
+        if len(files)==0:
+            return np.empty((0,0,0,0),dtype=self.XIADTYPE)
+
+        # Generate sliced stack
+        generator = lambda f: indexing.expanddims(self._getedfimage(f).data,self.ndim-1)
+        counters = indexing.slicedstack(generator,files,index,self.ndim,shapefull=self.cshape,axis=2)
+
+        return counters
+ 
     def ctrfilenames(self,ctr=None):
         """
         Args:
@@ -1375,6 +1539,9 @@ class xiaimage(xiacompound):
     def ctrsearch(self):
         path = os.path.abspath(os.path.join(self.path,self._xiaconfig["counter_reldir"]))
         self._ctrfiles = xiasearch(path,radix=self.radix,mapnum=self.mapnum,onlyctrs=True)
+    
+    def counternames(self):
+        return [xiaparsefilename(f)[-1] for f in self._ctrfiles]
         
 class xiastack(xiacompound):
     """Compounds XIA images
@@ -1573,13 +1740,14 @@ class xiaimage_number(xiaimage):
         
         self.ctrsearch()
         
-    def save(self,data,xialabels,stats=None,ctrs=None):
+    def save(self,data,xialabels,stats=None,ctrs=None,ctrnames=None):
         """
         Args:
             data(array): dimensions = nlines x nspec x nchan x ndet
             xialabels(list): number of labels = ndet
             stats(Optional(array)): dimensions = nlines x nspec x nstats x ndet
-            ctrs(Optional(dict)): dimensions = nlines x nspec
+            ctrs(Optional(array)): dimensions = nlines x nspec x ncounters
+            ctrnames(Optional(list)): 
         Returns:
             None
         """
@@ -1587,10 +1755,11 @@ class xiaimage_number(xiaimage):
         if len(self._items)==0:
             nlines = data.shape[0]
             self._items = [xialine_number(self.path,self.radix,self.mapnum,linenum,**self.linekwargs) for linenum in range(nlines)]
-            if ctrs is not None:
-                self._ctrfiles = [self._ctrformat.format(k) for k in ctrs]
+            if ctrnames is not None:
+                self._ctrfiles = [self._ctrformat.format(k) for k in ctrnames]
+                self._ctrfiles.sort(key=xiasortkey)
             
-        xiaimage.save(self,data,xialabels,stats=stats,ctrs=ctrs)
+        xiaimage.save(self,data,xialabels,stats=stats,ctrs=ctrs,ctrnames=ctrnames)
 
 class xiastack_files(xiastack):
     """XIA stack determined by a list of files
@@ -1653,13 +1822,14 @@ class xiastack_radix(xiastack):
         n = xiagroupnxiafiles(files.values()[0]) # number of files in the first map
         self._items = [xiaimage_files(fmap,**self.imagekwargs) for radix_mapnum,fmap in files.items() if xiagroupnxiafiles(fmap)==n]
         
-    def save(self,data,xialabels,stats=None,ctrs=None):
+    def save(self,data,xialabels,stats=None,ctrs=None,ctrnames=None):
         """
         Args:
             data(array): dimensions = nmaps x nlines x nspec x nchan x ndet
             xialabels(list): number of labels = ndet
             stats(Optional(array)): dimensions = nmaps x nlines x nspec x nstats x ndet
-            ctrs(Optional(dict)): dimensions = nlines x nspec
+            ctrs(Optional(array)): dimensions = nlines x nspec x ncounters
+            ctrnames(Optional(list)): 
         Returns:
             None
         """
@@ -1668,7 +1838,7 @@ class xiastack_radix(xiastack):
             nmaps = data.shape[0]
             self._items = [xiaimage_number(self.path[-1],self.radix[-1],mapnum,**self.imagekwargs) for mapnum in range(nmaps)]
 
-        xiastack.save(self,data,xialabels,stats=stats,ctrs=ctrs)
+        xiastack.save(self,data,xialabels,stats=stats,ctrs=ctrs,ctrnames=ctrnames)
 
 class xiastack_mapnumbers(xiastack):
     """XIA stack determined by its radices and mapnumbers
@@ -1718,13 +1888,14 @@ class xiastack_mapnumbers(xiastack):
                                                      for mapnum,fmap in fradix.items()\
                                                      if mapnum in self.mapnumbers[radix] and xiagroupnxiafiles(fmap)==n]
 
-    def save(self,data,xialabels,stats=None,ctrs=None):
+    def save(self,data,xialabels,stats=None,ctrs=None,ctrnames=None):
         """
         Args:
             data(array): dimensions = nmaps x nlines x nspec x nchan x ndet
             xialabels(list): number of labels = ndet
             stats(Optional(array)): dimensions = nmaps x nlines x nspec x nstats x ndet
-            ctrs(Optional(dict)): dimensions = nlines x nspec
+            ctrs(Optional(array)): dimensions = nlines x nspec x ncounters
+            ctrnames(Optional(list)): 
         Returns:
             None
         """
@@ -1733,5 +1904,5 @@ class xiastack_mapnumbers(xiastack):
             nmaps = data.shape[0]
             self._items = [xiaimage_number(self.path[-1],self.radix[-1],mapnum,**self.imagekwargs) for mapnum in range(nmaps)]
 
-        xiastack.save(self,data,xialabels,stats=stats,ctrs=ctrs)
+        xiastack.save(self,data,xialabels,stats=stats,ctrs=ctrs,ctrnames=ctrnames)
         
