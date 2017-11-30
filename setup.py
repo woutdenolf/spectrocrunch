@@ -274,7 +274,7 @@ setup(name=PROJECT,
       extras_require=extras_require,
       setup_requires=setup_requires,
       packages=find_packages(),
-      package_data={'spectrocrunch.resources': ['cif/*.*','id21/*.*']},
+      package_data={'spectrocrunch.resources': ['cif/*.*','id21/*.*','test/*.*']},
       license="MIT",
       cmdclass=cmdclass
       )
