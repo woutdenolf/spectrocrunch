@@ -70,9 +70,10 @@ def getscanpositions(config,header):
         sfast = {"name":result["motfast"],"data":spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])} 
         sslow = {"name":result["motslow"],"data":spec.ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])} 
     else:
-        sfast = {"name":"fast","data":np.arange(header["Dim_2"])}
-        sslow = {"name":"slow","data":np.arange(header["Dim_1"])}
- 
+        logger.warning("No motor positions in header (using pixels).")
+        sfast = {"name":"fast","data":np.arange(int(header["Dim_2"]))}
+        sslow = {"name":"slow","data":np.arange(int(header["Dim_1"]))}
+        
     return (sfast["name"],sslow["name"],sfast,sslow)
 
 def detectorname(detector):
@@ -145,7 +146,7 @@ def getimagestacks(config):
     xiastackraw.detectorsum(adddet)
     
     # Create new spectra when needed
-    if dtcor or adddet or True: # TODO: remove True
+    if dtcor or adddet:
         if dtcor:
             label = "dtcor"
         else:
@@ -173,7 +174,7 @@ def getimagestacks(config):
     elif "xia" in config["metacounters"]:
         metacounters = "xia"
     else:
-        logger.exception("Metacounters for {} are not found.".format(xiastackraw)) 
+        logger.warning("Metacounters for {} are not found".format(xiastackraw)) 
 
     # Extract metadata and counters from raw stack
     for imageindex,xiaimage in enumerate(xiastackraw):
@@ -183,32 +184,34 @@ def getimagestacks(config):
             files = xiaimage.statfilenames()
         else:
             files = xiaimage.ctrfilenames(metacounters)
-
         if files:
             header = edf.edfimage(files[0]).header
-            motfast,motslow,sfast,sslow = getscanpositions(config,header)
-            
-            # Prepare axes and coordinates
-            if binit:
-                for mot in config["coordinates"]:
-                    if mot != motfast and mot != motslow and mot in header:
-                        coordinates[mot] = np.full(nstack,np.nan)
-                        
-                stackaxes[imgdim[1]] = sfast
-                stackaxes[imgdim[0]] = sslow
-                stackaxes[stackdim] = {"name":str(config["stacklabel"]),"data":np.full(nstack,np.nan,dtype=np.float32)}
-
-            # Add coordinates
-            for mot in coordinates:
-                if mot in header:
-                    coordinates[mot][imageindex] = np.float(header[mot])
-                              
-            # Add stack value
-            if config["stacklabel"] in header:
-                stackaxes[stackdim]["data"][imageindex] = np.float(header[config["stacklabel"]])
         else:
-            logger.exception("Metacounters for {} are not found.".format(xiaimage)) 
-    
+            logger.warning("Metacounters for {} are not found".format(xiaimage)) 
+            header = {"Dim_1":ncol, "Dim_2":nrow}
+        motfast,motslow,sfast,sslow = getscanpositions(config,header)
+
+        # Prepare axes and coordinates
+        if binit:
+            for mot in config["coordinates"]:
+                if mot != motfast and mot != motslow and mot in header:
+                    coordinates[mot] = np.full(nstack,np.nan)
+                    
+            stackaxes[imgdim[1]] = sfast
+            stackaxes[imgdim[0]] = sslow
+            stackaxes[stackdim] = {"name":str(config["stacklabel"]),"data":np.full(nstack,np.nan,dtype=np.float32)}
+
+        # Add coordinates
+        for mot in coordinates:
+            if mot in header:
+                coordinates[mot][imageindex] = np.float(header[mot])
+                          
+        # Add stack value
+        if config["stacklabel"] in header:
+            stackaxes[stackdim]["data"][imageindex] = np.float(header[config["stacklabel"]])
+        else:
+            logger.warning("No energy in header (set to NaN)")
+            
         # Counters
         files = xiaimage.ctrfilenames(counters)
         files = xiaedf.xiagroupdetectors(files)
@@ -241,6 +244,7 @@ def getimagestacks(config):
                 # Fit
                 outname = "{}_xia{}_{:04d}_0000".format(xiaimage.radix,detector,xiaimage.mapnum)
                 energy = stackaxes[stackdim]["data"][imageindex]
+
                 files, labels = fitter(filestofit[detector]["xia"],
                                        config["outfitpath"],outname,cfg,energy,
                                        fast=config["fastfitting"],mlines=config["mlines"])
@@ -405,13 +409,10 @@ def create_hdf5_imagestacks(jsonfile):
         3 axes datasets on the main level
 
     Returns:
-        tuple
-
-        The first element contains the image stack:
-            stacks = {"counters":{"name1":lstack1,"name2":lstack2,...},
-                      "det0":{"name3":lstack3,"name4":lstack4,...},
-                      "det1":{"name3":lstack5,"name4":lstack6,...},...}
-            lstack: an image stack given as an NXdata path
+        stacks(dict):  {"counters": {"name1":lstack1,"name2":lstack2,...},
+                        "detector0":{"name3":lstack3,"name4":lstack4,...},
+                        "detector1":{"name3":lstack5,"name4":lstack6,...},...}
+                         lstack: an image stack given as an NXdata path
 
         The second element is a list with three elements which contains
         the axis of the stack:

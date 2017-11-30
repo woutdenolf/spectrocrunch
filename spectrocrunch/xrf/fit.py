@@ -38,7 +38,10 @@ import pylab
 
 import warnings
 warnings.filterwarnings("ignore")
+
 import logging
+
+from ..common import instance
 
 def ReadPyMcaConfigFile(filename):
     # Read the configuration
@@ -65,14 +68,25 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
     """
 
     # Nothing to do
-    if energy is np.nan and len(mlines)==0:
+    if np.isnan(energy) and len(mlines)==0:
         return
 
-    if energy is not np.nan:
+    if not np.isnan(energy):
         # Adapt the cfg
-        ftype = type(cfg["fit"]["energyweight"][0])
-        itype = type(cfg["fit"]["energyflag"][0])
-        n = len(cfg["fit"]["energy"])
+        
+        tmp = cfg["fit"]["energyweight"]
+        if instance.isarray(tmp):
+            ftype = type(tmp[0])
+        else:
+            ftype = type(tmp)
+
+        tmp = cfg["fit"]["energyflag"]
+        if instance.isarray(tmp):
+            itype = type(tmp[0])
+        else:
+            itype = type(tmp)
+        
+        n = 1+addhigh
 
         # Adapt energy
         sourcelines = [None]*n
@@ -143,10 +157,10 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
         if "M5 xrays" not in ClassMcaTheory.Elements.ElementXrays:
             logging.getLogger(__name__).error("PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting.")
             raise ImportError("PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting.")
-    for el in mlines:
-        if el in cfg["peaks"]:
-            if "M" in cfg["peaks"][el]:
-                cfg["peaks"][el] = [group for group in cfg["peaks"][el] if group != "M"] + mlines[el]
+        for el in mlines:
+            if el in cfg["peaks"]:
+                if "M" in cfg["peaks"][el]:
+                    cfg["peaks"][el] = [group for group in cfg["peaks"][el] if group != "M"] + mlines[el]
 
 def PerformRoi(filelist,rois,norm=None):
     """ROI XRF spectra in batch with changing primary beam energy.

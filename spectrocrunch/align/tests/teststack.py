@@ -174,6 +174,7 @@ def teststack(transfotype,\
         ndim1 = 71,\
         ndim2 = 61,\
         nimages = 5,\
+        nstacks = 2,\
         ndim = 100,vector=False,transposed=False,\
         realistic = True, subpixel = True):
     """
@@ -359,5 +360,5 @@ def teststack(transfotype,\
             Mcof = np.dot(np.dot(Cinv,Mcof),C)
             Mcoord = np.dot(np.dot(Cinv,Mcoord),C)
 
-    return ([ret,ret],Mcoord,2) # Mcoord: change-of-frame matrix of the back-transformation
+    return [ret]*nstacks,Mcoord,2 # Mcoord: change-of-frame matrix of the back-transformation
 

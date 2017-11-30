@@ -108,7 +108,9 @@ compounddb["paris green"] = compoundfromformula.CompoundFromFormula("Cu2(CH3CO2)
 # tapes/foils:
 data = xraylib.GetCompoundDataNISTByName("Kapton Polyimide Film")
 compounddb["kapton"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="kapton")
-compounddb["ultralene"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="ultralene")
+#compounddb["ultralene"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="ultralene")
+compounddb["mylar"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="mylar")
+compounddb["ultralene"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="ultralene")
 
 # polymers:
 compounddb["pmma"] = compoundfromformula.CompoundFromFormula("C5O2H8",1.18,name="pmma")

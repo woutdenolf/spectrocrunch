@@ -42,6 +42,8 @@ from .proc_common import defaultstack
 from .proc_common import flattenstacks
 from .proc_resample import execute as execresample
 
+logger = logging.getLogger(__name__)
+
 def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,stackdim,\
                     mlines={},microdiff=False,exclude_detectors=[],addbeforefit=True,useencoders=False,noxia=False):
     if noxia:
@@ -118,12 +120,11 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
 
     return jsonfile,config["hdf5output"]
 
-def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignreference,\
-        refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,\
+def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod=None,alignreference=None,\
+        refimageindex=None,skippre=False,dtcor=True,default=None,\
         crop=False,roialign=None,plot=True,mlines={},microdiff=False,exclude_detectors=[],\
         addbeforefit=True,encodercor=None,normcounter=None,noxia=False,postnormcounter=None):
 
-    logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
 
     stackdim = 2
@@ -132,6 +133,11 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
     cropalign = False
     cropafter = crop
     replacenan = True
+
+    #if microdiff:
+    #    iodet = "zap_iodet"
+    #else:
+    #    iodet = "arr_iodet"
 
     # Image stacks
     preprocessingexists = False
@@ -167,30 +173,20 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
 
     # Normalization
     skipnorm = ["arr_absorp1","arr_absorp2","arr_absorp3","arr_samy","arr_samz"]
-    if not skipnormalization or dtcor or normcounter is not None:
+    if dtcor or normcounter is not None:
         skip = copy.copy(skipnorm)
-
-        # Add flux normalization to normcounter
-        if not skipnormalization:
-            if microdiff:
-                iodet = "{zap_iodet}"
-            else:
-                iodet = "{arr_iodet}"
-
-            if normcounter is None:
-                normcounter = iodet
-            else:
-                normcounter = "{{{}}}".format(normcounter)
 
         # Create normalization expression
         if dtcor:
             if normcounter is None:
                 expression = "{{}}*nanone({{xmap_icr}}/{{xmap_ocr}})"
             else:
-                expression = "{{}}*nanone({{xmap_icr}}/({}*{{xmap_ocr}}))".format(normcounter)
-            skip += [normcounter,"xmap_icr","xmap_ocr"]
+                expression = "{{}}*nanone({{xmap_icr}}/({{{}}}*{{xmap_ocr}}))".format(normcounter)
+            skip += ["xmap_icr","xmap_ocr"]
         else:
-            expression = "{{}}/{}".format(normcounter)
+            expression = "{{}}/{{{}}}".format(normcounter)
+
+        if normcounter is not None:
             skip += [normcounter]
 
         h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="norm")

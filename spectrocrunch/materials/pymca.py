@@ -33,7 +33,6 @@ from ..common import units
 
 import itertools
 
-
 ############################################################
 
 class Geom(with_metaclass(object)):
@@ -272,8 +271,7 @@ class PymcaConfig(object):
         self.energy = energy # keV
         self.flux = flux # ph/s
         self.time = time # s
-        self.config = {}
-    
+
     @property
     def _energy(self):
         return units.magnitude(self.energy,"keV")
@@ -294,10 +292,10 @@ class PymcaConfig(object):
             config["fit"]["energyscatter"] = [1,0]
             config["fit"]["energyweight"] = [1e+100,1e-05]
         else:
-            config["fit"]["energy"] = [energy]
-            config["fit"]["energyflag"] = [1]
-            config["fit"]["energyscatter"] = [1]
-            config["fit"]["energyweight"] = [1.0]
+            config["fit"]["energy"] = [energy,0]
+            config["fit"]["energyflag"] = [1,0]
+            config["fit"]["energyscatter"] = [1,0]
+            config["fit"]["energyweight"] = [1.0,0.]
         config["fit"]["scatterflag"] = 1
         
         config["concentrations"]["flux"] = self._flux
@@ -317,5 +315,4 @@ class PymcaConfig(object):
         self.beam(config)
         self.background(config)
         self.peakshape(config)
-
 
