@@ -53,22 +53,23 @@ def ReadPyMcaConfigFile(filename):
         raise IOError("File <%s> couldn't be loaded" % filename)
     return cfg
 
-def AdaptPyMcaConfigFile(filename,energy,addhigh=True,mlines={}):
+def AdaptPyMcaConfigFile(filename,energy,addhigh=True,mlines={},quant={}):
     cfg = ReadPyMcaConfigFile(filename)
-    AdaptPyMcaConfig(cfg,energy,addhigh=addhigh,mlines=mlines)
+    AdaptPyMcaConfig(cfg,energy,addhigh=addhigh,mlines=mlines,quant=quant)
     cfg.write(filename)
 
-def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
+def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={},quant={}):
     """
     Args:
         cfg(ConfigDict): pymca configuration
         energy(float): primary beam energy in keV
         addhigh(Optional(num)): add high primary energy with very low weight
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
+        quant(Optional(dict)): 
     """
 
     # Nothing to do
-    if np.isnan(energy) and len(mlines)==0:
+    if np.isnan(energy) and not mlines and not quant:
         return
 
     if not np.isnan(energy):
@@ -153,7 +154,7 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
     #                 MShell.ElementM5ShellRates]
     #ElementXrays      = ['K xrays', 'Ka xrays', 'Kb xrays', 'L xrays','L1 xrays','L2 xrays','L3 xrays','M xrays','M1 xrays','M2 xrays','M3 xrays','M4 xrays','M5 xrays']
 
-    if len(mlines) > 0:
+    if mlines:
         if "M5 xrays" not in ClassMcaTheory.Elements.ElementXrays:
             logging.getLogger(__name__).error("PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting.")
             raise ImportError("PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting.")
@@ -161,6 +162,16 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
             if el in cfg["peaks"]:
                 if "M" in cfg["peaks"][el]:
                     cfg["peaks"][el] = [group for group in cfg["peaks"][el] if group != "M"] + mlines[el]
+
+    if quant:
+        if "flux" in quant:
+            cfg["concentrations"]["flux"] = quant["flux"]
+        if "time" in quant:
+            cfg["concentrations"]["time"] = quant["time"]
+        if "area" in quant:
+            cfg["concentrations"]["area"] = quant["area"]
+        if "distance" in quant:
+            cfg["concentrations"]["distance"] = quant["distance"]
 
 def PerformRoi(filelist,rois,norm=None):
     """ROI XRF spectra in batch with changing primary beam energy.
@@ -330,7 +341,7 @@ def PerformFit(filelist,cfgfile,energies,mlines={},norm=None,fast=True,prog=None
 
     return ret
 
-def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},fast=True):
+def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fast=True):
     """Fit XRF spectra in batch with one primary beam energy.
 
         Least-square fitting. If you intend a linear fit, modify the configuration:
@@ -349,6 +360,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},fast=True):
         energy(num): primary beam energy
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
         fast(Optional(bool)): fast fitting (linear)
+        quant(Optional(dict)): 
     """
 
     if not os.path.exists(outdir):
@@ -356,8 +368,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},fast=True):
 
     # Adapt file (not adapting the fitobject's member variables because it's unclear 
     # what other things need to be changed when changing the energy)
-    if energy is not np.nan:
-        AdaptPyMcaConfigFile(cfgfile,energy,mlines=mlines)
+    AdaptPyMcaConfigFile(cfgfile,energy,mlines=mlines,quant=quant)
 
     if fast:
         # Prepare fit

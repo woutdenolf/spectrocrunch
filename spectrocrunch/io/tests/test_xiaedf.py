@@ -187,7 +187,7 @@ class test_xiaedf(unittest.TestCase):
         for dsum in [False,True]:
             xiaobject.detectorsum(dsum)
             for norm in [False,True]:
-                xiaobject.norm("arr_flux" if norm else None)
+                xiaobject.globalnorm("arr_flux" if norm else None)
                 for dtcor in [False,True]:
                     xiaobject.dtcor(dtcor)
                     for onlyicrocr in [False,True]:
@@ -263,7 +263,7 @@ class test_xiaedf(unittest.TestCase):
         xiaobject.onlyicrocr(False)
         xiaobject.dtcor(False)
         xiaobject.detectorsum(False)
-        xiaobject.norm(None)
+        xiaobject.globalnorm(None)
         
         ndet = dshape[-1]
 

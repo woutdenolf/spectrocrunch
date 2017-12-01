@@ -28,12 +28,19 @@ import spectrocrunch.io.spec as spec
 import spectrocrunch.detectors.diode as diode
 import matplotlib.pyplot as plt
 
+from ..common import units
+
 class FluxMonitor(object):
     
     def __init__(self):
         self.idet = diode.factory("idet",model=True)
         self.iodet = None
-        
+        self.refcts = units.Quantity(1e10,"hertz")
+        self.time = units.Quantity(0.1,"s")
+    
+    def __str__(self):
+        return "Default flux reference:\n {}\nDefault exposure time:\n {}\n{}".format(self.refcts,self.time,str(self.iodet))
+
     def parsespec(self,specfile,specnr):
         # Parse spec file
         fspec = spec.spec(specfile)
@@ -46,23 +53,28 @@ class FluxMonitor(object):
         self.idetcps = data[:,2]/seconds
         self.iodetcps = data[:,3]/seconds
         
-    def setiodet(self):
+        self._setiodet()
+        
+    def _setiodet(self):
+        optics = (abs(self.zpz-7)<abs(self.zpz-6.5))
+ 
         if abs(self.ioz-7)<abs(self.ioz-23):
             name = "iodet1"
         elif abs(self.istopz+20)<abs(self.istopz+1.3):
             name = "iodet2"
         else:
             raise RuntimeError("No diode in the beam")
-
-        if self.iodet is None:
-            optics = (abs(self.zpz-7)<abs(self.zpz-6.5))
             
+        self.setdiode(name,optics=optics)
+
+    def setdiode(self,name,optics=True):
+        if self.iodet is None:
             self.iodet = diode.factory(name,optics=optics)
             self.iodet.name = name
             #self.iodet.secondarytarget.geometry.solidangle = 4*np.pi*0.2
         else:
             if self.iodet.name!=name:
-                raise RuntimeError("Wrong diode in the beam")
+                raise RuntimeError("Diode changed!")
 
     def darkiodet(self):
         self.iodet.darkfromcps(self.iodetcps)
@@ -117,12 +129,13 @@ class FluxMonitor(object):
         plt.tight_layout()
     
     def initdiodes(self,gainiodet,gainidet):
-        self.iodet.setgain(gainiodet)
-        self.idet.setgain(gainidet)
+        if gainiodet is not None:
+            self.iodet.setgain(gainiodet)
+        if gainidet is not None:
+            self.idet.setgain(gainidet)
         
     def initspec(self,specfile,specnr,gainiodet,gainidet):
         self.parsespec(specfile,specnr)
-        self.setiodet()
         self.initdiodes(gainiodet,gainidet)
 
     def dark(self,specfile,specnr,gainiodet,gainidet,plot=False):
@@ -135,6 +148,10 @@ class FluxMonitor(object):
             self.checkdark()
             plt.show()
  
+    def manualdark(self,iodetcps,gainiodet):
+        self.initdiodes(gainiodet,None)
+        self.iodet.darkfromcps(iodetcps)
+
     def calib(self,specfile,specnr,gainiodet,gainidet,plot=False):
         self.initspec(specfile,specnr,gainiodet,gainidet)
 
@@ -144,10 +161,23 @@ class FluxMonitor(object):
             self.checkflux()
             plt.show()
 
-    def manualcalib(self,energy,transmission,gainiodet,gainidet):
-        self.initdiodes(gainiodet,gainidet)
+    def manualcalib(self,energy,transmission,gainiodet):
+        self.initdiodes(gainiodet,None)
         self.iodet.optics.set_transmission(energy,transmission)
     
-    def xrfnormop(self,energy,time,reference):
-        return self.iodet.xrfnormop(energy,time,reference)
+    def setreferenceflux(self,flux):
+        self.refcts = units.Quantity(flux,"hertz")
+    
+    def setreferencecounts(self,cts):
+        self.refcts = units.Quantity(cts,"dimensionless")
+    
+    def settime(self,time):
+        self.time = units.Quantity(time,"s")
+    
+    def xrfnormop(self,energy,time=None,refcts=None):
+        if time is None:
+            time = self.time
+        if refcts is None:
+            refcts = self.refcts
+        return self.iodet.xrfnormop(energy,time,refcts)
         

@@ -121,7 +121,7 @@ class Multilayer(object):
   
     def __str__(self):
         layers = "\n ".join("{}. {}".format(i,str(layer)) for i,layer in enumerate(self))
-        return "Multilayer (ordered top-bottom):\n {}\nGeometry\n {}".format(layers,self.geometry)
+        return "Multilayer (ordered top-bottom):\n {}\nGeometry:\n {}".format(layers,self.geometry)
 
     def markscatterer(self,name):
         for layer in self:

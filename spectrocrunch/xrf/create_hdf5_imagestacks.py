@@ -53,15 +53,15 @@ def axesindices(config):
         imgdim = [0,1]
     return stackdim,imgdim
 
-def getscanpositions(config,header):
+def getscanparameters(config,header):
     """Get scan dimensions from header
     """
     result = {"name":"unknown"}
     
-    if "scanlabel" in config:
-        if config["scanlabel"] in header:
+    if "speccmdlabel" in config:
+        if config["speccmdlabel"] in header:
             o = spec.cmd_parser()
-            result = o.parse(header[config["scanlabel"]])
+            result = o.parse(header[config["speccmdlabel"]])
     elif "fastlabel" in config and "slowlabel" in config:
         o = spec.edfheader_parser(fastlabel=config["fastlabel"],slowlabel=config["slowlabel"])
         result = o.parse(header)
@@ -69,14 +69,20 @@ def getscanpositions(config,header):
     if result["name"]=="zapimage":
         sfast = {"name":result["motfast"],"data":spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])} 
         sslow = {"name":result["motslow"],"data":spec.ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])} 
+        if "time" is result:
+            time = result["time"]
+        else:
+            time = np.nan
     else:
         logger.warning("No motor positions in header (using pixels).")
         sfast = {"name":"fast","data":np.arange(int(header["Dim_2"]))}
         sslow = {"name":"slow","data":np.arange(int(header["Dim_1"]))}
+        time = np.nan
         
-    return (sfast["name"],sslow["name"],sfast,sslow)
+    return sfast["name"],sslow["name"],sfast,sslow,time
 
 def detectorname(detector):
+    # detector: "00", "S0"
     if detector:
         if detector.isdigit():
             name = "detector{:d}".format(int(detector))
@@ -88,7 +94,7 @@ def detectorname(detector):
         name = "counter"
     return name
 
-def getimagestacks(config):
+def createimagestacks(config,fluxmonitor=None):
     """Get image stacks (counters, ROI's, fitted maps)
 
     Args:
@@ -121,19 +127,19 @@ def getimagestacks(config):
     
     # Get image stack
     xiastackraw = xiaedf.xiastack_mapnumbers(config["sourcepath"],config["scanname"],config["scannumbers"])
+    nstack, nrow, ncol, nchan, ndet = xiastackraw.dshape
     
     # Exclude detectors
     xiastackraw.skipdetectors(config["exclude_detectors"])
+    xiastackraw.keepdetectors(config["include_detectors"])
     
     # Counter directory relative to the XIA files
     xiastackraw.counter_reldir(config["counter_reldir"])
     
-    # Stack shape
-    nstack, nrow, ncol, nchan, ndet = xiastackraw.dshape
-
     # Deadtime correction
     if config["dtcor"]:
         if ndet==1:
+            # DT correction after fitting can only be done when having 1 detector
             dtcor = config["dtcorifsingle"]
         else:
             dtcor = config["fit"]
@@ -144,26 +150,7 @@ def getimagestacks(config):
     # Add detectors
     adddet = config["fit"] and config["addbeforefitting"] and ndet>1
     xiastackraw.detectorsum(adddet)
-    
-    # Create new spectra when needed
-    if dtcor or adddet:
-        if dtcor:
-            label = "dtcor"
-        else:
-            label = "raw"
-        radix = ["{}_{}".format(radix,label) for radix in config["scanname"]]
-        xiastackproc = xiaedf.xiastack_mapnumbers(config["outdatapath"],radix,config["scannumbers"])
-        xiastackproc.overwrite(True)
-        if adddet:
-            xialabels = ["xiaS1"]
-        else:
-            xialabels = ["xia{:02d}".format(det) for det in xiastackraw.xiadetectorselect_numbers(range(ndet))]
-        
-        xiastackproc.save(xiastackraw.data,xialabels)
-        nstack, nrow, ncol, nchan, ndet = xiastackproc.dshape
-    else:
-        xiastackproc = xiastackraw
-    
+
     # Check counters
     counters = set(xiastackraw.counterbasenames())
     metacounters = counters.intersection(config["metacounters"])
@@ -189,7 +176,7 @@ def getimagestacks(config):
         else:
             logger.warning("Metacounters for {} are not found".format(xiaimage)) 
             header = {"Dim_1":ncol, "Dim_2":nrow}
-        motfast,motslow,sfast,sslow = getscanpositions(config,header)
+        motfast,motslow,sfast,sslow,time = getscanparameters(config,header)
 
         # Prepare axes and coordinates
         if binit:
@@ -200,7 +187,8 @@ def getimagestacks(config):
             stackaxes[imgdim[1]] = sfast
             stackaxes[imgdim[0]] = sslow
             stackaxes[stackdim] = {"name":str(config["stacklabel"]),"data":np.full(nstack,np.nan,dtype=np.float32)}
-
+            expotime = np.full(nstack,np.nan,dtype=np.float32)
+            
         # Add coordinates
         for mot in coordinates:
             if mot in header:
@@ -211,7 +199,10 @@ def getimagestacks(config):
             stackaxes[stackdim]["data"][imageindex] = np.float(header[config["stacklabel"]])
         else:
             logger.warning("No energy in header (set to NaN)")
-            
+        
+        # Add time
+        expotime[imageindex] = time
+        
         # Counters
         files = xiaimage.ctrfilenames(counters)
         files = xiaedf.xiagroupdetectors(files)
@@ -228,6 +219,39 @@ def getimagestacks(config):
                 # Add counter file
                 stacks[name][ctr][imageindex] = f[0]
 
+    # Create new spectra when needed
+    if dtcor or adddet or fluxmonitor is not None:
+    
+        # Set normalizer for each image separately
+        if fluxmonitor is not None:
+            flux = np.full(nstack,np.nan,dtype=np.float32)
+            
+            for imageindex,xiaimage in enumerate(xiastackraw):
+                energy = stackaxes[stackdim]["data"][imageindex]
+                time = expotime[imageindex]
+                if np.isnan(time):
+                    time = None
+                xrfnormop,flux[imageindex],expotime[imageindex] = fluxmonitor.xrfnormop(energy,time=time)
+                xiaimage.localnorm(config["counters"][config["fluxcounter"]],func=xrfnormop)
+    
+        if dtcor:
+            label = "dtcor"
+            radix = ["{}_{}".format(radix,label) for radix in config["scanname"]]
+        else:
+            radix = config["scanname"]
+        xiastackproc = xiaedf.xiastack_mapnumbers(config["outdatapath"],radix,config["scannumbers"])
+        xiastackproc.overwrite(True)
+        
+        if adddet:
+            xialabels = ["xiaS1"]
+        else:
+            xialabels = ["xia{:02d}".format(det) for det in xiastackraw.xiadetectorselect_numbers(range(ndet))]   
+            
+        xiastackproc.save(xiastackraw.data,xialabels)
+        nstack, nrow, ncol, nchan, ndet = xiastackproc.dshape
+    else:
+        xiastackproc = xiastackraw
+        
     # Fit data and add elemental maps
     if config["fit"]:
         if len(config["detectorcfg"])==1:
@@ -237,8 +261,13 @@ def getimagestacks(config):
 
         for imageindex,xiaimage in enumerate(xiastackproc):
             binit = imageindex==0
-                
-            filestofit = xiaimage.datafilenames()
+            
+            if fluxmonitor is not None:
+                quant = {"time":expotime[imageindex],"flux":flux[imageindex]}
+            else:
+                quant = {}
+            
+            filestofit = xiaimage.datafilenames_used()
             filestofit = xiaedf.xiagroupdetectors(filestofit)
             for detector,cfg in zip(filestofit,fitcfg):
                 # Fit
@@ -247,7 +276,7 @@ def getimagestacks(config):
 
                 files, labels = fitter(filestofit[detector]["xia"],
                                        config["outfitpath"],outname,cfg,energy,
-                                       fast=config["fastfitting"],mlines=config["mlines"])
+                                       fast=config["fastfitting"],mlines=config["mlines"],quant=quant)
                 
                 # Prepare list of files    
                 name = detectorname(detector)
@@ -403,7 +432,7 @@ def exportimagestacks(config,stacks,stackaxes,coordinates,jsonfile):
 
     return axes
     
-def create_hdf5_imagestacks(jsonfile):
+def create_hdf5_imagestacks(jsonfile,fluxmonitor=None):
     """Convert scanning data (XIA spectra + counters) to an HDF5 file:
         groups which contain NXdata classes
         3 axes datasets on the main level
@@ -425,9 +454,9 @@ def create_hdf5_imagestacks(jsonfile):
         config = json.load(f)
 
     # Raw or pre-processed data (e.g. DT correction, fitting)
-    stacks,stackaxes,coordinates = getimagestacks(config)
+    stacks,stackaxes,coordinates = createimagestacks(config,fluxmonitor=fluxmonitor)
 
-    # Export EDF stacks to HDF5
+    # Export EDF stacks to HDF5 stacks
     axes = exportimagestacks(config,stacks,stackaxes,coordinates,jsonfile)
 
     return stacks,axes

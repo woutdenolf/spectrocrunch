@@ -36,6 +36,7 @@ import re
 from ..common import indexing
 from ..common import listtools
 from ..common import instance
+from ..common import cache
 
 from . import edf
 
@@ -503,7 +504,7 @@ class xiadict(dict):
         self["detectors"]["skip"] = lst
 
     def keepdetectors(self,lst):
-        self["detectors"]["skip"] = lst
+        self["detectors"]["keep"] = lst
 
     def onlydata(self):
         self["indexing"]["data"] = True
@@ -593,13 +594,13 @@ class cachedict(dict):
     def __init__(self,*args,**kwargs):
         super(cachedict,self).__init__(*args,**kwargs)
         if "imagehandles" not in self:
-            self["imagehandles"] = dict()
+            self["imagehandles"] = cache.LimitedSizeDict(size_limit=20)
 
         if "levels" not in self:
             self["levels"] = dict()
 
     def flush(self):
-        self["imagehandles"] = dict()
+        self["imagehandles"] = cache.LimitedSizeDict(size_limit=20)
         self["levels"] = dict()
 
     def cachelevel(self,level):
@@ -635,12 +636,20 @@ class xiadata(object):
 
         self._level = level
         self._xiaconfig.maxlevel(level)
+        
+        self._normfunc = None
 
     def _update_kwargs(self,kwargs):
         kwargs["xiaconfig"] = self._xiaconfig
         kwargs["cache"] = self._cache
 
     def _getedfimage(self,filename,cache=False):
+        # Don't do any caching for the moment
+        try:
+            return edf.edfmemmap(filename)
+        except:
+            return edf.edfimage(filename)
+        
         if filename in self._cache["imagehandles"]:
             img = self._cache["imagehandles"][filename]
         else:
@@ -741,19 +750,31 @@ class xiadata(object):
     def dtcor(self,b):
         self._xiaconfig.dtcor(b)
 
-    def norm(self,ctr,func=None):
+    def globalnorm(self,ctr,func=None):
         self._xiaconfig.norm(ctr,func=func)
+        self._normfunc = None
+        
+    def localnorm(self,ctr,func=None):
+        self._xiaconfig.norm(ctr)
+        self._normfunc = func
 
     def counter_reldir(self,reldir):
         self._xiaconfig.counter_reldir(reldir)
         
-    def _getnormalizer(self):
+    def _getnormdata(self):
         raise NotImplementedError("This object does not have normalization information")
-        
+    
+    @property
+    def _getnormfunc(self):
+        if self._normfunc is None:
+            return self._xiaconfig["norm"]["func"]
+        else:
+            return self._normfunc
+    
     def _getindexednormalizer(self,index):
-        norm = self._getnormalizer()
+        norm = self._getnormdata()
         norm = self._index_norm(norm,index)
-        norm = self._xiaconfig["norm"]["func"](norm.astype(self.CORTYPE))
+        norm = self._getnormfunc(norm.astype(self.CORTYPE))
         return norm
         
     def detectorsum(self,b):
@@ -1091,6 +1112,16 @@ class xiadata(object):
 
     def xiadetectorselect_numbers(self,lst):
         return xiadetectorselect_numbers(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
+    
+    def datafilenames(self):
+        raise NotImplementedError("xiadata should not be instantiated, use one of the derived classes")
+
+    def datafilenames_used(self):
+        files = self.datafilenames()
+        if len(files)==0:
+            return files
+
+        return self.xiadetectorselect_files(files)
         
 class xiacompound(xiadata):
     """Implements XIA data compounding (image, image stacks, ...)
@@ -1283,7 +1314,7 @@ class xiacompound(xiadata):
         for l in items:
             files += l.datafilenames()
         return files
-    
+        
     def ctrfilenames(self,ctr=None):
         """
         Args:
@@ -1459,13 +1490,6 @@ class xialine(xiadata):
             img = fabio.edfimage.EdfImage(data=tmp,header=header)
             self._write(img,self._fileformat.format("xiast"))
 
-    def datafilenames_used(self):
-        files = self.datafilenames()
-        if len(files)==0:
-            return files
-
-        return self.xiadetectorselect_files(files)
-
     def datafilenames(self):
         """
         Args:
@@ -1578,7 +1602,7 @@ class xiaimage(xiacompound):
         else:
             return None
         
-    def _getnormalizer(self):
+    def _getnormdata(self):
         f = self.normfilename()
         if f is None:
             m = np.ones(self.dshape[0:2])

@@ -45,10 +45,17 @@ from .proc_resample import execute as execresample
 logger = logging.getLogger(__name__)
 
 def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,stackdim,\
-                    mlines={},microdiff=False,exclude_detectors=[],addbeforefit=True,useencoders=False,noxia=False):
+                    mlines={},microdiff=False,exclude_detectors=None,include_detectors=None,\
+                    addbeforefit=True,useencoders=False,noxia=False):
     if noxia:
         cfgfiles = None
     bfit = cfgfiles is not None
+
+    if exclude_detectors is None:
+        exclude_detectors = []
+
+    if include_detectors is None:
+        include_detectors = []
 
     if not isinstance(sourcepath,list):
         sourcepath = [sourcepath]
@@ -82,13 +89,16 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
             "scanname": scanname,
             "scannumbers": scannumbers,
             "counters": counters,
+            "fluxcounter": 0,
             "counter_reldir": counter_reldir,
 
             # Meta data
             "metacounters": counters,
             "stacklabel": "DCM_Energy",
-            "fastlabel": "fast",
-            "slowlabel": "slow",
+            "speccmdlabel": "title",
+            #"fastlabel": "fast",
+            #"slowlabel": "slow",
+            #"timelabel": "time",
             "coordinates": motors,
 
             # Deadtime correction
@@ -102,8 +112,9 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
             "fastfitting": True,
             "addbeforefitting": addbeforefit, # sum spectra
             "addafterfitting": True, # sum fit results and detector counters
-            "exclude_detectors":exclude_detectors,
-
+            "exclude_detectors": exclude_detectors,
+            "include_detectors": include_detectors,
+            
             # Output directories
             "outdatapath": os.path.join(destpath,scanname[0]+"_data"),
             "outfitpath": os.path.join(destpath,scanname[0]+"_fit"),
@@ -120,25 +131,19 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
 
     return jsonfile,config["hdf5output"]
 
-def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod=None,alignreference=None,\
-        refimageindex=None,skippre=False,dtcor=True,default=None,\
-        crop=False,roialign=None,plot=True,mlines={},microdiff=False,exclude_detectors=[],\
-        addbeforefit=True,encodercor=None,normcounter=None,noxia=False,postnormcounter=None):
+def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,\
+        skippre=False,dtcor=True,exclude_detectors=None,include_detectors=None,addbeforefit=True,encodercor=None,noxia=False,mlines={},\
+        default=None,microdiff=False,fluxmonitor=None,\
+        alignmethod=None,alignreference=None,refimageindex=None,roialign=None,plot=True,\
+        crop=False,replacenan=True,prenormcounter=None,postnormcounter=None):
 
     T0 = timing.taketimestamp()
 
     stackdim = 2
     bsamefile = False
-
     cropalign = False
     cropafter = crop
-    replacenan = True
-
-    #if microdiff:
-    #    iodet = "zap_iodet"
-    #else:
-    #    iodet = "arr_iodet"
-
+    
     # Image stacks
     preprocessingexists = False
     if skippre:
@@ -151,9 +156,9 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod=None,a
         logger.info("Creating image stacks ...")
         jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,\
                                             cfgfiles,dtcor,stackdim,mlines=mlines,microdiff=microdiff,\
-                                            exclude_detectors=exclude_detectors,addbeforefit=addbeforefit,\
+                                            exclude_detectors=exclude_detectors,include_detectors=include_detectors,addbeforefit=addbeforefit,\
                                             useencoders=encodercor is not None,noxia=noxia)
-        stacks, axes = makestacks(jsonfile)
+        stacks, axes = makestacks(jsonfile,fluxmonitor=fluxmonitor)
 
         #stacks2, axes2 = getstacks(h5file,["counters","detector0"])
         #assert(axes == axes2)
@@ -173,21 +178,21 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod=None,a
 
     # Normalization
     skipnorm = ["arr_absorp1","arr_absorp2","arr_absorp3","arr_samy","arr_samz"]
-    if dtcor or normcounter is not None:
+    if dtcor or prenormcounter is not None:
         skip = copy.copy(skipnorm)
 
         # Create normalization expression
         if dtcor:
-            if normcounter is None:
+            if prenormcounter is None:
                 expression = "{{}}*nanone({{xmap_icr}}/{{xmap_ocr}})"
             else:
-                expression = "{{}}*nanone({{xmap_icr}}/({{{}}}*{{xmap_ocr}}))".format(normcounter)
+                expression = "{{}}*nanone({{xmap_icr}}/({{{}}}*{{xmap_ocr}}))".format(prenormcounter)
             skip += ["xmap_icr","xmap_ocr"]
         else:
-            expression = "{{}}/{{{}}}".format(normcounter)
+            expression = "{{}}/{{{}}}".format(prenormcounter)
 
-        if normcounter is not None:
-            skip += [normcounter]
+        if prenormcounter is not None:
+            skip += [prenormcounter]
 
         h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="norm")
 

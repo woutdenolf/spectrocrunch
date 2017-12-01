@@ -185,7 +185,7 @@ class PNdiode(object):
         self.ehole = None
 
     def __str__(self):
-        return "Diode material: {}\nEhole: {}\nthickness: {}\ngain: {:e}\ndarkcurrent: {}\nSecondary target: {}\nOptics: {}\nVoltage-to-Frequency: {}\n"\
+        return "Diode material:\n {}\nEhole:\n {}\nThickness:\n {}\nGain:\n {:e}\nDark current:\n {}\nSecondary target:\n {}\nOptics:\n {}\nVoltage-to-Frequency:\n {}\n"\
                 .format(self.material,self.ehole,self.thickness,\
                 self.Rout,self.darkcurrent,self.secondarytarget,\
                 self.optics,self.oscillator)    
@@ -478,7 +478,7 @@ class PNdiode(object):
         """
 
         # Convert from counts to photons/sec
-        # op = cpstoflux(.../t)
+        # op: x-> cpstoflux(x/t)
         op = self.op_cpstoflux(energy)
         op.m /= units.Quantity(time,"s")
         
@@ -497,7 +497,7 @@ class PNdiode(object):
         op.m = units.magnitude(op.m,"dimensionless")
         op.b = units.magnitude(op.b,"dimensionless")
         
-        return op,Fref
+        return op,Fref.to("hertz").magnitude,units.magnitude(time,"s")
         
     def gainfromcps(self,energy,cps,fluxest):
         """Estimate the gain, assuming it is 10^x V/A
