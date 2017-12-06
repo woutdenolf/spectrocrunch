@@ -23,19 +23,27 @@
 # THE SOFTWARE.
 
 from . import compoundfromlist
+from . import compoundfromformula
 from .types import fractionType
 from . import stoichiometry
 import numpy as np
 
 class Mixture(object):
 
-    def __init__(self,compounds,frac,fractype):
+    def __init__(self,compounds,frac,fractype,name=None):
         """
         Args:
             compounds(list[obj]): list of compound objects
             frac(list[float]): compound fractions in the mixture
             fractype(fractionType): compound fraction type
+            name(Optional[str]): compound name
         """
+        
+        # Mixture name
+        if name is None:
+            self.name = str(id(self))
+        else:
+            self.name = name
         
         # Compound mole fractions
         fractions = np.asarray(frac)
@@ -160,6 +168,10 @@ class Mixture(object):
             nfrac /= nfrac.sum()
             return dict(zip(self.compounds.keys(),nfrac))
 
+    @property
+    def nelements(self):
+        return sum(c.nelements for c in self.compounds)
+        
     def arealdensity(self):
         """Areal density in ng/mm^2
         """
@@ -330,11 +342,18 @@ class Mixture(object):
                 return ret
         return None
 
-    def pymcaformat(self,name="New material",thickness=0.0):
+    def pymcaformat(self):
         tmp = self.elemental_molefractions()
-        c = compoundfromlist.CompoundFromList(tmp.keys(),tmp.values(),fractionType.mole,self.density,name=name)
-        return c.pymcaformat(thickness=thickness)
+        c = compoundfromlist.CompoundFromList(tmp.keys(),tmp.values(),fractionType.mole,self.density,name=self.name)
+        return c.pymcaformat()
     
+    @classmethod
+    def pymcaparse(cls,dic):
+        # Assume all compounds have the density of the mixture
+        compounds = [compoundfromformula.CompoundFromFormula(c,dic["Density"]) for c in dic["CompoundList"]]
+        wfrac = dic["CompoundFraction"]
+        return cls(compounds,wfrac,fractionType.weight,name=dic["Comment"])
+        
     def fluointeractions(self):
         for c in self.compounds:
             yield c.fluointeractions()

@@ -27,54 +27,44 @@ from ..common import instance
 import numpy as np
 import itertools
 
-class Geometry(object):
 
-    def __init__(self, anglein=None, angleout=None, solidangle=None):
-        """
-        Args:
-            anglein(num): angle (deg) between primary beam and surface normal (pointing inwards)
-            angleout(num): angle (deg) between fluorescene path to detector and surface normal (pointing inwards)
-            solidangle: detector solid angle in srad
-        """
-
-        self.cosanglein = np.cos(np.radians(anglein))
-        self.cosangleout = np.cos(np.radians(angleout))
-        self.solidangle = solidangle
-        
-    def __str__(self):
-        return "Solid angle = 4*pi*{} srad \n In = {} deg\n Out = {} deg"\
-        .format(self.solidangle/(4*np.pi),np.degrees(np.arccos(self.cosanglein)),np.degrees(np.arccos(self.cosangleout)))
-        
 class Layer(object):
 
-    def __init__(self,material=None,thickness=None,fixed=False,geometry=None):
+    def __init__(self,material=None,thickness=None,fixed=False,ml=None):
         """
         Args:
             material(list(spectrocrunch.materials.compound|mixture)): material composition
             thickness(num): thickness in micron
             fixed(bool): thickness and composition are fixed
-            geometry(Geometry): multilayer geometry
+            ml(Multilayer): part of this ensemble
         """
         self.material = material
-        self._thickness = thickness
+        self.thickness = thickness
         self.fixed = fixed
-        self.geometry = geometry
+        self.ml = ml
 
     def __str__(self):
-        return "{}: {} μm".format(self.material,self._thickness)
+        return "{}: {} μm".format(self.material,self.thickness)
         
     def __getattr__(self,name):
-        return getattr(self.material,name)
-    
+        try:
+            return getattr(self.material,name)
+        except AttributeError as e:
+            return getattr(self.ml,name)
+            
     @property
-    def thickness(self):
-        return self._thickness*self.geometry.cosanglein*1e-4
+    def xraythickness(self):
+        return self.thickness*self.ml.cosanglein*1e-4
+    
+    @xraythickness.setter
+    def xraythickness(self,value):
+        self.thickness = value/self.ml.cosanglein*1e-4
     
     def absorbance(self,energy,fine=False,decomposed=False):
         if decomposed:
-            return {"cs":self.mass_att_coeff(energy,fine=fine,decomposed=decomposed),"thickness":self.thickness,"density":self.density}
+            return {"cs":self.mass_att_coeff(energy,fine=fine,decomposed=decomposed),"thickness":self.xraythickness,"density":self.density}
         else:
-            return self.mass_att_coeff(energy,fine=fine,decomposed=decomposed)*(self.thickness*self.density)
+            return self.mass_att_coeff(energy,fine=fine,decomposed=decomposed)*(self.xraythickness*self.density)
 
 
 class Multilayer(object):
@@ -82,26 +72,31 @@ class Multilayer(object):
     Class representing a multilayer of compounds or mixtures
     """
     
-    def __init__(self, material=None, thickness=None, anglein=None, angleout=None, solidangle=None):
+    def __init__(self, material=None, thickness=None, detector=None):
         """
         Args:
             material(list(spectrocrunch.materials.compound|mixture)): layer composition
-            thickness(num): layer thickness in micron
-            anglein(num): angle (deg) between primary beam and surface normal (pointing inwards)
-            angleout(num): angle (deg) between fluorescene path to detector and surface normal (pointing inwards)
-            solidangle: detector solid angle in srad
+            thickness(list(num)): layer thickness in micron
+            detector(spectrocrunch.detectors.xrf.Detector): 
         """
         
-        self.geometry = Geometry(anglein=anglein, angleout=angleout, solidangle=solidangle)
+        self.detector = detector
 
         if not instance.isarray(material):
             material = [material]
         if not instance.isarray(thickness):
             thickness = [thickness]
-        self.layers = [Layer(material=mat,thickness=t,geometry=self.geometry) for mat,t in itertools.izip(material,thickness)]
-        
+        self.layers = [Layer(material=mat,thickness=t,ml=self) for mat,t in itertools.izip(material,thickness)]
+    
+    def __getattr__(self,name):
+        return getattr(self.detector,name)
+     
     def __len__(self):
         return len(self.layers)
+    
+    @property
+    def nlayers(self):
+        return len()
         
     def __iter__(self):
         return iter(self.layers)
@@ -121,7 +116,7 @@ class Multilayer(object):
   
     def __str__(self):
         layers = "\n ".join("{}. {}".format(i,str(layer)) for i,layer in enumerate(self))
-        return "Multilayer (ordered top-bottom):\n {}\nGeometry:\n {}".format(layers,self.geometry)
+        return "Multilayer (ordered top-bottom):\n {}".format(layers)
 
     def markscatterer(self,name):
         for layer in self:
@@ -175,10 +170,10 @@ class Multilayer(object):
     def refinethickness(self,energy,absorbance,constant=False,constraint=True):
         y = absorbance
 
-        A = [layer.density*self.cosanglein*layer.mass_att_coeff(energy) for layer in self.freeiter]
+        A = [layer.density*layer.mass_att_coeff(energy) for layer in self.freeiter]
         
         for layer in self.fixediter:
-            y = y-layer.density*layer.thickness*self.cosanglein*layer.mass_att_coeff(energy)
+            y = y-layer.density*layer.xraythickness*layer.mass_att_coeff(energy)
         
         if constant:
             A.append(np.ones_like(energy))
@@ -200,13 +195,14 @@ class Multilayer(object):
                 thickness = fit1d.lstsq(A,y)
                 
         for t,layer in itertools.izip(thickness,self.freeiter):
-            layers.thickness = t
+            layers.xraythickness = t
 
     def spectrum(self,energy):
         # TODO: generate try spectrum with the fisx library
         
         # Oversimplified: isotropic scattering of all absorbed radiation
-        detfrac = self.geometry.solidangle/(4*np.pi)
+        detfrac = self.detector.solidangle/(4*np.pi)
         genfrac = 1-self.transmission(energy)
         return energy,detfrac*genfrac
-        
+
+

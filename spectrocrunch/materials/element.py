@@ -282,7 +282,7 @@ class Shell(Hashable):
     @classmethod
     def pymcafactory(cls,energybounds=None):
         return list(set("".join(re.split("[^a-zA-Z]*", str(s))) for s in cls.factory(energybounds=energybounds)))
-    
+
     def __init__(self,shell,fluolines=None):
         """
         Args:
@@ -399,6 +399,19 @@ class Element(Hashable):
     @property
     def density(self):
         return xraylib.ElementDensity(self.Z)
+
+    def molarmass(self):
+        return self.MM
+        
+    def weightfractions(self):
+        return dict([(self,1.)])
+
+    def molefractions(self,total=True):
+        return dict([(self,1.)])
+    
+    @property
+    def nelements(self):
+        return 1
 
     def _get_fdmnes_energyrange(self,Eabs,edgeenergy,decimals=6):
         """Calculate energies based on boundaries and step sizes:
@@ -896,4 +909,12 @@ class Element(Hashable):
 
         return newrange
 
+    def pymcaformat(self):
+        r = self.weightfractions()
+        value = {'Comment': self.name,
+                'CompoundFraction': [1.],
+                'Thickness': 0.,
+                'Density': self.density,
+                'CompoundList': ['{}1'.format(self.name)]}
+        return self.name,value
         

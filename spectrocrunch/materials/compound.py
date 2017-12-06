@@ -182,6 +182,10 @@ class Compound(Hashable):
             nfrac /= nfrac.sum()
             return dict(zip(self.elements.keys(),nfrac))
 
+    @property
+    def nelements(self):
+        return len(self.elements)
+
     def arealdensity(self):
         """Areal density in ng/mm^2
         """
@@ -340,22 +344,14 @@ class Compound(Hashable):
                 return ret
         return None
 
-    def pymcaformat(self,thickness=0.0,name=None):
-        
+    def pymcaformat(self):
         r = self.weightfractions()
-        
-        if name is None:
-            name = self.name
-        
-        key = name
-        
-        value = {'Comment': name,
+        value = {'Comment': self.name,
                 'CompoundFraction': r.values(),
-                'Thickness': thickness,
+                'Thickness': 0.,
                 'Density': self.density,
                 'CompoundList': ['{}1'.format(e) for e in r]}
-
-        return key,value
+        return self.name,value
 
     def fluointeractions(self):
         """Fluorescence interactions

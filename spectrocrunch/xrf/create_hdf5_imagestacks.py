@@ -91,7 +91,7 @@ def detectorname(detector):
         else:
             raise "Unexpected detector name {}".format(detector)
     else:
-        name = "counter"
+        name = "counters"
     return name
 
 def createimagestacks(config,fluxmonitor=None):
@@ -127,30 +127,24 @@ def createimagestacks(config,fluxmonitor=None):
     
     # Get image stack
     xiastackraw = xiaedf.xiastack_mapnumbers(config["sourcepath"],config["scanname"],config["scannumbers"])
-    nstack, nrow, ncol, nchan, ndet = xiastackraw.dshape
+    nstack, nrow, ncol, nchan, ndetorg = xiastackraw.dshape
     
     # Exclude detectors
     xiastackraw.skipdetectors(config["exclude_detectors"])
     xiastackraw.keepdetectors(config["include_detectors"])
+    nstack, nrow, ncol, nchan, ndet = xiastackraw.dshape
     
     # Counter directory relative to the XIA files
     xiastackraw.counter_reldir(config["counter_reldir"])
     
     # Deadtime correction
-    if config["dtcor"]:
-        if ndet==1:
-            # DT correction after fitting can only be done when having 1 detector
-            dtcor = config["dtcorifsingle"]
-        else:
-            dtcor = config["fit"]
-    else:
-        dtcor = False
+    dtcor = config["dtcor"] and (config["dtcorifsingle"] or ndet>1)
     xiastackraw.dtcor(dtcor)
     
     # Add detectors
-    adddet = config["fit"] and config["addbeforefitting"] and ndet>1
+    adddet = config["addbeforefitting"] and ndet>1
     xiastackraw.detectorsum(adddet)
-
+    
     # Check counters
     counters = set(xiastackraw.counterbasenames())
     metacounters = counters.intersection(config["metacounters"])
@@ -245,7 +239,7 @@ def createimagestacks(config,fluxmonitor=None):
         if adddet:
             xialabels = ["xiaS1"]
         else:
-            xialabels = ["xia{:02d}".format(det) for det in xiastackraw.xiadetectorselect_numbers(range(ndet))]   
+            xialabels = ["xia{:02d}".format(det) for det in xiastackraw.xiadetectorselect_numbers(range(ndetorg))]   
             
         xiastackproc.save(xiastackraw.data,xialabels)
         nstack, nrow, ncol, nchan, ndet = xiastackproc.dshape

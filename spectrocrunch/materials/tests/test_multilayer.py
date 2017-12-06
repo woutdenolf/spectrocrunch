@@ -29,19 +29,25 @@ from .. import compoundfromformula
 from .. import mixture
 from .. import types
 from .. import utils
+from ...geometries import xrf as xrfgeometries
+from ...detectors import xrf as xrfdetectors
 
 import numpy as np
 
 class test_compound(unittest.TestCase):
 
     def _multilayer(self):
+        geometry = xrfgeometries.factory("Geometry",detectorposition=0, anglein=45, angleout=45+90)
+        detector = xrfdetectors.factory("Detector",activearea=0.50, geometry=geometry)
+        detector.solidangle = 4*np.pi*0.1
+    
         c1 = compoundfromformula.CompoundFromFormula("CaCO3",2.71,name="calcite")
         c2 = compoundfromformula.CompoundFromFormula("Fe2O3",5.3,name="hematite")
         c3 = compoundfromformula.CompoundFromFormula("PbCO3",6.53,name="cerussite")
 
         l = [c1,mixture.Mixture([c2,c3],[1,1],types.fractionType.mole)]
         thickness = [10,20]
-        o = multilayer.Multilayer(material=l, thickness=thickness, anglein=45, angleout=45+90, solidangle=4*np.pi*0.1)
+        o = multilayer.Multilayer(material=l, thickness=thickness, detector=detector)
         
         return o,thickness
         

@@ -52,6 +52,10 @@ from ..common import constants
 
 from ..math.common import round_sig
 
+from ..geometries import diode as diodegeometries
+
+from ..common.classfactory import with_metaclass
+
 #
 #
 # Unit of elementary charge: 1 e = 1.6e-19 C 
@@ -156,13 +160,12 @@ class Oscillator(object):
         """
         return (self.op_currenttocps())**(-1)
 
-    
-class PNdiode(object):
+class PNdiode(with_metaclass(object)):
 
     ELCHARGE = ureg.Quantity(1,ureg.elementary_charge)
     #ELCHARGE = ureg.Quantity(1.6e-19,ureg.coulomb) # approx. in spec
 
-    def __init__(self, material=None, Rout=None, darkcurrent=None, oscillator=None, secondarytarget=None, optics=None):
+    def __init__(self, material=None, Rout=None, darkcurrent=None, oscillator=None, secondarytarget=None, geometry=None, solidangle=None, optics=None):
         """
         Args:
             material(compound|mixture): material composition
@@ -175,6 +178,8 @@ class PNdiode(object):
         self.setgain(Rout)
         self.setdark(darkcurrent)
         self.secondarytarget = secondarytarget
+        self.geometry = geometry
+        self.solidangle = solidangle
         self.optics = optics
         self.oscillator = oscillator
         if oscillator is not None:
@@ -190,7 +195,9 @@ class PNdiode(object):
                 self.Rout,self.darkcurrent,self.secondarytarget,\
                 self.optics,self.oscillator)    
     
-    
+    def __getattr__(self, attr):
+        return getattr(self.geometry,attr)
+        
     def setgain(self,Rout):
         """Set output resistance of the picoamperemeter(keithley)
 
@@ -527,17 +534,6 @@ class PNdiode(object):
         """
         darkcurrent = self.cpstocurrent(np.nanmedian(darkcps))
         self.setdark(darkcurrent)
-    
-    def setsolidangle(self,solidangle):
-        """Set solid angle of a diode with secondary target
-        
-        Args:
-            solidangle(num): srad
-
-        Returns:
-            None
-        """
-        self.secondarytarget.geometry.solidangle = solidangle
         
     def setopticstransmission(self,energy,transmission):
         """Set optics transmission for a particular energy
@@ -755,10 +751,10 @@ class NonCalibratedPNdiode(PNdiode):
         if calibtarget:
             # Correct the secondary target yield by changing the diode solid angle
             # Y' = Y/cor
-            sa = self.secondarytarget.geometry.solidangle/cor
+            sa = self.secondarytarget.solidangle/cor
             if sa<0 or sa>(2*np.pi):
                     raise RuntimeError("Diode solid angle of 4*pi*{} srad is not valid (possible wrong parameters: optics transmission, diode thickness)".format(sa/(4*np.pi)))
-            self.setsolidangle(sa)
+            self.solidangle = sa
         else:
             # (1-T')/To' = (1-T)/(To.cor)
             # diode transmission (function of thickness): 0 < T' <= 1
@@ -778,112 +774,143 @@ class NonCalibratedPNdiode(PNdiode):
                     raise RuntimeError("Optics transmission of {} % is not valid (possible wrong parameters: diode thickness, diode solid angle)".format(To*100))
                 
                 self.setopticstransmission(energy,To)
-                
-def sxmptb(model=True):
-    diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
+
+
+class SXM_PTB(AbsolutePNdiode):
+    aliases = ["ptb"]
     
-    ptb = np.loadtxt(resource_filename('id21/ptb.dat'))
-    energy = ureg.Quantity(ptb[:,0],"keV")
-    response = ureg.Quantity(ptb[:,1],"milliampere/watt")
-    ptb = AbsolutePNdiode(material=diodematerial,\
+    def __init__(self,**kwargs):
+        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
+        ptb = np.loadtxt(resource_filename('id21/ptb.dat'))
+        energy = ureg.Quantity(ptb[:,0],"keV")
+        response = ureg.Quantity(ptb[:,1],"milliampere/watt")
+
+        super(SXM_PTB,self).__init__(material=diodematerial,\
                         Rout=ureg.Quantity(1e5,"volt/ampere"),\
                         darkcurrent=ureg.Quantity(0,"ampere"),\
-                        energy=energy,response=response,model=model)
-    return ptb
+                        energy=energy,response=response,**kwargs)
+
+class SXM_IDET(CalibratedPNdiode):
+    aliases = ["ird","idet"]
     
-def sxmidet(model=True):
-    diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
+    def __init__(self,**kwargs):
+        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
 
-    absdiode = sxmptb(model=model)
+        absdiode = SXM_PTB(model=True)
 
-    vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
-                    F0=ureg.Quantity(0,"Hz"),\
-                    Vmax=ureg.Quantity(10,"volt"))
-
-    ird = np.loadtxt(resource_filename('id21/ird.dat'))
-    energy = ureg.Quantity(ird[:-1,0],"keV")
-    responseratio = ird[:-1,1]
-    ird = CalibratedPNdiode(material=diodematerial,\
-                        Rout=ureg.Quantity(1e5,"volt/ampere"),\
-                        darkcurrent=ureg.Quantity(0,"ampere"),\
-                        energy=energy,reponseratio=responseratio,model=model,absdiode=absdiode,\
-                        oscillator=vtof)
-    return ird
-
-def sxmidettest(model=True):
-    # This is a test: assumes sxmidet responds like an absolute diode (which is not the case)
-    diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
-
-    absdiode = sxmptb(model=model)
-
-    vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
-                    F0=ureg.Quantity(0,"Hz"),\
-                    Vmax=ureg.Quantity(10,"volt"))
-
-    ird = np.loadtxt(resource_filename('id21/ird.dat'))
-    energy = ureg.Quantity(ird[:-1,0],"keV")
-    responseratio = ird[:-1,1]
-    response = responseratio*absdiode.spectral_responsivity(energy)
-    
-    ird = AbsolutePNdiode(material=diodematerial,\
-                        Rout=ureg.Quantity(1e5,"volt/ampere"),\
-                        darkcurrent=ureg.Quantity(0,"ampere"),\
-                        energy=energy,response=response,model=model,\
-                        oscillator=vtof)
-    return ird
-      
-def sxmiodet(num=-1,optics=True,model=True):
-    diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
-    
-    window = compoundfromname.compoundfromname("silicon nitride")
-    if num==1:
-        coating = compoundfromformula.CompoundFromFormula("Ti",0,name="Ti")
-        secondarytarget = multilayer.Multilayer(material=[coating,window],thickness=[0.5,0.5],anglein=0,angleout=135,solidangle=0.15*4*np.pi)
-    elif num==2:
-        secondarytarget = multilayer.Multilayer(material=[window],thickness=[0.5],anglein=0,angleout=135,solidangle=0.15*4*np.pi)
-    else:
-        raise RuntimeError("Unknown SXM iodet")
-    
-    if optics:
-        optics = KB.KB()
-    else:
-        optics = None
-        
-    vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
+        vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
                         F0=ureg.Quantity(0,"Hz"),\
                         Vmax=ureg.Quantity(10,"volt"))
 
-    iodet = NonCalibratedPNdiode(material=diodematerial,\
+        ird = np.loadtxt(resource_filename('id21/ird.dat'))
+        energy = ureg.Quantity(ird[:-1,0],"keV")
+        responseratio = ird[:-1,1]
+
+        super(SXM_IDET,self).__init__(material=diodematerial,\
+                        Rout=ureg.Quantity(1e5,"volt/ampere"),\
+                        darkcurrent=ureg.Quantity(0,"ampere"),\
+                        energy=energy,reponseratio=responseratio,\
+                        absdiode=absdiode,oscillator=vtof,**kwargs)
+                        
+class SXM_IDET_TEST(AbsolutePNdiode):
+
+    def __init__(self,**kwargs):
+        # This is a test: assumes sxmidet responds like an absolute diode (which is not the case)
+        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
+
+        absdiode = sxmptb(model=model)
+
+        vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
+                        F0=ureg.Quantity(0,"Hz"),\
+                        Vmax=ureg.Quantity(10,"volt"))
+
+        ird = np.loadtxt(resource_filename('id21/ird.dat'))
+        energy = ureg.Quantity(ird[:-1,0],"keV")
+        responseratio = ird[:-1,1]
+        response = responseratio*absdiode.spectral_responsivity(energy)
+    
+        super(SXM_IDET_TEST,self).__init__(material=diodematerial,\
+                        Rout=ureg.Quantity(1e5,"volt/ampere"),\
+                        darkcurrent=ureg.Quantity(0,"ampere"),\
+                        energy=energy,response=response,\
+                        oscillator=vtof,**kwargs)
+
+class SXM_IODET1(NonCalibratedPNdiode):
+    aliases = ["iodet1"]
+
+    def __init__(self,optics=True):
+        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
+    
+        window = compoundfromname.compoundfromname("silicon nitride")
+
+        coating = compoundfromformula.CompoundFromFormula("Ti",0,name="Ti")
+        
+        geom = diodegeometries.factory("Geometry",anglein=0,angleout=135)
+        solidangle = 0.15*4*np.pi
+        secondarytarget = multilayer.Multilayer(material=[coating,window],thickness=[0.5,0.5],detector=self)
+
+        if optics:
+            optics = KB.KB()
+        else:
+            optics = None
+            
+        vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
+                            F0=ureg.Quantity(0,"Hz"),\
+                            Vmax=ureg.Quantity(10,"volt"))
+                        
+        super(SXM_IODET1,self).__init__(material=diodematerial,\
                             Rout=ureg.Quantity(1e5,"volt/ampere"),\
                             darkcurrent=ureg.Quantity(0,"ampere"),\
                             thickness=ureg.Quantity(1,"mm"),\
                             ehole=constants.eholepair_si(),\
                             oscillator=vtof,\
                             secondarytarget=secondarytarget,\
-                            optics=optics)
-    return iodet
+                            optics=optics,\
+                            geometry=geom,\
+                            solidangle=solidangle)
+                        
+class SXM_IODET2(NonCalibratedPNdiode):
+    aliases = ["iodet2"]
+
+    def __init__(self,optics=True):
+        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
     
-def sxmiodet1(**kwargs):
-    return sxmiodet(num=1,**kwargs)
+        window = compoundfromname.compoundfromname("silicon nitride")
+        geom = diodegeometries.factory("Geometry",anglein=0,angleout=135)
+        solidangle = 0.15*4*np.pi
+        secondarytarget = multilayer.Multilayer(material=[window],thickness=[0.5],detector=self)
+        
+        if optics:
+            optics = KB.KB()
+        else:
+            optics = None
+            
+        vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
+                            F0=ureg.Quantity(0,"Hz"),\
+                            Vmax=ureg.Quantity(10,"volt"))
+                        
+        super(SXM_IODET2,self).__init__(material=diodematerial,\
+                            Rout=ureg.Quantity(1e5,"volt/ampere"),\
+                            darkcurrent=ureg.Quantity(0,"ampere"),\
+                            thickness=ureg.Quantity(1,"mm"),\
+                            ehole=constants.eholepair_si(),\
+                            oscillator=vtof,\
+                            secondarytarget=secondarytarget,\
+                            optics=optics,\
+                            geometry=geom,\
+                            solidangle=solidangle)
 
-def sxmiodet2(**kwargs):
-    return sxmiodet(num=2,**kwargs)
-
-def xrdpico1(model=True):
-    diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
-
-    pico1 = NonCalibratedPNdiode(material=diodematerial,\
+class XRD_IDET(NonCalibratedPNdiode):
+    aliases = ["pico1"]
+    
+    def __init__(self,**kwargs):
+        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
+                    
+        super(XRD_IDET,self).__init__(material=diodematerial,\
                                 Rout=ureg.Quantity(10,"volt")/ureg.Quantity(2.1e-6,"ampere"),\
                                 darkcurrent=ureg.Quantity(0,"ampere"),
                                 thickness=ureg.Quantity(1,"mm"),\
-                                ehole=constants.eholepair_si(),\
-                                model=model)
+                                ehole=constants.eholepair_si(),**kwargs)
 
-diodes = {"idet":sxmidet,\
-          "iodet1":sxmiodet1,\
-          "iodet2":sxmiodet2,\
-          "pico1":xrdpico1}
-
-def factory(name,**kwargs):
-    return diodes[name](**kwargs)
+factory = PNdiode.factory
 

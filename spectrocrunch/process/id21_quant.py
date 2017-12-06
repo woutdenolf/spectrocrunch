@@ -180,4 +180,10 @@ class FluxMonitor(object):
         if refcts is None:
             refcts = self.refcts
         return self.iodet.xrfnormop(energy,time,refcts)
+    
+    def fluxtocps(self,energy,flux):
+        return self.iodet.fluxtocps(energy,flux).magnitude
+  
+    def cpstoflux(self,energy,cps):
+        return self.iodet.cpstoflux(energy,cps).magnitude
         

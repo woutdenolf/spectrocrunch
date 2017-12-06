@@ -197,7 +197,18 @@ def xiasearch(path,radix=None,mapnum=None,linenum=None,label=None,sort=True,ctrl
     return files
 
 def xiadetectorselect_tostring(detectors):
-    # Possible detector format: 0, "xia00", "00", "S0", "xiaS0", "st", "xiast"
+    """Convert detector identifier to string:
+        0 -> "xia00"
+        "xia00" -> "xia00"
+        "S0" -> "xiaS0"
+        "st" -> "xiast"
+        "xiast" -> "xiast"
+
+    Args:
+        detectors(list): 
+    Returns:
+        list(str)
+    """
 
     lst = copy(detectors)
     for i,s in enumerate(detectors):
@@ -209,8 +220,18 @@ def xiadetectorselect_tostring(detectors):
     return lst
 
 def xiadetectorselect_tonumber(detectors):
-    # Possible detector format: 0, "xia00", "00", "S0", "xiaS0", "st", "xiast"
-    # sums and statistics are skipped
+    """Convert detector identifier to number:
+        0 -> 0
+        "xia00" -> 0
+        "S0" -> skip
+        "st" -> skip
+        "xiast" -> skip
+
+    Args:
+        detectors(list): 
+    Returns:
+        list(str)
+    """
     
     lst = []
 
@@ -242,10 +263,16 @@ def xiadetectorselect_files(filenames,skipdetectors,keepdetectors):
     skip = xiadetectorselect_tostring(skipdetectors)
     keep = xiadetectorselect_tostring(keepdetectors)
 
-    if len(skip)==0 and len(keep)==0:
+    if not skip and not keep:
         return filenames
+    
+    if not skip:
+        valid = lambda x: x in keep
+    elif not keep:
+        valid = lambda x: x not in skip
+    else:
+        valid = lambda x: x not in skip and x in keep
         
-    valid = lambda x: x not in skip or x in keep
     filenames = [f for f in filenames if valid(xianameparser.parse(f).label)]
     
     return filenames
@@ -267,10 +294,16 @@ def xiadetectorselect_numbers(detectors,skipdetectors,keepdetectors):
     skip = xiadetectorselect_tonumber(skipdetectors)
     keep = xiadetectorselect_tonumber(keepdetectors)
 
-    if len(skip)==0 and len(keep)==0:
+    if not skip and not keep:
         return detectors
+    
+    if not skip:
+        valid = lambda x: x in keep
+    elif not keep:
+        valid = lambda x: x not in skip
+    else:
+        valid = lambda x: x not in skip and x in keep
         
-    valid = lambda x: x not in skip or x in keep
     detectors = [i for i in detectors if valid(i)]
 
     return detectors
@@ -727,7 +760,7 @@ class xiadata(object):
         yield
 
     def _tracemsg(self,msg):
-        print "{}{}".format(" "*self._level*2,msg) 
+        print("{}{}".format(" "*self._level*2,msg))
         
     def _dbgmsg(self,msg):
         return
@@ -765,7 +798,7 @@ class xiadata(object):
         raise NotImplementedError("This object does not have normalization information")
     
     @property
-    def _getnormfunc(self):
+    def _normop(self):
         if self._normfunc is None:
             return self._xiaconfig["norm"]["func"]
         else:
@@ -774,7 +807,7 @@ class xiadata(object):
     def _getindexednormalizer(self,index):
         norm = self._getnormdata()
         norm = self._index_norm(norm,index)
-        norm = self._getnormfunc(norm.astype(self.CORTYPE))
+        norm = self._normop(norm.astype(self.CORTYPE))
         return norm
         
     def detectorsum(self,b):

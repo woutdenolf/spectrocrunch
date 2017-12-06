@@ -135,11 +135,10 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,\
         skippre=False,dtcor=True,exclude_detectors=None,include_detectors=None,addbeforefit=True,encodercor=None,noxia=False,mlines={},\
         default=None,microdiff=False,fluxmonitor=None,\
         alignmethod=None,alignreference=None,refimageindex=None,roialign=None,plot=True,\
-        crop=False,replacenan=True,prenormcounter=None,postnormcounter=None):
+        crop=False,replacenan=True,prealignnormcounter=None,postalignnormcounter=None,stackdim=2):
 
     T0 = timing.taketimestamp()
 
-    stackdim = 2
     bsamefile = False
     cropalign = False
     cropafter = crop
@@ -160,10 +159,11 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,\
                                             useencoders=encodercor is not None,noxia=noxia)
         stacks, axes = makestacks(jsonfile,fluxmonitor=fluxmonitor)
 
-        #stacks2, axes2 = getstacks(h5file,["counters","detector0"])
+        #stacks2, axes2 = getstacks(h5file,["counters","detectorsum"])
         #assert(axes == axes2)
         #assert(stacks == stacks2)
-
+        
+        
     if "detectorsum" in stacks:
         dtcor = False # done on the raw data
 
@@ -178,21 +178,21 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,\
 
     # Normalization
     skipnorm = ["arr_absorp1","arr_absorp2","arr_absorp3","arr_samy","arr_samz"]
-    if dtcor or prenormcounter is not None:
+    if dtcor or prealignnormcounter is not None:
         skip = copy.copy(skipnorm)
 
         # Create normalization expression
         if dtcor:
-            if prenormcounter is None:
+            if prealignnormcounter is None:
                 expression = "{{}}*nanone({{xmap_icr}}/{{xmap_ocr}})"
             else:
-                expression = "{{}}*nanone({{xmap_icr}}/({{{}}}*{{xmap_ocr}}))".format(prenormcounter)
+                expression = "{{}}*nanone({{xmap_icr}}/({{{}}}*{{xmap_ocr}}))".format(prealignnormcounter)
             skip += ["xmap_icr","xmap_ocr"]
         else:
-            expression = "{{}}/{{{}}}".format(prenormcounter)
+            expression = "{{}}/{{{}}}".format(prealignnormcounter)
 
-        if prenormcounter is not None:
-            skip += [prenormcounter]
+        if prealignnormcounter is not None:
+            skip += [prealignnormcounter]
 
         h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="norm")
 
@@ -216,9 +216,9 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,\
             alignmethod, alignreference, refimageindex, cropalign, roialign, plot, stackdim)
 
         # Post normalization
-        if postnormcounter is not None:
-            skip = skipnorm+[postnormcounter]
-            expression = "{{}}/{{{}}}".format(postnormcounter)
+        if postalignnormcounter is not None:
+            skip = skipnorm+[postalignnormcounter]
+            expression = "{{}}/{{{}}}".format(postalignnormcounter)
             h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="postnorm")
 
         # Remove NaN's

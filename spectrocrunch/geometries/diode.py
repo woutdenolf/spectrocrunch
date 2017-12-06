@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,21 +22,31 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import unittest
-from . import test_id21_ffxas
-from . import test_id21_fluoxas
+from ..common.classfactory import with_metaclass
+import numpy as np
 
-def test_suite_all():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_id21_ffxas.test_suite_all())
-    testSuite.addTest(test_id21_fluoxas.test_suite_all())
-    return testSuite
+class Geometry(with_metaclass(object)):
+
+    def __init__(self,anglein=None,angleout=None):
+        """
+        Args:
+            anglein(num): angle (deg) between primary beam and surface normal (pointing inwards)
+            angleout(num): angle (deg) between fluorescene path to detector and surface normal (pointing inwards)
+        """
+        
+        self.anglein = float(anglein) # deg
+        self.angleout = float(angleout) # deg
+
+    @property
+    def cosanglein(self):
+        return np.cos(np.radians(self.anglein))
     
-if __name__ == '__main__':
-    import sys
+    @property
+    def cosangleout(self):
+        return np.cos(np.radians(angleout))
+    
+    def __str__(self):
+        return "In = {} deg\n Out = {} deg".format(self.distance,self.anglein,self.angleout)
+        
+factory = Geometry.factory
 
-    mysuite = test_suite_all()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

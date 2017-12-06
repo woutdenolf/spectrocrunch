@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 
 from PyMca5.PyMcaPhysics.xrf import McaAdvancedFitBatch
-from PyMca5.PyMcaPhysics.xrf import FastXRFLinearFit
+from PyMca5.PyMcaPhysics.xrf import FastXRFLinearFit as FastXRFLinearFitBase
 from PyMca5.PyMcaPhysics.xrf import ClassMcaTheory
 from PyMca5.PyMca import EDFStack
 from PyMca5.PyMca import ArraySave
@@ -34,7 +34,8 @@ import numpy as np
 import re
 import os
 import glob
-import pylab
+import collections
+import matplotlib.pyplot as plt
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -42,6 +43,16 @@ warnings.filterwarnings("ignore")
 import logging
 
 from ..common import instance
+from ..io import edf
+
+class FastXRFLinearFit(FastXRFLinearFitBase.FastXRFLinearFit):
+
+    def fitMultipleSpectra(self,concentrations=False,**kwargs):
+        result = super(FastXRFLinearFit,self).fitMultipleSpectra(concentrations=concentrations,**kwargs)
+        return result
+        
+        config = self._mcaTheory.getConfiguration()
+    
 
 def ReadPyMcaConfigFile(filename):
     # Read the configuration
@@ -267,8 +278,7 @@ def PerformFit(filelist,cfgfile,energies,mlines={},norm=None,fast=True,prog=None
 
     # Prepare plot
     if plot:
-        fig = pylab.figure(1)
-        ax = pylab.subplot(111)
+        fig, ax = plt.subplots()
 
     # Prepare fit
     #ClassMcaTheory.DEBUG = 1
@@ -320,7 +330,7 @@ def PerformFit(filelist,cfgfile,energies,mlines={},norm=None,fast=True,prog=None
                 ax.set_title("Primary energy: {} keV".format(energies[j]))
                 ax.set_xlabel("Energy (keV)")
                 ax.set_ylabel("Intensity (cts)")
-                pylab.pause(0.0001)
+                plt.pause(0.0001)
             else:
                 mcafitresult = mcafit.imagingDigestResult()
 
@@ -372,60 +382,61 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
 
     if fast:
         # Prepare fit
-        fastFit = FastXRFLinearFit.FastXRFLinearFit()
+        fastFit = FastXRFLinearFit()
         fastFit.setFitConfigurationFile(cfgfile)
         dataStack = EDFStack.EDFStack(filelist, dtype=np.float32)
 
         # Fit
-        result = fastFit.fitMultipleSpectra(y=dataStack,weight=0,refit=1,concentrations=0)
         buncertainties = False
+        bconcentrations = bool(quant)
+        result = fastFit.fitMultipleSpectra(y=dataStack,weight=0,refit=1,concentrations=bconcentrations)
 
-        # Results to save
-        images = result['parameters']
-        imageNames = result['names']
+        # Save result and keep filenames + labels
+        names = result['names']
+        if bconcentrations:
+            names = names[:-len(result["concentrations"])]
 
-        nImages = images.shape[0]
-        n = nImages
-        if buncertainties:
-            n += len(result['uncertainties'])
-        imageList = [None] * n
-        labels = [None] * n
-        j = 0
-        for i in range(nImages):
-            name = imageNames[i].replace(" ","-")
-            labels[j] = name
-            imageList[j] = images[i]
-            j += 1
-            if not imageNames[i].startswith("C(") and buncertainties:
-                # fitted parameter
-                labels[j] = "s(%s)" % name
-                imageList[j] = result['uncertainties'][i]
-                j += 1
-
-        # Save result (similar to save2DArrayListAsEDF)
-        #prefix = outname #+ "_" + re.split("[_.]+",filelist[0])[-2] + "_to_" + re.split("[_.]+",filelist[-1])[-2]
-        n = len(imageList)
-        files = [None]*n
-        for i in range(n):
-            filename = os.path.join(outdir,outname+"_"+labels[i].replace("-","_")+".edf")
-            if os.path.exists(filename):
-                try:
-                    os.remove(filename)
-                except OSError:
-                    pass
-            edfout = EdfFile.EdfFile(filename, access="ab")
-            edfout.WriteImage({'Title': labels[i]},
-                                    imageList[i], Append=1)
-            del edfout  # force file close
-            files[i] = filename
-
-        #fileName = os.path.join(outdir, outname+".dat")
-        #ArraySave.save2DArrayListAsASCII(imageList, fileName, labels=labels)
+        parse = re.compile("^(?P<Z>.+)[_ -](?P<line>.+)$")
+        filename = lambda x: os.path.join(outdir,"{}_{}.edf".format(outname,x))
+        out = collections.OrderedDict()
+        for i,name in enumerate(names):
+            m = parse.match(name).groupdict()
+            Z,line = m["Z"],m["line"]
+            
+            # Peak area
+            label = "{}-{} (peak area)".format(Z,line)
+            f = filename("{}_{}".format(Z,line))
+            edf.saveedf(f,\
+                        result['parameters'][i],\
+                        {'Title': label})
+            out[label] = f
+            
+            # Error on peak area
+            if buncertainties:
+                label = "{}-{} (peak area stdev)".format(Z,line)
+                f = filename("s({}_{})".format(Z,line))
+                edf.saveedf(f,\
+                            result['uncertainties'][i],\
+                            {'Title': label})
+                out[label] = f
+                
+            # Mass fraction
+            if bconcentrations and Z.lower()!="scatter":
+                label = "{}-{} (mass fraction)".format(Z,line)
+                f = filename("C({}_{})".format(Z,line))
+                edf.saveedf(f,\
+                            result['concentrations'][i],\
+                            {'Title': label})
+                out[label] = f
+                
+        labels = out.keys()
+        files = out.values()
     else:
         # Parallelize this:
         b = McaAdvancedFitBatch.McaAdvancedFitBatch(cfgfile,filelist=filelist,outputdir=outdir,fitfiles=0)
         b.processList()
 
+        #TODO: process filenames like in fast mode
         filemask = os.path.join(outdir,"IMAGES","*.edf")
         files = sorted(glob.glob(filemask))
         files = [f for f in files if "chisq" not in f]
