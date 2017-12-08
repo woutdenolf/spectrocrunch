@@ -404,7 +404,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
             Z,line = m["Z"],m["line"]
             
             # Peak area
-            label = "{}-{} (peak area)".format(Z,line)
+            label = "{}-{}".format(Z,line)
             f = filename("{}_{}".format(Z,line))
             edf.saveedf(f,\
                         result['parameters'][i],\
@@ -413,7 +413,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
             
             # Error on peak area
             if buncertainties:
-                label = "{}-{} (peak area stdev)".format(Z,line)
+                label = "s({}-{})".format(Z,line)
                 f = filename("s({}_{})".format(Z,line))
                 edf.saveedf(f,\
                             result['uncertainties'][i],\
@@ -422,7 +422,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
                 
             # Mass fraction
             if bconcentrations and Z.lower()!="scatter":
-                label = "{}-{} (mass fraction)".format(Z,line)
+                label = "w({}-{})".format(Z,line)
                 f = filename("C({}_{})".format(Z,line))
                 edf.saveedf(f,\
                             result['concentrations'][i],\
