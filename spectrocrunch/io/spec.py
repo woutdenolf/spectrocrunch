@@ -32,21 +32,51 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def zapline_values(start,end,npixels):
+    """Values of the pixel centers
+    """
     inc = (end-start)/np.float(npixels)
     return start + inc/2 + inc*np.arange(npixels)
 
 def zapline_range(start,end,npixels):
+    """First and last pixel center
+    """
     inc = (end-start)/np.float(npixels)
     return [start + inc/2, end - inc/2]
+    
+def zapline_pixelsize(start,end,npixels):
+    """Pixel size
+    """
+    return (end-start)/np.float(npixels-1)
 
+def zapline_scansize(start,end,npixels):
+    """Distance between last and first pixel center
+    """
+    inc = (end-start)/np.float(npixels)
+    return end - start - inc
+    
 def ascan_values(start,end,nsteps):
+    """Values of the pixel centers
+    """
     inc = (end-start)/np.float(nsteps)
     return start + inc*np.arange(nsteps+1)
 
 def ascan_range(start,end,nsteps):
+    """First and last pixel center
+    """
     return [start,end]
 
+def ascan_pixelsize(start,end,nsteps):
+    """Pixel size
+    """
+    return (end-start)/np.float(nsteps)
+
+def ascan_scansize(start,end,npixels):
+    """Distance between last and first pixel center
+    """
+    return end-start
+    
 def zapimage_submap(header,cmdlabel,scanrange,currentpos,microntounits):
     """
     Args:
@@ -179,13 +209,11 @@ class cmd_parser(object):
             result['startfast'] = np.float(result['startfast'])
             result['endfast'] = np.float(result['endfast'])
             result['npixelsfast'] = np.int(result['npixelsfast'])
-            result['nstepsfast'] = result['npixelsfast']-1
             
             result['motslow'] = str(result['motslow'])
             result['startslow'] = np.float(result['startslow'])
             result['endslow'] = np.float(result['endslow'])
             result['nstepsslow'] = np.int(result['nstepsslow'])
-            result['npixelsslow'] = result['nstepsslow']+1
             
             result['time'] = ureg.Quantity(np.float(result['time']),"ms")
         else:
@@ -228,13 +256,11 @@ class cmd_parser(object):
             result['startfast'] = np.float(result['startfast'])
             result['endfast'] = np.float(result['endfast'])
             result['nstepsfast'] = np.int(result['nstepsfast'])
-            result['npixelsfast'] = result['nstepsfast']+1
-            
+
             result['motslow'] = str(result['motslow'])
             result['startslow'] = np.float(result['startslow'])
             result['endslow'] = np.float(result['endslow'])
             result['nstepsslow'] = np.int(result['nstepsslow'])
-            result['npixelsslow'] = result['nstepsslow']+1
             
             result['time'] = ureg.Quantity(np.float(result['time']),"s")
         else:
@@ -280,7 +306,6 @@ class cmd_parser(object):
             result['startfast'] = np.float(result['startfast'])
             result['endfast'] = np.float(result['endfast'])
             result['npixelsfast'] = np.int(result['npixelsfast'])
-            result['nstepsfast'] = result['npixelsfast']-1
             
             result['time'] = ureg.Quantity(np.float(result['time']),"ms")
         else:
@@ -304,7 +329,6 @@ class cmd_parser(object):
             result['startfast'] = np.float(result['startfast'])
             result['endfast'] = np.float(result['endfast'])
             result['nstepsfast'] = np.int(result['nstepsfast'])
-            result['npixelsfast'] = result['nstepsfast']+1
             
             result['time'] = ureg.Quantity(np.float(result['time']),"s")
         else:
@@ -550,31 +574,50 @@ class spec(SpecFileDataSource.SpecFileDataSource):
                 ret[result['motfast']] = np.array(ascan_range(result['startfast'],result['endsfast'],result['nstepsfast']))
         elif result['name']=="mesh":
             if result['motfast'] in motors:
-                ret[result['motfast']] = np.array(ascan_range(result['startfast'],result['endfast'],result['npixelsfast']))
+               ret[result['motfast']] = np.array(ascan_range(result['startfast'],result['endfast'],result['npixelsfast']))
             if result['motslow'] in motors:
                 ret[result['motslow']] = np.array(ascan_range(result['startslow'],result['endslow'],result['nstepsslow']))
 
         return ret
 
-    def getzapimages(self,motors=None):
-        """Get list of all zapimages
+    @staticmethod
+    def addunit(value,mot,units):
+        u = units.get(mot,None)
+        if units is None:
+            return value
+        else:
+            return ureg.Quantity(value,u)
+
+    def getimages(self,motors=None,units={}):
+        """Get list of all images
         """
         ret = OrderedDict()
         for k in self.getSourceInfo()["KeyList"]:
 
             info = self.getKeyInfo(k)
-            if info["Command"].startswith("zapimage") or info["Command"].startswith("puzzle"):
-                
-                h = info["Header"]
-                h = [i.split(":")[1].strip() for i in h if "#C " in i]
-                add = {"specnumber":k.split('.')[0],"scanname":h[1],"scannumber":h[2],"scandir":h[0],"scansize":""}
+            cmd = info["Command"]
+            if cmd.startswith("zapimage") or cmd.startswith("puzzle"):# or cmd.startswith("mesh"): NO LINK TO DATA FOR MESH
+                result = self.parser.parse(cmd)
+                if result["name"] == "unknown":
+                    continue
 
-                result = self.parser.parse(info["Command"])
-                if result['name']=="zapimage" or result['name']=="puzzle":
-                    add["scansize"] = "{} x {}".format(result['npixelsfast'],result['nstepsslow']+1)
+                add = {}
+                add["specnumber"] = k.split('.')[0]
+                add["scansize"] = "{} x {}".format(result['npixelsfast'],result['nstepsslow']+1)
+
+                ffast = lambda op: self.addunit(op(result['startfast'],result['endfast'],result['npixelsfast']),result['motfast'],units)
+                fslow = lambda op: self.addunit(op(result['startslow'],result['endslow'],result['nstepsslow']),result['motslow'],units)
                 
+                ufast = units.get(result['motfast'],None)
+                uslow = units.get(result['motslow'],None)
+
+                add["scansize_units"] = "{} x {}".format(ffast(zapline_scansize),ffast(ascan_scansize))
+                
+                add["pixelsize"] = "{} x {}".format(ffast(zapline_pixelsize),ffast(ascan_pixelsize))
+
                 add["puzzle"] = result['name']=="puzzle"
-
+                add["mesh"] = result['name']=="mesh"
+                
                 if motors is None:
                     add["motors"] = []
                 else:
@@ -582,7 +625,14 @@ class spec(SpecFileDataSource.SpecFileDataSource):
                     values = info["MotorValues"]
                     add["motors"] = [values[names.index(mot)] if mot in names else np.nan for mot in motors]
 
-                ret['{}_{}'.format(h[1],int(h[2]))] = add
+                if result["name"] != "mesh":
+                    h = info["Header"]
+                    h = [i.split(":")[1].strip() for i in h if "#C " in i]
+                    add["scandir"] = h[0]
+                    add["scanname"] = h[1]
+                    add["scannumber"] = h[2]
+
+                    ret['{}_{}'.format(h[1],int(h[2]))] = add
 
         return ret
 
