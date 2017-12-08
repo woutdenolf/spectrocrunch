@@ -37,7 +37,7 @@ class KB(object):
         self._transmission = lambda energy: 1
     
     def __str__(self):
-        s = '\n '.join("{} keV: {} %".format(k,v*100) for k,v in self._tbl.items())
+        s = '\n '.join("{} keV: {} %".format(k,v*100) for k,v in sorted(self._tbl.items()))
         return "KB transmission:\n {}".format(s)
     
     def transmission(self,energy):

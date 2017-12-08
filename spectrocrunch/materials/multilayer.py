@@ -115,7 +115,7 @@ class Multilayer(object):
         return self.layers[index]
   
     def __str__(self):
-        layers = "\n ".join("{}. {}".format(i,str(layer)) for i,layer in enumerate(self))
+        layers = "\n ".join("L{}. {}".format(i,str(layer)) for i,layer in enumerate(self))
         return "Multilayer (ordered top-bottom):\n {}".format(layers)
 
     def markscatterer(self,name):
@@ -198,7 +198,7 @@ class Multilayer(object):
             layers.xraythickness = t
 
     def spectrum(self,energy):
-        # TODO: generate try spectrum with the fisx library
+        # TODO: generate true spectrum with the fisx library
         
         # Oversimplified: isotropic scattering of all absorbed radiation
         detfrac = self.detector.solidangle/(4*np.pi)

@@ -87,28 +87,30 @@ class Detector(with_metaclass(pymca.PymcaAttenuators)):
         self.mcagain = config["detector"]["gain"]
  
 class Leia(Detector):
-
+    aliases = ["SGX80"]
+    
     def __init__(self,**kwargs):
         ultralene = compoundfromname.compoundfromname("ultralene")
         
         attenuators = {}
-        attenuators["FoilDetector"] = {"material":ultralene,"thickness":1.4e-4}
+        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4}
         attenuators["WindowDetector"] = {"material":element.Element('Be'),"thickness":25e-4}
-        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":0.5}
+        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
 
-        super(Leia,self).__init__(activearea=0.80,attenuators=attenuators,**kwargs)
+        super(Leia,self).__init__(activearea=80e-2,attenuators=attenuators,**kwargs)
 
 class BB8(Detector):
-
+    aliases = ["SGX50"]
+    
     def __init__(self,**kwargs):
         ultralene = compoundfromname.compoundfromname("ultralene")
         
         attenuators = {}
-        attenuators["FoilDetector"] = {"material":ultralene,"thickness":1.4e-4}
+        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4}
         attenuators["WindowDetector"] = {"material":element.Element('Be'),"thickness":12.5e-4}
-        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":0.5}
+        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
   
-        super(BB8,self).__init__(activearea=0.50,attenuators=attenuators,**kwargs)
+        super(BB8,self).__init__(activearea=50e-2,attenuators=attenuators,**kwargs)
 
 factory = Detector.factory
 

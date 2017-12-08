@@ -715,23 +715,20 @@ class NonCalibratedPNdiode(PNdiode):
         else:
             self.ehole = units.Quantity(ehole,"eV")
 
-    def calibrate(self,cps,sampleflux,energy,calibtarget=False):
+    def calibrate(self,cps,sampleflux,energy,caliboption=None):
         """Calibrate with another diode measuring the flux at the sample position
 
         Args:
             cps(array): count rate measured by this diode (cts/s)
             sampleflux(array): flux measured at the sample position (ph/s)
             energy(num): keV
-            calibtarget(Optional(bool)): this only works when you need calibration at 1 energy
+            caliboption(Optional(string)): "optics" (default), "target" or "diode"
             
         Returns:
             None
         """
         energy = units.Quantity(energy,"keV")
-
-        if calibtarget and self.secondarytarget is None:
-            raise RuntimeError("Secondary target need for calibration")
-        
+            
         current = self.cpstocurrent(units.Quantity(cps,"hertz"))
 
         # I(A) = Is(ph/s).slope + intercept
@@ -748,32 +745,31 @@ class NonCalibratedPNdiode(PNdiode):
         # Adapt diode thickness, solid angle or transmission
         cor = units.magnitude(self._chargepersamplephoton(energy)/slope,"dimensionless")
 
-        if calibtarget:
+        if caliboption=="target":
             # Correct the secondary target yield by changing the diode solid angle
             # Y' = Y/cor
             sa = self.secondarytarget.solidangle/cor
             if sa<0 or sa>(2*np.pi):
                     raise RuntimeError("Diode solid angle of 4*pi*{} srad is not valid (possible wrong parameters: optics transmission, diode thickness)".format(sa/(4*np.pi)))
             self.solidangle = sa
-        else:
+        elif caliboption=="diode":
+            # Correct the diode thickness
             # (1-T')/To' = (1-T)/(To.cor)
             # diode transmission (function of thickness): 0 < T' <= 1
+            attenuation = self._diode_attenuation(energy,self.thickness)/cor
+            if attenuation<0 or attenuation>1:
+                raise RuntimeError("Diode attenuation of {} % is not valid (possible wrong parameters: optics transmission, diode solid angle)".format(attenuation*100))
+            self.thicknessfromattenuation(energy,attenuation)
+        else:
+            # Correct the optics transmission
+            # (1-T')/To' = (1-T)/(To.cor)
             # optics transmission: 0 < To' <= 1
-            
             if self.optics is None:
-                # Correct the diode thickness
-                attenuation = self._diode_attenuation(energy,self.thickness)/cor
-                if attenuation<0 or attenuation>1:
-                    raise RuntimeError("Diode attenuation of {} % is not valid (possible wrong parameters: optics transmission, diode solid angle)".format(attenuation*100))
-                
-                self.thicknessfromattenuation(energy,attenuation)
-            else:
-                # Correct the optics transmission
-                To = self.optics.transmission(units.magnitude(energy,"keV"))*cor
-                if To<0 or To>1:
-                    raise RuntimeError("Optics transmission of {} % is not valid (possible wrong parameters: diode thickness, diode solid angle)".format(To*100))
-                
-                self.setopticstransmission(energy,To)
+                raise RuntimeError("Optics needed for calibration, otherwise specify the \"caliboption\" keyword")
+            To = self.optics.transmission(units.magnitude(energy,"keV"))*cor
+            if To<0 or To>1:
+                raise RuntimeError("Optics transmission of {} % is not valid (possible wrong parameters: diode thickness, diode solid angle)".format(To*100))
+            self.setopticstransmission(energy,To)
 
 
 class SXM_PTB(AbsolutePNdiode):
@@ -791,7 +787,12 @@ class SXM_PTB(AbsolutePNdiode):
                         energy=energy,response=response,**kwargs)
 
 class SXM_IDET(CalibratedPNdiode):
-    aliases = ["ird","idet"]
+    # International Radiation Detectors (IRD), AXUV...
+    # Keithley K428 (10V max analog output)
+    # NOVA N101VTF voltage-to-frequency converter (Fmax=1e6, F0=0Hz)
+    # P201 counter board
+    
+    aliases = ["idet"]
     
     def __init__(self,**kwargs):
         diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
@@ -836,6 +837,11 @@ class SXM_IDET_TEST(AbsolutePNdiode):
                         oscillator=vtof,**kwargs)
 
 class SXM_IODET1(NonCalibratedPNdiode):
+    # International Radiation Detectors (IRD), AXUV-PS1-S
+    # Keithley K428 (10V max analog output)
+    # NOVA N101VTF voltage-to-frequency converter (Fmax=1e6, F0=0Hz)
+    # P201 counter board
+
     aliases = ["iodet1"]
 
     def __init__(self,optics=True):
@@ -846,7 +852,7 @@ class SXM_IODET1(NonCalibratedPNdiode):
         coating = compoundfromformula.CompoundFromFormula("Ti",0,name="Ti")
         
         geom = diodegeometries.factory("Geometry",anglein=0,angleout=135)
-        solidangle = 0.15*4*np.pi
+        solidangle = 0.05*4*np.pi
         secondarytarget = multilayer.Multilayer(material=[coating,window],thickness=[0.5,0.5],detector=self)
 
         if optics:
@@ -861,7 +867,7 @@ class SXM_IODET1(NonCalibratedPNdiode):
         super(SXM_IODET1,self).__init__(material=diodematerial,\
                             Rout=ureg.Quantity(1e5,"volt/ampere"),\
                             darkcurrent=ureg.Quantity(0,"ampere"),\
-                            thickness=ureg.Quantity(1,"mm"),\
+                            thickness=ureg.Quantity(3,"micrometer"),\
                             ehole=constants.eholepair_si(),\
                             oscillator=vtof,\
                             secondarytarget=secondarytarget,\
@@ -870,6 +876,11 @@ class SXM_IODET1(NonCalibratedPNdiode):
                             solidangle=solidangle)
                         
 class SXM_IODET2(NonCalibratedPNdiode):
+    # International Radiation Detectors (IRD), AXUV-PS1-S
+    # Keithley K428 (10V max analog output)
+    # NOVA N101VTF voltage-to-frequency converter (Fmax=1e6, Vmax=0Hz)
+    # P201 counter board
+    
     aliases = ["iodet2"]
 
     def __init__(self,optics=True):
@@ -877,7 +888,7 @@ class SXM_IODET2(NonCalibratedPNdiode):
     
         window = compoundfromname.compoundfromname("silicon nitride")
         geom = diodegeometries.factory("Geometry",anglein=0,angleout=135)
-        solidangle = 0.15*4*np.pi
+        solidangle = 0.05*4*np.pi
         secondarytarget = multilayer.Multilayer(material=[window],thickness=[0.5],detector=self)
         
         if optics:
@@ -892,7 +903,7 @@ class SXM_IODET2(NonCalibratedPNdiode):
         super(SXM_IODET2,self).__init__(material=diodematerial,\
                             Rout=ureg.Quantity(1e5,"volt/ampere"),\
                             darkcurrent=ureg.Quantity(0,"ampere"),\
-                            thickness=ureg.Quantity(1,"mm"),\
+                            thickness=ureg.Quantity(3,"micrometer"),\
                             ehole=constants.eholepair_si(),\
                             oscillator=vtof,\
                             secondarytarget=secondarytarget,\

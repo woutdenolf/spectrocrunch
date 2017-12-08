@@ -98,8 +98,8 @@ def axo(name,elements,ad,windowthickness,filmthickness):
     ultralene = compoundfromname.compoundfromname("ultralene")
         
     attenuators = {}
-    attenuators["SampleCover"] = {"material":ultralene,"thickness":1.4e-4}
-    attenuators["BeamFilter0"] = {"material":ultralene,"thickness":1.4e-4}
+    attenuators["SampleCover"] = {"material":ultralene,"thickness":4e-4}
+    attenuators["BeamFilter0"] = {"material":ultralene,"thickness":4e-4}
 
     if filmthickness is None:
         w = compoundfromname.compoundfromname("silicon nitride")

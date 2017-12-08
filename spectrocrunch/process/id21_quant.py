@@ -23,6 +23,7 @@
 # THE SOFTWARE.
 
 import numpy as np
+import logging
 
 import spectrocrunch.io.spec as spec
 import spectrocrunch.detectors.diode as diode
@@ -30,51 +31,69 @@ import matplotlib.pyplot as plt
 
 from ..common import units
 
+logger = logging.getLogger(__name__)
+
 class FluxMonitor(object):
     
-    def __init__(self):
+    def __init__(self,iodetname=None,focussed=None):
         self.idet = diode.factory("idet",model=True)
         self.iodet = None
+        self.iodetname = iodetname
+        self.focussed = focussed
         self.refcts = units.Quantity(1e10,"hertz")
         self.time = units.Quantity(0.1,"s")
+        self.setiodet()
+        
+    def __getattr__(self,attr):
+        return getattr(self.iodet,attr)
     
     def __str__(self):
         return "Default flux reference:\n {}\nDefault exposure time:\n {}\n{}".format(self.refcts,self.time,str(self.iodet))
 
     def parsespec(self,specfile,specnr):
-        # Parse spec file
         fspec = spec.spec(specfile)
-        
-        self.ioz,self.istopz,self.energy,self.zpz = fspec.getmotorvalues(specnr,["diodeIoZ","istopz","Energy MONO",'zpz'])
+        ioz,istopz,energy,zpz = fspec.getmotorvalues(specnr,["diodeIoZ","istopz","Energy MONO",'zpz'])
 
+        self.checkiodet(ioz,istopz,zpz)
+        
+        self.ioz,self.istopz,self.energy,self.zpz = ioz,istopz,energy,zpz
+        
         data = fspec.getdata2(specnr,["Seconds","Photons","idet","iodet"])
         seconds = data[:,0]
         self.fluxest = data[:,1]/seconds
         self.idetcps = data[:,2]/seconds
         self.iodetcps = data[:,3]/seconds
-        
-        self._setiodet()
-        
-    def _setiodet(self):
-        optics = (abs(self.zpz-7)<abs(self.zpz-6.5))
- 
-        if abs(self.ioz-7)<abs(self.ioz-23):
+
+    def checkiodet(self,ioz,istopz,zpz):
+        if abs(ioz-7)<abs(ioz-23):
             name = "iodet1"
-        elif abs(self.istopz+20)<abs(self.istopz+1.3):
+        elif abs(istopz+20)<abs(istopz+1.3):
             name = "iodet2"
         else:
             raise RuntimeError("No diode in the beam")
-            
-        self.setdiode(name,optics=optics)
-
-    def setdiode(self,name,optics=True):
-        if self.iodet is None:
-            self.iodet = diode.factory(name,optics=optics)
-            self.iodet.name = name
-            #self.iodet.secondarytarget.geometry.solidangle = 4*np.pi*0.2
+        if self.iodetname is None:
+            self.iodetname = name
         else:
-            if self.iodet.name!=name:
-                raise RuntimeError("Diode changed!")
+            if name != self.iodetname:
+                msg = "Current I0 diode is \"{}\", not {}".format(self.iodetname,name)
+                raise RuntimeError(msg)
+        
+        focussed = abs(zpz-7)<abs(zpz-6.5)
+        if self.focussed is None:
+            self.focussed = focussed
+        else:
+            if focussed != self.focussed:
+                if self.focussed:
+                    msg = "Optics should be in the beam"
+                else:
+                    msg = "Optics should not be in the beam"
+                raise RuntimeError(msg)
+                
+        self.setiodet()
+        
+    def setiodet(self):
+        if self.iodet is None and not (self.iodetname is None or self.focussed is None):
+            self.iodet = diode.factory(self.iodetname,optics=self.focussed)
 
     def darkiodet(self):
         self.iodet.darkfromcps(self.iodetcps)
@@ -96,16 +115,11 @@ class FluxMonitor(object):
         ax.set_title("{:.0}".format(d.Rout))
         ax.legend(loc="best")
         
-    def calibiodet(self):
-        if True:
-            # Reset the idet gain based on the flux given by spec (fluxest)
-            #self.idet.gainfromcps(self.energy,self.idetcps,self.fluxest)
-            
-            flux = self.idet.cpstoflux(self.energy,self.idetcps)
-        else:
-            flux = self.fluxest
+    def calibiodet(self,caliboption=None):
+        flux = self.idet.cpstoflux(self.energy,self.idetcps)
+        #flux = self.fluxest # this is the flux calculated in spec
         
-        self.iodet.calibrate(self.iodetcps,flux,self.energy)
+        self.iodet.calibrate(self.iodetcps,flux,self.energy,caliboption=caliboption)
         
     def checkflux(self):
         f, (ax1, ax2) = plt.subplots(1, 2)
@@ -128,19 +142,37 @@ class FluxMonitor(object):
     
         plt.tight_layout()
     
-    def initdiodes(self,gainiodet,gainidet):
-        if gainiodet is not None:
-            self.iodet.setgain(gainiodet)
-        if gainidet is not None:
-            self.idet.setgain(gainidet)
+    def load(self,specfile=None,specnr=None,gainiodet=None,gainidet=None):
+        setiodet = False
+        setidet = False
         
-    def initspec(self,specfile,specnr,gainiodet,gainidet):
-        self.parsespec(specfile,specnr)
-        self.initdiodes(gainiodet,gainidet)
+        loaddata = specfile is not None or specnr is not None
+        if loaddata:
+            self.parsespec(specfile,specnr)
 
-    def dark(self,specfile,specnr,gainiodet,gainidet,plot=False):
-        self.initspec(specfile,specnr,gainiodet,gainidet)
-        
+        if gainiodet is None:
+            logger.warning("Gain of iodet is not specified.")
+        else:
+            self.iodet.setgain(gainiodet)
+            setiodet = True
+            
+        if gainidet is None:
+            # Reset the idet gain based on the flux given by spec (fluxest)
+            if loaddata:
+                self.idet.gainfromcps(self.energy,self.idetcps,self.fluxest)
+                setidet = True
+            else:
+                logger.warning("Gain of idet is not specified.")
+        else:
+            self.idet.setgain(gainidet)
+            setidet = True
+            
+        return loaddata,setiodet,setidet
+
+    def dark(self,plot=False,**kwargs):
+        """Get the dark current from the data
+        """
+        loaddata,setiodet,setidet = self.load(**kwargs)
         self.darkiodet()
         self.darkidet()
         
@@ -148,21 +180,39 @@ class FluxMonitor(object):
             self.checkdark()
             plt.show()
  
-    def manualdark(self,iodetcps,gainiodet):
-        self.initdiodes(gainiodet,None)
-        self.iodet.darkfromcps(iodetcps)
+    def manualdark(self,iodetcps,idetcps,**kwargs):
+        """Manually specify the dark current
+        """
+        loaddata,setiodet,setidet = self.load(**kwargs)
+        if iodetcps is not None:
+            if not setiodet:
+                raise RuntimeError("Gain of iodet should be specified")
+            self.iodet.darkfromcps(iodetcps)
+        if idetcps is not None:
+            if not setidet:
+                raise RuntimeError("Gain of idet should be specified")
+            self.idet.darkfromcps(idetcps)
 
-    def calib(self,specfile,specnr,gainiodet,gainidet,plot=False):
-        self.initspec(specfile,specnr,gainiodet,gainidet)
-
-        self.calibiodet()
+    def calib(self,caliboption=None,plot=False,**kwargs):
+        """Diode calibration from the data
+        """
+        loaddata,setiodet,setidet = self.load(**kwargs)
+        if not loaddata:
+            raise RuntimeError("Attenuator scan should be specified")
+        if not setiodet:
+            raise RuntimeError("Gain of iodet should be specified")
+        if not setidet:
+            raise RuntimeError("Gain of idet should be specified")
+        self.calibiodet(caliboption=caliboption)
         
         if plot:
             self.checkflux()
             plt.show()
 
-    def manualcalib(self,energy,transmission,gainiodet):
-        self.initdiodes(gainiodet,None)
+    def manualcalib(self,energy,transmission,**kwargs):
+        """Manual diode calibration
+        """
+        loaddata,setiodet,setidet = self.load(**kwargs)
         self.iodet.optics.set_transmission(energy,transmission)
     
     def setreferenceflux(self,flux):
