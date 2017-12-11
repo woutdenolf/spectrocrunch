@@ -37,7 +37,7 @@ class Compound(Hashable):
     """Interface to a compound
     """
 
-    def __init__(self,elements,frac,fractype,density,nrefrac=1,name=None):
+    def __init__(self,elements,frac,fractype,density=None,nrefrac=1,name=None):
         """
         Args:
             elements(list): list of elements (["Fe","O"] or [element("Fe"),element("O")])
@@ -194,13 +194,17 @@ class Compound(Hashable):
         arealdensity = np.asarray(w.values())*(self.density*200)
         return dict(zip(w.keys(),arealdensity))
         
-    def markabsorber(self,symb,shells=[],fluolines=[]):
+    def markabsorber(self,symb=None,shells=None,fluolines=None,energybounds=None):
         """
         Args:
             symb(str): element symbol
         """
         for e in self.elements:
-            e.markabsorber(symb,shells=shells,fluolines=fluolines)
+            if energybounds is None:
+                energybounds2 = None
+            else:
+                energybounds2 = energybounds
+            e.markabsorber(symb=symb,shells=shells,fluolines=fluolines,energybounds=energybounds2)
 
     def unmarkabsorber(self):
         for e in self.elements:
@@ -209,12 +213,15 @@ class Compound(Hashable):
     def hasabsorbers(self):
         return any([e.isabsorber() for e in self.elements])
 
-    def markscatterer(self,name):
+    def markscatterer(self,name=None):
         """
         Args:
             name(str): compound name
         """
-        self.isscatterer = self==name
+        if name is None:
+            self.isscatterer = True
+        else:
+            self.isscatterer = self==name
 
     def unmarkscatterer(self):
         self.isscatterer = False
@@ -292,6 +299,48 @@ class Compound(Hashable):
         """
         return self._crosssection("fluorescence_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
+    def fluorescence_spectrum(self,E,fine=False,**kwargs):
+        """XRF cross section (cm^2/g, E in keV). Use for XRF.
+        """
+        return self._crosssection("fluorescence_spectrum",E,fine=fine,decomposed=True,**kwargs)
+    
+    def lines(self,E,emin=0,emax=None):
+        if emax is None:
+            emax = E
+        self.markabsorber(energybounds=[emin,emax])
+
+        density = self.density
+        
+        data = self.fluorescence_spectrum(E)
+
+        fluolines = {}
+        for _element,info in data.items():
+            welement = info["w"]
+            for shell,lines in info["cs"].items():  
+                for line,cs in lines.items():
+                    #if emin < line.energy(_element) <= emax: # already done by explicit markabsorber above
+                        if _element not in fluolines:
+                            fluolines[_element] = {}
+                        if shell not in fluolines[_element]:
+                            fluolines[_element][shell] = {}
+                        if line not in fluolines[_element][shell]:
+                            fluolines[_element][shell][line] = welement*cs*density
+                        else:
+                            fluolines[_element][shell][line] += welement*cs*density
+        
+        rayleigh = self.rayleigh_cross_section(E,decomposed=False)*density
+        
+        compton = self.compton_cross_section(E,decomposed=False)*density
+        
+        scatlines = {element.RayleighLine(E):rayleigh,\
+                     element.ComptonLine(E):compton}
+        
+        return {"fluorescence":fluolines,\
+                "scattering":scatlines,\
+                "xlim":[emin,emax],\
+                "title":str(self),\
+                "ylabel":"Cross-section (1/cm)"}
+    
     def refractive_index_re(self,E,fine=False,decomposed=False,**kwargs):
         """
         """

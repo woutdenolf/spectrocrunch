@@ -75,7 +75,7 @@ class InteractionFluo(Interaction):
         if not isinstance(el,element.Element):
             el = element.Element(el)
         name = "{}-{}".format(el,line)
-        energy = line.lineenergy(el.Z)
+        energy = line.energy(el.Z)
         prob = shell.fluoyield(el.Z)*line.radrate(el.Z)
         
         super(InteractionFluo,self).__init__(name,energy,prob)

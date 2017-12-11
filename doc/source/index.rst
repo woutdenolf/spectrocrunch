@@ -7,8 +7,9 @@ The spectrocrunch aims and combining different python libraries for spectrocopic
 .. toctree::
    :hidden:
 
-   modules/index
-   changelog
+    tutorials/index
+    modules/index
+    changelog
 
 :doc:`modules/index`
     Documentation of the packages included in *spectrocrunch*

@@ -88,7 +88,7 @@ class test_fluoxas(unittest.TestCase):
         spec = np.stack([spec,spec*2,spec*3],axis=1)
         nchan,ndet = spec.shape
         
-        nmaps,nlines,nspec = 3,2,2
+        nmaps,nlines,nspec = 3,7,6
         data = np.ones((nmaps,nlines,nspec))
         for i in range(nmaps):
             t = i-nmaps//2
@@ -124,6 +124,11 @@ class test_fluoxas(unittest.TestCase):
         for i in range(ndet):
             ctrs["xmap_x1c_{:02d}".format(i)] = data[...,a:b,i].sum(axis=-1)
 
+        b = a
+        a = a-100
+        for i in range(ndet):
+            ctrs["xmap_x2c_{:02d}".format(i)] = data[...,a:b,i].sum(axis=-1)
+
         # Transmission
         ctrs["arr_idet"] = np.zeros((nmaps,nlines,nspec)) # no transmission
 
@@ -158,7 +163,7 @@ class test_fluoxas(unittest.TestCase):
     def env_destpath(self):
         self.destpath = TempDirectory()
         yield
-        self.destpath.cleanup()
+        #self.destpath.cleanup()
 
     def test_process(self):
         
@@ -178,10 +183,12 @@ class test_fluoxas(unittest.TestCase):
         refimageindex = 0
 
         # Process with different settings
-        for alignmethod in [None]:
+        for alignmethod in ["max",None]:
         
-            for cfgfileuse in [cfgfile]:
-        
+            for cfgfileuse in [None,cfgfile]:
+                if cfgfileuse is None and alignmethod is not None:
+                    continue
+
                 for include_detectors in [[2],[0,2]]:
                 
                     for addbeforefit in [True,False]:
@@ -194,7 +201,7 @@ class test_fluoxas(unittest.TestCase):
                                 monitor = None
                                 prealignnormcounter = "arr_fdet"
                             
-                            for dtcor in [True]:
+                            for dtcor in [True,False]:
                                 dtcor_onspectra = dtcor and len(include_detectors)>1
 
                                 if dtcor_onspectra:
@@ -202,24 +209,24 @@ class test_fluoxas(unittest.TestCase):
                                 else:
                                     radixout = radix
 
-                                for stackdim in [2]:
+                                for stackdim in [2,1,0]:
                                 
                                     with self.env_destpath():
                                         for skippre in [False]:
                                             addbeforefit_onspectra = addbeforefit and len(include_detectors)>1
                                             
-                                            print "alignmethod=",alignmethod
-                                            print "addbeforefit=",addbeforefit
-                                            print "addbeforefit_onspectra=",addbeforefit_onspectra
-                                            print "dtcor=",dtcor
-                                            print "dtcor_onspectra=",dtcor_onspectra
-                                            print "skippre=",skippre
-                                            print "quant=",quant
-                                            print "stackdim=",stackdim
+                                            #print "alignmethod=",alignmethod
+                                            #print "addbeforefit=",addbeforefit
+                                            #print "addbeforefit_onspectra=",addbeforefit_onspectra
+                                            #print "dtcor=",dtcor
+                                            #print "dtcor_onspectra=",dtcor_onspectra
+                                            #print "skippre=",skippre
+                                            #print "quant=",quant
+                                            #print "stackdim=",stackdim
                                             
                                             process(sourcepath,self.destpath.path,radix,scannumbers,cfgfileuse,\
                                                     alignmethod=alignmethod,alignreference=alignreference,\
-                                                    refimageindex=refimageindex,dtcor=dtcor,plot=True,\
+                                                    refimageindex=refimageindex,dtcor=dtcor,plot=False,\
                                                     addbeforefit=addbeforefit,fluxmonitor=monitor,\
                                                     prealignnormcounter=prealignnormcounter,stackdim=stackdim,\
                                                     include_detectors=include_detectors,skippre=skippre)

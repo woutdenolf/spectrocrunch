@@ -30,6 +30,8 @@ from scipy import interpolate
 import json
 import numbers
 import re
+import matplotlib.pyplot as plt
+
 try:
     import iotbx.cif
 except:
@@ -58,6 +60,7 @@ def parseelementsymbol(symb):
     else:
         raise ValueError("Unknown element symbol or number")
     return Z,name  
+
 
 class FluoLine(Hashable):
 
@@ -126,7 +129,7 @@ class FluoLine(Hashable):
 
         Args:
             shells(Optional(array(int or str or Shell))): 
-            fluolines(Optional(array(int or str or FluoLine))):  None or [] -> explicit all
+            fluolines(Optional(array(int or str or FluoLine))):  None or [] -> explicite all
             energybounds(Optional(3-tuple)): element or num or str, lower energy bound, higher energy bound
             
         Returns:
@@ -157,9 +160,9 @@ class FluoLine(Hashable):
         # Energy selection
         if energybounds is not None:
             Z,_ = parseelementsymbol(energybounds[0])
-            valid = lambda energy: energy >= energybounds[1] and energy <= energybounds[2]
-            lines = [line for line in lines if valid(line.lineenergy(Z))]
-        
+            valid = lambda energy: energy >= energybounds[1] and energy <= energybounds[2] and energy!=0
+            lines = [line for line in lines if valid(line.energy(Z))]
+                
         # Return
         return lines
             
@@ -210,13 +213,15 @@ class FluoLine(Hashable):
                         
         return rate
     
-    def lineenergy(self,Z):
+    def energy(self,Z):
         """
         Args:
             Z(num): atomic number
         Returns:
             num
         """
+        if not isinstance(Z,numbers.Integral):
+            Z,_ = parseelementsymbol(Z)
         energy = xraylib.LineEnergy(Z,self.code)
         
         if energy==0:
@@ -271,14 +276,18 @@ class Shell(Hashable):
 
     @classmethod
     def factory(cls,energybounds=None):
-        alls = cls.all_shells()
-        if energybounds==0:
-            return alls
+        if energybounds is None:
+            return cls.all_shells()
         else:
             Z,_ = parseelementsymbol(energybounds[0])
             valid = lambda energy: energy >= energybounds[1] and energy <= energybounds[2]
-            return [s for s in alls if valid(s.edgeenergy(Z))]
-    
+            shells = cls.all_shells()
+            shells = [s for s in shells if valid(s.edgeenergy(Z))]
+            for s in shells:
+                s._fluolines = FluoLine.factory(shells=[s],energybounds=energybounds)
+            shells = [s for s in shells if s._fluolines]
+            return shells
+            
     @classmethod
     def pymcafactory(cls,energybounds=None):
         return list(set("".join(re.split("[^a-zA-Z]*", str(s))) for s in cls.factory(energybounds=energybounds)))
@@ -302,9 +311,9 @@ class Shell(Hashable):
     @property
     def fluolines(self):
         if self._fluolines is None:
-            return FluoLine.factory(shells=[self])
-        else:
-            return self._fluolines
+            # None means all lines, but I need them explicitely now
+            self._fluolines = FluoLine.factory(shells=[self])
+        return self._fluolines
 
     def _cmpkey(self):
         """For comparing and sorting
@@ -329,18 +338,65 @@ class Shell(Hashable):
         else:
             return [l.radrate(Z) for l in self._fluolines]
 
-    def partial_fluoyield(self,Z):
+    def partial_fluoyield(self,Z,decomposed=False):
         """Probability of selected lines / probability of shell ionization
         """
-        if self._fluolines is None:
-            return self.fluoyield(Z)
+        if decomposed:
+            fluoyield = self.fluoyield(Z)
+            return {l:fluoyield*l.radrate(Z) for l in self.fluolines}
         else:
-            return self.fluoyield(Z)*sum(self.radrate(Z))
+            if self._fluolines is None:
+                return self.fluoyield(Z)
+            else:
+                return self.fluoyield(Z)*sum(self.radrate(Z))
 
     def edgeenergy(self,Z):
         return xraylib.EdgeEnergy(Z,self.code)
+
+
+class RayleighLine(Hashable):
+
+    def __init__(self,energy):
+        self._energy = energy
+        self.name = "Rayleigh"
+
+    def _cmpkey(self):
+        """For comparing and sorting
+        """
+        return self.name
+
+    def _stringrepr(self):
+        """Unique representation of an instance
+        """
+        return self.name
+
+    def energy(self,scatangle):
+        return self._energy
         
-    
+        
+class ComptonLine(Hashable):
+
+    def __init__(self,energy):
+        self._energy = energy
+        self.name = "Compton"
+
+    def _cmpkey(self):
+        """For comparing and sorting
+        """
+        return self.name
+
+    def _stringrepr(self):
+        """Unique representation of an instance
+        """
+        return self.name
+
+    def energy(self,scatangle):
+        if scatangle==0:
+            return self._energy
+        delta = ureg.Quantity(1-np.cos(np.radians(scatangle)),"1/(m_e*c^2)").to("1/keV","spectroscopy").magnitude
+        return self._energy/(1+self._energy*delta) 
+        
+
 class Element(Hashable):
     """Interface to chemical elements
     """
@@ -370,7 +426,7 @@ class Element(Hashable):
         """
         return self.name
 
-    def markabsorber(self,symb,shells=None,fluolines=None):
+    def markabsorber(self,symb=None,shells=None,fluolines=None,energybounds=None):
         """Marking an element's shells and lines has following effect:
             - partial absorption cross-section is not zero
             - when no fluolines are given: all lines for each shell are taken into account
@@ -378,17 +434,28 @@ class Element(Hashable):
         Args:
             symb(str): element symbol
             shells(Optional(array(int))): None -> all
-            fluolines(Optional(array(int))): None -> all, [] -> explicit all
+            fluolines(Optional(array(int))): None -> all, [] -> explicite all
         """
-        if self.name==symb:
-            # Shell names
+
+        if symb is None:
+            mark = True
+        else:
+            Z,name = parseelementsymbol(symb)
+            mark = self.Z==Z
+
+        if mark:
+            if shells is None:
+                if energybounds is not None:
+                    shells = Shell.factory(energybounds=[self.Z,energybounds[0],energybounds[1]])
+        
             if shells is None:
                 self.shells = Shell.all_shells(fluolines=fluolines)
             else:
+                f = lambda shell: shell if isinstance(shell,Shell) else Shell(shell,fluolines=fluolines)
                 if isarray(shells):
-                    self.shells = [Shell(shell,fluolines=fluolines) for shell in shells]
+                    self.shells = [f(shell) for shell in shells]
                 else:
-                    self.shells = [Shell(shells,fluolines=fluolines)]
+                    self.shells = [f(shell)]
 
     def unmarkabsorber(self):
         self.shells = []
@@ -557,8 +624,6 @@ class Element(Hashable):
     def fluorescence_cross_section(self,E,environ=None,decimals=6,refresh=False,decomposed=False):
         """XRF cross section for the selected shells and lines (cm^2/g, E in keV). Use for fluorescence XAS.
 
-            muXRF(E) = sum_{S}[tau(E,S)*fluoyield(S)*sum_{L}[radrate(S,L)]]
-
         Args:
             E(num or array-like): energy (keV)
             environ(dict): chemical environment of this element
@@ -567,7 +632,7 @@ class Element(Hashable):
             decomposed(Optional(bool)): output as dictionary
 
         Returns:
-            num or np.array: muXRF
+            num or np.array: sum_{S}[tau(E,S)*fluoyield(S)*sum_{L}[radrate(S,L)]]
             dict: S:tau(E,S)
         """
         bnum = not isarray(E)
@@ -586,15 +651,80 @@ class Element(Hashable):
             cs = self._CS_Photo_Partial_SIM(E,environ,decimals=decimals,refresh=refresh)
 
         if decomposed:
-            return cs
+            if bnum:
+                return {shell:shellcs[0] for shell,shellcs in cs.items()}
+            else:
+                return cs
         else:
             # sum over selected shells, weighted but the total fluoyield of the selected lines
-            cs = sum([c*shell.partial_fluoyield(self.Z) for shell,c in cs.items()])
+            cs = sum([shellcs*shell.partial_fluoyield(self.Z) for shell,shellcs in cs.items()])
             if bnum:
                 return cs[0]
             else:
                 return cs
 
+    def fluorescence_spectrum(self,E,environ=None,decimals=6,refresh=False,decomposed=True):
+        """XRF cross sections per line (cm^2/g, E in keV).
+
+        Args:
+            E(num or array-like): energy (keV)
+            environ(dict): chemical environment of this element
+            decimals(Optional(num)): precision of energy in keV
+            refresh(Optional(bool)): force re-simulation if used
+            decomposed(Optional(bool)): output as dictionary
+
+        Returns:
+            dict: S:{tau(E,S)*fluoyield(S)*sum_{L}[radrate(S,L)]}
+            dict: S:{L:tau(E,S)*fluoyield(S)*radrate(S,L)}
+        """
+        
+        # No fluorescence when not an absorber
+        if not self.isabsorber():
+            return {}
+
+        # Get the shell ionization cross section
+        cs = self.fluorescence_cross_section(E,environ=environ,decimals=decimals,refresh=refresh,decomposed=True)
+            
+        if decomposed:
+            # Multiply by fluorescence yield for each line
+            cs = {shell:{ line:shellcs*fluoyield\
+                          for line,fluoyield in shell.partial_fluoyield(self.Z,decomposed=True).items()}\
+                          for shell,shellcs in cs.items()}
+        else:
+            cs = {shell:shellcs*shell.partial_fluoyield(self.Z,decomposed=False)\
+                        for shell,shellcs in cs.items()}
+        return cs
+
+    def lines(self,E,emin=0,emax=None):
+        if emax is None:
+            emax = E
+        self.markabsorber(energybounds=[emin,emax])
+        
+        data = self.fluorescence_spectrum(E,decomposed=True)
+    
+        # Mass to linear absorption: cm^2/g -> 1/cm
+        # Remove lines not within the limits
+        density = self.density
+        fluolines = {}
+        for shell,lines in data.items():
+            for line,cs in lines.items():
+                #if emin < line.energy(self) <= emax:  # already done by explicit markabsorber above
+                    if shell not in fluolines:
+                        fluolines[shell] = {}
+                    fluolines[shell][line] = cs*density
+        
+        rayleigh = self.rayleigh_cross_section(E)*density
+        compton = self.compton_cross_section(E)*density
+
+        scatlines = {RayleighLine(E):rayleigh,\
+                     ComptonLine(E):compton}
+                     
+        return {"fluorescence":{self:fluolines},\
+                "scattering":scatlines,\
+                "xlim":[emin,emax],\
+                "title":str(self),\
+                "ylabel":"Cross-section (1/cm)"}
+    
     def _xraylib_method(self,method,E):
         method = getattr(xraylib,method)
         if isarray(E):
@@ -637,7 +767,7 @@ class Element(Hashable):
         return self._xraylib_method("CS_Rayl",E)
 
     def compton_cross_section(self,E,environ=None,decimals=6,refresh=False):
-        """Rayleigh cross section (cm^2/g, E in keV).
+        """Compton cross section (cm^2/g, E in keV).
 
         Args:
             E(num or array-like): energy (keV)

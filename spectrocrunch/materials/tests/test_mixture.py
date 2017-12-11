@@ -79,12 +79,68 @@ class test_mixture(unittest.TestCase):
         for e in c3.elements:
             self.assertEqual(c3.elements[e],c4.elements[e])
 
+    def _spectrum(self,lstlines,thickness):
+        spectrum = {}
+        for tmp,d in zip(lstlines,thickness):
+            for element,shells in tmp["fluorescence"].items():
+                for shell,lines in shells.items():
+                    for line,intensity in lines.items():
+                        k = line.energy(element)
+                        if k in spectrum:
+                            spectrum[k] += intensity*d
+                        else:
+                            spectrum[k] = intensity*d
+                            
+            for line,intensity in tmp["scattering"].items():
+                k = line.energy(111.)
+                if k in spectrum:
+                    spectrum[k] += intensity*d
+                else:
+                    spectrum[k] = intensity*d
+        return spectrum
+    
+    def _spectrum_equal(self,spectrum1,spectrum2):
+        np.testing.assert_allclose(sorted(spectrum1.keys()),sorted(spectrum2.keys()))
+        
+        for k in spectrum1:
+            np.testing.assert_allclose(spectrum1[k],spectrum2[k])
+    
+    def test_cross_sections(self):
+        c = [compound("Co2O3",1.5),compound("Fe2O3",1.6)]
+        rhoc = np.array([x.density for x in c])
+        dc = np.array([0.1,0.2])
+        
+        rhom = sum(rhoc*dc)/sum(dc)
+        wc = rhoc*dc
+        wc /= sum(wc)
+
+        c3 = mixture(c,wc,fractionType.weight)
+        c4 = c3.tocompound("mix")
+
+        np.testing.assert_allclose(c3.density,rhom)
+        np.testing.assert_allclose(c4.density,rhom)
+        
+        energy = 10.
+        muc = [x.mass_att_coeff(energy) for x in c]
+        
+        muL = sum(muc*rhoc*dc)
+        np.testing.assert_allclose(c3.density*c3.mass_att_coeff(energy)*sum(dc),muL)
+        np.testing.assert_allclose(c4.density*c4.mass_att_coeff(energy)*sum(dc),muL)
+        
+        spectrum = self._spectrum([x.lines(energy) for x in c],dc)
+        spectrum3 = self._spectrum([c3.lines(energy)],[sum(dc)])
+        spectrum4 = self._spectrum([c3.lines(energy)],[sum(dc)])
+
+        self._spectrum_equal(spectrum3,spectrum4)
+        self._spectrum_equal(spectrum,spectrum3)
+        
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_mixture("test_molefractions"))
     testSuite.addTest(test_mixture("test_addcompound"))
     testSuite.addTest(test_mixture("test_tocompound"))
+    testSuite.addTest(test_mixture("test_cross_sections"))
     return testSuite
     
 if __name__ == '__main__':

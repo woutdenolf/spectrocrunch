@@ -105,13 +105,6 @@ compounddb["copper acetate"] = compoundfromformula.CompoundFromFormula("Cu(CH3CO
 compounddb["verdigris"] = compoundfromformula.CompoundFromFormula("Cu2(CH3CO2)4(H2O)2", 1.882,name="verdigris")
 compounddb["paris green"] = compoundfromformula.CompoundFromFormula("Cu2(CH3CO2)4(H2O)2", 1.1,name="paris green")
 
-# tapes/foils:
-data = xraylib.GetCompoundDataNISTByName("Kapton Polyimide Film")
-compounddb["kapton"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="kapton")
-#compounddb["ultralene"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="ultralene")
-compounddb["mylar"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="mylar")
-compounddb["ultralene"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="ultralene")
-
 # polymers:
 compounddb["pmma"] = compoundfromformula.CompoundFromFormula("C5O2H8",1.18,name="pmma")
 compounddb["pp"] = compoundfromformula.CompoundFromFormula("C3H6",0.86,name="pp")
@@ -120,7 +113,14 @@ compounddb["pet"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name=
 compounddb["pan"] = compoundfromformula.CompoundFromFormula("C3H3N",1.184,name="pan")
 compounddb["pva"] = compoundfromformula.CompoundFromFormula("C3H3N",1.19,name="pva")
 
-# tape (adhesive on a plastic)
+# tapes/foils:
+data = xraylib.GetCompoundDataNISTByName("Kapton Polyimide Film")
+compounddb["kapton"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="kapton")
+compounddb["ultralene"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="ultralene") # same as kapton
+compounddb["mylar"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="mylar") # same as pet
+#compounddb["ultralene"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="ultralene") # same as pet
+
+# tape (adhesive on plastic)
 compounddb["sulfur-free tape"] = mixture.Mixture([compounddb["pva"],compounddb["pe"]],\
                                     [0.5,0.5],fractionType.mole).tocompound("sulfur-free tape")
 

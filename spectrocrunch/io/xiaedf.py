@@ -783,6 +783,9 @@ class xiadata(object):
     def dtcor(self,b):
         self._xiaconfig.dtcor(b)
 
+    def norm(self,ctr,func=None):
+        return self.globalnorm(ctr,func=func)
+
     def globalnorm(self,ctr,func=None):
         self._xiaconfig.norm(ctr,func=func)
         self._normfunc = None

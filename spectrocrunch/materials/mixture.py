@@ -22,6 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from . import element
 from . import compoundfromlist
 from . import compoundfromformula
 from .types import fractionType
@@ -303,13 +304,59 @@ class Mixture(object):
         """
         return self._crosssection("fluorescence_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def markabsorber(self,symb,shells=[],fluolines=[]):
+    def fluorescence_spectrum(self,E,fine=False,**kwargs):
+        """XRF cross section (cm^2/g, E in keV).  Use for XRF.
+        """
+        return self._crosssection("fluorescence_spectrum",E,fine=fine,decomposed=True,**kwargs)
+    
+    def lines(self,E,emin=0,emax=None):
+        if emax is None:
+            emax = E
+        self.markabsorber(energybounds=[emin,emax])
+        
+        density = self.density
+        
+        data = self.fluorescence_spectrum(E)
+
+        fluolines = {}
+        
+        for compound,data2 in data.items():
+            wcompound = data2["w"]
+            for _element,info in data2["elements"].items():
+                welement = info["w"]
+                for shell,lines in info["cs"].items():  
+                    for line,cs in lines.items():
+                        #if emin < line.energy(_element) <= emax:  # already done by explicit markabsorber above
+                            if _element not in fluolines:
+                                fluolines[_element] = {}
+                            if shell not in fluolines[_element]:
+                                fluolines[_element][shell] = {}
+                            if line not in fluolines[_element][shell]:
+                                fluolines[_element][shell][line] = wcompound*welement*cs*density
+                            else:
+                                fluolines[_element][shell][line] += wcompound*welement*cs*density
+        
+        scatlines = {}
+        
+        data = self.rayleigh_cross_section(E,decomposed=False)*density
+        scatlines[element.RayleighLine(E)] = data
+        
+        data = self.compton_cross_section(E,decomposed=False)*density
+        scatlines[element.ComptonLine(E)] = data
+               
+        return {"fluorescence":fluolines,\
+                "scattering":scatlines,\
+                "xlim":[emin,emax],\
+                "title":str(self),\
+                "ylabel":"Cross-section (1/cm)"}
+
+    def markabsorber(self,symb=None,shells=None,fluolines=None,energybounds=None):
         """
         Args:
             symb(str): element symbol
         """
         for c in self.compounds:
-            c.markabsorber(symb,shells=shells,fluolines=fluolines)
+            c.markabsorber(symb,shells=shells,fluolines=fluolines,energybounds=energybounds)
 
     def unmarkabsorber(self):
         for c in self.compounds:
@@ -318,13 +365,13 @@ class Mixture(object):
     def hasabsorbers(self):
         return any([c.hasabsorbers() for c in self.compounds])
         
-    def markscatterer(self,name):
+    def markscatterer(self,name=None):
         """
         Args:
             name(str): compound name
         """
         for c in self.compounds:
-            c.markscatterer(symb,shells=shells,fluolines=fluolines)
+            c.markscatterer(name)
 
     def unmarkscatterer(self):
         for c in self.compounds:
