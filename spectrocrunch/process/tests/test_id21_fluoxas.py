@@ -163,7 +163,7 @@ class test_fluoxas(unittest.TestCase):
     def env_destpath(self):
         self.destpath = TempDirectory()
         yield
-        #self.destpath.cleanup()
+        self.destpath.cleanup()
 
     def test_process(self):
         
