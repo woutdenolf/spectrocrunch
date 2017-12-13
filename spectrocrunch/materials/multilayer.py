@@ -22,11 +22,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common import instance
-
 import numpy as np
-import itertools
 
+from ..common import instance
+from ..common import cache
 
 class Layer(object):
 
@@ -54,20 +53,19 @@ class Layer(object):
             
     @property
     def xraythickness(self):
-        return self.thickness*self.ml.cosanglein*1e-4
+        return self.thickness/self.ml.cosnormin*1e-4
     
     @xraythickness.setter
     def xraythickness(self,value):
-        self.thickness = value/self.ml.cosanglein*1e-4
+        self.thickness = value*self.ml.cosnormin*1e-4
     
     def absorbance(self,energy,fine=False,decomposed=False):
         if decomposed:
-            return {"cs":self.mass_att_coeff(energy,fine=fine,decomposed=decomposed),"thickness":self.xraythickness,"density":self.density}
+            return {"cs":self.material.mass_att_coeff(energy,fine=fine,decomposed=decomposed),"thickness":self.xraythickness,"density":self.material.density}
         else:
-            return self.mass_att_coeff(energy,fine=fine,decomposed=decomposed)*(self.xraythickness*self.density)
+            return self.material.mass_att_coeff(energy,fine=fine,decomposed=decomposed)*(self.xraythickness*self.material.density)
 
-
-class Multilayer(object):
+class Multilayer(cache.Cache):
     """
     Class representing a multilayer of compounds or mixtures
     """
@@ -86,7 +84,9 @@ class Multilayer(object):
             material = [material]
         if not instance.isarray(thickness):
             thickness = [thickness]
-        self.layers = [Layer(material=mat,thickness=t,ml=self) for mat,t in itertools.izip(material,thickness)]
+        self.layers = [Layer(material=mat,thickness=t,ml=self) for mat,t in zip(material,thickness)]
+        
+        super(Multilayer,self).__init__(force=True)
     
     def __getattr__(self,name):
         return getattr(self.detector,name)
@@ -96,7 +96,7 @@ class Multilayer(object):
     
     @property
     def nlayers(self):
-        return len()
+        return len(self.layers)
         
     def __iter__(self):
         return iter(self.layers)
@@ -115,7 +115,7 @@ class Multilayer(object):
         return self.layers[index]
   
     def __str__(self):
-        layers = "\n ".join("L{}. {}".format(i,str(layer)) for i,layer in enumerate(self))
+        layers = "\n ".join("Layer {}. {}".format(i,str(layer)) for i,layer in enumerate(self))
         return "Multilayer (ordered top-bottom):\n {}".format(layers)
 
     def markscatterer(self,name):
@@ -126,6 +126,17 @@ class Multilayer(object):
         for layer in self:
             layer.ummarkscatterer()
    
+    @property
+    def density(self):
+        return np.vectorize(lambda layer:layer.density)(self)
+    
+    @property
+    def thickness(self):
+        return np.vectorize(lambda layer:layer.thickness)(self)
+    
+    def mass_att_coeff(self,energy):
+        return np.asarray([layer.mass_att_coeff(energy) for layer in self])
+        
     def markabsorber(self,symb,shells=[],fluolines=[]):
         """
         Args:
@@ -194,15 +205,107 @@ class Multilayer(object):
             else:
                 thickness = fit1d.lstsq(A,y)
                 
-        for t,layer in itertools.izip(thickness,self.freeiter):
+        for t,layer in zip(thickness,self.freeiter):
             layers.xraythickness = t
 
     def spectrum(self,energy):
         # TODO: generate true spectrum with the fisx library
         
-        # Oversimplified: isotropic scattering of all absorbed radiation
+        # Oversimplified for testing other parts: isotropic scattering of all absorbed radiation with the same energy
         detfrac = self.detector.solidangle/(4*np.pi)
         genfrac = 1-self.transmission(energy)
         return energy,detfrac*genfrac
 
+    def _cache_layerborders(self):
+        t = np.empty(self.nlayers+1)
+        np.cumsum(self.thickness,out=t[1:])
+        t[0] = 0
+        return t
 
+    def _zlayer(self,z):
+        """Get layer in which z falls
+        
+        Args:
+            z(num|array): depth
+        
+        Returns:
+            num|array: 
+                0 when z<=0
+                n+1 when z>totalthickness
+                {1,...,n} otherwise (the layers)
+        """
+        t = self.getcashed("layerborders")
+        return np.digitize(z, t, right=True)
+    
+    def _cache_attenuation(self,energy):
+        energy,_ = instance.asarray(energy)
+        nenergies = len(energy)
+
+        density = self.density[:,np.newaxis]
+        thickness = self.thickness[:,np.newaxis]
+        mu = self.mass_att_coeff(energy).reshape((self.nlayers,nenergies))
+        
+        # We will add one layer at the beginning and one at the end, both vacuum
+        
+        # linear attenuation coefficient for each layer
+        linatt = mu * density
+        linattout = np.empty((self.nlayers+2,nenergies),dtype=linatt.dtype)
+        linattout[1:-1,:] = linatt
+        linattout[[0,-1],:] = 0 # outside sample (vacuum)
+        
+        # Cumulative linear attenuation coefficient (= linatt*z + correction)
+        attall = (linatt*thickness).sum(axis=0)
+        A = np.empty((self.nlayers+2,nenergies),dtype=attall.dtype)
+        A[0,:] = 0 # before sample (vacuum)
+        A[-1,:] = attall # after sample
+        
+        for i in range(nenergies):
+            tmp = np.subtract.outer(linatt[:,i],linatt[:,i])
+            tmp *= thickness
+            A[1:-1,i] = np.triu(tmp).sum(axis=0)
+        
+        return {"linatt":linattout,"linatt_cumulcor":A}
+    
+    def _cum_attenuation(self,z,energy):
+        """Total attenuation from surface to z
+        
+        Args:
+            z(num|array): depth of attenuation
+            energy(num|array): energies to be attenuation
+            
+        Returns:
+            array: nz x nenergy
+        """
+        
+        z,func = instance.asarray(z)
+        lz = self._zlayer(z)
+        att = self.getcashed("attenuation")
+        att = z.reshape((z.size,1)) * att["linatt"][lz,:] + att["linatt_cumulcor"][lz,:]
+        return att
+        
+    def _transmission(self,zi,zj,cosaij,energy):
+        """Transmission from depth zi to zj
+        
+        Args:
+            zi(num|array): start depth of attenuation (dims: nz)
+            zj(num|array): end depth of attenuation (dims: nz)
+            cosaij(num|array): angle with surface normal (dims: nz)
+            energy(num|array): energies to be attenuation (dims: nenergy)
+            
+        Returns:
+            array: nz x nenergy
+        """
+
+        datt = self._cum_attenuation(zj,energy)-self._cum_attenuation(zi,energy)
+        
+        cosaij,func = instance.asarray(cosaij)
+        cosaij = cosaij.reshape((cosaij.size,1))
+        
+        return np.exp(-datt/cosaij)
+            
+    @cache.withcache("layerborders")
+    def xrayspectrum(self,energy,emin=0,emax=None):
+
+        with self.cachectx("attenuation",energy):
+            print self.getcashed("attenuation")
+            

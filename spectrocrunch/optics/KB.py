@@ -44,8 +44,8 @@ class KB(object):
         return self._transmission(energy)
     
     def set_transmission(self,energy,transmission):
-        if instance.isnumber(energy):
-            self._tbl[energy] = transmission
+        if instance.isscalar(energy):
+            self._tbl[np.asscalar(energy)] = np.asscalar(transmission)
         else:
             self._tbl.update(dict(zip(energy,transmission)))
  

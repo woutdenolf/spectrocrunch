@@ -29,8 +29,8 @@ def elemental_crosssections(dictin,dictout=None,w=1):
         dictout = {}
         
     for k,v in dictin.items():
-        if "elements" in v:
-            elemental_crosssections(v["elements"],w=v["w"],dictout=dictout)
+        if isinstance(v["cs"],dict):
+            elemental_crosssections(v["cs"],w=v["w"],dictout=dictout)
         else:
             if k in dictout:
                 dictout[k] += w*v["w"]*v["cs"]

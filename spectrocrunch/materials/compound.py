@@ -22,16 +22,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import numpy as np
+
 from . import element
 from . import interaction
 from .types import fractionType
 from . import stoichiometry
-
 from ..common.hashable import Hashable
 from ..common import listtools
 from .. import ureg
+from . import xrayspectrum
 
-import numpy as np
 
 class Compound(Hashable):
     """Interface to a compound
@@ -237,6 +238,10 @@ class Compound(Hashable):
     def _cs_scattering(method):
         return method=="scattering_cross_section" or method=="compton_cross_section" or method=="rayleigh_cross_section"
 
+    @staticmethod
+    def _cs_dict(method):
+        return method=="fluorescence_cross_section_lines"
+        
     def _crosssection(self,method,E,fine=False,decomposed=False,**kwargs):
         """Calculate compound cross-sections
         """
@@ -258,9 +263,24 @@ class Compound(Hashable):
             for e in e_wfrac:
                 ret[e] = {"w":e_wfrac[e],"cs":getattr(e,method)(E,environ=environ,**kwargs)}
         else:
-            ret = E*0.
-            for e in e_wfrac:
-                ret += e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
+            if self._cs_dict(method):
+                ret = {}
+                for e in e_wfrac:
+                    cs = getattr(e,method)(E,environ=environ,**kwargs)
+                    if not cs:
+                        continue
+                    w = e_wfrac[e]
+                    if e in ret:
+                        for k,v in cs.items():
+                            ret[e][k] += w*v
+                    else:
+                        ret[e] = {}
+                        for k,v in cs.items():
+                            ret[e][k] = w*v
+            else:
+                ret = E*0.
+                for e in e_wfrac:
+                    ret += e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
 
         return ret
 
@@ -299,47 +319,25 @@ class Compound(Hashable):
         """
         return self._crosssection("fluorescence_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def fluorescence_spectrum(self,E,fine=False,**kwargs):
+    def fluorescence_cross_section_lines(self,E,fine=False,decomposed=False,**kwargs):
         """XRF cross section (cm^2/g, E in keV). Use for XRF.
         """
-        return self._crosssection("fluorescence_spectrum",E,fine=fine,decomposed=True,**kwargs)
+        return self._crosssection("fluorescence_cross_section_lines",E,fine=fine,decomposed=decomposed,**kwargs)
     
-    def lines(self,E,emin=0,emax=None):
+    def xrayspectrum(self,E,emin=0,emax=None):
         if emax is None:
             emax = E
         self.markabsorber(energybounds=[emin,emax])
 
-        density = self.density
+        spectrum = xrayspectrum.Spectrum()
+        spectrum.density = self.density
+        spectrum.fluorescence = self.fluorescence_cross_section_lines(E,decomposed=False)
+        spectrum.scattering[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E,decomposed=False)
+        spectrum.scattering[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E,decomposed=False)
+        spectrum.xlim = [emin,emax]
+        spectrum.title = str(self)
         
-        data = self.fluorescence_spectrum(E)
-
-        fluolines = {}
-        for _element,info in data.items():
-            welement = info["w"]
-            for shell,lines in info["cs"].items():  
-                for line,cs in lines.items():
-                    #if emin < line.energy(_element) <= emax: # already done by explicit markabsorber above
-                        if _element not in fluolines:
-                            fluolines[_element] = {}
-                        if shell not in fluolines[_element]:
-                            fluolines[_element][shell] = {}
-                        if line not in fluolines[_element][shell]:
-                            fluolines[_element][shell][line] = welement*cs*density
-                        else:
-                            fluolines[_element][shell][line] += welement*cs*density
-        
-        rayleigh = self.rayleigh_cross_section(E,decomposed=False)*density
-        
-        compton = self.compton_cross_section(E,decomposed=False)*density
-        
-        scatlines = {element.RayleighLine(E):rayleigh,\
-                     element.ComptonLine(E):compton}
-        
-        return {"fluorescence":fluolines,\
-                "scattering":scatlines,\
-                "xlim":[emin,emax],\
-                "title":str(self),\
-                "ylabel":"Cross-section (1/cm)"}
+        return spectrum
     
     def refractive_index_re(self,E,fine=False,decomposed=False,**kwargs):
         """

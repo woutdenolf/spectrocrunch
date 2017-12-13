@@ -54,6 +54,7 @@ class test_fluoxas(unittest.TestCase):
         if quant:
             labels = labels + ["C({}_{})".format(e,line) for e,lines in config["peaks"].items() for line in lines]
         
+        # It doesn't work like that?
         #if config["fit"]["scatterflag"]:
         #    labels += ["Scatter_Compton{:03d}".format(i) for i,b in enumerate(config["fit"]["energyflag"]) if b]
         #    labels += ["Scatter_Peak{:03d}".format(i) for i,b in enumerate(config["fit"]["energyflag"]) if b]
@@ -69,11 +70,10 @@ class test_fluoxas(unittest.TestCase):
 
     def fluxmonitor(self,cfgfile):
         energy = self.pymcagetenergy(cfgfile)
-        monitor = FluxMonitor()
-        monitor.setdiode("iodet1")
-        monitor.manualdark(300,1e8)
-        monitor.manualcalib(energy-5,0.5,1e8)
-        monitor.manualcalib(energy+5,0.5,1e8)
+        monitor = FluxMonitor(iodetname="iodet1",focussed=True)
+        monitor.manualdark(300,gainiodet=1e8)
+        monitor.manualcalib(energy-5,0.5,gainiodet=1e8)
+        monitor.manualcalib(energy+5,0.5,gainiodet=1e8)
         monitor.setreferenceflux(1e9)
         monitor.settime(0.1)
         return monitor

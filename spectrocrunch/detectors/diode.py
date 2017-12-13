@@ -78,12 +78,25 @@ from ..common.classfactory import with_metaclass
 #    R: spectral responsivity
 #
 # Sample flux:
-#  I(ph/s) = Is(ph/s).Y/(Ts.To)
+#  I(ph/s) = I0(ph/s).Y = Is(ph/s).Y/(Ts.To)
 #    I: flux seen by the diode
+#    I0: the flux of the source
 #    Is: flux seen by the sample
 #    Y: yield of secondary target (includes solid angle of detector)
 #    Ts: transmission of the secondary target
 #    To: transmission of the optics (e.g. reflectivity of the KB)
+#
+# For multiple source lines (i) and multiple secondary lines (j):
+#   I0(ph/s)-> I0(ph/s).Fi
+#   Iij(ph/s) = I0(ph/s).Fi.Yij = Is(ph/s).Fi.Yij/(Tis.Tio)
+#
+#   I(A) = Is(ph/s) . SUM_ij [Fi.Yij/(Tis.Tio).Ej(eV/ph).1(e).(1-Tj)/Ehole(eV)] + D(A)
+#        = Is(ph/s) . SUM_ij [Fi.Yij/(Tis.Tio).Cj] + D(A)
+#        = Is(ph/s) . SUM_i  [Fi/(Tis.Tio).SUM_j[Yij.Cj]] + D(A)
+#        = Is(ph/s) . Cs + D(A)
+#       
+#   Cj (C/ph): charge per photon hitting the diode
+#   Cs (C/ph): charge per photon hitting the sample
 #
 # An absolute diode measures both I(A) and P(W) so that
 # another diode which only measures I(A) can be calibrated:
@@ -262,7 +275,7 @@ class PNdiode(with_metaclass(object)):
         return diodeatt*(self.ELCHARGE/self.ehole).to("A/W")
 
     def _chargeperdiodephoton(self,energy):
-        """Charge generated per photon absorbed by the diode
+        """Charge generated per photon absorbed by the diode: spectral responsivity multiplied by the energy
 
         Args:
             energy(num): keV
@@ -273,37 +286,96 @@ class PNdiode(with_metaclass(object)):
         return (self.spectral_responsivity(energy)*units.Quantity(energy,"keV")).to("coulomb")
     
     def _secondarytarget(self,energy):
+        """
+        Args:
+            energy(array): source energies in keV (dims: nE)
+            
+        Returns:
+            energy2(array): secondary energies in keV (dims: nE2)
+            Ts(array): transmission of source energies (dims: nE)
+            Y(array): intensities of secondary lines (dims: nE x nE2)
+        """
         if self.secondarytarget is None:
-            Y = 1
-            T = 1
+            Y = np.ones_like(energy)
+            T = np.ones_like(energy)
         else:
-            # TODO: should loop over energy when multilayer does the proper calculation
-            energy,Y = self.secondarytarget.spectrum(units.magnitude(energy,"keV"))
-            T = self.secondarytarget.transmission(energy)
-        
-        return energy,T,Y
+            Ts = self.secondarytarget.transmission(energy)
+            energy,Y = self.secondarytarget.spectrum(energy)
+            
+        return energy,Ts,Y
         
     def _transmission_optics(self,energy):
+        """
+        Args:
+            energy(array): source energies in keV (dims: nE)
+        
+        Returns:
+            
+        """
         if self.optics is None:
-            T = 1
+            T = np.ones_like(energy)
         else:
             T = self.optics.transmission(energy)
         return T
         
-    def _chargepersamplephoton(self,energy):
+    def _chargepersamplephoton(self,energy,fractions=None):
         """Charge generated per photon reaching the sample
 
         Args:
-            energy(num): keV
+            energy(num|array): source energies in keV (dims: nE)
+            fractions(num|array): fractions of each source line (dims: nE)
 
         Returns:
-            num or array-like: C/ph
+            num: C/ph
         """
         
-        energy,Ts,Y = self._secondarytarget(energy)
-        To = self._transmission_optics(energy)
-        return Y/(Ts*To)*self._chargeperdiodephoton(energy)
+        # Parse input (remove units and make array)
+        energy,func = instance.asarray(units.magnitude(energy,"keV"))
+        if fractions is None:
+            fractions = np.ones_like(energy)
+        else:
+            fractions = np.asarray(fractions)
+        fractions /= fractions.size # make sure those are fractions
         
+        energy2,Ts,Y = self._secondarytarget(energy) # nE2, nE, nE x nE2
+        To = self._transmission_optics(energy) # nE
+        chargeperdiodephoton = self._chargeperdiodephoton(energy2) # nE2
+        
+        # Sum over the target lines
+        Y = np.sum(Y*chargeperdiodephoton[np.newaxis,:],axis=1) # nE
+
+        return np.sum(Y*fractions/(Ts*To))
+    
+    def samplelinefractions(self,energy,fractions):
+        """Source fractions after passing through the diode+optics
+        
+        Args:
+            energy(num|array): source energies in keV (dims: nE)
+            fractions(num|array): fractions of each source line (dims: nE)
+
+        Returns:
+            fractions(num|array): fractions of each 
+        """
+        
+        # Parse input (remove units and make array)
+        energy,func = instance.asarray(units.magnitude(energy,"keV"))
+        if fractions is None:
+            fractions = np.ones_like(energy)
+        else:
+            fractions = np.asarray(fractions)
+        fractions /= fractions.size # make sure those are fractions
+    
+        if self.secondarytarget is None:
+            Ts = 1
+        else:
+            Ts = self.secondarytarget.transmission(energy)
+        To = self._transmission_optics(energy)
+
+        fractions /= Ts*To
+        fractions /= fractions.size 
+        
+        return fractions
+    
     def _dark(self):
         """Return dark current
 
@@ -851,7 +923,7 @@ class SXM_IODET1(NonCalibratedPNdiode):
 
         coating = compoundfromformula.CompoundFromFormula("Ti",0,name="Ti")
         
-        geom = diodegeometries.factory("Geometry",anglein=0,angleout=135)
+        geom = diodegeometries.factory("Geometry",anglein=90,angleout=45)
         solidangle = 0.05*4*np.pi
         secondarytarget = multilayer.Multilayer(material=[coating,window],thickness=[0.5,0.5],detector=self)
 
@@ -887,7 +959,7 @@ class SXM_IODET2(NonCalibratedPNdiode):
         diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
     
         window = compoundfromname.compoundfromname("silicon nitride")
-        geom = diodegeometries.factory("Geometry",anglein=0,angleout=135)
+        geom = diodegeometries.factory("Geometry",anglein=90,angleout=45)
         solidangle = 0.05*4*np.pi
         secondarytarget = multilayer.Multilayer(material=[window],thickness=[0.5],detector=self)
         

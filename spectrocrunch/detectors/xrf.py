@@ -26,16 +26,21 @@ from ..materials import compoundfromname
 from ..materials import pymca
 from ..materials import element
 from ..common.classfactory import with_metaclass
+from ..common import constants
 
 import numpy as np
 
 class Detector(with_metaclass(pymca.PymcaAttenuators)):
 
-    def __init__(self,mcazero=None,mcagain=None,activearea=None,geometry=None,**kwargs):
+    def __init__(self,mcazero=None,mcagain=None,mcanoise=None,mcafano=None,ehole=None,\
+                      activearea=None,geometry=None,**kwargs):
         self.mcazero = mcazero # keV
         self.mcagain = mcagain # keV/bin
-        self.activearea = float(activearea) # cm^2
+        self.activearea = activearea # cm^2
         self.geometry = geometry
+        self.mcanoise = mcanoise # FWHM in keV
+        self.mcafano = mcafano
+        self.ehole = ehole
         super(Detector,self).__init__(**kwargs)
         
     def __getattr__(self, attr):
@@ -44,6 +49,11 @@ class Detector(with_metaclass(pymca.PymcaAttenuators)):
 
     def __str__(self):
         return "Solid angle = 4*pi*{} srad\n {}".format(self.solidangle,str(self.geometry))
+    
+    def linewidth(self,energy):
+        """FWHM in keV
+        """
+        return np.sqrt(self.mcanoise**2 + self.mcafano*self.ehole.to("keV").magnitude*energy*8*np.log(2))
     
     @property
     def solidangle(self):
@@ -67,8 +77,12 @@ class Detector(with_metaclass(pymca.PymcaAttenuators)):
         
         mcazero = self.mcazero
         mcagain = self.mcagain
+        mcanoise = self.mcanoise
+        mcafano = self.mcafano * self.ehole.to("eV").magnitude / 3.85 # Compensate fano for different in Ehole with pymca's 3.85 eV (ClassMcaTheory)
         config["detector"]["zero"] = mcazero
         config["detector"]["gain"] = mcagain
+        config["detector"]["noise"] = mcanoise
+        config["detector"]["fano"] = mcafano
         
         emin = 0.9
         emax = energy+0.5
@@ -85,7 +99,9 @@ class Detector(with_metaclass(pymca.PymcaAttenuators)):
         self.distance = config["concentrations"]["distance"]
         self.mcazero = config["detector"]["zero"]
         self.mcagain = config["detector"]["gain"]
- 
+        self.mcanoise = config["detector"]["noise"]
+        self.mcafano = config["detector"]["fano"] * 3.85 / self.ehole.to("eV").magnitude
+        
 class Leia(Detector):
     aliases = ["SGX80"]
     
@@ -96,8 +112,15 @@ class Leia(Detector):
         attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4}
         attenuators["WindowDetector"] = {"material":element.Element('Be'),"thickness":25e-4}
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
+        
+        kwargs["activearea"] = 80e-2
+        kwargs["mcazero"] = 0. # keV
+        kwargs["mcagain"] = 5e-3 # keV
+        kwargs["mcanoise"] = 0.1 # keV
+        kwargs["mcafano"] = 0.114
+        kwargs["ehole"] = constants.eholepair_si()
 
-        super(Leia,self).__init__(activearea=80e-2,attenuators=attenuators,**kwargs)
+        super(Leia,self).__init__(attenuators=attenuators,**kwargs)
 
 class BB8(Detector):
     aliases = ["SGX50"]
@@ -110,7 +133,14 @@ class BB8(Detector):
         attenuators["WindowDetector"] = {"material":element.Element('Be'),"thickness":12.5e-4}
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
   
-        super(BB8,self).__init__(activearea=50e-2,attenuators=attenuators,**kwargs)
+        kwargs["activearea"] = 50e-2
+        kwargs["mcazero"] = 0. # keV
+        kwargs["mcagain"] = 5e-3 # keV
+        kwargs["mcanoise"] = 0.1 # keV
+        kwargs["mcafano"] = 0.114
+        kwargs["ehole"] = constants.eholepair_si()
+        
+        super(BB8,self).__init__(attenuators=attenuators,**kwargs)
 
 factory = Detector.factory
 

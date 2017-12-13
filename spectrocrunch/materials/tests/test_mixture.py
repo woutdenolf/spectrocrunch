@@ -27,6 +27,8 @@ import unittest
 from ..compoundfromformula import CompoundFromFormula as compound
 from ..mixture import Mixture as mixture
 from ..types import fractionType
+from ...geometries import xrf as xrfgeometries
+from ...detectors import xrf as xrfdetectors
 
 import numpy as np
 
@@ -80,24 +82,18 @@ class test_mixture(unittest.TestCase):
             self.assertEqual(c3.elements[e],c4.elements[e])
 
     def _spectrum(self,lstlines,thickness):
-        spectrum = {}
-        for tmp,d in zip(lstlines,thickness):
-            for element,shells in tmp["fluorescence"].items():
-                for shell,lines in shells.items():
-                    for line,intensity in lines.items():
-                        k = line.energy(element)
-                        if k in spectrum:
-                            spectrum[k] += intensity*d
-                        else:
-                            spectrum[k] = intensity*d
-                            
-            for line,intensity in tmp["scattering"].items():
-                k = line.energy(111.)
-                if k in spectrum:
-                    spectrum[k] += intensity*d
+        geometry = xrfgeometries.factory("sdd120",detectorposition=-15.)
+        detector = xrfdetectors.factory("leia",geometry=geometry)
+    
+        out = {}
+        for spectrum,d in zip(lstlines,thickness):
+            spectrum.detector = detector
+            for energy,intensity in spectrum.lines:
+                if energy in out:
+                    out[energy] += intensity*d
                 else:
-                    spectrum[k] = intensity*d
-        return spectrum
+                    out[energy] = intensity*d
+        return out
     
     def _spectrum_equal(self,spectrum1,spectrum2):
         np.testing.assert_allclose(sorted(spectrum1.keys()),sorted(spectrum2.keys()))
@@ -127,9 +123,9 @@ class test_mixture(unittest.TestCase):
         np.testing.assert_allclose(c3.density*c3.mass_att_coeff(energy)*sum(dc),muL)
         np.testing.assert_allclose(c4.density*c4.mass_att_coeff(energy)*sum(dc),muL)
         
-        spectrum = self._spectrum([x.lines(energy) for x in c],dc)
-        spectrum3 = self._spectrum([c3.lines(energy)],[sum(dc)])
-        spectrum4 = self._spectrum([c3.lines(energy)],[sum(dc)])
+        spectrum = self._spectrum([x.xrayspectrum(energy) for x in c],dc)
+        spectrum3 = self._spectrum([c3.xrayspectrum(energy)],[sum(dc)])
+        spectrum4 = self._spectrum([c3.xrayspectrum(energy)],[sum(dc)])
 
         self._spectrum_equal(spectrum3,spectrum4)
         self._spectrum_equal(spectrum,spectrum3)
