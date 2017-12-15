@@ -78,6 +78,7 @@ from ..common.classfactory import with_metaclass
 #    R: spectral responsivity
 #
 # Sample flux:
+#  Is(ph/s) = I0(ph/s).Ts.To
 #  I(ph/s) = I0(ph/s).Y = Is(ph/s).Y/(Ts.To)
 #    I: flux seen by the diode
 #    I0: the flux of the source
@@ -87,16 +88,21 @@ from ..common.classfactory import with_metaclass
 #    To: transmission of the optics (e.g. reflectivity of the KB)
 #
 # For multiple source lines (i) and multiple secondary lines (j):
-#   I0(ph/s)-> I0(ph/s).Fi
-#   Iij(ph/s) = I0(ph/s).Fi.Yij = Is(ph/s).Fi.Yij/(Tis.Tio)
+#   Iis(ph/s) = I0(ph/s).Fi.Tis.Tio
+#   Is(ph/s) = sum_i[Iis] = I0(ph/s) . sum_i [Fi.Tis.Tio]
+#   Iij(ph/s) = I0(ph/s).Fi.Yij = Is(ph/s).Fi/sum_i[Fi.Tis.Tio].Yij
 #
-#   I(A) = Is(ph/s) . SUM_ij [Fi.Yij/(Tis.Tio).Ej(eV/ph).1(e).(1-Tj)/Ehole(eV)] + D(A)
-#        = Is(ph/s) . SUM_ij [Fi.Yij/(Tis.Tio).Cj] + D(A)
-#        = Is(ph/s) . SUM_i  [Fi/(Tis.Tio).SUM_j[Yij.Cj]] + D(A)
+#   I(A) = SUM_ij [Iij(ph/s).Ej(eV/ph).1(e).(1-Tj)/Ehole(eV)] + D(A)
+#        = SUM_ij [Iij(ph/s).Cj] + D(A)
+#        = Is(ph/s) . SUM_i [Fi.SUM_j[Yij.Cj]] / SUM_k [Fk.Tks.Tko] + D(A)
 #        = Is(ph/s) . Cs + D(A)
 #       
+#   Fi: source line fraction
 #   Cj (C/ph): charge per photon hitting the diode
 #   Cs (C/ph): charge per photon hitting the sample
+#
+# The source fraction at the sample position:
+#   Fis = Iis/sum_i[Iis] = Fi.Tis.Tio / sum_i[Fi.Tis.Tio]
 #
 # An absolute diode measures both I(A) and P(W) so that
 # another diode which only measures I(A) can be calibrated:
@@ -299,8 +305,8 @@ class PNdiode(with_metaclass(object)):
             Y = np.ones_like(energy)
             T = np.ones_like(energy)
         else:
-            Ts = self.secondarytarget.transmission(energy)
-            energy,Y = self.secondarytarget.spectrum(energy)
+            Ts = self.secondarytarget.transmission(energy) # transmission of the source spectrum
+            energy,Y = self.secondarytarget.spectrum(energy) # spectrum generated from the target
             
         return energy,Ts,Y
         
@@ -318,52 +324,60 @@ class PNdiode(with_metaclass(object)):
             T = self.optics.transmission(energy)
         return T
         
-    def _chargepersamplephoton(self,energy,fractions=None):
+    def _chargepersamplephoton(self,energy,ratio=None):
         """Charge generated per photon reaching the sample
 
         Args:
             energy(num|array): source energies in keV (dims: nE)
-            fractions(num|array): fractions of each source line (dims: nE)
+            ratio(num|array): source line ratios (dims: nE)
 
         Returns:
             num: C/ph
         """
         
         # Parse input (remove units and make array)
-        energy,func = instance.asarray(units.magnitude(energy,"keV"))
-        if fractions is None:
-            fractions = np.ones_like(energy)
+        energy,func = instance.asarrayf(units.magnitude(energy,"keV"))
+        if ratio is None:
+            ratio = np.ones_like(energy)
         else:
-            fractions = np.asarray(fractions)
-        fractions /= fractions.size # make sure those are fractions
+            ratio,func = instance.asarrayf(ratio)
+        ratio /= ratio.sum() # make sure those are fractions
         
         energy2,Ts,Y = self._secondarytarget(energy) # nE2, nE, nE x nE2
         To = self._transmission_optics(energy) # nE
         chargeperdiodephoton = self._chargeperdiodephoton(energy2) # nE2
         
-        # Sum over the target lines
+        # I(A)  = Is(ph/s) . Cs(C) + D(A)
+        # Cs(C) = SUM_i [Fi.SUM_j[Yij.Cj]] / SUM_k [Fk.Tks.Tko]
+        #
+        # Fi: source line fraction
+        # Cj (C/ph): charge per photon hitting the diode
+        # Cs (C/ph): charge per photon hitting the sample
+        #
+
+        # SUM_j[Yij.Cj]
         Y = np.sum(Y*chargeperdiodephoton[np.newaxis,:],axis=1) # nE
 
-        return np.sum(Y*fractions/(Ts*To))
+        return np.sum(ratio*Y)/np.sum(ratio*Ts*To)
     
-    def samplelinefractions(self,energy,fractions):
-        """Source fractions after passing through the diode+optics
+    def samplelineratios(self,energy,ratio):
+        """Source ratios after passing through the diode+optics
         
         Args:
             energy(num|array): source energies in keV (dims: nE)
-            fractions(num|array): fractions of each source line (dims: nE)
+            ratio(num|array): source line ratios (dims: nE)
 
         Returns:
-            fractions(num|array): fractions of each 
+            ratio(num|array): source line ratios at the sample position
         """
         
         # Parse input (remove units and make array)
-        energy,func = instance.asarray(units.magnitude(energy,"keV"))
-        if fractions is None:
-            fractions = np.ones_like(energy)
+        energy,func = instance.asarrayf(units.magnitude(energy,"keV"))
+        if ratio is None:
+            ratio = np.ones_like(energy)
         else:
-            fractions = np.asarray(fractions)
-        fractions /= fractions.size # make sure those are fractions
+            ratio,func = instance.asarrayf(ratio)
+        ratio /= ratio.sum() # make sure those are fractions
     
         if self.secondarytarget is None:
             Ts = 1
@@ -371,10 +385,11 @@ class PNdiode(with_metaclass(object)):
             Ts = self.secondarytarget.transmission(energy)
         To = self._transmission_optics(energy)
 
-        fractions /= Ts*To
-        fractions /= fractions.size 
+        # Fis = Iis/sum_i[Iis] = Fi.Tis.Tio / sum_i[Fi.Tis.Tio]
+        ratio *= Ts*To
+        ratio /= ratio.sum()
         
-        return fractions
+        return ratio
     
     def _dark(self):
         """Return dark current
