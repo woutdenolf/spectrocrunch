@@ -45,11 +45,11 @@ class Layer(object):
     def __str__(self):
         return "{}: {} μm".format(self.material,self.thickness)
         
-    def __getattr__(self,name):
+    def __getattr__(self,attr):
         try:
-            return getattr(self.material,name)
-        except AttributeError as e:
-            return getattr(self.ml,name)
+            return getattr(self.material,attr)
+        except AttributeError:
+            return getattr(self.ml,attr)
             
     @property
     def xraythickness(self):
@@ -216,11 +216,15 @@ class Multilayer(cache.Cache):
         genfrac = 1-self.transmission(energy)
         return energy,detfrac*genfrac
 
-    def _cache_layerborders(self):
+    def _cache_layerprep(self):
         t = np.empty(self.nlayers+1)
         np.cumsum(self.thickness,out=t[1:])
         t[0] = 0
-        return t
+        if self.reflection:
+            zlast = 0.
+        else:
+            zlast = t[-1]
+        return {"cumul_thickness":t,"zfirst":0.,"zlast":zlast}
 
     def _zlayer(self,z):
         """Get layer in which z falls
@@ -234,11 +238,11 @@ class Multilayer(cache.Cache):
                 n+1 when z>totalthickness
                 {1,...,n} otherwise (the layers)
         """
-        t = self.getcashed("layerborders")
-        return np.digitize(z, t, right=True)
+        layerprep = self.getcashed("layerprep")
+        return np.digitize(z, layerprep["cumul_thickness"], right=True)
     
     def _cache_attenuation(self,energy):
-        energy,_ = instance.asarray(energy)
+        energy,_ = instance.asarrayf(energy)
         nenergies = len(energy)
 
         density = self.density[:,np.newaxis]
@@ -277,7 +281,7 @@ class Multilayer(cache.Cache):
             array: nz x nenergy
         """
         
-        z,func = instance.asarray(z)
+        z,func = instance.asarrayf(z)
         lz = self._zlayer(z)
         att = self.getcashed("attenuation")
         att = z.reshape((z.size,1)) * att["linatt"][lz,:] + att["linatt_cumulcor"][lz,:]
@@ -298,14 +302,19 @@ class Multilayer(cache.Cache):
 
         datt = self._cum_attenuation(zj,energy)-self._cum_attenuation(zi,energy)
         
-        cosaij,func = instance.asarray(cosaij)
+        cosaij,func = instance.asarrayf(cosaij)
         cosaij = cosaij.reshape((cosaij.size,1))
         
         return np.exp(-datt/cosaij)
             
-    @cache.withcache("layerborders")
+    @cache.withcache("layerprep")
     def xrayspectrum(self,energy,emin=0,emax=None):
 
         with self.cachectx("attenuation",energy):
-            print self.getcashed("attenuation")
+            for layer in self:
+                for line,prob in layer.xrayspectrum(energy,emin=emin,emax=emax).probabilities:
+                    print line,prob
+
+
+                
             

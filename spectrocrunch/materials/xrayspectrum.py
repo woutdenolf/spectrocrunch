@@ -323,6 +323,32 @@ class Shell(hashable.Hashable):
         return xraylib.EdgeEnergy(Z,self.code)
 
 
+class FluoZLine(hashable.Hashable):
+
+    def __init__(self,element,line):
+        self.line = line
+        self.element = element
+        
+    def __getattr__(self,attr):
+        try:
+            return getattr(self.line,attr)
+        except:
+            return getattr(self.element,attr)
+
+    def _cmpkey(self):
+        """For comparing and sorting
+        """
+        return self._stringrepr()
+
+    def _stringrepr(self):
+        """Unique representation of an instance
+        """
+        return "{}-{}".format(self.element,self.line)
+        
+    def energy(self):
+        return self.line.energy(self.element.Z)
+
+
 class RayleighLine(hashable.Hashable):
 
     def __init__(self,energy):
@@ -332,14 +358,14 @@ class RayleighLine(hashable.Hashable):
     def _cmpkey(self):
         """For comparing and sorting
         """
-        return self.name
+        return hash((self.name,self._energy))
 
     def _stringrepr(self):
         """Unique representation of an instance
         """
         return self.name
 
-    def energy(self,scatteringangle):
+    def energy(self):
         return self._energy
         
         
@@ -352,7 +378,7 @@ class ComptonLine(hashable.Hashable):
     def _cmpkey(self):
         """For comparing and sorting
         """
-        return self.name
+        return hash((self.name,self._energy))
 
     def _stringrepr(self):
         """Unique representation of an instance
@@ -370,111 +396,63 @@ class Spectrum(object):
 
     def __init__(self):
     
-        self.fluorescence = {}
-        # element:{line:cs(energy)}
-        # Line energy: line.energy(element.Z)
-        
-        self.scattering = {}
-        # {line:cs(energy)}
-        # Line energies: line.energy(scatteringangle)
-        
+        self.cs = {}
         self.density = None
         self.xlim = None
         self.title = None
         self.xlabel = "Energy (keV)"
-        self.ylabel = "Probability (1/cm)"
         self.detector = None
     
-    @property
-    def lines(self):
-        for element,lines in self.fluorescence.items():
-            for line,cs in lines.items():
-                if cs==0:
-                    continue
-                yield line.energy(element.Z),cs*self.density
+    def getlinenergy(self,line):
+        if isinstance(line,ComptonLine):
+            if self.detector is None:
+                scatteringangle = 90.
+            else:
+                scatteringangle = self.detector.scatteringangle
 
-        if self.detector is None:
-            scatteringangle = 90.
+            return line.energy(scatteringangle)
         else:
-            scatteringangle = self.detector.scatteringangle
-            
-        for line,cs in self.scattering.items():
-            if cs==0:
-                continue
-            yield line.energy(scatteringangle),cs*self.density
+            return line.energy()
     
     @property
-    def energies(self):
-        for element,lines in self.fluorescence.items():
-            for line,cs in lines.items():
-                if cs==0:
-                    continue
-                yield line.energy(element.Z)
-
-        if self.detector is None:
-            scatteringangle = 90.
-        else:
-            scatteringangle = self.detector.scatteringangle
+    def cross_sections(self):
+        for line,cs in self.cs.items():
+            if np.sum(cs)==0:
+                continue
+            yield line,cs
             
-        for line,cs in self.scattering.items():
-            if cs==0:
-                continue
-            yield line.energy(scatteringangle)
-    
     @property
-    def intensities(self):
-        for element,lines in self.fluorescence.items():
-            for line,cs in lines.items():
-                if cs==0:
-                    continue
-                yield cs*self.density
-
-        for line,cs in self.scattering.items():
-            if cs==0:
+    def probabilities(self):
+        for line,cs in self.cs.items():
+            if np.sum(cs)==0:
                 continue
-            yield cs*self.density
-                    
-    @property
-    def expandedlines(self):
-        for element,lines in self.fluorescence.items():
-            for line,cs in lines.items():
-                if cs==0:
-                    continue
-                yield line,line.energy(element.Z),cs*self.density,line.shell,element
+            yield line,cs*self.density
 
+    def plotlineprobability(self,energy,probability,**kwargs):
         if self.detector is None:
-            scatteringangle = 90.
-        else:
-            scatteringangle = self.detector.scatteringangle
-            
-        for line,cs in self.scattering.items():
-            if cs==0:
-                continue
-            yield line,line.energy(scatteringangle),cs*self.density,line,None
-
-    def plotline(self,energy,intensity,**kwargs):
-        if self.detector is None:
-            plt.plot([energy,energy],[0,intensity],**kwargs)
-            h = intensity
+            plt.plot([energy,energy],[0,probability],**kwargs)
+            h = probability
         else:
             FWHM = self.detector.linewidth(energy)
             sx = FWHM/(2*np.sqrt(2*np.log(2)))
             k = 4
             x = np.linspace(energy-k*sx,energy+k*sx,50)
-            y = fit1d.gaussian(x,energy,sx,intensity)
+            y = fit1d.gaussian(x,energy,sx,probability)
             h = max(y)
             plt.plot(x,y,**kwargs)
         return h
 
-    def plot(self,out=False,mark=True,log=False):
+    def plotprobability(self,out=False,mark=True,log=False):
         ax = plt.gca()
         
         colors = {}
         markers = {}
         bmark = False
-        
-        for line,energy,intensity,shell,element in self.expandedlines:
 
+        for line,probability in self.probabilities:
+            element = getattr(line, 'element', None)
+            energy = self.getlinenergy(line)
+            
             # Scattering or fluorescence
             if element is None:
                 key = str(line)
@@ -486,14 +464,14 @@ class Spectrum(object):
                 
                 # Line marker
                 if mark:
-                    markers[key] = {"name":key,"energy":energy,"intensity":intensity,"height":intensity}
+                    markers[key] = {"name":key,"energy":energy,"probability":probability,"height":probability}
                     bmark = True
                     
                 if out:
-                    print line,energy,intensity
+                    print line,energy,probability
             else:
-                key = "{} {}".format(element,shell)
-            
+                key = "{} {}".format(element,line.shell)
+
                 # Line label + color
                 if key in colors:
                     label = None
@@ -506,16 +484,16 @@ class Spectrum(object):
                 # Key marker
                 if mark:
                     if key in markers:
-                        bmark = intensity>markers[key]["intensity"]
+                        bmark = probability>markers[key]["probability"]
                     else:
                         bmark = True
                     if bmark:
-                        markers[key] = {"name":"{} {}".format(element,line),"energy":energy,"intensity":intensity,"height":intensity}
+                        markers[key] = {"name":str(line),"energy":energy,"probability":probability,"height":probability}
 
                 if out:
-                    print element,line,energy,intensity
+                    print line,energy,probability
                 
-            height = self.plotline(energy,intensity,color=color,label=label)
+            height = self.plotlineprobability(energy,probability,color=color,label=label)
             
             if bmark:
                 markers[key]["height"] = height
@@ -529,7 +507,8 @@ class Spectrum(object):
             
         plt.legend(loc='best')
         plt.xlabel(self.xlabel)
-        plt.ylabel(self.ylabel)
+        plt.ylabel("Probability (1/cm)")
         plt.xlim(self.xlim)
         plt.title(self.title)
+        
 

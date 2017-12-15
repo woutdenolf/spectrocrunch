@@ -30,6 +30,7 @@ from .types import fractionType
 from . import stoichiometry
 from ..common.hashable import Hashable
 from ..common import listtools
+from ..common import instance
 from .. import ureg
 from . import xrayspectrum
 
@@ -270,13 +271,11 @@ class Compound(Hashable):
                     if not cs:
                         continue
                     w = e_wfrac[e]
-                    if e in ret:
-                        for k,v in cs.items():
-                            ret[e][k] += w*v
-                    else:
-                        ret[e] = {}
-                        for k,v in cs.items():
-                            ret[e][k] = w*v
+                    for k,v in cs.items():
+                        if k in ret:
+                            ret[k] += w*v
+                        else:
+                            ret[k] = w*v
             else:
                 ret = E*0.
                 for e in e_wfrac:
@@ -325,15 +324,16 @@ class Compound(Hashable):
         return self._crosssection("fluorescence_cross_section_lines",E,fine=fine,decomposed=decomposed,**kwargs)
     
     def xrayspectrum(self,E,emin=0,emax=None):
+        E = instance.asarray(E)
         if emax is None:
-            emax = E
+            emax = E[-1]
         self.markabsorber(energybounds=[emin,emax])
 
         spectrum = xrayspectrum.Spectrum()
         spectrum.density = self.density
-        spectrum.fluorescence = self.fluorescence_cross_section_lines(E,decomposed=False)
-        spectrum.scattering[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E,decomposed=False)
-        spectrum.scattering[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E,decomposed=False)
+        spectrum.cs = self.fluorescence_cross_section_lines(E,decomposed=False)
+        spectrum.cs[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E,decomposed=False)
+        spectrum.cs[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E,decomposed=False)
         spectrum.xlim = [emin,emax]
         spectrum.title = str(self)
         

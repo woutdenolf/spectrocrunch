@@ -217,7 +217,7 @@ class Element(hashable.Hashable):
             num or np.array
         """
         
-        E,func = instance.asarray(E)
+        E,func = instance.asarrayf(E)
         cs = np.empty(len(E),dtype=np.float64)
 
         # Total
@@ -241,7 +241,7 @@ class Element(hashable.Hashable):
         Returns:
             num or np.array
         """
-        E,func = instance.asarray(E)
+        E,func = instance.asarrayf(E)
 
         # Total
         cs = np.vectorize(lambda en:xraylib.CS_Photo_Total(self.Z,np.float64(en)))(E)
@@ -281,7 +281,7 @@ class Element(hashable.Hashable):
         Returns:
             num or array: sum_S[tau(E,S)]
         """
-        E,func = instance.asarray(E)
+        E,func = instance.asarrayf(E)
 
         if not self.isabsorber():
             return func(np.zeros(len(E),dtype=np.float64))
@@ -309,7 +309,7 @@ class Element(hashable.Hashable):
             num or np.array: sum_{S}[tau(E,S)*fluoyield(S)*sum_{L}[radrate(S,L)]]
             dict: S:tau(E,S)
         """
-        E,func = instance.asarray(E)
+        E,func = instance.asarrayf(E)
 
         if not self.isabsorber():
             return func(np.zeros(len(E),dtype=np.float64))
@@ -350,7 +350,7 @@ class Element(hashable.Hashable):
             
         if decomposed:
             # Multiply by fluorescence yield for each line
-            cs = {line:shellcs*fluoyield\
+            cs = {xrayspectrum.FluoZLine(self,line):shellcs*fluoyield\
                        for shell,shellcs in cs.items()\
                        for line,fluoyield in shell.partial_fluoyield(self.Z,decomposed=True).items()}
         else:
@@ -359,16 +359,16 @@ class Element(hashable.Hashable):
         return cs
 
     def xrayspectrum(self,E,emin=0,emax=None):
+        E = instance.asarray(E)
         if emax is None:
-            emax = E
+            emax = E[-1]
         self.markabsorber(energybounds=[emin,emax])
 
         spectrum = xrayspectrum.Spectrum()
         spectrum.density = self.density
-        spectrum.fluorescence[self] = self.fluorescence_cross_section_lines(E,decomposed=True)
-        
-        spectrum.scattering[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E)
-        spectrum.scattering[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E)
+        spectrum.cs = self.fluorescence_cross_section_lines(E,decomposed=True)
+        spectrum.cs[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E)
+        spectrum.cs[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E)
         spectrum.xlim = [emin,emax]
         spectrum.title = str(self)
         
@@ -376,7 +376,7 @@ class Element(hashable.Hashable):
     
     def _xraylib_method(self,method,E):
         method = getattr(xraylib,method)
-        E,func = instance.asarray(E)
+        E,func = instance.asarrayf(E)
         ret = np.vectorize(lambda en: method(self.Z,np.float64(en)))(E)
         return func(ret)
         

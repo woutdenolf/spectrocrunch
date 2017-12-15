@@ -53,7 +53,7 @@ def isscalar(x):
 def isiterable(x):
     return hasattr(x,"__iter__")
     
-def asarray(x):
+def asarrayf(x):
     x = np.asarray(x)
     scalar = x.ndim == 0
     if scalar:
@@ -65,3 +65,11 @@ def asarray(x):
     
     return x,func
 
+def asarray(x):
+    x = np.asarray(x)
+    if x.ndim == 0:
+        return x[np.newaxis]
+    else:
+        return x
+        
+    

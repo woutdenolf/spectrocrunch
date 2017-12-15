@@ -213,7 +213,7 @@ class test_element(unittest.TestCase):
         #
         #assert(definite_integral(ElasticDiff1(theta)*sin(theta),theta,0,pi)==8*pi/3)
         #
-        # muR = re^2 . NA/MM . pi . int_0^pi [(1+cos(theta)^2) . f(theta)^2 . sin(theta) . dtheta]
+        # muR(energy) = re^2 . NA/MM . pi . int_0^pi [(1+cos(theta)^2) . f(energy,theta)^2 . sin(theta) . dtheta]
         
         energy = np.linspace(4,30,2)
         fim2 = e.scatfact_im(energy)**2
