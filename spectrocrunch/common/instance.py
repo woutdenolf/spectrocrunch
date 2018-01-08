@@ -71,5 +71,9 @@ def asarray(x):
         return x[np.newaxis]
     else:
         return x
-        
+
+def aslist(x):
+    return asarray(x).tolist()
+
+
     

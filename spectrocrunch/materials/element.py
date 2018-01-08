@@ -371,6 +371,7 @@ class Element(hashable.Hashable):
         spectrum.cs[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E)
         spectrum.xlim = [emin,emax]
         spectrum.title = str(self)
+        spectrum.type = spectrum.TYPES.crosssection
         
         return spectrum
     

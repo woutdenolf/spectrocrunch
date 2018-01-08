@@ -34,10 +34,20 @@ from ...detectors import xrf as xrfdetectors
 
 import numpy as np
 
-class test_compound(unittest.TestCase):
+class test_multilayer(unittest.TestCase):
 
+    def test_expi(self):
+        for x in [1e-4,1,10,np.inf]: # x > 0
+            int1 = integrate.quad(lambda a: np.exp(-x/np.cos(a))*np.tan(a), 0, np.pi/2)
+            int2 = -scipy.special.expi(-x)
+            int3 = scipy.special.exp1(x)
+            self.assertGreaterEqual(int2,int1[0]-int1[1])
+            self.assertLessEqual(int2,int1[0]+int1[1])
+            self.assertGreaterEqual(int3,int1[0]-int1[1])
+            self.assertLessEqual(int3,int1[0]+int1[1])
+            
     def _multilayer(self):
-        geometry = xrfgeometries.factory("Geometry",detectorposition=0, anglein=45, angleout=45+90)
+        geometry = xrfgeometries.factory("Geometry",detectorposition=0, anglein=62, angleout=49)
         detector = xrfdetectors.factory("Detector",activearea=0.50, geometry=geometry)
         detector.solidangle = 4*np.pi*0.1
     
@@ -51,6 +61,49 @@ class test_compound(unittest.TestCase):
         
         return o,thickness
         
+    def test_transmission(self):
+
+        o = multilayer.Multi("multilayer",\
+                material=[compoundname("hematite"),compoundname("hydrocerussite"),compoundname("calcite")],\
+                thickness=[9,12,15],\
+                anglein=62,\
+                angleout=49)
+    
+        for energy in [8,np.array([8,8.5])]:
+        
+            nenergy = np.asarray(energy).size
+            
+            rho = o.layerproperties("density").reshape((o.nlayers,1))
+            d = o.thickness.reshape((o.nlayers,1))
+            mu = o.layercs("mass_att_coeff",energy)
+            mu = mu.reshape((o.nlayers,nenergy))  
+            murhod = mu*rho*d
+            
+            nsub = 3
+            n = nsub*o.nlayers+1
+            A = np.zeros((n,nenergy))
+            np.cumsum(np.repeat(murhod,nsub,axis=0)/nsub,out=A[1:,:],axis=0)
+            
+            z = np.zeros(n)
+            np.cumsum(np.repeat(d,nsub)/nsub,out=z[1:])
+
+            np.testing.assert_allclose(A,o._cum_attenuation(z,energy))
+
+            for i in range(n):
+                np.testing.assert_allclose(A[i,:],o._cum_attenuation(z[i],energy)[0,:])
+                cosaij = np.ones(n)
+                cosaij[0:i] = -1
+                
+                T1 = np.exp(-  abs(A-A[i,:].reshape((1,nenergy))) )
+                T2 = o._transmission(z[i],z,cosaij,energy)
+                np.testing.assert_allclose(T1,T2)
+                
+                for j in range(n):
+                    T1 = np.exp(-abs(A[j,:]-A[i,:]))
+                    T2 = o._transmission(z[i],z[j],cosaij[j],energy)[0,:]
+                    np.testing.assert_allclose(T1,T2)
+    
+    
     def test_str(self):
         o,thickness = self._multilayer()
         s = str(o).split("\n")
@@ -58,7 +111,7 @@ class test_compound(unittest.TestCase):
             self.assertTrue(str(layer) in s[i+1])
             self.assertTrue(str(thickness[i]) in s[i+1])
             
-    def test_transmission(self):
+    def test_transmission2(self):
         o,thickness = self._multilayer()
         
         energy = np.linspace(7,8,5)
@@ -76,8 +129,10 @@ class test_compound(unittest.TestCase):
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_compound("test_str"))
-    testSuite.addTest(test_compound("test_transmission"))
+    testSuite.addTest(test_multilayer("test_expi"))
+    testSuite.addTest(test_multilayer("test_str"))
+    testSuite.addTest(test_multilayer("test_transmission"))
+    testSuite.addTest(test_multilayer("test_transmission2"))
     return testSuite
     
 if __name__ == '__main__':

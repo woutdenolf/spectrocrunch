@@ -31,6 +31,8 @@ from .. import ureg
 from ..common import instance
 from ..math import fit1d
 from ..common import hashable
+from ..common import listtools
+from ..common.Enum import Enum
 
 class FluoLine(hashable.Hashable):
 
@@ -345,95 +347,113 @@ class FluoZLine(hashable.Hashable):
         """
         return "{}-{}".format(self.element,self.line)
         
-    def energy(self):
+    def energy(self,**kwargs):
         return self.line.energy(self.element.Z)
 
 
 class RayleighLine(hashable.Hashable):
 
-    def __init__(self,energy):
-        self._energy = energy
+    def __init__(self,energysource):
+        self.energysource = energysource
         self.name = "Rayleigh"
-
+        
     def _cmpkey(self):
         """For comparing and sorting
         """
-        return hash((self.name,self._energy))
+        return self.name
 
     def _stringrepr(self):
         """Unique representation of an instance
         """
         return self.name
 
-    def energy(self):
-        return self._energy
+    def energy(self,**kwargs):
+        return self.energysource
         
         
 class ComptonLine(hashable.Hashable):
 
-    def __init__(self,energy):
-        self._energy = energy # this is the energy of the source, not the line
+    def __init__(self,energysource):
+        self.energysource = energysource
         self.name = "Compton"
 
     def _cmpkey(self):
         """For comparing and sorting
         """
-        return hash((self.name,self._energy))
+        return self.name
 
     def _stringrepr(self):
         """Unique representation of an instance
         """
         return self.name
 
-    def energy(self,scatteringangle):
+    def energy(self,scatteringangle=0):
         if scatteringangle==0:
-            return self._energy
+            return self.energysource
         delta = ureg.Quantity(1-np.cos(np.radians(scatteringangle)),"1/(m_e*c^2)").to("1/keV","spectroscopy").magnitude
-        return self._energy/(1+self._energy*delta) 
+        return self.energysource/(1+self.energysource*delta) 
         
         
 class Spectrum(object):
 
+    TYPES = Enum(['crosssection','interactionyield'])
+    # crosssection: cm^2/g
+    # interactionyield: crosssection.density.thickness (dimensionless)
+
     def __init__(self):
-    
         self.cs = {}
         self.density = None
         self.xlim = None
         self.title = None
         self.xlabel = "Energy (keV)"
-        self.detector = None
-    
-    def getlinenergy(self,line):
-        if isinstance(line,ComptonLine):
-            if self.detector is None:
-                scatteringangle = 90.
-            else:
-                scatteringangle = self.detector.scatteringangle
-
-            return line.energy(scatteringangle)
-        else:
-            return line.energy()
-    
+        self.type = None
+   
     @property
-    def cross_sections(self):
+    def lines(self):
         for line,cs in self.cs.items():
+            if np.sum(cs)==0:
+                continue
+            yield line
+
+    @property
+    def sortedcs(self):
+        for line,cs in sorted(self.cs.items(),key=lambda x: max(instance.asarray(x[0].energy(scatteringangle=0.1)))):
             if np.sum(cs)==0:
                 continue
             yield line,cs
-            
+
     @property
     def probabilities(self):
+        """Interaction probability per cm and per srad
+        """
         for line,cs in self.cs.items():
             if np.sum(cs)==0:
                 continue
-            yield line,cs*self.density
+            yield line,cs*(self.density/4*np.pi) #TODO: assume all isotropic for now
 
-    def plotlineprobability(self,energy,probability,**kwargs):
-        if self.detector is None:
+    def energies(self,**kwargs):
+        for line in self.cs:
+            energy = instance.asarray(line.energy(**kwargs))
+            for en in energy:
+                yield line,en
+
+    def expandedenergies(self,**kwargs):
+        for line,cs in self.cs:
+            try:
+                n = len(cs)
+            except:
+                n = 1
+            energy = instance.asarray(line.energy(**kwargs))
+            if n>1 and len(energy)==1:
+                energy = np.repeat(energy,n)
+            return line,energy
+
+    def plotlineprobability(self,energy,probability,detector=None,**kwargs):
+        if detector is None:
             plt.plot([energy,energy],[0,probability],**kwargs)
             h = probability
         else:
-            FWHM = self.detector.linewidth(energy)
+            FWHM = detector.linewidth(energy)
             sx = FWHM/(2*np.sqrt(2*np.log(2)))
             k = 4
             x = np.linspace(energy-k*sx,energy+k*sx,50)
@@ -442,23 +462,31 @@ class Spectrum(object):
             plt.plot(x,y,**kwargs)
         return h
 
-    def plotprobability(self,out=False,mark=True,log=False):
+    def plotprobability(self,detector=None,out=False,mark=True,log=False):
         ax = plt.gca()
         
         colors = {}
         markers = {}
         bmark = False
+        
+        if detector is None:
+            scatteringangle = 90.
+        else:
+            scatteringangle = detector.scatteringangle
 
-        for line,probability in self.probabilities:
+        for line,cs in self.sortedcs:
+                
             element = getattr(line, 'element', None)
-            energy = self.getlinenergy(line)
-            
+            energy = instance.asarray(line.energy(scatteringangle=scatteringangle))
+            probability = cs*self.density
+
             # Scattering or fluorescence
-            if element is None:
+            if element is None: # scattering
                 key = str(line)
             
                 # Line label + color
-                label = key
+                label = [None]*len(energy)
+                label[-1] = key
                 color = next(ax._get_lines.prop_cycler)['color']
                 colors[key] = color
                 
@@ -467,48 +495,56 @@ class Spectrum(object):
                     markers[key] = {"name":key,"energy":energy,"probability":probability,"height":probability}
                     bmark = True
                     
-                if out:
-                    print line,energy,probability
-            else:
+                if log:
+                    print(line,energy,probability)
+            else: # fluorescence
                 key = "{} {}".format(element,line.shell)
 
                 # Line label + color
+                label = [None]*len(energy)
                 if key in colors:
-                    label = None
                     color = colors[key]
                 else:
-                    label = key
+                    label[-1] = key
                     color = next(ax._get_lines.prop_cycler)['color']
                     colors[key] = color
 
                 # Key marker
                 if mark:
                     if key in markers:
-                        bmark = probability>markers[key]["probability"]
+                        bmark = sum(probability)>sum(markers[key]["probability"])
                     else:
                         bmark = True
                     if bmark:
                         markers[key] = {"name":str(line),"energy":energy,"probability":probability,"height":probability}
 
-                if out:
-                    print line,energy,probability
-                
-            height = self.plotlineprobability(energy,probability,color=color,label=label)
+                if log:
+                    print(line,energy,probability)
+            
+            height = [self.plotlineprobability(en,prob,color=color,label=lab,detector=detector) for en,prob,lab in zip(energy,probability,label)]
             
             if bmark:
-                markers[key]["height"] = height
+                ind = np.argmax(height)
+                markers[key]["energy"] = markers[key]["energy"][ind]
+                markers[key]["height"] = height[ind]
 
         for key,marker in markers.items():
             plt.annotate(marker["name"], xy=(marker["energy"], marker["height"]),color=colors[key])
 
-        if self.detector is not None and log:
+        if detector is not None and log:
             ax.set_yscale('log', basey=10)
             plt.ylim([1,None])
             
         plt.legend(loc='best')
         plt.xlabel(self.xlabel)
-        plt.ylabel("Probability (1/cm)")
+        if self.type==self.TYPES.crosssection:
+            plt.ylabel("Probability (1/cm)")
+        else:
+            plt.ylabel("Generation yield")
         plt.xlim(self.xlim)
-        plt.title(self.title)
-        
+        try:
+            plt.title(self.title)
+        except UnicodeDecodeError:
+            pass
+
 

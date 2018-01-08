@@ -23,9 +23,14 @@
 # THE SOFTWARE.
 
 import numpy as np
+import pandas as pd
+import scipy.integrate
+import scipy.special
 
 from ..common import instance
 from ..common import cache
+from ..common import listtools
+from . import xrayspectrum
 
 class Layer(object):
 
@@ -33,7 +38,7 @@ class Layer(object):
         """
         Args:
             material(list(spectrocrunch.materials.compound|mixture)): material composition
-            thickness(num): thickness in micron
+            thickness(num): thickness in cm
             fixed(bool): thickness and composition are fixed
             ml(Multilayer): part of this ensemble
         """
@@ -43,7 +48,7 @@ class Layer(object):
         self.ml = ml
 
     def __str__(self):
-        return "{}: {} μm".format(self.material,self.thickness)
+        return "{} μm ({})".format(self.thickness*1e4,self.material)
         
     def __getattr__(self,attr):
         try:
@@ -53,11 +58,11 @@ class Layer(object):
             
     @property
     def xraythickness(self):
-        return self.thickness/self.ml.cosnormin*1e-4
+        return self.thickness/self.ml.cosnormin
     
     @xraythickness.setter
     def xraythickness(self,value):
-        self.thickness = value*self.ml.cosnormin*1e-4
+        self.thickness = value*self.ml.cosnormin
     
     def absorbance(self,energy,fine=False,decomposed=False):
         if decomposed:
@@ -74,7 +79,7 @@ class Multilayer(cache.Cache):
         """
         Args:
             material(list(spectrocrunch.materials.compound|mixture)): layer composition
-            thickness(list(num)): layer thickness in micron
+            thickness(list(num)): layer thickness in cm
             detector(spectrocrunch.detectors.xrf.Detector): 
         """
         
@@ -208,41 +213,33 @@ class Multilayer(cache.Cache):
         for t,layer in zip(thickness,self.freeiter):
             layers.xraythickness = t
 
-    def spectrum(self,energy):
-        # TODO: generate true spectrum with the fisx library
-        
-        # Oversimplified for testing other parts: isotropic scattering of all absorbed radiation with the same energy
-        detfrac = self.detector.solidangle/(4*np.pi)
-        genfrac = 1-self.transmission(energy)
-        return energy,detfrac*genfrac
-
-    def _cache_layerprep(self):
+    def _cache_layerinfo(self):
         t = np.empty(self.nlayers+1)
         np.cumsum(self.thickness,out=t[1:])
         t[0] = 0
         if self.reflection:
-            zlast = 0.
+            zexit = 0.
         else:
-            zlast = t[-1]
-        return {"cumul_thickness":t,"zfirst":0.,"zlast":zlast}
+            zexit = t[-1]
+        return {"cumul_thickness":t,"zexit":zexit}
 
     def _zlayer(self,z):
         """Get layer in which z falls
         
         Args:
-            z(num|array): depth
+            z(num): depth
         
         Returns:
-            num|array: 
+            num: 
                 0 when z<=0
                 n+1 when z>totalthickness
                 {1,...,n} otherwise (the layers)
         """
-        layerprep = self.getcashed("layerprep")
-        return np.digitize(z, layerprep["cumul_thickness"], right=True)
+        layerinfo = self.getcashed("layerinfo")
+        return np.asscalar(np.digitize(z, layerinfo["cumul_thickness"], right=True))
     
-    def _cache_attenuation(self,energy):
-        energy,_ = instance.asarrayf(energy)
+    def _cache_attenuationinfo(self,energy):
+        energy = np.sort(instance.asarray(energy))
         nenergies = len(energy)
 
         density = self.density[:,np.newaxis]
@@ -267,6 +264,9 @@ class Multilayer(cache.Cache):
             tmp = np.subtract.outer(linatt[:,i],linatt[:,i])
             tmp *= thickness
             A[1:-1,i] = np.triu(tmp).sum(axis=0)
+
+        linattout = pd.DataFrame(linattout,columns=energy,index=range(self.nlayers+2))
+        A = pd.DataFrame(A,columns=energy,index=range(self.nlayers+2))
         
         return {"linatt":linattout,"linatt_cumulcor":A}
     
@@ -274,47 +274,197 @@ class Multilayer(cache.Cache):
         """Total attenuation from surface to z
         
         Args:
-            z(num|array): depth of attenuation
+            z(num): depth of attenuation
             energy(num|array): energies to be attenuation
             
         Returns:
-            array: nz x nenergy
+            array:
         """
         
-        z,func = instance.asarrayf(z)
         lz = self._zlayer(z)
-        att = self.getcashed("attenuation")
-        att = z.reshape((z.size,1)) * att["linatt"][lz,:] + att["linatt_cumulcor"][lz,:]
-        return att
-        
+        att = self.getcashed("attenuationinfo")
+
+        att = z * att["linatt"].loc[lz][energy] + att["linatt_cumulcor"].loc[lz][energy]
+        if np.isscalar(att):
+            return np.asscalar(att)
+        else:
+            return att.values
+
     def _transmission(self,zi,zj,cosaij,energy):
         """Transmission from depth zi to zj
         
         Args:
-            zi(num|array): start depth of attenuation (dims: nz)
-            zj(num|array): end depth of attenuation (dims: nz)
-            cosaij(num|array): angle with surface normal (dims: nz)
-            energy(num|array): energies to be attenuation (dims: nenergy)
+            zi(num): start depth of attenuation
+            zj(num): end depth of attenuation
+            cosaij(num): angle with surface normal
+            energy(array): energies to be attenuation
             
         Returns:
-            array: nz x nenergy
+            array:
         """
 
         datt = self._cum_attenuation(zj,energy)-self._cum_attenuation(zi,energy)
-        
-        cosaij,func = instance.asarrayf(cosaij)
-        cosaij = cosaij.reshape((cosaij.size,1))
-        
         return np.exp(-datt/cosaij)
+
+    def _cache_interactioninfo(self,energy,emin=None,emax=None,scatteringangle=None,ninteractions=None):
+    
+        probabilities = [None]*ninteractions
+        energyindex = [None]*ninteractions
+
+        energy = instance.asarray(energy)
+        energy.sort()
+
+        for i in range(ninteractions):
+            def f(x,energy=energy):
+                return (np.abs(energy-x)).argmin()
             
-    @cache.withcache("layerprep")
+            interactions = [layer.xrayspectrum(energy,emin=emin,emax=emax) for layer in self]
+            probs = [dict(interaction.probabilities) for interaction in interactions]
+            
+            interactions = list(set(listtools.flatten(p.keys() for p in probs)))
+            energy = list(set(listtools.flatten(interaction.energy(scatteringangle=scatteringangle) for interaction in interactions)))
+            energy.sort()
+
+            probabilities[i] = probs
+            energyindex[i] = f
+
+        return {"probabilities":probabilities,"energyindex":energyindex,"energies":energy}
+
+    def _gentransmission(self,zi,zj,cosaij,i,energyi,energyj,interactionj):
+        """Generation at depth zi and then transmission from zi to zj
+        
+        Args:
+            zi(num): start depth of attenuation
+            zj(num): end depth of attenuation
+            cosaij(num): angle with surface normal
+            i(num): interaction 1, 2, ...
+            line(): energies to be attenuation
+            
+        Returns:
+            array:
+        """
+        lz = self._zlayer(zi)
+        if lz==0:
+            return 0
+        
+        interactions = self.getcashed("interactioninfo")
+
+        try:
+            prob = interactions["probabilities"][i-1][lz-1][interactionj]
+        except:
+            return 0
+        
+        ind = interactions["energyindex"][i-1](energyi)
+        return prob[ind]*self._transmission(zi,zj,cosaij,energyj)
+
+    def _gentransmission_saintegrated(self,zi,zj,i,energyi,energyj,interactionj):
+        """Generation at depth zi and then transmission from zi to zj
+        
+        Args:
+            zi(num): start depth of attenuation
+            zj(num): end depth of attenuation
+            aij(num): angle with surface normal
+            i(num): interaction 1, 2, ...
+            line(): energies to be attenuation
+            
+        Returns:
+            array:
+        """
+        lz = self._zlayer(zi)
+        if lz==0:
+            return 0
+        
+        interactions = self.getcashed("interactioninfo")
+
+        try:
+            prob = interactions["probabilities"][i-1][lz-1][interactionj]
+        except:
+            return 0
+        
+        ind = interactions["energyindex"][i-1](energyi)
+
+        datt = self._cum_attenuation(zj,energyj)-self._cum_attenuation(zi,energyj)
+        return prob[ind]*scipy.special.exp1(datt)*(2*np.pi)
+
+    @cache.withcache("layerinfo")
     def xrayspectrum(self,energy,emin=0,emax=None):
 
-        with self.cachectx("attenuation",energy):
-            for layer in self:
-                for line,prob in layer.xrayspectrum(energy,emin=emin,emax=emax).probabilities:
-                    print line,prob
+        spectrum = xrayspectrum.Spectrum()
+
+        a01 = self.detector.anglenormin
+        a12 = self.detector.anglenormout
+        scatteringangle1 = a12-a01
+        cosafirst = np.cos(a01)
+        cosalast = np.cos(a12)
+        layerinfo = self.getcashed("layerinfo")
+        za = layerinfo["cumul_thickness"][0]
+        zb = layerinfo["cumul_thickness"][-1]
+        zfirst = layerinfo["cumul_thickness"][0]
+        zlast = layerinfo["zexit"]
+        
+        def addsources(data):
+            data = instance.asarray(data)
+            while len(data.shape)>=2:
+                data = data.sum(axis=-1)
+            return data*(self.detector.solidangle/cosafirst)
+
+        with self.cachectx("interactioninfo",energy,emin=emin,emax=emax,ninteractions=2,scatteringangle=scatteringangle1):
+            interactions = self.getcashed("interactioninfo")
+            energies = interactions["energies"]
+
+            getinteractions = lambda x: list(set(listtools.flatten(p.keys() for p in x)))
 
 
-                
+            with self.cachectx("attenuationinfo",energies):
+
+                interactions1 = getinteractions(interactions["probabilities"][0])
+                gen1 = {}
+                path = lambda z1: self._transmission(zfirst,z1,cosafirst,energy0)*\
+                                  self._gentransmission(z1,zlast,cosalast,1,energy0,energy1,interaction1)
+
+                for energy0 in instance.asarray(energy):
+                    for interaction1 in interactions1:
+                        energy1 = interaction1.energy(scatteringangle=scatteringangle1)
+                        
+                        gen = [scipy.integrate.quad(path, za, zb)[0] for energy1 in instance.asarray(energy1)]
+
+                        gen1[interaction1] = addsources(gen)
+                print(gen1)
+
+                if True:
+                    interactions2 = getinteractions(interactions["probabilities"][1])
+                    gen2 = {}
+                    path = lambda z1,z2: self._transmission(zfirst,z1,cosafirst,energy0)*\
+                                         self._gentransmission_saintegrated(z1,z2,1,energy0,energy1,interaction1)*\
+                                         self._gentransmission(z2,zlast,cosalast,2,energy1,energy2,interaction2)
+
+                    for energy0 in instance.asarray(energy):
+                        for interaction2 in interactions2:
+                            scatteringangle2 = scatteringangle1
+                            energy2 = interaction2.energy(scatteringangle=scatteringangle2)
+                            for interaction1 in interactions1:
+                                energy1 = interaction1.energy(scatteringangle=scatteringangle1)
+
+                                gen = [[scipy.integrate.nquad(path, [(za, zb)]*2)[0] for energy1 in instance.asarray(energy1)] for energy2 in instance.asarray(energy2)]
+                                
+                                if interaction2 in gen2:
+                                    gen2[interaction2] += addsources(gen)
+                                else:
+                                    gen2[interaction2] = addsources(gen)
+
+            
+                    print(gen2)
+
+        spectrum.cs = gen1
+        spectrum.xlim = [min(energies),max(energies)]
+        spectrum.density = 1
+        spectrum.title = str(self)
+        spectrum.type = spectrum.TYPES.interactionyield
+
+        return spectrum
+
+
+
+
+
             

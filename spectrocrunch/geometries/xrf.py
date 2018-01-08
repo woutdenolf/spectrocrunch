@@ -43,14 +43,24 @@ class Geometry(with_metaclass(object)):
         self.reflection = self.angleout>0
 
     @property
+    def anglenormin(self):
+        # angle with surface normal (pointing inwards)
+        return np.radians(90-self.anglein)
+    
+    @property
+    def anglenormout(self):
+        # angle with surface normal (pointing inwards)
+        return np.radians(90+self.angleout)
+
+    @property
     def cosnormin(self):
         # angle with surface normal (pointing inwards)
-        return np.cos(np.radians(90-self.anglein))
+        return np.cos(self.anglenormin)
     
     @property
     def cosnormout(self):
         # angle with surface normal (pointing inwards)
-        return np.cos(np.radians(90+self.angleout))
+        return np.cos(self.anglenormout)
     
     @property
     def scatteringangle(self):

@@ -29,6 +29,7 @@ from ..mixture import Mixture as mixture
 from ..types import fractionType
 from ...geometries import xrf as xrfgeometries
 from ...detectors import xrf as xrfdetectors
+from ...common import instance
 
 import numpy as np
 
@@ -87,12 +88,17 @@ class test_mixture(unittest.TestCase):
     
         out = {}
         for spectrum,d in zip(lstlines,thickness):
-            spectrum.detector = detector
-            for energy,intensity in spectrum.lines:
-                if energy in out:
-                    out[energy] += intensity*d
-                else:
-                    out[energy] = intensity*d
+            
+            for line,prob in spectrum.probabilities:
+                intensity = prob*detector.solidangle*d
+                energy = line.energy(scatteringangle=detector.scatteringangle)
+                energy = instance.asarray(energy)
+                intensity = instance.asarray(intensity)
+                for en,inten in zip(energy,intensity):
+                    if en in out:
+                        out[en] += intensity
+                    else:
+                        out[en] = intensity
         return out
     
     def _spectrum_equal(self,spectrum1,spectrum2):

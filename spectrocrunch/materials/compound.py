@@ -336,7 +336,8 @@ class Compound(Hashable):
         spectrum.cs[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E,decomposed=False)
         spectrum.xlim = [emin,emax]
         spectrum.title = str(self)
-        
+        spectrum.type = spectrum.TYPES.crosssection
+
         return spectrum
     
     def refractive_index_re(self,E,fine=False,decomposed=False,**kwargs):
