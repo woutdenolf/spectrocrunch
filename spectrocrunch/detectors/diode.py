@@ -23,38 +23,24 @@
 # THE SOFTWARE.
 
 import numpy as np
-
+import warnings
 import silx.math.fit as fit
-
 from scipy import interpolate
 
 from .. import ureg
-
 from ..math.linop import linop
-
 from ..math.fit1d import linfit
-
-import warnings
-
 from ..common import units
-
 from ..materials import compoundfromformula 
-
 from ..materials import compoundfromname
-
 from ..materials import multilayer 
-
 from ..resources import resource_filename
-
 from ..optics import KB 
-
 from ..common import constants
-
 from ..math.common import round_sig
-
 from ..geometries import diode as diodegeometries
-
-from ..common.classfactory import with_metaclass
+from ..simulation.classfactory import with_metaclass
+from ..simulation import noisepropagation
 
 #
 #
@@ -179,7 +165,7 @@ class Oscillator(object):
         """
         return (self.op_currenttocps())**(-1)
 
-class PNdiode(with_metaclass(object)):
+class PNdiode(with_metaclass()):
 
     ELCHARGE = ureg.Quantity(1,ureg.elementary_charge)
     #ELCHARGE = ureg.Quantity(1.6e-19,ureg.coulomb) # approx. in spec
@@ -634,6 +620,28 @@ class PNdiode(with_metaclass(object)):
         """
         self.optics.set_transmission(units.magnitude(energy,"keV"),transmission)
         
+    def propagate(self,N,energy,tframe=None,nframe=None):
+        """Error propagation of a number of photons.
+               
+        Args:
+            N(unumpy.uarray): incomming number of photons with uncertainties
+            energy(numpy.array): associated energies
+            tframe(num|numpy.array): time per frame (sec)
+            nframe(num|numpy.array): number of frames (sec)
+
+        Returns:
+            uncertainties.core.Variable or numpy.array(uncertainties.core.Variable): detector signal in DU
+        """
+
+        if tframe is None:
+            ValueError("Frame exposure time not specified.")
+        if nframe is None:
+            ValueError("Number of frames not specified.")
+
+        # TODO: 
+        
+
+        return Nout # units: DU
         
 class AbsolutePNdiode(PNdiode):
 

@@ -132,6 +132,8 @@ class FluoLine(hashable.Hashable):
         # Energy selection
         if energybounds is not None:
             Z = energybounds[0]
+            if not instance.isinteger(Z):
+                Z = xraylib.SymbolToAtomicNumber(Z)
             valid = lambda energy: energy >= energybounds[1] and energy <= energybounds[2] and energy!=0
             lines = [line for line in lines if valid(line.energy(Z))]
                 

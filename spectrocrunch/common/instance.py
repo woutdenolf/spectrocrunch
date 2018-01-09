@@ -75,5 +75,3 @@ def asarray(x):
 def aslist(x):
     return asarray(x).tolist()
 
-
-    

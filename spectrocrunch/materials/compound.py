@@ -166,15 +166,16 @@ class Compound(Hashable):
         return self.elements[el]
 
     def molarmass(self):
-        MM = np.asarray([e.MM for e in self.elements])
-        nfrac = np.asarray(self.molefractions(total=True).values())
+        nfrac = self.molefractions(total=True)
+        MM = np.asarray([e.MM for e in nfrac])
+        nfrac = np.asarray(nfrac.values())
         return (MM*nfrac).sum()
 
     def weightfractions(self):
-        MM = np.asarray([e.MM for e in self.elements])
-        nfrac = np.asarray(self.molefractions().values())
-        wfrac = stoichiometry.frac_mole_to_weight(nfrac,MM)
-        return dict(zip(self.elements.keys(),wfrac))
+        nfrac = self.molefractions()
+        MM = np.asarray([e.MM for e in nfrac])
+        wfrac = stoichiometry.frac_mole_to_weight(np.asarray(nfrac.values()),MM)
+        return dict(zip(nfrac.keys(),wfrac))
 
     def molefractions(self,total=True):
         if total:

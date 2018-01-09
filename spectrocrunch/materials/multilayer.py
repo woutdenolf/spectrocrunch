@@ -31,6 +31,8 @@ from ..common import instance
 from ..common import cache
 from ..common import listtools
 from . import xrayspectrum
+from ..simulation.classfactory import with_metaclass
+from ..simulation import noisepropagation
 
 class Layer(object):
 
@@ -70,7 +72,7 @@ class Layer(object):
         else:
             return self.material.mass_att_coeff(energy,fine=fine,decomposed=decomposed)*(self.xraythickness*self.material.density)
 
-class Multilayer(cache.Cache):
+class Multilayer(with_metaclass(cache.Cache)):
     """
     Class representing a multilayer of compounds or mixtures
     """
@@ -139,8 +141,19 @@ class Multilayer(cache.Cache):
     def thickness(self):
         return np.vectorize(lambda layer:layer.thickness)(self)
     
+    @property
+    def xraythickness(self):
+        return np.vectorize(lambda layer:layer.xraythickness)(self)
+        
     def mass_att_coeff(self,energy):
-        return np.asarray([layer.mass_att_coeff(energy) for layer in self])
+        """Total mass attenuation coefficient
+        
+        Args:
+            energy(num|array): keV
+        Returns:
+            array: nz x nenergy
+        """
+        return np.asarray([instance.asarray(layer.mass_att_coeff(energy)) for layer in self])
         
     def markabsorber(self,symb,shells=[],fluolines=[]):
         """
@@ -227,16 +240,17 @@ class Multilayer(cache.Cache):
         """Get layer in which z falls
         
         Args:
-            z(num): depth
+            z(num|array): depth
         
         Returns:
-            num: 
+            num|array: 
                 0 when z<=0
                 n+1 when z>totalthickness
                 {1,...,n} otherwise (the layers)
         """
         layerinfo = self.getcashed("layerinfo")
-        return np.asscalar(np.digitize(z, layerinfo["cumul_thickness"], right=True))
+        z,func = instance.asarrayf(z)
+        return func(np.digitize(z, layerinfo["cumul_thickness"], right=True))
     
     def _cache_attenuationinfo(self,energy):
         energy = np.sort(instance.asarray(energy))
@@ -244,7 +258,7 @@ class Multilayer(cache.Cache):
 
         density = self.density[:,np.newaxis]
         thickness = self.thickness[:,np.newaxis]
-        mu = self.mass_att_coeff(energy).reshape((self.nlayers,nenergies))
+        mu = self.mass_att_coeff(energy)
         
         # We will add one layer at the beginning and one at the end, both vacuum
         
@@ -274,36 +288,38 @@ class Multilayer(cache.Cache):
         """Total attenuation from surface to z
         
         Args:
-            z(num): depth of attenuation
+            z(num|array): depth of attenuation
             energy(num|array): energies to be attenuation
             
         Returns:
-            array:
+            array: nz x nenergy
         """
         
+        z = instance.asarray(z)
+        energy = instance.asarray(energy)
+
         lz = self._zlayer(z)
         att = self.getcashed("attenuationinfo")
-
-        att = z * att["linatt"].loc[lz][energy] + att["linatt_cumulcor"].loc[lz][energy]
-        if np.isscalar(att):
-            return np.asscalar(att)
-        else:
-            return att.values
+        linatt = att["linatt"].loc[lz][energy].values
+        cor = att["linatt_cumulcor"].loc[lz][energy].values
+        z = z[:,np.newaxis]
+        
+        return z*linatt + cor
 
     def _transmission(self,zi,zj,cosaij,energy):
         """Transmission from depth zi to zj
         
         Args:
-            zi(num): start depth of attenuation
-            zj(num): end depth of attenuation
-            cosaij(num): angle with surface normal
-            energy(array): energies to be attenuation
+            zi(num|array): start depth of attenuation (nz)
+            zj(num|array): end depth of attenuation (nz)
+            cosaij(num|array): angle with surface normal (nz)
+            energy(num|array): energies to be attenuation (nenergy)
             
         Returns:
-            array:
+            array: nz x nenergy
         """
-
         datt = self._cum_attenuation(zj,energy)-self._cum_attenuation(zi,energy)
+        cosaij = instance.asarray(cosaij)[:,np.newaxis]
         return np.exp(-datt/cosaij)
 
     def _cache_interactioninfo(self,energy,emin=None,emax=None,scatteringangle=None,ninteractions=None):
@@ -338,7 +354,9 @@ class Multilayer(cache.Cache):
             zj(num): end depth of attenuation
             cosaij(num): angle with surface normal
             i(num): interaction 1, 2, ...
-            line(): energies to be attenuation
+            energyi(num): energy in
+            energyj(num): energy out
+            interactionj(): energies to be attenuation
             
         Returns:
             array:
@@ -363,9 +381,10 @@ class Multilayer(cache.Cache):
         Args:
             zi(num): start depth of attenuation
             zj(num): end depth of attenuation
-            aij(num): angle with surface normal
             i(num): interaction 1, 2, ...
-            line(): energies to be attenuation
+            energyi(num): energy in
+            energyj(num): energy out
+            interactionj(): energies to be attenuation
             
         Returns:
             array:
@@ -384,6 +403,10 @@ class Multilayer(cache.Cache):
         ind = interactions["energyindex"][i-1](energyi)
 
         datt = self._cum_attenuation(zj,energyj)-self._cum_attenuation(zi,energyj)
+        
+        #func = lambda theta,phi: prob[ind]*np.exp(-datt/np.cos(theta))*np.tan(theta)
+        #return np.nquad(func,[(0,np.pi/2),(0,2*np.pi)])
+        
         return prob[ind]*scipy.special.exp1(datt)*(2*np.pi)
 
     @cache.withcache("layerinfo")
@@ -445,6 +468,28 @@ class Multilayer(cache.Cache):
                             for interaction1 in interactions1:
                                 energy1 = interaction1.energy(scatteringangle=scatteringangle1)
 
+                                energy1 = instance.asarray(energy1)[0]
+                                energy2 = instance.asarray(energy2)[0]
+                                
+                                tmp = lambda z1,z2: self._transmission(zfirst,z1,cosafirst,energy0)*\
+                                         self._gentransmission_saintegrated(z1,z2,1,energy0,energy1,interaction1)*\
+                                         self._gentransmission(z2,zlast,cosalast,2,energy1,energy2,interaction2)
+                                print(tmp(2.5e-4,2.5e-4))
+                                exit()
+
+                                import matplotlib.pyplot as plt
+                                plt.figure()
+                                arr = np.zeros((50,50))
+                                
+                                for i,z1 in enumerate(np.linspace(za,zb,50)):
+                                    for j,z2 in enumerate(np.linspace(za,zb,50)):
+                                        arr[i,j] = self._transmission(zfirst,z1,cosafirst,energy0)*\
+                                                   self._gentransmission_saintegrated(z1,z2,1,energy0,energy1,interaction1)*\
+                                                   self._gentransmission(z2,zlast,cosalast,2,energy1,energy2,interaction2)
+                                print(arr)
+                                plt.imshow(arr)
+                                plt.show()
+                                
                                 gen = [[scipy.integrate.nquad(path, [(za, zb)]*2)[0] for energy1 in instance.asarray(energy1)] for energy2 in instance.asarray(energy2)]
                                 
                                 if interaction2 in gen2:
@@ -463,8 +508,38 @@ class Multilayer(cache.Cache):
 
         return spectrum
 
+    def propagate(self,N,energy,interaction="transmission",forward=True):
+        """Error propagation of a number of photons.
+               
+        Args:
+            N(num|array): incomming number of photons with uncertainties
+            energy(num|array): energies
+
+        Returns:
+            num|numpy.array
+        """
+        # Bernouilli processes: compounding is the same as multiplication
+        #                       so we can multiply the probabilities
+        if interaction=="transmission":
+            probsuccess = self.transmission(energy)
+        else:
+            raise RuntimeError("{} not implemented yet".format(interaction))
+
+        N,probsuccess = self.propagate_broadcast(N,probsuccess)
+
+        if noisepropagation.israndomvariable(N):
+            process = noisepropagation.bernouilli(probsuccess)
+            Nout = noisepropagation.compound(N,process,forward=forward)
+        else:
+            if forward:
+                Nout = N*probsuccess
+            else:
+                Nout = N/probsuccess
+                
+        return Nout
 
 
+classes = Multilayer.clsregistry
+aliases = Multilayer.aliasregistry
+factory = Multilayer.factory
 
-
-            

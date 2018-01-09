@@ -115,9 +115,8 @@ class Mixture(object):
             fractype(fractionType): element fraction type
         """
         compounds = dfrac.keys()
-        frac = dfrac.values()
+        fractions = np.asarray(dfrac.values())
         
-        fractions = np.asarray(frac)
         if fractype == fractionType.mole:
             nfrac = fractions
         elif fractype == fractionType.volume:
@@ -127,7 +126,7 @@ class Mixture(object):
         else:
             MM = np.asarray([c.molarmass() for c in compounds])
             nfrac = stoichiometry.frac_weight_to_mole(fractions,MM)
-
+            
         self._compose_compounds(compounds,nfrac)
         
     def tocompound(self,name):
@@ -146,22 +145,23 @@ class Mixture(object):
         return list(set(e for c in self.compounds for e in c.elements))
 
     def molarmass(self):
-        MM = np.asarray([c.molarmass() for c in self.compounds])
-        nfrac = np.asarray(self.molefractions(total=True).values())
+        nfrac = self.molefractions(total=True)
+        MM = np.asarray([c.molarmass() for c in nfrac])
+        nfrac = np.asarray(nfrac.values())
         return (MM*nfrac).sum()
 
     def volumefractions(self):
-        MM = np.asarray([c.molarmass() for c in self.compounds])
-        rho = np.asarray([c.density for c in self.compounds])
-        nfrac = np.asarray(self.molefractions().values())
-        wfrac = stoichiometry.frac_mole_to_volume(nfrac,rho,MM)
-        return dict(zip(self.compounds.keys(),wfrac))
+        nfrac = self.molefractions()
+        MM = np.asarray([c.molarmass() for c in nfrac])
+        rho = np.asarray([c.density for c in nfrac])
+        wfrac = stoichiometry.frac_mole_to_volume(np.asarray(nfrac.values()),rho,MM)
+        return dict(zip(nfrac.keys(),wfrac))
 
     def weightfractions(self):
-        MM = np.asarray([c.molarmass() for c in self.compounds])
-        nfrac = np.asarray(self.molefractions().values())
-        wfrac = stoichiometry.frac_mole_to_weight(nfrac,MM)
-        return dict(zip(self.compounds.keys(),wfrac))
+        nfrac = self.molefractions()
+        MM = np.asarray([c.molarmass() for c in nfrac])
+        wfrac = stoichiometry.frac_mole_to_weight(np.asarray(nfrac.values()),MM)
+        return dict(zip(nfrac.keys(),wfrac))
 
     def molefractions(self,total=True):
         if total:
@@ -191,9 +191,10 @@ class Mixture(object):
         
     @property
     def density(self):
-        MM = np.asarray([c.molarmass() for c in self.compounds])
-        rho = np.asarray([c.density for c in self.compounds])
-        nfrac = np.asarray(self.molefractions().values())
+        nfrac = self.molefractions()
+        MM = np.asarray([c.molarmass() for c in nfrac])
+        rho = np.asarray([c.density for c in nfrac])
+        nfrac = np.asarray(nfrac.values())
         return stoichiometry.density_from_molefrac(nfrac,rho,MM)
 
     def elemental_molefractions(self,total=True):

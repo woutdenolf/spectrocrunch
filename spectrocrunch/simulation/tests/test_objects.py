@@ -24,13 +24,14 @@
 
 import unittest
 
-from .. import areadetectors
-from .. import scintillators
-from .. import lenses
-from .. import materials
-from .. import diodes
+from ...detectors import area
+from ...materials import multilayer
+from ...geometries import flatarea
+from ...detectors import diode
+from ...materials import scintillators
+from ...materials import lenses
+from ...materials import emspectrum
 from .. import noisepropagation
-from .. import emspectrum
 from ...materials.compoundfromname import compoundfromname as compoundname
 from ...common.instance import isarray
 from ... import ureg
@@ -124,9 +125,11 @@ class test_objects(unittest.TestCase):
         self.assertAlmostEqual(noisepropagation.E(Nout),Nout2)
         
     def test_detectors(self):
-        self.assertRaises(RuntimeError, areadetectors.factory, "noclassname")
+        self.assertRaises(RuntimeError, area.factory, "noclassname")
 
-        o = areadetectors.factory("PCO Edge 5.5")
+        geometry = flatarea.factory("perpendicular")
+        o = area.factory("PCO Edge 5.5",geometry=geometry)
+
         self._checkprop(o,tframe=2,nframe=10,vis=True)
         
     def test_lenses(self):
@@ -161,12 +164,15 @@ class test_objects(unittest.TestCase):
         #plt.show()
 
     def test_materials(self):
-        self.assertRaises(RuntimeError, materials.factory, "noclassname")
-        o = materials.factory("multilayer",material=compoundname("ultralene"),thickness=4,anglein=0,angleout=135)
+        self.assertRaises(RuntimeError, multilayer.factory, "noclassname")
+        geometry = flatarea.factory("perpendicular")
+        detector = area.factory("PCO Edge 5.5",geometry=geometry)
+        
+        o = multilayer.Multilayer(material=compoundname("ultralene"),thickness=4e-4,detector=detector)
         self._checkprop(o)
 
     def test_diodes(self):
-        o = diodes.factory("sxmidet")
+        o = diode.factory("idet")
         self._checkprop(o)
 
 def test_suite_all():

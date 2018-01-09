@@ -22,24 +22,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .simul import with_simulmetaclass
-
-from . import noisepropagation
-
-from ..materials.compound import Compound as compound
-from ..materials.mixture import Mixture as mixture
-from ..materials.types import fractionType
-
 import numpy as np
 
+from ..simulation.classfactory import with_metaclass
+from ..simulation import noisepropagation
+
+from .compound import Compound as compound
+from .mixture import Mixture as mixture
+from .types import fractionType
 from . import emspectrum
 
 from .. import ureg
 
-
-class Scintillator(with_simulmetaclass()):
+class Scintillator(with_metaclass()):
     """
-    Class representing an area scintillator
+    Class representing a scintillator
     """
 
     def __init__(self, thickness=None, material=None, nvisperkeV=None, visspectrum=None):

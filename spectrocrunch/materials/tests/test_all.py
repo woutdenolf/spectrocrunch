@@ -29,6 +29,7 @@ from . import test_mixture
 from . import test_element
 from . import test_visirlib
 from . import test_multilayer
+from . import test_emspectrum
 
 def test_suite_all():
     """Test suite including all test suites"""
@@ -39,6 +40,7 @@ def test_suite_all():
     testSuite.addTest(test_mixture.test_suite_all())
     testSuite.addTest(test_visirlib.test_suite_all())
     testSuite.addTest(test_multilayer.test_suite_all())
+    testSuite.addTest(test_emspectrum.test_suite_all())
     return testSuite
     
 if __name__ == '__main__':

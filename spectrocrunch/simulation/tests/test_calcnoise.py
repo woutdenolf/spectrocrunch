@@ -24,10 +24,11 @@
 
 import unittest
 
-from .. import calcnoise
-from .. import materials
 from .. import noisepropagation
-
+from .. import calcnoise
+from ...materials import multilayer
+from ...geometries import flatarea
+from ...detectors import area
 from ...materials.compoundfromformula import CompoundFromFormula as compound
 
 import numpy as np
@@ -41,7 +42,10 @@ class test_calcnoise(unittest.TestCase):
         nframe = 100
         ndark = 10
         
-        sample = materials.factory("Multilayer",material=compound("CaCO3",2.71),thickness=5,anglein=0,angleout=135)
+        geometry = flatarea.factory("perpendicular")
+        detector = area.factory("PCO Edge 5.5",geometry=geometry)
+        
+        sample = multilayer.Multilayer(material=compound("CaCO3",2.71),thickness=5e-4,detector=detector)
         
         kwargs = {"tframe_data":tframe,"nframe_data":nframe,"tframe_flat":tframe,"nframe_flat":nframe,"nframe_dark":ndark}
         
@@ -60,7 +64,10 @@ class test_calcnoise(unittest.TestCase):
         tframe = 0.07
         nframe = 100
         
-        sample = materials.factory("Multilayer",material=compound("CaCO3",2.71),thickness=5,anglein=0,angleout=135)
+        geometry = flatarea.factory("perpendicular")
+        detector = area.factory("PCO Edge 5.5",geometry=geometry)
+        
+        sample = multilayer.Multilayer(material=compound("CaCO3",2.71),thickness=5e-4,detector=detector)
         
         o = calcnoise.id21_ffsetup(composition=sample)
         
