@@ -23,6 +23,7 @@
 # THE SOFTWARE.
 
 import numpy as np
+import fisx
 
 from . import element
 from . import interaction
@@ -189,6 +190,10 @@ class Compound(Hashable):
     def nelements(self):
         return len(self.elements)
 
+    @property
+    def ncompounds(self):
+        return 1
+        
     def arealdensity(self):
         """Areal density in ng/mm^2
         """
@@ -393,24 +398,26 @@ class Compound(Hashable):
                 return ret
         return None
 
-    def pymcaformat(self):
+    @property
+    def pymcaname(self):
+        return self.name
+
+    def topymca(self):
         r = self.weightfractions()
-        value = {'Comment': self.name,
+        value = {'Comment': self.pymcaname,
                 'CompoundFraction': r.values(),
                 'Thickness': 0.,
                 'Density': self.density,
                 'CompoundList': ['{}1'.format(e) for e in r]}
-        return self.name,value
+        return self.pymcaname,value
 
-    def fluointeractions(self):
-        """Fluorescence interactions
-        """
-        for e in self.elements:
-            for s in e.shells:
-                for l in s.fluolines:
-                    fl = interaction.InteractionFluo(e,s,l)
-                    if fl.energy!=0:
-                        yield fl
-                        
-
+    def tofisx(self):
+        r = self.weightfractions()
+        o = fisx.Material(self.pymcaname, self.density, 1e-10)
+        o.setCompositionFromLists(['{}1'.format(e) for e in r],r.values())
+        return o
+        
+    def fisxgroups(self,emin=0,emax=np.inf):
+        self.markabsorber(energybounds=[emin,emax])
+        return {el:el.shells for el in self.elements}
         

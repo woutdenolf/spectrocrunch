@@ -64,7 +64,7 @@ class Geometry(with_metaclass(object)):
     
     @property
     def scatteringangle(self):
-        return self.anglein + self.angleout
+        return np.radians(self.anglein + self.angleout)
     
     @property
     def distance(self):
@@ -75,7 +75,11 @@ class Geometry(with_metaclass(object)):
         self.detectorposition = value - self.distanceoffset
 
     def __str__(self):
-        return "Distance = {} mm\n In = {} deg\n Out = {} deg ({})".format(self.distance,self.anglein,self.angleout,"reflection" if self.reflection else "transmission")
+        return "Distance = {} cm\nIn = {} deg\nOut = {} deg ({})".format(self.distance,self.anglein,self.angleout,"reflection" if self.reflection else "transmission")
+    
+    def addtofisx(self,setup,cfg):
+        setup.setGeometry(self.anglein, self.angleout) 
+        
         
 class sdd120(Geometry):
 

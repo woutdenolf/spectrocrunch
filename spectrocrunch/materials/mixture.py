@@ -174,6 +174,10 @@ class Mixture(object):
     @property
     def nelements(self):
         return sum(c.nelements for c in self.compounds)
+    
+    @property
+    def ncompounds(self):
+        return len(self.compounds)
         
     def arealdensity(self):
         """Areal density in ng/mm^2
@@ -398,19 +402,24 @@ class Mixture(object):
                 return ret
         return None
 
-    def pymcaformat(self):
-        tmp = self.elemental_molefractions()
-        c = compoundfromlist.CompoundFromList(tmp.keys(),tmp.values(),fractionType.mole,self.density,name=self.name)
-        return c.pymcaformat()
+    @property
+    def pymcaname(self):
+        return self.name
+
+    def topymca(self):
+        return self.tocompound(self.pymcaname).topymca()
     
+    def tofisx(self):
+        return self.tocompound(self.pymcaname).tofisx()
+        
     @classmethod
-    def pymcaparse(cls,dic):
+    def frompymca(cls,dic):
         # Assume all compounds have the density of the mixture
         compounds = [compoundfromformula.CompoundFromFormula(c,dic["Density"]) for c in dic["CompoundList"]]
         wfrac = dic["CompoundFraction"]
         return cls(compounds,wfrac,fractionType.weight,name=dic["Comment"])
-        
-    def fluointeractions(self):
-        for c in self.compounds:
-            yield c.fluointeractions()
-            
+
+    def fisxgroups(self,emin=0,emax=np.inf):
+        self.markabsorber(energybounds=[emin,emax])
+        return {el:el.shells for el in self.elements}
+

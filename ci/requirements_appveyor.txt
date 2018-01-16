@@ -12,5 +12,6 @@ uncertainties
 pint
 mako
 pyopencl==2015.1
+pandas
 #pymca
 

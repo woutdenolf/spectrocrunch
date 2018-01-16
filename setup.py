@@ -253,7 +253,9 @@ classifiers = [get_devstatus(),
 ##################
 ## Requirements ## 
 ##################
-install_requires = ["numpy", "future", "scipy", "h5py", "fabio", "silx", "pyparsing", "PyMca5", "shapely", "matplotlib", "uncertainties","pint"]
+install_requires = ["numpy", "future", "scipy", "h5py", "fabio", "silx",\
+                    "pyparsing", "PyMca5", "shapely", "matplotlib",\
+                    "uncertainties", "pint", "pandas"]
 extras_require = {"physics":["xraylib", "cctbx", "fdmnes","PyTMM"],\
                   "elastix":["SimpleITK"]\
                   }

@@ -32,18 +32,18 @@ import collections
 import operator
 import numbers
 import re
+import contextlib
 
 from ..common import indexing
 from ..common import listtools
 from ..common import instance
 from ..common import cache
-
 from . import edf
 
 import logging
 logger = logging.getLogger(__name__)
 
-import contextlib
+
 
 XiaName = collections.namedtuple('XiaName', ['radix', 'mapnum', 'linenum', 'label', 'baselabel', 'detector'])
 

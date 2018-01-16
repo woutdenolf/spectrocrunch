@@ -37,6 +37,7 @@ except:
     pass
 
 import fdmnes
+import fisx
 
 from .. import xraylib
 from .. import ureg
@@ -173,6 +174,10 @@ class Element(hashable.Hashable):
     def nelements(self):
         return 1
 
+    @property
+    def ncompounds(self):
+        return 1
+        
     def _get_fdmnes_energyrange(self,Eabs,edgeenergy,decimals=6):
         """Calculate energies based on boundaries and step sizes:
             energyrange = [E0,step0,E1,step1,E2] (eV, relative to the edge)
@@ -374,7 +379,7 @@ class Element(hashable.Hashable):
         spectrum.type = spectrum.TYPES.crosssection
         
         return spectrum
-    
+
     def _xraylib_method(self,method,E):
         method = getattr(xraylib,method)
         E,func = instance.asarrayf(E)
@@ -492,7 +497,7 @@ class Element(hashable.Hashable):
         """
         cs = {}
         for shell in self.shells:
-            cs[shell] = np.vectorize(lambda en: xraylib.CS_Photo_Partial(self.Z,shell.code,en))(E)
+            cs[shell] = np.vectorize(lambda en: shell.partial_photo(self.Z,en))(E)
 
         return cs
 
@@ -681,12 +686,26 @@ class Element(hashable.Hashable):
 
         return newrange
 
-    def pymcaformat(self):
-        r = self.weightfractions()
+    @property
+    def pymcaname(self):
+        return '{}1'.format(self.name)
+
+    def topymca(self):
         value = {'Comment': self.name,
                 'CompoundFraction': [1.],
                 'Thickness': 0.,
                 'Density': self.density,
-                'CompoundList': ['{}1'.format(self.name)]}
+                'CompoundList': [self.pymcaname]}
         return self.name,value
+        
+    def tofisx(self):
+        o = fisx.Material(self.name, self.density, 1e-10)
+        o.setCompositionFromLists([self.pymcaname],[1.])
+        return o
+
+    def fisxgroups(self,emin=0,emax=np.inf):
+        self.markabsorber(energybounds=[emin,emax])
+        el = str(self)
+        return {self:self.shells}
+        
         

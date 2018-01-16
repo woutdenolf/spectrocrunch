@@ -34,6 +34,17 @@ from ..common import hashable
 from ..common import listtools
 from ..common.Enum import Enum
 
+
+# Some xraylib comments:
+# CS_FluorLine_Kissel_Cascade(S,X) = FluorYield(S)*RadRate(SX)*PS_full_cascade_kissel
+# PS_full_cascade_kissel = CS_Photo_Partial(S) + Cascade(...) + CosKron(...)
+# ... -> use PS_full_cascade_kissel,FluorYield,RadRate of lower shells
+#
+# CS_FluorLine_Kissel_no_Cascade(S,X) = FluorYield(S)*RadRate(SX)*PS_pure_kissel
+# PS_full_cascade_kissel = CS_Photo_Partial(S) + CosKron(...)
+# ... -> use PS_pure_kissel,FluorYield,RadRate of lower shells
+
+
 class FluoLine(hashable.Hashable):
 
     @staticmethod
@@ -217,7 +228,15 @@ class FluoLine(hashable.Hashable):
                 return Shell(shellname)
         raise RuntimeError("Cannot find the shell of fluorescence line {}".format(self))
 
-
+    def fluorescence_production_cs(self,Z,E):
+        # Kissel without cascade and Coster–Kronig transitions:
+        #   return self.shell.partial_photo(Z,E)*self.shell.fluoyield(Z)*self.radrate(Z)
+        # Kissel without cascade but with Coster–Kronig transitions:
+        #   return xraylib.CS_FluorLine_Kissel_no_Cascade(Z, self.code, E)
+        # Kissel with cascade and Coster–Kronig transitions:
+        return xraylib.CS_FluorLine_Kissel_Cascade(Z, self.code, E)
+        
+        
 class Shell(hashable.Hashable):
 
     @staticmethod
@@ -323,6 +342,9 @@ class Shell(hashable.Hashable):
             else:
                 return self.fluoyield(Z)*sum(self.radrate(Z))
 
+    def partial_photo(self,Z,E):
+        return xraylib.CS_Photo_Partial(Z,self.code,E)
+
     def edgeenergy(self,Z):
         return xraylib.EdgeEnergy(Z,self.code)
 
@@ -332,7 +354,7 @@ class FluoZLine(hashable.Hashable):
     def __init__(self,element,line):
         self.line = line
         self.element = element
-        
+
     def __getattr__(self,attr):
         try:
             return getattr(self.line,attr)
@@ -348,16 +370,22 @@ class FluoZLine(hashable.Hashable):
         """Unique representation of an instance
         """
         return "{}-{}".format(self.element,self.line)
+    
+    @property
+    def nenergy(self):
+        return 1
         
     def energy(self,**kwargs):
         return self.line.energy(self.element.Z)
 
+    def split(self):
+        return [self]
+            
 
-class RayleighLine(hashable.Hashable):
+class ScatteringLine(hashable.Hashable):
 
     def __init__(self,energysource):
         self.energysource = energysource
-        self.name = "Rayleigh"
         
     def _cmpkey(self):
         """For comparing and sorting
@@ -368,31 +396,49 @@ class RayleighLine(hashable.Hashable):
         """Unique representation of an instance
         """
         return self.name
+
+    @property
+    def nenergy(self):
+        try:
+            return len(self.energysource)
+        except:
+            return 1
+            
+    def split(self):
+        if self.nenergy==1:
+            return self
+        else:
+            return [self.__class__(en) for en in self.energysource]
+        
+        
+class RayleighLine(ScatteringLine):
+
+    def __init__(self,energysource):
+        self.name = "Rayleigh"
+        super(RayleighLine,self).__init__(energysource)
 
     def energy(self,**kwargs):
         return self.energysource
-        
-        
-class ComptonLine(hashable.Hashable):
 
+        
+class ComptonLine(ScatteringLine):
+
+    def __init__(self,energysource):
+        self.name = "Compton"
+        super(ComptonLine,self).__init__(energysource)
+        
     def __init__(self,energysource):
         self.energysource = energysource
         self.name = "Compton"
-
-    def _cmpkey(self):
-        """For comparing and sorting
-        """
-        return self.name
-
-    def _stringrepr(self):
-        """Unique representation of an instance
-        """
-        return self.name
-
+            
     def energy(self,scatteringangle=0):
+        """
+        Args:
+            scatteringangle(num): rad
+        """
         if scatteringangle==0:
             return self.energysource
-        delta = ureg.Quantity(1-np.cos(np.radians(scatteringangle)),"1/(m_e*c^2)").to("1/keV","spectroscopy").magnitude
+        delta = ureg.Quantity(1-np.cos(scatteringangle),"1/(m_e*c^2)").to("1/keV","spectroscopy").magnitude
         return self.energysource/(1+self.energysource*delta) 
         
         
@@ -411,6 +457,13 @@ class Spectrum(object):
         self.type = None
    
     @property
+    def ylabel(self):
+        if self.type==self.TYPES.crosssection:
+            return "Probability (1/cm)"
+        else:
+            return "Rate (ph/phsource)"
+            
+    @property
     def lines(self):
         for line,cs in self.cs.items():
             if np.sum(cs)==0:
@@ -419,10 +472,14 @@ class Spectrum(object):
 
     @property
     def sortedcs(self):
-        for line,cs in sorted(self.cs.items(),key=lambda x: max(instance.asarray(x[0].energy(scatteringangle=0.1)))):
+        for line,cs in sorted(self.cs.items(),key=lambda x: max(instance.asarray(x[0].energy(scatteringangle=1e-4)))):
             if np.sum(cs)==0:
                 continue
             yield line,cs
+
+    def __str__(self):
+        lines = "\n ".join(["{} {}".format(line,cs) for line,cs in self.sortedcs])
+        return "{}\n Line   {}\n {}".format(self.title,self.ylabel,lines)
 
     @property
     def probabilities(self):
@@ -431,7 +488,7 @@ class Spectrum(object):
         for line,cs in self.cs.items():
             if np.sum(cs)==0:
                 continue
-            yield line,cs*(self.density/4*np.pi) #TODO: assume all isotropic for now
+            yield line,cs*(self.density/(4*np.pi)) #TODO: assume all isotropic for now
 
     def energies(self,**kwargs):
         for line in self.cs:
@@ -472,7 +529,7 @@ class Spectrum(object):
         bmark = False
         
         if detector is None:
-            scatteringangle = 90.
+            scatteringangle = np.pi/2
         else:
             scatteringangle = detector.scatteringangle
 
@@ -480,7 +537,7 @@ class Spectrum(object):
                 
             element = getattr(line, 'element', None)
             energy = instance.asarray(line.energy(scatteringangle=scatteringangle))
-            probability = cs*self.density
+            probability = instance.asarray(cs*self.density)
 
             # Scattering or fluorescence
             if element is None: # scattering
@@ -539,10 +596,7 @@ class Spectrum(object):
             
         plt.legend(loc='best')
         plt.xlabel(self.xlabel)
-        if self.type==self.TYPES.crosssection:
-            plt.ylabel("Probability (1/cm)")
-        else:
-            plt.ylabel("Generation yield")
+        plt.xlabel(self.ylabel)
         plt.xlim(self.xlim)
         try:
             plt.title(self.title)

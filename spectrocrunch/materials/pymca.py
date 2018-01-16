@@ -26,11 +26,19 @@ from ..common import units
 from . import mixture
 from . import compoundfromformula
 
+import fisx
+import contextlib
+import numpy as np
+
 class PymcaAttenuators(object):
 
     def __init__(self,attenuators=None):
         self.attenuators = attenuators
 
+    def __str__(self):
+        atts = "\n ".join(["{} ({}) = {} cm".format(attname,attinfo["material"],attinfo["thickness"]) for attname,attinfo in self.attenuators.items()])
+        return "Attenuators:\n {}".format(atts)
+        
     def addtoconfig(self,config): 
         for attname,attinfo in self.attenuators.items():
             self.addattenuator(config,attname,attinfo["material"],attinfo["thickness"])
@@ -61,6 +69,49 @@ class PymcaAttenuators(object):
         else:
             material = compoundfromformula.CompoundFromFormula(matname,density)
         return material
+
+    @staticmethod
+    def isbefore(name):
+        return "BeamFilter" in name
+
+    @staticmethod
+    def isafter(name):
+        return "BeamFilter" not in name and name != "Detector"
+    
+    def addtofisx(self,setup,cfg):
+        att_after = []
+        att_before = []
+
+        for attname,attinfo in self.attenuators.items():
+            material = attinfo["material"]
+            cfg.addMaterial(material)
+            
+            if self.isafter(attname):
+                att_after.append([material.pymcaname,material.density,attinfo["thickness"],1.0])
+            elif self.isbefore(attname):
+                att_before.append([material.pymcaname,material.density,attinfo["thickness"],1.0])
+        
+        if att_before:
+            setup.setBeamFilters(att_before)
+        if att_after:
+            setup.setAttenuators(att_after)
+        
+    def filter_absorbance(self,energy,source=False):
+        if source:
+            atts = [self.attenuators[att] for att in self.attenuators if self.isbefore(att)]
+        else:
+            atts = [self.attenuators[att] for att in self.attenuators if self.isafter(att)]
+        if atts:
+            return sum([att["material"].mass_att_coeff(energy)*(att["thickness"]*att["material"].density) for att in atts])
+        else:
+            return np.zeros_like(energy,dtype=float)
+
+    def filter_transmission(self,energy,source=False):
+        return np.exp(-self.filter_absorbance(energy,source=source))
+        
+    def filter_attenuation(self,energy,source=False):
+        return 1-self.filter_transmission(energy,source=source)
+        
         
 class PymcaConfig(object):
 
@@ -113,4 +164,29 @@ class PymcaConfig(object):
         self.beam(config)
         self.background(config)
         self.peakshape(config)
+
+
+class FisxConfig():
+    
+    FISXMATERIALS = None
+    
+    def init(self):
+        if self.FISXMATERIALS is None:
+            self.FISXMATERIALS = fisx.Elements()
+            self.FISXMATERIALS.initializeAsPyMca()
+        
+    @contextlib.contextmanager
+    def init_ctx(self):
+        self.init()
+        yield
+        
+    def setDetector(self,setup,detector):
+        with self.init_ctx():
+            detector.addtofisx(setup,self.FISXMATERIALS)
+
+    def addMaterial(self,material):
+        if material.nelements>1:
+            with self.init_ctx():
+                self.FISXMATERIALS.addMaterial(material.tofisx(),errorOnReplace=False)
+        return material.pymcaname
 
