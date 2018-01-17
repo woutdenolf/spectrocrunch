@@ -134,7 +134,7 @@ class Detector(with_metaclass(pymca.PymcaAttenuators)):
     def attenuation(self,energy):
         return 1-self.transmission(energy)
     
-    def efficiency(self,energydet,energysource):
+    def efficiency(self,energysource,energydet):
         """Detector efficiency = S/cos(ain)*T(energysource)*T(energydet)*A(energydet)
             S: solid angle detector
             ain: angle of beam with surface normal
@@ -142,11 +142,11 @@ class Detector(with_metaclass(pymca.PymcaAttenuators)):
             A: attenuation by the detector crystal
             
         Args:
-            energydet: n1
             energysource: n0
+            energydet: n1
 
         Returns:
-            array: n1 x n0
+            array: n0 x n1
         """
         energysource = instance.asarray(energysource)
         energydet = instance.asarray(energydet)
@@ -158,7 +158,7 @@ class Detector(with_metaclass(pymca.PymcaAttenuators)):
         
         # the cosine term is put here for convenience (comes from integration over sample thickness)
         
-        return (g*T0)[np.newaxis,:]*(T1*A)[:,np.newaxis]
+        return (g*T0)[:,np.newaxis]*(T1*A)[np.newaxis,:]
         
 class Leia(Detector):
     aliases = ["SGX80"]

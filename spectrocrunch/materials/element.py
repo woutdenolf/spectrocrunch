@@ -226,8 +226,8 @@ class Element(hashable.Hashable):
         cs = np.empty(len(E),dtype=np.float64)
 
         # Total
-        for i in range(len(E)):
-            cs[i] = xraylib.CS_Total_Kissel(self.Z,np.float64(E[i]))
+        for i,en in enumerate(E):
+            cs[i] = xraylib.CS_Total_Kissel(self.Z,np.float64(en))
 
         # Replace part by simulation
         cs = self._replace_partial_mass_abs_coeff(cs,E,environ=environ,decimals=decimals,refresh=refresh)

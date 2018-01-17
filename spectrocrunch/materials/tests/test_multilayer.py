@@ -94,28 +94,6 @@ class test_multilayer(unittest.TestCase):
                                                 detector = detector)
         return o
     
-    def _multilayercomplex(self):
-        compound1 = compoundfromformula.CompoundFromFormula("MnFe",density=5.)
-        
-        compound2 = compoundfromformula.CompoundFromFormula("Mn2Fe3",density=5.1)
-        
-        geometry = xrfgeometries.factory("sdd120",detectorposition=-15.)
-        detector = xrfdetectors.factory("leia",geometry=geometry)
-        o = multilayer.Multilayer(material=[compound1,compound2],\
-                                                thickness=[1e-4,2e-4],\
-                                                detector = detector)
-        energy0 = 8.
-        
-        return o,energy0
-        
-    def test_str(self):
-        o,thickness = self._multilayer1()
-        s = str(o).split("\n")
-        print(s)
-        for i,layer in enumerate(o):
-            self.assertTrue(str(layer) in s[i+1])
-            self.assertTrue(str(thickness[i]) in s[i+1])
-
     def test_transmission(self):
         o,thickness = self._multilayer1()
         
@@ -183,11 +161,10 @@ class test_multilayer(unittest.TestCase):
         for k in spectrum1:
             np.testing.assert_allclose(spectrum1[k],spectrum2[k],rtol=rtol)
 
-    def test_primary_fluorescence_simple(self):
+    def test_primary_simple(self):
         # Define setup: single layer with single element
         element1 = element.Element("Fe")
-        energy0 = 8
-        
+
         geometry = xrfgeometries.Geometry(anglein=62,angleout=49,detectorposition=50.)
         attenuators = {}
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":45e-4}
@@ -195,61 +172,89 @@ class test_multilayer(unittest.TestCase):
         
         o = multilayer.Multilayer(material=[element1],thickness=[10e-4],detector = detector)
         
-        # Simple spectrum generation (1 interaction)
-        gen = dict(element1.xrayspectrum(energy0,emin=2,emax=energy0).probabilities)
-        mu0 = element1.mass_att_coeff(energy0)
-        for k in gen:
-            energy1 = k.energy(scatteringangle=o.detector.scatteringangle)
-            mu1 = element1.mass_att_coeff(energy1)
-            chi = mu1/o.detector.cosnormout-mu0/o.detector.cosnormin
-            chi = chi*element1.density
-            thicknesscor = (np.exp(chi*o.thickness[0])-1)/chi # /cm
-            eff = np.squeeze(o.detector.efficiency(energy1,energy0)) # srad
-            gen[k] = gen[k]*eff*thicknesscor
+        for energy0 in [8,[8,9]]:
         
-        spectrumRef = xrayspectrum.Spectrum()
-        spectrumRef.cs = gen
-        spectrumRef.xlim = [2,energy0]
-        spectrumRef.density = 1
-        spectrumRef.title = str(self)
-        spectrumRef.type = spectrumRef.TYPES.interactionyield
+            # Simple spectrum generation (1 interaction)
+            gen = dict(element1.xrayspectrum(energy0,emin=2,emax=energy0).probabilities)
+            mu0 = element1.mass_att_coeff(energy0)
+            for k in gen:
+                energy1 = k.energy(scatteringangle=o.detector.scatteringangle)
+                mu1 = element1.mass_att_coeff(energy1)
+                chi = mu1/o.detector.cosnormout-mu0/o.detector.cosnormin
+                chi = chi*element1.density
+                thicknesscor = (np.exp(chi*o.thickness[0])-1)/chi # /cm
+                eff = o.detector.efficiency(energy0,energy1) # srad
+                eff = np.diag(eff)
+                gen[k] = gen[k]*eff*thicknesscor
+            
+            spectrumRef = xrayspectrum.Spectrum()
+            spectrumRef.cs = gen
+            spectrumRef.xlim = [2,energy0]
+            spectrumRef.density = 1
+            spectrumRef.title = str(self)
+            spectrumRef.type = spectrumRef.TYPES.interactionyield
 
-        # Compare with different methods
-        spectrum1 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="analytical",ninteractions=1)
-        spectrum2 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="numerical",ninteractions=1)
-        spectrum3 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="fisx",ninteractions=1)
+            # Compare with different methods
+            spectrum1 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="analytical",ninteractions=1)
+            spectrum2 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="numerical",ninteractions=1)
+            spectrum3 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="fisx",ninteractions=1)
+            
+            self.assertSpectrumEqual(spectrum1.cs,spectrumRef.cs,rtol=1e-06) # 0.0001% deviation
+            self.assertSpectrumEqual(spectrum1.cs,spectrum2.cs) # 0.00001% deviation
+
+            for k in ["Rayleigh","Compton"]:
+                spectrum3.cs[k] = spectrum1.cs[k]
+            self.assertSpectrumEqual(spectrum1.cs,spectrum3.cs,rtol=0.5e-02) # 0.5% deviation
+
+    def test_primary_complex(self):
+        compound1 = compoundfromformula.CompoundFromFormula("MnFe",density=7.)
         
-        self.assertSpectrumEqual(spectrum1.cs,spectrumRef.cs,rtol=1e-06)
-        self.assertSpectrumEqual(spectrum1.cs,spectrum2.cs)
-
-        for k in ["Rayleigh","Compton"]:
-            spectrum3.cs[k] = spectrum1.cs[k]
-        self.assertSpectrumEqual(spectrum1.cs,spectrum3.cs,rtol=2e-03)
-
-    def test_primary_fluorescence_complex(self):
-        o,energy0 = self._multilayercomplex()
+        compound2 = compoundfromformula.CompoundFromFormula("Mn2Fe3",density=8.)
+        
+        geometry = xrfgeometries.factory("sdd120",detectorposition=-15.)
+        detector = xrfdetectors.factory("leia",geometry=geometry)
+        o = multilayer.Multilayer(material=[compound1,compound2],\
+                                                thickness=[50e-4,100e-4],\
+                                                detector = detector)
     
-        spectrum1 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="analytical")
-        spectrum2 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="numerical")
-        spectrum3 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="fisx")
+        for energy0 in [8,[8,9]]:
+            spectrum1 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="analytical",ninteractions=1)
+            spectrum2 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="numerical",ninteractions=1)
+            spectrum3 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="fisx",ninteractions=1)
+
+            self.assertSpectrumEqual(spectrum1.cs,spectrum2.cs,rtol=1e-05) # 0.001% deviation
+            for k in ["Rayleigh","Compton"]:
+                spectrum3.cs[k] = spectrum1.cs[k]
+            self.assertSpectrumEqual(spectrum1.cs,spectrum3.cs,rtol=1e-02) # 1% deviation
+
+    def test_secondary(self):
+        compound1 = compoundfromformula.CompoundFromFormula("MnFe",density=7.)
         
-        self.assertSpectrumEqual(spectrum1.cs,spectrumRef.cs,rtol=1e-06)
-        self.assertSpectrumEqual(spectrum1.cs,spectrum2.cs)
-        for k in ["Rayleigh","Compton"]:
-            spectrum3.cs[k] = spectrum1.cs[k]
-        self.assertSpectrumEqual(spectrum1.cs,spectrum3.cs,rtol=2e-03)
+        compound2 = compoundfromformula.CompoundFromFormula("Mn2Fe3",density=8.)
         
+        geometry = xrfgeometries.factory("sdd120",detectorposition=-15.)
+        detector = xrfdetectors.factory("leia",geometry=geometry)
+        o = multilayer.Multilayer(material=[compound1,compound2],\
+                                                thickness=[1e-4,2e-4],\
+                                                detector = detector)
+    
+        for energy0 in [8]:
+            spectrum2 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="numerical",ninteractions=2)
+            spectrum3 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="fisx",ninteractions=2)
+            for k in ["Rayleigh","Compton"]:
+                spectrum3.cs[k] = spectrum2.cs[k]
+            self.assertSpectrumEqual(spectrum2.cs,spectrum3.cs,rtol=1e-02) # 1% deviation
+            
     
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_multilayer("test_expi"))
-    #testSuite.addTest(test_multilayer("test_str"))
     testSuite.addTest(test_multilayer("test_attenuationinfo"))
     testSuite.addTest(test_multilayer("test_transmission"))
-    testSuite.addTest(test_multilayer("test_primary_fluorescence_simple"))
-    
-    #testSuite.addTest(test_multilayer("test_primary_fluorescence_complex"))
+    testSuite.addTest(test_multilayer("test_primary_simple"))
+    testSuite.addTest(test_multilayer("test_primary_complex"))
+    #testSuite.addTest(test_multilayer("test_secondary"))
     return testSuite
     
 if __name__ == '__main__':

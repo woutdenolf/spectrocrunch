@@ -27,19 +27,24 @@ import numpy as np
 
 class Geometry(with_metaclass(object)):
 
-    def __init__(self,anglein=None,angleout=None,detectorposition=None,distanceoffset=0):
+    def __init__(self,anglein=None,angleout=None,detectorposition=None,distancefunc=None,distanceifunc=None):
         """
         Args:
             anglein(num): angle (deg) between primary beam and surface
             angleout(num): angle (deg) between fluorescene path to detector and surface
-            detectorposition(num): motor position in cm
-            distanceoffset(num): position offset in cm to get the true distance
+            detectorposition(num): motor position in motor units
+            distancefunc(callable): convert detectorposition to distance in cm
+            distanceifunc(callable): inverse of distancefunc
         """
         
         self.anglein = float(anglein) # deg
         self.angleout = float(angleout) # deg
         self.detectorposition = float(detectorposition)
-        self.distanceoffset = float(distanceoffset)
+        if distancefunc is None or distanceifunc is None:
+            distancefunc = lambda x:x
+            distanceifunc = lambda x:x
+        self.distancefunc = distancefunc
+        self.distanceifunc = distanceifunc
         self.reflection = self.angleout>0
 
     @property
@@ -68,11 +73,13 @@ class Geometry(with_metaclass(object)):
     
     @property
     def distance(self):
-        return self.detectorposition + self.distanceoffset
+        """Sampel detector distance in cm
+        """
+        return self.distancefunc(self.detectorposition)
         
     @distance.setter
     def distance(self,value):
-        self.detectorposition = value - self.distanceoffset
+        self.detectorposition = self.distanceifunc(value)
 
     def __str__(self):
         return "Distance = {} cm\nIn = {} deg\nOut = {} deg ({})".format(self.distance,self.anglein,self.angleout,"reflection" if self.reflection else "transmission")
@@ -85,13 +92,19 @@ class sdd120(Geometry):
 
     def __init__(self,**kwargs):
         # blc10516 (April 2017)
-        super(sdd120,self).__init__(anglein=62,angleout=49,distanceoffset=6.05,**kwargs)
+        # detector position in mm
+        distancefunc = lambda x: (x+60.5)/10
+        distanceifunc = lambda x: x*10-60.5
+        super(sdd120,self).__init__(anglein=62,angleout=49,distancefunc=distancefunc,distanceifunc=distanceifunc,**kwargs)
 
 class sdd90(Geometry):
 
     def __init__(self,**kwargs):
         # blc10516 (April 2017)
-        super(sdd90,self).__init__(anglein=62,angleout=28,distanceoffset=8.55,**kwargs)
+        # detector position in mm
+        distancefunc = lambda x: (x+85.5)/10
+        distanceifunc = lambda x: x*10-85.5
+        super(sdd90,self).__init__(anglein=62,angleout=28,distancefunc=distancefunc,distanceifunc=distanceifunc,**kwargs)
 
 factory = Geometry.factory
 

@@ -381,21 +381,19 @@ class Multilayer(with_metaclass(cache.Cache)):
 
         return {"probabilities":probabilities,"energyindex":energyindex,"getenergy":getenergy}
 
-    def _gentransmission(self,zi,zj,cosaij,i,energyi,energyj,interactionj):
-        """Generation at depth zi and then transmission from zi to zj
+    def _genprobabilities(self,zi,i,energyi,interactionj):
+        """Generation at depth zi
         
         Args:
             zi(num|array): start depth of attenuation
-            zj(num|array): end depth of attenuation
-            cosaij(num|array): angle with surface normal
             i(num): interaction 1, 2, ...
             energyi(num): energy in
-            energyj(num|array): energy out
             interactionj(object|array): 
             
         Returns:
             array:
         """
+        
         lz = self._zlayer(zi)
         lzarr = instance.isarray(lz)
         if lzarr:
@@ -413,7 +411,26 @@ class Multilayer(with_metaclass(cache.Cache)):
                 probs = probs.loc[lz]
             probs = probs.values
             
-        return probs*self._transmission(zi,zj,cosaij,energyj)
+        return probs
+            
+    def _gentransmission(self,zi,zj,cosaij,i,energyi,energyj,interactionj):
+        """Generation at depth zi and then transmission from zi to zj
+        
+        Args:
+            zi(num|array): start depth of attenuation
+            zj(num|array): end depth of attenuation
+            cosaij(num|array): angle with surface normal
+            i(num): interaction 1, 2, ...
+            energyi(num): energy in
+            energyj(num|array): energy out
+            interactionj(object|array): 
+            
+        Returns:
+            array:
+        """
+        probs = self._genprobabilities(zi,i,energyi,interactionj)
+        T = self._transmission(zi,zj,cosaij,energyj)
+        return probs*T
 
     def _gentransmission_saintegrated(self,zi,zj,i,energyi,energyj,interactionj):
         """Generation at depth zi and then transmission from zi to zj
@@ -429,19 +446,9 @@ class Multilayer(with_metaclass(cache.Cache)):
         Returns:
             array:
         """
-        lz = self._zlayer(zi)
-        
-        interactioninfo = self.getcashed("interactioninfo")
-
-        ind = interactioninfo["energyindex"][i](energyi)
-        
-        if instance.isarray(lz):
-            probs = np.asarray([interactioninfo["probabilities"][i][k][interactionj][ind] for k in lz])
-        else:
-            probs = interactioninfo["probabilities"][i][lz][interactionj][ind]
-
+        probs = self._genprobabilities(zi,i,energyi,interactionj)
         datt = self._cum_attenuation(zj,energyj)-self._cum_attenuation(zi,energyj)
-        
+
         #func = lambda theta,phi: probs[ind]*np.exp(-datt/np.cos(theta))*np.tan(theta)
         #return np.nquad(func,[(0,np.pi/2),(0,2*np.pi)])
         
@@ -501,10 +508,8 @@ class Multilayer(with_metaclass(cache.Cache)):
 
         # Interaction probability: nlayers x nsource x nlines  (ph/cm/srad)
         probs = interactioninfo["probabilities"][interactionindex].loc[(range(1,self.nlayers+1),),interactions1]
-        probs = probs.swaplevel(0,1)
-        probs.sort_index(inplace=True)
         probs = probs.values.reshape((nlayers,nsource,nlines))
-        
+
         # Rate: fluoresence/scattering per incoming photon
         J2 = J2*probs # (ph/cm/srad) -> (ph/srad)
         return dict(zip(interactions1,J2.sum(axis=0).T))
@@ -524,7 +529,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         scatteringangle = self.detector.scatteringangle
         
         interactioninfo = self.getcashed("interactioninfo")
-        energy0 = interactioninfo["getenergy"](interactioninfo["probabilities"][interactionindex-1])
+        energy0 = interactioninfo["getenergy"](interactioninfo["probabilities"][0])
         interactions1 = interactioninfo["probabilities"][interactionindex].columns
         
         J2 = {}
@@ -534,31 +539,26 @@ class Multilayer(with_metaclass(cache.Cache)):
         def numintegrate(path,za,zb):
             return scipy.integrate.quad(path, za, zb)[0]
         
+        n = (zb-za)/min(self.thickness)*100
         def numintegratefast(path,za,zb):
             x = np.linspace(za,zb,n)
             y = path(x)
-            return scipy.integrate.trapz(y, x=x)
+            return np.trapz(y, x=x)
+            #return scipy.integrate.trapz(y, x=x)
             
         #import matplotlib.pyplot as plt
-        #n = (zb-za)/min(self.thickness)*100
-        
+
         for interaction1 in interactions1:
             energy1 = interaction1.energy(scatteringangle=scatteringangle)
-            
             if isinstance(interaction1,xrayspectrum.FluoZLine):
-                en1 = energy1
-                gen = [numintegrate(path, za, zb)\
-                        for en0 in energy0]
-            else:
-                energy1 = instance.asarray(energy1)
-                gen = [numintegrate(path, za, zb)\
-                        for en0,en1 in zip(energy0,energy1)]
+                energy1 = [energy1]*len(energy0)
+
+            gen = [numintegrate(path, za, zb)\
+                    for en0,en1 in zip(energy0,energy1)]
             
             #plt.figure()
             #x = np.linspace(za,zb,n)
-            #y = path(x)
-            #print(interaction1,gen,numintegratefast(path, za, zb))
-            #plt.plot(x,y)
+            #plt.plot(x,path(x))
             #plt.show()
             
             J2[interaction1] = np.asarray(gen)
@@ -568,7 +568,6 @@ class Multilayer(with_metaclass(cache.Cache)):
     def _secondary_interaction_numerical(self):
         """Returns the ph/srad generated per source line after 2 interactions (without efficiency term)
         """
-        #TODO: not finished
         interactionindex = 2
         
         cosafirst = self.detector.cosnormin
@@ -578,40 +577,55 @@ class Multilayer(with_metaclass(cache.Cache)):
         zb = layerinfo["cumul_thickness"][-1]
         zfirst = layerinfo["cumul_thickness"][0]
         zlast = layerinfo["zexit"]
+        scatteringangle1 = self.detector.scatteringangle
+        scatteringangle2 = scatteringangle1
         
         interactioninfo = self.getcashed("interactioninfo")
-        interactions2  = interactioninfo["probabilities"][interactionindex].columns
+        energy0 = interactioninfo["getenergy"](interactioninfo["probabilities"][0])
+        interactions1 = interactioninfo["probabilities"][1].columns
+        interactions2 = interactioninfo["probabilities"][2].columns
         J3 = {}
         path = lambda z1,z2: self._transmission(zfirst,z1,cosafirst,en0)*\
                              self._gentransmission_saintegrated(z1,z2,interactionindex-1,en0,en1,interaction1)*\
                              self._gentransmission(z2,zlast,cosalast,interactionindex,en1,n2,interaction2)
 
-        def addsources(data):
-            data = instance.asarray(data)
-            while data.ndim>=2:
-                data = data.sum(axis=-1)
-            return data
+        def numintegrate(path,za,zb):
+            return scipy.integrate.nquad(path, [(za, zb)]*2)[0]
+        
+        n = (zb-za)/min(self.thickness)*100
+        def numintegratefast(path,za,zb):
+            x1 = np.linspace(za,zb,n)
+            x2 = np.linspace(za,zb,n)
+            y = path(x1,x2)
+            y = np.trapz(y, x=x1, axis=0)
+            y = np.trapz(y, x=x2, axis=0)
+            return y
+        
+        #import matplotlib.pyplot as plt
+        
+        for interaction1 in interactions1:
+            energy1 = interaction1.energy(scatteringangle=scatteringangle1)
+            if isinstance(interaction1,xrayspectrum.FluoZLine):
+                energy1 = [energy1]*len(energy0)
 
-        for energy0 in instance.asarray(energy):
             for interaction2 in interactions2:
-                scatteringangle2 = scatteringangle1
                 energy2 = interaction2.energy(scatteringangle=scatteringangle2)
-                for interaction1 in interactions1:
-                    energy1 = interaction1.energy(scatteringangle=scatteringangle1)
+                if isinstance(interaction2,xrayspectrum.FluoZLine):
+                    energy2 = [energy2]*len(energy1)
 
-                    #plt.imshow(arr)
-                    #plt.show()
+                for en0,en1,en2 in zip(energy0,energy1,energy2):
+                    print(path(1e-4,1e-4))
                     
-                    gen = [[[scipy.integrate.nquad(path, [(za, zb)]*2)[0]\
-                            for en0 in instance.asarray(energy0)]\
-                            for en1 in instance.asarray(energy1)]\
-                            for en2 in instance.asarray(energy2)]
+                    plt.figure()
+                    x1 = np.linspace(za,zb,n)
+                    x2 = np.linspace(za,zb,n)
+                    plt.imshow(path(x1,x2))
                     
-                    if interaction2 in gen2:
-                        J3[interaction2] += addsources(gen)
-                    else:
-                        J3[interaction2] = addsources(gen)
-                        
+                gen = [numintegrate(path, za, zb)\
+                    for en0,en1,en2 in zip(energy0,energy1,energy2)]
+
+                J3[interaction2] = np.asarray(gen)
+  
         return J3
 
     def addtofisx(self,setup,cfg):
@@ -702,17 +716,28 @@ class Multilayer(with_metaclass(cache.Cache)):
         # ph/srad -> ph
         
         lines = gen.keys()
-        energysource = lines[lines.index("Rayleigh")].energy
-        energy = np.asarray([k.energy(scatteringangle=self.detector.scatteringangle) for k in gen])
-        efficiency = self.detector.efficiency(energy,energysource)
+        energysource = lines[lines.index("Rayleigh")].energy(scatteringangle=self.detector.scatteringangle)
+        energydet = [k.energy(scatteringangle=self.detector.scatteringangle) for k in lines]
+        ind = np.cumsum([listtools.length(en) for en in energydet])
+        ind = np.insert(ind,0,0)
+        ind = zip(ind[:-1],ind[1:])
 
-        for k,eff in zip(gen,efficiency):
+        energydet = list(listtools.flatten(energydet))
+        efficiency = self.detector.efficiency(energysource,energydet)
+        
+        for k,(a,b) in zip(lines,ind):
+            if a==b:
+                eff = efficiency[:,a]
+            else:
+                eff = np.diag(efficiency[:,a:b])
             gen[k] = gen[k]*eff
-
+            
     @cache.withcache("layerinfo")
     def xrayspectrum(self, energy0, emin=0, emax=None, calc="fisx", ninteractions=1):
-    
-        if calc=="fisx" and ninteractions<=3:
+        if ninteractions>3 and calc=="fisx":
+            calc="numerical"
+
+        if calc=="fisx":
             gen = self._interactions_fisx(energy0,ninteractions,emin=emin,emax=emax) 
         else:
             with self.cachectx("interactioninfo",energy0,emin=emin,emax=emax,\
@@ -720,13 +745,21 @@ class Multilayer(with_metaclass(cache.Cache)):
                                 scatteringangle=self.detector.scatteringangle):
                 interactioninfo = self.getcashed("interactioninfo")
                 allenergies = interactioninfo["getenergy"](interactioninfo["probabilities"][-2])
-                
                 with self.cachectx("attenuationinfo",allenergies):
+                    # Primary interaction (with self-absorption)
                     if calc=="numerical":
                         gen = self._primary_interaction_numerical()
                     else:
                         gen = self._primary_interaction()
 
+                    # Secondary interaction (with self-absorption)
+                    if ninteractions>=2:
+                        for k,v in self._secondary_interaction_numerical().items():
+                            if k in gen:
+                                gen[k] += v
+                            else:
+                                gen[k] = v
+                    
             self._interactions_applydetector(gen)
 
         spectrum = self._dict_to_spectrum(gen)
