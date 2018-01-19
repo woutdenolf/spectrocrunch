@@ -34,6 +34,8 @@ from .. import utils
 from .. import xrayspectrum
 from ...geometries import xrf as xrfgeometries
 from ...detectors import xrf as xrfdetectors
+from ...common import timing
+from ...common import listtools
 
 import numpy as np
 import scipy.integrate
@@ -53,7 +55,7 @@ class test_multilayer(unittest.TestCase):
             self.assertLessEqual(int3,int1[0]+int1[1])
             
     def _multilayer1(self):
-        geometry = xrfgeometries.factory("Geometry",detectorposition=0, anglein=62, angleout=49)
+        geometry = xrfgeometries.factory("sdd120",detectorposition=-15.)
         detector = xrfdetectors.factory("Detector",activearea=0.50, geometry=geometry)
         detector.solidangle = 4*np.pi*0.1
     
@@ -86,8 +88,7 @@ class test_multilayer(unittest.TestCase):
     def _multilayer3(self):
         element1 = element.Element("Ca")
         
-        #geometry = xrfgeometries.factory("sdd120",detectorposition=-1.5)
-        geometry = xrfgeometries.Geometry(anglein=90,angleout=45,detectorposition=10.)
+        geometry = xrfgeometries.factory("sdd120",detectorposition=4.)
         detector = xrfdetectors.factory("leia",geometry=geometry)
         o = multilayer.Multilayer(material=[element1],\
                                                 thickness=[1e-4],\
@@ -111,7 +112,7 @@ class test_multilayer(unittest.TestCase):
         
     def test_attenuationinfo(self):
 
-        geometry = xrfgeometries.factory("geometry",anglein=90,angleout=45,detectorposition=0)
+        geometry = xrfgeometries.factory("geometry",anglein=90,angleout=45,detectorposition=0,Plinear=1,delta=0,azimuth=0)
         detector = xrfdetectors.factory("leia",geometry=geometry)
     
         o = multilayer.Multilayer(material=[compoundfromname.compoundfromname("hematite"),\
@@ -155,95 +156,126 @@ class test_multilayer(unittest.TestCase):
                             T2 = np.squeeze(o._transmission(z[i],z[j],cosaij[j],energy))
                             np.testing.assert_allclose(T1,T2)
     
-    def assertSpectrumEqual(self,spectrum1,spectrum2,rtol=1e-07):
+    def assertSpectrumEqual(self,spectrum1,spectrum2,rtol=1e-07,noscattering=False):
+        if noscattering:
+            for k in ["Rayleigh","Compton"]:
+                try:
+                    spectrum1.pop(k)
+                except KeyError:
+                    pass
+                try:
+                    spectrum2.pop(k)
+                except KeyError:
+                    pass    
+                    
         self.assertEqual(sorted(spectrum1.keys()),sorted(spectrum2.keys()))
 
         for k in spectrum1:
             np.testing.assert_allclose(spectrum1[k],spectrum2[k],rtol=rtol)
 
     def test_primary_simple(self):
-        # Define setup: single layer with single element
-        element1 = element.Element("Fe")
+        # Define setup: single layer
+        compound1 = compoundfromformula.CompoundFromFormula("Mn1Fe2Ca3O4",density=7.)
 
-        geometry = xrfgeometries.Geometry(anglein=62,angleout=49,detectorposition=50.)
-        attenuators = {}
-        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":45e-4}
-        detector = xrfdetectors.Detector(activearea=0.8,geometry=geometry,attenuators=attenuators)
+        geometry = xrfgeometries.factory("sdd120",detectorposition=-15.)
+        detector = xrfdetectors.factory("leia",geometry=geometry)
+        detector.attenuators["BeamFilter"] = {"material":element.Element('Si'),"thickness":10e-4}
+        detector.attenuators["Filter"] = {"material":element.Element('Si'),"thickness":10e-4}
         
-        o = multilayer.Multilayer(material=[element1],thickness=[10e-4],detector = detector)
+        o = multilayer.Multilayer(material=[compound1],thickness=[50e-4],detector = detector)
         
-        for energy0 in [8,[8,9]]:
-        
-            # Simple spectrum generation (1 interaction)
-            gen = dict(element1.xrayspectrum(energy0,emin=2,emax=energy0).probabilities)
-            mu0 = element1.mass_att_coeff(energy0)
-            for k in gen:
-                energy1 = k.energy(scatteringangle=o.detector.scatteringangle)
-                mu1 = element1.mass_att_coeff(energy1)
-                chi = mu1/o.detector.cosnormout-mu0/o.detector.cosnormin
-                chi = chi*element1.density
-                thicknesscor = (np.exp(chi*o.thickness[0])-1)/chi # /cm
-                eff = o.detector.efficiency(energy0,energy1) # srad
-                eff = np.diag(eff)
-                gen[k] = gen[k]*eff*thicknesscor
+        for anglesign in [1,-1]:
+            detector.geometry.angleout = anglesign*abs(geometry.angleout)
             
-            spectrumRef = xrayspectrum.Spectrum()
-            spectrumRef.cs = gen
-            spectrumRef.xlim = [2,energy0]
-            spectrumRef.density = 1
-            spectrumRef.title = str(self)
-            spectrumRef.type = spectrumRef.TYPES.interactionyield
+            for energy0,weights in [[8,1],[[8,9],[1,1]]]:
+                weightsnorm = np.squeeze(np.asarray(weights,dtype=float)/np.sum(weights))
+                
+                # Simple spectrum generation (1 interaction)
+                gen = dict(compound1.xrayspectrum(energy0,emin=2,emax=energy0).probabilities)
 
-            # Compare with different methods
-            spectrum1 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="analytical",ninteractions=1)
-            spectrum2 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="numerical",ninteractions=1)
-            spectrum3 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="fisx",ninteractions=1)
-            
-            self.assertSpectrumEqual(spectrum1.cs,spectrumRef.cs,rtol=1e-06) # 0.0001% deviation
-            self.assertSpectrumEqual(spectrum1.cs,spectrum2.cs) # 0.00001% deviation
+                mu0 = compound1.mass_att_coeff(energy0)
+                for k in gen:
+                    energy1 = k.energy(scatteringangle=o.detector.scatteringangle)
+                    mu1 = compound1.mass_att_coeff(energy1)
+                    chi = mu1/o.detector.cosnormout-mu0/o.detector.cosnormin
+                    chi = chi*compound1.density
+                    thicknesscor = (np.exp(chi*o.thickness[0])-1)/chi # /cm
+                    if not geometry.reflection:
+                        thicknesscor *= np.exp(-mu1*compound1.density*o.thickness[0]/o.detector.cosnormout)
+                        
+                    eff = o.detector.efficiency(energy0,energy1) # srad
+                    if not isinstance(k,xrayspectrum.FluoZLine):
+                        eff = np.diag(eff)
+                    eff = np.squeeze(eff)
 
-            for k in ["Rayleigh","Compton"]:
-                spectrum3.cs[k] = spectrum1.cs[k]
-            self.assertSpectrumEqual(spectrum1.cs,spectrum3.cs,rtol=0.5e-02) # 0.5% deviation
+                    gen[k] = gen[k]*eff*thicknesscor*weightsnorm
+
+                    if isinstance(k,xrayspectrum.FluoZLine):
+                        gen[k] = np.sum(gen[k])
+                        
+                spectrumRef = xrayspectrum.Spectrum()
+                spectrumRef.cs = gen
+                spectrumRef.xlim = [2,energy0]
+                spectrumRef.density = 1
+                spectrumRef.title = str(self)
+                spectrumRef.type = spectrumRef.TYPES.interactionyield
+
+                # Compare with different methods
+                #with timing.timeit("analytical"):
+                spectrum1 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,calc="analytical",ninteractions=1)
+                #with timing.timeit("numerical"):
+                #spectrum2 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,calc="numerical",ninteractions=1)
+                #with timing.timeit("fisx"):
+                spectrum3 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,calc="fisx",ninteractions=1)
+
+                self.assertSpectrumEqual(spectrum1.cs,spectrumRef.cs,rtol=1e-06) # 0.0001% deviation
+                #self.assertSpectrumEqual(spectrum1.cs,spectrum2.cs) # 0.00001% deviation
+                self.assertSpectrumEqual(spectrum1.cs,spectrum3.cs,rtol=2e-02,noscattering=True) # 2% deviation
 
     def test_primary_complex(self):
-        compound1 = compoundfromformula.CompoundFromFormula("MnFe",density=7.)
+        compound1 = compoundfromformula.CompoundFromFormula("MnFe",density=6.)
         
-        compound2 = compoundfromformula.CompoundFromFormula("Mn2Fe3",density=8.)
+        compound2 = compoundfromformula.CompoundFromFormula("Mn1Fe2Ca3O4",density=9.)
         
         geometry = xrfgeometries.factory("sdd120",detectorposition=-15.)
         detector = xrfdetectors.factory("leia",geometry=geometry)
+        detector.attenuators["BeamFilter"] = {"material":element.Element('Si'),"thickness":10e-4}
+        #detector.attenuators["Filter"] = {"material":element.Element('Si'),"thickness":10e-4}
+        
         o = multilayer.Multilayer(material=[compound1,compound2],\
-                                                thickness=[50e-4,100e-4],\
+                                                thickness=[5e-4,10e-4],\
                                                 detector = detector)
-    
-        for energy0 in [8,[8,9]]:
-            spectrum1 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="analytical",ninteractions=1)
-            spectrum2 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="numerical",ninteractions=1)
-            spectrum3 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="fisx",ninteractions=1)
-
-            self.assertSpectrumEqual(spectrum1.cs,spectrum2.cs,rtol=1e-05) # 0.001% deviation
-            for k in ["Rayleigh","Compton"]:
-                spectrum3.cs[k] = spectrum1.cs[k]
-            self.assertSpectrumEqual(spectrum1.cs,spectrum3.cs,rtol=1e-02) # 1% deviation
+        
+        for anglesign in [1,-1]:
+            detector.geometry.angleout = anglesign*abs(geometry.angleout)
+            for energy0,weights in [[8,1],[[8,9],[1.,2.]]]:
+                #with timing.timeit("analytical"):
+                spectrum1 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,calc="analytical",ninteractions=1)
+                #with timing.timeit("numerical"):
+                spectrum2 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,calc="numerical",ninteractions=1)
+                #with timing.timeit("fisx"):
+                spectrum3 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,calc="fisx",ninteractions=1)
+                
+                self.assertSpectrumEqual(spectrum1.cs,spectrum2.cs,rtol=1e-04) # 0.001% deviation
+                self.assertSpectrumEqual(spectrum1.cs,spectrum3.cs,rtol=2e-02,noscattering=True) # 2% deviation
 
     def test_secondary(self):
-        compound1 = compoundfromformula.CompoundFromFormula("MnFe",density=7.)
+        compound1 = compoundfromformula.CompoundFromFormula("MnFe",density=6.)
         
-        compound2 = compoundfromformula.CompoundFromFormula("Mn2Fe3",density=8.)
+        compound2 = compoundfromformula.CompoundFromFormula("Mn1Fe2Ca3O4",density=9.)
         
         geometry = xrfgeometries.factory("sdd120",detectorposition=-15.)
         detector = xrfdetectors.factory("leia",geometry=geometry)
         o = multilayer.Multilayer(material=[compound1,compound2],\
-                                                thickness=[1e-4,2e-4],\
+                                                thickness=[1e-4,1e-4],\
                                                 detector = detector)
     
-        for energy0 in [8]:
-            spectrum2 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="numerical",ninteractions=2)
-            spectrum3 = o.xrayspectrum(energy0,emin=2,emax=energy0,calc="fisx",ninteractions=2)
-            for k in ["Rayleigh","Compton"]:
-                spectrum3.cs[k] = spectrum2.cs[k]
-            self.assertSpectrumEqual(spectrum2.cs,spectrum3.cs,rtol=1e-02) # 1% deviation
+        for anglesign in [-1]:
+            detector.geometry.angleout = anglesign*abs(geometry.angleout)
+            for energy0,weights in [[8,1],[9,1],[[8,9],[1,2]]]:
+                spectrum2 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,calc="numerical",ninteractions=2)
+                spectrum3 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,calc="fisx",ninteractions=2)
+                self.assertSpectrumEqual(spectrum2.cs,spectrum3.cs,rtol=1e-02,noscattering=True) # 1% deviation
             
     
 def test_suite_all():

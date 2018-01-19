@@ -27,25 +27,36 @@ import numpy as np
 
 class Geometry(with_metaclass(object)):
 
-    def __init__(self,anglein=None,angleout=None,detectorposition=None,distancefunc=None,distanceifunc=None):
+    def __init__(self,anglein=None,angleout=None,Plinear=None,delta=None,azimuth=None,detectorposition=None,distancefunc=None,distanceifunc=None):
         """
         Args:
             anglein(num): angle (deg) between primary beam and surface
             angleout(num): angle (deg) between fluorescene path to detector and surface
+            Plinear(num): linear degree of polarization of the source
+            delta(num): component phase retardation (0 -> linear polarization, else elliptical) 
+            azimuth(num): angle (deg) between the source-detector plane and the polarization plane
             detectorposition(num): motor position in motor units
             distancefunc(callable): convert detectorposition to distance in cm
             distanceifunc(callable): inverse of distancefunc
         """
         
-        self.anglein = float(anglein) # deg
-        self.angleout = float(angleout) # deg
+        self.anglein = float(anglein)
+        self.angleout = float(angleout)
+        
+        self.Plinear = float(Plinear)
+        self.delta = float(delta)
+        self.azimuth = float(azimuth)
+        
         self.detectorposition = float(detectorposition)
         if distancefunc is None or distanceifunc is None:
             distancefunc = lambda x:x
             distanceifunc = lambda x:x
         self.distancefunc = distancefunc
         self.distanceifunc = distanceifunc
-        self.reflection = self.angleout>0
+
+    @property
+    def reflection(self):
+        return self.angleout>0
 
     @property
     def anglenormin(self):
@@ -85,7 +96,8 @@ class Geometry(with_metaclass(object)):
         return "Distance = {} cm\nIn = {} deg\nOut = {} deg ({})".format(self.distance,self.anglein,self.angleout,"reflection" if self.reflection else "transmission")
     
     def addtofisx(self,setup,cfg):
-        setup.setGeometry(self.anglein, self.angleout) 
+        # When self.angleout)<0: works only for a single layer
+        setup.setGeometry(self.anglein, abs(self.angleout)) 
         
         
 class sdd120(Geometry):
@@ -95,7 +107,7 @@ class sdd120(Geometry):
         # detector position in mm
         distancefunc = lambda x: (x+60.5)/10
         distanceifunc = lambda x: x*10-60.5
-        super(sdd120,self).__init__(anglein=62,angleout=49,distancefunc=distancefunc,distanceifunc=distanceifunc,**kwargs)
+        super(sdd120,self).__init__(anglein=62,angleout=49,Plinear=1,delta=0,azimuth=0,distancefunc=distancefunc,distanceifunc=distanceifunc,**kwargs)
 
 class sdd90(Geometry):
 
@@ -104,7 +116,7 @@ class sdd90(Geometry):
         # detector position in mm
         distancefunc = lambda x: (x+85.5)/10
         distanceifunc = lambda x: x*10-85.5
-        super(sdd90,self).__init__(anglein=62,angleout=28,distancefunc=distancefunc,distanceifunc=distanceifunc,**kwargs)
+        super(sdd90,self).__init__(anglein=62,angleout=28,Plinear=1,delta=0,azimuth=0,distancefunc=distancefunc,distanceifunc=distanceifunc,**kwargs)
 
 factory = Geometry.factory
 

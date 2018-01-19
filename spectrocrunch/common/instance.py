@@ -53,8 +53,8 @@ def isscalar(x):
 def isiterable(x):
     return hasattr(x,"__iter__")
     
-def asarrayf(x):
-    x = np.asarray(x)
+def asarrayf(x,**kwargs):
+    x = np.asarray(x,**kwargs)
     scalar = x.ndim == 0
     if scalar:
         # Convert to 1D array
@@ -65,8 +65,17 @@ def asarrayf(x):
     
     return x,func
 
-def asarray(x):
-    x = np.asarray(x)
+def asarrayb(x,**kwargs):
+    x = np.asarray(x,**kwargs)
+    scalar = x.ndim == 0
+    if scalar:
+        # Convert to 1D array
+        x = x[np.newaxis]
+    
+    return x,not scalar
+    
+def asarray(x,**kwargs):
+    x = np.asarray(x,**kwargs)
     if x.ndim == 0:
         return x[np.newaxis]
     else:

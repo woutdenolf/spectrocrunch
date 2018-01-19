@@ -257,7 +257,7 @@ class Compound(Hashable):
             if decomposed:
                 return {}
             else:
-                return E*0.
+                return np.zeros_like(E,dtype=float)
 
         if hasattr(self,'structure') and fine:
             environ = self
@@ -283,7 +283,7 @@ class Compound(Hashable):
                         else:
                             ret[k] = w*v
             else:
-                ret = E*0.
+                ret = np.zeros_like(E,dtype=float)
                 for e in e_wfrac:
                     ret += e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
 

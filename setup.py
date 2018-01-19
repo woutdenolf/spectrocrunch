@@ -196,6 +196,7 @@ else:
 
 cmdclass['build_doc'] = BuildDocCommand
 
+
 #####################
 ## "clean" command ## 
 #####################
@@ -210,6 +211,7 @@ class CleanCommand(Command):
         os.system('rm -vrf ./build ./dist ./*.pyc ./*.tgz ./*.egg-info')
 
 cmdclass['clean'] = CleanCommand
+
 
 #####################
 ## "name" command ## 
@@ -260,6 +262,7 @@ extras_require = {"physics":["xraylib", "cctbx", "fdmnes","PyTMM"],\
                   "elastix":["SimpleITK"]\
                   }
 setup_requires = ["testfixtures"]
+
 
 ###################
 ## Package setup ## 

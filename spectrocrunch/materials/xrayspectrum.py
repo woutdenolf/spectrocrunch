@@ -458,6 +458,7 @@ class Spectrum(object):
    
     @property
     def ylabel(self):
+        # meaning of self.cs
         if self.type==self.TYPES.crosssection:
             return "Probability (1/cm)"
         else:
@@ -481,6 +482,9 @@ class Spectrum(object):
         lines = "\n ".join(["{} {}".format(line,cs) for line,cs in self.sortedcs])
         return "{}\n Line   {}\n {}".format(self.title,self.ylabel,lines)
 
+    def __getitem__(self,index):
+        return self.cs[index]
+        
     @property
     def probabilities(self):
         """Interaction probability per cm and per srad

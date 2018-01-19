@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 
 from ..materials import compoundfromname
-from ..materials import pymca
+from . import base
 from ..materials import element
 from ..common.classfactory import with_metaclass
 from ..common import constants
@@ -32,7 +32,7 @@ from ..common import instance
 import numpy as np
 import fisx
 
-class Detector(with_metaclass(pymca.PymcaAttenuators)):
+class Detector(with_metaclass(base.AttenuatorBase)):
 
     def __init__(self,mcazero=None,mcagain=None,mcanoise=None,mcafano=None,ehole=None,\
                       activearea=None,geometry=None,**kwargs):
@@ -167,11 +167,11 @@ class Leia(Detector):
         ultralene = compoundfromname.compoundfromname("ultralene")
         
         attenuators = {}
-        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4}
+        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4} #cm
         attenuators["WindowDetector"] = {"material":element.Element('Be'),"thickness":25e-4}
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
         
-        kwargs["activearea"] = 80e-2
+        kwargs["activearea"] = 80e-2 # cm^2
         kwargs["mcazero"] = 0. # keV
         kwargs["mcagain"] = 5e-3 # keV
         kwargs["mcanoise"] = 0.1 # keV
@@ -187,11 +187,11 @@ class BB8(Detector):
         ultralene = compoundfromname.compoundfromname("ultralene")
         
         attenuators = {}
-        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4}
+        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4} #cm
         attenuators["WindowDetector"] = {"material":element.Element('Be'),"thickness":12.5e-4}
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
   
-        kwargs["activearea"] = 50e-2
+        kwargs["activearea"] = 50e-2 # cm^2
         kwargs["mcazero"] = 0. # keV
         kwargs["mcagain"] = 5e-3 # keV
         kwargs["mcanoise"] = 0.1 # keV
