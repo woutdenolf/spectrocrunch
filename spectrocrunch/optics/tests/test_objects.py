@@ -168,7 +168,7 @@ class test_objects(unittest.TestCase):
 
     def test_materials(self):
         self.assertRaises(RuntimeError, materials.factory, "noclassname")
-        o = materials.factory("multilayer",material=compoundname("ultralene"),thickness=4,anglein=0,angleout=135)
+        o = materials.factory("multilayer",material=compoundname("ultralene"),thickness=4,anglein=0,angleout=135,azimuth=0)
         self._checkprop(o)
 
     def _vis_calc_photons(self,ph_E,ph_I,ph_gain):

@@ -28,6 +28,7 @@ from .. import noisepropagation
 from .. import calcnoise
 from ...materials import multilayer
 from ...geometries import flatarea
+from ...geometries import source
 from ...detectors import area
 from ...materials.compoundfromformula import CompoundFromFormula as compound
 
@@ -42,14 +43,15 @@ class test_calcnoise(unittest.TestCase):
         nframe = 100
         ndark = 10
         
-        geometry = flatarea.factory("perpendicular")
-        detector = area.factory("PCO Edge 5.5",geometry=geometry)
-        
-        sample = multilayer.Multilayer(material=compound("CaCO3",2.71),thickness=5e-4,detector=detector)
+        src = source.factory("synchrotron")
+        detector = area.factory("PCO Edge 5.5")
+        geometry = flatarea.factory("perpendicular",detector=detector,source=src)
+
+        sample = multilayer.Multilayer(material=compound("CaCO3",2.71),thickness=5e-4,geometry=geometry)
         
         kwargs = {"tframe_data":tframe,"nframe_data":nframe,"tframe_flat":tframe,"nframe_flat":nframe,"nframe_dark":ndark}
         
-        o = calcnoise.id21_ffsetup(composition=sample)
+        o = calcnoise.id21_ffsetup(sample=sample)
         
         signal,noise = o.xanes(flux,energy,**kwargs)
         
@@ -64,12 +66,13 @@ class test_calcnoise(unittest.TestCase):
         tframe = 0.07
         nframe = 100
         
-        geometry = flatarea.factory("perpendicular")
-        detector = area.factory("PCO Edge 5.5",geometry=geometry)
+        src = source.factory("synchrotron")
+        detector = area.factory("PCO Edge 5.5")
+        geometry = flatarea.factory("perpendicular",detector=detector,source=src)
         
-        sample = multilayer.Multilayer(material=compound("CaCO3",2.71),thickness=5e-4,detector=detector)
+        sample = multilayer.Multilayer(material=compound("CaCO3",2.71),thickness=5e-4,geometry=geometry)
         
-        o = calcnoise.id21_ffsetup(composition=sample)
+        o = calcnoise.id21_ffsetup(sample=sample)
         
         ph1 = np.broadcast_to(flux*tframe,(energy.size,flux.size))
         

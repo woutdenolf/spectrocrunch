@@ -23,36 +23,22 @@
 # THE SOFTWARE.
 
 from ..common.classfactory import with_metaclass
+from . import base
+
 import numpy as np
 
-class Geometry(with_metaclass(object)):
+class Geometry(with_metaclass(base.Point)):
 
-    def __init__(self,anglein=None,angleout=None):
+    def __init__(self,distance=None,**kwargs):
         """
         Args:
-            anglein(num): angle (deg) between primary beam
-            angleout(num): angle (deg) between fluorescene path to detector
+            distance(num): distance (cm) to target
         """
-        
-        self.anglein = float(anglein) # deg
-        self.angleout = float(angleout) # deg
+        self.distance = float(distance)
+        super(Geometry,self).__init__(**kwargs)
 
-    @property
-    def cosnormin(self):
-        # angle with surface normal (pointing inwards)
-        return np.cos(np.radians(90-self.anglein))
-    
-    @property
-    def cosnormout(self):
-        # angle with surface normal (pointing inwards)
-        return np.cos(np.radians(90+self.angleout))
-    
-    @property
-    def scatteringangle(self):
-        return self.anglein + self.angleout
-    
     def __str__(self):
-        return "In = {} deg\n Out = {} deg ({})".format(self.distance,self.anglein,self.angleout,"reflection" if self.reflection else "transmission")
+        return "{}\n Distance = {} cm".format(super(Geometry,self).__str__(),self.distance)
         
 factory = Geometry.factory
 

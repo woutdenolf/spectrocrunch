@@ -82,7 +82,13 @@ class PymcaConfig(object):
         self.background(config)
         self.peakshape(config)
 
-
+    def addMaterial(self,config,material):
+        matname,v = material.pymcaformat()
+        if material.nelements>1:
+            config["materials"][matname] = v
+        return matname
+        
+        
 class FisxConfig():
     
     FISXMATERIALS = None

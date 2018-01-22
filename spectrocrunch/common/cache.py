@@ -41,18 +41,24 @@ class LimitedSizeDict(OrderedDict):
             while len(self) > self.size_limit:
                 self.popitem(last=False)
 
-        
+
 class Cache(object):
 
     def __init__(self,force=False):
         self._store = {}
         self.force = force
 
-    def _generate_cache(self,subject,*args,**kwargs):
+    def cachegenerator(self,subject):
         method = "_cache_{}".format(subject)
         try:
             generator = getattr(self,method)
         except:
+            generator = None
+        return generator
+        
+    def _generate_cache(self,subject,*args,**kwargs):
+        generator = self.cachegenerator(subject)
+        if generator is None:
             raise RuntimeError("Cache generating method \"{}\" does not exist".format(method))
         return generator(*args,**kwargs)
         
@@ -82,7 +88,10 @@ class Cache(object):
             return self._store[subject]
         else:
             if self.force:
-                raise RuntimeError("Cache \"{}\" can only be used in context \" self.cachectx(\"{}\") \"".format(subject,subject))
+                if self.cachegenerator(subject) is not None:
+                    raise RuntimeError("Cache \"{}\" can only be used in context \" self.cachectx(\"{}\") \"".format(subject,subject))
+                else:
+                    raise AttributeError("'{}' object has no attribute '{}'".format(self.__class__.__name__,subject))
             else:
                 # generate the context
                 return self._generate_cache(subject)

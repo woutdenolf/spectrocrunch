@@ -22,87 +22,220 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from ..common import instance
+
 import numpy as np
+import fisx
 
-class AttenuatorBase(object):
 
-    def __init__(self,attenuators=None):
+class Material(object):
+
+    DETMATERIALLABEL = "Detector"
+
+    def __init__(self,attenuators=None,**kwargs):
+        if attenuators is None:
+            attenuators = {}
         self.attenuators = attenuators
+        super(Material,self).__init__(**kwargs)
 
     def __str__(self):
-        atts = "\n ".join(["{} ({}) = {} cm".format(attname,attinfo["material"],attinfo["thickness"]) for attname,attinfo in self.attenuators.items()])
-        return "Attenuators:\n {}".format(atts)
-        
-    def addtoconfig(self,config): 
-        for attname,attinfo in self.attenuators.items():
-            self.addattenuator(config,attname,attinfo["material"],attinfo["thickness"])
+        s1 = "\n ".join(["{} = {} cm".format(attinfo["material"],attinfo["thickness"]) for attinfo in self.attbefore()])
+        s2 = "\n ".join(["{} = {} cm".format(attinfo["material"],attinfo["thickness"]) for attinfo in self.attafter()])
 
-    def addattenuator(self,config,attname,material,thickness):
-        matname = self.addmaterial(config,material)
-        config["attenuators"][attname] = [1,matname,material.density,thickness,1.0]
+        if s1:
+            s1 = "Beam filters:\n {}".format(s1)
+        else:
+            s1 = "Beam filters: None"
             
-    def addmaterial(self,config,material):
-        matname,v = material.pymcaformat()
-        if material.nelements>1:
-            config["materials"][matname] = v
-        return matname
+        if s2:
+            s2 = "Attenuators:\n {}".format(s2)
+        else:
+            s2 = "Attenuators: None"
         
-    def loadfromconfig(self,config):
-        self.attenuators = {}
-        for attname,attinfo in self.attenuators["attenuators"].items():
-            self.parseattenuator(config,attname,attinfo)
+        if self.hasmaterial:
+            s3 = " Material = {} ({} cm)".format(self.material,self.thickness)
+        else:
+            s3 = " Material = None" 
 
-    def parseattenuator(self,config,attname,attinfo):
-        matname,density,thickness = attinfo[1],attinfo[2],attinfo[3]
-        material = parsematerial(config,matname,density)
-        self.attenuators[attname] = {"material":material,"thickness":thickness}
+        return "\n".join([s3,s1,s2])
         
-    def parsematerial(self,config,matname,density):
+    @property
+    def hasmaterial(self):
+        return self.DETMATERIALLABEL in self.attenuators
+        
+    @property
+    def material(self):
+        return self.attenuators[self.DETMATERIALLABEL]["material"]
+
+    @property
+    def thickness(self):
+        return self.attenuators[self.DETMATERIALLABEL]["thickness"]
+
+    @thickness.setter
+    def thickness(self,value):
+        self.attenuators[self.DETMATERIALLABEL]["thickness"] = value
+
+    def addtopymca(self,config): 
+        for attlabel,attinfo in self.attenuators.items():
+            self.addattenuator(config,attlabel,attinfo["material"],attinfo["thickness"])
+
+    def addtopymca_attenuator(self,config,attlabel,material,thickness):
+        matname = self.addMaterial(config,material)
+        config["attenuators"][attlabel] = [1,matname,material.density,thickness,1.0]
+
+    def loadfrompymca(self,config):
+        self.attenuators = {}
+        for attlabel,attinfo in self.attenuators["attenuators"].items():
+            self.loadfrompymca_attenuator(config,attlabel,attinfo)
+
+    def loadfrompymca_attenuator(self,config,attlabel,attinfo):
+        matname,density,thickness = attinfo[1],attinfo[2],attinfo[3]
+        material = self.loadfrompymca_material(config,matname,density)
+        self.attenuators[attlabel] = {"material":material,"thickness":thickness}
+        
+    def loadfrompymca_material(self,config,matname,density):
         if matname in config["materials"]:
             material = mixture.pymcaformat(config["materials"][matname])
         else:
             material = compoundfromformula.CompoundFromFormula(matname,density)
         return material
 
-    @staticmethod
-    def isbefore(name):
+    def isbefore(self,name):
         return "BeamFilter" in name
 
-    @staticmethod
-    def isafter(name):
-        return "BeamFilter" not in name and name != "Detector"
-    
+    def isafter(self,name):
+        return "BeamFilter" not in name and name != self.DETMATERIALLABEL
+
+    def attbefore(self):
+        return [self.attenuators[att] for att in self.attenuators if self.isbefore(att)]
+        
+    def attafter(self):
+        return [self.attenuators[att] for att in self.attenuators if self.isafter(att)]
+
     def addtofisx(self,setup,cfg):
-        att_after = []
-        att_before = []
+        for attlabel,attinfo in self.attenuators.items():
+            cfg.addMaterial(attinfo["material"])
 
-        for attname,attinfo in self.attenuators.items():
-            material = attinfo["material"]
-            cfg.addMaterial(material)
-            
-            if self.isafter(attname):
-                att_after.append([material.pymcaname,material.density,attinfo["thickness"],1.0])
-            elif self.isbefore(attname):
-                att_before.append([material.pymcaname,material.density,attinfo["thickness"],1.0])
+        atts = [[attinfo["material"].pymcaname,attinfo["material"].density,attinfo["thickness"],1.0] for attinfo in self.attbefore()]
+        if atts:
+            setup.setBeamFilters(atts)
 
-        if att_before:
-            setup.setBeamFilters(att_before)
-        if att_after:
-            setup.setAttenuators(att_after)
+        atts = [[attinfo["material"].pymcaname,attinfo["material"].density,attinfo["thickness"],1.0] for attinfo in self.attafter()]
+        if atts:
+            setup.setAttenuators(atts)
 
     def filter_absorbance(self,energy,source=False):
+        """Absorbance by filters (before or after sample)
+        """
         if source:
-            atts = [self.attenuators[att] for att in self.attenuators if self.isbefore(att)]
+            atts = self.attbefore()
         else:
-            atts = [self.attenuators[att] for att in self.attenuators if self.isafter(att)]
+            atts = self.attafter()
         if atts:
             return sum([att["material"].mass_att_coeff(energy)*(att["thickness"]*att["material"].density) for att in atts])
         else:
             return np.zeros_like(energy,dtype=float)
 
     def filter_transmission(self,energy,source=False):
+        """Transmission through filters (before or after sample)
+        """
         return np.exp(-self.filter_absorbance(energy,source=source))
         
     def filter_attenuation(self,energy,source=False):
+        """Attenuation by filters (before or after sample)
+        """
         return 1-self.filter_transmission(energy,source=source)
+
+    def absorbance(self,energy):
+        """Absorbance by detector material
+        """
+        if self.hasmaterial:
+            return self.material.mass_att_coeff(energy)*(self.thickness*self.material.density)
+        else:
+            return np.full_like(3,np.inf,dtype=float)
+
+    def transmission(self,energy):
+        """Transmission through detector material
+        """
+        return np.exp(-self.absorbance(energy))
+
+    def attenuation(self,energy):
+        """Attenuation by detector material
+        """
+        return 1-self.transmission(energy)
+
+
+
+class SolidState(Material):
+
+    def __init__(self,ehole=None,**kwargs):
+        self.ehole = ehole
+        super(SolidState,self).__init__(**kwargs)
+
+    def __str__(self):
+        return " Ionization energy = {} eV\n{}".format(self.ehole,super(SolidState,self).__str__())
+        
+
+class PointSourceCentric(SolidState):
+
+    def __init__(self,activearea=None,**kwargs):
+        self.activearea = activearea # cm^2
+        super(PointSourceCentric,self).__init__(**kwargs)
+
+    def __str__(self):
+        return " Solid angle = 4*pi*{} srad\n Active area = {} cm^2\n{}".format(self.solidangle,self.activearea,super(PointSourceCentric,self).__str__())
+
+    @property
+    def distance(self):
+        return 
+        
+    @property
+    def solidangle(self):
+        distance = self.geometry.distance
+        r2 = self.activearea/np.pi # squared disk radius
+        return 2.*np.pi*(1.-(distance/np.sqrt(r2+distance**2.)))
+
+    @solidangle.setter
+    def solidangle(self,value):
+        solidanglefrac = value/(4*np.pi)
+        if solidanglefrac>=0.5:
+            raise ValueError("Solid angle must be < 2.pi")
+        r2 = self.activearea/np.pi # squared disk radius
+        self.geometry.distance = np.sqrt(r2)*(0.5-solidanglefrac)/np.sqrt((1-solidanglefrac)*solidanglefrac)
+
+    def addtofisx(self,setup,cfg):
+        super(PointSourceCentric,self).addtofisx(setup,cfg)
+        
+        if self.hasmaterial:
+            detector = fisx.Detector(self.material.name, self.material.density, self.thickness)
+            detector.setActiveArea(self.activearea)
+            detector.setDistance(self.geometry.distance)
+            #detector.setMaximumNumberOfEscapePeaks(0)
+            setup.setDetector(detector)
+        
+    def efficiency(self,energysource,energydet):
+        """Detector efficiency = S/cos(ain)*T(energysource)*T(energydet)*A(energydet)
+            S: solid angle detector
+            ain: angle of beam with surface normal
+            T: transmission by filters (before sample and detector)
+            A: attenuation by the detector crystal
+            
+        Args:
+            energysource: n0
+            energydet: n1
+
+        Returns:
+            array: n0 x n1
+        """
+        energysource = instance.asarray(energysource)
+        energydet = instance.asarray(energydet)
+        
+        g = self.solidangle/self.geometry.cosnormin
+        T0 = super(PointSourceCentric,self).filter_transmission(energysource,source=True)
+        T1 = super(PointSourceCentric,self).filter_transmission(energydet,source=False)
+        A = self.attenuation(energydet)
+        
+        # the cosine term is put here for convenience (comes from integration over sample thickness)
+        
+        return (g*T0)[:,np.newaxis]*(T1*A)[np.newaxis,:]
         

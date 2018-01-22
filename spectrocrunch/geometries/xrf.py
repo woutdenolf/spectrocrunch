@@ -23,29 +23,20 @@
 # THE SOFTWARE.
 
 from ..common.classfactory import with_metaclass
+from . import base
+
 import numpy as np
 
-class Geometry(with_metaclass(object)):
+class Geometry(with_metaclass(base.Point)):
 
-    def __init__(self,anglein=None,angleout=None,Plinear=None,delta=None,azimuth=None,detectorposition=None,distancefunc=None,distanceifunc=None):
+    def __init__(self,detectorposition=None,distancefunc=None,distanceifunc=None,\
+                **kwargs):
         """
         Args:
-            anglein(num): angle (deg) between primary beam and surface
-            angleout(num): angle (deg) between fluorescene path to detector and surface
-            Plinear(num): linear degree of polarization of the source
-            delta(num): component phase retardation (0 -> linear polarization, else elliptical) 
-            azimuth(num): angle (deg) between the source-detector plane and the polarization plane
             detectorposition(num): motor position in motor units
             distancefunc(callable): convert detectorposition to distance in cm
             distanceifunc(callable): inverse of distancefunc
         """
-        
-        self.anglein = float(anglein)
-        self.angleout = float(angleout)
-        
-        self.Plinear = float(Plinear)
-        self.delta = float(delta)
-        self.azimuth = float(azimuth)
         
         self.detectorposition = float(detectorposition)
         if distancefunc is None or distanceifunc is None:
@@ -54,34 +45,8 @@ class Geometry(with_metaclass(object)):
         self.distancefunc = distancefunc
         self.distanceifunc = distanceifunc
 
-    @property
-    def reflection(self):
-        return self.angleout>0
+        super(Geometry,self).__init__(**kwargs)
 
-    @property
-    def anglenormin(self):
-        # angle with surface normal (pointing inwards)
-        return np.radians(90-self.anglein)
-    
-    @property
-    def anglenormout(self):
-        # angle with surface normal (pointing inwards)
-        return np.radians(90+self.angleout)
-
-    @property
-    def cosnormin(self):
-        # angle with surface normal (pointing inwards)
-        return np.cos(self.anglenormin)
-    
-    @property
-    def cosnormout(self):
-        # angle with surface normal (pointing inwards)
-        return np.cos(self.anglenormout)
-    
-    @property
-    def scatteringangle(self):
-        return np.radians(self.anglein + self.angleout)
-    
     @property
     def distance(self):
         """Sampel detector distance in cm
@@ -93,11 +58,7 @@ class Geometry(with_metaclass(object)):
         self.detectorposition = self.distanceifunc(value)
 
     def __str__(self):
-        return "Distance = {} cm\nIn = {} deg\nOut = {} deg ({})".format(self.distance,self.anglein,self.angleout,"reflection" if self.reflection else "transmission")
-    
-    def addtofisx(self,setup,cfg):
-        # When self.angleout)<0: works only for a single layer
-        setup.setGeometry(self.anglein, abs(self.angleout)) 
+        return "{}\n Distance = {} cm".format(super(Geometry,self).__str__(),self.distance)
         
         
 class sdd120(Geometry):
@@ -107,7 +68,9 @@ class sdd120(Geometry):
         # detector position in mm
         distancefunc = lambda x: (x+60.5)/10
         distanceifunc = lambda x: x*10-60.5
-        super(sdd120,self).__init__(anglein=62,angleout=49,Plinear=1,delta=0,azimuth=0,distancefunc=distancefunc,distanceifunc=distanceifunc,**kwargs)
+        super(sdd120,self).__init__(anglein=62,angleout=49,azimuth=0,\
+                        distancefunc=distancefunc,distanceifunc=distanceifunc,\
+                        **kwargs)
 
 class sdd90(Geometry):
 
@@ -116,7 +79,9 @@ class sdd90(Geometry):
         # detector position in mm
         distancefunc = lambda x: (x+85.5)/10
         distanceifunc = lambda x: x*10-85.5
-        super(sdd90,self).__init__(anglein=62,angleout=28,Plinear=1,delta=0,azimuth=0,distancefunc=distancefunc,distanceifunc=distanceifunc,**kwargs)
+        super(sdd90,self).__init__(anglein=62,angleout=28,azimuth=0,\
+                        distancefunc=distancefunc,distanceifunc=distanceifunc,\
+                        **kwargs)
 
 factory = Geometry.factory
 

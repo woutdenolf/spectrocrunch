@@ -23,46 +23,14 @@
 # THE SOFTWARE.
 
 from ..common.classfactory import with_metaclass
+from . import base
+
 import numpy as np
 
-class Geometry(with_metaclass()):
+class Geometry(with_metaclass(base.FlatSample)):
 
-    def __init__(self,anglein=None,angleout=None):
-        """
-        Args:
-            anglein(num): angle (deg) between primary beam and surface
-            angleout(num): angle (deg) between fluorescene path to detector and surface
-        """
-        
-        self.anglein = float(anglein) # deg
-        self.angleout = float(angleout) # deg
-
-    @property
-    def anglenormin(self):
-        # angle with surface normal (pointing inwards)
-        return np.radians(90-self.anglein)
-    
-    @property
-    def anglenormout(self):
-        # angle with surface normal (pointing inwards)
-        return np.radians(90+self.angleout)
-
-    @property
-    def cosnormin(self):
-        # angle with surface normal (pointing inwards)
-        return np.cos(self.anglenormin)
-    
-    @property
-    def cosnormout(self):
-        # angle with surface normal (pointing inwards)
-        return np.cos(self.anglenormout)
-    
-    @property
-    def scatteringangle(self):
-        return self.anglein + self.angleout
-
-    def __str__(self):
-        return "In = {} deg\n Out = {} deg".format(self.anglein,self.angleout)
+    def __init__(self,**kwargs):
+        super(Geometry,self).__init__(**kwargs)
         
 class perpendicular(Geometry):
 

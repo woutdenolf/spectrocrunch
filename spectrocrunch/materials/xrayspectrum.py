@@ -343,7 +343,7 @@ class Shell(hashable.Hashable):
                 return self.fluoyield(Z)*sum(self.radrate(Z))
 
     def partial_photo(self,Z,E):
-        return xraylib.CS_Photo_Partial(Z,self.code,E)
+        return xraylib.CS_Photo_Partial(Z,self.code,np.float64(E))
 
     def edgeenergy(self,Z):
         return xraylib.EdgeEnergy(Z,self.code)
@@ -431,25 +431,25 @@ class ComptonLine(ScatteringLine):
         self.energysource = energysource
         self.name = "Compton"
             
-    def energy(self,scatteringangle=0):
+    def energy(self,polar=None,**kwargs):
         """
         Args:
-            scatteringangle(num): rad
+            polar(num): deg
         """
-        if scatteringangle==0:
+        if polar==0:
             return self.energysource
-        delta = ureg.Quantity(1-np.cos(scatteringangle),"1/(m_e*c^2)").to("1/keV","spectroscopy").magnitude
+        delta = ureg.Quantity(1-np.cos(np.radians(polar)),"1/(m_e*c^2)").to("1/keV","spectroscopy").magnitude
         return self.energysource/(1+self.energysource*delta) 
         
         
-class Spectrum(object):
+class Spectrum(dict):
 
     TYPES = Enum(['crosssection','interactionyield'])
     # crosssection: cm^2/g
     # interactionyield: crosssection.density.thickness (dimensionless)
 
-    def __init__(self):
-        self.cs = {}
+    def __init__(self, *args, **kwargs):
+        self.update(*args, **kwargs)
         self.density = None
         self.xlim = None
         self.title = None
@@ -458,65 +458,56 @@ class Spectrum(object):
    
     @property
     def ylabel(self):
-        # meaning of self.cs
         if self.type==self.TYPES.crosssection:
             return "Probability (1/cm)"
         else:
             return "Rate (ph/phsource)"
-            
+
     @property
     def lines(self):
-        for line,cs in self.cs.items():
-            if np.sum(cs)==0:
+        for line,q in sorted(self.items(),key=lambda x: max(instance.asarray(x[0].energy(polar=1e-4)))):
+            if np.sum(q)==0:
                 continue
-            yield line
-
-    @property
-    def sortedcs(self):
-        for line,cs in sorted(self.cs.items(),key=lambda x: max(instance.asarray(x[0].energy(scatteringangle=1e-4)))):
-            if np.sum(cs)==0:
-                continue
-            yield line,cs
+            yield line,q
 
     def __str__(self):
-        lines = "\n ".join(["{} {}".format(line,cs) for line,cs in self.sortedcs])
+        lines = "\n ".join(["{} {}".format(line,q) for line,q in self.lines])
         return "{}\n Line   {}\n {}".format(self.title,self.ylabel,lines)
-
-    def __getitem__(self,index):
-        return self.cs[index]
         
     @property
     def probabilities(self):
         """Interaction probability per cm and per srad
         """
-        for line,cs in self.cs.items():
-            if np.sum(cs)==0:
+        if self.type==self.TYPES.crosssection:
+            m = self.density/(4*np.pi)
+        else:
+            m = 1
+            
+        for line,q in self.items():
+            if np.sum(q)==0:
                 continue
-            yield line,cs*(self.density/(4*np.pi)) #TODO: assume all isotropic for now
+            yield line,q*m #TODO: assume all isotropic for now
 
-    def energies(self,**kwargs):
-        for line in self.cs:
+    def energy0(self):
+        return self["Rayleigh"].energy()
+
+    def spectrum(self,**kwargs):
+        for line,q in self.items():
+            q = instance.asarray(q)
+
             energy = instance.asarray(line.energy(**kwargs))
-            for en in energy:
-                yield line,en
+            if q.size>1 and energy.size==1:
+                energy = np.repeat(energy,q.size)
 
-    def expandedenergies(self,**kwargs):
-        for line,cs in self.cs:
-            try:
-                n = len(cs)
-            except:
-                n = 1
-            energy = instance.asarray(line.energy(**kwargs))
-            if n>1 and len(energy)==1:
-                energy = np.repeat(energy,n)
-            return line,energy
+            for en,v in zip(energy,q):
+                yield en,v
 
-    def plotlineprobability(self,energy,probability,detector=None,**kwargs):
-        if detector is None:
+    def plotlineprobability(self,energy,probability,geometry=None,**kwargs):
+        if geometry is None:
             plt.plot([energy,energy],[0,probability],**kwargs)
             h = probability
         else:
-            FWHM = detector.linewidth(energy)
+            FWHM = geometry.linewidth(energy)
             sx = FWHM/(2*np.sqrt(2*np.log(2)))
             k = 4
             x = np.linspace(energy-k*sx,energy+k*sx,50)
@@ -525,22 +516,22 @@ class Spectrum(object):
             plt.plot(x,y,**kwargs)
         return h
 
-    def plotprobability(self,detector=None,out=False,mark=True,log=False):
+    def plot(self,geometry=None,out=False,mark=True,log=False):
         ax = plt.gca()
         
         colors = {}
         markers = {}
         bmark = False
-        
-        if detector is None:
-            scatteringangle = np.pi/2
+
+        if geometry is None:
+            geomkwargs = {}
         else:
-            scatteringangle = detector.scatteringangle
+            geomkwargs = geometry.xrayspectrumkwargs()
 
         for line,cs in self.sortedcs:
                 
             element = getattr(line, 'element', None)
-            energy = instance.asarray(line.energy(scatteringangle=scatteringangle))
+            energy = instance.asarray(line.energy(**geomkwargs))
             probability = instance.asarray(cs*self.density)
 
             # Scattering or fluorescence
@@ -584,7 +575,7 @@ class Spectrum(object):
                 if log:
                     print(line,energy,probability)
             
-            height = [self.plotlineprobability(en,prob,color=color,label=lab,detector=detector) for en,prob,lab in zip(energy,probability,label)]
+            height = [self.plotlineprobability(en,prob,color=color,label=lab,geometry=geometry) for en,prob,lab in zip(energy,probability,label)]
             
             if bmark:
                 ind = np.argmax(height)
@@ -594,7 +585,7 @@ class Spectrum(object):
         for key,marker in markers.items():
             plt.annotate(marker["name"], xy=(marker["energy"], marker["height"]),color=colors[key])
 
-        if detector is not None and log:
+        if geometry is not None and log:
             ax.set_yscale('log', basey=10)
             plt.ylim([1,None])
             

@@ -34,13 +34,18 @@ from ..common import units
 from ..materials import compoundfromformula 
 from ..materials import compoundfromname
 from ..materials import multilayer 
+from ..materials import element
 from ..resources import resource_filename
 from ..optics import KB 
 from ..common import constants
 from ..math.common import round_sig
 from ..geometries import diode as diodegeometries
+from ..geometries import source as xraysources
 from ..simulation.classfactory import with_metaclass
 from ..simulation import noisepropagation
+from ..common import instance
+from . import base
+
 
 #
 #
@@ -165,44 +170,35 @@ class Oscillator(object):
         """
         return (self.op_currenttocps())**(-1)
 
-class PNdiode(with_metaclass()):
+
+class PNdiode(with_metaclass(base.PointSourceCentric)):
 
     ELCHARGE = ureg.Quantity(1,ureg.elementary_charge)
     #ELCHARGE = ureg.Quantity(1.6e-19,ureg.coulomb) # approx. in spec
 
-    def __init__(self, material=None, Rout=None, darkcurrent=None, oscillator=None, secondarytarget=None, geometry=None, solidangle=None, optics=None):
+    def __init__(self, Rout=None, darkcurrent=None, oscillator=None, secondarytarget=None, optics=None, **kwargs):
         """
         Args:
-            material(compound|mixture): material composition
             Rout(num): output resistance (Ohm)
             darkcurrent(num): C/s
             oscillator(Oscillator): 
             secondarytarget(multilayer): optional secondary target
         """
-        self.material = material
         self.setgain(Rout)
         self.setdark(darkcurrent)
         self.secondarytarget = secondarytarget
-        self.geometry = geometry
-        self.solidangle = solidangle
         self.optics = optics
         self.oscillator = oscillator
         if oscillator is not None:
             oscillator.pndiode = self
 
-        # To be defined by the parent class for charge generation per photon
-        self.thickness = None
-        self.ehole = None
+        super(PNdiode,self).__init__(**kwargs)
 
     def __str__(self):
-        return "Diode material:\n {}\nEhole:\n {}\nThickness:\n {}\nGain:\n {:e}\nDark current:\n {}\nSecondary target:\n {}\nOptics:\n {}\nVoltage-to-Frequency:\n {}\n"\
-                .format(self.material,self.ehole,self.thickness,\
-                self.Rout,self.darkcurrent,self.secondarytarget,\
+        return " Gain = {:e}\n Dark current = {}\nSecondary target:\n {}\nOptics:\n {}\nVoltage-to-Frequency:\n {}"\
+                .format(self.Rout,self.darkcurrent,self.secondarytarget,\
                 self.optics,self.oscillator)    
     
-    def __getattr__(self, attr):
-        return getattr(self.geometry,attr)
-        
     def setgain(self,Rout):
         """Set output resistance of the picoamperemeter(keithley)
 
@@ -263,8 +259,8 @@ class PNdiode(with_metaclass()):
             diodeatt = 1
         else:
             diodeatt = self._diode_attenuation(energy,self.thickness)
-            
-        return diodeatt*(self.ELCHARGE/self.ehole).to("A/W")
+        
+        return diodeatt*(self.ELCHARGE/units.Quantity(self.ehole,"eV")).to("A/W")
 
     def _chargeperdiodephoton(self,energy):
         """Charge generated per photon absorbed by the diode: spectral responsivity multiplied by the energy
@@ -277,24 +273,38 @@ class PNdiode(with_metaclass()):
         """
         return (self.spectral_responsivity(energy)*units.Quantity(energy,"keV")).to("coulomb")
     
-    def _secondarytarget(self,energy):
+    def _secondarytarget(self,energy,weights):
         """
         Args:
             energy(array): source energies in keV (dims: nE)
+            weights(array): source energies in keV (dims: nE)
             
         Returns:
             energy2(array): secondary energies in keV (dims: nE2)
             Ts(array): transmission of source energies (dims: nE)
-            Y(array): intensities of secondary lines (dims: nE x nE2)
+            wY(array): rates of secondary lines (dims: nE x nE2)
+            
         """
         if self.secondarytarget is None:
-            Y = np.ones_like(energy)
-            T = np.ones_like(energy)
+            Ts = np.ones_like(energy)
+            wY = np.ones_like(energy)
         else:
-            Ts = self.secondarytarget.transmission(energy) # transmission of the source spectrum
-            energy,Y = self.secondarytarget.spectrum(energy) # spectrum generated from the target
+            nE = len(energy)
             
-        return energy,Ts,Y
+            # transmission of the source spectrum (target and beam filters)
+            Ts = self.secondarytarget.transmission(energy)*self.secondarytarget.geometry.filter_transmission(energy,source=True)
+            
+            # spectrum generated from the target
+            spectrum = self.secondarytarget.xrayspectrum(energy,weights=weights) 
+
+            # Extract energies and rates
+            geomkwargs = self.secondarytarget.geometry.xrayspectrumkwargs()
+            energy,wY = zip(*list(spectrum.spectrum(**geomkwargs)))
+            energy = np.asarray(energy)
+            nE2 = len(energy)
+            wY = np.asarray(wY).reshape((nE,nE2))
+
+        return energy,Ts,wY
         
     def _transmission_optics(self,energy):
         """
@@ -310,12 +320,12 @@ class PNdiode(with_metaclass()):
             T = self.optics.transmission(energy)
         return T
         
-    def _chargepersamplephoton(self,energy,ratio=None):
+    def _chargepersamplephoton(self,energy,weights=None):
         """Charge generated per photon reaching the sample
 
         Args:
             energy(num|array): source energies in keV (dims: nE)
-            ratio(num|array): source line ratios (dims: nE)
+            weights(num|array): source line weights (dims: nE)
 
         Returns:
             num: C/ph
@@ -323,47 +333,48 @@ class PNdiode(with_metaclass()):
         
         # Parse input (remove units and make array)
         energy,func = instance.asarrayf(units.magnitude(energy,"keV"))
-        if ratio is None:
-            ratio = np.ones_like(energy)
+        if weights is None:
+            weights = np.ones_like(energy)
         else:
-            ratio,func = instance.asarrayf(ratio)
-        ratio /= ratio.sum() # make sure those are fractions
+            weights,func = instance.asarrayf(weights)
+        weights /= weights.sum() # make sure those are fractions
         
-        energy2,Ts,Y = self._secondarytarget(energy) # nE2, nE, nE x nE2
+        energy2,Ts,wY = self._secondarytarget(energy,weights) # nE2, nE, nE x nE2
         To = self._transmission_optics(energy) # nE
         chargeperdiodephoton = self._chargeperdiodephoton(energy2) # nE2
         
         # I(A)  = Is(ph/s) . Cs(C) + D(A)
-        # Cs(C) = SUM_i [Fi.SUM_j[Yij.Cj]] / SUM_k [Fk.Tks.Tko]
+        # Cs(C) = SUM_i [SUM_j[wi.Yij.Cj]] / SUM_k [wk.Tks.Tko]
         #
-        # Fi: source line fraction
+        # wi: source line fraction
         # Cj (C/ph): charge per photon hitting the diode
         # Cs (C/ph): charge per photon hitting the sample
         #
 
-        # SUM_j[Yij.Cj]
-        Y = np.sum(Y*chargeperdiodephoton[np.newaxis,:],axis=1) # nE
+        # Sum over secondary lines: SUM_j[wi.Yij.Cj]
+        wY = np.sum(wY*chargeperdiodephoton[np.newaxis,:],axis=1) # nE
 
-        return np.sum(ratio*Y)/np.sum(ratio*Ts*To)
+        # Sum over source lines: 
+        return np.sum(wY)/np.sum(weights*Ts*To)
     
-    def samplelineratios(self,energy,ratio):
-        """Source ratios after passing through the diode+optics
+    def samplelineweights(self,energy,weights):
+        """Source weights after passing through the diode+optics
         
         Args:
             energy(num|array): source energies in keV (dims: nE)
-            ratio(num|array): source line ratios (dims: nE)
+            weights(num|array): source line weights (dims: nE)
 
         Returns:
-            ratio(num|array): source line ratios at the sample position
+            weights(num|array): source line weights at the sample position
         """
         
         # Parse input (remove units and make array)
         energy,func = instance.asarrayf(units.magnitude(energy,"keV"))
-        if ratio is None:
-            ratio = np.ones_like(energy)
+        if weights is None:
+            weights = np.ones_like(energy)
         else:
-            ratio,func = instance.asarrayf(ratio)
-        ratio /= ratio.sum() # make sure those are fractions
+            weights,func = instance.asarrayf(weights)
+        weights /= weights.sum() # make sure those are fractions
     
         if self.secondarytarget is None:
             Ts = 1
@@ -371,11 +382,11 @@ class PNdiode(with_metaclass()):
             Ts = self.secondarytarget.transmission(energy)
         To = self._transmission_optics(energy)
 
-        # Fis = Iis/sum_i[Iis] = Fi.Tis.Tio / sum_i[Fi.Tis.Tio]
-        ratio *= Ts*To
-        ratio /= ratio.sum()
+        # wis = Iis/sum_i[Iis] = wi.Tis.Tio / sum_i[wi.Tis.Tio]
+        weights *= Ts*To
+        weights /= weights.sum()
         
-        return ratio
+        return weights
     
     def _dark(self):
         """Return dark current
@@ -528,9 +539,9 @@ class PNdiode(with_metaclass()):
         op = self.op_cpstocurrent()
         return op(units.Quantity(cps,"hertz")).to("ampere")
 
-    def xrfnormop(self,energy,time,ref):
+    def xrfnormop(self,energy,time,reference):
         """Operator to convert the raw diode signal to a flux normalizing signal.
-           Either 
+           Usage: Inorm = I/op(iodet)
         
             XRF flux normalization:
             
@@ -550,11 +561,12 @@ class PNdiode(with_metaclass()):
         Args:
             energy(num): keV
             time(num): sec
-            ref(num): reference in counts or photons/sec
+            reference(num): iodet (counts) or flux (photons/sec) to which the data should be normalized
 
         Returns:
             op(linop): raw diode conversion operator
             Fref(num): reference flux in photons/s
+            time(num): reference time in s
         """
 
         # Convert from counts to photons/sec
@@ -563,13 +575,13 @@ class PNdiode(with_metaclass()):
         op.m /= units.Quantity(time,"s")
         
         # Reference flux to which the XRF signal should be normalized
-        if ref.units==ureg.hertz: # photons/sec
-            Fref = ref
-        elif ref.units==ureg.dimensionless: # counts
+        if reference.units==ureg.hertz: # photons/sec
+            Fref = reference
+        elif reference.units==ureg.dimensionless: # counts
             # Fref = op(Idioderef)
-            Fref = units.Quantity(round_sig(units.magnitude(op(ref),"hertz"),2),"hertz")
+            Fref = units.Quantity(round_sig(units.magnitude(op(reference),"hertz"),2),"hertz")
         else:
-            raise RuntimeError("Reference {} should be in photons/sec or counts.".format(ref))
+            raise RuntimeError("Reference {} should be in photons/sec (flux) or counts (iodet).".format(reference))
             
         # Convert from counts to counts at reference flux Fref
         op.m /= Fref
@@ -792,23 +804,8 @@ class CalibratedPNdiode(PNdiode):
 
 class NonCalibratedPNdiode(PNdiode):
 
-    def __init__(self, thickness=None, ehole=None, **kwargs):
-        """
-        Args:
-            thickness(num): thickness in micron
-            ehole(num): energy needed to create an electron-hole pair (keV)
-        """
+    def __init__(self, **kwargs):
         super(NonCalibratedPNdiode,self).__init__(**kwargs)
-
-        if thickness is None:
-            self.thickness = None
-        else:
-            self.thickness = units.Quantity(thickness,"micrometer")
-            
-        if ehole is None:
-            self.ehole = None
-        else:
-            self.ehole = units.Quantity(ehole,"eV")
 
     def calibrate(self,cps,sampleflux,energy,caliboption=None):
         """Calibrate with another diode measuring the flux at the sample position
@@ -871,12 +868,15 @@ class SXM_PTB(AbsolutePNdiode):
     aliases = ["ptb"]
     
     def __init__(self,**kwargs):
-        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
+        attenuators = {}
+        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":np.inf}
+        kwargs["attenuators"] = attenuators
+        
         ptb = np.loadtxt(resource_filename('id21/ptb.dat'))
         energy = ureg.Quantity(ptb[:,0],"keV")
         response = ureg.Quantity(ptb[:,1],"milliampere/watt")
 
-        super(SXM_PTB,self).__init__(material=diodematerial,\
+        super(SXM_PTB,self).__init__(\
                         Rout=ureg.Quantity(1e5,"volt/ampere"),\
                         darkcurrent=ureg.Quantity(0,"ampere"),\
                         energy=energy,response=response,**kwargs)
@@ -890,8 +890,10 @@ class SXM_IDET(CalibratedPNdiode):
     aliases = ["idet"]
     
     def __init__(self,**kwargs):
-        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
-
+        attenuators = {}
+        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":np.inf}
+        kwargs["attenuators"] = attenuators
+        
         absdiode = SXM_PTB(model=True)
 
         vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
@@ -902,7 +904,7 @@ class SXM_IDET(CalibratedPNdiode):
         energy = ureg.Quantity(ird[:-1,0],"keV")
         responseratio = ird[:-1,1]
 
-        super(SXM_IDET,self).__init__(material=diodematerial,\
+        super(SXM_IDET,self).__init__(\
                         Rout=ureg.Quantity(1e5,"volt/ampere"),\
                         darkcurrent=ureg.Quantity(0,"ampere"),\
                         energy=energy,reponseratio=responseratio,\
@@ -912,7 +914,9 @@ class SXM_IDET_TEST(AbsolutePNdiode):
 
     def __init__(self,**kwargs):
         # This is a test: assumes sxmidet responds like an absolute diode (which is not the case)
-        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
+        attenuators = {}
+        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":np.inf}
+        kwargs["attenuators"] = attenuators
 
         absdiode = sxmptb(model=model)
 
@@ -925,7 +929,7 @@ class SXM_IDET_TEST(AbsolutePNdiode):
         responseratio = ird[:-1,1]
         response = responseratio*absdiode.spectral_responsivity(energy)
     
-        super(SXM_IDET_TEST,self).__init__(material=diodematerial,\
+        super(SXM_IDET_TEST,self).__init__(\
                         Rout=ureg.Quantity(1e5,"volt/ampere"),\
                         darkcurrent=ureg.Quantity(0,"ampere"),\
                         energy=energy,response=response,\
@@ -940,15 +944,20 @@ class SXM_IODET1(NonCalibratedPNdiode):
     aliases = ["iodet1"]
 
     def __init__(self,optics=True):
-        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
-    
-        window = compoundfromname.compoundfromname("silicon nitride")
-
-        coating = compoundfromformula.CompoundFromFormula("Ti",0,name="Ti")
+        kwargs = {}
         
-        geom = diodegeometries.factory("Geometry",anglein=90,angleout=45)
-        solidangle = 0.05*4*np.pi
-        secondarytarget = multilayer.Multilayer(material=[coating,window],thickness=[0.5,0.5],detector=self)
+        attenuators = {}
+        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":3e-4}
+        kwargs["attenuators"] = attenuators
+        
+        source = xraysources.factory("synchrotron")
+        geometry = diodegeometries.factory("Geometry",anglein=90,angleout=45,azimuth=0,distance=0.5,source=source,detector=self)
+        kwargs["activearea"] = 0.5
+        kwargs["ehole"] = constants.eholepair_si()
+        
+        window = compoundfromname.compoundfromname("silicon nitride")
+        coating = element.Element('Si')
+        secondarytarget = multilayer.Multilayer(material=[coating,window],thickness=[0.5e-4,0.5e-4],geometry=geometry)
 
         if optics:
             optics = KB.KB()
@@ -959,16 +968,13 @@ class SXM_IODET1(NonCalibratedPNdiode):
                             F0=ureg.Quantity(0,"Hz"),\
                             Vmax=ureg.Quantity(10,"volt"))
                         
-        super(SXM_IODET1,self).__init__(material=diodematerial,\
+        super(SXM_IODET1,self).__init__(\
                             Rout=ureg.Quantity(1e5,"volt/ampere"),\
                             darkcurrent=ureg.Quantity(0,"ampere"),\
-                            thickness=ureg.Quantity(3,"micrometer"),\
-                            ehole=constants.eholepair_si(),\
                             oscillator=vtof,\
                             secondarytarget=secondarytarget,\
                             optics=optics,\
-                            geometry=geom,\
-                            solidangle=solidangle)
+                            **kwargs)
                         
 class SXM_IODET2(NonCalibratedPNdiode):
     # International Radiation Detectors (IRD), AXUV-PS1-S
@@ -979,12 +985,19 @@ class SXM_IODET2(NonCalibratedPNdiode):
     aliases = ["iodet2"]
 
     def __init__(self,optics=True):
-        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
-    
+        kwargs = {}
+        
+        attenuators = {}
+        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":3e-4}
+        kwargs["attenuators"] = attenuators
+        
+        source = xraysources.factory("synchrotron")
+        geometry = diodegeometries.factory("Geometry",anglein=90,angleout=45,azimuth=0,distance=0.5,source=source,detector=self)
+        kwargs["activearea"] = 0.5
+        kwargs["ehole"] = constants.eholepair_si()
+        
         window = compoundfromname.compoundfromname("silicon nitride")
-        geom = diodegeometries.factory("Geometry",anglein=90,angleout=45)
-        solidangle = 0.05*4*np.pi
-        secondarytarget = multilayer.Multilayer(material=[window],thickness=[0.5],detector=self)
+        secondarytarget = multilayer.Multilayer(material=[window],thickness=[0.5e-4],geometry=geometry)
         
         if optics:
             optics = KB.KB()
@@ -995,28 +1008,29 @@ class SXM_IODET2(NonCalibratedPNdiode):
                             F0=ureg.Quantity(0,"Hz"),\
                             Vmax=ureg.Quantity(10,"volt"))
                         
-        super(SXM_IODET2,self).__init__(material=diodematerial,\
+        super(SXM_IODET2,self).__init__(\
                             Rout=ureg.Quantity(1e5,"volt/ampere"),\
                             darkcurrent=ureg.Quantity(0,"ampere"),\
-                            thickness=ureg.Quantity(3,"micrometer"),\
-                            ehole=constants.eholepair_si(),\
                             oscillator=vtof,\
                             secondarytarget=secondarytarget,\
                             optics=optics,\
-                            geometry=geom,\
-                            solidangle=solidangle)
+                            **kwargs)
 
 class XRD_IDET(NonCalibratedPNdiode):
     aliases = ["pico1"]
     
     def __init__(self,**kwargs):
-        diodematerial = compoundfromformula.CompoundFromFormula("Si",0,name="Si")
-                    
-        super(XRD_IDET,self).__init__(material=diodematerial,\
+        attenuators = {}
+        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":0.1}
+        kwargs["attenuators"] = attenuators
+        
+        kwargs["ehole"] = constants.eholepair_si()
+        
+        
+        super(XRD_IDET,self).__init__(\
                                 Rout=ureg.Quantity(10,"volt")/ureg.Quantity(2.1e-6,"ampere"),\
                                 darkcurrent=ureg.Quantity(0,"ampere"),
-                                thickness=ureg.Quantity(1,"mm"),\
-                                ehole=constants.eholepair_si(),**kwargs)
+                                **kwargs)
 
 factory = PNdiode.factory
 

@@ -354,9 +354,9 @@ class Mixture(object):
         
         spectrum = xrayspectrum.Spectrum()
         spectrum.density = self.density
-        spectrum.cs = self.fluorescence_cross_section_lines(E,decomposed=False)
-        spectrum.cs[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E,decomposed=False)
-        spectrum.cs[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E,decomposed=False)
+        spectrum.update(self.fluorescence_cross_section_lines(E,decomposed=False))
+        spectrum[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E,decomposed=False)
+        spectrum[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E,decomposed=False)
         spectrum.xlim = [emin,emax]
         spectrum.title = str(self)
         spectrum.type = spectrum.TYPES.crosssection

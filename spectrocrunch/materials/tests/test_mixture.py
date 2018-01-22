@@ -28,6 +28,7 @@ from ..compoundfromformula import CompoundFromFormula as compound
 from ..mixture import Mixture as mixture
 from ..types import fractionType
 from ...geometries import xrf as xrfgeometries
+from ...geometries import source
 from ...detectors import xrf as xrfdetectors
 from ...common import instance
 
@@ -83,15 +84,16 @@ class test_mixture(unittest.TestCase):
             self.assertEqual(c3.elements[e],c4.elements[e])
 
     def _spectrum(self,lstlines,thickness):
-        geometry = xrfgeometries.factory("sdd120",detectorposition=-15.)
-        detector = xrfdetectors.factory("leia",geometry=geometry)
-    
+        src = source.factory("synchrotron")
+        detector = xrfdetectors.factory("leia")
+        geometry = xrfgeometries.factory("sdd120",detectorposition=-15.,detector=detector,source=src)
+
         out = {}
         for spectrum,d in zip(lstlines,thickness):
             
             for line,prob in spectrum.probabilities:
                 intensity = prob*detector.solidangle*d
-                energy = line.energy(scatteringangle=detector.scatteringangle)
+                energy = line.energy(**detector.geometry.xrayspectrumkwargs())
                 energy = instance.asarray(energy)
                 intensity = instance.asarray(intensity)
                 for en,inten in zip(energy,intensity):

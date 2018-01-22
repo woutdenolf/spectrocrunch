@@ -25,6 +25,7 @@
 from __future__ import division
 
 from ..geometries import flatarea
+from ..geometries import source
 from ..detectors import area
 from ..materials import scintillators
 from ..materials import lenses
@@ -55,8 +56,8 @@ def absorbance(_transmission):
 
 class id21_ffsetup(object):
 
-    def __init__(self,sample=None,scint="LSO",lens="x10",det="pcoedge55"):
-        self.sample = sample
+    def __init__(self,sample=None,scint="LSO",lens="x10",**kwargs):
+        self.setsample(sample,**kwargs)
 
         if scint=="LSO":
             self.oscint = scintillators.factory("LSO ID21",thickness=10)
@@ -68,9 +69,15 @@ class id21_ffsetup(object):
         else:
             self.olens = lenses.factory("mitutoyoid21_10x")
 
-        geometry = flatarea.factory("perpendicular")
-        self.sample.detector = area.factory(det,geometry=geometry)
-    
+    def setsample(self,sample,det="pcoedge55"):
+        self.sample = sample
+        self.odetector = area.factory(det)
+        
+        if sample is not None:
+            src = source.factory("synchrotron")
+            geometry = flatarea.factory("perpendicular",detector=self.odetector,source=src)
+            self.sample.geometry = geometry
+
     def propagate(self,N,E,tframe,nframe,samplein=False,withnoise=True,forward=True,poissonapprox=False):
         if isarray(E):
             E = np.asarray(E)
@@ -88,7 +95,7 @@ class id21_ffsetup(object):
             N = self.olens.propagate(N,self.oscint.visspectrum,\
                                     nrefrac=self.oscint.get_nrefrac(),\
                                     forward=forward)
-            N = self.sample.detector.propagate(N,self.oscint.visspectrum,\
+            N = self.odetector.propagate(N,self.oscint.visspectrum,\
                                     tframe=tframe,nframe=nframe,\
                                     forward=forward,poissonapprox=poissonapprox)
             
@@ -98,7 +105,7 @@ class id21_ffsetup(object):
             if isarray(N):
                 s = N.shape
                 N = N.flatten()
-            N = self.sample.detector.propagate(N,self.oscint.visspectrum,\
+            N = self.odetector.propagate(N,self.oscint.visspectrum,\
                                     tframe=tframe,nframe=nframe,\
                                     forward=forward)
             N = self.olens.propagate(N,self.oscint.visspectrum,\
@@ -123,7 +130,7 @@ class id21_ffsetup(object):
             num: DU/ph,DU
         """
         N0 = self.propagate(1,energy,tframe,nframe,samplein=samplein)
-        D0 = self.sample.detector.propagate(0,energy,tframe=tframe,nframe=nframe)
+        D0 = self.odetector.propagate(0,energy,tframe=tframe,nframe=nframe)
 
         return N0-D0,D0
 
@@ -170,8 +177,8 @@ class id21_ffsetup(object):
             D0 = 0
             
         if nframe_dark!=0:
-            D = self.sample.detector.propagate(D,energy,tframe=tframe_data,nframe=nframe_dark)
-            D0 = self.sample.detector.propagate(D0,energy,tframe=tframe_flat,nframe=nframe_dark)
+            D = self.odetector.propagate(D,energy,tframe=tframe_data,nframe=nframe_dark)
+            D0 = self.odetector.propagate(D0,energy,tframe=tframe_flat,nframe=nframe_dark)
     
         return N,N0,D,D0
     

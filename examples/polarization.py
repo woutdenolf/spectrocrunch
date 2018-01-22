@@ -85,8 +85,8 @@ def approach2():
 
     plt.figure()
     
-    if False:
-        P = 0.9
+    if True:
+        P = 1.
         cosbeta = np.sqrt((1+P)/2.)
         sinbeta = np.sqrt((1-P)/2.)
     else:
@@ -99,7 +99,7 @@ def approach2():
     cos2beta = P
     tan2beta = sin2beta/cos2beta
   
-    delta = np.radians(0.)
+    delta = np.radians(0)
 
     AA = 1/(meanabsphasor*np.sin(delta)*cosbeta)**2
     CC = 1/(meanabsphasor*np.sin(delta)*sinbeta)**2

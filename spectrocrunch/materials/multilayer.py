@@ -53,39 +53,36 @@ class Layer(object):
         self.fixed = fixed
         self.ml = ml
 
+    def __getattr__(self,attr):
+        return getattr(self.material,attr)
+
     def __str__(self):
         return "{} μm ({})".format(self.thickness*1e4,self.material)
-        
-    def __getattr__(self,attr):
-        try:
-            return getattr(self.material,attr)
-        except AttributeError:
-            return getattr(self.ml,attr)
-            
+  
     @property
     def xraythickness(self):
-        return self.thickness/self.ml.cosnormin
+        return self.thickness/self.ml.geometry.cosnormin
     
     @xraythickness.setter
     def xraythickness(self,value):
-        self.thickness = value*self.ml.cosnormin
+        self.thickness = value*self.ml.geometry.cosnormin
     
     def absorbance(self,energy,fine=False,decomposed=False):
         if decomposed:
             return {"cs":self.material.mass_att_coeff(energy,fine=fine,decomposed=decomposed),\
                     "thickness":self.xraythickness,\
-                    "density":self.material.density}
+                    "density":self.density}
         else:
             return self.material.mass_att_coeff(energy,fine=fine,decomposed=decomposed)*\
-                    (self.xraythickness*self.material.density)
+                    (self.xraythickness*self.density)
 
     def absorbanceout(self,energy):
         return self.material.mass_att_coeff(energy)*\
-                    (self.thickness/self.ml.cosnormout*self.material.density)
+                    (self.thickness/self.ml.cosnormout*self.density)
 
     def addtofisx(self,setup,cfg):
         name = cfg.addMaterial(self.material)
-        return [name,self.material.density,self.thickness]
+        return [name,self.density,self.thickness]
 
     def fisxgroups(self,emin=0,emax=np.inf):
         return self.material.fisxgroups(emin=emin,emax=emax)
@@ -98,15 +95,15 @@ class Multilayer(with_metaclass(cache.Cache)):
     
     FISXCFG = pymca.FisxConfig()
 
-    def __init__(self, material=None, thickness=None, detector=None):
+    def __init__(self, material=None, thickness=None, geometry=None):
         """
         Args:
             material(list(spectrocrunch.materials.compound|mixture)): layer composition
             thickness(list(num)): layer thickness in cm
-            detector(spectrocrunch.detectors.xrf.Detector): 
+            geometry(spectrocrunch.geometries.base.PointGeometry): 
         """
         
-        self.detector = detector
+        self.geometry = geometry
 
         if not instance.isarray(material):
             material = [material]
@@ -116,9 +113,6 @@ class Multilayer(with_metaclass(cache.Cache)):
         
         super(Multilayer,self).__init__(force=True)
     
-    def __getattr__(self,name):
-        return getattr(self.detector,name)
-     
     def __len__(self):
         return len(self.layers)
     
@@ -257,7 +251,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         t = np.empty(self.nlayers+1)
         np.cumsum(self.thickness,out=t[1:])
         t[0] = 0
-        if self.reflection:
+        if self.geometry.reflection:
             zexit = 0.
         else:
             zexit = t[-1]
@@ -356,7 +350,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         #assert(sum(instance.asarray(-datt/cosaij)>0)==0)
         return np.exp(-datt/cosaij)
 
-    def _cache_interactioninfo(self,energy,weights,emin=None,emax=None,scatteringangle=None,ninteractions=None):
+    def _cache_interactioninfo(self,energy,weights,emin=None,emax=None,polar=None,ninteractions=None):
         # Pepare resulting lists
         _nlayers = self.nlayers+2
         _ninteractions = ninteractions+2
@@ -369,7 +363,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         probabilities[0] = pd.DataFrame(columns=[xrayspectrum.RayleighLine(energy)])
         
         # Calculate interaction probabilities (ph/cm/srad)
-        getenergy = lambda x: list(listtools.flatten(interaction.energy(scatteringangle=scatteringangle) for interaction in x.columns))
+        getenergy = lambda x: list(listtools.flatten(interaction.energy(polar=polar) for interaction in x.columns))
         for i in range(ninteractions):
             energy = getenergy(probabilities[i])
             nenergy = len(energy)
@@ -520,8 +514,8 @@ class Multilayer(with_metaclass(cache.Cache)):
             energy1 = interactioninfo["getenergy"](interactioninfo["probabilities"][interactionindex])
             
             att = self.getcashed("attenuationinfo")
-            cosafirst = self.detector.cosnormin
-            cosalast = self.detector.cosnormout
+            cosafirst = self.geometry.cosnormin
+            cosalast = self.geometry.cosnormout
             mu0 = att["linatt"][energy0].values/cosafirst
             mu1 = att["linatt"][energy1].values/cosalast
             cor0 = att["linatt_cumulcor"][energy0].values/cosafirst
@@ -535,7 +529,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             J2 -= np.exp(chi*layerinfo["cumul_thickness"][:-1,np.newaxis,np.newaxis])
             J2 /= chi
             J2 *= np.exp(chicor)
-            if not self.reflection:
+            if not self.geometry.reflection:
                 J2 *= np.exp(-cor1[-1,np.newaxis,:,np.newaxis])
             
             # nlayers x nenergy1 x nenergy0 -> nlayers x nsource x nenergy1
@@ -578,14 +572,14 @@ class Multilayer(with_metaclass(cache.Cache)):
         """
         interactionindex = 1
         
-        cosafirst = self.detector.cosnormin
-        cosalast = self.detector.cosnormout
+        cosafirst = self.geometry.cosnormin
+        cosalast = self.geometry.cosnormout
         layerinfo = self.getcashed("layerinfo")
         za = layerinfo["cumul_thickness"][0]
         zb = layerinfo["cumul_thickness"][-1]
         zfirst = layerinfo["cumul_thickness"][0]
         zlast = layerinfo["zexit"]
-        scatteringangle = self.detector.scatteringangle
+        geomkwargs = self.geometry.xrayspectrumkwargs()
         
         interactioninfo = self.getcashed("interactioninfo")
         energy0 = interactioninfo["getenergy"](interactioninfo["probabilities"][0])
@@ -608,7 +602,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         #import matplotlib.pyplot as plt
 
         for interaction1 in interactions1:
-            energy1 = interaction1.energy(scatteringangle=scatteringangle)
+            energy1 = interaction1.energy(**geomkwargs)
             if isinstance(interaction1,xrayspectrum.FluoZLine):
                 energy1 = [energy1]*len(energy0)
 
@@ -629,15 +623,15 @@ class Multilayer(with_metaclass(cache.Cache)):
         """
         interactionindex = 2
         
-        cosafirst = self.detector.cosnormin
-        cosalast = self.detector.cosnormout
+        cosafirst = self.geometry.cosnormin
+        cosalast = self.geometry.cosnormout
         layerinfo = self.getcashed("layerinfo")
         za = layerinfo["cumul_thickness"][0]
         zb = layerinfo["cumul_thickness"][-1]
         zfirst = layerinfo["cumul_thickness"][0]
         zlast = layerinfo["zexit"]
-        scatteringangle1 = self.detector.scatteringangle
-        scatteringangle2 = scatteringangle1
+        geomkwargs1 = self.geometry.xrayspectrumkwargs()
+        geomkwargs2 = geomkwargs1
         
         interactioninfo = self.getcashed("interactioninfo")
         energy0 = interactioninfo["getenergy"](interactioninfo["probabilities"][0])
@@ -663,12 +657,12 @@ class Multilayer(with_metaclass(cache.Cache)):
         import matplotlib.pyplot as plt
         
         for interaction1 in interactions1:
-            energy1 = interaction1.energy(scatteringangle=scatteringangle1)
+            energy1 = interaction1.energy(**geomkwargs1)
             if isinstance(interaction1,xrayspectrum.FluoZLine):
                 energy1 = [energy1]*len(energy0)
 
             for interaction2 in interactions2:
-                energy2 = interaction2.energy(scatteringangle=scatteringangle2)
+                energy2 = interaction2.energy(**geomkwargs2)
                 if isinstance(interaction2,xrayspectrum.FluoZLine):
                     energy2 = [energy2]*len(energy1)
 
@@ -696,8 +690,44 @@ class Multilayer(with_metaclass(cache.Cache)):
     def addtofisx(self,setup,cfg):
         cfg.init()
         setup.setSample([layer.addtofisx(setup,cfg) for layer in self])
-        self.detector.addtofisx(setup,cfg)
+        self.geometry.addtofisx(setup,cfg)
 
+    def addtopymca_matrix(self,config,name):
+        anglein = self.anglein
+        angleout = self.angleout 
+        if name=="MULTILAYER":
+            density,thickness = 0.,0.
+        else:
+            v = config["materials"][name]
+            density,thickness = v["Density"], v["Thickness"]
+        config["attenuators"]["Matrix"] = [1, name, density, thickness, anglein, angleout, 0, anglein+angleout]
+    
+    def addtopymca_layer(self,config,index,layer):
+        name = self.addtopymca_material(config,layer)
+        l = "Layer{}".format(index)
+        config["multilayer"][l] = [1,name,layer.density,layer.thickness]
+
+    def addtopymca_shells(self,config,elements,energy):
+        emax = energy
+        emin = 0.9
+        
+        for e in elements:
+            shells = element.Shell.pymcafactory((e,emin,emax))
+            if shells:
+                config["peaks"][str(e)] = shells
+
+    def addtopymca(self,config,energy):
+        if self.nlayers==1:
+            name = self.addtopymca_material(config,self[0])
+            self.addtopymca_shells(config,self[0].elements,energy)
+            self.addtopymca_matrix(config,name)
+        else:
+            for index,layer in enumerate(self):
+                self.addlayer(config,index,layer)
+                self.addtopymca_shells(config,layer.elements,energy)
+            self.addtopymca_matrix(config,'MULTILAYER')
+        self.geometry.addtopymca(config)
+    
     def _parse_fisx_result(self,gen):
         result = {}
         
@@ -715,19 +745,19 @@ class Multilayer(with_metaclass(cache.Cache)):
                         result[line] = rate
         
         # Correction for detector in transmission
-        if not self.reflection:
+        if not self.geometry.reflection:
             for line in result:
-                energy = line.energy(scatteringangle=self.detector.scatteringangle)
+                energy = line.energy(**self.geometry.xrayspectrumkwargs())
                 result[line] = result[line]*self.transmissionout(energy)
         
         return result
 
     def _dict_to_spectrum(self,gen):
-        allenergies = list(listtools.flatten(line.energy(scatteringangle=self.detector.scatteringangle) for line in gen))    
+        allenergies = list(listtools.flatten(line.energy(**self.geometry.xrayspectrumkwargs()) for line in gen))    
         spectrum = xrayspectrum.Spectrum()
-        spectrum.cs = gen
+        spectrum.update(gen)
         spectrum.xlim = [min(allenergies),max(allenergies)]
-        spectrum.density = 1
+        spectrum.density = None
         spectrum.title = str(self)
         spectrum.type = spectrum.TYPES.interactionyield
         return spectrum
@@ -764,18 +794,32 @@ class Multilayer(with_metaclass(cache.Cache)):
             emax = np.max(energy0)
             
         setup = fisx.XRF()
-        self.addtofisx(setup,self.FISXCFG)
-        secondary = 2*(ninteractions>1)
         
+        # Add sample, detector and geometry
+        self.addtofisx(setup,self.FISXCFG)
+        
+        # Add source
+        setup.setBeam(energy0,weights=self._parse_weights(weights,nsource))
+
+        # Peak groups
         groups = {}
         for layer in self:
             groups.update(layer.fisxgroups(emin=emin,emax=emax)) 
-        groups = ["{} {}".format(el,shell) for el,shells in groups.items() for shell in shells]
+        
+        def shellparse(shell):
+            shell = str(shell)
+            if shell.startswith("M"):
+                shell = "M"
+            return shell
+            
+        groups = set(["{} {}".format(el,shellparse(shell)) for el,shells in groups.items() for shell in shells])
 
-        setup.setBeam(energy0,weights=self._parse_weights(weights,nsource))
+        # Get fluorescence
+        secondary = 2*(ninteractions>1)
         gen = setup.getMultilayerFluorescence(\
                         groups,self.FISXCFG.FISXMATERIALS,\
                         secondary=secondary,useMassFractions=1)
+                        
         #self._print_fisx(gen)
         result = self._parse_fisx_result(gen)
         
@@ -785,15 +829,17 @@ class Multilayer(with_metaclass(cache.Cache)):
         """Convert ph/srad to ph and apply detector efficiency
         """
         
+        geom = self.geometry.xrayspectrumkwargs()
+        
         lines = gen.keys()
-        energysource = lines[lines.index("Rayleigh")].energy(scatteringangle=self.detector.scatteringangle)
-        energydet = [k.energy(scatteringangle=self.detector.scatteringangle) for k in lines]
+        energysource = lines[lines.index("Rayleigh")].energy(**geom)
+        energydet = [k.energy(**geom) for k in lines]
         ind = np.cumsum([listtools.length(en) for en in energydet])
         ind = np.insert(ind,0,0)
         ind = zip(ind[:-1],ind[1:])
 
         energydet = list(listtools.flatten(energydet))
-        efficiency = self.detector.efficiency(energysource,energydet)
+        efficiency = self.geometry.efficiency(energysource,energydet)
 
         for k,(a,b) in zip(lines,ind):
             if a+1==b: # Fluorescence
@@ -803,27 +849,27 @@ class Multilayer(with_metaclass(cache.Cache)):
             gen[k] = gen[k]*eff
             
     @cache.withcache("layerinfo")
-    def xrayspectrum(self, energy0, emin=0, emax=None, calc="fisx", ninteractions=1, weights=None):
-        if calc=="fisx":
+    def xrayspectrum(self, energy0, emin=0, emax=None, method="analytical", ninteractions=1, weights=None):
+        if method=="fisx":
             if ninteractions>3:
-                calc="numerical"
+                method="numerical"
 
-            #if not self.reflection and self.nlayers>1:
-            #    calc="analytical"
-            if not self.reflection:
-                calc="analytical"
+            #if not self.geometry.reflection and self.nlayers>1:
+            #    method="analytical"
+            if not self.geometry.reflection:
+                method="analytical"
                 
-        if calc=="fisx":
+        if method=="fisx":
             gen = self._interactions_fisx(energy0,weights,ninteractions,emin=emin,emax=emax) 
         else:
             with self.cachectx("interactioninfo",energy0,weights,emin=emin,emax=emax,\
                                 ninteractions=ninteractions,\
-                                scatteringangle=self.detector.scatteringangle):
+                                polar=self.geometry.scatteringangle):
                 interactioninfo = self.getcashed("interactioninfo")
                 allenergies = interactioninfo["getenergy"](interactioninfo["probabilities"][-2])
                 with self.cachectx("attenuationinfo",allenergies):
                     # Primary interaction (with self-absorption)
-                    if calc=="numerical":
+                    if method=="numerical":
                         gen = self._primary_interaction_numerical()
                     else:
                         gen = self._primary_interaction()

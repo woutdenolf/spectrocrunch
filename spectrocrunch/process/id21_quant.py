@@ -40,7 +40,7 @@ class FluxMonitor(object):
         self.iodet = None
         self.iodetname = iodetname
         self.focussed = focussed
-        self.refcts = units.Quantity(1e10,"hertz")
+        self.reference = units.Quantity(1e10,"hertz")
         self.time = units.Quantity(0.1,"s")
         self.setiodet()
         
@@ -48,18 +48,18 @@ class FluxMonitor(object):
         return getattr(self.iodet,attr)
     
     def __str__(self):
-        return "Default flux reference:\n {}\nDefault exposure time:\n {}\n{}".format(self.refcts,self.time,str(self.iodet))
+        return "Default flux reference:\n {:~}\nDefault exposure time:\n {:~}\n{}".format(self.reference,self.time,self.iodet.geometry)
 
     def parsespec(self,specfile,specnr):
         fspec = spec.spec(specfile)
         ioz,istopz,energy,zpz = fspec.getmotorvalues(specnr,["diodeIoZ","istopz","Energy MONO",'zpz'])
 
         self.checkiodet(ioz,istopz,zpz)
-        
-        self.ioz,self.istopz,self.energy,self.zpz = ioz,istopz,energy,zpz
-        
+
         data = fspec.getdata2(specnr,["Seconds","Photons","idet","iodet"])
         seconds = data[:,0]
+        
+        self.energy = energy
         self.fluxest = data[:,1]/seconds
         self.idetcps = data[:,2]/seconds
         self.iodetcps = data[:,3]/seconds
@@ -142,17 +142,15 @@ class FluxMonitor(object):
     
         plt.tight_layout()
     
-    def load(self,specfile=None,specnr=None,gainiodet=None,gainidet=None):
+    def prepareddata(self,specfile=None,specnr=None,gainiodet=None,gainidet=None):
         setiodet = False
         setidet = False
         
-        loaddata = specfile is not None or specnr is not None
+        loaddata = specfile is not None and specnr is not None
         if loaddata:
             self.parsespec(specfile,specnr)
 
-        if gainiodet is None:
-            logger.warning("Gain of iodet is not specified.")
-        else:
+        if gainiodet is not None:
             self.iodet.setgain(gainiodet)
             setiodet = True
             
@@ -161,8 +159,6 @@ class FluxMonitor(object):
             if loaddata:
                 self.idet.gainfromcps(self.energy,self.idetcps,self.fluxest)
                 setidet = True
-            else:
-                logger.warning("Gain of idet is not specified.")
         else:
             self.idet.setgain(gainidet)
             setidet = True
@@ -172,7 +168,7 @@ class FluxMonitor(object):
     def dark(self,plot=False,**kwargs):
         """Get the dark current from the data
         """
-        loaddata,setiodet,setidet = self.load(**kwargs)
+        loaddata,setiodet,setidet = self.prepareddata(**kwargs)
         self.darkiodet()
         self.darkidet()
         
@@ -180,10 +176,10 @@ class FluxMonitor(object):
             self.checkdark()
             plt.show()
  
-    def manualdark(self,iodetcps,idetcps,**kwargs):
+    def setdark(self,iodetcps,idetcps,**kwargs):
         """Manually specify the dark current
         """
-        loaddata,setiodet,setidet = self.load(**kwargs)
+        loaddata,setiodet,setidet = self.prepareddata(**kwargs)
         if iodetcps is not None:
             if not setiodet:
                 raise RuntimeError("Gain of iodet should be specified")
@@ -196,7 +192,7 @@ class FluxMonitor(object):
     def calib(self,caliboption=None,plot=False,**kwargs):
         """Diode calibration from the data
         """
-        loaddata,setiodet,setidet = self.load(**kwargs)
+        loaddata,setiodet,setidet = self.prepareddata(**kwargs)
         if not loaddata:
             raise RuntimeError("Attenuator scan should be specified")
         if not setiodet:
@@ -209,27 +205,28 @@ class FluxMonitor(object):
             self.checkflux()
             plt.show()
 
-    def manualcalib(self,energy,transmission,**kwargs):
+    def setcalib(self,energy,transmission,**kwargs):
         """Manual diode calibration
         """
-        loaddata,setiodet,setidet = self.load(**kwargs)
+        loaddata,setiodet,setidet = self.prepareddata(**kwargs)
         self.iodet.optics.set_transmission(energy,transmission)
     
     def setreferenceflux(self,flux):
-        self.refcts = units.Quantity(flux,"hertz")
+        self.reference = units.Quantity(flux,"hertz")
     
     def setreferencecounts(self,cts):
-        self.refcts = units.Quantity(cts,"dimensionless")
+        self.reference = units.Quantity(cts,"dimensionless")
     
     def settime(self,time):
         self.time = units.Quantity(time,"s")
-    
-    def xrfnormop(self,energy,time=None,refcts=None):
+
+    def xrfnormop(self,energy,time=None,ref=None):
         if time is None:
             time = self.time
-        if refcts is None:
-            refcts = self.refcts
-        return self.iodet.xrfnormop(energy,time,refcts)
+        if ref is None:
+            ref = self.reference
+            
+        return self.iodet.xrfnormop(energy,time,ref)
     
     def fluxtocps(self,energy,flux):
         return self.iodet.fluxtocps(energy,flux).magnitude

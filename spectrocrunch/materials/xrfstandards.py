@@ -32,63 +32,20 @@ from . import pymca
 
 from ..common.classfactory import with_metaclass
 
-class Sample(with_metaclass(with_metaclass(pymca.PymcaAttenuators))):
+class Sample(with_metaclass(multilayer.Multilayer)):
     
-    def __init__(self,material=None,environment=None,detector=None,**kwargs):
-        if material is None:
-            material = compoundfromname.compoundfromname("vacuum")
-        self.material = material
+    def __init__(self,environment=None,**kwargs):
         self.environment = environment
-        self.detector = detector
         super(Sample,self).__init__(**kwargs)
 
-    def __getattr__(self, attr):
-        return getattr(self.detector,attr)
-        
-    def addtoconfig(self,config,energy):
-        super(Sample,self).addtoconfig(config)
-        self.detector.addtoconfig(config,energy)
 
-        if isinstance(self.material,multilayer.Multilayer):
-            for index,layer in enumerate(self.material):
-                self.addlayer(config,index,layer)
-                self.addshells(config,layer.elements,energy)
-            self.addmatrix(config,'MULTILAYER')
-        else:
-            name = self.addmaterial(config,self.material)
-            self.addshells(config,self.material.elements,energy)
-            self.addmatrix(config,name)
-
+    def addtopymca(self,config,energy):
+        super(Sample,self).addtoconfig(config,energy)
         if self.environment is not None:
             self.addshells(config,self.environment,energy)
 
-    def addmatrix(self,config,name):
-        anglein = self.anglein
-        angleout = self.angleout 
-        if name=="MULTILAYER":
-            density,thickness = 0.,0.
-        else:
-            v = config["materials"][name]
-            density,thickness = v["Density"], v["Thickness"]
-        config["attenuators"]["Matrix"] = [1, name, density, thickness, anglein, angleout, 0, anglein+angleout]
-    
-    def addlayer(self,config,index,layer):
-        name = self.addmaterial(config,layer)
-        l = "Layer{}".format(index)
-        config["multilayer"][l] = [1,name,layer.density,layer.thickness]
 
-    def addshells(self,config,elements,energy):
-        emax = energy
-        emin = 0.9
-        
-        for e in elements:
-            shells = element.Shell.pymcafactory((e,emin,emax))
-            if shells:
-                config["peaks"][str(e)] = shells
 
-    def loadfromconfig(self,config):
-        super(Sample,self).loadfromconfig(config)
-        self.detector.loadfromconfig(config,energy)
         
 def axo(name,elements,ad,windowthickness,filmthickness):
     # When the filmthickness is not known exactly, there is no other

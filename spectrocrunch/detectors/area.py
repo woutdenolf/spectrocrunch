@@ -45,10 +45,6 @@ class Detector(with_metaclass()):
         self.geometry = geometry
         super(Detector,self).__init__(**kwargs)
         
-    def __getattr__(self, attr):
-        # when Detector does not have this attribute or property, try passing it on to the geometry
-        return getattr(self.geometry,attr)
-
     def __str__(self):
         return "qe = {} e-/DU\n conv = {} e-/DU\n off = {} DU\n dark = {} e-/sec\n noise = {} e-\n{}".format(self.qeself.etoDU,self.DUoffset,self.darkcurrent,self.readoutnoise,str(self.geometry))
     

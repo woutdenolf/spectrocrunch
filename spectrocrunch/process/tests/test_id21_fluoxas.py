@@ -71,13 +71,13 @@ class test_fluoxas(unittest.TestCase):
     def fluxmonitor(self,cfgfile):
         energy = self.pymcagetenergy(cfgfile)
         monitor = FluxMonitor(iodetname="iodet1",focussed=True)
-        monitor.manualdark(300,gainiodet=1e8)
-        monitor.manualcalib(energy-5,0.5,gainiodet=1e8)
-        monitor.manualcalib(energy+5,0.5,gainiodet=1e8)
+        monitor.setdark(300,None,gainiodet=1e8)
+        monitor.setcalib(energy-5,0.5,gainiodet=1e8)
+        monitor.setcalib(energy+5,0.5,gainiodet=1e8)
         monitor.setreferenceflux(1e9)
         monitor.settime(0.1)
         return monitor
-        
+    
     def gendata(self):
         # Pymca config file
         cfgfile = resource_filename("test/mca.cfg")
@@ -105,14 +105,14 @@ class test_fluoxas(unittest.TestCase):
 
         # Apply flux
         fluxmonitor = self.fluxmonitor(cfgfile)
-        refflux = fluxmonitor.refcts.to("hertz").magnitude
+        refflux = fluxmonitor.reference.to("hertz").magnitude
         flux = np.linspace(refflux,refflux*0.5,nmaps*nlines*nspec).reshape((nmaps,nlines,nspec))
         data *= flux[...,np.newaxis,np.newaxis]
         
         ctrs["arr_iodet"] = np.ones((nmaps,nlines,nspec))
         ctrs["arr_fdet"] = np.ones((nmaps,nlines,nspec))
         for i,en in enumerate(energy):
-            ctrs["arr_iodet"][i,...] = fluxmonitor.fluxtocps(en,flux[i,...])*fluxmonitor.time
+            ctrs["arr_iodet"][i,...] = fluxmonitor.fluxtocps(en,flux[i,...])*fluxmonitor.time.to("seconds").magnitude
             ctrs["arr_fdet"][i,...] = flux[i,...]/refflux
             op,fref,tref = fluxmonitor.xrfnormop(en)
             self.assertEqual(fref,refflux)

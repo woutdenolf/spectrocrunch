@@ -209,7 +209,7 @@ class Element(hashable.Hashable):
 
         return energyrange
 
-    def mass_att_coeff(self,E,environ=None,decimals=6,refresh=False):
+    def mass_att_coeff(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Mass attenuation coefficient (cm^2/g, E in keV). Use for transmission XAS.
 
         Args:
@@ -234,7 +234,7 @@ class Element(hashable.Hashable):
 
         return func(cs)
 
-    def mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False):
+    def mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Mass absorption coefficient (cm^2/g, E in keV).
 
         Args:
@@ -256,7 +256,7 @@ class Element(hashable.Hashable):
 
         return func(cs)
 
-    def _replace_partial_mass_abs_coeff(self,cs,E,environ=None,decimals=6,refresh=False):
+    def _replace_partial_mass_abs_coeff(self,cs,E,environ=None,decimals=6,refresh=False,**kwargs):
         """
         """
         if environ is not None:
@@ -274,7 +274,7 @@ class Element(hashable.Hashable):
 
         return cs
 
-    def partial_mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False):
+    def partial_mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Mass absorption coefficient for the selected shells (cm^2/g, E in keV).
 
         Args:
@@ -300,7 +300,7 @@ class Element(hashable.Hashable):
         cs = sum(cs.values())
         return func(cs)
 
-    def fluorescence_cross_section(self,E,environ=None,decimals=6,refresh=False,decomposed=False):
+    def fluorescence_cross_section(self,E,environ=None,decimals=6,refresh=False,decomposed=False,**kwargs):
         """XRF cross section for the selected shells and lines (cm^2/g, E in keV). Use for fluorescence XAS.
 
         Args:
@@ -331,7 +331,7 @@ class Element(hashable.Hashable):
             cs = sum([shellcs*shell.partial_fluoyield(self.Z) for shell,shellcs in cs.items()])
             return func(cs)
 
-    def fluorescence_cross_section_lines(self,E,environ=None,decimals=6,refresh=False,decomposed=True):
+    def fluorescence_cross_section_lines(self,E,environ=None,decimals=6,refresh=False,decomposed=True,**kwargs):
         """XRF cross sections per line (cm^2/g, E in keV). Use for XRF.
 
         Args:
@@ -371,9 +371,9 @@ class Element(hashable.Hashable):
 
         spectrum = xrayspectrum.Spectrum()
         spectrum.density = self.density
-        spectrum.cs = self.fluorescence_cross_section_lines(E,decomposed=True)
-        spectrum.cs[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E)
-        spectrum.cs[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E)
+        spectrum.update(self.fluorescence_cross_section_lines(E,decomposed=True))
+        spectrum[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E)
+        spectrum[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E)
         spectrum.xlim = [emin,emax]
         spectrum.title = str(self)
         spectrum.type = spectrum.TYPES.crosssection
@@ -386,7 +386,7 @@ class Element(hashable.Hashable):
         ret = np.vectorize(lambda en: method(self.Z,np.float64(en)))(E)
         return func(ret)
         
-    def scattering_cross_section(self,E,environ=None,decimals=6,refresh=False):
+    def scattering_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Scattering cross section (cm^2/g, E in keV).
 
         Args:
@@ -401,7 +401,7 @@ class Element(hashable.Hashable):
 
         return self._xraylib_method("CS_Rayl",E)+self._xraylib_method("CS_Compt",E)
 
-    def rayleigh_cross_section(self,E,environ=None,decimals=6,refresh=False):
+    def rayleigh_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Rayleigh cross section (cm^2/g, E in keV).
 
         Args:
@@ -415,7 +415,7 @@ class Element(hashable.Hashable):
         """
         return self._xraylib_method("CS_Rayl",E)
 
-    def compton_cross_section(self,E,environ=None,decimals=6,refresh=False):
+    def compton_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Compton cross section (cm^2/g, E in keV).
 
         Args:
@@ -429,7 +429,7 @@ class Element(hashable.Hashable):
         """
         return self._xraylib_method("CS_Compt",E)
 
-    def scatfact_classic_re(self,E,theta=None,environ=None,decimals=6,refresh=False):
+    def scatfact_classic_re(self,E,theta=None,environ=None,decimals=6,refresh=False,**kwargs):
         """Real part of atomic form factor
 
         Args:
@@ -449,7 +449,7 @@ class Element(hashable.Hashable):
             q = np.sin(theta/2)/ureg.Quantity(E,'keV').to("angstrom","spectroscopy").magnitude
             return self._xraylib_method("FF_Rayl",q)
             
-    def scatfact_re(self,E,theta=None,environ=None,decimals=6,refresh=False):
+    def scatfact_re(self,E,theta=None,environ=None,decimals=6,refresh=False,**kwargs):
         """Real part of atomic form factor
 
         Args:
@@ -464,7 +464,7 @@ class Element(hashable.Hashable):
         """
         return self.scatfact_classic_re(E,theta=theta,environ=environ,decimals=decimals,refresh=refresh) + self._xraylib_method("Fi",E)
     
-    def scatfact_im(self,E,environ=None,decimals=6,refresh=False):
+    def scatfact_im(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Imaginary part of atomic form factor
 
         Args:

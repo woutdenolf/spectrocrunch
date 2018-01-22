@@ -1,6 +1,8 @@
 Calculating with materials
 ==========================
 
+TODO: API changed
+
 Materials can be defined by pure elements, chemical compounds and mixtures of compounds. 
     
 .. code-block:: python

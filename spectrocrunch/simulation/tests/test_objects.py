@@ -27,6 +27,7 @@ import unittest
 from ...detectors import area
 from ...materials import multilayer
 from ...geometries import flatarea
+from ...geometries import source
 from ...detectors import diode
 from ...materials import scintillators
 from ...materials import lenses
@@ -127,10 +128,11 @@ class test_objects(unittest.TestCase):
     def test_detectors(self):
         self.assertRaises(RuntimeError, area.factory, "noclassname")
 
-        geometry = flatarea.factory("perpendicular")
-        o = area.factory("PCO Edge 5.5",geometry=geometry)
+        src = source.factory("synchrotron")
+        detector = area.factory("PCO Edge 5.5")
+        geometry = flatarea.factory("perpendicular",detector=detector,source=src)
 
-        self._checkprop(o,tframe=2,nframe=10,vis=True)
+        self._checkprop(detector,tframe=2,nframe=10,vis=True)
         
     def test_lenses(self):
         self.assertRaises(RuntimeError, lenses.factory, "noclassname")
@@ -165,10 +167,12 @@ class test_objects(unittest.TestCase):
 
     def test_materials(self):
         self.assertRaises(RuntimeError, multilayer.factory, "noclassname")
-        geometry = flatarea.factory("perpendicular")
-        detector = area.factory("PCO Edge 5.5",geometry=geometry)
         
-        o = multilayer.Multilayer(material=compoundname("ultralene"),thickness=4e-4,detector=detector)
+        detector = area.factory("PCO Edge 5.5")
+        src = source.factory("synchrotron")
+        geometry = flatarea.factory("perpendicular",detector=detector,source=src)
+
+        o = multilayer.Multilayer(material=compoundname("ultralene"),thickness=4e-4,geometry=geometry)
         self._checkprop(o)
 
     def test_diodes(self):
