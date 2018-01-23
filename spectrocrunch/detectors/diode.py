@@ -195,8 +195,9 @@ class PNdiode(with_metaclass(base.PointSourceCentric)):
         super(PNdiode,self).__init__(**kwargs)
 
     def __str__(self):
-        return " Gain = {:e}\n Dark current = {}\nSecondary target:\n {}\nOptics:\n {}\nVoltage-to-Frequency:\n {}"\
-                .format(self.Rout,self.darkcurrent,self.secondarytarget,\
+        return "{}\nDiode:\n Gain = {:e}\n Dark current = {}\nSecondary target:\n {}\nOptics:\n {}\nVoltage-to-Frequency:\n {}"\
+                .format(super(PNdiode,self).__str__(),\
+                self.Rout,self.darkcurrent,self.secondarytarget,\
                 self.optics,self.oscillator)    
     
     def setgain(self,Rout):
@@ -300,6 +301,7 @@ class PNdiode(with_metaclass(base.PointSourceCentric)):
             # Extract energies and rates
             geomkwargs = self.secondarytarget.geometry.xrayspectrumkwargs()
             energy,wY = zip(*list(spectrum.spectrum(**geomkwargs)))
+
             energy = np.asarray(energy)
             nE2 = len(energy)
             wY = np.asarray(wY).reshape((nE,nE2))
@@ -952,7 +954,7 @@ class SXM_IODET1(NonCalibratedPNdiode):
         
         source = xraysources.factory("synchrotron")
         geometry = diodegeometries.factory("Geometry",anglein=90,angleout=45,azimuth=0,distance=0.5,source=source,detector=self)
-        kwargs["activearea"] = 0.5
+        kwargs["activearea"] = 10.
         kwargs["ehole"] = constants.eholepair_si()
         
         window = compoundfromname.compoundfromname("silicon nitride")
@@ -993,7 +995,7 @@ class SXM_IODET2(NonCalibratedPNdiode):
         
         source = xraysources.factory("synchrotron")
         geometry = diodegeometries.factory("Geometry",anglein=90,angleout=45,azimuth=0,distance=0.5,source=source,detector=self)
-        kwargs["activearea"] = 0.5
+        kwargs["activearea"] = 10.
         kwargs["ehole"] = constants.eholepair_si()
         
         window = compoundfromname.compoundfromname("silicon nitride")

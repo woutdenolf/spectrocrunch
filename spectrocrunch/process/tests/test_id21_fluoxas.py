@@ -302,8 +302,8 @@ class test_fluoxas(unittest.TestCase):
                                                 data2 = stack.data
                                                 
                                                 # Check spectra are equal
-                                                np.testing.assert_allclose(data0,data2)
-                                            
+                                                np.testing.assert_allclose(data0,data2,rtol=1e-6)
+
                                             # Check element ratio's the same in all pixels
                                             if cfgfileuse is not None:
                                                 h5file = os.path.join(self.destpath.path,h5file)

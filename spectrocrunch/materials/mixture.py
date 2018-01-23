@@ -346,7 +346,7 @@ class Mixture(object):
         """
         return self._crosssection("fluorescence_cross_section_lines",E,fine=fine,decomposed=decomposed,**kwargs)
     
-    def xrayspectrum(self,E,emin=0,emax=None):
+    def xrayspectrum(self,E,weights=None,emin=0,emax=None):
         E = instance.asarray(E)
         if emax is None:
             emax = E[-1]
@@ -357,6 +357,7 @@ class Mixture(object):
         spectrum.update(self.fluorescence_cross_section_lines(E,decomposed=False))
         spectrum[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E,decomposed=False)
         spectrum[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E,decomposed=False)
+        spectrum.apply_weights(weights)
         spectrum.xlim = [emin,emax]
         spectrum.title = str(self)
         spectrum.type = spectrum.TYPES.crosssection

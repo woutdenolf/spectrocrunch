@@ -27,23 +27,61 @@ from . import base
 from ..materials import element
 from ..common.classfactory import with_metaclass
 from ..common import constants
+import scipy.special
 
 import numpy as np
 
 class Detector(with_metaclass(base.PointSourceCentric)):
 
-    def __init__(self,mcazero=None,mcagain=None,mcanoise=None,mcafano=None,**kwargs):
+    FWHMlorentz = 0.01 # keV
+
+    def __init__(self,mcazero=None,mcagain=None,mcanoise=None,mcafano=None,\
+                    tailwidth=None,tailfraction=None,stepfraction=None,**kwargs):
         self.mcazero = mcazero # keV
         self.mcagain = mcagain # keV/bin
         self.mcanoise = mcanoise # FWHM in keV
         self.mcafano = mcafano
+        self.tailwidth = tailwidth
+        self.tailfraction = tailfraction
+        self.stepfraction = stepfraction
+        
         super(Detector,self).__init__(**kwargs)
 
-    def linewidth(self,energy):
-        """FWHM in keV
+    def linesigma2(self,energy):
+        return self.mcanoise**2/(8*np.log(2)) + self.mcafano*self.ehole.to("keV").magnitude*energy
+
+    def lineprofile(self,x,u,voigt=False):
         """
-        return np.sqrt(self.mcanoise**2 + self.mcafano*self.ehole.to("keV").magnitude*energy*8*np.log(2))
+        Args:
+            x: energies (keV, nx)
+            u: peak energies (keV, nu)
+            
+        Returns:
+            array: nx x nu
+        """
+        x = instance.asarray(x)[:,np.newaxis]
+        u = instance.asarray(u)[np.newaxis,:]
+
+        sigma2 = self.linesigma2(u)
+        diff = x-u
         
+        a = 2*sigma2
+        b = np.sqrt(a)
+        c = self.tailwidth*np.sqrt(sigma2)
+        detnorm = np.sqrt(np.pi*a)
+        
+        if voigt:
+            detresponse = np.real(scipy.special.wofz((diff + 0.5j*FWHMlorentz)/b))/detnorm
+        else:
+            detresponse = np.exp(-diff**2/a)/detnorm
+
+        argstep = diff/b
+        step = scipy.special.erfc(argstep)/(2*u)
+        
+        tail = np.exp(1/(2*self.tailwidth**2))/(2*c)*np.exp(diff/c)*scipy.special.erfc(argstep+1/(np.sqrt(2)*self.tailwidth))
+
+        return detrespons + self.tailfraction*tail + self.stepfraction*step
+    
     def addtopymcaconfig(self,config,energy): 
         super(Detector,self).addtopymcaconfig(config)
         
@@ -93,10 +131,15 @@ class Leia(Detector):
         kwargs["attenuators"] = attenuators
         
         kwargs["activearea"] = 80e-2 # cm^2
+        
         kwargs["mcazero"] = 0. # keV
         kwargs["mcagain"] = 5e-3 # keV
         kwargs["mcanoise"] = 0.1 # keV
         kwargs["mcafano"] = 0.114
+        kwargs["tailwidth"] = 2.5
+        kwargs["tailfraction"] = 0.02 # 2% of the photons end up in the tail
+        kwargs["stepfraction"] = 0.03 # 3% of the photons end up in the step
+        
         kwargs["ehole"] = constants.eholepair_si()
 
         super(Leia,self).__init__(**kwargs)
@@ -115,10 +158,15 @@ class BB8(Detector):
         kwargs["attenuators"] = attenuators
         
         kwargs["activearea"] = 50e-2 # cm^2
+        
         kwargs["mcazero"] = 0. # keV
         kwargs["mcagain"] = 5e-3 # keV
         kwargs["mcanoise"] = 0.1 # keV
         kwargs["mcafano"] = 0.114
+        kwargs["tailwidth"] = 2.5
+        kwargs["tailfraction"] = 0.02 # 2% of the photons end up in the tail
+        kwargs["stepfraction"] = 0.03 # 3% of the photons end up in the step
+        
         kwargs["ehole"] = constants.eholepair_si()
         
         super(BB8,self).__init__(**kwargs)

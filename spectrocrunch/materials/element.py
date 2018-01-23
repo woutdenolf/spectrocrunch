@@ -29,7 +29,6 @@ import time
 from scipy import interpolate
 import json
 import numbers
-import re
 
 try:
     import iotbx.cif
@@ -363,7 +362,7 @@ class Element(hashable.Hashable):
                         for shell,shellcs in cs.items()}
         return cs
 
-    def xrayspectrum(self,E,emin=0,emax=None):
+    def xrayspectrum(self,E,weights=None,emin=0,emax=None):
         E = instance.asarray(E)
         if emax is None:
             emax = E[-1]
@@ -374,6 +373,7 @@ class Element(hashable.Hashable):
         spectrum.update(self.fluorescence_cross_section_lines(E,decomposed=True))
         spectrum[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E)
         spectrum[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E)
+        spectrum.apply_weights(weights)
         spectrum.xlim = [emin,emax]
         spectrum.title = str(self)
         spectrum.type = spectrum.TYPES.crosssection

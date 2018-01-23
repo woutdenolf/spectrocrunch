@@ -47,6 +47,10 @@ class Base(object):
 
     def addtofisx(self,setup,cfg):
         self.detector.addtofisx(setup,cfg)
+    
+    def addtopymca(self,setup,cfg):
+        self.detector.addtopymca(setup,cfg)
+        self.source.addtopymca(setup,cfg)
         
         
 class FlatSample(Base):

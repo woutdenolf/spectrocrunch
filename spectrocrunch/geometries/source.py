@@ -52,6 +52,9 @@ class Source(with_metaclass(object)):
     def __str__(self):
         return " Linear degree of polarization = {} \n Phase retardation = {} deg".format(self.Plinear,self.delta)
 
+    def addtopymca(self,setup,cfg):
+        pass
+        
     def K(self):
         if self.polarization == self.POLARIZATION.none:
             func = lambda _theta,_phi: (1+np.cos(_theta)**2.)/2.

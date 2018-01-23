@@ -160,8 +160,9 @@ class test_multilayer(unittest.TestCase):
                             T2 = np.squeeze(o._transmission(z[i],z[j],cosaij[j],energy))
                             np.testing.assert_allclose(T1,T2)
     
-    def assertSpectrumEqual(self,spectrum1,spectrum2,rtol=1e-07,noscattering=False):
-        if noscattering:
+    def assertSpectrumEqual(self,spectrum1,spectrum2,rtol=1e-07,compfisx=False):
+        if compfisx:
+            # Fisx does not return scattering
             for k in ["Rayleigh","Compton"]:
                 try:
                     spectrum1.pop(k)
@@ -170,8 +171,13 @@ class test_multilayer(unittest.TestCase):
                 try:
                     spectrum2.pop(k)
                 except KeyError:
-                    pass    
+                    pass
                     
+            # Fisx adds sources 
+            for k in spectrum1:
+                spectrum1[k] = np.sum(spectrum1[k])
+                spectrum2[k] = np.sum(spectrum2[k])
+
         self.assertEqual(sorted(spectrum1.keys()),sorted(spectrum2.keys()))
 
         for k in spectrum1:
@@ -214,9 +220,6 @@ class test_multilayer(unittest.TestCase):
                     eff = np.squeeze(eff)
 
                     gen[k] = gen[k]*eff*thicknesscor*weightsnorm
-
-                    if isinstance(k,xrayspectrum.FluoZLine):
-                        gen[k] = np.sum(gen[k])
                         
                 spectrumRef = xrayspectrum.Spectrum()
                 spectrumRef.update(gen)
@@ -229,13 +232,13 @@ class test_multilayer(unittest.TestCase):
                 #with timing.timeit("analytical"):
                 spectrum1 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,method="analytical",ninteractions=1)
                 #with timing.timeit("numerical"):
-                #spectrum2 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,method="numerical",ninteractions=1)
+                spectrum2 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,method="numerical",ninteractions=1)
                 #with timing.timeit("fisx"):
                 spectrum3 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,method="fisx",ninteractions=1)
 
                 self.assertSpectrumEqual(spectrum1,spectrumRef,rtol=1e-06) # 0.0001% deviation
-                #self.assertSpectrumEqual(spectrum1,spectrum2) # 0.00001% deviation
-                self.assertSpectrumEqual(spectrum1,spectrum3,rtol=2e-02,noscattering=True) # 2% deviation
+                self.assertSpectrumEqual(spectrum1,spectrum2) # 0.00001% deviation
+                self.assertSpectrumEqual(spectrum1,spectrum3,rtol=2e-02,compfisx=True) # 2% deviation
 
     def test_primary_complex(self):
         compound1 = compoundfromformula.CompoundFromFormula("MnFe",density=6.)
@@ -263,7 +266,7 @@ class test_multilayer(unittest.TestCase):
                 spectrum3 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,method="fisx",ninteractions=1)
                 
                 self.assertSpectrumEqual(spectrum1,spectrum2,rtol=1e-04) # 0.001% deviation
-                self.assertSpectrumEqual(spectrum1,spectrum3,rtol=2e-02,noscattering=True) # 2% deviation
+                self.assertSpectrumEqual(spectrum1,spectrum3,rtol=2e-02,compfisx=True) # 2% deviation
 
     def test_secondary(self):
         compound1 = compoundfromformula.CompoundFromFormula("MnFe",density=6.)
@@ -283,7 +286,7 @@ class test_multilayer(unittest.TestCase):
             for energy0,weights in [[8,1],[9,1],[[8,9],[1,2]]]:
                 spectrum2 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,method="numerical",ninteractions=2)
                 spectrum3 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,method="fisx",ninteractions=2)
-                self.assertSpectrumEqual(spectrum2,spectrum3,rtol=1e-02,noscattering=True) # 1% deviation
+                self.assertSpectrumEqual(spectrum2,spectrum3,rtol=1e-02,compfisx=True) # 1% deviation
             
     
 def test_suite_all():

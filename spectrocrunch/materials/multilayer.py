@@ -81,7 +81,7 @@ class Layer(object):
                     (self.thickness/self.ml.cosnormout*self.density)
 
     def addtofisx(self,setup,cfg):
-        name = cfg.addMaterial(self.material)
+        name = cfg.addtofisx_material(self.material)
         return [name,self.density,self.thickness]
 
     def fisxgroups(self,emin=0,emax=np.inf):
@@ -350,7 +350,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         #assert(sum(instance.asarray(-datt/cosaij)>0)==0)
         return np.exp(-datt/cosaij)
 
-    def _cache_interactioninfo(self,energy,weights,emin=None,emax=None,polar=None,ninteractions=None):
+    def _cache_interactioninfo(self,energy,emin=None,emax=None,ninteractions=None,geomkwargs=None):
         # Pepare resulting lists
         _nlayers = self.nlayers+2
         _ninteractions = ninteractions+2
@@ -363,9 +363,11 @@ class Multilayer(with_metaclass(cache.Cache)):
         probabilities[0] = pd.DataFrame(columns=[xrayspectrum.RayleighLine(energy)])
         
         # Calculate interaction probabilities (ph/cm/srad)
-        getenergy = lambda x: list(listtools.flatten(interaction.energy(polar=polar) for interaction in x.columns))
+        def getenergy(x,**kwargs):
+            return list(listtools.flatten(interaction.energy(**kwargs) for interaction in x.columns))
+        
         for i in range(ninteractions):
-            energy = getenergy(probabilities[i])
+            energy = getenergy(probabilities[i],**geomkwargs)
             nenergy = len(energy)
             
             def f(x,energy=energy):
@@ -385,20 +387,9 @@ class Multilayer(with_metaclass(cache.Cache)):
             probabilities[i+1] = probs
             energyindex[i+1] = f
 
-        return {"probabilities":probabilities,"energyindex":energyindex,"getenergy":getenergy,"weights":self._parse_weights(weights,nsource)}
-
-    @staticmethod
-    def _parse_weights(weights,nsource):
-        if weights is None:
-            if nsource==1:
-                weights = 1.
-            else:
-                weights = np.ones(nsource,dtype=float)/nsource
-        else:
-            weights,func = instance.asarrayf(weights,dtype=float)
-            weights = func(weights/weights.sum())
-
-        return weights
+        return {"probabilities":probabilities,\
+                "energyindex":energyindex,\
+                "getenergy":getenergy}
         
     def _genprobabilities(self,zi,i,energyi,interactionj):
         """Generation at depth zi
@@ -483,18 +474,6 @@ class Multilayer(with_metaclass(cache.Cache)):
         #return np.nquad(func,[(0,np.pi/2),(0,2*np.pi)])
         
         return (2*np.pi)*probs*scipy.special.exp1(Aj-Ai)
-
-    @staticmethod
-    def _interactions_sumsource(gen,weights):
-        """Sum sources
-        """
-        for k in gen:
-            #if k=="Ca-KL2":
-            #    print("beforesum",gen[k],weights)
-            
-            gen[k] = gen[k]*weights
-            if isinstance(k,xrayspectrum.FluoZLine):
-                gen[k] = np.sum(gen[k])
                 
     def _primary_interaction(self,selfabs=True):
         """Returns the ph/srad generated per source line after 1 interaction (without efficiency term)
@@ -502,7 +481,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         interactionindex = 1
 
         interactioninfo = self.getcashed("interactioninfo")
-        energy0 = interactioninfo["getenergy"](interactioninfo["probabilities"][interactionindex-1])
+        energy0 = interactioninfo["getenergy"](interactioninfo["probabilities"][0])
         
         nsource = len(energy0)
         interactions1 = interactioninfo["probabilities"][interactionindex].columns
@@ -511,7 +490,8 @@ class Multilayer(with_metaclass(cache.Cache)):
         
         # Integrated attenuation over the sample thickness
         if selfabs:
-            energy1 = interactioninfo["getenergy"](interactioninfo["probabilities"][interactionindex])
+            geomkwargs = self.geometry.xrayspectrumkwargs()
+            energy1 = interactioninfo["getenergy"](interactioninfo["probabilities"][interactionindex],**geomkwargs)
             
             att = self.getcashed("attenuationinfo")
             cosafirst = self.geometry.cosnormin
@@ -692,41 +672,42 @@ class Multilayer(with_metaclass(cache.Cache)):
         setup.setSample([layer.addtofisx(setup,cfg) for layer in self])
         self.geometry.addtofisx(setup,cfg)
 
-    def addtopymca_matrix(self,config,name):
-        anglein = self.anglein
-        angleout = self.angleout 
+    def addtopymca_matrix(self,setup,cfg,name):
+        anglein = self.geometry.anglein
+        angleout = self.geometry.angleout 
+        scatteringangle = self.geometry.scatteringangle 
         if name=="MULTILAYER":
             density,thickness = 0.,0.
         else:
-            v = config["materials"][name]
+            v = cfg["materials"][name]
             density,thickness = v["Density"], v["Thickness"]
-        config["attenuators"]["Matrix"] = [1, name, density, thickness, anglein, angleout, 0, anglein+angleout]
+        cfg["attenuators"]["Matrix"] = [1, name, density, thickness, anglein, angleout, 0, scatteringangle]
     
-    def addtopymca_layer(self,config,index,layer):
-        name = self.addtopymca_material(config,layer)
+    def addtopymca_layer(self,setup,cfg,index,layer):
+        name = setup.addtopymca_material(cfg,layer)
         l = "Layer{}".format(index)
-        config["multilayer"][l] = [1,name,layer.density,layer.thickness]
+        cfg["multilayer"][l] = [1,name,layer.density,layer.thickness]
 
-    def addtopymca_shells(self,config,elements,energy):
-        emax = energy
-        emin = 0.9
+    def addtopymca_shells(self,setup,cfg,elements):
+        emax = setup.emax
+        emin = setup.emin
         
         for e in elements:
-            shells = element.Shell.pymcafactory((e,emin,emax))
+            shells = xrayspectrum.Shell.pymcafactory((e.Z,emin,emax))
             if shells:
-                config["peaks"][str(e)] = shells
+                cfg["peaks"][str(e)] = shells
 
-    def addtopymca(self,config,energy):
+    def addtopymca(self,setup,cfg):
         if self.nlayers==1:
-            name = self.addtopymca_material(config,self[0])
-            self.addtopymca_shells(config,self[0].elements,energy)
-            self.addtopymca_matrix(config,name)
+            name = setup.addtopymca_material(cfg,self[0])
+            self.addtopymca_shells(setup,cfg,self[0].elements)
+            self.addtopymca_matrix(setup,cfg,name)
         else:
             for index,layer in enumerate(self):
-                self.addlayer(config,index,layer)
-                self.addtopymca_shells(config,layer.elements,energy)
-            self.addtopymca_matrix(config,'MULTILAYER')
-        self.geometry.addtopymca(config)
+                self.addlayer(setup,cfg,index,layer)
+                self.addtopymca_shells(setup,cfg,layer.elements)
+            self.addtopymca_matrix(setup,cfg,'MULTILAYER')
+        self.geometry.addtopymca(setup,cfg)
     
     def _parse_fisx_result(self,gen):
         result = {}
@@ -752,11 +733,14 @@ class Multilayer(with_metaclass(cache.Cache)):
         
         return result
 
-    def _dict_to_spectrum(self,gen):
-        allenergies = list(listtools.flatten(line.energy(**self.geometry.xrayspectrumkwargs()) for line in gen))    
+    def _dict_to_spectrum(self,gen,emin=0,emax=None):
+        if emax is None:
+            allenergies = list(listtools.flatten(line.energy(**self.geometry.xrayspectrumkwargs()) for line in gen))  
+            emax = max(allenergies)
+            
         spectrum = xrayspectrum.Spectrum()
         spectrum.update(gen)
-        spectrum.xlim = [min(allenergies),max(allenergies)]
+        spectrum.xlim = [emin,emax]
         spectrum.density = None
         spectrum.title = str(self)
         spectrum.type = spectrum.TYPES.interactionyield
@@ -786,7 +770,20 @@ class Multilayer(with_metaclass(cache.Cache)):
                     print("%s   %s    %.4f     %.3g     %.5g    %.5g    %.5g" % \
                                        (key, peak + (13 - len(peak)) * " ", energy,
                                        rate, enhancement2, enhancement3, efficiency))
-        
+    
+    @staticmethod
+    def _parse_weights(weights,nsource):
+        if weights is None:
+            if nsource==1:
+                weights = 1.
+            else:
+                weights = np.ones(nsource,dtype=float)/nsource
+        else:
+            weights,func = instance.asarrayf(weights,dtype=float)
+            weights = func(weights/weights.sum())
+
+        return weights
+
     def _interactions_fisx(self,energy0,weights,ninteractions,emin=0,emax=None):
         energy0 = instance.asarray(energy0)
         nsource = len(energy0)
@@ -849,24 +846,32 @@ class Multilayer(with_metaclass(cache.Cache)):
             gen[k] = gen[k]*eff
             
     @cache.withcache("layerinfo")
-    def xrayspectrum(self, energy0, emin=0, emax=None, method="analytical", ninteractions=1, weights=None):
+    def xrayspectrum(self, energy0, emin=0, emax=None, method="analytical", ninteractions=1, weights=None, scattering=True):
+    
         if method=="fisx":
-            if ninteractions>3:
-                method="numerical"
-
+            if scattering:
+                method="analytical"
             #if not self.geometry.reflection and self.nlayers>1:
             #    method="analytical"
             if not self.geometry.reflection:
                 method="analytical"
+            
+            if ninteractions>3:
+                method="analytical"
                 
+        if method=="analytical":
+            if ninteractions>=2:
+                method="numerical"
+    
         if method=="fisx":
-            gen = self._interactions_fisx(energy0,weights,ninteractions,emin=emin,emax=emax) 
+            gen = self._interactions_fisx(energy0,weights,ninteractions,emin=emin,emax=emax)
         else:
-            with self.cachectx("interactioninfo",energy0,weights,emin=emin,emax=emax,\
+            geomkwargs=self.geometry.xrayspectrumkwargs()
+            with self.cachectx("interactioninfo",energy0,emin=emin,emax=emax,\
                                 ninteractions=ninteractions,\
-                                polar=self.geometry.scatteringangle):
+                                geomkwargs=geomkwargs):
                 interactioninfo = self.getcashed("interactioninfo")
-                allenergies = interactioninfo["getenergy"](interactioninfo["probabilities"][-2])
+                allenergies = interactioninfo["getenergy"](interactioninfo["probabilities"][-2],**geomkwargs)
                 with self.cachectx("attenuationinfo",allenergies):
                     # Primary interaction (with self-absorption)
                     if method=="numerical":
@@ -884,12 +889,13 @@ class Multilayer(with_metaclass(cache.Cache)):
 
             # Apply filter attenuation (source and detection) + detector efficiency
             self._interactions_applydetector(gen)
+
+        spectrum = self._dict_to_spectrum(gen,emin=emin,emax=emax)
+
+        if method!="fisx":
+            spectrum.apply_weights(weights)
+            #spectrum.sum_sources() # this is already done when fisx is used
             
-            # Sum over source lines for fluorescence (need to do it here because of possible beam filters)
-            self._interactions_sumsource(gen,interactioninfo["weights"])
-
-        spectrum = self._dict_to_spectrum(gen)
-
         return spectrum
 
     def propagate(self,N,energy,interaction="transmission",forward=True):

@@ -33,10 +33,15 @@ class Material(object):
     DETMATERIALLABEL = "Detector"
 
     def __init__(self,attenuators=None,**kwargs):
+        #TODO: move beamfilters to source
+        
         if attenuators is None:
             attenuators = {}
         self.attenuators = attenuators
         super(Material,self).__init__(**kwargs)
+
+    def addattenuator(self,name,material,thickness):
+        self.attenuators[name] = {"material":material,"thickness":thickness}
 
     def __str__(self):
         s1 = "\n ".join(["{} = {} cm".format(attinfo["material"],attinfo["thickness"]) for attinfo in self.attbefore()])
@@ -75,13 +80,13 @@ class Material(object):
     def thickness(self,value):
         self.attenuators[self.DETMATERIALLABEL]["thickness"] = value
 
-    def addtopymca(self,config): 
+    def addtopymca(self,setup,cfg): 
         for attlabel,attinfo in self.attenuators.items():
-            self.addattenuator(config,attlabel,attinfo["material"],attinfo["thickness"])
+            self.addtopymca_attenuator(setup,cfg,attlabel,attinfo["material"],attinfo["thickness"])
 
-    def addtopymca_attenuator(self,config,attlabel,material,thickness):
-        matname = self.addMaterial(config,material)
-        config["attenuators"][attlabel] = [1,matname,material.density,thickness,1.0]
+    def addtopymca_attenuator(self,setup,cfg,attlabel,material,thickness):
+        matname = setup.addtopymca_material(cfg,material)
+        cfg["attenuators"][attlabel] = [1,matname,material.density,thickness,1.0]
 
     def loadfrompymca(self,config):
         self.attenuators = {}
@@ -95,7 +100,7 @@ class Material(object):
         
     def loadfrompymca_material(self,config,matname,density):
         if matname in config["materials"]:
-            material = mixture.pymcaformat(config["materials"][matname])
+            material = mixture.frompymca(config["materials"][matname])
         else:
             material = compoundfromformula.CompoundFromFormula(matname,density)
         return material
@@ -114,7 +119,7 @@ class Material(object):
 
     def addtofisx(self,setup,cfg):
         for attlabel,attinfo in self.attenuators.items():
-            cfg.addMaterial(attinfo["material"])
+            cfg.addtofisx_material(attinfo["material"])
 
         atts = [[attinfo["material"].pymcaname,attinfo["material"].density,attinfo["thickness"],1.0] for attinfo in self.attbefore()]
         if atts:
@@ -183,7 +188,7 @@ class PointSourceCentric(SolidState):
         super(PointSourceCentric,self).__init__(**kwargs)
 
     def __str__(self):
-        return " Solid angle = 4*pi*{} srad\n Active area = {} cm^2\n{}".format(self.solidangle,self.activearea,super(PointSourceCentric,self).__str__())
+        return " Solid angle = 4*pi*{} srad\n Active area = {} cm^2\n{}".format(self.solidangle/(4*np.pi),self.activearea,super(PointSourceCentric,self).__str__())
 
     @property
     def distance(self):

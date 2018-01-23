@@ -34,15 +34,14 @@ from ..common.classfactory import with_metaclass
 
 class Sample(with_metaclass(multilayer.Multilayer)):
     
-    def __init__(self,environment=None,**kwargs):
-        self.environment = environment
+    def __init__(self,extra=None,**kwargs):
+        self.extra = extra
         super(Sample,self).__init__(**kwargs)
 
-
-    def addtopymca(self,config,energy):
-        super(Sample,self).addtoconfig(config,energy)
-        if self.environment is not None:
-            self.addshells(config,self.environment,energy)
+    def addtopymca(self,setup,cfg):
+        super(Sample,self).addtopymca(setup,cfg)
+        if self.extra is not None:
+            self.addtopymca_shells(setup,cfg,self.extra)
 
 
 
@@ -53,11 +52,10 @@ def axo(name,elements,ad,windowthickness,filmthickness):
     # we would want to switch off absorption corrections.
     
     ultralene = compoundfromname.compoundfromname("ultralene")
-        
-    attenuators = {}
-    attenuators["SampleCover"] = {"material":ultralene,"thickness":4e-4}
-    attenuators["BeamFilter0"] = {"material":ultralene,"thickness":4e-4}
-
+    
+    attenuators = [["SampleCover",ultralene,4e-4],\
+                   ["BeamFilter0",ultralene,4e-4]]
+    
     if filmthickness is None:
         w = compoundfromname.compoundfromname("silicon nitride")
         arealdensity = w.arealdensity()
@@ -70,16 +68,18 @@ def axo(name,elements,ad,windowthickness,filmthickness):
         layer1 = compoundfromlist.CompoundFromList(massfractions.keys(),massfractions.values(),types.fractionType.weight,w.density,name=name)
         
         material = layer1
-        #material = multilayer.Multilayer(layer1,windowthickness*1e-7)
+        thickness = windowthickness*1e-7
     else:
         elements = [compoundfromlist.CompoundFromList([e],[1],types.fractionType.mole,0,name=e) for e in elements]
         layer1 = mixture.Mixture(elements,ad,types.fractionType.weight,name=name)
 
         layer2 = compoundfromname.compoundfromname("silicon nitride")
         
-        material = multilayer.Multilayer([layer1,layer2],[filmthickness*1e-7,windowthickness*1e-7])
+        material = [layer1,layer2]
+        thickness = [filmthickness*1e-7,windowthickness*1e-7]
         
-    return material,attenuators
+    return material,thickness,attenuators
+
 
 class AXOID21_1(Sample):
     aliases = ["RF7-200-S2371-03"]
@@ -90,9 +90,12 @@ class AXOID21_1(Sample):
         ad = [7.7,9,1.9,0.9,2.4,4,11.4]
         windowthickness = 200 # nm
         filmthickness = None # nm
-        material,attenuators = axo(name,elements,ad,windowthickness,filmthickness)
+        material,thickness,attenuators = axo(name,elements,ad,windowthickness,filmthickness)
 
-        super(AXOID21_1,self).__init__(material=material,attenuators=attenuators,**kwargs)
+        for k in attenuators:
+            kwargs["geometry"].addattenuator(*k)
+
+        super(AXOID21_1,self).__init__(material=material,thickness=thickness,**kwargs)
 
 
 class AXOID21_2(Sample):
@@ -104,9 +107,13 @@ class AXOID21_2(Sample):
         ad = [6.3,7.6,2.3,0.7,2.6,4.1,25.1]
         windowthickness = 200 # nm
         filmthickness = None # nm
-        layers,thickness,attenuators = axo(name,elements,ad,windowthickness,filmthickness)
+        material,thickness,attenuators = axo(name,elements,ad,windowthickness,filmthickness)
         
-        super(AXOID21_1,self).__init__(material=material,attenuators=attenuators,**kwargs)
+        for k in attenuators:
+            kwargs["geometry"].addattenuator(*k)
+            
+        super(AXOID21_1,self).__init__(material=material,thickness=thickness,**kwargs)
+
 
 class AXOID16b_1(Sample):
     aliases = ["RF8-200-S2453"]
@@ -117,9 +124,12 @@ class AXOID16b_1(Sample):
         ad = [5.9,10.3,1.2,.7,2.4,3.9,20.3]
         windowthickness = 200 # nm
         filmthickness = None # nm
-        layers,thickness,attenuators = axo(name,elements,ad,windowthickness,filmthickness)
+        material,thickness,attenuators = axo(name,elements,ad,windowthickness,filmthickness)
         
-        super(AXOID16b_1,self).__init__(material=material,attenuators=attenuators,**kwargs)
+        for k in attenuators:
+            kwargs["geometry"].addattenuator(*k)
+            
+        super(AXOID16b_1,self).__init__(material=material,thickness=thickness,**kwargs)
 
 factory = Sample.factory
 

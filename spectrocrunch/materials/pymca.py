@@ -32,40 +32,36 @@ import numpy as np
 
 class PymcaConfig(object):
 
-    def __init__(self,sample=None,energy=None,flux=None,time=None,fluolinefilter=False):
+    def __init__(self,sample=None,emin=0.9,emax=None,\
+                energy=None,weights=None,scatter=None,flux=None,time=None):
         self.sample = sample
-        self.energy = energy # keV
-        self.flux = flux # ph/s
-        self.time = time # s
-
-    @property
-    def _energy(self):
-        return units.magnitude(self.energy,"keV")
+        
+        self.energy = units.magnitude(energy,"keV")
+        self.emin = emin
+        self._emax = emax
+        self.weights = weights
+        self.scatter = scatter
+        
+        self.flux = units.magnitude(flux,"hertz")
+        self.time = units.magnitude(time,"s")
     
     @property
-    def _time(self):
-        return units.magnitude(self.time,"s")
-    
-    @property
-    def _flux(self):
-        return units.magnitude(self.flux,"hertz")
+    def emax(self):
+        if self._emax is None:
+            return np.max(self.energy)
+        else:
+            return self._emax
         
     def beam(self,config):
-        energy = self._energy
-        if False:
-            config["fit"]["energy"] = [energy, 100*energy]
-            config["fit"]["energyflag"] = [1,1-self.fluolinefilter]
-            config["fit"]["energyscatter"] = [1,0]
-            config["fit"]["energyweight"] = [1e+100,1e-05]
-        else:
-            config["fit"]["energy"] = [energy,0]
-            config["fit"]["energyflag"] = [1,0]
-            config["fit"]["energyscatter"] = [1,0]
-            config["fit"]["energyweight"] = [1.0,0.]
+        # TODO: move to source?
+        config["fit"]["energy"] = np.asarray(self.energy).tolist()
+        config["fit"]["energyweight"] = np.asarray(self.weights).tolist()
+        config["fit"]["energyscatter"] = np.asarray(self.scatter,dtype=int).tolist()
+        config["fit"]["energyflag"] = np.ones_like(self.energy,dtype=int).tolist()
         config["fit"]["scatterflag"] = 1
         
-        config["concentrations"]["flux"] = self._flux
-        config["concentrations"]["time"] = self._time
+        config["concentrations"]["flux"] = self.flux
+        config["concentrations"]["time"] = self.time
         
     def background(self,config):
         config["fit"]["stripflag"] = 1
@@ -76,16 +72,17 @@ class PymcaConfig(object):
         config["fit"]["hypermetflag"] = 3 # shorttail
         config["fit"]["hypermetflag"] = 1
 
-    def fill(self,config):
-        self.sample.addtoconfig(config,self._energy)
-        self.beam(config)
-        self.background(config)
-        self.peakshape(config)
+    def fill(self,cfg):
+        self.sample.addtopymca(self,cfg)
+        self.beam(cfg)
+        self.background(cfg)
+        self.peakshape(cfg)
+        print(cfg)
 
-    def addMaterial(self,config,material):
-        matname,v = material.pymcaformat()
+    def addtopymca_material(self,cfg,material):
+        matname,v = material.topymca()
         if material.nelements>1:
-            config["materials"][matname] = v
+            cfg["materials"][matname] = v
         return matname
         
         
@@ -107,7 +104,7 @@ class FisxConfig():
         with self.init_ctx():
             detector.addtofisx(setup,self.FISXMATERIALS)
 
-    def addMaterial(self,material):
+    def addtofisx_material(self,material):
         if material.nelements>1:
             with self.init_ctx():
                 self.FISXMATERIALS.addMaterial(material.tofisx(),errorOnReplace=False)

@@ -25,11 +25,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import numbers
+import re
 
 from .. import xraylib
 from .. import ureg
 from ..common import instance
-from ..math import fit1d
 from ..common import hashable
 from ..common import listtools
 from ..common.Enum import Enum
@@ -371,6 +371,10 @@ class FluoZLine(hashable.Hashable):
         """
         return "{}-{}".format(self.element,self.line)
     
+    @property   
+    def groupname(self):
+        return "{}-{}".format(self.element,self.line.shell)
+        
     @property
     def nenergy(self):
         return 1
@@ -380,7 +384,7 @@ class FluoZLine(hashable.Hashable):
 
     def split(self):
         return [self]
-            
+
 
 class ScatteringLine(hashable.Hashable):
 
@@ -399,16 +403,17 @@ class ScatteringLine(hashable.Hashable):
 
     @property
     def nenergy(self):
-        try:
-            return len(self.energysource)
-        except:
-            return 1
+        return listtools.length(self.energysource)
             
     def split(self):
         if self.nenergy==1:
-            return self
+            return [self]
         else:
             return [self.__class__(en) for en in self.energysource]
+            
+    @property   
+    def groupname(self):
+        return str(self)
         
         
 class RayleighLine(ScatteringLine):
@@ -441,7 +446,7 @@ class ComptonLine(ScatteringLine):
         delta = ureg.Quantity(1-np.cos(np.radians(polar)),"1/(m_e*c^2)").to("1/keV","spectroscopy").magnitude
         return self.energysource/(1+self.energysource*delta) 
         
-        
+
 class Spectrum(dict):
 
     TYPES = Enum(['crosssection','interactionyield'])
@@ -455,147 +460,159 @@ class Spectrum(dict):
         self.title = None
         self.xlabel = "Energy (keV)"
         self.type = None
-   
-    @property
-    def ylabel(self):
+        self.geometry = None
+        
+    def apply_weights(self,weights):
+        if weights is None:
+            return
+        
+        weights,func = instance.asarrayf(weights,dtype=float)
+        weights = func(weights/weights.sum())
+            
+        for k in self:
+            self[k] = self[k]*weights
+    
+    def sum_sources(self):
+        for k in self:
+            if isinstance(k,FluoZLine):
+                self[k] = np.sum(self[k])
+    
+    def ylabel(self,convert=True):
         if self.type==self.TYPES.crosssection:
-            return "Probability (1/cm)"
+            if convert:
+                return "Probability (1/cm)"
+            else:
+                return "Cross-section (cm^2/g/srad)"
         else:
             return "Rate (ph/phsource)"
 
-    @property
-    def lines(self):
-        for line,q in sorted(self.items(),key=lambda x: max(instance.asarray(x[0].energy(polar=1e-4)))):
-            if np.sum(q)==0:
-                continue
-            yield line,q
+    def conversionfactor(self,convert=True):
+        if self.type==self.TYPES.crosssection and convert:
+            return self.density/(4*np.pi) # cm^2/g/srad -> 1/cm
+        else:
+            return 1
 
-    def __str__(self):
-        lines = "\n ".join(["{} {}".format(line,q) for line,q in self.lines])
-        return "{}\n Line   {}\n {}".format(self.title,self.ylabel,lines)
+    def items_sorted(self,sort=False,**geomkwargs):
+        if sort:
+            return sorted(self.items(),key=lambda x: np.max(instance.asarray(x[0].energy(**geomkwargs))))
+        else:
+            return self.items()
+
+    def items_converted(self,convert=True,**kwargs):
+        m = self.conversionfactor(convert=convert)
         
+        for line,v in self.items_sorted(**kwargs):
+            if np.sum(v)==0:
+                continue
+            yield line,v*m
+
     @property
     def probabilities(self):
-        """Interaction probability per cm and per srad
-        """
-        if self.type==self.TYPES.crosssection:
-            m = self.density/(4*np.pi)
-        else:
-            m = 1
-            
-        for line,q in self.items():
-            if np.sum(q)==0:
-                continue
-            yield line,q*m #TODO: assume all isotropic for now
+        return self.items_converted(convert=True)
 
-    def energy0(self):
-        return self["Rayleigh"].energy()
+    def lines(self,**kwargs):
+        for line,v in self.items_converted(convert=True,**kwargs):
+            if isinstance(line,FluoZLine):
+                yield line,np.sum(v)
+            else:
+                for line,v in zip(line.split(),np.asarray(v)):
+                    yield line,v
 
     def spectrum(self,**kwargs):
-        for line,q in self.items():
-            q = instance.asarray(q)
+        for line,v in self.lines(**kwargs):
+            yield instance.asscalar(line.energy(**kwargs)),v
+        
+    def linegroups(self,**kwargs):
+        ret = {}
+        for line,v in self.items_converted(**kwargs):
+            group = line.groupname
+            if group not in ret:
+                ret[group] = {}
+                
+            if isinstance(line,FluoZLine):
+                # add contribution from all source lines
+                ret[group][line] = np.sum(v)
+            else:
+                ret[group][line] = v
+                
+        return ret
 
-            energy = instance.asarray(line.energy(**kwargs))
-            if q.size>1 and energy.size==1:
-                energy = np.repeat(energy,q.size)
+    def __str__(self):
+        geomkwargs = self.geomkwargs()
+        
+        lines = "\n ".join(["{} {}".format(line,v) for line,v in self.lines(sort=True,**geomkwargs)])
+        return "{}\n Line   {}\n {}".format(self.title,self.ylabel(convert=True),lines)
+    
+    @property
+    def energysource(self):
+        return self["Rayleigh"].energy()
 
-            for en,v in zip(energy,q):
-                yield en,v
+    @property
+    def nsource():
+        return listtools.length(self.energysource)
 
-    def plotlineprobability(self,energy,probability,geometry=None,**kwargs):
-        if geometry is None:
-            plt.plot([energy,energy],[0,probability],**kwargs)
-            h = probability
+    def geomkwargs(self):
+        if self.geometry is None:
+            geomkwargs = {"polar":90}
         else:
-            FWHM = geometry.linewidth(energy)
-            sx = FWHM/(2*np.sqrt(2*np.log(2)))
-            k = 4
-            x = np.linspace(energy-k*sx,energy+k*sx,50)
-            y = fit1d.gaussian(x,energy,sx,probability)
-            h = max(y)
-            plt.plot(x,y,**kwargs)
-        return h
-
-    def plot(self,geometry=None,out=False,mark=True,log=False):
+            geomkwargs = self.geometry.xrayspectrumkwargs()
+        return geomkwargs
+        
+    def plot(self,geometry=None,convert=True,mark=True,log=False):
         ax = plt.gca()
         
-        colors = {}
-        markers = {}
-        bmark = False
+        geomkwargs = self.geomkwargs()
 
-        if geometry is None:
-            geomkwargs = {}
-        else:
-            geomkwargs = geometry.xrayspectrumkwargs()
-
-        for line,cs in self.sortedcs:
-                
-            element = getattr(line, 'element', None)
-            energy = instance.asarray(line.energy(**geomkwargs))
-            probability = instance.asarray(cs*self.density)
-
-            # Scattering or fluorescence
-            if element is None: # scattering
-                key = str(line)
+        groups = self.linegroups(convert=convert)
+        for group,lines in groups.items():
+            color = next(ax._get_lines.prop_cycler)['color']
             
-                # Line label + color
-                label = [None]*len(energy)
-                label[-1] = key
-                color = next(ax._get_lines.prop_cycler)['color']
-                colors[key] = color
+            if group=="Compton" or group=="Rayleigh":
+                lines,intensities = lines.items()[0]
+                lines = lines.split()
+            else:
+                intensities = lines.values()
                 
-                # Line marker
-                if mark:
-                    markers[key] = {"name":key,"energy":energy,"probability":probability,"height":probability}
-                    bmark = True
-                    
-                if log:
-                    print(line,energy,probability)
-            else: # fluorescence
-                key = "{} {}".format(element,line.shell)
+            imax = np.argmax(intensities)
 
-                # Line label + color
-                label = [None]*len(energy)
-                if key in colors:
-                    color = colors[key]
+            for i,(line,intensity) in enumerate(zip(lines,intensities)):
+                energy = line.energy(**geomkwargs)
+                if i==imax:
+                    label = group
                 else:
-                    label[-1] = key
-                    color = next(ax._get_lines.prop_cycler)['color']
-                    colors[key] = color
-
-                # Key marker
-                if mark:
-                    if key in markers:
-                        bmark = sum(probability)>sum(markers[key]["probability"])
-                    else:
-                        bmark = True
-                    if bmark:
-                        markers[key] = {"name":str(line),"energy":energy,"probability":probability,"height":probability}
-
-                if log:
-                    print(line,energy,probability)
-            
-            height = [self.plotlineprobability(en,prob,color=color,label=lab,geometry=geometry) for en,prob,lab in zip(energy,probability,label)]
-            
-            if bmark:
-                ind = np.argmax(height)
-                markers[key]["energy"] = markers[key]["energy"][ind]
-                markers[key]["height"] = height[ind]
-
-        for key,marker in markers.items():
-            plt.annotate(marker["name"], xy=(marker["energy"], marker["height"]),color=colors[key])
-
+                    label = None
+                h = self._plotline(energy,intensity,geometry=geometry,label=label,color=color)
+                if i==imax and mark:
+                    plt.annotate(line, xy=(energy, h),color=color)
+                    
+                    
         if geometry is not None and log:
             ax.set_yscale('log', basey=10)
             plt.ylim([1,None])
             
         plt.legend(loc='best')
         plt.xlabel(self.xlabel)
-        plt.xlabel(self.ylabel)
+        plt.ylabel(self.ylabel(convert=convert))
         plt.xlim(self.xlim)
         try:
             plt.title(self.title)
         except UnicodeDecodeError:
             pass
+            
+    def _plotline(self,energy,area,geometry=None,**kwargs):
+        if geometry is None:
+            plt.plot([energy,energy],[0,area],**kwargs)
+            h = area
+        else:
+            s = np.sqrt(geometry.detector.linesigma2(energy))
+            emin = 0
+            emax = energy+4*sx
+            n = int((emax-emin)/0.01)
+            x = np.linspace(emin,emax,n)
+            y = area*geometry.detector.lineprofile(x,energy)
+            h = max(y)
+            plt.plot(x,y,**kwargs)
+            
+        return h
 
 

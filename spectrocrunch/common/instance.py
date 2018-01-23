@@ -85,12 +85,9 @@ def aslist(x):
     return asarray(x).tolist()
 
 def asscalar(x):
-    if isscalar(x):
-        try:
-            x = np.asscalar(x)
-        except:
-            pass
-    else:
-        x = asarray(x)
+    try:
+        x = np.asscalar(x)
+    except:
+        pass
     return x
     
