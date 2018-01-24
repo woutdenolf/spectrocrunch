@@ -516,7 +516,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
                 j = labels.index(labelnames[i])
                 ind.append(j)
             except:
-                pass
+                raise RuntimeError("Label not in list: {}".format(labels))
         if len(ind)>0:
             data = scan.data[:,ind]
         else:

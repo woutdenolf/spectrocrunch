@@ -39,7 +39,8 @@ These materials can be used in a particular geometry
     
     source = spectrocrunch.geometries.source.factory("synchrotron")
     detector = spectrocrunch.detectors.xrf.factory("leia")
-    geometry = spectrocrunch.geometries.xrf.factory("sdd120",detectorposition=-15.,detector=detector,source=source)
+    distanceargs = {"detectorposition":-15.}
+    geometry = spectrocrunch.geometries.xrf.factory("sxm120",distanceargs=distanceargs,detector=detector,source=source)
 
     sample = spectrocrunch.materials.multilayer.Multilayer(material=[element,compound1,mixture],\
                                                 thickness=[1e-4,1e-4,1e-4],\

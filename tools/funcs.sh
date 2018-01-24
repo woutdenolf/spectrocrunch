@@ -207,6 +207,7 @@ _initEnv()
     
     PYTHON_INCLUDE_DIR=`$PYTHONBIN -c "import distutils.sysconfig; print(distutils.sysconfig.get_python_inc());"`
     PYTHON_LIBRARY=`$PYTHONBIN -c "import distutils.sysconfig,os; print(os.path.join(distutils.sysconfig.get_config_var('LIBDIR'),distutils.sysconfig.get_config_var('LDLIBRARY')));"`
+    #PYTHON_PKG_DIR=`$PYTHONBIN -c "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib());"`
 
     # ============User============
     if [[ -z $SYSTEM_PRIVILIGES || $RESET == true ]]; then

@@ -44,9 +44,21 @@ class Sample(with_metaclass(multilayer.Multilayer)):
             self.addtopymca_shells(setup,cfg,self.extra)
 
 
-
+def axo(name,elements,arealdensity,windowthickness,filmthickness):
+    """
+    Args:
+        name(str): name of standard
+        elements(list(str)): element symbols
+        arealdensity(list(num)): ng/mm^2
+        windowthickness(num): substrate thickness (nm)
+        filmthickness(num|None): deposited film thickness (nm)
         
-def axo(name,elements,ad,windowthickness,filmthickness):
+    Returns:
+        material(list(spectrocrunch.materials.compound|mixture)): layer composition
+        thickness(list(num)): layer thickness in cm
+        attenuators(list(list)): beam attenuators (before and after sample)
+    """
+
     # When the filmthickness is not known exactly, there is no other
     # option than assume all elements are in the substrate. In this case
     # we would want to switch off absorption corrections.
@@ -57,13 +69,13 @@ def axo(name,elements,ad,windowthickness,filmthickness):
                    ["BeamFilter0",ultralene,4e-4]]
     
     if filmthickness is None:
+        arealdensity = dict(zip(elements,arealdensity))
+        
         w = compoundfromname.compoundfromname("silicon nitride")
-        arealdensity = w.arealdensity()
-
-        arealdensity.update(dict(zip(elements,ad)))
+        arealdensity.update(w.arealdensity())
         
         totalarealdensity = sum(arealdensity.values())
-        massfractions = {e:ad/totalarealdensity for e,ad in arealdensity.items()}
+        massfractions = {e:arealdensity/totalarealdensity for e,arealdensity in arealdensity.items()}
         
         layer1 = compoundfromlist.CompoundFromList(massfractions.keys(),massfractions.values(),types.fractionType.weight,w.density,name=name)
         
@@ -71,7 +83,7 @@ def axo(name,elements,ad,windowthickness,filmthickness):
         thickness = windowthickness*1e-7
     else:
         elements = [compoundfromlist.CompoundFromList([e],[1],types.fractionType.mole,0,name=e) for e in elements]
-        layer1 = mixture.Mixture(elements,ad,types.fractionType.weight,name=name)
+        layer1 = mixture.Mixture(elements,arealdensity,types.fractionType.weight,name=name)
 
         layer2 = compoundfromname.compoundfromname("silicon nitride")
         
@@ -87,10 +99,10 @@ class AXOID21_1(Sample):
     def __init__(self,**kwargs):
         name = "RF7-200-S2371-03"
         elements = ["Pb","La","Pd","Mo","Cu","Fe","Ca"]
-        ad = [7.7,9,1.9,0.9,2.4,4,11.4]
+        arealdensity = [7.7,9,1.9,0.9,2.4,4,11.4] # ng/mm^2
         windowthickness = 200 # nm
         filmthickness = None # nm
-        material,thickness,attenuators = axo(name,elements,ad,windowthickness,filmthickness)
+        material,thickness,attenuators = axo(name,elements,arealdensity,windowthickness,filmthickness)
 
         for k in attenuators:
             kwargs["geometry"].addattenuator(*k)
@@ -104,10 +116,10 @@ class AXOID21_2(Sample):
     def __init__(self,**kwargs):
         name = "RF8-200-S2454"
         elements = ["Pb","La","Pd","Mo","Cu","Fe","Ca"]
-        ad = [6.3,7.6,2.3,0.7,2.6,4.1,25.1]
+        arealdensity = [6.3,7.6,2.3,0.7,2.6,4.1,25.1] # ng/mm^2
         windowthickness = 200 # nm
         filmthickness = None # nm
-        material,thickness,attenuators = axo(name,elements,ad,windowthickness,filmthickness)
+        material,thickness,attenuators = axo(name,elements,arealdensity,windowthickness,filmthickness)
         
         for k in attenuators:
             kwargs["geometry"].addattenuator(*k)
@@ -121,10 +133,10 @@ class AXOID16b_1(Sample):
     def __init__(self,**kwargs):
         name = "RF8-200-S2453"
         elements = ["Pb","La","Pd","Mo","Cu","Fe","Ca"]
-        ad = [5.9,10.3,1.2,.7,2.4,3.9,20.3]
+        arealdensity = [5.9,10.3,1.2,.7,2.4,3.9,20.3] # ng/mm^2
         windowthickness = 200 # nm
         filmthickness = None # nm
-        material,thickness,attenuators = axo(name,elements,ad,windowthickness,filmthickness)
+        material,thickness,attenuators = axo(name,elements,arealdensity,windowthickness,filmthickness)
         
         for k in attenuators:
             kwargs["geometry"].addattenuator(*k)

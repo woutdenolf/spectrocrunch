@@ -22,13 +22,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..materials import compoundfromname
 from . import base
+from ..materials import compoundfromname
 from ..materials import element
-from ..common.classfactory import with_metaclass
 from ..common import constants
-import scipy.special
+from ..common.classfactory import with_metaclass
 
+import scipy.special
 import numpy as np
 
 class Detector(with_metaclass(base.PointSourceCentric)):
@@ -48,7 +48,7 @@ class Detector(with_metaclass(base.PointSourceCentric)):
         super(Detector,self).__init__(**kwargs)
 
     def linesigma2(self,energy):
-        return self.mcanoise**2/(8*np.log(2)) + self.mcafano*self.ehole.to("keV").magnitude*energy
+        return self.mcanoise**2/(8*np.log(2)) + self.mcafano*self.ehole*1e3*energy
 
     def lineprofile(self,x,u,voigt=False):
         """
@@ -82,42 +82,65 @@ class Detector(with_metaclass(base.PointSourceCentric)):
 
         return detrespons + self.tailfraction*tail + self.stepfraction*step
     
-    def addtopymcaconfig(self,config,energy): 
-        super(Detector,self).addtopymcaconfig(config)
-        
-        config["concentrations"]["area"] = self.activearea
-        config["concentrations"]["distance"] = self.distance
-        
+    def addtopymca(self,setup,cfg): 
+        super(Detector,self).addtopymca(setup,cfg)
+
         mcazero = self.mcazero
         mcagain = self.mcagain
         mcanoise = self.mcanoise
         # Compensate fano for difference in Ehole with pymca's 3.85 eV (ClassMcaTheory)
-        mcafano = self.mcafano * self.ehole.to("eV").magnitude / 3.85
-        config["detector"]["zero"] = mcazero
-        config["detector"]["gain"] = mcagain
-        config["detector"]["noise"] = mcanoise
-        config["detector"]["fano"] = mcafano
-        
-        emin = 0.9
-        emax = energy+0.5
-        xmin = int((emin-mcazero)/mcagain)
-        xmax = int((emax-mcazero)/mcagain)
-        config["fit"]["xmin"] = xmin
-        config["fit"]["xmax"] = xmax
-        config["fit"]["use_limit"] = 1
+        mcafano = self.mcafano * self.ehole / 3.85
+        cfg["detector"]["zero"] = mcazero
+        cfg["detector"]["gain"] = mcagain
+        cfg["detector"]["noise"] = mcanoise
+        cfg["detector"]["fano"] = mcafano
+
+        xmin = int((setup.emin-mcazero)/mcagain)
+        xmax = int((setup.emax-mcazero)/mcagain)
+        cfg["fit"]["xmin"] = xmin
+        cfg["fit"]["xmax"] = xmax
+        cfg["fit"]["use_limit"] = 1
  
-    def loadfrompymcaconfig(self,config):
-        super(Detector,self).loadfrompymcaconfig(config)
+    def loadfrompymca(self,cfg):
+        super(Detector,self).loadfrompymca(cfg)
         
-        self.activearea = config["concentrations"]["area"]
-        self.distance = config["concentrations"]["distance"]
-        self.mcazero = config["detector"]["zero"]
-        self.mcagain = config["detector"]["gain"]
-        self.mcanoise = config["detector"]["noise"]
+        self.activearea = cfg["concentrations"]["area"]
+        self.distance = cfg["concentrations"]["distance"]
+        self.mcazero = cfg["detector"]["zero"]
+        self.mcagain = cfg["detector"]["gain"]
+        self.mcanoise = cfg["detector"]["noise"]
         # Compensate fano for difference in Ehole with pymca's 3.85 eV (ClassMcaTheory)
-        self.mcafano = config["detector"]["fano"] * 3.85 / self.ehole.to("eV").magnitude
+        self.mcafano = cfg["detector"]["fano"] * 3.85 / self.ehole
         
+
+class sn3102(Detector):
+    aliases = ["XFlash5100"]
+    
+    def __init__(self,**kwargs):
+        ultralene = compoundfromname.compoundfromname("ultralene")
+        moxtek = compoundfromname.compoundfromname("moxtek ap3.3")
         
+        attenuators = {}
+        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4} # cm
+        attenuators["WindowDetector"] = {"material":moxtek,"thickness":380e-4} # AP3.3 Moxtek
+        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
+        kwargs["attenuators"] = attenuators
+        
+        kwargs["activearea"] = 80e-2*0.75 # cm^2
+        
+        kwargs["mcazero"] = 0. # keV
+        kwargs["mcagain"] = 5e-3 # keV
+        kwargs["mcanoise"] = 0.1 # keV
+        kwargs["mcafano"] = 0.114
+        kwargs["tailwidth"] = 2.5
+        kwargs["tailfraction"] = 0.02 # 2% of the photons end up in the tail
+        kwargs["stepfraction"] = 0.03 # 3% of the photons end up in the step
+        
+        kwargs["ehole"] = constants.eholepair_si()
+
+        super(sn3102,self).__init__(**kwargs)
+        
+              
 class Leia(Detector):
     aliases = ["SGX80"]
     
@@ -171,5 +194,32 @@ class BB8(Detector):
         
         super(BB8,self).__init__(**kwargs)
 
+
+class DR40(Detector):
+    aliases = ["VITUSH80"]
+    
+    def __init__(self,**kwargs):
+        ultralene = compoundfromname.compoundfromname("ultralene")
+        
+        attenuators = {}
+        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4} #cm
+        attenuators["WindowDetector"] = {"material":element.Element('Be'),"thickness":25e-4}
+        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
+        kwargs["attenuators"] = attenuators
+        
+        kwargs["activearea"] = 80e-2 # cm^2
+        
+        kwargs["mcazero"] = 0. # keV
+        kwargs["mcagain"] = 5e-3 # keV
+        kwargs["mcanoise"] = 0.1 # keV
+        kwargs["mcafano"] = 0.114
+        kwargs["tailwidth"] = 2.5
+        kwargs["tailfraction"] = 0.02 # 2% of the photons end up in the tail
+        kwargs["stepfraction"] = 0.03 # 3% of the photons end up in the step
+        
+        kwargs["ehole"] = constants.eholepair_si()
+        
+        super(DR40,self).__init__(**kwargs)
+        
 factory = Detector.factory
 

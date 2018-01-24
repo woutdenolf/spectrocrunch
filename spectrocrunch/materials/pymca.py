@@ -32,12 +32,12 @@ import numpy as np
 
 class PymcaConfig(object):
 
-    def __init__(self,sample=None,emin=0.9,emax=None,\
+    def __init__(self,sample=None,emin=None,emax=None,\
                 energy=None,weights=None,scatter=None,flux=None,time=None):
         self.sample = sample
         
         self.energy = units.magnitude(energy,"keV")
-        self.emin = emin
+        self._emin = emin
         self._emax = emax
         self.weights = weights
         self.scatter = scatter
@@ -48,10 +48,17 @@ class PymcaConfig(object):
     @property
     def emax(self):
         if self._emax is None:
-            return np.max(self.energy)
+            return np.max(self.energy)+0.5
         else:
             return self._emax
-        
+
+    @property
+    def emin(self):
+        if self._emin is None:
+            return 0.9
+        else:
+            return self._emin
+
     def beam(self,config):
         # TODO: move to source?
         config["fit"]["energy"] = np.asarray(self.energy).tolist()
@@ -77,7 +84,6 @@ class PymcaConfig(object):
         self.beam(cfg)
         self.background(cfg)
         self.peakshape(cfg)
-        print(cfg)
 
     def addtopymca_material(self,cfg,material):
         matname,v = material.topymca()

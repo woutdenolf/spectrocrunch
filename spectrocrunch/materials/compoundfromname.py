@@ -119,6 +119,8 @@ compounddb["kapton"] = compound.Compound(data["Elements"],data["massFractions"],
 compounddb["ultralene"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="ultralene") # same as kapton
 compounddb["mylar"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="mylar") # same as pet
 #compounddb["ultralene"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="ultralene") # same as pet
+compounddb["moxtek ap3.3"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="moxtek ap3.3")
+
 
 # tape (adhesive on plastic)
 compounddb["sulfur-free tape"] = mixture.Mixture([compounddb["pva"],compounddb["pe"]],\

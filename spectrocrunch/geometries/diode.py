@@ -29,16 +29,8 @@ import numpy as np
 
 class Geometry(with_metaclass(base.Point)):
 
-    def __init__(self,distance=None,**kwargs):
-        """
-        Args:
-            distance(num): distance (cm) to target
-        """
-        self.distance = float(distance)
+    def __init__(self,**kwargs):
         super(Geometry,self).__init__(**kwargs)
 
-    def __str__(self):
-        return "{}\n Distance = {} cm".format(super(Geometry,self).__str__(),self.distance)
-        
 factory = Geometry.factory
 

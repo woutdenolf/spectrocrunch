@@ -61,8 +61,8 @@ class FlatSample(Base):
             anglein(num): angle (deg) between primary beam and sample surface
             angleout(num): angle (deg) between detector and sample surface
         """
-        self.anglein = float(anglein) # deg
-        self.angleout = float(angleout) # deg
+        self.anglein = anglein # deg
+        self.angleout = angleout # deg
         
         super(FlatSample,self).__init__(**kwargs)
 
@@ -97,17 +97,31 @@ class FlatSample(Base):
 
 class Point(FlatSample):
 
-    def __init__(self,azimuth=None,**kwargs):
+    def __init__(self,azimuth=None,distance=None,**kwargs):
         """
         Args:
             azimuth(num): angle (deg) between the source-detector plane and the polarization plane
+            distance(num): distance (cm) to target
         """
         
-        self.azimuth = float(azimuth) # deg
-        
+        self.azimuth = azimuth
+        self._distance = distance
         super(Point,self).__init__(**kwargs)
 
+    @property
+    def distance(self):
+        return self._distance
+        
     def xrayspectrumkwargs(self):
         return {"polar":self.scatteringangle,"azimuth":self.azimuth}
+
+    def __str__(self):
+        if self.distance is None:
+            return super(Point,self).__str__()
+        else:
+            return "{}\n Distance = {} cm".format(super(Point,self).__str__(),self.distance)
         
-        
+    def addtopymca(self,setup,cfg): 
+        super(Point,self).addtopymca(setup,cfg)
+        cfg["concentrations"]["distance"] = self.distance
+

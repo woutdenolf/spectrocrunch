@@ -86,7 +86,7 @@ class test_mixture(unittest.TestCase):
     def _spectrum(self,lstlines,thickness):
         src = source.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
-        geometry = xrfgeometries.factory("sdd120",detectorposition=-15.,detector=detector,source=src)
+        geometry = xrfgeometries.factory("sxm120",distanceargs={"detectorposition":-15.},detector=detector,source=src)
 
         out = {}
         for spectrum,d in zip(lstlines,thickness):

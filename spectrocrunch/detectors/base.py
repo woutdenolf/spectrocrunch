@@ -32,13 +32,12 @@ class Material(object):
 
     DETMATERIALLABEL = "Detector"
 
-    def __init__(self,attenuators=None,**kwargs):
-        #TODO: move beamfilters to source
+    def __init__(self,attenuators=None):
+        #TODO: separate attenuators, beamfilters and detector material
         
         if attenuators is None:
             attenuators = {}
         self.attenuators = attenuators
-        super(Material,self).__init__(**kwargs)
 
     def addattenuator(self,name,material,thickness):
         self.attenuators[name] = {"material":material,"thickness":thickness}
@@ -170,7 +169,6 @@ class Material(object):
         return 1-self.transmission(energy)
 
 
-
 class SolidState(Material):
 
     def __init__(self,ehole=None,**kwargs):
@@ -181,43 +179,19 @@ class SolidState(Material):
         return " Ionization energy = {} eV\n{}".format(self.ehole,super(SolidState,self).__str__())
         
 
-class PointSourceCentric(SolidState):
+class SolidAngle(SolidState):
 
-    def __init__(self,activearea=None,**kwargs):
-        self.activearea = activearea # cm^2
-        super(PointSourceCentric,self).__init__(**kwargs)
+    def __init__(self,solidangle=None,**kwargs):
+        self._solidangle = solidangle # srad
+        super(SolidAngle,self).__init__(**kwargs)
 
-    def __str__(self):
-        return " Solid angle = 4*pi*{} srad\n Active area = {} cm^2\n{}".format(self.solidangle/(4*np.pi),self.activearea,super(PointSourceCentric,self).__str__())
-
-    @property
-    def distance(self):
-        return 
-        
     @property
     def solidangle(self):
-        distance = self.geometry.distance
-        r2 = self.activearea/np.pi # squared disk radius
-        return 2.*np.pi*(1.-(distance/np.sqrt(r2+distance**2.)))
+        return self._solidangle
+    
+    def __str__(self):
+        return " Solid angle = 4*pi*{} srad\n{}".format(self.solidangle/(4*np.pi),super(SolidAngle,self).__str__())
 
-    @solidangle.setter
-    def solidangle(self,value):
-        solidanglefrac = value/(4*np.pi)
-        if solidanglefrac>=0.5:
-            raise ValueError("Solid angle must be < 2.pi")
-        r2 = self.activearea/np.pi # squared disk radius
-        self.geometry.distance = np.sqrt(r2)*(0.5-solidanglefrac)/np.sqrt((1-solidanglefrac)*solidanglefrac)
-
-    def addtofisx(self,setup,cfg):
-        super(PointSourceCentric,self).addtofisx(setup,cfg)
-        
-        if self.hasmaterial:
-            detector = fisx.Detector(self.material.name, self.material.density, self.thickness)
-            detector.setActiveArea(self.activearea)
-            detector.setDistance(self.geometry.distance)
-            #detector.setMaximumNumberOfEscapePeaks(0)
-            setup.setDetector(detector)
-        
     def efficiency(self,energysource,energydet):
         """Detector efficiency = S/cos(ain)*T(energysource)*T(energydet)*A(energydet)
             S: solid angle detector
@@ -236,11 +210,52 @@ class PointSourceCentric(SolidState):
         energydet = instance.asarray(energydet)
         
         g = self.solidangle/self.geometry.cosnormin
-        T0 = super(PointSourceCentric,self).filter_transmission(energysource,source=True)
-        T1 = super(PointSourceCentric,self).filter_transmission(energydet,source=False)
+        T0 = super(SolidAngle,self).filter_transmission(energysource,source=True)
+        T1 = super(SolidAngle,self).filter_transmission(energydet,source=False)
         A = self.attenuation(energydet)
         
         # the cosine term is put here for convenience (comes from integration over sample thickness)
         
         return (g*T0)[:,np.newaxis]*(T1*A)[np.newaxis,:]
+        
+        
+class PointSourceCentric(SolidAngle):
+
+    def __init__(self,activearea=None,**kwargs):
+        self.activearea = activearea # cm^2
+        super(PointSourceCentric,self).__init__(**kwargs)
+
+    def __str__(self):
+        return " Active area = {} cm^2\n{}".format(self.activearea,super(PointSourceCentric,self).__str__())
+
+    @classmethod
+    def solidangle_calc(cls,activearea=None,distance=None):
+        r2 = activearea/np.pi # squared disk radius
+        return 2.*np.pi*(1.-(distance/np.sqrt(r2+distance**2.)))
+
+    @property
+    def solidangle(self):
+        return self.solidangle_calc(activearea=self.activearea,distance=self.geometry.distance)
+
+    @solidangle.setter
+    def solidangle(self,value):
+        solidanglefrac = value/(4*np.pi)
+        if solidanglefrac>=0.5:
+            raise ValueError("Solid angle must be < 2.pi")
+        r2 = self.activearea/np.pi # squared disk radius
+        self.geometry.distance = np.sqrt(r2)*(0.5-solidanglefrac)/np.sqrt((1-solidanglefrac)*solidanglefrac)
+
+    def addtofisx(self,setup,cfg):
+        super(PointSourceCentric,self).addtofisx(setup,cfg)
+        
+        if self.hasmaterial:
+            detector = fisx.Detector(self.material.name, self.material.density, self.thickness)
+            detector.setActiveArea(self.activearea)
+            detector.setDistance(self.geometry.distance)
+            #detector.setMaximumNumberOfEscapePeaks(0)
+            setup.setDetector(detector)
+
+    def addtopymca(self,setup,cfg): 
+        super(PointSourceCentric,self).addtopymca(setup,cfg)
+        cfg["concentrations"]["area"] = self.activearea
         

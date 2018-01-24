@@ -26,62 +26,184 @@ from ..common.classfactory import with_metaclass
 from . import base
 
 import numpy as np
+import silx.math.fit as silxfit
+import matplotlib.pyplot as plt
 
-class Geometry(with_metaclass(base.Point)):
 
-    def __init__(self,detectorposition=None,distancefunc=None,distanceifunc=None,\
-                **kwargs):
+class LinearMotor(object):
+
+    def __init__(self,zerodistance=None,unittocm=None):
         """
         Args:
-            detectorposition(num): motor position in motor units
-            distancefunc(callable): convert detectorposition to distance in cm
-            distanceifunc(callable): inverse of distancefunc
+            zerodistance(num): distance for zero motor position
+            unittocm(num): conversion factor motor units -> cm
+        """
+        self.zerodistance = zerodistance
+        self.unittocm = float(unittocm)
+
+    def __call__(self,detectorposition=None,distance=None):
+        """Convert detector position to distance and vice versa
+
+        Args:
+            detectorposition(Optional(num)): detector position (units)
+            distance(Optional(num)): sample-detector distance (cm)
+            
+        Returns:
+            num or None: distance or detector position
+        """
+        if distance is None:
+            return (detectorposition+self.zerodistance)*self.unittocm
+        else:
+            detectorposition = distance/self.unittocm - self.zerodistance
+            return {"detectorposition":detectorposition}
+
+    def calibrate_manual(self,distance,detectorposition=None):
+        """Calibrate geometry based on one (distance,position) pair
+        """
+        self.zerodistance = distance/self.unittocm - detectorposition
+
+    def calibrate_fit(self,intensities,\
+                detectorposition=None,fit=True,\
+                plot=True,xlabel="Motor position (DU)",ylabel="Intensity"):
+        """Calibrate geometry based in intensity vs. linear motor position
         """
         
-        self.detectorposition = float(detectorposition)
-        if distancefunc is None or distanceifunc is None:
-            distancefunc = lambda x:x
-            distanceifunc = lambda x:x
-        self.distancefunc = distancefunc
-        self.distanceifunc = distanceifunc
+        # Initial parameter values
+        activearea = self.geometry.activearea
+        zerodistance = self.zerodistance
+        
+        distance = self(detectorposition=detectorposition)
+        rate = np.mean(intensities/self.geometry.solidangle_calc(activearea=activearea,distance=distance))
+        
+        p0 = [rate,zerodistance,activearea]
+        constraints = [[silxfit.CFREE,0,0],[silxfit.CFREE,0,0],[silxfit.CFIXED,0,0]]
 
+        # Fit function
+        def func(x,rate,zerodistance,activearea):
+            distance = (x+zerodistance)*self.unittocm
+            sa = self.geometry.solidangle_calc(activearea=activearea,distance=distance)
+            return rate*sa
+
+        if fit:
+            # Fit
+            p, cov_matrix, info = silxfit.leastsq(func, detectorposition, intensities, p0,\
+                                              constraints=constraints, full_output=True)
+            
+            # Parse result                       
+            errors = np.sqrt(np.diag(cov_matrix))
+            S = np.diag(1/errors)
+            cor_matrix = S.dot(cov_matrix).dot(S)
+
+            out =  "rate = {} +/- {}\n".format(p[0],errors[0])
+            out += "zerodistance = {} +/- {} DU\n".format(p[1],errors[1])
+            out += "activearea = {} +/- {} cm^2\n".format(p[2],errors[2])
+            out += "R(rate,zerodistance) = {}\n".format(cor_matrix[0,1])
+            out += "R(rate,activearea) = {}\n".format(cor_matrix[0,2])
+            out += "R(zerodistance,activearea) = {}\n".format(cor_matrix[1,2])
+        
+            rate,zerodistance,activearea = p
+        
+            # Apply result
+            self.zerodistance = zerodistance
+            #self.geometry.activearea = activearea
+            
+            label = 'fit (active area fixed)'
+        else:
+            out = ""
+            label = 'current geometry'
+            
+        # Plot
+        if plot:
+            plt.plot(detectorposition,intensities,'x',label='data')
+            plt.plot(detectorposition,func(detectorposition,rate,zerodistance,activearea),label=label)
+            ax = plt.gcf().gca()
+            ax.set_xlabel(xlabel)
+            ax.set_ylabel(ylabel)
+            plt.legend(loc='best')
+
+        return out
+        
+        
+class Geometry(with_metaclass(base.Point)):
+
+    def __init__(self,distancefunc=None,distanceargs=None,**kwargs):
+        """
+        Args:
+            distancefunc(Optional(callable)): distance = distancefunc(**distanceargs)
+            distanceargs(Optional(dict)): 
+        """
+
+        self.set_distancefunc(distancefunc)
+        self.distanceargs = distanceargs
+        
         super(Geometry,self).__init__(**kwargs)
+
+    def set_distancefunc(self,distancefunc):
+        if distancefunc is not None:
+            distancefunc.geometry = self
+        self.distancefunc = distancefunc
 
     @property
     def distance(self):
-        """Sampel detector distance in cm
+        """Sample-detector distance in cm
         """
-        return self.distancefunc(self.detectorposition)
+        if self.distancefunc is None:
+            return self._distance
+        else:
+            return self.distancefunc(**self.distanceargs)
         
     @distance.setter
-    def distance(self,value):
-        self.detectorposition = self.distanceifunc(value)
+    def distance(self,distance):
+        if self.distancefunc is None:
+            self._distance = distance
+        else:
+            self.distanceargs.update(self.distancefunc(distance=distance))
+    
+    def calibrate_distance_manual(self,distance,**distanceargs):
+        if self.distancefunc is not None:
+            self.distancefunc.calibrate_manual(distance,**distanceargs)
 
-    def __str__(self):
-        return "{}\n Distance = {} cm".format(super(Geometry,self).__str__(),self.distance)
+    def calibrate_distance_fit(self,intensities,**kwargs):
+        if self.distancefunc is not None:
+            return self.distancefunc.calibrate_fit(intensities,**kwargs)
         
-        
-class sdd120(Geometry):
+
+class sxm120(Geometry):
 
     def __init__(self,**kwargs):
         # blc10516 (April 2017)
         # detector position in mm
-        distancefunc = lambda x: (x+60.5)/10
-        distanceifunc = lambda x: x*10-60.5
-        super(sdd120,self).__init__(anglein=62,angleout=49,azimuth=0,\
-                        distancefunc=distancefunc,distanceifunc=distanceifunc,\
-                        **kwargs)
+        
+        zerodistance = kwargs.pop("zerodistance",60.38)
+        distancefunc = LinearMotor(zerodistance=zerodistance,unittocm=0.1)
 
-class sdd90(Geometry):
+        super(sxm120,self).__init__(anglein=62,angleout=49,azimuth=0,\
+                        distancefunc=distancefunc,**kwargs)
+
+class sxm90(Geometry):
 
     def __init__(self,**kwargs):
         # blc10516 (April 2017)
         # detector position in mm
-        distancefunc = lambda x: (x+85.5)/10
-        distanceifunc = lambda x: x*10-85.5
-        super(sdd90,self).__init__(anglein=62,angleout=28,azimuth=0,\
-                        distancefunc=distancefunc,distanceifunc=distanceifunc,\
-                        **kwargs)
+        
+        zerodistance = kwargs.pop("zerodistance",85.49)
+        distancefunc = LinearMotor(zerodistance=zerodistance,unittocm=0.1)
+
+        super(sxm90,self).__init__(anglein=62,angleout=28,azimuth=0,\
+                        distancefunc=distancefunc,**kwargs)
+
+class microdiff(Geometry):
+
+    def __init__(self,**kwargs):
+        # blc10516 (April 2017)
+        # detector position in mm
+        
+        zerodistance = kwargs.pop("zerodistance",-57.30)
+        distancefunc = LinearMotor(zerodistance=zerodistance,unittocm=-0.1)
+
+        super(microdiff,self).__init__(anglein=90,azimuth=0,\
+                        distancefunc=distancefunc,**kwargs)
+                        
 
 factory = Geometry.factory
 

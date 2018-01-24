@@ -171,7 +171,7 @@ class Oscillator(object):
         return (self.op_currenttocps())**(-1)
 
 
-class PNdiode(with_metaclass(base.PointSourceCentric)):
+class PNdiode(with_metaclass(base.SolidAngle)):
 
     ELCHARGE = ureg.Quantity(1,ureg.elementary_charge)
     #ELCHARGE = ureg.Quantity(1.6e-19,ureg.coulomb) # approx. in spec
@@ -949,12 +949,12 @@ class SXM_IODET1(NonCalibratedPNdiode):
         kwargs = {}
         
         attenuators = {}
-        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":3e-4}
+        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":14e-4}
         kwargs["attenuators"] = attenuators
         
         source = xraysources.factory("synchrotron")
-        geometry = diodegeometries.factory("Geometry",anglein=90,angleout=45,azimuth=0,distance=0.5,source=source,detector=self)
-        kwargs["activearea"] = 10.
+        geometry = diodegeometries.factory("Geometry",anglein=90,angleout=45,source=source,detector=self)
+        kwargs["solidangle"] = 0.4*4*np.pi
         kwargs["ehole"] = constants.eholepair_si()
         
         window = compoundfromname.compoundfromname("silicon nitride")
@@ -990,12 +990,12 @@ class SXM_IODET2(NonCalibratedPNdiode):
         kwargs = {}
         
         attenuators = {}
-        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":3e-4}
+        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":14e-4}
         kwargs["attenuators"] = attenuators
         
         source = xraysources.factory("synchrotron")
-        geometry = diodegeometries.factory("Geometry",anglein=90,angleout=45,azimuth=0,distance=0.5,source=source,detector=self)
-        kwargs["activearea"] = 10.
+        geometry = diodegeometries.factory("Geometry",anglein=90,angleout=45,source=source,detector=self)
+        kwargs["activearea"] = 0.4*4*np.pi
         kwargs["ehole"] = constants.eholepair_si()
         
         window = compoundfromname.compoundfromname("silicon nitride")
