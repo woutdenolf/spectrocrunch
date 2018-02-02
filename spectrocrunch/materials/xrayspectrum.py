@@ -281,8 +281,30 @@ class Shell(hashable.Hashable):
             return shells
             
     @classmethod
-    def pymcafactory(cls,energybounds=None):
-        return list(set("".join(re.split("[^a-zA-Z]*", str(s))) for s in cls.factory(energybounds=energybounds)))
+    def pymcafactory(cls,energybounds=None,splitL=False):
+        shells = cls.factory(energybounds=energybounds)
+        shells = [str(s) for s in shells]
+        
+        # Group L shells when all present
+        if "L1" in shells and "L2" in shells and "L3" in shells:
+            shells = [s for s in shells if not s.startswith("L")]
+            shells.append("L")
+        
+        # Group M shells
+        if any(s.startswith("M") for s in shells):
+            shells = [s for s in shells if not s.startswith("M")]
+            shells.append("M")
+
+        # Only K,L and M
+        lst = ["K","L","M"]
+        shells = [s for s in shells if s[0] in lst]
+
+        # Split L when present
+        if splitL and "L" in shells:
+            shells = [s for s in shells if not s!="L"]
+            shells += ["L1","L2","L3"]
+
+        return shells
 
     def __init__(self,shell,fluolines=None):
         """
@@ -467,10 +489,12 @@ class Spectrum(dict):
             return
         
         weights,func = instance.asarrayf(weights,dtype=float)
+        n = len(weights)
         weights = func(weights/weights.sum())
             
         for k in self:
-            self[k] = self[k]*weights
+            if listtools.length(self[k])==n:
+                self[k] = self[k]*weights
     
     def sum_sources(self):
         for k in self:
@@ -550,6 +574,12 @@ class Spectrum(dict):
     @property
     def nsource():
         return listtools.length(self.energysource)
+
+    def power(self,flux,**kwargs):
+        if self.type!=self.TYPES.interactionyield:
+            raise RuntimeError("Spectrum must contain interactions yields, not cross-sections.")
+        P = sum([energy*rate for energy,rate in self.spectrum(**kwargs)])
+        return ureg.Quantity(P*flux,"keV/s")
 
     def geomkwargs(self):
         if self.geometry is None:

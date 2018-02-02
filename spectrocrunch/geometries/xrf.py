@@ -22,8 +22,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common.classfactory import with_metaclass
 from . import base
+from ..common.classfactory import with_metaclass
+from ..resources import resource_filename
 
 import numpy as np
 import silx.math.fit as silxfit
@@ -62,9 +63,80 @@ class LinearMotor(object):
         """
         self.zerodistance = distance/self.unittocm - detectorposition
 
+    def calibrate_auto(self,rcfile,**kwargs):
+        detectorposition,intensities = np.load(self.distance_rcfile)
+        return self.calibrate_fit(intensities,detectorposition=detectorposition,**kwargs)
+
+    def calibrate_fit_testcorrelation2(self,intensities,rate=None,zerodistance=None,detectorposition=None):
+
+        # Fit function
+        def func(x,rate,zerodistance,activearea):
+            distance = (x+zerodistance)*self.unittocm
+            sa = self.geometry.solidangle_calc(activearea=activearea,distance=distance)
+            return rate*sa
+
+        constraints = [[silxfit.CFIXED,0,0],[silxfit.CFREE,0,0],[silxfit.CFIXED,0,0]]
+        
+        n = 100
+        img = np.zeros((n,n))
+        vzerodistance = np.linspace(zerodistance-1,zerodistance+1,n)
+        m = 0.9
+        vrate = np.linspace(rate*m,rate/m,n)
+
+        for i,zerodistancei in enumerate(vzerodistance):
+            for j,ratej in enumerate(vrate):
+                obs = func(detectorposition,ratej,zerodistancei,self.geometry.activearea)
+                img[i,j] = np.sum((obs-intensities)**2/intensities)
+
+        cax = plt.imshow(img, origin='lower', cmap=plt.cm.jet, interpolation='none', extent=[vrate[0],vrate[-1],vzerodistance[0],vzerodistance[-1]])
+        ax = plt.gcf().gca()
+        ax.set_ylabel("$x_0$ (cm)")
+        ax.set_xlabel("$c_x$ (sr$^{-1}$)")
+        ax.set_aspect(abs(vrate[-1]-vrate[0])/abs(vzerodistance[-1]-vzerodistance[0]))
+        ax.axvline(x=rate)
+        ax.axhline(y=zerodistance)
+        cbar = plt.colorbar(cax,label="$\chi^2$")
+        ax = plt.gcf().gca()
+        
+    def calibrate_fit_testcorrelation(self,intensities,rate=None,zerodistance=None,detectorposition=None):
+
+        # Fit function
+        def func(x,rate,zerodistance,activearea):
+            distance = (x+zerodistance)*self.unittocm
+            sa = self.geometry.solidangle_calc(activearea=activearea,distance=distance)
+            return rate*sa
+
+        constraints = [[silxfit.CFIXED,0,0],[silxfit.CFREE,0,0],[silxfit.CFIXED,0,0]]
+        
+        n = 50
+        y = np.zeros(n)
+        y2 = np.zeros(n)
+        x = np.linspace(self.geometry.activearea-0.01,self.geometry.activearea+0.01,n)
+        for i,activearea in enumerate(x):
+            p0 = [rate,self.zerodistance+np.random.uniform(-1,1),activearea]
+            p, cov_matrix, info = silxfit.leastsq(func, detectorposition, intensities, p0,\
+                                              constraints=constraints, full_output=True)
+            y[i] = info["reduced_chisq"]
+            y2[i] = p[1]
+            
+        p = plt.plot(x*100,y)
+        ax = plt.gcf().gca()
+        color = p[-1].get_color()
+        ax.axvline(x=self.geometry.activearea*100,linestyle='dashed',color=color)
+        ax.set_xlabel("Active area ($mm^2$)")
+        ax.set_ylabel("Reduced-$\chi^2$",color=color)
+        ax.tick_params(axis='y', labelcolor=color)
+        
+        color = next(ax._get_lines.prop_cycler)['color']
+        ax2 = ax.twinx()
+        ax2.plot(x*100,y2*10,color=color)
+        ax2.axhline(y=zerodistance*10,linestyle='dashed',color=color)
+        ax2.set_ylabel("$x_0$ (mm)",color=color)
+        ax2.tick_params(axis='y', labelcolor=color)
+         
     def calibrate_fit(self,intensities,\
                 detectorposition=None,fit=True,\
-                plot=True,xlabel="Motor position (DU)",ylabel="Intensity"):
+                plot=False,xlabel="Motor position (DU)",ylabel="Intensity"):
         """Calibrate geometry based in intensity vs. linear motor position
         """
         
@@ -88,7 +160,7 @@ class LinearMotor(object):
             # Fit
             p, cov_matrix, info = silxfit.leastsq(func, detectorposition, intensities, p0,\
                                               constraints=constraints, full_output=True)
-            
+
             # Parse result                       
             errors = np.sqrt(np.diag(cov_matrix))
             S = np.diag(1/errors)
@@ -111,17 +183,22 @@ class LinearMotor(object):
         else:
             out = ""
             label = 'current geometry'
-            
+
         # Plot
         if plot:
             plt.plot(detectorposition,intensities,'x',label='data')
             plt.plot(detectorposition,func(detectorposition,rate,zerodistance,activearea),label=label)
+            off = 0.6
+            plt.figtext(0.55,off,"$x_0$ = {} mm".format(self.zerodistance*10))
+            plt.figtext(0.55,off-0.05,"$A$ = {} $mm^2$".format(self.geometry.activearea*100))
+            plt.figtext(0.55,off-0.1,"$c_x$ = {}".format(rate))
+            
             ax = plt.gcf().gca()
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
             plt.legend(loc='best')
 
-        return out
+        return {"rate":rate,"zerodistance":zerodistance,"activearea":activearea},out
         
         
 class Geometry(with_metaclass(base.Point)):
@@ -166,8 +243,16 @@ class Geometry(with_metaclass(base.Point)):
     def calibrate_distance_fit(self,intensities,**kwargs):
         if self.distancefunc is not None:
             return self.distancefunc.calibrate_fit(intensities,**kwargs)
+    
+    @property
+    def distance_rcfile(self):
+        return resource_filename('geometry/distancecalib_{}_{}.npy'.format(self.__class__.__name__,self.detector.__class__.__name__))
+    
+    def calibrate_distance_auto(self,**kwargs):
+        if self.distancefunc is not None:
+            return self.distancefunc.calibrate_auto(self.distance_rcfile,**kwargs)
         
-
+    
 class sxm120(Geometry):
 
     def __init__(self,**kwargs):

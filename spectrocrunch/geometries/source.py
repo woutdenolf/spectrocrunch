@@ -50,7 +50,7 @@ class Source(with_metaclass(object)):
         self.delta = float(delta)
 
     def __str__(self):
-        return " Linear degree of polarization = {} \n Phase retardation = {} deg".format(self.Plinear,self.delta)
+        return "Source:\n Linear degree of polarization = {} \n Phase retardation = {} deg".format(self.Plinear,self.delta)
 
     def addtopymca(self,setup,cfg):
         pass

@@ -524,6 +524,13 @@ class spec(SpecFileDataSource.SpecFileDataSource):
 
         return data
 
+    def haslabel(self,scannumber,label):
+        try:
+            scan = self.getDataObject("{:d}.1".format(scannumber))
+        except TypeError:
+            raise TypeError("Error loading scan number {}".format(scannumber))
+        return label in scan.info["LabelNames"]
+
     def getmotorvalues(self,scannumber,motors):
         """Get start positions for the specified motors
         """

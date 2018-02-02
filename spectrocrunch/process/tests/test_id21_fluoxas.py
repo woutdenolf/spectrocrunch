@@ -35,6 +35,7 @@ from ...materials import pymca
 from ...io import xiaedf
 from ...io import nexus
 from ...align import types
+from ...common import instance
 from ..id21_quant import FluxMonitor
 from ...h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
 
@@ -66,7 +67,7 @@ class test_fluoxas(unittest.TestCase):
         config = ConfigDict.ConfigDict()
         config.read(cfgfile)
         
-        return config["fit"]["energy"][0]
+        return instance.asarray(config["fit"]["energy"])[0]
 
     def fluxmonitor(self,cfgfile):
         energy = self.pymcagetenergy(cfgfile)
@@ -227,7 +228,7 @@ class test_fluoxas(unittest.TestCase):
                                             process(sourcepath,self.destpath.path,radix,scannumbers,cfgfileuse,\
                                                     alignmethod=alignmethod,alignreference=alignreference,\
                                                     refimageindex=refimageindex,dtcor=dtcor,plot=False,\
-                                                    addbeforefit=addbeforefit,fluxmonitor=monitor,\
+                                                    addbeforefit=addbeforefit,fluxmonitor=monitor,replacenan=True,\
                                                     prealignnormcounter=prealignnormcounter,stackdim=stackdim,\
                                                     include_detectors=include_detectors,skippre=skippre)
 

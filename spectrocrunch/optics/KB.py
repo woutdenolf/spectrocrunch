@@ -33,13 +33,19 @@ from ..common import instance
 class KB(object):
 
     def __init__(self):
-        self._tbl = {}
-        self._transmission = lambda energy: 1
+        self.reset_transmission()
     
     def __str__(self):
         s = '\n '.join("{} keV: {} %".format(k,v*100) for k,v in sorted(self._tbl.items()))
-        return "KB transmission:\n {}".format(s)
+        if s:
+            return "KB transmission:\n {}".format(s)
+        else:
+            return "KB transmission: 100%"
     
+    def reset_transmission(self):
+        self._tbl = {}
+        self._transmission = lambda energy: 1
+      
     def transmission(self,energy):
         return self._transmission(energy)
     
@@ -51,5 +57,5 @@ class KB(object):
         if len(x)==1:
             self._transmission = lambda energy: y[0]
         else:
-            self._transmission = interpolate.interp1d(list(x),list(y),bounds_error=False,fill_value=(x[0],x[-1]))
+            self._transmission = interpolate.interp1d(list(x),list(y),bounds_error=False,fill_value=(y[0],y[-1]))
 

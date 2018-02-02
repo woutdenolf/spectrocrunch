@@ -36,14 +36,15 @@ import os
 import glob
 import collections
 import matplotlib.pyplot as plt
-
-import warnings
-warnings.filterwarnings("ignore")
-
+#import warnings
+#warnings.filterwarnings("ignore")
 import logging
 
 from ..common import instance
 from ..io import edf
+
+logger = logging.getLogger(__name__)
+
 
 class FastXRFLinearFit(FastXRFLinearFitBase.FastXRFLinearFit):
 
@@ -133,6 +134,8 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={},quant={}):
             cfg["attenuators"]["Matrix"][2] = density
             cfg["attenuators"]["Matrix"][3] = density*0 # thickness in cm
 
+       
+
     # Split M-lines
     # /usr/local/lib/python2.7/dist-packages/PyMca5/PyMcaPhysics/xrf/Elements.py
     #
@@ -167,8 +170,9 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={},quant={}):
 
     if mlines:
         if "M5 xrays" not in ClassMcaTheory.Elements.ElementXrays:
-            logging.getLogger(__name__).error("PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting.")
-            raise ImportError("PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting.")
+            msg = "XRF fit: PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting."
+            logger.error(msg)
+            raise ImportError(msg)
         for el in mlines:
             if el in cfg["peaks"]:
                 if "M" in cfg["peaks"][el]:
@@ -183,6 +187,23 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={},quant={}):
             cfg["concentrations"]["area"] = quant["area"]
         if "distance" in quant:
             cfg["concentrations"]["distance"] = quant["distance"]
+
+    # Show info
+    _energy = instance.asarray(cfg["fit"]["energy"])
+    _weights = instance.asarray(cfg["fit"]["energyweight"])
+    _weights = _weights/_weights.sum()*100
+    sourceinfo = "\n ".join(["{} keV({:.2f}%)".format(en,w) for en,w in zip(_energy,_weights)])
+    if quant:
+        fluxinfo = "\n flux = {:e} s^(-1)\n time = {} s\n active area = {} cm^2\n sample-detector distance = {} cm".\
+                format(cfg["concentrations"]["flux"],\
+                       cfg["concentrations"]["time"],\
+                       cfg["concentrations"]["area"],\
+                       cfg["concentrations"]["distance"])
+    else:
+        fluxinfo = "\n"
+        
+    logger.info("XRF fit:\n {}{}".format(sourceinfo,fluxinfo))
+
 
 def PerformRoi(filelist,rois,norm=None):
     """ROI XRF spectra in batch with changing primary beam energy.
@@ -408,7 +429,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
             f = filename("{}_{}".format(Z,line))
             edf.saveedf(f,\
                         result['parameters'][i],\
-                        {'Title': label})
+                        {'Title': label},overwrite=True)
             out[label] = f
             
             # Error on peak area
@@ -417,7 +438,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
                 f = filename("s({}_{})".format(Z,line))
                 edf.saveedf(f,\
                             result['uncertainties'][i],\
-                            {'Title': label})
+                            {'Title': label},overwrite=True)
                 out[label] = f
                 
             # Mass fraction
@@ -426,7 +447,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
                 f = filename("C({}_{})".format(Z,line))
                 edf.saveedf(f,\
                             result['concentrations'][i],\
-                            {'Title': label})
+                            {'Title': label},overwrite=True)
                 out[label] = f
                 
         labels = out.keys()

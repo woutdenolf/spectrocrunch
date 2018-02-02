@@ -119,6 +119,12 @@ class Element(hashable.Hashable):
         """
         return self.name
 
+    def shellfactory(self,emin=None,emax=None):
+        return xrayspectrum.Shell.factory(energybounds=[self.Z,emin,emax])
+
+    def pymcashellfactory(self,emin=None,emax=None):
+        return xrayspectrum.Shell.pymcafactory(energybounds=[self.Z,emin,emax])
+
     def markabsorber(self,symb=None,shells=None,fluolines=None,energybounds=None):
         """Marking an element's shells and lines has following effect:
             - partial absorption cross-section is not zero
@@ -139,7 +145,7 @@ class Element(hashable.Hashable):
         if mark:
             if shells is None:
                 if energybounds is not None:
-                    shells = xrayspectrum.Shell.factory(energybounds=[self.Z,energybounds[0],energybounds[1]])
+                    shells = self.shellfactory(emin=energybounds[0],emax=energybounds[1])
         
             if shells is None:
                 self.shells = xrayspectrum.Shell.all_shells(fluolines=fluolines)

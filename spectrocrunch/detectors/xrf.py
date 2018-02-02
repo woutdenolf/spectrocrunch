@@ -47,6 +47,9 @@ class Detector(with_metaclass(base.PointSourceCentric)):
         
         super(Detector,self).__init__(**kwargs)
 
+    def __str__(self):
+        return "XRF detector:\n{}".format(super(Detector,self).__str__())
+
     def linesigma2(self,energy):
         return self.mcanoise**2/(8*np.log(2)) + self.mcafano*self.ehole*1e3*energy
 

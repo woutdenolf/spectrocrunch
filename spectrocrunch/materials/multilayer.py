@@ -693,7 +693,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         emin = setup.emin
         
         for e in elements:
-            shells = xrayspectrum.Shell.pymcafactory((e.Z,emin,emax))
+            shells = e.pymcashellfactory(emin=emin,emax=emax)
             if shells:
                 cfg["peaks"][str(e)] = shells
 
@@ -822,7 +822,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         
         return result
 
-    def _interactions_applydetector(self,gen):
+    def _interactions_applydetector(self,gen,full=True):
         """Convert ph/srad to ph and apply detector efficiency
         """
         
@@ -836,7 +836,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         ind = zip(ind[:-1],ind[1:])
 
         energydet = list(listtools.flatten(energydet))
-        efficiency = self.geometry.efficiency(energysource,energydet)
+        efficiency = self.geometry.efficiency(energysource,energydet,full=full)
 
         for k,(a,b) in zip(lines,ind):
             if a+1==b: # Fluorescence
@@ -846,7 +846,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             gen[k] = gen[k]*eff
             
     @cache.withcache("layerinfo")
-    def xrayspectrum(self, energy0, emin=0, emax=None, method="analytical", ninteractions=1, weights=None, scattering=True):
+    def xrayspectrum(self, energy0, emin=0, emax=None, method="analytical", ninteractions=1, weights=None, scattering=True, fulldetection=True):
     
         if method=="fisx":
             if scattering:
@@ -888,7 +888,7 @@ class Multilayer(with_metaclass(cache.Cache)):
                                 gen[k] = v
 
             # Apply filter attenuation (source and detection) + detector efficiency
-            self._interactions_applydetector(gen)
+            self._interactions_applydetector(gen,full=fulldetection)
 
         spectrum = self._dict_to_spectrum(gen,emin=emin,emax=emax)
 

@@ -22,51 +22,38 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import numpy as np
+import sympy
+from sympy.utilities.lambdify import lambdify, implemented_function
 
-class Function(object):
+from ..common import instance
 
-    @staticmethod
-    def mergekwargs(kwargs1,kwargs2):
-        kwargs = kwargs1.copy()
-        kwargs.update(kwargs2)
-        return kwargs
-        
-    def __init__(self,func,funcname=None,arglist=None,lowest=True,**kwargs):
-        self._func = func
-        self._funcname = funcname
-        self._arglist = arglist
-        self._lowest = lowest
-        self._kwargs = kwargs
+def eval(expr,subs):
+    for x,v in subs.items():
+        expr = expr.subs(x,v)
+    return expr.evalf()
 
-    def __call__(self,*args,**kwargs):
-        _kwargs = self.mergekwargs(self._kwargs,kwargs)
-        return self._func(*args,**_kwargs)
 
-    def __str__(self):
-        if self._funcname is None:
-            name = self._func.__name__
-        else:
-            name = self._funcname
-        if self._arglist is None:
-            if self._lowest:
-                arglist = "(...)"
-            else:
-                arglist = ""
-        else:
-            arglist = self._arglist
-            
-        return "{}{}".format(name,arglist)
+class clip(sympy.Function):
 
-    def __mul__(self,right):
-        if isinstance(right,self.__class__):
-            func = lambda *args,**kwargs: self._func(*args,**kwargs)*right._func(*args,**kwargs)
-            name = "{}*{}".format(str(self),str(right))
-        else:
-            func = lambda *args,**kwargs: self._func(*args,**kwargs)*right
-            name = "{}*{}".format(right,str(self))
-        return self.__class__(func,name,lowest=False)
-        
-    def __rmul__(self,left):
-        return self.__mul__(left)
+    def _eval_evalf(self, prec):
+        return np.clip(*self.args) 
+
+    def inverse(self, argindex=1):
+        return iclip
+
+
+class iclip(sympy.Function):
+
+    def _eval_evalf(self, prec):
+        x,cmin,cmax = self.args
+        y,func = instance.asarrayf(x)
+        y[y<cmin] = np.nan
+        y[y>cmax] = np.nan
+        return func(y)
+
+    def inverse(self, argindex=1):
+        return clip
+
 
 

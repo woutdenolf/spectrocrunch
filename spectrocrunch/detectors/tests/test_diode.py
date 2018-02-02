@@ -67,44 +67,51 @@ class test_objects(unittest.TestCase):
         gain = 8
         I = np.arange(5,8)*ureg.Quantity(1e5,"1/s")
         
-        o1 = diode.sxmidet(model=True)
-        o2 = diode.sxmidet(model=False)
+        o1 = diode.SXM_IDET(model=True)
+        o2 = diode.SXM_IDET(model=False)
         self.assertAlmostEqual(o1._chargepersamplephoton(5.2).magnitude,o2._chargepersamplephoton(5.2).magnitude)
 
         for model in [True,False]:
-            o = diode.sxmidet(model=model)
+            o = diode.SXM_IDET(model=model)
             o.setgain(ureg.Quantity(10**gain,'V/A'))
 
             o2 = o.op_cpstocurrent()*o.op_currenttocps()
             self.assertEqual(o2.m,1.)
             self.assertEqual(o2.b.magnitude,0.)
+            self.assertEqual(o2.m.units,ureg.dimensionless)
+            self.assertEqual(o2.b.units,ureg.ampere)
 
             for energy in np.arange(3,9):
-                energy = ureg.Quantity(energy,"keV")
                 o2 = o.op_fluxtocurrent(energy)*o.op_currenttoflux(energy)
                 self.assertAlmostEqual(o2.m,1.)
                 self.assertEqual(o2.b.magnitude,0.)
+                self.assertEqual(o2.m.units,ureg.dimensionless)
+                self.assertEqual(o2.b.units,ureg.ampere)
 
                 o2 = o.op_fluxtocps(energy)*o.op_cpstoflux(energy)
                 self.assertAlmostEqual(o2.m,1.)
                 self.assertEqual(o2.b.magnitude,0.)
-
+                self.assertEqual(o2.m.units,ureg.dimensionless)
+                self.assertEqual(o2.b.units,ureg.hertz)
+                
                 np.testing.assert_array_almost_equal(o.fluxtocps(energy,o.cpstoflux(energy,I)),I)
                 
-                flux1 = self._sxm_calc_photons(energy.magnitude,I.magnitude,gain)
+                flux1 = self._sxm_calc_photons(energy,I.magnitude,gain)
                 flux2 = o.cpstoflux(energy,I)
 
                 if model:
                     for f1,f2 in zip(flux1,flux2):
                         np.testing.assert_approx_equal(f1,f2.magnitude,significant=1)
                 else:
-                    np.testing.assert_allclose(flux1,flux2)
+                    np.testing.assert_allclose(flux1,flux2,rtol=0.03) # 3% difference with spec
 
     def test_noncalibrateddiode(self):
     
-        for calibtarget in [False]:
-            o = diode.sxmiodet1(optics=True)
-            sa = o.secondarytarget.geometry.solidangle
+        for caliboption in ["solidangle","thickness","optics"]:
+            o = diode.SXM_IODET1(optics=True)
+            o.thickness = 1e-4
+            o.solidangle = 0.1
+            o.optics.reset_transmission()
 
             cps = np.linspace(1e4,1e5,10)
             
@@ -115,20 +122,21 @@ class test_objects(unittest.TestCase):
             sampleflux2 = o.cpstoflux(energy2,cps)
             sampleflux3 = o.cpstoflux(energy3,cps)
 
-            if calibtarget:
+            if caliboption=="solidangle":
                 # Same counts but the flux is m times higher -> diode yield (solid angle) is m times lower
                 m = 2.
-                o.calibrate(cps,sampleflux*m,energy,calibtarget=calibtarget)
+                sa = o.solidangle
+                o.calibrate(cps,sampleflux*m,energy,caliboption=caliboption)
                 np.testing.assert_allclose(sampleflux*m,o.cpstoflux(energy,cps))
                 np.testing.assert_allclose(o.secondarytarget.geometry.solidangle,sa/m)
-            else:
+            elif caliboption=="optics":
                 # Same counts but the flux is m times lower -> optics transmission is m times lower
                 m1 = 0.5
                 m2 = 0.25
                 m3 = (m1+m2)/2.
 
-                o.calibrate(cps,sampleflux*m1,energy,calibtarget=calibtarget)
-                o.calibrate(cps,sampleflux2*m2,energy2,calibtarget=calibtarget)
+                o.calibrate(cps,sampleflux*m1,energy,caliboption=caliboption)
+                o.calibrate(cps,sampleflux2*m2,energy2,caliboption=caliboption)
 
                 np.testing.assert_allclose(o.optics.transmission(energy),m1)
                 np.testing.assert_allclose(o.optics.transmission(energy2),m2)
@@ -137,11 +145,15 @@ class test_objects(unittest.TestCase):
                 np.testing.assert_allclose(sampleflux*m1,o.cpstoflux(energy,cps))
                 np.testing.assert_allclose(sampleflux2*m2,o.cpstoflux(energy2,cps))
                 np.testing.assert_allclose(sampleflux3*m3,o.cpstoflux(energy3,cps))
-
+            elif caliboption=="thickness":
+                m = 2.
+                o.calibrate(cps,sampleflux*m,energy,caliboption=caliboption)
+                np.testing.assert_allclose(sampleflux*m,o.cpstoflux(energy,cps))
+            
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    #testSuite.addTest(test_objects("test_calibrateddiode"))
+    testSuite.addTest(test_objects("test_calibrateddiode"))
     testSuite.addTest(test_objects("test_noncalibrateddiode"))
     
     return testSuite

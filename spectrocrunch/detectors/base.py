@@ -189,11 +189,25 @@ class SolidAngle(SolidState):
     def solidangle(self):
         return self._solidangle
     
+    @solidangle.setter
+    def solidangle(self,value):
+        self._solidangle = value
+        
     def __str__(self):
-        return " Solid angle = 4*pi*{} srad\n{}".format(self.solidangle/(4*np.pi),super(SolidAngle,self).__str__())
+        solidangle = self.solidangle
+        if self.solidangle is None:
+            solidangle = "none"
+        else:
+            solidangle = "4*pi*{} srad".format(self.solidangle/(4*np.pi))
+            
+        return " Solid angle = {}\n{}".format(solidangle,super(SolidAngle,self).__str__())
 
-    def efficiency(self,energysource,energydet):
-        """Detector efficiency = S/cos(ain)*T(energysource)*T(energydet)*A(energydet)
+    def efficiency(self,energysource,energydet,full=True):
+        """Detector efficiency
+        
+          Full:     S/cos(ain)*T(energysource)*T(energydet)*A(energydet)
+          Not full: S/cos(ain)*T(energysource)*T(energydet)
+          
             S: solid angle detector
             ain: angle of beam with surface normal
             T: transmission by filters (before sample and detector)
@@ -202,18 +216,22 @@ class SolidAngle(SolidState):
         Args:
             energysource: n0
             energydet: n1
+            full(Optional(bool)): with detector attenuation or not
 
         Returns:
             array: n0 x n1
         """
         energysource = instance.asarray(energysource)
         energydet = instance.asarray(energydet)
-        
+
         g = self.solidangle/self.geometry.cosnormin
         T0 = super(SolidAngle,self).filter_transmission(energysource,source=True)
         T1 = super(SolidAngle,self).filter_transmission(energydet,source=False)
-        A = self.attenuation(energydet)
-        
+        if full:
+            A = self.attenuation(energydet)
+        else:
+            A = 1.
+
         # the cosine term is put here for convenience (comes from integration over sample thickness)
         
         return (g*T0)[:,np.newaxis]*(T1*A)[np.newaxis,:]

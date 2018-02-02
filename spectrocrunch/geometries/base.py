@@ -43,7 +43,7 @@ class Base(object):
                 raise AttributeError("'{}' object has no attribute '{}'".format(self.__class__.__name__,subject))
                 
     def __str__(self):
-        return "Source:\n{}\nDetector:\n{}".format(self.source,self.detector)
+        return "{}\n{}".format(self.source,self.detector)
 
     def addtofisx(self,setup,cfg):
         self.detector.addtofisx(setup,cfg)

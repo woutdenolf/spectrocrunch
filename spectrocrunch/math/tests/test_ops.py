@@ -23,8 +23,11 @@
 # THE SOFTWARE.
 
 import unittest
+import itertools
+import numpy as np
+import random
 
-from ..linop import linop
+from .. import linop
 
 class test_ops(unittest.TestCase):
 
@@ -32,27 +35,75 @@ class test_ops(unittest.TestCase):
         for x in range(-2,2):
             for m1 in range(-11,11,3):
                 for b1 in range(-11,11,3):
-                    o1 = linop(m1,b1)
-                    o1i = o1**(-1)
+                    o1 = linop.LinearOperator(m1,b1)
+                    o1i = o1.inverse
 
                     self.assertAlmostEqual(o1(x),o1.m*x+o1.b)
                     self.assertAlmostEqual(o1i(x),(x-o1.b)/float(o1.m))
                     self.assertEqual(o1*o1,o1**2)
                     self.assertEqual(o1*o1*o1,o1**3)
-                    self.assertAlmostEqual((o1i*o1i)(x),(o1**(-2))(x))
-                    self.assertAlmostEqual((o1i*o1i*o1i)(x),(o1**(-3))(x))
+                    self.assertAlmostEqual((o1i*o1i)(x),(o1*o1).inverse(x))
+                    self.assertAlmostEqual((o1i*o1i*o1i)(x),(o1*o1*o1).inverse(x))
 
                     for m2 in range(-11,11,3):
                         for b2 in range(-11,11,3):
-                            o2 = linop(m2,b2)
-                            o2i = o2**(-1)
-                            self.assertAlmostEqual((o1*o2)(x),o2(o1(x)))
-                            self.assertAlmostEqual((o1/o2)(x),o2i(o1(x)))
+                            o2 = linop.LinearOperator(m2,b2)
+                            o2i = o2.inverse
+                            self.assertAlmostEqual((o1*o2)(x),o1(o2(x)))
+                            self.assertAlmostEqual((o1*o2).inverse(x),o2i(o1i(x)))
+                            
+    def test_combine(self):
+        sops = [linop.LinearOperator(1.3,0.1),\
+                linop.Identity(),\
+                linop.LinearOperator(-0.9,-0.3),\
+                linop.Clip(-10,10),\
+                linop.Clip(None,10),\
+                linop.Clip(10,None),\
+                None,\
+                linop.NaNClip(-5,11),\
+                linop.Clip(3,7),\
+                linop.NaNClip(-7,0),\
+                linop.NaNClip(None,0),\
+                linop.NaNClip(-7,None)]
 
+        for arg in np.linspace(-30,30,20):
+            #arg = -29
+            
+            for n in [1,2,3,5]:
+                for ops in itertools.combinations_with_replacement(sops,n):
+                    opc = linop.Identity()
+                    result = arg
+                    #print "\n"*5
+                    #print ops
+                    
+                    # Forward
+                    for op in ops:
+                        #print("\nx = {}".format(result))
+                        #print("y = {}".format(op))
+                        if op is not None:
+                            result = op(result)
+                        opc = op*opc
+                        #print("y = {}".format(result))
+                        #print("x = {}".format(arg))
+                        #print("y = {}".format(opc))
+                        #print("y = {}".format(opc(arg)))
+                        
+                        np.testing.assert_allclose(result,opc(arg))
+                        
+                    # Inverse
+                    result = arg
+                    for op in reversed(ops):
+                        if op is not None:
+                            result = op.inverse(result)
+
+                    np.testing.assert_allclose(result,opc.inverse(arg))
+    
+    
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_ops("test_linop"))
+    testSuite.addTest(test_ops("test_combine"))
     return testSuite
     
 if __name__ == '__main__':

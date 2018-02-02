@@ -226,7 +226,7 @@ def createimagestacks(config,fluxmonitor=None):
                 if np.isnan(time):
                     time = None
                 xrfnormop,flux[imageindex],expotime[imageindex] = fluxmonitor.xrfnormop(energy,time=time)
-                xiaimage.localnorm(config["counters"][config["fluxcounter"]],func=xrfnormop)
+                xiaimage.localnorm(config["fluxcounter"],func=xrfnormop)
     
         if dtcor:
             label = "dtcor"

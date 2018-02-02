@@ -1998,8 +1998,20 @@ class xiastack_mapnumbers(xiastack):
             return
             
         files = xiagroup(files)
+        
+        n = None
+        for radix,fradix in files.items():
+            for mapnum,fmap in fradix.items():
+                if mapnum in self.mapnumbers[radix]:
+                    n = xiagroupnxiafiles(fmap)
+                    break
+            else:
+                continue
+            break
 
-        n = xiagroupnxiafiles(files.values()[0].values()[0]) # number of files in the first map
+        if n is None:
+            return 
+            
         self._items = [xiaimage_files(fmap,**self.imagekwargs) for radix,fradix in files.items()\
                                                      for mapnum,fmap in fradix.items()\
                                                      if mapnum in self.mapnumbers[radix] and xiagroupnxiafiles(fmap)==n]
