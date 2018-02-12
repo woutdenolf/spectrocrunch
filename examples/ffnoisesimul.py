@@ -96,7 +96,7 @@ class sample_hg115(sample):
         
         #m = [compoundfromname("vacuum"),compoundfromname("vacuum"),compoundfromname("vacuum")]
 
-        self.composition = materials.factory("Multilayer",material=m,thickness=thickness,anglein=0,angleout=0)
+        self.composition = materials.factory("Multilayer",material=m,thickness=thickness,anglein=0,angleout=0,azimuth=0)
         self.paintindex = 1
 
     def set_wpigment(self,wpigment):

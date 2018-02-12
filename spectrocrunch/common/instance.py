@@ -33,11 +33,61 @@ def isstring(x):
         return isinstance(x, str)
 
 def isboollist(lst):
-    return all(isinstance(i,bool) for i in lst) and len(lst)>0
-
+    try:
+        return all(isinstance(i,bool) for i in lst) and len(lst)>0
+    except:
+        return False
+        
 def isarray(x):
     return isinstance(x, (list, set, tuple, np.ndarray))
 
 def isnumber(x):
     return isinstance(x, numbers.Number)
+    
+def isinteger(x):
+    return isinstance(x, numbers.Integral)
 
+def isscalar(x):
+    return np.isscalar(x)
+
+def isiterable(x):
+    return hasattr(x,"__iter__")
+    
+def asarrayf(x,**kwargs):
+    x = np.asarray(x,**kwargs)
+    scalar = x.ndim == 0
+    if scalar:
+        # Convert to 1D array
+        x = x[np.newaxis]
+        func = np.asscalar
+    else:
+        func = np.asarray
+    
+    return x,func
+
+def asarrayb(x,**kwargs):
+    x = np.asarray(x,**kwargs)
+    scalar = x.ndim == 0
+    if scalar:
+        # Convert to 1D array
+        x = x[np.newaxis]
+    
+    return x,not scalar
+    
+def asarray(x,**kwargs):
+    x = np.asarray(x,**kwargs)
+    if x.ndim == 0:
+        return x[np.newaxis]
+    else:
+        return x
+
+def aslist(x):
+    return asarray(x).tolist()
+
+def asscalar(x):
+    try:
+        x = np.asscalar(x)
+    except:
+        pass
+    return x
+    

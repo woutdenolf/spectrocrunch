@@ -22,20 +22,34 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import numpy as np
+import re
+
 from . import compoundfromlist
+from . import compoundfromformula
+from . import compoundfromlist
+from . import element
 from .types import fractionType
 from . import stoichiometry
-import numpy as np
+from . import xrayspectrum
+from ..common import instance
 
 class Mixture(object):
 
-    def __init__(self,compounds,frac,fractype):
+    def __init__(self,compounds,frac,fractype,name=None):
         """
         Args:
             compounds(list[obj]): list of compound objects
             frac(list[float]): compound fractions in the mixture
             fractype(fractionType): compound fraction type
+            name(Optional[str]): compound name
         """
+        
+        # Mixture name
+        if name is None:
+            self.name = str(id(self))
+        else:
+            self.name = name
         
         # Compound mole fractions
         fractions = np.asarray(frac)
@@ -104,9 +118,8 @@ class Mixture(object):
             fractype(fractionType): element fraction type
         """
         compounds = dfrac.keys()
-        frac = dfrac.values()
+        fractions = np.asarray(dfrac.values())
         
-        fractions = np.asarray(frac)
         if fractype == fractionType.mole:
             nfrac = fractions
         elif fractype == fractionType.volume:
@@ -116,7 +129,7 @@ class Mixture(object):
         else:
             MM = np.asarray([c.molarmass() for c in compounds])
             nfrac = stoichiometry.frac_weight_to_mole(fractions,MM)
-
+            
         self._compose_compounds(compounds,nfrac)
         
     def tocompound(self,name):
@@ -125,7 +138,7 @@ class Mixture(object):
 
     def __str__(self):
         ws = self.weightfractions()
-        return ' + '.join("{:.0f} wt% {}".format(s[1]*100,s[0]) for s in ws.items())
+        return ' + '.join("{:.02f} wt% {}".format(s[1]*100,s[0]) for s in ws.items())
 
     def __getitem__(self,compound):
         return self.compounds[compound]
@@ -135,22 +148,23 @@ class Mixture(object):
         return list(set(e for c in self.compounds for e in c.elements))
 
     def molarmass(self):
-        MM = np.asarray([c.molarmass() for c in self.compounds])
-        nfrac = np.asarray(self.molefractions(total=True).values())
+        nfrac = self.molefractions(total=True)
+        MM = np.asarray([c.molarmass() for c in nfrac])
+        nfrac = np.asarray(nfrac.values())
         return (MM*nfrac).sum()
 
     def volumefractions(self):
-        MM = np.asarray([c.molarmass() for c in self.compounds])
-        rho = np.asarray([c.density for c in self.compounds])
-        nfrac = np.asarray(self.molefractions().values())
-        wfrac = stoichiometry.frac_mole_to_volume(nfrac,rho,MM)
-        return dict(zip(self.compounds.keys(),wfrac))
+        nfrac = self.molefractions()
+        MM = np.asarray([c.molarmass() for c in nfrac])
+        rho = np.asarray([c.density for c in nfrac])
+        wfrac = stoichiometry.frac_mole_to_volume(np.asarray(nfrac.values()),rho,MM)
+        return dict(zip(nfrac.keys(),wfrac))
 
     def weightfractions(self):
-        MM = np.asarray([c.molarmass() for c in self.compounds])
-        nfrac = np.asarray(self.molefractions().values())
-        wfrac = stoichiometry.frac_mole_to_weight(nfrac,MM)
-        return dict(zip(self.compounds.keys(),wfrac))
+        nfrac = self.molefractions()
+        MM = np.asarray([c.molarmass() for c in nfrac])
+        wfrac = stoichiometry.frac_mole_to_weight(np.asarray(nfrac.values()),MM)
+        return dict(zip(nfrac.keys(),wfrac))
 
     def molefractions(self,total=True):
         if total:
@@ -161,10 +175,33 @@ class Mixture(object):
             return dict(zip(self.compounds.keys(),nfrac))
 
     @property
+    def nelements(self):
+        return sum(c.nelements for c in self.compounds)
+    
+    @property
+    def ncompounds(self):
+        return len(self.compounds)
+        
+    def arealdensity(self):
+        """Areal density in ng/mm^2
+        """
+        arealdensity = {}
+        for c in self.compounds:
+            tmp = c.arealdensity()
+            for e,ad in tmp.items():
+                if e in arealdensity:
+                    arealdensity[e] += ad
+                else:
+                    arealdensity[e] = ad
+        
+        return arealdensity
+        
+    @property
     def density(self):
-        MM = np.asarray([c.molarmass() for c in self.compounds])
-        rho = np.asarray([c.density for c in self.compounds])
-        nfrac = np.asarray(self.molefractions().values())
+        nfrac = self.molefractions()
+        MM = np.asarray([c.molarmass() for c in nfrac])
+        rho = np.asarray([c.density for c in nfrac])
+        nfrac = np.asarray(nfrac.values())
         return stoichiometry.density_from_molefrac(nfrac,rho,MM)
 
     def elemental_molefractions(self,total=True):
@@ -196,6 +233,10 @@ class Mixture(object):
     @staticmethod
     def _cs_scattering(method):
         return method=="scattering_cross_section" or method=="compton_cross_section" or method=="rayleigh_cross_section"
+    
+    @staticmethod
+    def _cs_dict(method):
+        return method=="fluorescence_cross_section_lines"
         
     def _crosssection(self,method,E,fine=False,decomposed=False,**kwargs):
         """Calculate compound cross-sections
@@ -215,7 +256,7 @@ class Mixture(object):
                 if bscat and not c.isscatterer:
                     continue
                 
-                ret[c] = {"w":c_wfrac[c],"elements":{}}
+                ret[c] = {"w":c_wfrac[c],"cs":{}}
                 
                 if hasattr(c,'structure') and fine:
                     environ = c
@@ -224,21 +265,47 @@ class Mixture(object):
 
                 e_wfrac = c.weightfractions()
                 for e in e_wfrac:
-                    ret[c]["elements"][e] = {"w":e_wfrac[e],"cs":getattr(e,method)(E,environ=environ,**kwargs)}
+                    ret[c]["cs"][e] = {"w":e_wfrac[e],"cs":getattr(e,method)(E,environ=environ,**kwargs)}
         else:
-            ret = E*0.
-            for c in c_wfrac:
-                if self._cs_scattering(method) and not c.isscatterer:
-                    continue
-                    
-                if hasattr(c,'structure') and fine:
-                    environ = c
-                else:
-                    environ = None
+            if self._cs_dict(method):
+                ret = {}
+                
+                for c in c_wfrac:
+                    if self._cs_scattering(method) and not c.isscatterer:
+                        continue
+                        
+                    if hasattr(c,'structure') and fine:
+                        environ = c
+                    else:
+                        environ = None
 
-                e_wfrac = c.weightfractions()
-                for e in c.elements:
-                    ret += c_wfrac[c]*e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
+                    e_wfrac = c.weightfractions()
+                    for e in c.elements:
+                        cs = getattr(e,method)(E,environ=environ,**kwargs)
+                        if not cs:
+                            continue
+                            
+                        w = c_wfrac[c]*e_wfrac[e]
+                        for k,v in cs.items():
+                            if k in ret:
+                                ret[k] += w*v
+                            else:
+                                ret[k] = w*v
+            else:
+                ret = E*0.
+                
+                for c in c_wfrac:
+                    if self._cs_scattering(method) and not c.isscatterer:
+                        continue
+                        
+                    if hasattr(c,'structure') and fine:
+                        environ = c
+                    else:
+                        environ = None
+
+                    e_wfrac = c.weightfractions()
+                    for e in c.elements:
+                        ret += c_wfrac[c]*e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
         
         return ret
 
@@ -277,13 +344,36 @@ class Mixture(object):
         """
         return self._crosssection("fluorescence_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
-    def markabsorber(self,symb,shells=[],fluolines=[]):
+    def fluorescence_cross_section_lines(self,E,fine=False,decomposed=False,**kwargs):
+        """XRF cross section (cm^2/g, E in keV).  Use for XRF.
+        """
+        return self._crosssection("fluorescence_cross_section_lines",E,fine=fine,decomposed=decomposed,**kwargs)
+    
+    def xrayspectrum(self,E,weights=None,emin=0,emax=None):
+        E = instance.asarray(E)
+        if emax is None:
+            emax = E[-1]
+        self.markabsorber(energybounds=[emin,emax])
+        
+        spectrum = xrayspectrum.Spectrum()
+        spectrum.density = self.density
+        spectrum.update(self.fluorescence_cross_section_lines(E,decomposed=False))
+        spectrum[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E,decomposed=False)
+        spectrum[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E,decomposed=False)
+        spectrum.apply_weights(weights)
+        spectrum.xlim = [emin,emax]
+        spectrum.title = str(self)
+        spectrum.type = spectrum.TYPES.crosssection
+
+        return spectrum
+        
+    def markabsorber(self,symb=None,shells=None,fluolines=None,energybounds=None):
         """
         Args:
             symb(str): element symbol
         """
         for c in self.compounds:
-            c.markabsorber(symb,shells=shells,fluolines=fluolines)
+            c.markabsorber(symb,shells=shells,fluolines=fluolines,energybounds=energybounds)
 
     def unmarkabsorber(self):
         for c in self.compounds:
@@ -292,13 +382,13 @@ class Mixture(object):
     def hasabsorbers(self):
         return any([c.hasabsorbers() for c in self.compounds])
         
-    def markscatterer(self,name):
+    def markscatterer(self,name=None):
         """
         Args:
             name(str): compound name
         """
         for c in self.compounds:
-            c.markscatterer(symb,shells=shells,fluolines=fluolines)
+            c.markscatterer(name)
 
     def unmarkscatterer(self):
         for c in self.compounds:
@@ -316,12 +406,47 @@ class Mixture(object):
                 return ret
         return None
 
-    def pymcaformat(self,name="New material",thickness=0.0):
-        tmp = self.elemental_molefractions()
-        c = compoundfromlist.CompoundFromList(tmp.keys(),tmp.values(),fractionType.mole,self.density,name=name)
-        return c.pymcaformat(thickness=thickness)
+    @property
+    def pymcaname(self):
+        return self.name
+
+    def topymca(self,defaultthickness=1e-4):
+        return self.tocompound(self.pymcaname).topymca(defaultthickness=defaultthickness)
     
-    def fluointeractions(self):
-        for c in self.compounds:
-            yield c.fluointeractions()
-            
+    def tofisx(self):
+        return self.tocompound(self.pymcaname).tofisx()
+        
+    @classmethod
+    def frompymca(cls,dic):
+        # Assume all compounds have the density of the mixture
+        pattern = "^(?P<element>[A-Z][a-z]?)1$"
+        n = len(dic["CompoundList"])
+        
+        if n==1:
+            c = dic["CompoundList"][0]
+            m = re.match(pattern,c)
+            if m:
+                m = m.groupdict()
+                return element.Element(m["element"])
+            else:
+                return compoundfromformula.CompoundFromFormula(c,dic["Density"],name=dic["Comment"])
+        else:
+            elements = [""]*n
+        
+            for i,c in enumerate(dic["CompoundList"]):
+                m = re.match(pattern,c)
+                if m:
+                    m = m.groupdict()
+                    elements[i] = m["element"]
+                
+            if all(elements):
+                return compoundfromlist.CompoundFromList(elements,dic["CompoundFraction"],fractionType.weight,dic["Density"],name=dic["Comment"])
+            else:
+                compounds = [compoundfromformula.CompoundFromFormula(c,dic["Density"]) for c in dic["CompoundList"]]
+                wfrac = dic["CompoundFraction"]
+                return cls(compounds,wfrac,fractionType.weight,name=dic["Comment"])
+
+    def fisxgroups(self,emin=0,emax=np.inf):
+        self.markabsorber(energybounds=[emin,emax])
+        return {el:el.shells for el in self.elements}
+

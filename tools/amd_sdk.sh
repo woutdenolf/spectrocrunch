@@ -5,7 +5,7 @@
 
 # Location from which get nonce and file name from
 URL="http://developer.amd.com/amd-accelerated-parallel-processing-app-sdk/"
-URLDOWN="http://developer.amd.com/amd-license-agreement-appsdk/"
+URLDOWN="https://developer.amd.com/amd-license-agreement-appsdk/"
 
 NONCE1_STRING='name="amd_developer_central_downloads_page_nonce"'
 FILE_STRING='name="f"'
@@ -36,4 +36,5 @@ NONCE2=`echo $FORM | awk -F ${NONCE2_STRING} '{print $2}'`
 NONCE2=`echo $NONCE2 | awk -F'"' '{print $2}'`
 echo $NONCE2
 
-wget --content-disposition --trust-server-names $URLDOWN --post-data "amd_developer_central_nonce=${NONCE2}&f=${FILE}" -O AMD-SDK.tar.bz2;
+wget --content-disposition --trust-server-names $URLDOWN --post-data "amd_developer_central_nonce=${NONCE2}&f=${FILE}" -O AMD-SDK.tar.bz2
+

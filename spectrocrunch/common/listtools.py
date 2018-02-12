@@ -136,5 +136,9 @@ def move(lst,i,j):
         lst.insert(j, lst.pop(i))
     return lst
     
+def length(x):
+    try:
+        return len(x)
+    except TypeError:
+        return 1
 
-    

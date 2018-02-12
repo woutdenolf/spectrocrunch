@@ -24,7 +24,8 @@
 
 from ..common.classfactory import FactoryMeta
 from ..common import instance
-from future.utils import with_metaclass
+
+import future.utils
 import numpy as np
 
 class SimulClass(object):
@@ -48,7 +49,7 @@ class SimulClass(object):
         """
         Args:
             N(num|array): incomming number of photons
-            arg1(num|array): energy related variable
+            args(tuple(num|array)): energy related variables
             
         Returns:
             unumpy.uarray: len(energy) x len(N)
@@ -68,10 +69,11 @@ class SimulClass(object):
             
         return (N,)+args
 
-def with_simulmetaclass(bases=None):
+def with_metaclass(bases=None):
     if bases is None:
-        return with_metaclass(FactoryMeta,SimulClass)
+        return future.utils.with_metaclass(FactoryMeta,SimulClass)
     else:
         if not instance.isarray(bases):
             bases = (bases,)
-        return with_metaclass(FactoryMeta,SimulClass,*bases)
+        return future.utils.with_metaclass(FactoryMeta,SimulClass,*bases)
+        

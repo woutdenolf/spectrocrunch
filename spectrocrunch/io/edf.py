@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 
 import numpy as np
-
+import os
 import fabio
 
 class edfmemmap():
@@ -78,7 +78,12 @@ class edfimage():
     def header(self):
         return self.f.header
         
-def saveedf(filename,data,header):
+def saveedf(filename,data,header,overwrite=False):
+    exists = os.path.exists(filename)
+    if exists:
+        if overwrite:
+            os.remove(filename)
+        else:
+            raise IOError("File exists (overwrite=False): {}".format(filename))
     fabio.edfimage.EdfImage(data=data,header=header).write(filename)
-
 

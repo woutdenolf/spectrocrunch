@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -34,7 +34,7 @@ import os
 import numpy as np
 import h5py
 
-class test_alignSource(unittest.TestCase):
+class test_ffxas(unittest.TestCase):
 
     def setUp(self):
         self.dir = TempDirectory()
@@ -207,7 +207,7 @@ class test_alignSource(unittest.TestCase):
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_alignSource("test_process"))
+    testSuite.addTest(test_ffxas("test_process"))
     return testSuite
     
 if __name__ == '__main__':

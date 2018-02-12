@@ -73,7 +73,7 @@ class CompoundFromFormula(compound.Compound):
     """Interface to a compound defined by a chemical formula
     """
 
-    def __init__(self,formula,density,name=None):
+    def __init__(self,formula,density=None,name=None):
         """
         Args:
             formula(str): chemical formula

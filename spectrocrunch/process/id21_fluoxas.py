@@ -27,11 +27,13 @@ import json
 import logging
 import numpy as np
 import copy
+import h5py
 
 from ..xrf.create_hdf5_imagestacks import create_hdf5_imagestacks as makestacks
 from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
 from ..common import timing
 from ..io import nexus
+from ..io import edf
 
 from .proc_math import execute as math
 from .proc_align import execute as align
@@ -41,11 +43,66 @@ from .proc_common import defaultstack
 from .proc_common import flattenstacks
 from .proc_resample import execute as execresample
 
-def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,stackdim,\
-                    mlines={},microdiff=False,exclude_detectors=[],addbeforefit=True,useencoders=False,noxia=False):
+logger = logging.getLogger(__name__)
+
+def exportedf(h5name):
+    logger.info("EDF export {}:".format(h5name))
+    
+    path = os.path.join(os.path.dirname(h5name),"results")
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    filename = os.path.splitext(os.path.basename(h5name))[0]
+
+    stacks, axes = getstacks(h5name,["^detector([0-9]+|sum)$"])
+
+    with h5py.File(h5name) as hdf5FileObject:
+        for g in stacks:
+            if "detector" not in g:
+                continue
+
+            for s in stacks[g]:
+                if "xmap" in s:
+                    continue
+
+                energy = hdf5FileObject[g][s]["DCM_Energy"]
+                n = len(energy)
+                for i in range(n):
+                    outfile = s.split("/")[-1]
+                    outfile = outfile.replace("-","_")
+                    outfile = outfile.replace("(","")
+                    outfile = outfile.replace(")","")
+                    if n==1:
+                        outfile = os.path.join(path,"{}.edf".format(outfile))
+                    else:
+                        outfile = os.path.join(path,"{}_{}keV.edf".format(outfile,energy[i]))
+
+                    logger.info(outfile)
+                    edf.saveedf(outfile,np.squeeze(hdf5FileObject[g][s]["data"][...,i]),{'Title': s},overwrite=True)
+
+def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
+    
+    stackdim = kwargs.get("stackdim",2)
+    dtcor = kwargs.get("dtcor",True)
+    mlines = kwargs.get("mlines",{})
+    microdiff = kwargs.get("microdiff",False)
+    exclude_detectors = kwargs.get("exclude_detectors",None)
+    include_detectors = kwargs.get("include_detectors",None)
+    noxia = kwargs.get("noxia",False)
+    addbeforefit = kwargs.get("addbeforefit",True)
+    encodercor = kwargs.get("encodercor",{})
+    fluxmonitor = kwargs.get("fluxmonitor",None)
+    fluxmonitorparams = {"quantify":fluxmonitor is not None}
+    
     if noxia:
         cfgfiles = None
     bfit = cfgfiles is not None
+
+    if exclude_detectors is None:
+        exclude_detectors = []
+
+    if include_detectors is None:
+        include_detectors = []
 
     if not isinstance(sourcepath,list):
         sourcepath = [sourcepath]
@@ -63,29 +120,34 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
             counters = ["zap_iodet","zap_idet","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]
         motors = ["samh", "samv", "samd", "samph", "sampv"]
         counter_reldir = ".."
+        fluxcounter = "zap_iodet"
     else:
         if noxia:
             counters = ["arr_iodet","arr_idet","arr_fdet","arr_absorp1","arr_absorp2","arr_absorp3"]
         else:
             counters = ["arr_iodet","arr_idet","arr_fdet","arr_absorp1","arr_absorp2","arr_absorp3","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]
-        if useencoders:
-            counters += ["arr_samy","arr_samz"]
+        if encodercor:
+            counters += ["arr_{}".format(k) for k in encodercor]
         motors = ["samy", "samz", "samx", "sampy", "sampz"]
         counter_reldir = "."
-
+        fluxcounter = "arr_iodet"
+        
     config = {
             # Input
             "sourcepath": sourcepath,
             "scanname": scanname,
             "scannumbers": scannumbers,
             "counters": counters,
+            "fluxcounter": fluxcounter,
             "counter_reldir": counter_reldir,
 
             # Meta data
             "metacounters": counters,
             "stacklabel": "DCM_Energy",
-            "fastlabel": "fast",
-            "slowlabel": "slow",
+            "speccmdlabel": "Title",
+            #"fastlabel": "fast",
+            #"slowlabel": "slow",
+            #"timelabel": "time",
             "coordinates": motors,
 
             # Deadtime correction
@@ -99,8 +161,10 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
             "fastfitting": True,
             "addbeforefitting": addbeforefit, # sum spectra
             "addafterfitting": True, # sum fit results and detector counters
-            "exclude_detectors":exclude_detectors,
-
+            "exclude_detectors": exclude_detectors,
+            "include_detectors": include_detectors,
+            "fluxmonitor": fluxmonitorparams,
+            
             # Output directories
             "outdatapath": os.path.join(destpath,scanname[0]+"_data"),
             "outfitpath": os.path.join(destpath,scanname[0]+"_fit"),
@@ -117,22 +181,35 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
 
     return jsonfile,config["hdf5output"]
 
-def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignreference,\
-        refimageindex=None,skippre=False,skipnormalization=False,dtcor=True,default=None,\
-        crop=False,roialign=None,plot=True,mlines={},microdiff=False,exclude_detectors=[],\
-        addbeforefit=True,encodercor=None,normcounter=None,noxia=False,postnormcounter=None):
+def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
 
-    logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
 
-    stackdim = 2
+    # Parse parameters
+    # ... stack
     bsamefile = False
-
+    stackdim = kwargs.get("stackdim",2)
+    default = kwargs.get("default",None)
+    # ... xrf
+    dtcor = kwargs.get("dtcor",True)
+    fluxmonitor = kwargs.get("fluxmonitor",None)
+    # ... normalization
+    prealignnormcounter = kwargs.get("prealignnormcounter",None)
+    postalignnormcounter = kwargs.get("postalignnormcounter",None)
+    # ... align
+    alignmethod = kwargs.get("alignmethod",None)
+    alignreference = kwargs.get("alignreference",None)
+    refimageindex = kwargs.get("refimageindex",None)
+    roialign = kwargs.get("roialign",None)
     cropalign = False
-    cropafter = crop
-    replacenan = True
-
-    # Image stacks
+    cropafter = kwargs.get("crop",False)
+    replacenan = kwargs.get("replacenan",False)
+    plot = kwargs.get("plot",False)
+    # ... other
+    encodercor = kwargs.get("encodercor",{}) # encodercor={"samy":52500,"samz":50000}  (steps/unit)
+    skippre = kwargs.get("skippre",False)
+    
+    # Image stacks (counters + result of XRF fitting)
     preprocessingexists = False
     if skippre:
         h5file = os.path.join(destpath,scanname[0]+".h5")
@@ -143,16 +220,16 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
     else:
         logger.info("Creating image stacks ...")
         jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,\
-                                            cfgfiles,dtcor,stackdim,mlines=mlines,microdiff=microdiff,\
-                                            exclude_detectors=exclude_detectors,addbeforefit=addbeforefit,\
-                                            useencoders=encodercor is not None,noxia=noxia)
-        stacks, axes = makestacks(jsonfile)
+                                            cfgfiles,**kwargs)
+        stacks, axes = makestacks(jsonfile,fluxmonitor=fluxmonitor)
 
-        #stacks2, axes2 = getstacks(h5file,["counters","detector0"])
+        #stacks2, axes2 = getstacks(h5file,["counters","detectorsum"])
         #assert(axes == axes2)
         #assert(stacks == stacks2)
 
-    if "detectorsum" in stacks:
+    lastextension = ""
+
+    if "detectorsum" in stacks or fluxmonitor is not None:
         dtcor = False # done on the raw data
 
     # Convert stack dictionary to stack list
@@ -166,36 +243,27 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
 
     # Normalization
     skipnorm = ["arr_absorp1","arr_absorp2","arr_absorp3","arr_samy","arr_samz"]
-    if not skipnormalization or dtcor or normcounter is not None:
+    if dtcor or prealignnormcounter is not None:
         skip = copy.copy(skipnorm)
-
-        # Add flux normalization to normcounter
-        if not skipnormalization:
-            if microdiff:
-                iodet = "{zap_iodet}"
-            else:
-                iodet = "{arr_iodet}"
-
-            if normcounter is None:
-                normcounter = iodet
-            else:
-                normcounter = "{{{}}}".format(normcounter)
 
         # Create normalization expression
         if dtcor:
-            if normcounter is None:
-                expression = "{{}}*nanone({{xmap_icr}}/{{xmap_ocr}})"
+            if prealignnormcounter is None:
+                expression = "{}*nanone({xmap_icr}/{xmap_ocr})"
             else:
-                expression = "{{}}*nanone({{xmap_icr}}/({}*{{xmap_ocr}}))".format(normcounter)
-            skip += [normcounter,"xmap_icr","xmap_ocr"]
+                expression = "{{}}*nanone({{xmap_icr}}/({{{}}}*{{xmap_ocr}}))".format(prealignnormcounter)
+            skip += ["xmap_icr","xmap_ocr"]
         else:
-            expression = "{{}}/{}".format(normcounter)
-            skip += [normcounter]
+            expression = "{{}}/{{{}}}".format(prealignnormcounter)
+
+        if prealignnormcounter is not None:
+            skip += [prealignnormcounter]
 
         h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="norm")
-
+        lastextension = "norm"
+        
     # Correct for encoder positions
-    if encodercor is not None:
+    if encodercor:
         resampleinfo = {}
 
         if "samy" in encodercor:
@@ -204,30 +272,37 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
         if "samz" in encodercor:
             resampleinfo["samz"] = {"encoder":"arr_samz","resolution":encodercor["samz"]} # resolution: 50000 steps/unit
 
-        if len(resampleinfo) is not None:
-            h5file,stacks,axes = execresample(h5file, stacks, axes, copygroups, bsamefile, default, resampleinfo)
-
+        if resampleinfo:
+            h5file,stacks,axes = execresample(h5file, stacks, axes, copygroups, bsamefile, default, resampleinfo,extension="resample")
+            lastextension = "resample"
+            
     # Alignment
     if alignmethod is not None and alignreference is not None:
         # Alignment
         h5file,stacks,axes = align(h5file,stacks,axes, copygroups, bsamefile, default,\
             alignmethod, alignreference, refimageindex, cropalign, roialign, plot, stackdim)
-
+        lastextension = "align"
+        
         # Post normalization
-        if postnormcounter is not None:
-            skip = skipnorm+[postnormcounter]
-            expression = "{{}}/{{{}}}".format(postnormcounter)
+        if postalignnormcounter is not None:
+            skip = skipnorm+[postalignnormcounter]
+            expression = "{{}}/{{{}}}".format(postalignnormcounter)
             h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="postnorm")
-
+            lastextension = "postnorm"
+            
         # Remove NaN's
         if replacenan:
             orgvalue = np.nan
             newvalue = 0
             replacevalue(h5file, stacks, axes, copygroups, bsamefile, default, orgvalue, newvalue)
-
+            lastextension = "replace"
+            
         # Crop
         if cropafter:
             cropinfo = {"nanval":np.nan,"stackdim":stackdim,"reference set":alignreference}
             execcrop(h5file, stacks, axes, copygroups, bsamefile, default, cropinfo)
-    
+            
     timing.printtimeelapsed(T0,logger)
+    
+    return lastextension
+    

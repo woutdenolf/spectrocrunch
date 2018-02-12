@@ -25,6 +25,7 @@
 import unittest
 
 from .. import element
+from .. import xrayspectrum
 from ... import xraylib
 from ... import ureg
 
@@ -38,71 +39,71 @@ class test_element(unittest.TestCase):
 
     def test_fluoline(self):
     
-        #print [element.FluoLine.getlinename(code) for code in  sorted([element.FluoLine.getlinecode(name) for name in element.FluoLine.decompose("L2P23")])]
+        #print [xrayspectrum.FluoLine.getlinename(code) for code in  sorted([xrayspectrum.FluoLine.getlinecode(name) for name in xrayspectrum.FluoLine.decompose("L2P23")])]
         
-        self.assertEqual(len(element.FluoLine.factory(shells="K")),29-2)
-        self.assertEqual(len(element.FluoLine.factory(shells="L1")),58-29-3)
-        self.assertEqual(len(element.FluoLine.factory(shells="L2")),85-58-1)
-        self.assertEqual(len(element.FluoLine.factory(shells="L3")),113-85-3)
-        self.assertEqual(len(element.FluoLine.factory(shells="M1")),136-113)
-        self.assertEqual(len(element.FluoLine.factory(shells="M2")),158-136)
-        self.assertEqual(len(element.FluoLine.factory(shells="M3")),180-158)
-        self.assertEqual(len(element.FluoLine.factory(shells="M4")),200-180)
-        self.assertEqual(len(element.FluoLine.factory(shells="M5")),219-200)
-        self.assertEqual(len(element.FluoLine.factory(shells="N1")),237-219)
-        self.assertEqual(len(element.FluoLine.factory(shells="N2")),254-237)
-        self.assertEqual(len(element.FluoLine.factory(shells="N3")),270-254)
-        self.assertEqual(len(element.FluoLine.factory(shells="N4")),285-270)
-        self.assertEqual(len(element.FluoLine.factory(shells="N5")),299-285)
-        self.assertEqual(len(element.FluoLine.factory(shells="N6")),312-299)
-        self.assertEqual(len(element.FluoLine.factory(shells="N7")),324-312)
-        self.assertEqual(len(element.FluoLine.factory(shells="O1")),335-324)
-        self.assertEqual(len(element.FluoLine.factory(shells="O2")),345-335)
-        self.assertEqual(len(element.FluoLine.factory(shells="O3")),354-345)
-        self.assertEqual(len(element.FluoLine.factory(shells="O4")),362-354)
-        self.assertEqual(len(element.FluoLine.factory(shells="O5")),369-362)
-        self.assertEqual(len(element.FluoLine.factory(shells="O6")),372-369)
-        self.assertEqual(len(element.FluoLine.factory(shells="O7")),374-372)
-        self.assertEqual(len(element.FluoLine.factory(shells="P1")),378-374)
-        self.assertEqual(len(element.FluoLine.factory(shells="P2")),381-378)
-        self.assertEqual(len(element.FluoLine.factory(shells="P3")),383-381)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="K")),29-2)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="L1")),58-29-3)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="L2")),85-58-1)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="L3")),113-85-3)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="M1")),136-113)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="M2")),158-136)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="M3")),180-158)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="M4")),200-180)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="M5")),219-200)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="N1")),237-219)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="N2")),254-237)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="N3")),270-254)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="N4")),285-270)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="N5")),299-285)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="N6")),312-299)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="N7")),324-312)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="O1")),335-324)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="O2")),345-335)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="O3")),354-345)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="O4")),362-354)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="O5")),369-362)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="O6")),372-369)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="O7")),374-372)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="P1")),378-374)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="P2")),381-378)
+        self.assertEqual(len(xrayspectrum.FluoLine.factory(shells="P3")),383-381)
         
         energybounds = None
         fluolines = []
         lines = list(set(range(-29,0)) - set([xraylib.KO_LINE,xraylib.KP_LINE]))
-        linestest = [element.FluoLine(line) for line in lines]
-        self._linesequal(element.FluoLine.factory(shells="K",fluolines=fluolines,energybounds=energybounds),linestest)
+        linestest = [xrayspectrum.FluoLine(line) for line in lines]
+        self._linesequal(xrayspectrum.FluoLine.factory(shells="K",fluolines=fluolines,energybounds=energybounds),linestest)
         
         energybounds = None
         lines = [xraylib.KA1_LINE,xraylib.KA2_LINE,xraylib.KA3_LINE,xraylib.KA_LINE]
         fluolines = lines + [xraylib.LA_LINE]
-        linestest = [element.FluoLine(line) for line in lines]
-        self._linesequal(element.FluoLine.factory(shells="K",fluolines=fluolines,energybounds=energybounds),linestest)
+        linestest = [xrayspectrum.FluoLine(line) for line in lines]
+        self._linesequal(xrayspectrum.FluoLine.factory(shells="K",fluolines=fluolines,energybounds=energybounds),linestest)
 
         linestest = []
-        self._linesequal(element.FluoLine.factory(shells="L1",fluolines=fluolines,energybounds=energybounds),linestest)
+        self._linesequal(xrayspectrum.FluoLine.factory(shells="L1",fluolines=fluolines,energybounds=energybounds),linestest)
         
-        linestest = [element.FluoLine(xraylib.LA_LINE)]
-        self._linesequal(element.FluoLine.factory(shells="L3",fluolines=fluolines,energybounds=energybounds),linestest)
+        linestest = [xrayspectrum.FluoLine(xraylib.LA_LINE)]
+        self._linesequal(xrayspectrum.FluoLine.factory(shells="L3",fluolines=fluolines,energybounds=energybounds),linestest)
         
-        energybounds = ('Fe',0,6.395)
+        energybounds = (element.elementZ('Fe'),0,6.395)
         lines = [xraylib.KA2_LINE,xraylib.KA3_LINE]
-        linestest = [element.FluoLine(line) for line in lines]
-        self._linesequal(element.FluoLine.factory(shells="K",fluolines=fluolines,energybounds=energybounds),linestest)
+        linestest = [xrayspectrum.FluoLine(line) for line in lines]
+        self._linesequal(xrayspectrum.FluoLine.factory(shells="K",fluolines=fluolines,energybounds=energybounds),linestest)
         
     def test_shell(self):
         Z = 50
         for shell in ['K','L1','L2','L3','M1','M2','M3','M4','M5']:
-            shell = element.Shell(shell,fluolines=[])
+            shell = xrayspectrum.Shell(shell,fluolines=[])
             np.testing.assert_allclose(sum(shell.radrate(Z)),1,rtol=1e-5)
     
-        self.assertEqual(element.Shell(xraylib.K_SHELL,fluolines=None).radrate(26),[1])
-        self.assertEqual(len(element.Shell(xraylib.K_SHELL,fluolines=[]).radrate(26)),27)
-        self.assertEqual(sum(element.Shell(xraylib.K_SHELL,fluolines=[]).radrate(26)),1)
-        self.assertEqual(sum(element.Shell(xraylib.K_SHELL,fluolines=[xraylib.KA_LINE,xraylib.KB_LINE]).radrate(26)),1)
-        self.assertEqual(len(element.Shell(xraylib.K_SHELL,fluolines=[xraylib.KA1_LINE,xraylib.LA_LINE,xraylib.KA_LINE]).radrate(26)),2)        
-        self.assertEqual(len(element.Shell(xraylib.K_SHELL,fluolines=[xraylib.LA_LINE]).radrate(26)),0)
-        self.assertEqual(len(element.Shell(xraylib.L3_SHELL,fluolines=[xraylib.LA1_LINE,xraylib.KA_LINE]).radrate(26)),1)
+        self.assertEqual(xrayspectrum.Shell(xraylib.K_SHELL,fluolines=None).radrate(26),[1])
+        self.assertEqual(len(xrayspectrum.Shell(xraylib.K_SHELL,fluolines=[]).radrate(26)),27)
+        self.assertEqual(sum(xrayspectrum.Shell(xraylib.K_SHELL,fluolines=[]).radrate(26)),1)
+        self.assertEqual(sum(xrayspectrum.Shell(xraylib.K_SHELL,fluolines=[xraylib.KA_LINE,xraylib.KB_LINE]).radrate(26)),1)
+        self.assertEqual(len(xrayspectrum.Shell(xraylib.K_SHELL,fluolines=[xraylib.KA1_LINE,xraylib.LA_LINE,xraylib.KA_LINE]).radrate(26)),2)        
+        self.assertEqual(len(xrayspectrum.Shell(xraylib.K_SHELL,fluolines=[xraylib.LA_LINE]).radrate(26)),0)
+        self.assertEqual(len(xrayspectrum.Shell(xraylib.L3_SHELL,fluolines=[xraylib.LA1_LINE,xraylib.KA_LINE]).radrate(26)),1)
 
     def test_fluo(self):
         e = element.Element("Sn")
@@ -212,7 +213,7 @@ class test_element(unittest.TestCase):
         #
         #assert(definite_integral(ElasticDiff1(theta)*sin(theta),theta,0,pi)==8*pi/3)
         #
-        # muR = re^2 . NA/MM . pi . int_0^pi [(1+cos(theta)^2) . f(theta)^2 . sin(theta) . dtheta]
+        # muR(energy) = re^2 . NA/MM . pi . int_0^pi [(1+cos(theta)^2) . f(energy,theta)^2 . sin(theta) . dtheta]
         
         energy = np.linspace(4,30,2)
         fim2 = e.scatfact_im(energy)**2

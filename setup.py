@@ -196,6 +196,7 @@ else:
 
 cmdclass['build_doc'] = BuildDocCommand
 
+
 #####################
 ## "clean" command ## 
 #####################
@@ -210,6 +211,7 @@ class CleanCommand(Command):
         os.system('rm -vrf ./build ./dist ./*.pyc ./*.tgz ./*.egg-info')
 
 cmdclass['clean'] = CleanCommand
+
 
 #####################
 ## "name" command ## 
@@ -253,11 +255,14 @@ classifiers = [get_devstatus(),
 ##################
 ## Requirements ## 
 ##################
-install_requires = ["numpy", "future", "scipy", "h5py", "fabio", "silx", "pyparsing", "PyMca5", "shapely", "matplotlib", "uncertainties","pint"]
+install_requires = ["numpy", "future", "scipy", "h5py", "fabio", "silx",\
+                    "pyparsing", "PyMca5", "shapely", "matplotlib",\
+                    "uncertainties", "pint", "pandas"]
 extras_require = {"physics":["xraylib", "cctbx", "fdmnes","PyTMM"],\
                   "elastix":["SimpleITK"]\
                   }
 setup_requires = ["testfixtures"]
+
 
 ###################
 ## Package setup ## 
@@ -274,7 +279,7 @@ setup(name=PROJECT,
       extras_require=extras_require,
       setup_requires=setup_requires,
       packages=find_packages(),
-      package_data={'spectrocrunch.resources': ['cif/*.*','id21/*.*']},
+      package_data={'spectrocrunch.resources': ['*/*.*']},
       license="MIT",
       cmdclass=cmdclass
       )

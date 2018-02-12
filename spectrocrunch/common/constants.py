@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 
 from .. import ureg
-from ..common.units import Quantity
+from ..common import units
 
 def temperatureinkelvin(T):
     """
@@ -32,8 +32,8 @@ def temperatureinkelvin(T):
     Returns:
         num|array: keV
     """
-    T = Quantity(T,ureg.degC)
-    return T.to(ureg.kelvin)
+    T = units.Quantity(T,ureg.degC)
+    return T.to(ureg.kelvin).magnitude
        
 def eholepair_si(T=21):
     """
@@ -44,8 +44,8 @@ def eholepair_si(T=21):
     """
     # https://doi.org/10.1016/j.nima.2007.03.020
     T = temperatureinkelvin(T)
-    x = ureg.Quantity([80,270], ureg.kelvin)
-    y = ureg.Quantity([0.00377,0.00368], ureg.keV)
+    x = [80,270] # K
+    y = [3.77,3.68] # eV
     
     m = (y[1]-y[0])/(x[1]-x[0])
     b = y[1]-m*x[1]

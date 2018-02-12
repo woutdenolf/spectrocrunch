@@ -29,20 +29,23 @@ import time
 from scipy import interpolate
 import json
 import numbers
-import re
+
 try:
     import iotbx.cif
 except:
     pass
 
 import fdmnes
+import fisx
 
-from ..common.hashable import Hashable
-from ..common.instance import isarray
 from .. import xraylib
 from .. import ureg
+from ..common import hashable
+from ..common import instance
+from . import xrayspectrum
 
-def parseelementsymbol(symb):
+
+def elementParse(symb):
     if isinstance(symb,str):
         if symb.isdigit():
             Z = int(symb)
@@ -59,289 +62,35 @@ def parseelementsymbol(symb):
         raise ValueError("Unknown element symbol or number")
     return Z,name  
 
-class FluoLine(Hashable):
-
-    @staticmethod
-    def getlinename(line):
-        # Return IUPAC instead of SIEGBAHN when possible
-        if isinstance(line,FluoLine):
-            return line.name
-        elif isinstance(line,numbers.Number):
-            names = xraylib._code_to_line[line]
-            
-            n = len(names)
-            if n==1:
-                return names[0]
-            elif n==2:
-                n0 = len(names[0])
-                n1 = len(names[1])
-                if n0==n1:
-                    candidate = names[0]
-                    if names[0][1]=='A' or names[0][1]=='B':
-                        return names[1]
-                    else:
-                        return names[0]
-                elif n0>n1:
-                    return names[0]
-                else:
-                    return names[1]
-            else:
-                return names[np.argmax([len(name) for name in names])]
+def elementZ(symb):
+    if isinstance(symb,str):
+        if symb.isdigit():
+            Z = int(symb)
         else:
-            if line not in xraylib._line_to_code.keys():
-                raise ValueError("Unknown line name {}".format(line))
-            return line
+            Z = xraylib.SymbolToAtomicNumber(symb.title())
+    elif isinstance(symb,numbers.Integral):
+        Z = symb
+    elif isinstance(symb,Element):
+        Z = symb.Z
+    else:
+        raise ValueError("Unknown element symbol or number")
+    return Z
 
-    @staticmethod
-    def getlinecode(line):
-        if isinstance(line,FluoLine):
-            return line.code
-        elif isinstance(line,numbers.Number):
-            if line not in xraylib._code_to_line.keys():
-                raise ValueError("Unknown line code {}".format(line))
-            return line
+def elementSymbol(symb):
+    if isinstance(symb,str):
+        if symb.isdigit():
+            name = xraylib.AtomicNumberToSymbol(int(symb))
         else:
-            return xraylib._line_to_code[line]
-    
-    @staticmethod
-    def decompose(code):
-        """
-        Args:
-            code(int):
-        Return:
-            list(int): sub lines
-        """
-        if code in xraylib._composites:
-            return xraylib._composites[code]
-        else:
-            return [code]
-        
-    @classmethod
-    def all_lines(cls):
-        return list(set(cls(code) for line in range(xraylib._line_max,xraylib._line_min-1,-1) for code in cls.decompose(line)))
-    
-    @classmethod
-    def factory(cls,shells=None,fluolines=None,energybounds=None):
-        """Generate FluoLine instances, possibly limited by shell or energy range
+            name = symb
+    elif isinstance(symb,numbers.Integral):
+        name = xraylib.AtomicNumberToSymbol(symb)
+    elif isinstance(symb,Element):
+        name = symb.name
+    else:
+        raise ValueError("Unknown element symbol or number")
+    return name  
 
-        Args:
-            shells(Optional(array(int or str or Shell))): 
-            fluolines(Optional(array(int or str or FluoLine))):  None or [] -> explicit all
-            energybounds(Optional(3-tuple)): element or num or str, lower energy bound, higher energy bound
-            
-        Returns:
-            list(FluoLine)
-        """
-
-        # All lines or the lines given
-        if fluolines is None:
-            lines = cls.all_lines()
-        else:
-            if isarray(fluolines):
-                if fluolines==[]:
-                    lines = cls.all_lines()
-                else:
-                    lines = [FluoLine(line) for line in fluolines]
-            else:
-                lines = [FluoLine(fluolines)]
-                
-        # Shell selection
-        if shells is not None:
-            if isarray(shells):
-                shellnames = [Shell.getshellname(s) for s in shells]
-            else:
-                shellnames = [Shell.getshellname(shells)]
-            valid = lambda linecode: any(any(cls.getlinename(code).startswith(shellname) for shellname in shellnames) for code in cls.decompose(linecode)) 
-            lines = [line for line in lines if valid(line.code)]
-
-        # Energy selection
-        if energybounds is not None:
-            Z,_ = parseelementsymbol(energybounds[0])
-            valid = lambda energy: energy >= energybounds[1] and energy <= energybounds[2]
-            lines = [line for line in lines if valid(line.lineenergy(Z))]
-        
-        # Return
-        return lines
-            
-    def __init__(self,line):
-        """
-        Args:
-            code(int or str): xraylib line
-        """
-        if isinstance(line,self.__class__):
-            self.code = line.code
-            self.name = line.name
-        else:
-            self.code = self.getlinecode(line)
-            self.name = self.getlinename(line)
-
-    def _cmpkey(self):
-        """For comparing and sorting
-        """
-        return self.code
-
-    def _stringrepr(self):
-        """Unique representation of an instance
-        """
-        return self.name
-
-    def radrate(self,Z):
-        """Radiative rate of a line: probability of this line / probabilty of fluorescence
-        
-        Args:
-            Z(num): atomic number
-            
-        Returns:
-            num
-        """
-        rate = xraylib.RadRate(Z,self.code)
-        
-        if rate==0:
-            # Maybe the radiative rate of one of its composites is known
-            if self.code in xraylib._rcomposites:
-                for comp in xraylib._rcomposites[self.code]:
-                    if comp>=0:
-                        continue
-                    rate = xraylib.RadRate(Z,comp)
-                    if rate!=0:
-                        # In abscence of a better assumption, assume all lines
-                        # in the composite are equally probable
-                        return rate/len(xraylib._composites[comp])
-                        
-        return rate
-    
-    def lineenergy(self,Z):
-        """
-        Args:
-            Z(num): atomic number
-        Returns:
-            num
-        """
-        energy = xraylib.LineEnergy(Z,self.code)
-        
-        if energy==0:
-            # Maybe the energy of one of its composites is known
-            if self.code in xraylib._rcomposites:
-                for comp in xraylib._rcomposites[self.code]:
-                    if comp>=0:
-                        continue
-                    energy = xraylib.LineEnergy(Z,comp)
-                    if energy!=0:
-                        return energy
-                        
-        return energy
-
-    def shell(self):
-        """Shell to which this line belongs to
-        """
-        for shellname in xraylib._shell_to_code:
-            if self.name.startswith(shellname):
-                return Shell(shellname)
-        raise RuntimeError("Cannot find the shell of fluorescence line {}".format(self))
-
-
-class Shell(Hashable):
-
-    @staticmethod
-    def getshellname(shell):
-        if isinstance(shell,Shell):
-            return shell.name
-        elif isinstance(shell,numbers.Number):
-            return xraylib._code_to_shell[shell]
-        else:
-            if shell not in xraylib._shell_to_code.keys():
-                raise ValueError("Unknown shell name {}".format(shell))
-            return shell
-            
-    @staticmethod
-    def getshellcode(shell):
-        if isinstance(shell,Shell):
-            return shell.code
-        elif isinstance(shell,numbers.Number):
-            if shell not in xraylib._code_to_shell.keys():
-                raise ValueError("Unknown shell code {}".format(shell))
-            return shell
-        else:
-            return xraylib._shell_to_code[shell]
-
-    @classmethod
-    def all_shells(cls,fluolines=None):
-        shells = range(xraylib._shell_min,xraylib._shell_max+1)
-        return [cls(shell,fluolines=fluolines) for shell in shells]       
-
-    @classmethod
-    def factory(cls,energybounds=None):
-        alls = cls.all_shells()
-        if energybounds==0:
-            return alls
-        else:
-            Z,_ = parseelementsymbol(energybounds[0])
-            valid = lambda energy: energy >= energybounds[1] and energy <= energybounds[2]
-            return [s for s in alls if valid(s.edgeenergy(Z))]
-    
-    @classmethod
-    def pymcafactory(cls,energybounds=None):
-        return list(set("".join(re.split("[^a-zA-Z]*", str(s))) for s in cls.factory(energybounds=energybounds)))
-    
-    def __init__(self,shell,fluolines=None):
-        """
-        Args:
-            code(int or str or Shell): shell code or name
-            fluolines(Optional(array(int or str or Fluoline))): emission lines
-        """
-        self.code = self.getshellcode(shell)
-        self.name = self.getshellname(shell)
-        if isinstance(shell,Shell) and fluolines is None:
-            self._fluolines = shell._fluolines
-        else:
-            if fluolines is None:
-                self._fluolines = None # all lines
-            else:
-                self._fluolines = FluoLine.factory(shells=[self],fluolines=fluolines)
-
-    @property
-    def fluolines(self):
-        if self._fluolines is None:
-            return FluoLine.factory(shells=[self])
-        else:
-            return self._fluolines
-
-    def _cmpkey(self):
-        """For comparing and sorting
-        """
-        return self.code
-
-    def _stringrepr(self):
-        """Unique representation of an instance
-        """
-        return self.name
-
-    def fluoyield(self,Z):
-        """Fluorescence yield for this shell: probability for fluorescence / probability of shell ionization
-        """
-        return xraylib.FluorYield(Z,self.code)
-
-    def radrate(self,Z):
-        """Radiative rate of a shell: probabilities of selected lines / probabilty of fluorescence 
-        """
-        if self._fluolines is None:
-            return [1] # ALL lines
-        else:
-            return [l.radrate(Z) for l in self._fluolines]
-
-    def partial_fluoyield(self,Z):
-        """Probability of selected lines / probability of shell ionization
-        """
-        if self._fluolines is None:
-            return self.fluoyield(Z)
-        else:
-            return self.fluoyield(Z)*sum(self.radrate(Z))
-
-    def edgeenergy(self,Z):
-        return xraylib.EdgeEnergy(Z,self.code)
-        
-    
-class Element(Hashable):
+class Element(hashable.Hashable):
     """Interface to chemical elements
     """
 
@@ -352,7 +101,7 @@ class Element(Hashable):
         """
         
         # Atomic number
-        self.Z,self.name = parseelementsymbol(symb)
+        self.Z,self.name = elementParse(symb)
         
         # Atomic properties
         self.MM = xraylib.AtomicWeight(self.Z)
@@ -370,7 +119,13 @@ class Element(Hashable):
         """
         return self.name
 
-    def markabsorber(self,symb,shells=None,fluolines=None):
+    def shellfactory(self,emin=None,emax=None):
+        return xrayspectrum.Shell.factory(energybounds=[self.Z,emin,emax])
+
+    def pymcashellfactory(self,emin=None,emax=None):
+        return xrayspectrum.Shell.pymcafactory(energybounds=[self.Z,emin,emax])
+
+    def markabsorber(self,symb=None,shells=None,fluolines=None,energybounds=None):
         """Marking an element's shells and lines has following effect:
             - partial absorption cross-section is not zero
             - when no fluolines are given: all lines for each shell are taken into account
@@ -378,17 +133,28 @@ class Element(Hashable):
         Args:
             symb(str): element symbol
             shells(Optional(array(int))): None -> all
-            fluolines(Optional(array(int))): None -> all, [] -> explicit all
+            fluolines(Optional(array(int))): None -> all, [] -> explicite all
         """
-        if self.name==symb:
-            # Shell names
+
+        if symb is None:
+            mark = True
+        else:
+            Z,name = elementParse(symb)
+            mark = self.Z==Z
+
+        if mark:
             if shells is None:
-                self.shells = Shell.all_shells(fluolines=fluolines)
+                if energybounds is not None:
+                    shells = self.shellfactory(emin=energybounds[0],emax=energybounds[1])
+        
+            if shells is None:
+                self.shells = xrayspectrum.Shell.all_shells(fluolines=fluolines)
             else:
-                if isarray(shells):
-                    self.shells = [Shell(shell,fluolines=fluolines) for shell in shells]
+                f = lambda shell: shell if isinstance(shell,xrayspectrum.Shell) else xrayspectrum.Shell(shell,fluolines=fluolines)
+                if instance.isiterable(shells):
+                    self.shells = [f(shell) for shell in shells]
                 else:
-                    self.shells = [Shell(shells,fluolines=fluolines)]
+                    self.shells = [f(shells)]
 
     def unmarkabsorber(self):
         self.shells = []
@@ -400,6 +166,23 @@ class Element(Hashable):
     def density(self):
         return xraylib.ElementDensity(self.Z)
 
+    def molarmass(self):
+        return self.MM
+        
+    def weightfractions(self):
+        return dict([(self,1.)])
+
+    def molefractions(self,total=True):
+        return dict([(self,1.)])
+    
+    @property
+    def nelements(self):
+        return 1
+
+    @property
+    def ncompounds(self):
+        return 1
+        
     def _get_fdmnes_energyrange(self,Eabs,edgeenergy,decimals=6):
         """Calculate energies based on boundaries and step sizes:
             energyrange = [E0,step0,E1,step1,E2] (eV, relative to the edge)
@@ -431,7 +214,7 @@ class Element(Hashable):
 
         return energyrange
 
-    def mass_att_coeff(self,E,environ=None,decimals=6,refresh=False):
+    def mass_att_coeff(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Mass attenuation coefficient (cm^2/g, E in keV). Use for transmission XAS.
 
         Args:
@@ -443,24 +226,20 @@ class Element(Hashable):
         Returns:
             num or np.array
         """
-        bnum = not isarray(E)
-        if bnum:
-            E = [E]
+        
+        E,func = instance.asarrayf(E)
         cs = np.empty(len(E),dtype=np.float64)
 
         # Total
-        for i in range(len(E)):
-            cs[i] = xraylib.CS_Total_Kissel(self.Z,np.float64(E[i]))
+        for i,en in enumerate(E):
+            cs[i] = xraylib.CS_Total_Kissel(self.Z,np.float64(en))
 
         # Replace part by simulation
         cs = self._replace_partial_mass_abs_coeff(cs,E,environ=environ,decimals=decimals,refresh=refresh)
 
-        if bnum:
-            return cs[0]
-        else:
-            return cs
+        return func(cs)
 
-    def mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False):
+    def mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Mass absorption coefficient (cm^2/g, E in keV).
 
         Args:
@@ -472,24 +251,17 @@ class Element(Hashable):
         Returns:
             num or np.array
         """
-        bnum = not isarray(E)
-        if bnum:
-            E = [E]
-        cs = np.empty(len(E),dtype=np.float64)
+        E,func = instance.asarrayf(E)
 
         # Total
-        for i in range(len(E)):
-            cs[i] = xraylib.CS_Photo_Total(self.Z,np.float64(E[i]))
+        cs = np.vectorize(lambda en:xraylib.CS_Photo_Total(self.Z,np.float64(en)))(E)
 
         # Replace part by simulation
         cs = self._replace_partial_mass_abs_coeff(cs,E,environ=environ,decimals=decimals,refresh=refresh)
 
-        if bnum:
-            return cs[0]
-        else:
-            return cs
+        return func(cs)
 
-    def _replace_partial_mass_abs_coeff(self,cs,E,environ=None,decimals=6,refresh=False):
+    def _replace_partial_mass_abs_coeff(self,cs,E,environ=None,decimals=6,refresh=False,**kwargs):
         """
         """
         if environ is not None:
@@ -507,7 +279,7 @@ class Element(Hashable):
 
         return cs
 
-    def partial_mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False):
+    def partial_mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Mass absorption coefficient for the selected shells (cm^2/g, E in keV).
 
         Args:
@@ -519,15 +291,10 @@ class Element(Hashable):
         Returns:
             num or array: sum_S[tau(E,S)]
         """
-        bnum = not isarray(E)
-        if bnum:
-            E = [E]
+        E,func = instance.asarrayf(E)
 
         if not self.isabsorber():
-            if bnum:
-                return np.float64(0)
-            else:
-                return np.zeros(len(E),dtype=np.float64)
+            return func(np.zeros(len(E),dtype=np.float64))
 
         if environ is None:
             cs = self._CS_Photo_Partial_DB(E)
@@ -536,15 +303,10 @@ class Element(Hashable):
 
         # sum over selected shells
         cs = sum(cs.values())
-        if bnum:
-            return cs[0]
-        else:
-            return cs
+        return func(cs)
 
-    def fluorescence_cross_section(self,E,environ=None,decimals=6,refresh=False,decomposed=False):
+    def fluorescence_cross_section(self,E,environ=None,decimals=6,refresh=False,decomposed=False,**kwargs):
         """XRF cross section for the selected shells and lines (cm^2/g, E in keV). Use for fluorescence XAS.
-
-            muXRF(E) = sum_{S}[tau(E,S)*fluoyield(S)*sum_{L}[radrate(S,L)]]
 
         Args:
             E(num or array-like): energy (keV)
@@ -554,18 +316,13 @@ class Element(Hashable):
             decomposed(Optional(bool)): output as dictionary
 
         Returns:
-            num or np.array: muXRF
+            num or np.array: sum_{S}[tau(E,S)*fluoyield(S)*sum_{L}[radrate(S,L)]]
             dict: S:tau(E,S)
         """
-        bnum = not isarray(E)
-        if bnum:
-            E = [E]
+        E,func = instance.asarrayf(E)
 
         if not self.isabsorber():
-            if bnum:
-                return np.float64(0)
-            else:
-                return np.zeros(len(E),dtype=np.float64)
+            return func(np.zeros(len(E),dtype=np.float64))
 
         if environ is None:
             cs = self._CS_Photo_Partial_DB(E)
@@ -573,28 +330,70 @@ class Element(Hashable):
             cs = self._CS_Photo_Partial_SIM(E,environ,decimals=decimals,refresh=refresh)
 
         if decomposed:
-            return cs
+            return {shell:func(shellcs) for shell,shellcs in cs.items()}
         else:
             # sum over selected shells, weighted but the total fluoyield of the selected lines
-            cs = sum([c*shell.partial_fluoyield(self.Z) for shell,c in cs.items()])
-            if bnum:
-                return cs[0]
-            else:
-                return cs
+            cs = sum([shellcs*shell.partial_fluoyield(self.Z) for shell,shellcs in cs.items()])
+            return func(cs)
+
+    def fluorescence_cross_section_lines(self,E,environ=None,decimals=6,refresh=False,decomposed=True,**kwargs):
+        """XRF cross sections per line (cm^2/g, E in keV). Use for XRF.
+
+        Args:
+            E(num or array-like): energy (keV)
+            environ(dict): chemical environment of this element
+            decimals(Optional(num)): precision of energy in keV
+            refresh(Optional(bool)): force re-simulation if used
+            decomposed(Optional(bool)): per line or per shell
+
+        Returns:
+            dict: {S:tau(E,S)*fluoyield(S)*sum_{L}[radrate(S,L)]}
+            dict: {L:tau(E,S)*fluoyield(S)*radrate(S,L)}
+        """
+        
+        # No fluorescence when not an absorber
+        if not self.isabsorber():
+            return {}
+
+        # Get the shell ionization cross section
+        cs = self.fluorescence_cross_section(E,environ=environ,decimals=decimals,refresh=refresh,decomposed=True)
+            
+        if decomposed:
+            # Multiply by fluorescence yield for each line
+            cs = {xrayspectrum.FluoZLine(self,line):shellcs*fluoyield\
+                       for shell,shellcs in cs.items()\
+                       for line,fluoyield in shell.partial_fluoyield(self.Z,decomposed=True).items()}
+                       #if line.energy(self.Z)>0
+        else:
+            cs = {shell:shellcs*shell.partial_fluoyield(self.Z,decomposed=False)\
+                        for shell,shellcs in cs.items()}
+        return cs
+
+    def xrayspectrum(self,E,weights=None,emin=0,emax=None):
+        E = instance.asarray(E)
+        if emax is None:
+            emax = E[-1]
+        self.markabsorber(energybounds=[emin,emax])
+
+        spectrum = xrayspectrum.Spectrum()
+        spectrum.density = self.density
+        spectrum.update(self.fluorescence_cross_section_lines(E,decomposed=True))
+        spectrum[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E)
+        spectrum[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E)
+        spectrum.apply_weights(weights)
+        spectrum.xlim = [emin,emax]
+        spectrum.title = str(self)
+        spectrum.type = spectrum.TYPES.crosssection
+        
+        return spectrum
 
     def _xraylib_method(self,method,E):
         method = getattr(xraylib,method)
-        if isarray(E):
-            ret = np.empty(len(E),dtype=np.float64)
-
-            for i in range(len(E)):
-                ret[i] = method(self.Z,np.float64(E[i]))
-        else:
-            ret = method(self.Z,np.float64(E))
-
-        return ret
+        E,func = instance.asarrayf(E)
+        ret = np.vectorize(lambda en: method(self.Z,np.float64(en)))(E)
+        return func(ret)
         
-    def scattering_cross_section(self,E,environ=None,decimals=6,refresh=False):
+    def scattering_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Scattering cross section (cm^2/g, E in keV).
 
         Args:
@@ -609,7 +408,7 @@ class Element(Hashable):
 
         return self._xraylib_method("CS_Rayl",E)+self._xraylib_method("CS_Compt",E)
 
-    def rayleigh_cross_section(self,E,environ=None,decimals=6,refresh=False):
+    def rayleigh_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Rayleigh cross section (cm^2/g, E in keV).
 
         Args:
@@ -623,8 +422,8 @@ class Element(Hashable):
         """
         return self._xraylib_method("CS_Rayl",E)
 
-    def compton_cross_section(self,E,environ=None,decimals=6,refresh=False):
-        """Rayleigh cross section (cm^2/g, E in keV).
+    def compton_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
+        """Compton cross section (cm^2/g, E in keV).
 
         Args:
             E(num or array-like): energy (keV)
@@ -637,7 +436,7 @@ class Element(Hashable):
         """
         return self._xraylib_method("CS_Compt",E)
 
-    def scatfact_classic_re(self,E,theta=None,environ=None,decimals=6,refresh=False):
+    def scatfact_classic_re(self,E,theta=None,environ=None,decimals=6,refresh=False,**kwargs):
         """Real part of atomic form factor
 
         Args:
@@ -657,7 +456,7 @@ class Element(Hashable):
             q = np.sin(theta/2)/ureg.Quantity(E,'keV').to("angstrom","spectroscopy").magnitude
             return self._xraylib_method("FF_Rayl",q)
             
-    def scatfact_re(self,E,theta=None,environ=None,decimals=6,refresh=False):
+    def scatfact_re(self,E,theta=None,environ=None,decimals=6,refresh=False,**kwargs):
         """Real part of atomic form factor
 
         Args:
@@ -672,7 +471,7 @@ class Element(Hashable):
         """
         return self.scatfact_classic_re(E,theta=theta,environ=environ,decimals=decimals,refresh=refresh) + self._xraylib_method("Fi",E)
     
-    def scatfact_im(self,E,environ=None,decimals=6,refresh=False):
+    def scatfact_im(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Imaginary part of atomic form factor
 
         Args:
@@ -701,13 +500,11 @@ class Element(Hashable):
             E(array): energy (keV)
 
         Returns
-            dict: Shell:tau(E,Shell)
+            dict: xrayspectrum.Shell:tau(E,xrayspectrum.Shell)
         """
         cs = {}
         for shell in self.shells:
-            cs[shell] = np.empty(len(E),dtype=np.float64)
-            for i in range(len(E)):
-                cs[shell][i] = xraylib.CS_Photo_Partial(self.Z,shell.code,E[i])
+            cs[shell] = np.vectorize(lambda en: shell.partial_photo(self.Z,en))(E)
 
         return cs
 
@@ -721,7 +518,7 @@ class Element(Hashable):
             refresh(Optional(bool)): force re-simulation if used
 
         Returns
-            dict: Shell:tau(E,Shell)
+            dict: xrayspectrum.Shell:tau(E,xrayspectrum.Shell)
         """
 
         # Initialize simulation
@@ -896,4 +693,26 @@ class Element(Hashable):
 
         return newrange
 
+    @property
+    def pymcaname(self):
+        return '{}1'.format(self.name)
+
+    def topymca(self,defaultthickness=1e-4):
+        value = {'Comment': self.name,
+                'CompoundFraction': [1.],
+                'Thickness': defaultthickness,
+                'Density': self.density,
+                'CompoundList': [self.pymcaname]}
+        return self.name,value
+        
+    def tofisx(self):
+        o = fisx.Material(self.name, self.density, 1e-10)
+        o.setCompositionFromLists([self.pymcaname],[1.])
+        return o
+
+    def fisxgroups(self,emin=0,emax=np.inf):
+        self.markabsorber(energybounds=[emin,emax])
+        el = str(self)
+        return {self:self.shells}
+        
         

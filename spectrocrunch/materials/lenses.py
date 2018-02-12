@@ -22,15 +22,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .simul import with_simulmetaclass
-
-from . import noisepropagation
-
+from ..simulation.classfactory import with_metaclass
+from ..simulation import noisepropagation
 import numpy as np
 
-from ..materials.visirlib import Material
+from visirlib import Material
 
-class Lens(with_simulmetaclass()):
+class Lens(with_metaclass()):
     """
     Class representing a lens
     """

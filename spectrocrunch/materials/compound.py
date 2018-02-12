@@ -22,22 +22,25 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import numpy as np
+import fisx
+
 from . import element
 from . import interaction
 from .types import fractionType
 from . import stoichiometry
-
 from ..common.hashable import Hashable
 from ..common import listtools
+from ..common import instance
 from .. import ureg
+from . import xrayspectrum
 
-import numpy as np
 
 class Compound(Hashable):
     """Interface to a compound
     """
 
-    def __init__(self,elements,frac,fractype,density,nrefrac=1,name=None):
+    def __init__(self,elements,frac,fractype,density=None,nrefrac=1,name=None):
         """
         Args:
             elements(list): list of elements (["Fe","O"] or [element("Fe"),element("O")])
@@ -164,15 +167,16 @@ class Compound(Hashable):
         return self.elements[el]
 
     def molarmass(self):
-        MM = np.asarray([e.MM for e in self.elements])
-        nfrac = np.asarray(self.molefractions(total=True).values())
+        nfrac = self.molefractions(total=True)
+        MM = np.asarray([e.MM for e in nfrac])
+        nfrac = np.asarray(nfrac.values())
         return (MM*nfrac).sum()
 
     def weightfractions(self):
-        MM = np.asarray([e.MM for e in self.elements])
-        nfrac = np.asarray(self.molefractions().values())
-        wfrac = stoichiometry.frac_mole_to_weight(nfrac,MM)
-        return dict(zip(self.elements.keys(),wfrac))
+        nfrac = self.molefractions()
+        MM = np.asarray([e.MM for e in nfrac])
+        wfrac = stoichiometry.frac_mole_to_weight(np.asarray(nfrac.values()),MM)
+        return dict(zip(nfrac.keys(),wfrac))
 
     def molefractions(self,total=True):
         if total:
@@ -182,13 +186,33 @@ class Compound(Hashable):
             nfrac /= nfrac.sum()
             return dict(zip(self.elements.keys(),nfrac))
 
-    def markabsorber(self,symb,shells=[],fluolines=[]):
+    @property
+    def nelements(self):
+        return len(self.elements)
+
+    @property
+    def ncompounds(self):
+        return 1
+        
+    def arealdensity(self):
+        """Areal density in ng/mm^2
+        """
+        # arealdensity (ng/mm^2) = w * density(g/cm^3) * 2e-5 (cm) * 1e-2 (cm^2/mm^2) * 1e9 (ng/g)
+        w = self.weightfractions()
+        arealdensity = np.asarray(w.values())*(self.density*200)
+        return dict(zip(w.keys(),arealdensity))
+        
+    def markabsorber(self,symb=None,shells=None,fluolines=None,energybounds=None):
         """
         Args:
             symb(str): element symbol
         """
         for e in self.elements:
-            e.markabsorber(symb,shells=shells,fluolines=fluolines)
+            if energybounds is None:
+                energybounds2 = None
+            else:
+                energybounds2 = energybounds
+            e.markabsorber(symb=symb,shells=shells,fluolines=fluolines,energybounds=energybounds2)
 
     def unmarkabsorber(self):
         for e in self.elements:
@@ -197,12 +221,15 @@ class Compound(Hashable):
     def hasabsorbers(self):
         return any([e.isabsorber() for e in self.elements])
 
-    def markscatterer(self,name):
+    def markscatterer(self,name=None):
         """
         Args:
             name(str): compound name
         """
-        self.isscatterer = self==name
+        if name is None:
+            self.isscatterer = True
+        else:
+            self.isscatterer = self==name
 
     def unmarkscatterer(self):
         self.isscatterer = False
@@ -218,6 +245,10 @@ class Compound(Hashable):
     def _cs_scattering(method):
         return method=="scattering_cross_section" or method=="compton_cross_section" or method=="rayleigh_cross_section"
 
+    @staticmethod
+    def _cs_dict(method):
+        return method=="fluorescence_cross_section_lines"
+        
     def _crosssection(self,method,E,fine=False,decomposed=False,**kwargs):
         """Calculate compound cross-sections
         """
@@ -226,7 +257,7 @@ class Compound(Hashable):
             if decomposed:
                 return {}
             else:
-                return E*0.
+                return np.zeros_like(E,dtype=float)
 
         if hasattr(self,'structure') and fine:
             environ = self
@@ -239,9 +270,22 @@ class Compound(Hashable):
             for e in e_wfrac:
                 ret[e] = {"w":e_wfrac[e],"cs":getattr(e,method)(E,environ=environ,**kwargs)}
         else:
-            ret = E*0.
-            for e in e_wfrac:
-                ret += e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
+            if self._cs_dict(method):
+                ret = {}
+                for e in e_wfrac:
+                    cs = getattr(e,method)(E,environ=environ,**kwargs)
+                    if not cs:
+                        continue
+                    w = e_wfrac[e]
+                    for k,v in cs.items():
+                        if k in ret:
+                            ret[k] += w*v
+                        else:
+                            ret[k] = w*v
+            else:
+                ret = np.zeros_like(E,dtype=float)
+                for e in e_wfrac:
+                    ret += e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
 
         return ret
 
@@ -280,6 +324,29 @@ class Compound(Hashable):
         """
         return self._crosssection("fluorescence_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
 
+    def fluorescence_cross_section_lines(self,E,fine=False,decomposed=False,**kwargs):
+        """XRF cross section (cm^2/g, E in keV). Use for XRF.
+        """
+        return self._crosssection("fluorescence_cross_section_lines",E,fine=fine,decomposed=decomposed,**kwargs)
+    
+    def xrayspectrum(self,E,weights=None,emin=0,emax=None):
+        E = instance.asarray(E)
+        if emax is None:
+            emax = E[-1]
+        self.markabsorber(energybounds=[emin,emax])
+
+        spectrum = xrayspectrum.Spectrum()
+        spectrum.density = self.density
+        spectrum.update(self.fluorescence_cross_section_lines(E,decomposed=False))
+        spectrum[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E,decomposed=False)
+        spectrum[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E,decomposed=False)
+        spectrum.apply_weights(weights)
+        spectrum.xlim = [emin,emax]
+        spectrum.title = str(self)
+        spectrum.type = spectrum.TYPES.crosssection
+
+        return spectrum
+    
     def refractive_index_re(self,E,fine=False,decomposed=False,**kwargs):
         """
         """
@@ -332,28 +399,26 @@ class Compound(Hashable):
                 return ret
         return None
 
-    def pymcaformat(self,thickness=0.0):
-        key = self.name
-        
+    @property
+    def pymcaname(self):
+        return self.name
+
+    def topymca(self,defaultthickness=1e-4):
         r = self.weightfractions()
-        
-        value = {'Comment': self.name,
+        value = {'Comment': self.pymcaname,
                 'CompoundFraction': r.values(),
-                'Thickness': thickness,
+                'Thickness': defaultthickness,
                 'Density': self.density,
                 'CompoundList': ['{}1'.format(e) for e in r]}
+        return self.pymcaname,value
 
-        return key,value
-
-    def fluointeractions(self):
-        """Fluorescence interactions
-        """
-        for e in self.elements:
-            for s in e.shells:
-                for l in s.fluolines:
-                    fl = interaction.InteractionFluo(e,s,l)
-                    if fl.energy!=0:
-                        yield fl
-                        
-
+    def tofisx(self):
+        r = self.weightfractions()
+        o = fisx.Material(self.pymcaname, self.density, 1e-10)
+        o.setCompositionFromLists(['{}1'.format(e) for e in r],r.values())
+        return o
+        
+    def fisxgroups(self,emin=0,emax=np.inf):
+        self.markabsorber(energybounds=[emin,emax])
+        return {el:el.shells for el in self.elements}
         

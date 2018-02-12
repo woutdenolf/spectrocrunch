@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 
 from PyMca5.PyMcaPhysics.xrf import McaAdvancedFitBatch
-from PyMca5.PyMcaPhysics.xrf import FastXRFLinearFit
+from PyMca5.PyMcaPhysics.xrf import FastXRFLinearFit as FastXRFLinearFitBase
 from PyMca5.PyMcaPhysics.xrf import ClassMcaTheory
 from PyMca5.PyMca import EDFStack
 from PyMca5.PyMca import ArraySave
@@ -34,11 +34,26 @@ import numpy as np
 import re
 import os
 import glob
-import pylab
-
-import warnings
-warnings.filterwarnings("ignore")
+import collections
+import matplotlib.pyplot as plt
+#import warnings
+#warnings.filterwarnings("ignore")
 import logging
+
+from ..common import instance
+from ..io import edf
+
+logger = logging.getLogger(__name__)
+
+
+class FastXRFLinearFit(FastXRFLinearFitBase.FastXRFLinearFit):
+
+    def fitMultipleSpectra(self,concentrations=False,**kwargs):
+        result = super(FastXRFLinearFit,self).fitMultipleSpectra(concentrations=concentrations,**kwargs)
+        return result
+        
+        config = self._mcaTheory.getConfiguration()
+    
 
 def ReadPyMcaConfigFile(filename):
     # Read the configuration
@@ -50,29 +65,41 @@ def ReadPyMcaConfigFile(filename):
         raise IOError("File <%s> couldn't be loaded" % filename)
     return cfg
 
-def AdaptPyMcaConfigFile(filename,energy,addhigh=True,mlines={}):
+def AdaptPyMcaConfigFile(filename,energy,addhigh=True,mlines={},quant={}):
     cfg = ReadPyMcaConfigFile(filename)
-    AdaptPyMcaConfig(cfg,energy,addhigh=addhigh,mlines=mlines)
+    AdaptPyMcaConfig(cfg,energy,addhigh=addhigh,mlines=mlines,quant=quant)
     cfg.write(filename)
 
-def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
+def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={},quant={}):
     """
     Args:
         cfg(ConfigDict): pymca configuration
         energy(float): primary beam energy in keV
         addhigh(Optional(num)): add high primary energy with very low weight
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
+        quant(Optional(dict)): 
     """
 
     # Nothing to do
-    if energy is np.nan and len(mlines)==0:
+    if np.isnan(energy) and not mlines and not quant:
         return
 
-    if energy is not np.nan:
+    if not np.isnan(energy):
         # Adapt the cfg
-        ftype = type(cfg["fit"]["energyweight"][0])
-        itype = type(cfg["fit"]["energyflag"][0])
-        n = len(cfg["fit"]["energy"])
+        
+        tmp = cfg["fit"]["energyweight"]
+        if instance.isarray(tmp):
+            ftype = type(tmp[0])
+        else:
+            ftype = type(tmp)
+
+        tmp = cfg["fit"]["energyflag"]
+        if instance.isarray(tmp):
+            itype = type(tmp[0])
+        else:
+            itype = type(tmp)
+        
+        n = 1+addhigh
 
         # Adapt energy
         sourcelines = [None]*n
@@ -107,6 +134,8 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
             cfg["attenuators"]["Matrix"][2] = density
             cfg["attenuators"]["Matrix"][3] = density*0 # thickness in cm
 
+       
+
     # Split M-lines
     # /usr/local/lib/python2.7/dist-packages/PyMca5/PyMcaPhysics/xrf/Elements.py
     #
@@ -139,14 +168,50 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={}):
     #                 MShell.ElementM5ShellRates]
     #ElementXrays      = ['K xrays', 'Ka xrays', 'Kb xrays', 'L xrays','L1 xrays','L2 xrays','L3 xrays','M xrays','M1 xrays','M2 xrays','M3 xrays','M4 xrays','M5 xrays']
 
-    if len(mlines) > 0:
+    if mlines:
         if "M5 xrays" not in ClassMcaTheory.Elements.ElementXrays:
-            logging.getLogger(__name__).error("PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting.")
-            raise ImportError("PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting.")
-    for el in mlines:
-        if el in cfg["peaks"]:
-            if "M" in cfg["peaks"][el]:
-                cfg["peaks"][el] = [group for group in cfg["peaks"][el] if group != "M"] + mlines[el]
+            msg = "XRF fit: PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting."
+            logger.error(msg)
+            raise ImportError(msg)
+        for el in mlines:
+            if el in cfg["peaks"]:
+                if "M" in cfg["peaks"][el]:
+                    cfg["peaks"][el] = [group for group in cfg["peaks"][el] if group != "M"] + mlines[el]
+
+    if quant:
+        if "flux" in quant:
+            cfg["concentrations"]["flux"] = quant["flux"]
+        if "time" in quant:
+            cfg["concentrations"]["time"] = quant["time"]
+        if "area" in quant:
+            cfg["concentrations"]["area"] = quant["area"]
+        if "distance" in quant:
+            cfg["concentrations"]["distance"] = quant["distance"]
+        if "anglein" in quant:
+            cfg["attenuators"]["Matrix"][4] = quant["anglein"]
+        if "angleout" in quant:
+            cfg["attenuators"]["Matrix"][5] = quant["angleout"]
+        if "anglein" in quant or "angleout" in quant:
+            cfg["attenuators"]["Matrix"][7] = cfg["attenuators"]["Matrix"][4]+cfg["attenuators"]["Matrix"][5]
+
+    # Show info
+    _energy = instance.asarray(cfg["fit"]["energy"])
+    _weights = instance.asarray(cfg["fit"]["energyweight"])
+    _weights = _weights/_weights.sum()*100
+    sourceinfo = "\n ".join(["{} keV({:.2f}%)".format(en,w) for en,w in zip(_energy,_weights)])
+    if quant:
+        fluxinfo = "\n flux = {:e} s^(-1)\n time = {} s\n active area = {} cm^2\n sample-detector distance = {} cm\n angle IN = {} deg\n angle OUT = {} deg".\
+                format(cfg["concentrations"]["flux"],\
+                       cfg["concentrations"]["time"],\
+                       cfg["concentrations"]["area"],\
+                       cfg["concentrations"]["distance"],\
+                       cfg["attenuators"]["Matrix"][4],\
+                       cfg["attenuators"]["Matrix"][5])
+    else:
+        fluxinfo = "\n"
+        
+    logger.info("XRF fit configuration adapted:\n {}{}".format(sourceinfo,fluxinfo))
+
 
 def PerformRoi(filelist,rois,norm=None):
     """ROI XRF spectra in batch with changing primary beam energy.
@@ -242,8 +307,7 @@ def PerformFit(filelist,cfgfile,energies,mlines={},norm=None,fast=True,prog=None
 
     # Prepare plot
     if plot:
-        fig = pylab.figure(1)
-        ax = pylab.subplot(111)
+        fig, ax = plt.subplots()
 
     # Prepare fit
     #ClassMcaTheory.DEBUG = 1
@@ -295,7 +359,7 @@ def PerformFit(filelist,cfgfile,energies,mlines={},norm=None,fast=True,prog=None
                 ax.set_title("Primary energy: {} keV".format(energies[j]))
                 ax.set_xlabel("Energy (keV)")
                 ax.set_ylabel("Intensity (cts)")
-                pylab.pause(0.0001)
+                plt.pause(0.0001)
             else:
                 mcafitresult = mcafit.imagingDigestResult()
 
@@ -316,7 +380,7 @@ def PerformFit(filelist,cfgfile,energies,mlines={},norm=None,fast=True,prog=None
 
     return ret
 
-def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},fast=True):
+def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fast=True):
     """Fit XRF spectra in batch with one primary beam energy.
 
         Least-square fitting. If you intend a linear fit, modify the configuration:
@@ -335,6 +399,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},fast=True):
         energy(num): primary beam energy
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
         fast(Optional(bool)): fast fitting (linear)
+        quant(Optional(dict)): 
     """
 
     if not os.path.exists(outdir):
@@ -342,65 +407,65 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},fast=True):
 
     # Adapt file (not adapting the fitobject's member variables because it's unclear 
     # what other things need to be changed when changing the energy)
-    if energy is not np.nan:
-        AdaptPyMcaConfigFile(cfgfile,energy,mlines=mlines)
+    AdaptPyMcaConfigFile(cfgfile,energy,mlines=mlines,quant=quant)
 
     if fast:
         # Prepare fit
-        fastFit = FastXRFLinearFit.FastXRFLinearFit()
+        fastFit = FastXRFLinearFit()
         fastFit.setFitConfigurationFile(cfgfile)
         dataStack = EDFStack.EDFStack(filelist, dtype=np.float32)
 
         # Fit
-        result = fastFit.fitMultipleSpectra(y=dataStack,weight=0,refit=1,concentrations=0)
         buncertainties = False
+        bconcentrations = bool(quant)
+        result = fastFit.fitMultipleSpectra(y=dataStack,weight=0,refit=1,concentrations=bconcentrations)
 
-        # Results to save
-        images = result['parameters']
-        imageNames = result['names']
+        # Save result and keep filenames + labels
+        names = result['names']
+        if bconcentrations:
+            names = names[:-len(result["concentrations"])]
 
-        nImages = images.shape[0]
-        n = nImages
-        if buncertainties:
-            n += len(result['uncertainties'])
-        imageList = [None] * n
-        labels = [None] * n
-        j = 0
-        for i in range(nImages):
-            name = imageNames[i].replace(" ","-")
-            labels[j] = name
-            imageList[j] = images[i]
-            j += 1
-            if not imageNames[i].startswith("C(") and buncertainties:
-                # fitted parameter
-                labels[j] = "s(%s)" % name
-                imageList[j] = result['uncertainties'][i]
-                j += 1
-
-        # Save result (similar to save2DArrayListAsEDF)
-        #prefix = outname #+ "_" + re.split("[_.]+",filelist[0])[-2] + "_to_" + re.split("[_.]+",filelist[-1])[-2]
-        n = len(imageList)
-        files = [None]*n
-        for i in range(n):
-            filename = os.path.join(outdir,outname+"_"+labels[i].replace("-","_")+".edf")
-            if os.path.exists(filename):
-                try:
-                    os.remove(filename)
-                except OSError:
-                    pass
-            edfout = EdfFile.EdfFile(filename, access="ab")
-            edfout.WriteImage({'Title': labels[i]},
-                                    imageList[i], Append=1)
-            del edfout  # force file close
-            files[i] = filename
-
-        #fileName = os.path.join(outdir, outname+".dat")
-        #ArraySave.save2DArrayListAsASCII(imageList, fileName, labels=labels)
+        parse = re.compile("^(?P<Z>.+)[_ -](?P<line>.+)$")
+        filename = lambda x: os.path.join(outdir,"{}_{}.edf".format(outname,x))
+        out = collections.OrderedDict()
+        for i,name in enumerate(names):
+            m = parse.match(name).groupdict()
+            Z,line = m["Z"],m["line"]
+            
+            # Peak area
+            label = "{}-{}".format(Z,line)
+            f = filename("{}_{}".format(Z,line))
+            edf.saveedf(f,\
+                        result['parameters'][i],\
+                        {'Title': label},overwrite=True)
+            out[label] = f
+            
+            # Error on peak area
+            if buncertainties:
+                label = "s({}-{})".format(Z,line)
+                f = filename("s({}_{})".format(Z,line))
+                edf.saveedf(f,\
+                            result['uncertainties'][i],\
+                            {'Title': label},overwrite=True)
+                out[label] = f
+                
+            # Mass fraction
+            if bconcentrations and Z.lower()!="scatter":
+                label = "w({}-{})".format(Z,line)
+                f = filename("C({}_{})".format(Z,line))
+                edf.saveedf(f,\
+                            result['concentrations'][i],\
+                            {'Title': label},overwrite=True)
+                out[label] = f
+                
+        labels = out.keys()
+        files = out.values()
     else:
         # Parallelize this:
         b = McaAdvancedFitBatch.McaAdvancedFitBatch(cfgfile,filelist=filelist,outputdir=outdir,fitfiles=0)
         b.processList()
 
+        #TODO: process filenames like in fast mode
         filemask = os.path.join(outdir,"IMAGES","*.edf")
         files = sorted(glob.glob(filemask))
         files = [f for f in files if "chisq" not in f]

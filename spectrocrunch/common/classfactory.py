@@ -24,6 +24,10 @@
 
 from collections import OrderedDict
 
+from . import instance
+
+import future.utils
+
 #https://blog.ionelmc.ro/2015/02/09/understanding-python-metaclasses/
 
 
@@ -101,4 +105,11 @@ class FactoryMeta(type):
                 b.register(cls,name)
         super(FactoryMeta, cls).__init__(name, bases, attr)
 
-
+def with_metaclass(bases=None):
+    if bases is None:
+        return future.utils.with_metaclass(FactoryMeta)
+    else:
+        if not instance.isarray(bases):
+            bases = (bases,)
+        return future.utils.with_metaclass(FactoryMeta,*bases)
+        

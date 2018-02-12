@@ -23,17 +23,77 @@
 # THE SOFTWARE.
 
 from .. import ureg
+from . import instance
+from . import persistence
 
 def Quantity(x,units=None):
-    """Add units when not present
+    """Add units when not present. Use instead of ureg.Quantity in case x may already be a Quantity.
     """
-    if isinstance(x,ureg.Quantity):
+    try:
+        x.units
         return x
-    else:
+    except:
         return ureg.Quantity(x,units=units)
 
+def units(x):
+    try:
+        return x.units
+    except:
+        return None
+
+def generator(x):
+    kwargs = {"magnitude":x.magnitude,"units":x.units}
+    return {"generator":QuantityGenerator,"kwargs":kwargs}
+
 def magnitude(x,units=None):
-    if isinstance(x,ureg.Quantity):
+    """Magnitude when Quantity, untouched otherwise.
+    """
+    try:
         return x.to(units).magnitude
-    else:
+    except:
         return x
+
+def quantity_like(x,y):
+    try:
+        return Quantity(x,units=y.units)
+    except:
+        return x
+
+def binary_operator(a,b,op):
+    """Compare quantities and numbers
+    """
+    try:
+        return op(a,b)
+    except:
+        return op(magnitude(a),magnitude(a))
+
+def asarrayf(x,**kwargs):
+    u = units(x)
+    if u is None:
+        funcu = lambda x:x
+    else:
+        funcu = lambda x:Quantity(x,units=u)
+        
+    try:
+        x = x.magnitude
+    except:
+        pass
+
+    x,func = instance.asarrayf(x,**kwargs)
+
+    funcw = lambda x: funcu(func(x))
+
+    return funcu(x),funcw
+
+def serialize(x):
+    try:
+        x.units
+        return persistence.SerializedGenerator(module=__name__,\
+                    generator="Quantity",\
+                    args=(x.magnitude,),\
+                    kwargs={"units":str(x.units)})
+    except:
+        return x
+        
+
+

@@ -42,11 +42,14 @@ transformationType = Enum(['translation','rigid','similarity','affine','homograp
 # aspect: R = [[a,0],[1/a,0]]
 # shear: R = [[1,s],[s,1]]
 #
-# rigid(eucledian):        reflection + rotation + translation   dof = 3      R = [[a,sqrt(1-a^2)],[sqrt(1-a^2),a]]  T = [[tx],[ty]]
-# similarity:              rigid + scaling                       dof = 4      R = [[a,-b],[b,a]]  T = [[tx],[ty]]
-# affine:                  similarity + aspect + shear           dof = 6      R = [[a,b],[c,d]] T = [[tx],[ty]]
-# homography(projection):  affine + projection                   dof = 8      R = [[a,b],[c,d]] T = [[tx],[ty]] P = [px,py]
+# rigid(eucledian):                   reflection + rotation + translation   dof = 3      R = [[a,sqrt(1-a^2),tx],[sqrt(1-a^2),a,ty],[0,0,1]]
+# similarity:                         rigid + scaling                       dof = 4      R = [[a,-b,tx],[b,a,ty],[0,0,1]]
+# affine (parallel projection):       similarity + aspect + shear           dof = 6      R = [[a,b,tx],[c,d,ty],[0,0,1]]
+# homography(perspective projection): affine + ...                          dof = 8      R = [[a,b,tx],[c,d,ty],[px,py,1]]
 #
+# http://www.robots.ox.ac.uk/~az/tutorials/cvpr03_part1.pdf
+# http://morpheo.inrialpes.fr/people/Boyer/Teaching/M2R/geoProj.pdf
+# https://ags.cs.uni-kl.de/fileadmin/inf_ags/3dcv-ws11-12/3DCV_WS11-12_lec04.pdf
 
 
 

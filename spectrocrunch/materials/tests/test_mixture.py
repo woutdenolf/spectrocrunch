@@ -27,6 +27,10 @@ import unittest
 from ..compoundfromformula import CompoundFromFormula as compound
 from ..mixture import Mixture as mixture
 from ..types import fractionType
+from ...geometries import xrf as xrfgeometries
+from ...geometries import source
+from ...detectors import xrf as xrfdetectors
+from ...common import instance
 
 import numpy as np
 
@@ -79,12 +83,68 @@ class test_mixture(unittest.TestCase):
         for e in c3.elements:
             self.assertEqual(c3.elements[e],c4.elements[e])
 
+    def _spectrum(self,lstlines,thickness):
+        src = source.factory("synchrotron")
+        detector = xrfdetectors.factory("leia")
+        geometry = xrfgeometries.factory("sxm120",detectorposition=-15.,detector=detector,source=src)
+
+        out = {}
+        for spectrum,d in zip(lstlines,thickness):
+            
+            for line,prob in spectrum.probabilities:
+                intensity = prob*detector.solidangle*d
+                energy = line.energy(**detector.geometry.xrayspectrumkwargs())
+                energy = instance.asarray(energy)
+                intensity = instance.asarray(intensity)
+                for en,inten in zip(energy,intensity):
+                    if en in out:
+                        out[en] += intensity
+                    else:
+                        out[en] = intensity
+        return out
+    
+    def _spectrum_equal(self,spectrum1,spectrum2):
+        np.testing.assert_allclose(sorted(spectrum1.keys()),sorted(spectrum2.keys()))
+        
+        for k in spectrum1:
+            np.testing.assert_allclose(spectrum1[k],spectrum2[k])
+    
+    def test_cross_sections(self):
+        c = [compound("Co2O3",1.5),compound("Fe2O3",1.6)]
+        rhoc = np.array([x.density for x in c])
+        dc = np.array([0.1,0.2])
+        
+        rhom = sum(rhoc*dc)/sum(dc)
+        wc = rhoc*dc
+        wc /= sum(wc)
+
+        c3 = mixture(c,wc,fractionType.weight)
+        c4 = c3.tocompound("mix")
+
+        np.testing.assert_allclose(c3.density,rhom)
+        np.testing.assert_allclose(c4.density,rhom)
+        
+        energy = 10.
+        muc = [x.mass_att_coeff(energy) for x in c]
+        
+        muL = sum(muc*rhoc*dc)
+        np.testing.assert_allclose(c3.density*c3.mass_att_coeff(energy)*sum(dc),muL)
+        np.testing.assert_allclose(c4.density*c4.mass_att_coeff(energy)*sum(dc),muL)
+        
+        spectrum = self._spectrum([x.xrayspectrum(energy) for x in c],dc)
+        spectrum3 = self._spectrum([c3.xrayspectrum(energy)],[sum(dc)])
+        spectrum4 = self._spectrum([c3.xrayspectrum(energy)],[sum(dc)])
+
+        self._spectrum_equal(spectrum3,spectrum4)
+        self._spectrum_equal(spectrum,spectrum3)
+        
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_mixture("test_molefractions"))
     testSuite.addTest(test_mixture("test_addcompound"))
     testSuite.addTest(test_mixture("test_tocompound"))
+    testSuite.addTest(test_mixture("test_cross_sections"))
     return testSuite
     
 if __name__ == '__main__':

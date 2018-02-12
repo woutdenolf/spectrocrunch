@@ -205,3 +205,4 @@ def evaluate(operation,fin,varargs,retstacks,axes):
             axesdata[i] = fin[axes[i]["fullname"]][roi[i][0]:roi[i][1]]
 
     return axesdata
+    

@@ -24,18 +24,17 @@
 
 from __future__ import division
 
-from . import areadetectors
-from . import scintillators
-from . import lenses
+from ..geometries import flatarea
+from ..geometries import source
+from ..detectors import area
+from ..materials import scintillators
+from ..materials import lenses
 from . import noisepropagation
 from ..common.instance import isarray
 
 import numpy as np
-
 import uncertainties
-
 import itertools
-
 import matplotlib.pyplot as plt
 
 def transmission(N,N0,D=0,D0=0,\
@@ -57,8 +56,8 @@ def absorbance(_transmission):
 
 class id21_ffsetup(object):
 
-    def __init__(self,composition=None,scint="LSO",lens="x10"):
-        self.composition = composition
+    def __init__(self,sample=None,scint="LSO",lens="x10",**kwargs):
+        self.setsample(sample,**kwargs)
 
         if scint=="LSO":
             self.oscint = scintillators.factory("LSO ID21",thickness=10)
@@ -70,17 +69,24 @@ class id21_ffsetup(object):
         else:
             self.olens = lenses.factory("mitutoyoid21_10x")
 
-        self.odet = areadetectors.factory("pcoedge55")
-    
+    def setsample(self,sample,det="pcoedge55"):
+        self.sample = sample
+        self.odetector = area.factory(det)
+        
+        if sample is not None:
+            src = source.factory("synchrotron")
+            geometry = flatarea.factory("perpendicular",detector=self.odetector,source=src)
+            self.sample.geometry = geometry
+
     def propagate(self,N,E,tframe,nframe,samplein=False,withnoise=True,forward=True,poissonapprox=False):
         if isarray(E):
             E = np.asarray(E)
 
-        bsample = samplein and self.composition is not None
+        bsample = samplein and self.sample is not None
 
         if forward:
             if bsample:
-                N = self.composition.propagate(N,E,forward=forward)
+                N = self.sample.propagate(N,E,forward=forward)
             N = self.oscint.propagate(N,E,forward=forward)
 
             if isarray(N):
@@ -89,7 +95,7 @@ class id21_ffsetup(object):
             N = self.olens.propagate(N,self.oscint.visspectrum,\
                                     nrefrac=self.oscint.get_nrefrac(),\
                                     forward=forward)
-            N = self.odet.propagate(N,self.oscint.visspectrum,\
+            N = self.odetector.propagate(N,self.oscint.visspectrum,\
                                     tframe=tframe,nframe=nframe,\
                                     forward=forward,poissonapprox=poissonapprox)
             
@@ -99,7 +105,7 @@ class id21_ffsetup(object):
             if isarray(N):
                 s = N.shape
                 N = N.flatten()
-            N = self.odet.propagate(N,self.oscint.visspectrum,\
+            N = self.odetector.propagate(N,self.oscint.visspectrum,\
                                     tframe=tframe,nframe=nframe,\
                                     forward=forward)
             N = self.olens.propagate(N,self.oscint.visspectrum,\
@@ -110,7 +116,7 @@ class id21_ffsetup(object):
                 
             N = self.oscint.propagate(N,E,forward=forward)
             if bsample:
-                N = self.composition.propagate(N,E,forward=forward)
+                N = self.sample.propagate(N,E,forward=forward)
 
         return N
     
@@ -124,7 +130,7 @@ class id21_ffsetup(object):
             num: DU/ph,DU
         """
         N0 = self.propagate(1,energy,tframe,nframe,samplein=samplein)
-        D0 = self.odet.propagate(0,energy,tframe=tframe,nframe=nframe)
+        D0 = self.odetector.propagate(0,energy,tframe=tframe,nframe=nframe)
 
         return N0-D0,D0
 
@@ -171,8 +177,8 @@ class id21_ffsetup(object):
             D0 = 0
             
         if nframe_dark!=0:
-            D = self.odet.propagate(D,energy,tframe=tframe_data,nframe=nframe_dark)
-            D0 = self.odet.propagate(D0,energy,tframe=tframe_flat,nframe=nframe_dark)
+            D = self.odetector.propagate(D,energy,tframe=tframe_data,nframe=nframe_dark)
+            D0 = self.odetector.propagate(D0,energy,tframe=tframe_flat,nframe=nframe_dark)
     
         return N,N0,D,D0
     
@@ -210,7 +216,7 @@ class id21_ffsetup(object):
         return np.max(noise)/jump
     
     def __str__(self):
-        return str(self.composition)
+        return str(self.sample)
     
     def plotxanesnoise(self,flux,energy,**kwargs):
         signal,noise = self.xanes(flux,energy,**kwargs)

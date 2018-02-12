@@ -65,12 +65,25 @@ class test_xiaedf(unittest.TestCase):
         #self.pr.disable()
         #self.pr.dump_stats("keep.cprof")
 
+    def test_nameparsing_special(self):
+        self.assertEqual(xiaedf.xianameparser.parse("l1e1_zap_roi_frelon2_fr2_avg_0001_0000.edf"),\
+        xiaedf.XiaName(radix="l1e1",mapnum=1,linenum=-1,label="zap_roi_frelon2_fr2_avg",baselabel="zap_roi_frelon2_fr2",detector="avg"))
+
+        self.assertEqual(xiaedf.xianameparser.parse("test_puz_PUZ_xmap_x1_00_0009_0000.edf"),\
+        xiaedf.XiaName(radix="test_puz",mapnum=9,linenum=-1,label="PUZ_xmap_x1_00",baselabel="PUZ_xmap_x1",detector="00"))
+ 
+        self.assertEqual(xiaedf.xianameparser.parse("samB6_mapa_xmap_x3c_00_0002_0000.edf"),\
+        xiaedf.XiaName(radix="samB6_mapa",mapnum=2,linenum=-1,label="xmap_x3c_00",baselabel="xmap_x3c",detector="00"))
+        
+        self.assertEqual(xiaedf.xianameparser.parse("samB6_mapa_xiast_0002_0000_0069.edf"),\
+        xiaedf.XiaName(radix="samB6_mapa",mapnum=2,linenum=69,label="xiast",baselabel="xia",detector="st"))
+
     def test_nameparsing(self):
         paths = ['/tmp/a1','/tmp/a2','/tmp/b1']
         radix = ['a','a','b']
         mapnums = [range(0,100),range(100,200),range(0,50)]
         linenums = [range(0,100),range(0,100),range(0,50)]
-        labels = [['ctr1','ctr2','xia00','xia01','xiaS0','xiast']]*3
+        labels = [['arr_1','arr_2','xia00','xia01','xiaS0','xiast']]*3
         
         p = zip(paths,radix,mapnums,linenums,labels)
 
@@ -131,7 +144,7 @@ class test_xiaedf(unittest.TestCase):
         np.testing.assert_array_equal(data[...,0],fmap.data)
         np.testing.assert_array_equal(fmap.data,emap.data)
 
-    def _testdata(self,dataorg,data,stats,xiaobject,dshape,sshape,ishape):
+    def _testdata(self,dataorg,data,stats,ctrs,xiaobject,dshape,sshape,ishape,cshape):
         # data.shape:  ....,nchan,ndet
         # stats.shape: ....,nstat,ndet
 
@@ -169,12 +182,12 @@ class test_xiaedf(unittest.TestCase):
 
         # Test slicing
         xiaobject.skipdetectors([])
-
+ 
         indices = genindexing.genindexingn(dshape,advanced=True,eco=True,nmax=50)
         for dsum in [False,True]:
             xiaobject.detectorsum(dsum)
             for norm in [False,True]:
-                xiaobject.norm("flux" if norm else None)
+                xiaobject.globalnorm("arr_flux" if norm else None)
                 for dtcor in [False,True]:
                     xiaobject.dtcor(dtcor)
                     for onlyicrocr in [False,True]:
@@ -183,7 +196,7 @@ class test_xiaedf(unittest.TestCase):
                             
                             for index in indices:
                                 #print "\n"*10
-                                #index = ([-11, 9], [-3, -3], [5, 3], slice(None,None,512), [-4, -1]) 
+                                #index = (slice(None), slice(None), 0)
                                 if dsum:
                                     index = indexing.replace(index,ndim,[-1],[slice(None)])
                                     
@@ -191,14 +204,21 @@ class test_xiaedf(unittest.TestCase):
                                 #print dsum,norm,dtcor,onlyicrocr,together
 
                                 if together:
-                                    xiaobject.dataandstats()
-                                    ldata,lstats = xiaobject[index]
+                                    if ctrs is None:
+                                        xiaobject.dataandstats()
+                                        ldata,lstats = xiaobject[index]
+                                    else:
+                                        xiaobject.dataall()
+                                        ldata,lstats,lcounters = xiaobject[index]
                                 else:
                                     xiaobject.onlydata()
                                     ldata = xiaobject[index]
                                     xiaobject.onlystats()
                                     lstats = xiaobject[index]
-
+                                    if ctrs is not None:
+                                        xiaobject.onlycounters()
+                                        lcounters = xiaobject[index]
+                                
                                 # Get data directly
                                 if dtcor and norm:
                                     ldata2 = dataorg[...,2]
@@ -213,6 +233,9 @@ class test_xiaedf(unittest.TestCase):
                                 if dsum:
                                     ldata2 = xiaobject.sumdata(ldata2,xiaobject._getaxis(-1))
 
+                                # Check data
+                                np.testing.assert_allclose(ldata,ldata2)
+                                
                                 # Get stats directly
                                 if xiaobject.nstats==2:
                                     lstats2 = stats[...,[xiaobject.STICR,xiaobject.STOCR],:]
@@ -220,17 +243,27 @@ class test_xiaedf(unittest.TestCase):
                                     lstats2 = stats
                                 lstats2 = lstats2[indexing.replacefull(index,ndim,[-2])]
                                 
-                                # Check data
-                                np.testing.assert_allclose(ldata,ldata2)
-
                                 # Check stats
                                 np.testing.assert_array_equal(lstats,lstats2)
+                                
+                                # Get counters directly
+                                if ctrs is not None:
+                                    try:
+                                        lcounters2 = ctrs[indexing.replacefull(index,ndim,[-2,-1])]
+                                        check = True
+                                    except:
+                                        # This happens when the MCA channel index cannot be applied to the counter index (same dimension)
+                                        check = False
+                                    
+                                    # Check counters
+                                    if check:
+                                        np.testing.assert_array_equal(lcounters,lcounters2)
 
         # Test slicing vs. skip detector
         xiaobject.onlyicrocr(False)
         xiaobject.dtcor(False)
         xiaobject.detectorsum(False)
-        xiaobject.norm(None)
+        xiaobject.globalnorm(None)
         
         ndet = dshape[-1]
 
@@ -291,7 +324,7 @@ class test_xiaedf(unittest.TestCase):
         dshape = (nspec,nchan,ndet)
         sshape = (nspec,xiaedf.xiadata.NSTATS,ndet)
         ishape = (nspec,1,ndet)
-        self._testdata(dataorg,data,stats,line,dshape,sshape,ishape)
+        self._testdata(dataorg,data,stats,None,line,dshape,sshape,ishape,None)
         #import matplotlib.pyplot as plt
         #plt.plot(data[0,:,0])
         #plt.show()
@@ -312,21 +345,24 @@ class test_xiaedf(unittest.TestCase):
     def _test_image(self,path,radix,mapnum,ndet,ncol,nrow,nchan):
         # Generate some spectra + statistics
         flux = np.linspace(1,2,nrow*ncol)
+        ctr1 = np.linspace(10,20,nrow*ncol)
+        ctr2 = np.linspace(20,30,nrow*ncol)
         dataorg,data,stats = xiagen.data(nrow*ncol,nchan,ndet,flux=flux)
         dataorg = dataorg.reshape(nrow,ncol,nchan,ndet,3)
         data = data.reshape(nrow,ncol,nchan,ndet)
         stats = stats.reshape(nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
-        ctrs = {"flux":flux.reshape(nrow,ncol)}
+        ctrs = np.stack([ctr1,flux,ctr2],axis=1).reshape(nrow,ncol,3)
+        ctrnames = ["arr_ctr1","arr_flux","arr_ctr2"]
         
         # Save data
         image = xiaedf.xiaimage_number(path,radix,mapnum)
         xialabels = ["xia{:02d}".format(i) for i in range(ndet)]
-        image.save(data,xialabels,stats=stats,ctrs=ctrs)
+        image.save(data,xialabels,stats=stats,ctrs=ctrs,ctrnames=ctrnames)
 
         # Check saved files
         expectedfiles = ["{}_xia{:02}_{:04}_0000_{:04}.edf".format(radix,det,mapnum,linenum) for det in range(ndet) for linenum in range(nrow)]+\
                         ["{}_xiast_{:04}_0000_{:04}.edf".format(radix,mapnum,linenum) for linenum in range(nrow)]+\
-                        ["{}_{}_{:04}_0000.edf".format(radix,k,mapnum) for k in ctrs]
+                        ["{}_{}_{:04}_0000.edf".format(radix,k,mapnum) for k in ctrnames]
                         
         expectedfiles.sort()
         self.dir.compare(expectedfiles,path=path)
@@ -359,26 +395,32 @@ class test_xiaedf(unittest.TestCase):
         dshape = (nrow,ncol,nchan,ndet)
         sshape = (nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
         ishape = (nrow,ncol,1,ndet)
-        self._testdata(dataorg,data,stats,image,dshape,sshape,ishape)
+        cshape = (nrow,ncol,3,1)
+        ctrs = ctrs[:,:,np.argsort(ctrnames)]
+        ctrs = ctrs[...,np.newaxis]
+        self._testdata(dataorg,data,stats,ctrs,image,dshape,sshape,ishape,cshape)
 
     def _test_stack(self,path,radix,ndet,ncol,nrow,nenergy,nchan):
         # Generate some spectra + statistics
         flux = np.linspace(1,2*nenergy,nrow*ncol*nenergy)
+        ctr1 = np.linspace(10,20,nrow*ncol*nenergy)
+        ctr2 = np.linspace(20,30,nrow*ncol*nenergy)
         dataorg,data,stats = xiagen.data(nrow*ncol*nenergy,nchan,ndet,flux=flux)
         dataorg = dataorg.reshape(nenergy,nrow,ncol,nchan,ndet,3)
         data = data.reshape(nenergy,nrow,ncol,nchan,ndet)
         stats = stats.reshape(nenergy,nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
-        ctrs = {"flux":flux.reshape(nenergy,nrow,ncol)}
+        ctrs = np.stack([ctr1,flux,ctr2],axis=1).reshape(nenergy,nrow,ncol,3)
+        ctrnames = ["arr_ctr1","arr_flux","arr_ctr2"]
         
         # Save data
         stack = xiaedf.xiastack_radix(path,radix)
         xialabels = ["xia{:02d}".format(i) for i in range(ndet)]
-        stack.save(data,xialabels,stats=stats,ctrs=ctrs)
+        stack.save(data,xialabels,stats=stats,ctrs=ctrs,ctrnames=ctrnames)
 
         # Check saved files
         expectedfiles = ["{}_xia{:02}_{:04}_0000_{:04}.edf".format(radix,det,mapnum,linenum) for det in range(ndet) for linenum in range(nrow) for mapnum in range(nenergy)]+\
                         ["{}_xiast_{:04}_0000_{:04}.edf".format(radix,mapnum,linenum) for linenum in range(nrow) for mapnum in range(nenergy)]+\
-                        ["{}_{}_{:04}_0000.edf".format(radix,k,mapnum) for mapnum in range(nenergy) for k in ctrs]
+                        ["{}_{}_{:04}_0000.edf".format(radix,k,mapnum) for mapnum in range(nenergy) for k in ctrnames]
                         
         expectedfiles.sort()
         self.dir.compare(expectedfiles,path=path)
@@ -387,19 +429,29 @@ class test_xiaedf(unittest.TestCase):
         files = xiaedf.xiasearch(path,radix=radix)
         stack2 = xiaedf.xiastack_files(files)
         stack3 = xiaedf.xiastack_radix(path,radix)
+        stack4 = xiaedf.xiastack_mapnumbers(path,radix,range(nenergy))
+        
         self.assertEqual(files,sorted([os.path.join(path,f) for f in expectedfiles],key=xiaedf.xiasortkey))
         self.assertEqual(stack.statfilenames(),stack2.statfilenames())
         self.assertEqual(stack.datafilenames(),stack2.datafilenames())
         self.assertEqual(stack.ctrfilenames(),stack2.ctrfilenames())
         
         self.assertEqual(stack.statfilenames(),stack3.statfilenames())
+        self.assertEqual(stack.datafilenames(),stack3.datafilenames())
         self.assertEqual(stack.ctrfilenames(),stack3.ctrfilenames())
+
+        self.assertEqual(stack.statfilenames(),stack4.statfilenames())
+        self.assertEqual(stack.datafilenames(),stack4.datafilenames())
+        self.assertEqual(stack.ctrfilenames(),stack4.ctrfilenames())
 
         # Check data
         dshape = (nenergy,nrow,ncol,nchan,ndet)
         sshape = (nenergy,nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
         ishape = (nenergy,nrow,ncol,1,ndet)
-        self._testdata(dataorg,data,stats,stack,dshape,sshape,ishape)
+        cshape = (nenergy,nrow,ncol,3,1)
+        ctrs = ctrs[:,:,:,np.argsort(ctrnames)]
+        ctrs = ctrs[...,np.newaxis]
+        self._testdata(dataorg,data,stats,ctrs,stack,dshape,sshape,ishape,cshape)
 
     def test_line(self):
         mapnum = 2
@@ -435,12 +487,12 @@ class test_xiaedf(unittest.TestCase):
                             i += 1
 
 
-
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_xiaedf("test_memmap"))
     testSuite.addTest(test_xiaedf("test_nameparsing"))
+    testSuite.addTest(test_xiaedf("test_nameparsing_special"))
     testSuite.addTest(test_xiaedf("test_line"))
     testSuite.addTest(test_xiaedf("test_image"))
     testSuite.addTest(test_xiaedf("test_stack"))
