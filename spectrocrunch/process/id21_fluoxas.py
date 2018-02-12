@@ -148,7 +148,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
             #"fastlabel": "fast",
             #"slowlabel": "slow",
             #"timelabel": "time",
-            "coordinates": motors,
+            "stackinfo": motors,
 
             # Deadtime correction
             "dtcor": dtcor,
@@ -239,7 +239,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
     defaultstack(h5file,stacks,default)
 
     # Groups that don't change and need to be copied
-    copygroups = ["coordinates"]
+    copygroups = ["stackinfo"]
 
     # Normalization
     skipnorm = ["arr_absorp1","arr_absorp2","arr_absorp3","arr_samy","arr_samz"]

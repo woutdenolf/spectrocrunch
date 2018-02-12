@@ -64,8 +64,8 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,dtcor,sta
             # Meta data
             "metacounters": ["xia"], # get meta data from the spectrum headers
             "stacklabel": "energy",
-            "scanlabel": "title",
-            "coordinates": ["sy", "sz", "sx", "sampy", "sampz", "sypz", "szpz"],
+            "speccmdlabel": "title",
+            "stackinfo": ["sy", "sz", "sx", "sampy", "sampz", "sypz", "szpz"],
 
             # Deadtime correction
             "dtcor": dtcor,
@@ -138,7 +138,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,alignmethod,alignr
     defaultstack(h5file,stacks,default)
 
     # Groups that don't change and need to be copied
-    copygroups = ["coordinates"]
+    copygroups = ["stackinfo"]
 
     # I0 normalization
     if not skipnormalization and normcounter is not None:

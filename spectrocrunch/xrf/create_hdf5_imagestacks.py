@@ -108,7 +108,7 @@ def createimagestacks(config,fluxmonitor=None):
                           {"name":"name2","data":np.array},
                           {"name":"name3","data":np.array}]
 
-        coordinates(dict): {"motorname1":np.array, "motorname2":np.array, ...}
+        stackinfo(dict): {"motorname1":np.array, "motorname2":np.array, ...}
     """
 
     # Check data
@@ -121,7 +121,7 @@ def createimagestacks(config,fluxmonitor=None):
     # Initialize result
     stacks = {}
     stackaxes = [None]*3
-    coordinates = {}
+    stackinfo = {}
     
     stackdim,imgdim = axesindices(config)
     
@@ -172,22 +172,22 @@ def createimagestacks(config,fluxmonitor=None):
             header = {"Dim_1":ncol, "Dim_2":nrow}
         motfast,motslow,sfast,sslow,time = getscanparameters(config,header)
 
-        # Prepare axes and coordinates
+        # Prepare axes and stackinfo
         if binit:
-            for mot in config["coordinates"]:
+            for mot in config["stackinfo"]:
                 if mot != motfast and mot != motslow and mot in header:
-                    coordinates[mot] = np.full(nstack,np.nan)
+                    stackinfo[mot] = np.full(nstack,np.nan)
                     
             stackaxes[imgdim[1]] = sfast
             stackaxes[imgdim[0]] = sslow
             stackaxes[stackdim] = {"name":str(config["stacklabel"]),"data":np.full(nstack,np.nan,dtype=np.float32)}
-            expotime = np.full(nstack,np.nan,dtype=np.float32)
-            distance = np.full(nstack,np.nan,dtype=np.float32)
+            stackinfo["expotime"] = np.full(nstack,np.nan,dtype=np.float32)
+            stackinfo["sampledetdistance"] = np.full(nstack,np.nan,dtype=np.float32)
             
-        # Add coordinates
-        for mot in coordinates:
+        # Add stackinfo
+        for mot in stackinfo:
             if mot in header:
-                coordinates[mot][imageindex] = np.float(header[mot])
+                stackinfo[mot][imageindex] = np.float(header[mot])
                           
         # Add stack value
         if config["stacklabel"] in header:
@@ -196,7 +196,7 @@ def createimagestacks(config,fluxmonitor=None):
             logger.warning("No energy in header (set to NaN)")
         
         # Add time
-        expotime[imageindex] = time
+        stackinfo["expotime"][imageindex] = time
         
         # Counters
         files = xiaimage.ctrfilenames(counters)
@@ -219,20 +219,23 @@ def createimagestacks(config,fluxmonitor=None):
     
         # Set normalizer for each image separately
         if fluxmonitor is not None:
-            flux = np.full(nstack,np.nan,dtype=np.float32)
+            stackinfo["flux"] = np.full(nstack,np.nan,dtype=np.float32)
+            stackinfo["activearea"] = np.full(nstack,fluxmonitor.xrfgeometry.detector.activearea)
+            stackinfo["anglein"] = np.full(nstack,fluxmonitor.xrfgeometry.anglein)
+            stackinfo["angleout"] = np.full(nstack,fluxmonitor.xrfgeometry.anglein)
             
             for imageindex,xiaimage in enumerate(xiastackraw):
                 energy = stackaxes[stackdim]["data"][imageindex]
-                time = expotime[imageindex]
+                time = stackinfo["expotime"][imageindex]
                 if np.isnan(time):
                     time = None
-                xrfnormop,flux[imageindex],expotime[imageindex] = fluxmonitor.xrfnormop(energy,time=time)
+                xrfnormop,stackinfo["flux"][imageindex],stackinfo["expotime"][imageindex] = fluxmonitor.xrfnormop(energy,time=time)
                 xiaimage.localnorm(config["fluxcounter"],func=xrfnormop)
                 
-                pos = distance[imageindex]
+                pos = stackinfo["sampledetdistance"][imageindex]
                 if not np.isnan(pos):
                     fluxmonitor.setxrfposition(pos)
-                distance[imageindex] = fluxmonitor.getxrfdistance()
+                stackinfo["sampledetdistance"][imageindex] = fluxmonitor.getxrfdistance()
                 
         if dtcor:
             label = "dtcor"
@@ -263,12 +266,12 @@ def createimagestacks(config,fluxmonitor=None):
             binit = imageindex==0
             
             if fluxmonitor is not None:
-                quant = {"time":expotime[imageindex],\
-                        "flux":flux[imageindex],\
-                        "area":fluxmonitor.xrfgeometry.detector.activearea,\
-                        "anglein":fluxmonitor.xrfgeometry.anglein,\
-                        "angleout":fluxmonitor.xrfgeometry.angleout,\
-                        "distance":distance[imageindex]}
+                quant = {"time":stackinfo["expotime"][imageindex],\
+                        "flux":stackinfo["flux"][imageindex],\
+                        "area":stackinfo["activearea"][imageindex],\
+                        "anglein":stackinfo["anglein"][imageindex],\
+                        "angleout":stackinfo["angleout"][imageindex],\
+                        "distance":stackinfo["sampledetdistance"][imageindex]}
             else:
                 quant = {}
             
@@ -298,14 +301,14 @@ def createimagestacks(config,fluxmonitor=None):
     # Sort stack on stack axis value
     ind = np.argsort(stackaxes[stackdim]["data"],kind='mergesort')
     stackaxes[stackdim]["data"] = stackaxes[stackdim]["data"][ind]
-    for mot in coordinates:
-        coordinates[mot] = coordinates[mot][ind]
+    for mot in stackinfo:
+        stackinfo[mot] = stackinfo[mot][ind]
     for s in stacks:
         group = stacks[s]
         for lstack in group:
             group[lstack] = [group[lstack][i] for i in ind]
 
-    return stacks,stackaxes,coordinates
+    return stacks,stackaxes,stackinfo
 
 def exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=False):
     """Export groups of EDF stacks, summated or not
@@ -405,7 +408,7 @@ def exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=False):
 
     return stacks
 
-def exportimagestacks(config,stacks,stackaxes,coordinates,jsonfile):
+def exportimagestacks(config,stacks,stackaxes,stackinfo,jsonfile):
     """Export EDF stacks to HDF5
     """
     f = nexus.File(config["hdf5output"],mode='w')
@@ -424,10 +427,10 @@ def exportimagestacks(config,stacks,stackaxes,coordinates,jsonfile):
     if len(stacks) > 0:
         stacks = exportgroups(f,stacks,stacks.keys(),axes,stackdim,imgdim)
 
-    # Save coordinates
-    coordgrp = nexus.newNXentry(f,"coordinates")
-    for k in coordinates:
-        coordgrp[k] = coordinates[k]
+    # Save stackinfo
+    coordgrp = nexus.newNXentry(f,"stackinfo")
+    for k in stackinfo:
+        coordgrp[k] = stackinfo[k]
 
     # Add processing info
     #nexus.addinfogroup(f,"fromraw",config)
@@ -459,10 +462,10 @@ def create_hdf5_imagestacks(jsonfile,fluxmonitor=None):
         config = json.load(f)
 
     # Raw or pre-processed data (e.g. DT correction, fitting)
-    stacks,stackaxes,coordinates = createimagestacks(config,fluxmonitor=fluxmonitor)
+    stacks,stackaxes,stackinfo = createimagestacks(config,fluxmonitor=fluxmonitor)
 
     # Export EDF stacks to HDF5 stacks
-    axes = exportimagestacks(config,stacks,stackaxes,coordinates,jsonfile)
+    axes = exportimagestacks(config,stacks,stackaxes,stackinfo,jsonfile)
 
     return stacks,axes
 

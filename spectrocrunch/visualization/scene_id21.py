@@ -30,6 +30,7 @@ from ..common import instance
 
 import fabio
 import numpy as np
+import warnings
 
 class ZapRoiMap(scene.Image):
 
@@ -105,7 +106,11 @@ class ZapRoiMap(scene.Image):
 
 class Nexus(scene.Image):
 
-    UNITS = {"samy":ureg.millimeter,"samz":ureg.millimeter,"samx":ureg.millimeter,"sampy":ureg.micrometer,"sampz":ureg.micrometer}
+    UNITS = {"samy":ureg.millimeter,\
+            "samz":ureg.millimeter,\
+            "samx":ureg.millimeter,\
+            "sampy":ureg.micrometer,\
+            "sampz":ureg.micrometer}
     MOTOFF = {"samy":["sampy"],\
               "samz":["sampz"],\
               "sampy":["samy"],\
@@ -118,8 +123,12 @@ class Nexus(scene.Image):
             
         oh5 = nexus.File(filename)
         
-        ocoord = oh5["coordinates"]
-        ocoord = {a:ureg.Quantity(np.atleast_1d(ocoord[a].value),self.UNITS[a]) for a in ocoord}
+        try:
+            ocoord = oh5["stackinfo"]
+        except KeyError:
+            warnings.warn("\"coordinates\" is deprecated and should be replaced by \"stackinfo\"", DeprecationWarning) 
+            ocoord = oh5["coordinates"]
+        ocoord = {a:ureg.Quantity(instance.asarray(ocoord[a].value),self.UNITS[a]) for a in ocoord if a in self.UNITS}
 
         img = None
 

@@ -25,12 +25,10 @@
 import collections
 import numbers
 import numpy as np
+from six import string_types
 
 def isstring(x):
-    try:
-        return isinstance(x, (str, unicode))
-    except:
-        return isinstance(x, str)
+    return isinstance(x, string_types)
 
 def isboollist(lst):
     try:
@@ -75,6 +73,7 @@ def asarrayb(x,**kwargs):
     return x,not scalar
     
 def asarray(x,**kwargs):
+    # similar to np.atleast_1d
     x = np.asarray(x,**kwargs)
     if x.ndim == 0:
         return x[np.newaxis]

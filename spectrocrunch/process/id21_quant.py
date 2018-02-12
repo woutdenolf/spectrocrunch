@@ -330,12 +330,14 @@ class FluxMonitor(object):
         #plt.show()
         
     def calibrate(self,params):
+        # required
         base = params["base"]
         sample = params["sample"]
         dataset = params["dataset"]
         specnr = params["specnr"]
         dark = params["dark"]
         
+        # optional
         gainiodet = params.get("gainiodet",None)
         gainidet = params.get("gainidet",None)
         fixdark = params.get("fixdark",False)

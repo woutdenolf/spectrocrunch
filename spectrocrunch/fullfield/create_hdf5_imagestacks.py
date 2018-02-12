@@ -519,10 +519,10 @@ def create_hdf5_imagestacks(jsonfile):
             stacks = {"detector0":{"sample":nxdatasample.name,"flat1":nxdataflat1.name,"flat2":nxdataflat2.name}}
             nexus.linkaxes(f,axes,[nxdatasample,nxdataflat1,nxdataflat2])
 
-    # Save coordinates
-    #coordgrp = nexus.newNXentry(f,"coordinates")
-    #for k in coordinates:
-    #    coordgrp[k] = coordinates[k]
+    # Save stackinfo
+    #stackinfogrp = nexus.newNXentry(f,"stackinfo")
+    #for k in stackinfo:
+    #    stackinfogrp[k] = stackinfo[k]
 
     # Add processing info
     #nexus.addinfogroup(f,"fromraw",config)

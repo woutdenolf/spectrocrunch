@@ -721,7 +721,7 @@ class PNdiode(with_metaclass(base.SolidAngle)):
         op = self.op_cpstocurrent()
         return op(units.Quantity(cps,"hertz")).to("ampere")
 
-    def xrfnormop(self,energy,time,reference):
+    def xrfnormop(self,energy,expotime,reference,referencetime=None):
         """Operator to convert the raw diode signal to a flux normalizing signal.
            Usage: Inorm = I/op(iodet)
         
@@ -731,30 +731,32 @@ class PNdiode(with_metaclass(base.SolidAngle)):
             Ixrf(cts) = F(cps).t(s).cxrf
             
             Desired XRF signal:
-            Ixrf(cts)/norm = Fref(cps).t(s).cxrf
+            Ixrf(cts)/norm = Fref(cps).tref(s).cxrf
             
             Normalization function to be apply on the raw diode signal Idiode
-            norm = F/Fref = cpstoflux(Idiode/t)/Fref = op(Idiode)
-            op: x-> cpstoflux(x/t)/Fref
+            norm = F.t/(Fref.tref) = cpstoflux(Idiode/t).t/(Fref.tref) = op(Idiode)
+            op: x-> cpstoflux(x/t)/Fref.t/tref
             
             In case reference in counts instead of photons/sec
             Fref = round_sig(cpstoflux(Idioderef/t),2)
     
         Args:
             energy(num): keV
-            time(num): sec
+            expotime(num): sec
             reference(num): iodet (counts) or flux (photons/sec) to which the data should be normalized
-
+            referencetime(Optional(num)): time to which the data should be normalized
+            
         Returns:
             op(linop): raw diode conversion operator
-            Fref(num): reference flux in photons/s
-            time(num): reference time in s
+            Fref(num): flux in photons/s to which the data is normalized after data/op(diode)
+            tref(num): time in s to which the data is normalized after data/op(diode)
         """
 
         # Convert from counts to photons/sec
         # op: x-> cpstoflux(x/t)
         op = self.op_cpstoflux(energy)
-        op.m /= units.Quantity(time,"s")
+        t = units.Quantity(expotime,"s")
+        op.m /= t
         
         # Reference flux to which the XRF signal should be normalized
         if reference.units==ureg.hertz: # photons/sec
@@ -768,10 +770,17 @@ class PNdiode(with_metaclass(base.SolidAngle)):
         # Convert from counts to counts at reference flux Fref
         op.m /= Fref
         op.b /= Fref
+        if referencetime is not None:
+            tref = units.Quantity(tref,"s")
+            op.m *= t/tref
+            op.b *= t/tref
+        else:
+            tref = t
+            
         op.m = units.magnitude(op.m,"dimensionless")
         op.b = units.magnitude(op.b,"dimensionless")
-        
-        return op,Fref.to("hertz").magnitude,units.magnitude(time,"s")
+
+        return op,Fref.to("hertz").magnitude,units.magnitude(tref,"s")
         
     def gainfromcps(self,energy,cps,fluxest):
         """Estimate the gain, assuming it is 10^x V/A
