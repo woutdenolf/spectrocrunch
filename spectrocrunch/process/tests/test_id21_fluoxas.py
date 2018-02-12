@@ -71,7 +71,7 @@ class test_fluoxas(unittest.TestCase):
 
     def fluxmonitor(self,cfgfile):
         energy = self.pymcagetenergy(cfgfile)
-        monitor = FluxMonitor(iodetname="iodet1",focussed=True)
+        monitor = FluxMonitor(iodetname="iodet1",focussed=True,xrfdetector="leia",xrfgeometry="sxm120")
         monitor.setdark(300,None,gainiodet=1e8)
         monitor.setcalib(energy-5,0.5,gainiodet=1e8)
         monitor.setcalib(energy+5,0.5,gainiodet=1e8)

@@ -23,9 +23,12 @@
 # THE SOFTWARE.
 
 import numpy as np
+import re
 
 from . import compoundfromlist
 from . import compoundfromformula
+from . import compoundfromlist
+from . import element
 from .types import fractionType
 from . import stoichiometry
 from . import xrayspectrum
@@ -135,7 +138,7 @@ class Mixture(object):
 
     def __str__(self):
         ws = self.weightfractions()
-        return ' + '.join("{:.0f} wt% {}".format(s[1]*100,s[0]) for s in ws.items())
+        return ' + '.join("{:.02f} wt% {}".format(s[1]*100,s[0]) for s in ws.items())
 
     def __getitem__(self,compound):
         return self.compounds[compound]
@@ -407,8 +410,8 @@ class Mixture(object):
     def pymcaname(self):
         return self.name
 
-    def topymca(self):
-        return self.tocompound(self.pymcaname).topymca()
+    def topymca(self,defaultthickness=1e-4):
+        return self.tocompound(self.pymcaname).topymca(defaultthickness=defaultthickness)
     
     def tofisx(self):
         return self.tocompound(self.pymcaname).tofisx()
@@ -416,9 +419,32 @@ class Mixture(object):
     @classmethod
     def frompymca(cls,dic):
         # Assume all compounds have the density of the mixture
-        compounds = [compoundfromformula.CompoundFromFormula(c,dic["Density"]) for c in dic["CompoundList"]]
-        wfrac = dic["CompoundFraction"]
-        return cls(compounds,wfrac,fractionType.weight,name=dic["Comment"])
+        pattern = "^(?P<element>[A-Z][a-z]?)1$"
+        n = len(dic["CompoundList"])
+        
+        if n==1:
+            c = dic["CompoundList"][0]
+            m = re.match(pattern,c)
+            if m:
+                m = m.groupdict()
+                return element.Element(m["element"])
+            else:
+                return compoundfromformula.CompoundFromFormula(c,dic["Density"],name=dic["Comment"])
+        else:
+            elements = [""]*n
+        
+            for i,c in enumerate(dic["CompoundList"]):
+                m = re.match(pattern,c)
+                if m:
+                    m = m.groupdict()
+                    elements[i] = m["element"]
+                
+            if all(elements):
+                return compoundfromlist.CompoundFromList(elements,dic["CompoundFraction"],fractionType.weight,dic["Density"],name=dic["Comment"])
+            else:
+                compounds = [compoundfromformula.CompoundFromFormula(c,dic["Density"]) for c in dic["CompoundList"]]
+                wfrac = dic["CompoundFraction"]
+                return cls(compounds,wfrac,fractionType.weight,name=dic["Comment"])
 
     def fisxgroups(self,emin=0,emax=np.inf):
         self.markabsorber(energybounds=[emin,emax])

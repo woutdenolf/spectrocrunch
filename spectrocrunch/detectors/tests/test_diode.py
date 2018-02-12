@@ -36,7 +36,7 @@ from ... import ureg
 
 import numpy as np
 
-class test_objects(unittest.TestCase):                
+class test_diode(unittest.TestCase):                
 
     def _sxm_calc_photons(self,ph_E,ph_I,ph_gain):
         """Photon calculation in sxm
@@ -153,8 +153,8 @@ class test_objects(unittest.TestCase):
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_objects("test_calibrateddiode"))
-    testSuite.addTest(test_objects("test_noncalibrateddiode"))
+    testSuite.addTest(test_diode("test_calibrateddiode"))
+    testSuite.addTest(test_diode("test_noncalibrateddiode"))
     
     return testSuite
     

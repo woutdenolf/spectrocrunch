@@ -58,7 +58,7 @@ class test_multilayer(unittest.TestCase):
     def _multilayer1(self):
         src = source.factory("synchrotron")
         detector = xrfdetectors.factory("Detector",activearea=0.50)
-        geometry = xrfgeometries.factory("sxm120",distanceargs={"detectorposition":-15.},detector=detector,source=src)
+        geometry = xrfgeometries.factory("sxm120",detectorposition=-15.,detector=detector,source=src)
         geometry.solidangle = 4*np.pi*0.1
         
         c1 = compoundfromformula.CompoundFromFormula("CaCO3",2.71,name="calcite")
@@ -80,7 +80,7 @@ class test_multilayer(unittest.TestCase):
         
         mixture1 = mixture.Mixture([compound1,compound2],[0.5,0.5],types.fractionType.weight)
         
-        geometry = xrfgeometries.factory("sxm120",distanceargs={"detectorposition":-15.})
+        geometry = xrfgeometries.factory("sxm120",detectorposition=-15.)
         detector = xrfdetectors.factory("leia",geometry=geometry)
         o = multilayer.Multilayer(material=[element1,compound1,mixture1],\
                                                 thickness=[1e-4,1e-4,1e-4],\
@@ -92,7 +92,7 @@ class test_multilayer(unittest.TestCase):
         
         src = source.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
-        geometry = xrfgeometries.factory("sxm120",distanceargs={"detectorposition":4.},detector=detector,source=src)
+        geometry = xrfgeometries.factory("sxm120",detectorposition=4.,detector=detector,source=src)
         
         o = multilayer.Multilayer(material=[element1],\
                                                 thickness=[1e-4],\
@@ -117,7 +117,7 @@ class test_multilayer(unittest.TestCase):
     def test_attenuationinfo(self):
         src = source.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
-        geometry = xrfgeometries.factory("geometry",anglein=90,angleout=45,azimuth=0,distanceargs={"detectorposition":0.},detector=detector,source=src)
+        geometry = xrfgeometries.factory("lineargeometry",anglein=90,angleout=45,azimuth=0,detectorposition=0.,unittocm=1,detector=detector,source=src)
         
         o = multilayer.Multilayer(material=[compoundfromname.compoundfromname("hematite"),\
                                             compoundfromname.compoundfromname("hydrocerussite"),\
@@ -189,20 +189,22 @@ class test_multilayer(unittest.TestCase):
 
         src = source.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
-        geometry = xrfgeometries.factory("sxm120",distanceargs={"detectorposition":-15.},detector=detector,source=src)
+        geometry = xrfgeometries.factory("sxm120",detectorposition=-15.,detector=detector,source=src)
         detector.attenuators["BeamFilter"] = {"material":element.Element('Si'),"thickness":10e-4}
         detector.attenuators["Filter"] = {"material":element.Element('Si'),"thickness":10e-4}
 
         o = multilayer.Multilayer(material=[compound1],thickness=[50e-4],geometry = geometry)
         
+        integratormult = geometry.solidangle/geometry.cosnormin # srad
+        
         for anglesign in [1,-1]:
             detector.geometry.angleout = anglesign*abs(geometry.angleout)
             
             for energy0,weights in [[8,1],[[8,9],[1,1]]]:
-                weightsnorm = np.squeeze(np.asarray(weights,dtype=float)/np.sum(weights))
+                sourceweights = np.squeeze(np.asarray(weights,dtype=float)/np.sum(weights))
                 
                 # Simple spectrum generation (1 layer, 1 interaction)
-                gen = dict(compound1.xrayspectrum(energy0,emin=2,emax=energy0).probabilities)
+                gen = dict(compound1.xrayspectrum(energy0,emin=2,emax=energy0).probabilities) # 1/cm
 
                 mu0 = compound1.mass_att_coeff(energy0)
                 for k in gen:
@@ -210,23 +212,23 @@ class test_multilayer(unittest.TestCase):
                     mu1 = compound1.mass_att_coeff(energy1)
                     chi = mu1/o.geometry.cosnormout-mu0/o.geometry.cosnormin
                     chi = chi*compound1.density
-                    thicknesscor = (np.exp(chi*o.thickness[0])-1)/chi # /cm
+                    thicknesscor = (np.exp(chi*o.thickness[0])-1)/chi # cm
                     if not geometry.reflection:
                         thicknesscor *= np.exp(-mu1*compound1.density*o.thickness[0]/o.geometry.cosnormout)
                         
-                    eff = o.geometry.efficiency(energy0,energy1) # srad
+                    eff = o.geometry.efficiency(energy0,energy1)
                     if not isinstance(k,xrayspectrum.FluoZLine):
                         eff = np.diag(eff)
                     eff = np.squeeze(eff)
 
-                    gen[k] = gen[k]*eff*thicknesscor*weightsnorm
+                    gen[k] = gen[k]*eff*integratormult*thicknesscor*sourceweights
                         
                 spectrumRef = xrayspectrum.Spectrum()
                 spectrumRef.update(gen)
                 spectrumRef.xlim = [2,energy0]
                 spectrumRef.density = 1
                 spectrumRef.title = str(self)
-                spectrumRef.type = spectrumRef.TYPES.interactionyield
+                spectrumRef.type = spectrumRef.TYPES.rate
 
                 # Compare with different methods
                 #with timing.timeit("analytical"):
@@ -247,7 +249,7 @@ class test_multilayer(unittest.TestCase):
         
         src = source.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
-        geometry = xrfgeometries.factory("sxm120",distanceargs={"detectorposition":-15.},detector=detector,source=src)
+        geometry = xrfgeometries.factory("sxm120",detectorposition=-15.,detector=detector,source=src)
         detector.attenuators["BeamFilter"] = {"material":element.Element('Si'),"thickness":10e-4}
         detector.attenuators["Filter"] = {"material":element.Element('Si'),"thickness":10e-4}
         
@@ -275,7 +277,7 @@ class test_multilayer(unittest.TestCase):
         
         src = source.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
-        geometry = xrfgeometries.factory("sxm120",distanceargs={"detectorposition":-15.},detector=detector,source=src)
+        geometry = xrfgeometries.factory("sxm120",detectorposition=-15.,detector=detector,source=src)
         
         o = multilayer.Multilayer(material=[compound1,compound2],\
                                                 thickness=[1e-4,1e-4],\

@@ -211,6 +211,8 @@ class Geometry(with_metaclass(base.Point)):
         """
 
         self.set_distancefunc(distancefunc)
+        if distanceargs is None:
+            distanceargs = {}
         self.distanceargs = distanceargs
         
         super(Geometry,self).__init__(**kwargs)
@@ -251,43 +253,82 @@ class Geometry(with_metaclass(base.Point)):
     def calibrate_distance_auto(self,**kwargs):
         if self.distancefunc is not None:
             return self.distancefunc.calibrate_auto(self.distance_rcfile,**kwargs)
+
+
+class LinearGeometry(Geometry):
+
+    def __init__(self,detectorposition=None,zerodistance=None,unittocm=None,**kwargs):
+        distancefunc = LinearMotor(zerodistance=zerodistance,unittocm=unittocm)
+        distanceargs = {"detectorposition":detectorposition}
         
-    
-class sxm120(Geometry):
+        super(LinearGeometry,self).__init__(distancefunc=distancefunc,distanceargs=distanceargs,**kwargs)
+                        
+    @property
+    def detectorposition(self):
+        return self.distanceargs["detectorposition"]
+        
+    @detectorposition.setter
+    def detectorposition(self,value):
+        self.distanceargs["detectorposition"] = value
+        
+    @property
+    def zerodistance(self):
+        return self.distancefunc.zerodistance
+        
+    @detectorposition.setter
+    def zerodistance(self,value):
+        self.distancefunc.zerodistance = value
+        
+
+class sxm120(LinearGeometry):
+
+    def __init__(self,**kwargs):
+        # blc10516 (April 2017)
+        # detector position in mm
+
+        kwargs["anglein"] = kwargs.get("anglein",62)
+        kwargs["angleout"] = kwargs.get("angleout",49)
+        kwargs["azimuth"] = kwargs.get("azimuth",0)
+
+        kwargs["zerodistance"] = kwargs.get("zerodistance",60.38)
+        kwargs["detectorposition"] = kwargs.get("detectorposition",0)
+        kwargs["unittocm"] = 0.1
+        
+        super(sxm120,self).__init__(**kwargs)
+
+
+class sxm90(LinearGeometry):
 
     def __init__(self,**kwargs):
         # blc10516 (April 2017)
         # detector position in mm
         
-        zerodistance = kwargs.pop("zerodistance",60.38)
-        distancefunc = LinearMotor(zerodistance=zerodistance,unittocm=0.1)
+        kwargs["anglein"] = kwargs.get("anglein",62)
+        kwargs["angleout"] = kwargs.get("angleout",28)
+        kwargs["azimuth"] = kwargs.get("azimuth",0)
 
-        super(sxm120,self).__init__(anglein=62,angleout=49,azimuth=0,\
-                        distancefunc=distancefunc,**kwargs)
+        kwargs["zerodistance"] = kwargs.get("zerodistance",85.49)
+        kwargs["detectorposition"] = kwargs.get("detectorposition",0)
+        kwargs["unittocm"] = 0.1
+        
+        super(sxm90,self).__init__(**kwargs)
 
-class sxm90(Geometry):
+
+class microdiff(LinearGeometry):
 
     def __init__(self,**kwargs):
         # blc10516 (April 2017)
         # detector position in mm
         
-        zerodistance = kwargs.pop("zerodistance",85.49)
-        distancefunc = LinearMotor(zerodistance=zerodistance,unittocm=0.1)
+        kwargs["anglein"] = kwargs.get("anglein",62)
+        kwargs["angleout"] = kwargs.get("angleout",28)
+        kwargs["azimuth"] = kwargs.get("azimuth",0)
 
-        super(sxm90,self).__init__(anglein=62,angleout=28,azimuth=0,\
-                        distancefunc=distancefunc,**kwargs)
-
-class microdiff(Geometry):
-
-    def __init__(self,**kwargs):
-        # blc10516 (April 2017)
-        # detector position in mm
+        kwargs["zerodistance"] = kwargs.get("zerodistance",-57.30)
+        kwargs["detectorposition"] = kwargs.get("detectorposition",6)
+        kwargs["unittocm"] = 0.1
         
-        zerodistance = kwargs.pop("zerodistance",-57.30)
-        distancefunc = LinearMotor(zerodistance=zerodistance,unittocm=-0.1)
-
-        super(microdiff,self).__init__(anglein=90,azimuth=0,\
-                        distancefunc=distancefunc,**kwargs)
+        super(microdiff,self).__init__(**kwargs)
                         
 
 factory = Geometry.factory

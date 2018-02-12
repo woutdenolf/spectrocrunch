@@ -363,6 +363,7 @@ class Element(hashable.Hashable):
             cs = {xrayspectrum.FluoZLine(self,line):shellcs*fluoyield\
                        for shell,shellcs in cs.items()\
                        for line,fluoyield in shell.partial_fluoyield(self.Z,decomposed=True).items()}
+                       #if line.energy(self.Z)>0
         else:
             cs = {shell:shellcs*shell.partial_fluoyield(self.Z,decomposed=False)\
                         for shell,shellcs in cs.items()}
@@ -696,10 +697,10 @@ class Element(hashable.Hashable):
     def pymcaname(self):
         return '{}1'.format(self.name)
 
-    def topymca(self):
+    def topymca(self,defaultthickness=1e-4):
         value = {'Comment': self.name,
                 'CompoundFraction': [1.],
-                'Thickness': 0.,
+                'Thickness': defaultthickness,
                 'Density': self.density,
                 'CompoundList': [self.pymcaname]}
         return self.name,value

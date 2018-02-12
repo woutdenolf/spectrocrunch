@@ -54,7 +54,10 @@ class Source(with_metaclass(object)):
 
     def addtopymca(self,setup,cfg):
         pass
-        
+    
+    def loadfrompymca(self,setup,cfg):
+        pass
+            
     def K(self):
         if self.polarization == self.POLARIZATION.none:
             func = lambda _theta,_phi: (1+np.cos(_theta)**2.)/2.

@@ -24,8 +24,7 @@ mixture = spectrocrunch.materials.mixture.Mixture([compound1,compound2],[0.5,0.5
 
 source = spectrocrunch.geometries.source.factory("synchrotron")
 detector = spectrocrunch.detectors.xrf.factory("leia")
-distanceargs = {"detectorposition":-15.}
-geometry = spectrocrunch.geometries.xrf.factory("sxm120",distanceargs=distanceargs,detector=detector,source=source)
+geometry = spectrocrunch.geometries.xrf.factory("sxm120",detectorposition=-15.,detector=detector,source=source)
 
 
 sample = spectrocrunch.materials.multilayer.Multilayer(material=[element,compound1,mixture],\

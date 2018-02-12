@@ -32,14 +32,14 @@ from . import pymca
 
 from ..common.classfactory import with_metaclass
 
-class Sample(with_metaclass(multilayer.Multilayer)):
+class Standard(with_metaclass(multilayer.Multilayer)):
     
     def __init__(self,extra=None,**kwargs):
         self.extra = extra
-        super(Sample,self).__init__(**kwargs)
+        super(Standard,self).__init__(**kwargs)
 
     def addtopymca(self,setup,cfg):
-        super(Sample,self).addtopymca(setup,cfg)
+        super(Standard,self).addtopymca(setup,cfg)
         if self.extra is not None:
             self.addtopymca_shells(setup,cfg,self.extra)
 
@@ -86,14 +86,14 @@ def axo(name,elements,arealdensity,windowthickness,filmthickness):
         layer1 = mixture.Mixture(elements,arealdensity,types.fractionType.weight,name=name)
 
         layer2 = compoundfromname.compoundfromname("silicon nitride")
-        
+
         material = [layer1,layer2]
         thickness = [filmthickness*1e-7,windowthickness*1e-7]
         
     return material,thickness,attenuators
 
 
-class AXOID21_1(Sample):
+class AXOID21_1(Standard):
     aliases = ["RF7-200-S2371-03"]
     
     def __init__(self,**kwargs):
@@ -110,7 +110,7 @@ class AXOID21_1(Sample):
         super(AXOID21_1,self).__init__(material=material,thickness=thickness,**kwargs)
 
 
-class AXOID21_2(Sample):
+class AXOID21_2(Standard):
     aliases = ["RF8-200-S2454"]
     
     def __init__(self,**kwargs):
@@ -127,7 +127,7 @@ class AXOID21_2(Sample):
         super(AXOID21_1,self).__init__(material=material,thickness=thickness,**kwargs)
 
 
-class AXOID16b_1(Sample):
+class AXOID16b_1(Standard):
     aliases = ["RF8-200-S2453"]
     
     def __init__(self,**kwargs):
@@ -143,5 +143,5 @@ class AXOID16b_1(Sample):
             
         super(AXOID16b_1,self).__init__(material=material,thickness=thickness,**kwargs)
 
-factory = Sample.factory
+factory = Standard.factory
 

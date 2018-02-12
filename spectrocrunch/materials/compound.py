@@ -403,11 +403,11 @@ class Compound(Hashable):
     def pymcaname(self):
         return self.name
 
-    def topymca(self):
+    def topymca(self,defaultthickness=1e-4):
         r = self.weightfractions()
         value = {'Comment': self.pymcaname,
                 'CompoundFraction': r.values(),
-                'Thickness': 0.,
+                'Thickness': defaultthickness,
                 'Density': self.density,
                 'CompoundList': ['{}1'.format(e) for e in r]}
         return self.pymcaname,value

@@ -52,6 +52,9 @@ class Base(object):
         self.detector.addtopymca(setup,cfg)
         self.source.addtopymca(setup,cfg)
         
+    def loadfrompymca(self,setup,cfg):
+        self.detector.loadfrompymca(setup,cfg)
+        self.source.loadfrompymca(setup,cfg)
         
 class FlatSample(Base):
 
@@ -125,3 +128,7 @@ class Point(FlatSample):
         super(Point,self).addtopymca(setup,cfg)
         cfg["concentrations"]["distance"] = self.distance
 
+    def loadfrompymca(self,setup,cfg): 
+        super(Point,self).loadfrompymca(setup,cfg)
+        self.distance = cfg["concentrations"]["distance"]
+        

@@ -29,6 +29,7 @@ import scipy.interpolate
 import matplotlib.pyplot as plt
 import logging
 import scipy.optimize
+import collections
 
 from .. import ureg
 from ..math import linop
@@ -386,7 +387,7 @@ class PNdiode(with_metaclass(base.SolidAngle)):
             nE = len(energy)
             
             # Spectrum generated from the target
-            spectrum = self.secondarytarget.xrayspectrum(energy,weights=weights,fulldetection=False) 
+            spectrum = self.secondarytarget.xrayspectrum(energy,weights=weights,withdetectorattenuation=False) 
 
             # Extract energies and rates (ph/phsource)
             kwargs = self.geometry.xrayspectrumkwargs()
@@ -802,7 +803,15 @@ class PNdiode(with_metaclass(base.SolidAngle)):
         """
         darkcurrent = self.cpstocurrent(np.nanmedian(darkcps))
         self.setdark(darkcurrent)
-        
+    
+    def fluxcpsinfo(self,energy):
+        ret = collections.OrderedDict()
+        Cs = self._chargepersamplephoton(energy).to("e")
+        ret["Energy"] = "{} keV".format(energy)
+        ret["Slope"] = "{:f} e$^-$/ph".format(Cs.to("e").magnitude)
+        ret["Intercept"] = "{:e} e$^-$/s".format(self.darkcurrent.to("e/s").magnitude)
+        return ret
+
     def propagate(self,N,energy,tframe=None,nframe=None):
         """Error propagation of a number of photons.
                
@@ -826,6 +835,8 @@ class PNdiode(with_metaclass(base.SolidAngle)):
 
         return Nout # units: DU
 
+
+        
         
 class AbsolutePNdiode(PNdiode):
 
@@ -1020,10 +1031,10 @@ class NonCalibratedPNdiode(PNdiode):
                 format(energy,Cscalc.to("e"),Cs_calib.to("e"),self.darkcurrent.to("e/s"),R2)
         logger.info(info)
         
-        return {"R$^2$":R2,\
-                "Intercept":"{:e} e$^-$".format(self.darkcurrent.to("e/s").magnitude),\
-                "Slope":"{:f} e$^-$/ph".format(Cscalc.to("e").magnitude),\
-                "Energy":"{} keV".format(energy)}
+        ret = self.fluxcpsinfo(energy)
+        ret["R$^2$"] = R2
+        return ret
+
 
 class SXM_PTB(AbsolutePNdiode):
 
@@ -1083,14 +1094,16 @@ class SXM_IODET1(NonCalibratedPNdiode):
 
     aliases = ["iodet1"]
 
-    def __init__(self,optics=True):
-        kwargs = {}
-        
+    def __init__(self,**kwargs):
+
         attenuators = {}
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":0.1}
         kwargs["attenuators"] = attenuators
         
-        source = xraysources.factory("synchrotron")
+        if "source" in kwargs:
+            source = kwargs.pop("source")
+        else:
+            source = xraysources.factory("synchrotron")
         geometry = diodegeometries.factory("Geometry",anglein=90,angleout=75,source=source,detector=self)
         kwargs["solidangle"] = 4*np.pi*0.4
         kwargs["ehole"] = constants.eholepair_si()
@@ -1099,6 +1112,7 @@ class SXM_IODET1(NonCalibratedPNdiode):
         coating = element.Element('Ti')
         secondarytarget = multilayer.Multilayer(material=[coating,window],thickness=[500e-7,500e-7],geometry=geometry)
         
+        optics = kwargs.pop("optics",True)
         if optics:
             optics = KB.KB()
         else:
@@ -1125,14 +1139,15 @@ class SXM_IODET2(NonCalibratedPNdiode):
     
     aliases = ["iodet2"]
 
-    def __init__(self,optics=True):
-        kwargs = {}
-        
+    def __init__(self,**kwargs):
         attenuators = {}
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":0.1}
         kwargs["attenuators"] = attenuators
         
-        source = xraysources.factory("synchrotron")
+        if "source" in kwargs:
+            source = kwargs.pop("source")
+        else:
+            source = xraysources.factory("synchrotron")
         geometry = diodegeometries.factory("Geometry",anglein=90,angleout=75,source=source,detector=self)
         kwargs["solidangle"] = 4*np.pi*0.4
         kwargs["ehole"] = constants.eholepair_si()
@@ -1140,6 +1155,7 @@ class SXM_IODET2(NonCalibratedPNdiode):
         window = compoundfromname.compoundfromname("silicon nitride")
         secondarytarget = multilayer.Multilayer(material=[window],thickness=[500e-7],geometry=geometry)
         
+        optics = kwargs.pop("optics",True)
         if optics:
             optics = KB.KB()
         else:

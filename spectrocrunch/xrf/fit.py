@@ -187,6 +187,12 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={},quant={}):
             cfg["concentrations"]["area"] = quant["area"]
         if "distance" in quant:
             cfg["concentrations"]["distance"] = quant["distance"]
+        if "anglein" in quant:
+            cfg["attenuators"]["Matrix"][4] = quant["anglein"]
+        if "angleout" in quant:
+            cfg["attenuators"]["Matrix"][5] = quant["angleout"]
+        if "anglein" in quant or "angleout" in quant:
+            cfg["attenuators"]["Matrix"][7] = cfg["attenuators"]["Matrix"][4]+cfg["attenuators"]["Matrix"][5]
 
     # Show info
     _energy = instance.asarray(cfg["fit"]["energy"])
@@ -194,15 +200,17 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={},quant={}):
     _weights = _weights/_weights.sum()*100
     sourceinfo = "\n ".join(["{} keV({:.2f}%)".format(en,w) for en,w in zip(_energy,_weights)])
     if quant:
-        fluxinfo = "\n flux = {:e} s^(-1)\n time = {} s\n active area = {} cm^2\n sample-detector distance = {} cm".\
+        fluxinfo = "\n flux = {:e} s^(-1)\n time = {} s\n active area = {} cm^2\n sample-detector distance = {} cm\n angle IN = {} deg\n angle OUT = {} deg".\
                 format(cfg["concentrations"]["flux"],\
                        cfg["concentrations"]["time"],\
                        cfg["concentrations"]["area"],\
-                       cfg["concentrations"]["distance"])
+                       cfg["concentrations"]["distance"],\
+                       cfg["attenuators"]["Matrix"][4],\
+                       cfg["attenuators"]["Matrix"][5])
     else:
         fluxinfo = "\n"
         
-    logger.info("XRF fit:\n {}{}".format(sourceinfo,fluxinfo))
+    logger.info("XRF fit configuration adapted:\n {}{}".format(sourceinfo,fluxinfo))
 
 
 def PerformRoi(filelist,rois,norm=None):

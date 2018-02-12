@@ -30,12 +30,18 @@ import matplotlib.pyplot as plt
 from ..io import spec
 from ..detectors import diode
 from ..common import units
+from ..detectors import xrf as xrfdetectors
+from ..geometries import xrf as xrfgeometries
+from ..geometries import source as xraysources
+
 
 logger = logging.getLogger(__name__)
 
 class FluxMonitor(object):
     
-    def __init__(self,iodetname=None,focussed=None):
+    def __init__(self,iodetname=None,focussed=None,xrfdetector=None,xrfgeometry=None):
+        self.source = xraysources.factory("synchrotron")
+    
         self.idet = diode.factory("idet",model=False)
         self.iodet = None
         self.iodetname = iodetname
@@ -44,11 +50,20 @@ class FluxMonitor(object):
         self.time = units.Quantity(0.1,"s")
         self.setiodet()
         
+        detector = xrfdetectors.factory(xrfdetector)
+        self.xrfgeometry = xrfgeometries.factory(xrfgeometry,detector=detector,source=self.source)
+    
+    def setxrfposition(self,value):
+        self.xrfgeometry.detectorposition = value
+    
+    def getxrfdistance(self):
+        return self.xrfgeometry.distance
+    
     def __getattr__(self,attr):
         return getattr(self.iodet,attr)
     
     def __str__(self):
-        return "Default flux reference:\n {:~e}\nDefault exposure time:\n {:~}\n{}".format(self.reference,self.time,self.iodet.geometry)
+        return "IODET:\n{}\n\nXRF:\n{}\n\nDefault flux reference:\n {:~e}\nDefault exposure time:\n {:~}\n".format(self.iodet.geometry,self.xrfgeometry,self.reference,self.time)
 
     def parsespec(self,specfile,specnr):
         fspec = spec.spec(specfile)
@@ -101,7 +116,7 @@ class FluxMonitor(object):
         
     def setiodet(self):
         if self.iodet is None and not (self.iodetname is None or self.focussed is None):
-            self.iodet = diode.factory(self.iodetname,optics=self.focussed)
+            self.iodet = diode.factory(self.iodetname,optics=self.focussed,source=self.source)
 
     def darkiodet(self):
         self.iodet.darkfromcps(self.iodetcps)
@@ -142,7 +157,15 @@ class FluxMonitor(object):
             ax1.set_ylabel("idet (cts/s)")
             ax1.set_title("{:.0e}".format(self.idet.Rout))
             ax1.legend(loc="best")
-
+            
+            xoff = 0.3
+            yoff = 0.1
+            info = self.idet.fluxcpsinfo(self.energy)
+            for k,v in info.items():
+                ax1.text(xoff,yoff,"{} = {}".format(k,v),transform = ax1.transAxes)
+                yoff -= 0.03
+            
+            
             x = units.magnitude(flux,"hertz")
             indfit = (x<units.magnitude(fluxmin,"hertz")) | (x>units.magnitude(fluxmax,"hertz"))
             if any(indfit):
@@ -162,7 +185,7 @@ class FluxMonitor(object):
                 yoff = 0.1
                 for k,v in fitinfo.items():
                     ax2.text(xoff,yoff,"{} = {}".format(k,v),transform = ax2.transAxes)
-                    yoff += 0.03
+                    yoff -= 0.03
                 
             plt.tight_layout()
         

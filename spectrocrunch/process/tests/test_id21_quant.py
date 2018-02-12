@@ -32,7 +32,7 @@ class test_id21_quant(unittest.TestCase):
 
     def fluxmonitor(self):
         energy = 10
-        monitor = FluxMonitor(iodetname="iodet1",focussed=True)
+        monitor = FluxMonitor(iodetname="iodet1",focussed=True,xrfdetector="leia",xrfgeometry="sxm120")
         monitor.setdark(300,None,gainiodet=1e8)
         monitor.setcalib(energy-2,0.5,gainiodet=1e8)
         monitor.setcalib(energy+2,0.5,gainiodet=1e8)

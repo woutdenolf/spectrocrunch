@@ -677,12 +677,15 @@ class xiadata(object):
         kwargs["cache"] = self._cache
 
     def _getedfimage(self,filename,cache=False):
-        # Don't do any caching for the moment
+        return edf.edfimage(filename)
+        
+        # With memmap
         try:
             return edf.edfmemmap(filename)
         except:
             return edf.edfimage(filename)
         
+        # With caching
         if filename in self._cache["imagehandles"]:
             img = self._cache["imagehandles"][filename]
         else:

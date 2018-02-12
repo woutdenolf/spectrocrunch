@@ -182,6 +182,7 @@ def createimagestacks(config,fluxmonitor=None):
             stackaxes[imgdim[0]] = sslow
             stackaxes[stackdim] = {"name":str(config["stacklabel"]),"data":np.full(nstack,np.nan,dtype=np.float32)}
             expotime = np.full(nstack,np.nan,dtype=np.float32)
+            distance = np.full(nstack,np.nan,dtype=np.float32)
             
         # Add coordinates
         for mot in coordinates:
@@ -227,7 +228,12 @@ def createimagestacks(config,fluxmonitor=None):
                     time = None
                 xrfnormop,flux[imageindex],expotime[imageindex] = fluxmonitor.xrfnormop(energy,time=time)
                 xiaimage.localnorm(config["fluxcounter"],func=xrfnormop)
-    
+                
+                pos = distance[imageindex]
+                if not np.isnan(pos):
+                    fluxmonitor.setxrfposition(pos)
+                distance[imageindex] = fluxmonitor.getxrfdistance()
+                
         if dtcor:
             label = "dtcor"
             radix = ["{}_{}".format(radix,label) for radix in config["scanname"]]
@@ -257,7 +263,12 @@ def createimagestacks(config,fluxmonitor=None):
             binit = imageindex==0
             
             if fluxmonitor is not None:
-                quant = {"time":expotime[imageindex],"flux":flux[imageindex]}
+                quant = {"time":expotime[imageindex],\
+                        "flux":flux[imageindex],\
+                        "area":fluxmonitor.xrfgeometry.detector.activearea,\
+                        "anglein":fluxmonitor.xrfgeometry.anglein,\
+                        "angleout":fluxmonitor.xrfgeometry.angleout,\
+                        "distance":distance[imageindex]}
             else:
                 quant = {}
             

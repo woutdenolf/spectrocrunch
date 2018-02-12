@@ -84,25 +84,23 @@ class Material(object):
             self.addtopymca_attenuator(setup,cfg,attlabel,attinfo["material"],attinfo["thickness"])
 
     def addtopymca_attenuator(self,setup,cfg,attlabel,material,thickness):
-        matname = setup.addtopymca_material(cfg,material)
+        matname = setup.addtopymca_material(cfg,material,defaultthickness=thickness)
         cfg["attenuators"][attlabel] = [1,matname,material.density,thickness,1.0]
 
-    def loadfrompymca(self,config):
+    def loadfrompymca(self,setup,cfg):
         self.attenuators = {}
-        for attlabel,attinfo in self.attenuators["attenuators"].items():
-            self.loadfrompymca_attenuator(config,attlabel,attinfo)
+        for attlabel,attinfo in cfg["attenuators"].items():
+            if attlabel!="Matrix":
+                self.loadfrompymca_attenuator(setup,cfg,attlabel,attinfo)
 
-    def loadfrompymca_attenuator(self,config,attlabel,attinfo):
-        matname,density,thickness = attinfo[1],attinfo[2],attinfo[3]
-        material = self.loadfrompymca_material(config,matname,density)
-        self.attenuators[attlabel] = {"material":material,"thickness":thickness}
-        
-    def loadfrompymca_material(self,config,matname,density):
-        if matname in config["materials"]:
-            material = mixture.frompymca(config["materials"][matname])
-        else:
-            material = compoundfromformula.CompoundFromFormula(matname,density)
-        return material
+    def loadfrompymca_attenuator(self,setup,cfg,attlabel,attinfo):
+        enabled = attinfo[0]
+        matname = attinfo[1]
+        density = attinfo[2]
+        thickness = attinfo[3]
+        if enabled:
+            material = setup.loadfrompymca_material(cfg,matname,density)
+            self.attenuators[attlabel] = {"material":material,"thickness":thickness}
 
     def isbefore(self,name):
         return "BeamFilter" in name
@@ -202,21 +200,18 @@ class SolidAngle(SolidState):
             
         return " Solid angle = {}\n{}".format(solidangle,super(SolidAngle,self).__str__())
 
-    def efficiency(self,energysource,energydet,full=True):
-        """Detector efficiency
+    def efficiency(self,energysource,energydet,withdetectorattenuation=True):
+        """Filter+Detector efficiency
         
-          Full:     S/cos(ain)*T(energysource)*T(energydet)*A(energydet)
-          Not full: S/cos(ain)*T(energysource)*T(energydet)
-          
-            S: solid angle detector
-            ain: angle of beam with surface normal
-            T: transmission by filters (before sample and detector)
-            A: attenuation by the detector crystal
+          T(energysource)*T(energydet)*A(energydet)
+
+          T: transmission by filters (before sample and detector)
+          A: attenuation by the detector material (withdetectorattenuation==True)
             
         Args:
             energysource: n0
             energydet: n1
-            full(Optional(bool)): with detector attenuation or not
+            withdetectorattenuation(Optional(bool)): with detector attenuation or not
 
         Returns:
             array: n0 x n1
@@ -224,17 +219,14 @@ class SolidAngle(SolidState):
         energysource = instance.asarray(energysource)
         energydet = instance.asarray(energydet)
 
-        g = self.solidangle/self.geometry.cosnormin
         T0 = super(SolidAngle,self).filter_transmission(energysource,source=True)
         T1 = super(SolidAngle,self).filter_transmission(energydet,source=False)
-        if full:
+        if withdetectorattenuation:
             A = self.attenuation(energydet)
         else:
             A = 1.
 
-        # the cosine term is put here for convenience (comes from integration over sample thickness)
-        
-        return (g*T0)[:,np.newaxis]*(T1*A)[np.newaxis,:]
+        return T0[:,np.newaxis]*(T1*A)[np.newaxis,:]
         
         
 class PointSourceCentric(SolidAngle):
@@ -247,10 +239,20 @@ class PointSourceCentric(SolidAngle):
         return " Active area = {} cm^2\n{}".format(self.activearea,super(PointSourceCentric,self).__str__())
 
     @classmethod
-    def solidangle_calc(cls,activearea=None,distance=None):
-        r2 = activearea/np.pi # squared disk radius
-        return 2.*np.pi*(1.-(distance/np.sqrt(r2+distance**2.)))
-
+    def solidangle_calc(cls,activearea=None,distance=None,solidangle=None):
+        if solidangle is None:
+            r2 = activearea/np.pi # squared disk radius
+            return 2.*np.pi*(1.-(distance/np.sqrt(r2+distance**2.)))
+        elif distance is None:
+            r2 = activearea/np.pi
+            c2 = (1-solidangle/(2.*np.pi))**2
+            return np.sqrt(r2*c2/(1-c2))
+        elif activearea is None:
+            c2 = (1-solidangle/(2.*np.pi))**2
+            return (1-c2)*distance**2*np.pi/c2
+        else:
+            raise RuntimeError("Either distance, active area or solid angle must be unknown")
+            
     @property
     def solidangle(self):
         return self.solidangle_calc(activearea=self.activearea,distance=self.geometry.distance)
@@ -276,4 +278,8 @@ class PointSourceCentric(SolidAngle):
     def addtopymca(self,setup,cfg): 
         super(PointSourceCentric,self).addtopymca(setup,cfg)
         cfg["concentrations"]["area"] = self.activearea
+    
+    def loadfrompymca(self,setup,cfg): 
+        super(PointSourceCentric,self).loadfrompymca(setup,cfg)
+        self.activearea = cfg["concentrations"]["area"]
         

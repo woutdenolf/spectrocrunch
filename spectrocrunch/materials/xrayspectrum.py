@@ -26,6 +26,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numbers
 import re
+import collections
 
 from .. import xraylib
 from .. import ureg
@@ -228,6 +229,15 @@ class FluoLine(hashable.Hashable):
                 return Shell(shellname)
         raise RuntimeError("Cannot find the shell of fluorescence line {}".format(self))
 
+    @property
+    def shellsource(self):
+        """Shell which is ionized after the transition
+        """
+        for shellname in xraylib._shell_to_code:
+            if self.name.endswith(shellname):
+                return Shell(shellname)
+        raise RuntimeError("Cannot find the source shell of fluorescence line {}".format(self))
+
     def fluorescence_production_cs(self,Z,E):
         # Kissel without cascade and Coster–Kronig transitions:
         #   return self.shell.partial_photo(Z,E)*self.shell.fluoyield(Z)*self.radrate(Z)
@@ -235,7 +245,6 @@ class FluoLine(hashable.Hashable):
         #   return xraylib.CS_FluorLine_Kissel_no_Cascade(Z, self.code, E)
         # Kissel with cascade and Coster–Kronig transitions:
         return xraylib.CS_FluorLine_Kissel_Cascade(Z, self.code, E)
-        
         
 class Shell(hashable.Hashable):
 
@@ -352,6 +361,9 @@ class Shell(hashable.Hashable):
         else:
             return [l.radrate(Z) for l in self._fluolines]
 
+    def atomiclevelwidth(self,Z):
+        return xraylib.AtomicLevelWidth(Z,self.code)
+
     def partial_fluoyield(self,Z,decomposed=False):
         """Probability of selected lines / probability of shell ionization
         """
@@ -382,6 +394,13 @@ class FluoZLine(hashable.Hashable):
             return getattr(self.line,attr)
         except:
             return getattr(self.element,attr)
+            
+    @property
+    def linewidth(self):
+        """Lorentzian FWHM
+        """
+        #Journal of Physical and Chemical Reference Data 8, 329 (1979); https://doi.org/10.1063/1.555595
+        return self.line.shell.atomiclevelwidth(self.element.Z) + self.line.shellsource.atomiclevelwidth(self.element.Z)
 
     def _cmpkey(self):
         """For comparing and sorting
@@ -407,11 +426,18 @@ class FluoZLine(hashable.Hashable):
     def split(self):
         return [self]
 
+    @property
+    def valid(self):
+        return self.energy()>0
 
 class ScatteringLine(hashable.Hashable):
 
     def __init__(self,energysource):
         self.energysource = energysource
+    
+    @property
+    def linewidth(self):
+        return 0 # TODO: depends on many things
         
     def _cmpkey(self):
         """For comparing and sorting
@@ -436,7 +462,10 @@ class ScatteringLine(hashable.Hashable):
     @property   
     def groupname(self):
         return str(self)
-        
+    
+    @property
+    def valid(self):
+        return True
         
 class RayleighLine(ScatteringLine):
 
@@ -463,7 +492,7 @@ class ComptonLine(ScatteringLine):
         Args:
             polar(num): deg
         """
-        if polar==0:
+        if polar==0 or polar is None:
             return self.energysource
         delta = ureg.Quantity(1-np.cos(np.radians(polar)),"1/(m_e*c^2)").to("1/keV","spectroscopy").magnitude
         return self.energysource/(1+self.energysource*delta) 
@@ -471,9 +500,9 @@ class ComptonLine(ScatteringLine):
 
 class Spectrum(dict):
 
-    TYPES = Enum(['crosssection','interactionyield'])
+    TYPES = Enum(['crosssection','rate'])
     # crosssection: cm^2/g
-    # interactionyield: crosssection.density.thickness (dimensionless)
+    # rate: dimensionless
 
     def __init__(self, *args, **kwargs):
         self.update(*args, **kwargs)
@@ -483,7 +512,29 @@ class Spectrum(dict):
         self.xlabel = "Energy (keV)"
         self.type = None
         self.geometry = None
-        
+
+    @property
+    def geomkwargs(self):
+        if self.geometry is None:
+            geomkwargs = {"polar":90}
+        else:
+            geomkwargs = self.geometry.xrayspectrumkwargs()
+        return geomkwargs
+    
+    @property
+    def mcagain(self):
+        if self.geometry is None:
+            return 0.005
+        else:
+            return self.geometry.detector.mcagain
+
+    @property
+    def mcazero(self):
+        if self.geometry is None:
+            return 0
+        else:
+            return self.geometry.detector.mcazero
+
     def apply_weights(self,weights):
         if weights is None:
             return
@@ -501,39 +552,73 @@ class Spectrum(dict):
             if isinstance(k,FluoZLine):
                 self[k] = np.sum(self[k])
     
-    def ylabel(self,convert=True):
+    def ylabel(self,convert=True,phsource=False,mcabin=False):
         if self.type==self.TYPES.crosssection:
             if convert:
-                return "Probability (1/cm)"
+                if phsource:
+                    label = "Intensity"
+                else:
+                    label = "Probability"
+                units = "1/cm/srad"
             else:
-                return "Cross-section (cm^2/g/srad)"
+                label = "Cross-section"
+                units = "cm$^2$/g"
+                if phsource:
+                    units = "{}.phsource".format(units)
         else:
-            return "Rate (ph/phsource)"
-
+            if phsource:
+                label = "Intensity"
+                units = "ph"
+            else:
+                label = "Rate"
+                units = "ph/phsource"
+        if mcabin:
+            units = "{}/mcabin".format(units)
+        
+        return "{} {}".format(label,units)
+                    
     def conversionfactor(self,convert=True):
         if self.type==self.TYPES.crosssection and convert:
-            return self.density/(4*np.pi) # cm^2/g/srad -> 1/cm
+            return self.density/(4*np.pi) # cm^2/g -> 1/cm/srad
         else:
             return 1
+    
+    def items(self):
+        for k,v in super(Spectrum,self).items():
+            if k.valid and np.sum(v)>0:
+                yield k,v
 
     def items_sorted(self,sort=False,**geomkwargs):
         if sort:
-            return sorted(self.items(),key=lambda x: np.max(instance.asarray(x[0].energy(**geomkwargs))))
+            _geomkwargs = self.geomkwargs
+            _geomkwargs.update(geomkwargs)
+            sortkey = lambda x: np.max(instance.asarray(x[0].energy(**geomkwargs)))
+            return sorted(self.items(),key=sortkey)
         else:
             return self.items()
-
+            
     def items_converted(self,convert=True,**kwargs):
         m = self.conversionfactor(convert=convert)
         
         for line,v in self.items_sorted(**kwargs):
-            if np.sum(v)==0:
-                continue
             yield line,v*m
 
     @property
     def probabilities(self):
+        """Interaction probability per cm and per srad
+        """
+        if self.type!=self.TYPES.crosssection:
+            raise RuntimeError("Spectrum does not contain cross-sections (cm^2/g)")
         return self.items_converted(convert=True)
 
+    @property
+    def rates(self):
+        """Line rate (ph/phsource)
+        """
+        if self.type!=self.TYPES.rate:
+            raise RuntimeError("Spectrum does not contain line rates (ph/phsource)")
+        return self.items_converted(convert=True)
+        
     def lines(self,**kwargs):
         for line,v in self.items_converted(convert=True,**kwargs):
             if isinstance(line,FluoZLine):
@@ -562,8 +647,7 @@ class Spectrum(dict):
         return ret
 
     def __str__(self):
-        geomkwargs = self.geomkwargs()
-        
+        geomkwargs = self.geomkwargs
         lines = "\n ".join(["{} {}".format(line,v) for line,v in self.lines(sort=True,**geomkwargs)])
         return "{}\n Line   {}\n {}".format(self.title,self.ylabel(convert=True),lines)
     
@@ -576,73 +660,158 @@ class Spectrum(dict):
         return listtools.length(self.energysource)
 
     def power(self,flux,**kwargs):
-        if self.type!=self.TYPES.interactionyield:
-            raise RuntimeError("Spectrum must contain interactions yields, not cross-sections.")
+        if self.type!=self.TYPES.rate:
+            raise RuntimeError("Spectrum must contain rates, not cross-sections.")
         P = sum([energy*rate for energy,rate in self.spectrum(**kwargs)])
         return ureg.Quantity(P*flux,"keV/s")
 
-    def geomkwargs(self):
-        if self.geometry is None:
-            geomkwargs = {"polar":90}
-        else:
-            geomkwargs = self.geometry.xrayspectrumkwargs()
-        return geomkwargs
-        
-    def plot(self,geometry=None,convert=True,mark=True,log=False):
-        ax = plt.gca()
-        
-        geomkwargs = self.geomkwargs()
+    @property
+    def energylimits(self):
+        emin,emax = self.xlim
+        return self.roundenergybin(emin),self.roundenergybin(emax)
 
+    @property
+    def channellimits(self):
+        emin,emax = self.energylimits
+        return self.energytochannel(emin),self.energytochannel(emax)
+
+    def energytochannel(self,energy):
+        return max(int(round((energy-self.mcazero)/self.mcagain)),0)
+
+    def roundenergybin(self,energy):
+        return self.mcazero+self.mcagain*self.energytochannel(energy)
+    
+    def mcabinenergies(self):
+        emin,emax = self.energylimits
+        return np.arange(emin,emax,self.mcagain)
+    
+    def mcabins(self):
+        a,b = self.channellimits
+        return np.arange(a,b+1)
+        
+    def peakprofiles(self,convert=True):
+        ret = collections.OrderedDict()
+        
+        geomkwargs = self.geomkwargs
+                
         groups = self.linegroups(convert=convert)
-        for group,lines in groups.items():
-            color = next(ax._get_lines.prop_cycler)['color']
-            
-            if group=="Compton" or group=="Rayleigh":
+
+        for group,lines in groups.items():        
+            bscat = group=="Compton" or group=="Rayleigh"
+            if bscat:
                 lines,intensities = lines.items()[0]
                 lines = lines.split()
             else:
                 intensities = lines.values()
-                
+            
             imax = np.argmax(intensities)
-
-            for i,(line,intensity) in enumerate(zip(lines,intensities)):
+            
+            for i,(line,peakarea) in enumerate(zip(lines,intensities)):
                 energy = line.energy(**geomkwargs)
+                
                 if i==imax:
                     label = group
                 else:
                     label = None
-                h = self._plotline(energy,intensity,geometry=geometry,label=label,color=color)
-                if i==imax and mark:
-                    plt.annotate(line, xy=(energy, h),color=color)
+                
+                if bscat:
+                    linename = "{}{}".format(group,i)
+                else:
+                    linename = str(line)
+                
+                if self.geometry is None:
+                    def prof(x,peakarea=peakarea,energy=energy):
+                        x,func = instance.asarrayf(x)
+                        p = np.zeros_like(x)
+                        i = np.argmin(np.abs(x-energy))
+                        p[i] = peakarea
+                        return func(p)
+                else:
+                    linewidth = line.linewidth
+                    def prof(x,peakarea=peakarea,energy=energy,linewidth=linewidth):
+                        return peakarea*np.squeeze(self.geometry.detector.lineprofile(x,energy,linewidth=linewidth))
+                ret[linename] = {"group":group,"label":label,"profile":prof,"energy":energy,"area":peakarea}
+
+        return ret
+
+    def profileinfo(self,convert=False,fluxtime=None,histogram=False):
+        multiplier = 1
+        phsource = fluxtime is not None
+        if phsource:
+            multiplier = multiplier*fluxtime
+        if histogram:
+            multiplier = multiplier*self.mcagain
+        ylabel = self.ylabel(convert=convert,phsource=phsource,mcabin=histogram)
+        return multiplier,ylabel
+        
+    def sumprofile(self,convert=True,fluxtime=None,histogram=False,backfunc=None):
+        energies = self.mcabinenergies()
+        multiplier,ylabel = self.profileinfo(convert=convert,fluxtime=fluxtime,histogram=histogram)
+        profiles = self.peakprofiles(convert=convert)
+        y = sum(lineinfo["profile"](energies) for lineinfo in profiles.values())*multiplier
+        if backfunc is not None:
+            y = y+backfunc(energies)
+        return energies,y,ylabel
+        
+    def plot(self,convert=False,fluxtime=None,mark=True,log=False,decompose=True,histogram=False,backfunc=None,sumlabel="sum"):
+        ax = plt.gca()
+
+        if decompose:
+            energies = self.mcabinenergies()
+            multiplier,ylabel = self.profileinfo(convert=convert,fluxtime=fluxtime,histogram=histogram)
+            profiles = self.peakprofiles(convert=convert)
+
+            colors = {}
+            for lineinfo in profiles.values():
+                g = lineinfo["group"]
+                if g not in colors:
+                    colors[g] = next(ax._get_lines.prop_cycler)['color']
+            
+            sumprof = None
+            for linename,lineinfo in sorted(profiles.items(), key=lambda x: x[1]["energy"]):
+                color = colors[lineinfo["group"]]
+                h,prof = self._plotline(lineinfo,energies,backfunc=backfunc,\
+                            multiplier=multiplier,color=color,label=lineinfo["label"])
+                if mark and lineinfo["label"] is not None:
+                    plt.annotate(linename, xy=(lineinfo["energy"], h),color=color)
+                if prof is not None:
+                    if sumprof is None:
+                        sumprof = prof
+                    else:
+                        sumprof += prof
+        else:
+            energies,sumprof,ylabel = self.sumprofile(convert=convert,fluxtime=fluxtime,histogram=histogram,backfunc=None)
+            
+        if sumprof is not None:
+            plt.plot(energies,sumprof,label=sumlabel)
                     
-                    
-        if geometry is not None and log:
+        if self.geometry is not None and log:
             ax.set_yscale('log', basey=10)
             plt.ylim([1,None])
             
         plt.legend(loc='best')
         plt.xlabel(self.xlabel)
-        plt.ylabel(self.ylabel(convert=convert))
+        plt.ylabel(ylabel)
         plt.xlim(self.xlim)
         try:
             plt.title(self.title)
         except UnicodeDecodeError:
             pass
             
-    def _plotline(self,energy,area,geometry=None,**kwargs):
-        if geometry is None:
-            plt.plot([energy,energy],[0,area],**kwargs)
+    def _plotline(self,line,energies,background=0,multiplier=1,backfunc=None,**kwargs):
+        if self.geometry is None:
+            energy = line["energy"]
+            area = line["area"]
+            plt.plot([energy,energy],[0,area*multiplier],**kwargs)
             h = area
+            y = None
         else:
-            s = np.sqrt(geometry.detector.linesigma2(energy))
-            emin = 0
-            emax = energy+4*sx
-            n = int((emax-emin)/0.01)
-            x = np.linspace(emin,emax,n)
-            y = area*geometry.detector.lineprofile(x,energy)
+            y = line["profile"](energies)*multiplier
+            if backfunc is not None:
+                y = y+backfunc(energies)
             h = max(y)
-            plt.plot(x,y,**kwargs)
-            
-        return h
+            plt.plot(energies,y,**kwargs)
+
+        return h,y
 
 
