@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -24,9 +24,7 @@
 
 import unittest
 
-from .. import xrf as xrfdetectors
-from ...geometries import xrf as xrfgeometries
-from ...geometries import source as xrfsources
+from .. import xrf
 
 import numpy as np
 import silx.math.fit
@@ -50,17 +48,12 @@ class test_xrfdet(unittest.TestCase):
         
         kwargs["shape_conversionenergy"] = u
         
-        kwargs["shape_fixedratios"] = {"tailbroadening":0.5,"tailfraction":0.05,"stepfraction":0.005}
-        detector1 = xrfdetectors.Detector(**kwargs)
+        kwargs["shape_fixedarearatios"] = {"tailbroadening":0.5,"tailfraction":0.05,"stepfraction":0.005}
+        detector1 = xrf.XRFDetector(**kwargs)
         
-        kwargs.pop("shape_fixedratios")
-        kwargs["shape_variableratios"] = {"stepheight_ratio":detector1.ratios[1],"tailarea_ratio":detector1.ratios[0],"tailslope_ratio":detector1.tailslope_ratio}
-        detector2 = xrfdetectors.Detector(**kwargs)
-        
-        source = xrfsources.factory("synchrotron")
-        
-        geometry1 = xrfgeometries.factory("sxm120",detector=detector1,source=source)
-        geometry2 = xrfgeometries.factory("sxm120",detector=detector2,source=source)
+        kwargs.pop("shape_fixedarearatios")
+        kwargs["shape_pymca"] = {"stepheight_ratio":detector1.ratios[1],"tailarea_ratio":detector1.ratios[0],"tailslope_ratio":detector1.tailslope_ratio}
+        detector2 = xrf.XRFDetector(**kwargs)
         
         np.testing.assert_allclose(detector1.fractions,detector2.fractions)
         np.testing.assert_allclose(detector1.ratios,detector2.ratios)
@@ -72,10 +65,9 @@ class test_xrfdet(unittest.TestCase):
         
         for voigt in [False,True]:
             for tailbroadening in [2.5]: # assert fails when too large
-                for wtail in [0,1,0.2,0.4,0.6]:
-                    for wstep in [0,1,0.2,0.4,0.6]:
+                for wstep in [0,1,0.2,0.4,0.6]:
+                    for wtail in [0,1,0.2,0.4,0.6]:
                     
-
                         # Spectrocrunch arguments
                         if wstep+wtail>1:
                             continue
@@ -108,10 +100,11 @@ class test_xrfdet(unittest.TestCase):
                         if wdet>0:
                             y3 = np.squeeze(detector2.lineprofile(x,u))
 
-                        #import matplotlib.pyplot as plt
-                        #plt.plot(x,y1+1,'o')
-                        #plt.plot(x,y3+1)
-                        #plt.show()
+                        #if wdet>0:
+                        #    import matplotlib.pyplot as plt
+                        #    plt.plot(x,y1+1,'o')
+                        #    plt.plot(x,y3+1)
+                        #    plt.show()
 
                         a = np.max(y1)*0.1
                         np.testing.assert_allclose(y1+a,y2+a)

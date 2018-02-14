@@ -31,15 +31,39 @@ def Quantity(x,units=None):
     """
     try:
         x.units
-        return x
-    except:
+    except AttributeError:
         return ureg.Quantity(x,units=units)
-
+    else:
+        return x
+        
 def units(x):
     try:
         return x.units
-    except:
+    except AttributeError:
         return None
+
+def to(x,y):
+    """Convert units of x to units of y (if y has no units, it will try to have x without units as we)
+    """
+    try:
+        y.units
+    except AttributeError: # y has no units
+        try:
+            x.units 
+        except AttributeError: # x has no units
+            return x
+        else:
+            try:
+                x = x.to("dimensionless").magnitude
+            except:
+                raise RuntimeError("Units are not compatible: {}, {}".format(x,y))
+    else: # y has units
+        try:
+            x = x.to(y.units)
+        except:
+            raise RuntimeError("Units are not compatible: {}, {}".format(x,y))
+            
+    return x
 
 def generator(x):
     kwargs = {"magnitude":x.magnitude,"units":x.units}
@@ -50,7 +74,7 @@ def magnitude(x,units=None):
     """
     try:
         return x.to(units).magnitude
-    except:
+    except AttributeError:
         return x
 
 def quantity_like(x,y):
@@ -76,7 +100,7 @@ def asarrayf(x,**kwargs):
         
     try:
         x = x.magnitude
-    except:
+    except AttributeError:
         pass
 
     x,func = instance.asarrayf(x,**kwargs)
@@ -92,7 +116,7 @@ def serialize(x):
                     generator="Quantity",\
                     args=(x.magnitude,),\
                     kwargs={"units":str(x.units)})
-    except:
+    except AttributeError:
         return x
         
 

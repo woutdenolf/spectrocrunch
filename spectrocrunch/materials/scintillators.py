@@ -31,6 +31,7 @@ from .compound import Compound as compound
 from .mixture import Mixture as mixture
 from .types import fractionType
 from . import emspectrum
+from ..common import instance
 
 from .. import ureg
 
@@ -93,7 +94,7 @@ class Scintillator(with_metaclass()):
         
         N,probsuccess,gain = self.propagate_broadcast(N,probsuccess,gain)
         
-        if noisepropagation.israndomvariable(N):
+        if instance.israndomvariable(N):
             if forward:
                 proc1 = noisepropagation.bernouilli(probsuccess)
                 proc2 = noisepropagation.poisson(gain)

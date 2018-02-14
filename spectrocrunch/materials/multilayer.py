@@ -100,7 +100,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         Args:
             material(list(spectrocrunch.materials.compound|mixture)): layer composition
             thickness(list(num)): layer thickness in cm
-            geometry(spectrocrunch.geometries.base.PointGeometry): 
+            geometry(spectrocrunch.geometries.base.Centric): 
         """
         
         self.geometry = geometry
@@ -967,7 +967,7 @@ class Multilayer(with_metaclass(cache.Cache)):
 
         N,probsuccess = self.propagate_broadcast(N,probsuccess)
 
-        if noisepropagation.israndomvariable(N):
+        if instance.israndomvariable(N):
             process = noisepropagation.bernouilli(probsuccess)
             Nout = noisepropagation.compound(N,process,forward=forward)
         else:

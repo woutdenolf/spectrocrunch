@@ -84,13 +84,13 @@ class test_diode(unittest.TestCase):
             for energy in np.arange(3,9):
                 o2 = o.op_fluxtocurrent(energy)*o.op_currenttoflux(energy)
                 self.assertAlmostEqual(o2.m,1.)
-                self.assertEqual(o2.b.magnitude,0.)
+                self.assertAlmostEqual(o2.b.magnitude,0.)
                 self.assertEqual(o2.m.units,ureg.dimensionless)
                 self.assertEqual(o2.b.units,ureg.ampere)
 
                 o2 = o.op_fluxtocps(energy)*o.op_cpstoflux(energy)
                 self.assertAlmostEqual(o2.m,1.)
-                self.assertEqual(o2.b.magnitude,0.)
+                self.assertAlmostEqual(o2.b.magnitude,0.)
                 self.assertEqual(o2.m.units,ureg.dimensionless)
                 self.assertEqual(o2.b.units,ureg.hertz)
                 
@@ -110,7 +110,7 @@ class test_diode(unittest.TestCase):
         for caliboption in ["solidangle","thickness","optics"]:
             o = diode.SXM_IODET1(optics=True)
             o.thickness = 1e-4
-            o.solidangle = 0.1
+            o.geometry.solidangle = 0.1
             o.optics.reset_transmission()
 
             cps = np.linspace(1e4,1e5,10)
@@ -125,10 +125,10 @@ class test_diode(unittest.TestCase):
             if caliboption=="solidangle":
                 # Same counts but the flux is m times higher -> diode yield (solid angle) is m times lower
                 m = 2.
-                sa = o.solidangle
+                sa = o.geometry.solidangle
                 o.calibrate(cps,sampleflux*m,energy,caliboption=caliboption)
                 np.testing.assert_allclose(sampleflux*m,o.cpstoflux(energy,cps))
-                np.testing.assert_allclose(o.secondarytarget.geometry.solidangle,sa/m)
+                np.testing.assert_allclose(o.geometry.solidangle,sa/m)
             elif caliboption=="optics":
                 # Same counts but the flux is m times lower -> optics transmission is m times lower
                 m1 = 0.5

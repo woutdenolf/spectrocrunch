@@ -57,7 +57,7 @@ class test_multilayer(unittest.TestCase):
             
     def _multilayer1(self):
         src = source.factory("synchrotron")
-        detector = xrfdetectors.factory("Detector",activearea=0.50)
+        detector = xrfdetectors.factory("XRFDetector",activearea=0.50)
         geometry = xrfgeometries.factory("sxm120",detectorposition=-15.,detector=detector,source=src)
         geometry.solidangle = 4*np.pi*0.1
         
@@ -117,7 +117,8 @@ class test_multilayer(unittest.TestCase):
     def test_attenuationinfo(self):
         src = source.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
-        geometry = xrfgeometries.factory("lineargeometry",anglein=90,angleout=45,azimuth=0,detectorposition=0.,unittocm=1,detector=detector,source=src)
+        geometry = xrfgeometries.factory("linearxrfgeometry",anglein=90,angleout=45,\
+                azimuth=0,detectorposition=0.,positionunits="mm",detector=detector,source=src)
         
         o = multilayer.Multilayer(material=[compoundfromname.compoundfromname("hematite"),\
                                             compoundfromname.compoundfromname("hydrocerussite"),\

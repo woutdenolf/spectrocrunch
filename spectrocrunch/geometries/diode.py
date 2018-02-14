@@ -27,10 +27,10 @@ from . import base
 
 import numpy as np
 
-class Geometry(with_metaclass(base.Point)):
+class DiodeGeometry(with_metaclass(base.SolidAngle)):
 
     def __init__(self,**kwargs):
-        super(Geometry,self).__init__(**kwargs)
+        super(DiodeGeometry,self).__init__(**kwargs)
 
-factory = Geometry.factory
+factory = DiodeGeometry.factory
 

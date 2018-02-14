@@ -23,36 +23,52 @@
 # THE SOFTWARE.
 
 import unittest
-from ..align.tests import test_all as test_align
-from ..common.tests import test_all as test_common
-from ..io.tests import test_all as test_io
-from ..geometries.tests import test_all as test_geometries
-from ..materials.tests import test_all as test_materials
-from ..math.tests import test_all as test_math
-from ..process.tests import test_all as test_process
-from ..visualization.tests import test_all as test_visualization
-from ..xrf.tests import test_all as test_xrf
-from ..h5stacks.tests import test_all as test_h5stacks
 
+from ..import xrf
+from ...common import units
 
+class test_xrf(unittest.TestCase):
+
+    def test_distance(self):
+        class Dummy():
+            pass
+        
+        geometry = xrf.factory("LinearXRFGeometry",zerodistance=6.,detectorposition=-10,positionunits="mm",detector=Dummy(),source=Dummy())
+
+        self.assertEqual(geometry.distance,5)
+        self.assertEqual(geometry.detectorposition,-1)
+        
+        geometry.detectorposition = 30
+        self.assertEqual(geometry.distance,9)
+        self.assertEqual(geometry.detectorposition,3)
+        
+        geometry.detectorposition = units.Quantity(4,"cm")
+        self.assertEqual(geometry.distance,10)
+        self.assertEqual(geometry.detectorposition,4)
+        
+        geometry.distance = 4
+        self.assertEqual(geometry.distance,4)
+        self.assertEqual(geometry.detectorposition,-2)
+        
+        geometry.calibrate_manually(10)
+        self.assertEqual(geometry.distance,10)
+        self.assertEqual(geometry.detectorposition,-2)
+        
+        geometry.calibrate_manually(units.Quantity(20,"mm"))
+        self.assertEqual(geometry.distance,2)
+        self.assertEqual(geometry.detectorposition,-2)
+        
+        geometry.distance = units.Quantity(50,"mm")
+        self.assertEqual(geometry.distance,5)
+        self.assertEqual(geometry.detectorposition,1)
+        
+        
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_common.test_suite_all())
-    testSuite.addTest(test_math.test_suite_all())
-    testSuite.addTest(test_io.test_suite_all())
-
-    testSuite.addTest(test_geometries.test_suite_all())
-    testSuite.addTest(test_materials.test_suite_all())
-    testSuite.addTest(test_align.test_suite_all())
-
-    testSuite.addTest(test_xrf.test_suite_all())
-    testSuite.addTest(test_h5stacks.test_suite_all())
-    
-    testSuite.addTest(test_process.test_suite_all())
-    testSuite.addTest(test_visualization.test_suite_all())
+    testSuite.addTest(test_xrf("test_distance"))
     return testSuite
-
+    
 if __name__ == '__main__':
     import sys
 

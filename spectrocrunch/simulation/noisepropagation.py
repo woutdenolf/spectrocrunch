@@ -22,13 +22,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common.Enum import Enum
-from ..common.instance import isarray
+
+from ..common import instance
+from ..common import units
 
 import numpy as np
-
 from uncertainties.core import Variable as RandomVariable
-
 from uncertainties import unumpy
 
 # Uncertainties: linear approximation to error propagation
@@ -47,13 +46,7 @@ from uncertainties import unumpy
 #       C[x,y] = sum( x.derivatives[a] * y.derivatives[a] * sa^2 + 
 #                     x.derivatives[b] * y.derivatives[b] * sb^2 + ... )
 #
-
-def israndomvariable(X):
-    if isarray(X):
-        return isinstance(X.flat[0],RandomVariable)
-    else:
-        return isinstance(X,RandomVariable)
-        
+    
 class Bernouilli(RandomVariable):
     def __init__(self,probsuccess,**kwargs):
         super(Bernouilli,self).__init__(probsuccess,np.sqrt(probsuccess*(1-probsuccess)),**kwargs)
@@ -63,34 +56,38 @@ class Poisson(RandomVariable):
         super(Poisson,self).__init__(gain,np.sqrt(gain),**kwargs)
 
 def bernouilli(p):
-    if isarray(p):
+    if instance.isarray(p):
         return np.vectorize(Bernouilli,otypes=[object])(p)
     else:
         return Bernouilli(p)
 
 def poisson(p):
-    if isarray(p):
+    if instance.isarray(p):
         return np.vectorize(Poisson,otypes=[object])(p)
     else:
         return Poisson(p)
         
 def randomvariable(X,SX):
-    if isarray(X):
+    if instance.isarray(X):
         return np.vectorize(lambda x, s: RandomVariable(x, s), otypes=[object])(X,SX)
     else:
         return RandomVariable(X,SX)
   
 def E(X):
-    if isinstance(X,RandomVariable):
+    if instance.israndomvariable(X):
         return X.nominal_value
+    elif instance.isquantity(X):
+        return units.Quantity(E(X.magnitude),X.units)
     else:
-        return unumpy.nominal_values(X)
-    
+        return instance.asscalar(unumpy.nominal_values(X))
+        
 def S(X):
-    if isinstance(X,RandomVariable):
+    if instance.israndomvariable(X):
         return X.std_dev
+    elif instance.isquantity(X):
+        return units.Quantity(S(X.magnitude),X.units)
     else:
-        return unumpy.std_devs(X)
+        return instance.asscalar(unumpy.std_devs(X))
 
 def VAR(X):
     return S(X)**2
@@ -168,7 +165,7 @@ def compound(N,X,forward=True):
     EX = E(X)
     VARX = VAR(X)
     
-    #if isarray(N) or isarray(X):
+    #if instance.isarray(N) or instance.isarray(X):
     #    nN = np.asarray(N).shape
     #    if len(nN)==2:
     #        nN = nN[1]

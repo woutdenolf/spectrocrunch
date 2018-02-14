@@ -52,7 +52,7 @@ class Cache(object):
         method = "_cache_{}".format(subject)
         try:
             generator = getattr(self,method)
-        except:
+        except AttributeError:
             generator = None
         return generator
         
@@ -107,7 +107,7 @@ def withcache(subject):
         def wrapper(self, *args, **kwargs):
             try:
                 ctx = getattr(self,"cachectx")
-            except:
+            except AttributeError:
                 raise RuntimeError("Class \"{}\" must be derived from \"Cache\"".format(self.__class__.__name__))
             with ctx(subject):
                 return func(self, *args, **kwargs)

@@ -222,7 +222,7 @@ def createimagestacks(config,fluxmonitor=None):
             stackinfo["flux"] = np.full(nstack,np.nan,dtype=np.float32)
             stackinfo["activearea"] = np.full(nstack,fluxmonitor.xrfgeometry.detector.activearea)
             stackinfo["anglein"] = np.full(nstack,fluxmonitor.xrfgeometry.anglein)
-            stackinfo["angleout"] = np.full(nstack,fluxmonitor.xrfgeometry.anglein)
+            stackinfo["angleout"] = np.full(nstack,fluxmonitor.xrfgeometry.angleout)
             
             for imageindex,xiaimage in enumerate(xiastackraw):
                 energy = stackaxes[stackdim]["data"][imageindex]

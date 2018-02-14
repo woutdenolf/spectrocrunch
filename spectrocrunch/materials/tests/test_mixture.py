@@ -92,7 +92,7 @@ class test_mixture(unittest.TestCase):
         for spectrum,d in zip(lstlines,thickness):
             
             for line,prob in spectrum.probabilities:
-                intensity = prob*detector.solidangle*d
+                intensity = prob*detector.geometry.solidangle*d
                 energy = line.energy(**detector.geometry.xrayspectrumkwargs())
                 energy = instance.asarray(energy)
                 intensity = instance.asarray(intensity)

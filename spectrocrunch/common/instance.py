@@ -26,6 +26,8 @@ import collections
 import numbers
 import numpy as np
 from six import string_types
+import uncertainties.core
+from .. import ureg
 
 def isstring(x):
     return isinstance(x, string_types)
@@ -90,3 +92,12 @@ def asscalar(x):
         pass
     return x
     
+def isquantity(x):
+    return isinstance(x, ureg.Quantity)
+    
+def israndomvariable(x):
+    if isarray(x):
+        return isinstance(x.flat[0],uncertainties.core.Variable)
+    else:
+        return isinstance(x,uncertainties.core.Variable)
+

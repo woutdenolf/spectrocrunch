@@ -41,8 +41,9 @@ class test_pymca(unittest.TestCase):
         cfgfile = resource_filename("test/mca.cfg")
         
         source = xraysources.factory("synchrotron")
-        detector = xrfdetectors.Detector("Detector",ehole=3.8)
-        geometry = xrfgeometries.factory("LinearGeometry",detector=detector,source=source,zerodistance=0,unittocm=0.1)
+        detector = xrfdetectors.factory("XRFDetector",ehole=3.8)
+        geometry = xrfgeometries.factory("LinearXRFGeometry",detector=detector,source=source,\
+                                    zerodistance=0,detectorposition=0,positionunits="mm")
         sample = multilayer.Multilayer(geometry=geometry)
 
         pymcahandle = pymca.PymcaHandle(sample=sample,ninteractions=1)
@@ -70,7 +71,7 @@ class test_pymca(unittest.TestCase):
         #   massfrac_l = grouparea/(flux.time.solidangle/(4.pi).grouprate_l)  
 
         grouprates = pymcahandle.xraygrouprates(scattering=False,method="fisx")
-        safrac = pymcahandle.sample.geometry.detector.solidangle/(4*np.pi)
+        safrac = pymcahandle.sample.geometry.solidangle/(4*np.pi)
 
         for group in info["fitareas"]:
             element,shell = group.split("-")

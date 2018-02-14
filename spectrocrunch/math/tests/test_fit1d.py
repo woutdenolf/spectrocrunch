@@ -25,12 +25,45 @@
 import unittest
 
 from .. import fit1d
+from ...simulation import noisepropagation
 
 import numpy as np
-import pylab
+
 
 class test_fit1d(unittest.TestCase):
 
+    def test_lstsq_std(self):
+        nx,npa = 10,3
+        A = np.random.rand(nx,npa)*10
+        
+        # None of these work:
+        
+        # VAR(b) -LSTSQ-> VAR(x) -LINPROP-> VAR(b)
+        x = np.random.rand(npa)
+        b = np.dot(A,x)
+        varb = b # poisson
+        varx = fit1d.lstsq_std(A,None,None,vare=varb)
+        x = noisepropagation.randomvariable(x,np.sqrt(varx))
+        b2 = np.dot(A,x)
+        varb2 = noisepropagation.VAR(b2)
+        #np.testing.assert_allclose(varb,varb2)
+        
+        # VAR(x) -LINPROP-> VAR(b) -LSTSQ-> VAR(x)
+        x = noisepropagation.poisson(np.random.rand(npa))
+        b2 = np.dot(A,x)
+        varb2 = noisepropagation.VAR(b2)
+        varx2 = fit1d.lstsq_std(A,None,None,vare=varb2)
+        #np.testing.assert_allclose(noisepropagation.VAR(x),varx2)
+        
+        # x -LINPROP-> VAR(b)
+        # VAR(x) -LINPROP-> VAR(b)
+        x = np.random.rand(npa)
+        varx = np.random.rand(npa)**2
+        x = noisepropagation.randomvariable(x,varx)
+        varb = noisepropagation.VAR(np.dot(A,x))
+        varb2 = np.dot(A*A,varx)
+        #np.testing.assert_allclose(varb,varb2)
+        
     def test_leastsq(self):
         nx = 501
         x = np.arange(nx)
@@ -41,8 +74,10 @@ class test_fit1d(unittest.TestCase):
         x0,sx,A = tuple(p1)
 
         data = fit1d.gaussian(x,x0,sx,A)
-        #self.plot(data)
-
+        #import matplotlib.pyplot as plt
+        #plt.plot(data)
+        #plt.show()
+        
         p2,_ = fit1d.fitgaussian(x,data)
         np.testing.assert_allclose(p1,p2)
 
@@ -69,19 +104,13 @@ class test_fit1d(unittest.TestCase):
         m2,em2 = fit1d.linfit_zerointercept2(x,y,errors=True)
         np.testing.assert_allclose(m1,m2)
         np.testing.assert_almost_equal(em1,em2,decimal=3) # em2 maybe not correct???
-        
-    def plot(self,data):
-        pylab.figure(1)
-        pylab.subplot(111)
-        pylab.plot(data)
-        pylab.pause(0.1)
-        raw_input("Press enter to continue...")
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_fit1d("test_leastsq"))
     testSuite.addTest(test_fit1d("test_linfit"))
+    testSuite.addTest(test_fit1d("test_lstsq_std"))
     return testSuite
     
 if __name__ == '__main__':

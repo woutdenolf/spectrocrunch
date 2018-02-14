@@ -28,16 +28,18 @@ from ..materials import element
 from ..common import constants
 from ..common.classfactory import with_metaclass
 from ..common import instance
+from ..common import units
+from ..math import linalg
 
 import scipy.special
 import numpy as np
 
-class Detector(with_metaclass(base.PointSourceCentric)):
+class XRFDetector(with_metaclass(base.CentricCone)):
 
     def __init__(self,mcazero=None,mcagain=None,mcanoise=None,mcafano=None,\
                     shape_fixedarearatios=None,shape_pymca=None,shape_conversionenergy=None,**kwargs):
         
-        super(Detector,self).__init__(**kwargs)
+        super(XRFDetector,self).__init__(**kwargs)
         
         self.mcazero = mcazero # keV
         self.mcagain = mcagain # keV/bin
@@ -51,9 +53,9 @@ class Detector(with_metaclass(base.PointSourceCentric)):
             self.fractions = (shape_fixedarearatios["tailfraction"],shape_fixedarearatios["stepfraction"])
         else:
             if shape_pymca is not None:
-                self.ratios = (shape_pymca["tailarea_ratio"],shape_pymca["stepheight_ratio"])
                 self.tailslope_ratio = shape_pymca["tailslope_ratio"]
-
+                self.ratios = (shape_pymca["tailarea_ratio"],shape_pymca["stepheight_ratio"])
+                
     @property
     def tailbroadening(self):
         return self._tailbroadening
@@ -113,55 +115,53 @@ class Detector(with_metaclass(base.PointSourceCentric)):
         return self.tailslope_ratio/np.sqrt(gvar)
 
     def _conv_ratios(self):
-        # rtail = wtail/wdet
-        # rstep = wstep/wdet*gnorm/energy
+        # rtail = wtail/(1-wtail-wstep)*ctail
+        # rstep = wstep/(1-wtail-wstep)*cstep
         
         wdet,wtail,wstep = self.fractions
         if wdet==0:
-            wdet = 1
+            wdet = 1 # this causes a problem when doing the reverse
             
-        gvar = self.gaussianVAR(self.shape_conversionenergy)
-        gnorm = np.sqrt(2*np.pi*gvar)
-        c = gnorm/self.shape_conversionenergy
-        rtail = wtail/wdet
-        rstep = wstep/wdet*c
+        u = self.shape_conversionenergy
+        gvar = self.gaussianVAR(u)
+        tr = self.tailbroadening*np.sqrt(gvar)
+        a = 2*gvar
+        b = np.sqrt(a)
+        gnorm = self._gnorm(a)
+        snorm = self._snorm(u,a,b)
+        tnorm = self._tnorm(u,a,b,tr)
+        
+        ctail = tr/tnorm
+        rtail = wtail/wdet*ctail
+        
+        cstep = gnorm/snorm
+        rstep = wstep/wdet*cstep
+
         return rtail,rstep
 
     def _conv_fractions(self):
-        # rtail = wtail/(1-wtail-wstep)
-        # rstep = wstep/(1-wtail-wstep)*c
-        #
-        # rtail = rtail    * wstep + (rtail+1)* wtail
-        # rstep = (rstep+c)* wstep + rstep    * wtail
+        # rtail = wtail/(1-wtail-wstep)*ctail
+        # rstep = wstep/(1-wtail-wstep)*cstep
         
-
         rtail,rstep = self.ratios
+        tr = self.tailslope_ratio
         
-        gvar = self.gaussianVAR(self.shape_conversionenergy)
-        gnorm = np.sqrt(2*np.pi*gvar)
-        return self._calc_fractions(rtail,rstep,self.shape_conversionenergy,gnorm)
+        u = self.shape_conversionenergy
+        gvar = self.gaussianVAR(u)
+        a = 2*gvar
+        b = np.sqrt(a)
+        gnorm = self._gnorm(a)
+        snorm = self._snorm(u,a,b)
+        tnorm = self._tnorm(u,a,b,tr)
+        
+        return self._calc_fractions(rtail,rstep,tr/tnorm,gnorm/snorm)
 
-    def _calc_fractions(self,rtail,rstep,energy,gnorm,nopeak=False):
-        c = gnorm/energy
-        if rtail==0 and rstep==0:
-            wtail = 0
-            wstep = 0
-        elif rtail==0:
-            wtail = 0
-            wstep = rstep/(rstep+c)
-        elif rstep==0:
-            wtail = rtail/(rtail+1.)
-            wstep = 0
-        else:
-            ctail = (rtail+1.)/rtail
-            if rtail > rstep:
-                wtail = c/( (rstep+c)*ctail - rstep)
-                wstep = 1 - ctail*wtail
-            else:
-                cstep = (rstep+c)/rstep
-                wstep = (1 - ctail) / (1 - cstep/ctail)
-                wtail = 1 - cstep*wstep
-
+    def _calc_fractions(self,rtail,rstep,ctail,cstep):
+        # rtail = rtail        * wstep + (rtail+ctail)* wtail
+        # rstep = (rstep+cstep)* wstep + rstep    * wtail
+        A = np.array([[rtail,rtail+ctail],[rstep+cstep,rstep]])
+        b = np.array([rtail,rstep])
+        wstep,wtail = linalg.cramer(A,b)
         return wtail,wstep
         
     def __str__(self):
@@ -182,7 +182,7 @@ class Detector(with_metaclass(base.PointSourceCentric)):
                 " gain = {} eV\n"\
                 " noise = {} eV (FWHM)\n"\
                 " fano = {}\n{}"\
-                .format(super(Detector,self).__str__(),\
+                .format(super(XRFDetector,self).__str__(),\
                 self.mcazero*1000,self.mcagain*1000,\
                 self.mcanoise*1000,self.mcafano,shape)
 
@@ -195,7 +195,7 @@ class Detector(with_metaclass(base.PointSourceCentric)):
     def gaussianVAR(self,energy):
         """Gaussian variance (keV^2)
         """
-        return self.FWHMtoVAR(self.mcanoise) + self.mcafano*self.ehole*1e-3*energy
+        return self.FWHMtoVAR(self.mcanoise) + self.mcafano*self.ehole.to("keV").magnitude*energy
 
     def gaussianFWHM(self,energy):
         """Gaussian FWHM (keV)
@@ -209,6 +209,27 @@ class Detector(with_metaclass(base.PointSourceCentric)):
     
     def voigtVAR(self,energy):
         return self.FWHMtoVAR(self.voigtFWHM(energy))
+
+    def _gnorm(self,a):
+        # Normalize H.Gaussian in -inf<x<inf
+        return np.sqrt(np.pi*a)
+    
+    def _snorm(self,u,a,b,approx=False):
+        # Normalize H.Step in 0<=x<inf
+        if approx:
+            snorm = float(u)
+        else:
+            zero = a*np.exp(-u**2/a)/(2*np.sqrt(np.pi)) - u*scipy.special.erfc(u/b)/2.
+            snorm = u + zero
+        return snorm
+    
+    def _tnorm(self,u,a,b,tr,approx=False):
+        # Normalize H.Tail in -inf<x<inf
+        if approx:
+            return float(tr)
+        else:
+            minusone = np.exp(a/(4.*tr**2)-u/tr) * scipy.special.erfc((a/(2.*tr)-u)/b) + scipy.special.erf(-u/b)
+            return tr * (1-minusone)/2.
 
     def lineprofile(self,x,u,linewidth=0):
         """
@@ -232,7 +253,8 @@ class Detector(with_metaclass(base.PointSourceCentric)):
 
         gvar = self.gaussianVAR(u)
         a = 2*gvar # 2.sigma^2
-        gnorm = np.sqrt(np.pi*a) # sqrt(2.pi.sigma^2)
+        b = np.sqrt(a) # sqrt(2).sigma
+        gnorm = self._gnorm(a)
 
         if self.fixedarearatios:
             tailbroadening = self.tailbroadening
@@ -243,28 +265,28 @@ class Detector(with_metaclass(base.PointSourceCentric)):
         else:
             tailslope_ratio = self.tailslope_ratio
             tailarea_ratio,stepheight_ratio = self.ratios
-            wtail,wstep = self._calc_fractions(tailarea_ratio,stepheight_ratio,u,gnorm)
+            
+            snorm = self._snorm(u,a,b)
+            tnorm = self._tnorm(u,a,b,tailslope_ratio)
+            
+            wtail,wstep = self._calc_fractions(tailarea_ratio,stepheight_ratio,tailslope_ratio/tnorm,gnorm/snorm)
             wdet = 1-wtail-wstep
             bdet = wdet>0
             btail = tailslope_ratio>0 and tailarea_ratio>0
             bstep = stepheight_ratio>0
         
-            #wdet = 1. # I think this is what PyMca does
-        
-        if bdet or bstep or btail:
-            b = np.sqrt(a) # sqrt(2).sigma
-            if bstep or btail:
-                argstep = diff/b # (x-u)/(sqrt(2).sigma)
-
-        # Detector response:
+        # XRFDetector response:
         #   Gaussian: H*exp(-(x-u)^2/(2.gvar))
         #   Lorentz:  2/(pi.W)/(1+4/W^2.(x-u)^2)    (W:FWHM)
         #             W/(2.pi)/(W^2/4+(x-u)^2)
         #             y/pi/(y^2+(x-u)^2)            (y:W/2)
-        #   Voigt:    Re(w[(x-u+i.y)/(2.sqrt(gvar))])/sqrt(2.pi.gvar)
+        #   Voigt:    H.Re(w[(x-u+i.y)/(2.sqrt(gvar))])
         #
-        #   VanGrieken: H = wdet/sqrt(2.pi.gvar)
-        #   Pymca: H = garea/sqrt(2.pi.gvar)
+        #   VanGrieken: H = wdet/gnorm            (normalize in ]-inf,inf[)
+        #               gnorm = sqrt(2.pi.gvar)
+        #   Pymca: H = garea/gnorm
+        #               gnorm = sqrt(2.pi.gvar)
+        #   
         #   => garea = wdet
         if bdet:
             height = wdet/gnorm
@@ -275,53 +297,61 @@ class Detector(with_metaclass(base.PointSourceCentric)):
                 y = height*np.exp(-diff**2/a)
         else:
             y = np.zeros_like(diff)
-             
+        
+        if bstep or btail:
+            argstep = diff/b # (x-u)/(sqrt(2).sigma)
+        
         # Incomplete charge collection (step):
-        #   Gaussian: H.erfc[(x-u)/sqrt(2.gvar)]
+        #   Gaussian step: H.step
+        #                   step = erfc[(x-u)/sqrt(2.gvar)]/2
         #
-        #   VanGrieken: H = wstep/(2.u)
-        #   Pymca: H = stepheight_ratio*garea/(2.gnorm)
-        #   => stepheight_ratio = wstep/wdet*gnorm/u
+        #   VanGrieken: H = wstep/snorm                   (normalize in [0,inf[)
+        #   Pymca: H = stepheight_ratio*garea/gnorm
+        #
+        #   => stepheight_ratio = wstep/wdet*gnorm/snorm
         if bstep:
-            # wstep/u = wdet/gnorm*stepheight_ratio/gnorm
             if self.fixedarearatios:
-                semiheight = wstep/(2.*u)
+                snorm = self._snorm(u,a,b)
+                height = wstep/snorm
             else:
-                semiheight = stepheight_ratio*wdet/(2.*gnorm)
-            y += semiheight * scipy.special.erfc(argstep)
-
+                height = stepheight_ratio*wdet/gnorm
+            y += height/2. * scipy.special.erfc(argstep)
+            
         # Incomplete charge collection (tail):
-        #   Gaussian: exp[(x-u)/(tb.sqrt(gvar))+1/(2.tb**2)].erfc[(x-u)/sqrt(2.gvar)+1/(tb.sqrt(2))]/(2.tb.sqrt(gvar))
-        #             tr = tb.sqrt(gvar)
-        #             H.exp[(x-u)/tr+gvar/(2.tr**2)].erfc[(x-u)/sqrt(2.gvar)+sqrt(gvar)/(sqrt(2).tr)]
+        #   Gaussian tail: H.tail
+        #                  tail = exp[(x-u)/tr+gvar/(2.tr**2)].erfc[(x-u)/sqrt(2.gvar)+sqrt(gvar)/(sqrt(2).tr)]/2
+        #                  tr = tb.sqrt(gvar)
         #
-        #   VanGrieken: H = wtail/(2.tr)
-        #   Pymca: H = garea*tailarea_ratio/(2.tr)
-        #   => tailarea_ratio = wtail/wdet
+        #   VanGrieken: H = wtail/tnorm               (normalize in ]-inf,inf[)
+        #   Pymca: H = garea*tailarea_ratio/tr
+        #
+        #   => tailarea_ratio = wtail/wdet*tr/tnorm
         if btail:
             if self.fixedarearatios:
                 tailslope_ratio = tailbroadening*np.sqrt(gvar)
-                m = wtail/(2.*tailslope_ratio)
+                tnorm = self._tnorm(u,a,b,tailslope_ratio)
+                m = wtail/tnorm
             else:
-                m = tailarea_ratio*wdet/(2.*tailslope_ratio)
+                m = tailarea_ratio*wdet/tailslope_ratio
             
             with np.errstate(over="ignore"):
-                mexp = m*np.exp(diff/tailslope_ratio+gvar/(2.*tailslope_ratio**2))
+                mexp = m/2.*np.exp(diff/tailslope_ratio+gvar/(2.*tailslope_ratio**2))
                 ind = np.isinf(mexp)
                 if ind.any():
                     mexp[ind] = 0 # lim_x->inf exp(x)*erfc(x) = 0
+                    
             y += mexp*scipy.special.erfc(argstep+b/(2.*tailslope_ratio))
             
         return y
     
     def addtopymca(self,setup,cfg): 
-        super(Detector,self).addtopymca(setup,cfg)
+        super(XRFDetector,self).addtopymca(setup,cfg)
 
         mcazero = self.mcazero
         mcagain = self.mcagain
         mcanoise = self.mcanoise
         # Compensate fano for difference in Ehole with pymca's 3.85 eV (ClassMcaTheory)
-        mcafano = self.mcafano * self.ehole / 3.85
+        mcafano = self.mcafano * (self.ehole / units.Quantity(3.85,"eV")).to("dimensionless").magnitude
         cfg["detector"]["zero"] = mcazero
         cfg["detector"]["gain"] = mcagain
         cfg["detector"]["noise"] = mcanoise
@@ -355,15 +385,13 @@ class Detector(with_metaclass(base.PointSourceCentric)):
         cfg["fit"]["use_limit"] = 1
  
     def loadfrompymca(self,setup,cfg):
-        super(Detector,self).loadfrompymca(setup,cfg)
+        super(XRFDetector,self).loadfrompymca(setup,cfg)
         
-        self.activearea = cfg["concentrations"]["area"]
-        self.distance = cfg["concentrations"]["distance"]
         self.mcazero = cfg["detector"]["zero"]
         self.mcagain = cfg["detector"]["gain"]
         self.mcanoise = cfg["detector"]["noise"]
         # Compensate fano for difference in Ehole with pymca's 3.85 eV (ClassMcaTheory)
-        self.mcafano = cfg["detector"]["fano"] * 3.85 / self.ehole
+        self.mcafano = cfg["detector"]["fano"] *(units.Quantity(3.85,"eV")/self.ehole).to("dimensionless").magnitude
         
         # No one-to-one correspondance
         energy = np.max(setup.energy)
@@ -393,7 +421,7 @@ class Detector(with_metaclass(base.PointSourceCentric)):
         setup.emin = cfg["fit"]["xmin"]*self.mcagain+self.mcazero
         setup.emax = cfg["fit"]["xmax"]*self.mcagain+self.mcazero
 
-class sn3102(Detector):
+class sn3102(XRFDetector):
     aliases = ["XFlash5100"]
     
     def __init__(self,**kwargs):
@@ -406,7 +434,7 @@ class sn3102(Detector):
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
         kwargs["attenuators"] = attenuators
         
-        kwargs["activearea"] = 80e-2*0.75 # cm^2
+        kwargs["activearea"] = units.Quantity(80.*0.75,"mm^2")
         
         kwargs["mcazero"] = 0. # keV
         kwargs["mcagain"] = 5e-3 # keV
@@ -421,7 +449,7 @@ class sn3102(Detector):
         super(sn3102,self).__init__(**kwargs)
         
               
-class Leia(Detector):
+class Leia(XRFDetector):
     aliases = ["SGX80"]
     
     def __init__(self,**kwargs):
@@ -433,7 +461,7 @@ class Leia(Detector):
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
         kwargs["attenuators"] = attenuators
         
-        kwargs["activearea"] = 80e-2 # cm^2
+        kwargs["activearea"] = units.Quantity(80.,"mm^2")
         
         kwargs["mcazero"] = 0. # keV
         kwargs["mcagain"] = 5e-3 # keV
@@ -448,7 +476,7 @@ class Leia(Detector):
         super(Leia,self).__init__(**kwargs)
 
 
-class BB8(Detector):
+class BB8(XRFDetector):
     aliases = ["SGX50"]
     
     def __init__(self,**kwargs):
@@ -460,7 +488,7 @@ class BB8(Detector):
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
         kwargs["attenuators"] = attenuators
         
-        kwargs["activearea"] = 50e-2 # cm^2
+        kwargs["activearea"] = units.Quantity(50.,"mm^2")
         
         kwargs["mcazero"] = 0. # keV
         kwargs["mcagain"] = 5e-3 # keV
@@ -475,7 +503,7 @@ class BB8(Detector):
         super(BB8,self).__init__(**kwargs)
 
 
-class DR40(Detector):
+class DR40(XRFDetector):
     aliases = ["VITUSH80"]
     
     def __init__(self,**kwargs):
@@ -487,7 +515,7 @@ class DR40(Detector):
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
         kwargs["attenuators"] = attenuators
         
-        kwargs["activearea"] = 80e-2 # cm^2
+        kwargs["activearea"] = units.Quantity(80.,"mm^2")
         
         kwargs["mcazero"] = 0. # keV
         kwargs["mcagain"] = 5e-3 # keV
@@ -501,5 +529,5 @@ class DR40(Detector):
         
         super(DR40,self).__init__(**kwargs)
         
-factory = Detector.factory
+factory = XRFDetector.factory
 

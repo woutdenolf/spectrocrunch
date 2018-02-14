@@ -34,7 +34,6 @@ from ..detectors import xrf as xrfdetectors
 from ..geometries import xrf as xrfgeometries
 from ..geometries import source as xraysources
 
-
 logger = logging.getLogger(__name__)
 
 class FluxMonitor(object):
@@ -132,8 +131,8 @@ class FluxMonitor(object):
             self._checkdark(self.iodet,self.iodetcps,"iodet",ax2,color=color)
             plt.tight_layout()
         if out:
-            print "idet :\n Gain = {:~e}\n Dark = {:~e}".format(self.idet.Rout,self.idet.darkcurrent)
-            print "iodet:\n Gain = {:~e}\n Dark = {:~e}".format(self.iodet.Rout,self.iodet.darkcurrent)
+            print("idet :\n Gain = {:~e}\n Dark = {:~e}".format(self.idet.Rout,self.idet.darkcurrent))
+            print("iodet:\n Gain = {:~e}\n Dark = {:~e}".format(self.iodet.Rout,self.iodet.darkcurrent))
 
     def _checkdark(self,d,cps,name,ax,color=None):
         ax.plot(cps,'o',label='spec',color=color)
@@ -197,7 +196,7 @@ class FluxMonitor(object):
             elif self.caliboption=="optics":
                 s = "Optics transmission = {} %".format(self.iodet.optics.transmission(self.energy)*100)
                 
-            print "iodet:\n Gain = {:~e}\n Energy = {} keV\n Dark = {:~e}\n {}".format(self.iodet.Rout,self.energy,self.iodet.darkcurrent,s)
+            print("iodet:\n Gain = {:~e}\n Energy = {} keV\n Dark = {:~e}\n {}".format(self.iodet.Rout,self.energy,self.iodet.darkcurrent,s))
         
     def prepareddata(self,specfile=None,specnr=None,gainiodet=None,gainidet=None):
         setiodet = False

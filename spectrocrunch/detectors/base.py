@@ -23,6 +23,8 @@
 # THE SOFTWARE.
 
 from ..common import instance
+from ..common import units
+from ..simulation import noisepropagation
 
 import numpy as np
 import fisx
@@ -165,41 +167,7 @@ class Material(object):
         """Attenuation by detector material
         """
         return 1-self.transmission(energy)
-
-
-class SolidState(Material):
-
-    def __init__(self,ehole=None,**kwargs):
-        self.ehole = ehole
-        super(SolidState,self).__init__(**kwargs)
-
-    def __str__(self):
-        return " Ionization energy = {} eV\n{}".format(self.ehole,super(SolidState,self).__str__())
         
-
-class SolidAngle(SolidState):
-
-    def __init__(self,solidangle=None,**kwargs):
-        self._solidangle = solidangle # srad
-        super(SolidAngle,self).__init__(**kwargs)
-
-    @property
-    def solidangle(self):
-        return self._solidangle
-    
-    @solidangle.setter
-    def solidangle(self,value):
-        self._solidangle = value
-        
-    def __str__(self):
-        solidangle = self.solidangle
-        if self.solidangle is None:
-            solidangle = "none"
-        else:
-            solidangle = "4*pi*{} srad".format(self.solidangle/(4*np.pi))
-            
-        return " Solid angle = {}\n{}".format(solidangle,super(SolidAngle,self).__str__())
-
     def efficiency(self,energysource,energydet,withdetectorattenuation=True):
         """Filter+Detector efficiency
         
@@ -219,8 +187,8 @@ class SolidAngle(SolidState):
         energysource = instance.asarray(energysource)
         energydet = instance.asarray(energydet)
 
-        T0 = super(SolidAngle,self).filter_transmission(energysource,source=True)
-        T1 = super(SolidAngle,self).filter_transmission(energydet,source=False)
+        T0 = self.filter_transmission(energysource,source=True)
+        T1 = self.filter_transmission(energydet,source=False)
         if withdetectorattenuation:
             A = self.attenuation(energydet)
         else:
@@ -229,44 +197,62 @@ class SolidAngle(SolidState):
         return T0[:,np.newaxis]*(T1*A)[np.newaxis,:]
         
         
-class PointSourceCentric(SolidAngle):
+class SolidState(Material):
 
-    def __init__(self,activearea=None,**kwargs):
-        self.activearea = activearea # cm^2
-        super(PointSourceCentric,self).__init__(**kwargs)
+    def __init__(self,ehole=None,**kwargs):
+        if ehole is None:
+            self.ehole = None
+        else:
+            self.ehole = units.Quantity(ehole,"eV")
+        super(SolidState,self).__init__(**kwargs)
 
     def __str__(self):
-        return " Active area = {} cm^2\n{}".format(self.activearea,super(PointSourceCentric,self).__str__())
+        return " Ionization energy = {:~}\n{}".format(self.ehole,super(SolidState,self).__str__())
+        
+
+class CentricCone(SolidState):
+
+    def __init__(self,activearea=None,**kwargs):
+        self._activearea = activearea # cm^2
+        super(CentricCone,self).__init__(**kwargs)
+
+    def __str__(self):
+        return " Active area = {} cm^2\n{}".format(self.activearea,super(CentricCone,self).__str__())
+
+    @property
+    def activearea_rv(self):
+        return units.magnitude(self._activearea,"cm^2")
+    
+    @property
+    def activearea(self):
+        return noisepropagation.E(self.activearea_rv)
+        
+    @activearea.setter
+    def activearea(self,value):
+        self._activearea = value
 
     @classmethod
     def solidangle_calc(cls,activearea=None,distance=None,solidangle=None):
+        # Cone with source on-axis:
+        #  solidangle = 2.pi(1-cos(theta)) where theta the opening angle
+        #  cos(theta) = d/sqrt(r^2+d^2) where d the source-detector and r the radius of the active area (assume disk)
         if solidangle is None:
-            r2 = activearea/np.pi # squared disk radius
-            return 2.*np.pi*(1.-(distance/np.sqrt(r2+distance**2.)))
+            d2 = distance**2.
+            r2 = activearea/np.pi
+            costheta = distance/(r2+d2)**0.5
+            return 2.*np.pi*(1.-costheta)
         elif distance is None:
             r2 = activearea/np.pi
             c2 = (1-solidangle/(2.*np.pi))**2
-            return np.sqrt(r2*c2/(1-c2))
+            return (r2*c2/(1-c2))**0.5
         elif activearea is None:
             c2 = (1-solidangle/(2.*np.pi))**2
             return (1-c2)*distance**2*np.pi/c2
         else:
-            raise RuntimeError("Either distance, active area or solid angle must be unknown")
+            raise RuntimeError("Either distance, active area or solid angle must be None")
             
-    @property
-    def solidangle(self):
-        return self.solidangle_calc(activearea=self.activearea,distance=self.geometry.distance)
-
-    @solidangle.setter
-    def solidangle(self,value):
-        solidanglefrac = value/(4*np.pi)
-        if solidanglefrac>=0.5:
-            raise ValueError("Solid angle must be < 2.pi")
-        r2 = self.activearea/np.pi # squared disk radius
-        self.geometry.distance = np.sqrt(r2)*(0.5-solidanglefrac)/np.sqrt((1-solidanglefrac)*solidanglefrac)
-
     def addtofisx(self,setup,cfg):
-        super(PointSourceCentric,self).addtofisx(setup,cfg)
+        super(CentricCone,self).addtofisx(setup,cfg)
         
         if self.hasmaterial:
             detector = fisx.Detector(self.material.name, self.material.density, self.thickness)
@@ -276,10 +262,10 @@ class PointSourceCentric(SolidAngle):
             setup.setDetector(detector)
 
     def addtopymca(self,setup,cfg): 
-        super(PointSourceCentric,self).addtopymca(setup,cfg)
+        super(CentricCone,self).addtopymca(setup,cfg)
         cfg["concentrations"]["area"] = self.activearea
     
     def loadfrompymca(self,setup,cfg): 
-        super(PointSourceCentric,self).loadfrompymca(setup,cfg)
+        super(CentricCone,self).loadfrompymca(setup,cfg)
         self.activearea = cfg["concentrations"]["area"]
         

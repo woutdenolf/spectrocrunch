@@ -187,7 +187,7 @@ class Oscillator(object):
         return self.op_currenttocps().inverse
 
 
-class PNdiode(with_metaclass(base.SolidAngle)):
+class PNdiode(with_metaclass(base.SolidState)):
 
     ELCHARGE = ureg.Quantity(1,ureg.elementary_charge)
     #ELCHARGE = ureg.Quantity(1.6e-19,ureg.coulomb) # approx. in spec
@@ -216,8 +216,6 @@ class PNdiode(with_metaclass(base.SolidAngle)):
     def generator(self):
         kwargs =  {"Rout":self.Rout.magnitude,"F0":self.F0,"Vmax":self.Vmax}
         return {"classname":self.__class__.__name__,"kwargs":kwargs}
-        
-        
         
     def __str__(self):
         fmt = "PN-diode:\n{}\n "\
@@ -275,7 +273,7 @@ class PNdiode(with_metaclass(base.SolidAngle)):
         Returns:
             num or array-like: A/W or e/eV
         """
-        return (self.ELCHARGE/units.Quantity(self.ehole,"eV")).to("A/W")
+        return (self.ELCHARGE/self.ehole.to("eV")).to("A/W")
         
     def spectral_responsivity(self,energy):
         """Generated current per radiative power
@@ -471,10 +469,12 @@ class PNdiode(with_metaclass(base.SolidAngle)):
             Cs = self._chargepersamplephoton(energy,weights=weights)
             
             # Yij' = Yij*Cs'/Cs
-            sa = self.solidangle * units.magnitude(Cs_calib/Cs,"dimensionless")
+            sa = self.geometry.solidangle * units.magnitude(Cs_calib/Cs,"dimensionless")
             if sa<=0 or sa>(2*np.pi):
                 logger.error("Diode solid angle of 4*pi*{} srad is not valid (possible wrong parameters: optics transmission, diode gain, diode thickness)".format(sa/(4*np.pi)))
-            self.solidangle = sa
+            
+            self.geometry.solidangle = sa
+            Cscalc = self._chargepersamplephoton(energy,weights=weights)
  
         else:
             # TODO: some configurations have an analytical solution
@@ -537,8 +537,8 @@ class PNdiode(with_metaclass(base.SolidAngle)):
                 self.optics.set_transmission(energy,x)
             
             Cscalc = Cs(x,energy,weights,energy2,Yij)
-            
-            return Cscalc,Cs_calib
+   
+        return Cscalc,Cs_calib
              
     def _calibrate_thickness(self,x,energy,weights,energy2,Yij):
         self.thickness = instance.asscalar(x)
@@ -796,7 +796,7 @@ class PNdiode(with_metaclass(base.SolidAngle)):
         
         with np.errstate(divide='ignore', invalid='ignore'):
             fluxcalc = self.cpstoflux(energy,cps)
-            r = np.log10(fluxcalc/units.magnitude(units.Quantity(fluxest,"hertz"),"dimensionless"))
+            r = np.log10(units.magnitude(fluxcalc/units.Quantity(fluxest,"hertz"),"dimensionless"))
             r = int(round(np.nanmedian(r)))
             R = units.Quantity(10**(np.log10(units.magnitude(self.Rout,"V/A"))+r),"V/A")
             self.setgain(R)
@@ -873,12 +873,12 @@ class AbsolutePNdiode(PNdiode):
             num or array-like: A/W
         """
         if self.model:
-            r = self.attenuation(energy)*(self.ELCHARGE/units.Quantity(self.ehole,"eV"))
+            r = self.attenuation(energy)*(self.ELCHARGE/self.ehole.to("eV"))
         else:
             try:
                 r = self.finterpol(energy)
             except:
-                r = self.attenuation(energy)*(self.ELCHARGE/units.Quantity(self.ehole,"eV"))
+                r = self.attenuation(energy)*(self.ELCHARGE/self.ehole.to("eV"))
          
         return units.Quantity(r,"A/W")
 
@@ -910,7 +910,7 @@ class AbsolutePNdiode(PNdiode):
         
         p, cov_matrix = fit.leastsq(self._fmodel, energy, response, [thickness,ehole])
         self.thickness = p[0] # "cm"
-        self.ehole = p[1] # eV
+        self.ehole = units.Quantity(p[1],"eV") # eV
 
 
 class CalibratedPNdiode(PNdiode):
@@ -1032,7 +1032,6 @@ class NonCalibratedPNdiode(PNdiode):
         slope = units.Quantity(slope,"ampere/hertz")
         Cscalc,Cs_calib = self._calibrate_chargepersamplephoton(energy,slope,weights=weights,caliboption=caliboption)
 
-        
         info = "Diode calibration:\n Energy: {} keV"\
                "\n Electron-hole pairs per photon hitting the sample: {:~} (experiment: {:~})"\
                "\n Electron-hole pairs per second (dark): {:~e} "\
@@ -1070,9 +1069,9 @@ class SXM_IDET(CalibratedPNdiode):
     aliases = ["idet"]
     
     def __init__(self,**kwargs):
-        attenuators = {}
-        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":300e-4} # thickness not used because of PTB calibration
-        kwargs["attenuators"] = attenuators
+    
+        kwargs["attenuators"] = {}
+        kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":300e-4} # thickness not used because of PTB calibration
         kwargs["ehole"] = constants.eholepair_si() # ehole not used because of PTB calibration
         
         absdiode = SXM_PTB(model=True)
@@ -1105,16 +1104,20 @@ class SXM_IODET1(NonCalibratedPNdiode):
 
     def __init__(self,**kwargs):
 
-        attenuators = {}
-        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":0.1}
-        kwargs["attenuators"] = attenuators
-        
+        kwargs2 = {}
+        kwargs2["anglein"] = kwargs.pop("anglein",62)
+        kwargs2["angleout"] = kwargs.pop("angleout",49)
+        kwargs2["azimuth"] = kwargs.pop("azimuth",0)
+        kwargs2["solidangle"] = kwargs.pop("solidangle",4*np.pi*0.4)
         if "source" in kwargs:
-            source = kwargs.pop("source")
+            kwargs2["source"] = kwargs.pop("source")
         else:
-            source = xraysources.factory("synchrotron")
-        geometry = diodegeometries.factory("Geometry",anglein=90,angleout=75,source=source,detector=self)
-        kwargs["solidangle"] = 4*np.pi*0.4
+            kwargs2["source"] = xraysources.factory("synchrotron")
+        kwargs2["detector"] = self
+        geometry = diodegeometries.factory("DiodeGeometry",**kwargs2)
+
+        kwargs["attenuators"] = {}
+        kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":0.1}
         kwargs["ehole"] = constants.eholepair_si()
         
         window = compoundfromname.compoundfromname("silicon nitride")
@@ -1149,16 +1152,22 @@ class SXM_IODET2(NonCalibratedPNdiode):
     aliases = ["iodet2"]
 
     def __init__(self,**kwargs):
-        attenuators = {}
-        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":0.1}
-        kwargs["attenuators"] = attenuators
-        
+    
+        kwargs2 = {}
+        kwargs2["anglein"] = kwargs.pop("anglein",62)
+        kwargs2["angleout"] = kwargs.pop("angleout",49)
+        kwargs2["azimuth"] = kwargs.pop("azimuth",0)
+        kwargs2["solidangle"] = kwargs.pop("solidangle",4*np.pi*0.4)
         if "source" in kwargs:
-            source = kwargs.pop("source")
+            kwargs2["source"] = kwargs.pop("source")
         else:
-            source = xraysources.factory("synchrotron")
-        geometry = diodegeometries.factory("Geometry",anglein=90,angleout=75,source=source,detector=self)
-        kwargs["solidangle"] = 4*np.pi*0.4
+            kwargs2["source"] = xraysources.factory("synchrotron")
+        kwargs2["detector"] = self
+        geometry = diodegeometries.factory("DiodeGeometry",**kwargs2)
+        
+        kwargs["attenuators"] = {}
+        kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":0.1}
+        kwargs["attenuators"] = attenuators
         kwargs["ehole"] = constants.eholepair_si()
         
         window = compoundfromname.compoundfromname("silicon nitride")
@@ -1187,10 +1196,9 @@ class XRD_IDET(NonCalibratedPNdiode):
     aliases = ["pico1"]
     
     def __init__(self,**kwargs):
-        attenuators = {}
-        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":0.1}
-        kwargs["attenuators"] = attenuators
-        
+    
+        kwargs["attenuators"] = {}
+        kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":0.1}
         kwargs["ehole"] = constants.eholepair_si()
 
         super(XRD_IDET,self).__init__(\

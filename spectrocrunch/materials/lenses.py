@@ -24,9 +24,10 @@
 
 from ..simulation.classfactory import with_metaclass
 from ..simulation import noisepropagation
-import numpy as np
+from ..common import instance
+from .visirlib import Material
 
-from visirlib import Material
+import numpy as np
 
 class Lens(with_metaclass()):
     """
