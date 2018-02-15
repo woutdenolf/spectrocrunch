@@ -780,7 +780,7 @@ class Spectrum(dict):
                     else:
                         sumprof += prof
         else:
-            energies,sumprof,ylabel = self.sumprofile(convert=convert,fluxtime=fluxtime,histogram=histogram,backfunc=None)
+            energies,sumprof,ylabel = self.sumprofile(convert=convert,fluxtime=fluxtime,histogram=histogram,backfunc=backfunc)
             
         if sumprof is not None:
             plt.plot(energies,sumprof,label=sumlabel)

@@ -87,7 +87,8 @@ class LinearMotor(object):
         self.zerodistance = self._distancecalc(distance=distance,detectorposition=self.geometry.detectorposition)
 
     def calibrate_fit(self,calibrc=None,solidanglecalib=None,\
-                fit=True,plot=False,xlabel="Motor position",ylabel="Normalized Fluorescence"):
+                fit=True,fixedactivearea=True,plot=False,\
+                xlabel="Motor position",ylabel="Normalized Fluorescence"):
         """Calibrate geometry based in intensity vs. linear motor position (i.e. derive active area and zerodistance)
         """
 
@@ -95,7 +96,7 @@ class LinearMotor(object):
         detectorpositionorg = np.asarray(calibrc["detectorposition"])
         detectorposition = units.Quantity(detectorpositionorg,positionunits).to("cm").magnitude
         intensities = np.asarray(calibrc["intensities"])
-        
+
         if solidanglecalib is None:
             # Initial parameter values
             activearea = noisepropagation.E(self.geometry.activearea)
@@ -105,8 +106,12 @@ class LinearMotor(object):
             rate = np.mean(intensities/self.geometry.solidangle_calc(activearea=activearea,distance=distance))
 
             if fit:
+                if fixedactivearea:
+                    cactivearea = silxfit.CFIXED
+                else:
+                    cactivearea = silxfit.CFREE
                 p0 = [rate,zerodistance,activearea]
-                constraints = [[silxfit.CFREE,0,0],[silxfit.CFREE,0,0],[silxfit.CFIXED,0,0]]
+                constraints = [[silxfit.CFREE,0,0],[silxfit.CFREE,0,0],[cactivearea,0,0]]
 
                 # Fit function
                 def fitfunc(x,rate,zerodistance,activearea):
@@ -122,15 +127,21 @@ class LinearMotor(object):
                     solidangle=solidanglecalib)
             
             # Initial parameter values
-            zerodistance = noisepropagation.E(self.zerodistance)
-            
-            activearea = activeareafunc(zerodistance)
-            distance = noisepropagation.E(self(detectorposition=detectorposition))
+            if fixedactivearea:
+                czerodistance = silxfit.CFIXED
+                activearea = noisepropagation.E(self.geometry.activearea)
+                distance = self.geometry.solidangle_calc(activearea=activearea,solidangle=solidanglecalib)
+                zerodistance = self._distancecalc(detectorposition=detectorpositioncalib,distance=distance)
+            else:
+                czerodistance = silxfit.CFREE
+                zerodistance = noisepropagation.E(self.zerodistance)
+                activearea = activeareafunc(zerodistance)
+                distance = noisepropagation.E(self(detectorposition=detectorposition))
             rate = np.mean(intensities/self.geometry.solidangle_calc(activearea=activearea,distance=distance))
             
             if fit:
                 p0 = [rate,zerodistance]
-                constraints = [[silxfit.CFREE,0,0],[silxfit.CFREE,0,0]]
+                constraints = [[silxfit.CFREE,0,0],[czerodistance,0,0]]
                 
                 # Fit function
                 def fitfunc(x,rate,zerodistance):
@@ -368,6 +379,14 @@ class LinearXRFGeometry(XRFGeometry):
     def detectorposition(self,value):
         self.distanceargs["detectorposition"] = units.Quantity(value,self.positionunits)
 
+    @property
+    def zerodistance(self):
+        return self.distancefunc.zerodistance
+    
+    @zerodistance.setter
+    def zerodistance(self,value):
+        self.distancefunc.zerodistance = value
+    
     def __str__(self):
         pos = units.Quantity(self.detectorposition,"cm").to(self.positionunits)
         return "{}\n Detector position = {:~}".format(super(LinearXRFGeometry,self).__str__(),pos)
@@ -389,7 +408,7 @@ class sxm120(LinearXRFGeometry):
 
         kwargs["positionunits"] = kwargs.get("positionunits","mm")
         kwargs["positionsign"] = kwargs.get("sign",1)
-        kwargs["zerodistance"] = units.Quantity(kwargs.get("zerodistance",6.038),"cm")
+        kwargs["zerodistance"] = units.Quantity(kwargs.get("zerodistance",57.266),"mm")
         kwargs["detectorposition"] = units.Quantity(kwargs.get("detectorposition",0),kwargs["positionunits"])
 
         super(sxm120,self).__init__(**kwargs)

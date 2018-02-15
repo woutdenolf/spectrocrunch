@@ -281,9 +281,11 @@ class PymcaHandle(object):
 
         yback = digestedresult["continuum"]
         
-        gen = lambda spectrum:scipy.interpolate.interp1d(digestedresult["energy"],spectrum,\
+        interpol = lambda x,spectrum:scipy.interpolate.interp1d(x,spectrum,\
                     kind="nearest",bounds_error=False,fill_value=(spectrum[0],spectrum[-1]))
-
+        interpol_energy = lambda prof:interpol(digestedresult["energy"],prof)
+        interpol_channel = lambda prof:interpol(digestedresult["xdata"],prof)
+                    
         if out is None:
             out = {}
         out["energy"] = digestedresult["energy"]
@@ -291,7 +293,8 @@ class PymcaHandle(object):
         out["y"] = digestedresult["ydata"]
         out["yfit"] = digestedresult["yfit"]
         out["yback"] = yback
-        out["gen"] = gen
+        out["interpol_energy"] = interpol_energy
+        out["interpol_channel"] = interpol_channel
         out["ypileup"] = digestedresult["pileup"]
         out["ymatrix"] = ymatrix+yback
                 

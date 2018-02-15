@@ -54,16 +54,20 @@ def exportedf(h5name):
 
     filename = os.path.splitext(os.path.basename(h5name))[0]
 
-    stacks, axes = getstacks(h5name,["^detector([0-9]+|sum)$"])
+    stacks, axes = getstacks(h5name,["counters","^detector([0-9]+|sum)$"])
 
     with h5py.File(h5name) as hdf5FileObject:
         for g in stacks:
-            if "detector" not in g:
-                continue
-
+            if "detectorsum" in stacks:
+                if g.startswith("detector") and g!="detectorsum":
+                    continue
+        
             for s in stacks[g]:
                 if "xmap" in s:
                     continue
+                if g=="counters":
+                    if not "calc" in s:
+                        continue
 
                 energy = hdf5FileObject[g][s]["DCM_Energy"]
                 n = len(energy)
@@ -114,32 +118,38 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
         cfgfiles = [cfgfiles]
 
     if microdiff:
+        fluxcounter = "zap_iodet"
+        transmissioncounter = "zap_idet"
         if noxia:
-            counters = ["zap_iodet","zap_idet"]
+            counters = [fluxcounter,transmissioncounter]
         else:
-            counters = ["zap_iodet","zap_idet","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]
+            counters = [fluxcounter,transmissioncounter,"xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]
         motors = ["samh", "samv", "samd", "samph", "sampv"]
         counter_reldir = ".."
-        fluxcounter = "zap_iodet"
+        
     else:
+        fluxcounter = "arr_iodet"
+        transmissioncounter = "arr_idet"
+        
         if noxia:
-            counters = ["arr_iodet","arr_idet","arr_fdet","arr_absorp1","arr_absorp2","arr_absorp3"]
+            counters = [fluxcounter,transmissioncounter,"arr_fdet","arr_absorp1","arr_absorp2","arr_absorp3"]
         else:
-            counters = ["arr_iodet","arr_idet","arr_fdet","arr_absorp1","arr_absorp2","arr_absorp3","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]
+            counters = [fluxcounter,transmissioncounter,"arr_fdet","arr_absorp1","arr_absorp2","arr_absorp3","xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]
         if encodercor:
             counters += ["arr_{}".format(k) for k in encodercor]
         motors = ["samy", "samz", "samx", "sampy", "sampz"]
         counter_reldir = "."
-        fluxcounter = "arr_iodet"
+        
         
     config = {
             # Input
             "sourcepath": sourcepath,
+            "counter_reldir": counter_reldir,
             "scanname": scanname,
             "scannumbers": scannumbers,
             "counters": counters,
             "fluxcounter": fluxcounter,
-            "counter_reldir": counter_reldir,
+            "transmissioncounter": transmissioncounter,
 
             # Meta data
             "metacounters": counters,

@@ -781,7 +781,29 @@ class PNdiode(with_metaclass(base.SolidState)):
         op.b = units.magnitude(op.b,"dimensionless")
 
         return op,Fref.to("hertz").magnitude,units.magnitude(tref,"s")
+    
+    def fluxop(self,energy,expotime):
+        """Operator to convert the raw diode signal to a flux.
         
+        Args:
+            energy(num): keV
+            expotime(num): sec
+            
+        Returns:
+            op(linop): raw diode conversion operator
+        """
+        
+        # Convert from counts to photons/sec
+        # op: x-> cpstoflux(x/t)
+        op = self.op_cpstoflux(energy)
+        t = units.Quantity(expotime,"s")
+        op.m /= t
+
+        op.m = units.magnitude(op.m,"Hertz")
+        op.b = units.magnitude(op.b,"Hertz")
+
+        return op
+
     def gainfromcps(self,energy,cps,fluxest):
         """Estimate the gain, assuming it is 10^x V/A
         

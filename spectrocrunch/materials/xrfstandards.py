@@ -111,10 +111,10 @@ class AXOID21_1(Standard):
 
 
 class AXOID21_2(Standard):
-    aliases = ["RF8-200-S2454"]
+    aliases = ["RF8-200-S2454-17"]
     
     def __init__(self,**kwargs):
-        name = "RF8-200-S2454"
+        name = "RF8-200-S2454-17"
         elements = ["Pb","La","Pd","Mo","Cu","Fe","Ca"]
         arealdensity = [6.3,7.6,2.3,0.7,2.6,4.1,25.1] # ng/mm^2
         windowthickness = 200 # nm
@@ -124,7 +124,7 @@ class AXOID21_2(Standard):
         for k in attenuators:
             kwargs["geometry"].addattenuator(*k)
             
-        super(AXOID21_1,self).__init__(material=material,thickness=thickness,**kwargs)
+        super(AXOID21_2,self).__init__(material=material,thickness=thickness,**kwargs)
 
 
 class AXOID16b_1(Standard):

@@ -25,6 +25,7 @@
 import json
 import numpy as np
 import logging
+import re
 
 from ..io import xiaedf
 from ..io import edf
@@ -127,8 +128,10 @@ def createimagestacks(config,fluxmonitor=None):
     
     # Get image stack
     xiastackraw = xiaedf.xiastack_mapnumbers(config["sourcepath"],config["scanname"],config["scannumbers"])
+    if xiastackraw.isempty:
+        raise IOError("Cannot find data: {}".format(xiastackraw.filedescription))
     nstack, nrow, ncol, nchan, ndetorg = xiastackraw.dshape
-    
+
     # Exclude detectors
     xiastackraw.skipdetectors(config["exclude_detectors"])
     xiastackraw.keepdetectors(config["include_detectors"])
@@ -183,7 +186,7 @@ def createimagestacks(config,fluxmonitor=None):
             stackaxes[stackdim] = {"name":str(config["stacklabel"]),"data":np.full(nstack,np.nan,dtype=np.float32)}
             stackinfo["expotime"] = np.full(nstack,np.nan,dtype=np.float32)
             stackinfo["sampledetdistance"] = np.full(nstack,np.nan,dtype=np.float32)
-            
+
         # Add stackinfo
         for mot in stackinfo:
             if mot in header:
@@ -193,7 +196,7 @@ def createimagestacks(config,fluxmonitor=None):
         if config["stacklabel"] in header:
             stackaxes[stackdim]["data"][imageindex] = np.float(header[config["stacklabel"]])
         else:
-            logger.warning("No energy in header (set to NaN)")
+            logger.warning("No stack counter in header (set to NaN)")
         
         # Add time
         stackinfo["expotime"][imageindex] = time
@@ -213,29 +216,37 @@ def createimagestacks(config,fluxmonitor=None):
             for ctr,f in v1.items():
                 # Add counter file
                 stacks[name][ctr][imageindex] = f[0]
-
+                  
     # Create new spectra when needed
     if dtcor or adddet or fluxmonitor is not None:
     
         # Set normalizer for each image separately
         if fluxmonitor is not None:
-            stackinfo["flux"] = np.full(nstack,np.nan,dtype=np.float32)
+            stackinfo["refflux"] = np.full(nstack,np.nan,dtype=np.float32)
+            stackinfo["refexpotime"] = np.full(nstack,np.nan,dtype=np.float32)
             stackinfo["activearea"] = np.full(nstack,fluxmonitor.xrfgeometry.detector.activearea)
             stackinfo["anglein"] = np.full(nstack,fluxmonitor.xrfgeometry.anglein)
             stackinfo["angleout"] = np.full(nstack,fluxmonitor.xrfgeometry.angleout)
             
             for imageindex,xiaimage in enumerate(xiastackraw):
                 energy = stackaxes[stackdim]["data"][imageindex]
-                time = stackinfo["expotime"][imageindex]
-                if np.isnan(time):
-                    time = None
-                xrfnormop,stackinfo["flux"][imageindex],stackinfo["expotime"][imageindex] = fluxmonitor.xrfnormop(energy,time=time)
-                xiaimage.localnorm(config["fluxcounter"],func=xrfnormop)
-                
-                pos = stackinfo["sampledetdistance"][imageindex]
-                if not np.isnan(pos):
-                    fluxmonitor.setxrfposition(pos)
-                stackinfo["sampledetdistance"][imageindex] = fluxmonitor.getxrfdistance()
+                if not np.isnan(energy):
+                    time = stackinfo["expotime"][imageindex]
+                    if np.isnan(time):
+                        time = None
+                        
+                    xrfnormop,\
+                    stackinfo["refflux"][imageindex],\
+                    stackinfo["refexpotime"][imageindex],\
+                    stackinfo["expotime"][imageindex]\
+                     =fluxmonitor.xrfnormop(energy,time=time)
+                    
+                    xiaimage.localnorm(config["fluxcounter"],func=xrfnormop)
+                    
+                    pos = stackinfo["sampledetdistance"][imageindex]
+                    if not np.isnan(pos):
+                        fluxmonitor.setxrfposition(pos)
+                    stackinfo["sampledetdistance"][imageindex] = fluxmonitor.getxrfdistance()
                 
         if dtcor:
             label = "dtcor"
@@ -254,9 +265,30 @@ def createimagestacks(config,fluxmonitor=None):
         nstack, nrow, ncol, nchan, ndet = xiastackproc.dshape
     else:
         xiastackproc = xiastackraw
+    
+    # I0/It stacks
+    if fluxmonitor is not None:
+        energy = stackaxes[stackdim]["data"][imageindex]
+        if not np.isnan(energy) and ("fluxcounter" in config or "transmissioncounter" in config):
+            for imageindex in range(nstack):
+                name = detectorname(None)
+                time = stackinfo["refexpotime"][imageindex]
+                if "fluxcounter" in config:
+                    op,_ = fluxmonitor.I0op(energy,time=time)
+                    if binit:
+                        stacks[name]["calc_I0"] = [""]*nstack
+                    stacks[name]["calc_I0"][imageindex] = {"args":[config["fluxcounter"]],"groups":[name],"func":op}
+                if "transmissioncounter" in config:
+                    op,_ = fluxmonitor.Itop(energy,time=time)
+                    if binit:
+                        stacks[name]["calc_It"] = [""]*nstack
+                    stacks[name]["calc_It"][imageindex] = {"args":[config["transmissioncounter"]],"groups":[name],"func":op}
         
+    
     # Fit data and add elemental maps
     if config["fit"]:
+        logger.info("Fit XRF spectra ...")
+        
         if len(config["detectorcfg"])==1:
             fitcfg = config["detectorcfg"]*ndet
         else:
@@ -266,8 +298,8 @@ def createimagestacks(config,fluxmonitor=None):
             binit = imageindex==0
             
             if fluxmonitor is not None:
-                quant = {"time":stackinfo["expotime"][imageindex],\
-                        "flux":stackinfo["flux"][imageindex],\
+                quant = {"time":stackinfo["refexpotime"][imageindex],\
+                        "flux":stackinfo["refflux"][imageindex],\
                         "area":stackinfo["activearea"][imageindex],\
                         "anglein":stackinfo["anglein"][imageindex],\
                         "angleout":stackinfo["angleout"][imageindex],\
@@ -297,116 +329,122 @@ def createimagestacks(config,fluxmonitor=None):
                 # Add file name           
                 for f,label in zip(files,labels):
                     stacks[name][label][imageindex] = f
-                    
+    
     # Sort stack on stack axis value
     ind = np.argsort(stackaxes[stackdim]["data"],kind='mergesort')
     stackaxes[stackdim]["data"] = stackaxes[stackdim]["data"][ind]
     for mot in stackinfo:
         stackinfo[mot] = stackinfo[mot][ind]
-    for s in stacks:
-        group = stacks[s]
-        for lstack in group:
-            group[lstack] = [group[lstack][i] for i in ind]
+    for k1 in stacks:
+        group = stacks[k1]
+        for k2 in group:
+            group[k2] = [group[k2][i] for i in ind]
 
+    # Detector sum stack
+    detectors = [k for k in stacks.keys() if re.match("^detector([0-9]+)$",k)]
+    if config["addafterfitting"] and len(detectors)>1:
+        stacks["detectorsum"] = {}
+        
+        for k1 in detectors:
+            for k2 in stacks[k1]:
+                if k2 not in stacks["detectorsum"]:
+                    stacks["detectorsum"][k2] = {"args":[k2],"groups":[k1],"func":lambda *x: sum(x)}
+                else:   
+                    stacks["detectorsum"][k2]["args"].append(k2)
+                    stacks["detectorsum"][k2]["groups"].append(k1)
+        for k2 in stacks["detectorsum"]:
+            stacks["detectorsum"][k2] = [stacks["detectorsum"][k2]]*nstack
+    
     return stacks,stackaxes,stackinfo
 
-def exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=False):
+def exportgroups(f,stacks,axes,stackdim,imgdim,proc,stackshape=[0,0,0]):
     """Export groups of EDF stacks, summated or not
     """
 
-    logger = logging.getLogger(__name__)
-
-    if sumgroups:
-        sumname = "detectorsum"
-        if sumname in f:
-            grpsum = f[sumname]
+    for k1 in stacks: # detector or counter group
+        if k1 in f:
+            grp = f[k1]
         else:
-            grpsum = nexus.newNXentry(f,sumname)
-        if sumname not in stacks:
-            stacks[sumname] = {}
+            grp = nexus.newNXentry(f,k1)
 
-    dim = [0,0,0]
-
-    for k1 in keys: # detector or counter group
-        bgrpissum = k1 is not "counters" and sumgroups
-        if bgrpissum:
-            grp = grpsum
-        else:
-            if k1 in f:
-                grp = f[k1]
-            else:
-                grp = nexus.newNXentry(f,k1)
-
-        for k2 in stacks[k1].keys(): # stack subgroup (Al-K, S-K, xmap_x1c, ...)
-            nxdatagrp = None
-
+        for k2 in stacks[k1]: # stack subgroup (Al-K, S-K, xmap_x1c, ...)
             # skip when already an Nxdata group (previous call to exportgroups)
             if not hasattr(stacks[k1][k2],"__iter__"):
                 continue
 
-            # loop over the stack images
-            # stacks[k1][k2]: list of files
+            # remove empty stack
             nscans = len(stacks[k1][k2])
-            for iscan in range(nscans):
-                filename = stacks[k1][k2][iscan]
-                if filename is None:
-                    continue
-                data = edf.edfimage(filename).data
+            if all(stacks[k1][k2][iscan] is None for iscan in range(nscans)):
+                stacks[k1].pop(k2)
+                continue
 
+            # loop over the stack images
+            # stacks[k1][k2]: list of files or process dictionaries
+            nxdatagrp = None
+            for iscan in range(nscans):
+                datainfo = stacks[k1][k2][iscan]
+                
+                # Get data (1 image from the stack)
+                if proc=="calc":
+                    if not isinstance(datainfo,dict):
+                        break
+                    datainfo = stacks[k1][k2][iscan]
+
+                    args = []
+                    for k1b,k2b in zip(datainfo["groups"],datainfo["args"]):
+                        grp2 = f[k1b]
+                        dset = grp2[k2b][grp2[k2b].attrs["signal"]]
+                        if stackdim == 0:
+                            data = dset[iscan,...]
+                        elif stackdim == 1:
+                            data = dset[:,iscan,:]
+                        else:
+                            data = dset[...,iscan]
+                        args.append(data)
+                    
+                    data = datainfo["func"](*args)
+                else:
+                    if isinstance(datainfo,dict):
+                        break
+                    data = edf.edfimage(datainfo).data
+
+                # Get destination for data
                 if k2 in grp:
                     dset = grp[k2][grp[k2].attrs["signal"]]
                 else:
+                    logger.info("saving {}/{}".format(k1,k2))
                     nxdatagrp = nexus.newNXdata(grp,k2,"")
                     
                     # Allocate dataset
-                    if dim==[0,0,0]:
-                        dim[imgdim[0]] = data.shape[0]
-                        dim[imgdim[1]] = data.shape[1]
-                        dim[stackdim] = nscans
-                    dset = nexus.createNXdataSignal(nxdatagrp,shape=dim,chunks = True,dtype = np.float32)
-                    if bgrpissum:
-                        dset[:] = 0
-                    else:
-                        dset[:] = np.nan
+                    if stackshape==[0,0,0]:
+                        stackshape[imgdim[0]] = data.shape[0]
+                        stackshape[imgdim[1]] = data.shape[1]
+                        stackshape[stackdim] = nscans
+                    dset = nexus.createNXdataSignal(nxdatagrp,shape=stackshape,chunks = True,dtype = np.float32)
+                    dset[:] = np.nan
 
                     # Link axes to the new NXdata group
                     nexus.linkaxes(f,axes,[nxdatagrp])
 
                 # Some rows too much or rows missing:
-                if dim[imgdim[0]] > data.shape[0]:
-                    data = np.pad(data,((0,dim[imgdim[0]]-data.shape[0]),(0,0)),'constant',constant_values=0)
-                elif dim[imgdim[0]] < data.shape[0]:
-                    data = data[0:dim[imgdim[0]],:]
+                if stackshape[imgdim[0]] > data.shape[0]:
+                    data = np.pad(data,((0,stackshape[imgdim[0]]-data.shape[0]),(0,0)),'constant',constant_values=0)
+                elif stackshape[imgdim[0]] < data.shape[0]:
+                    data = data[0:stackshape[imgdim[0]],:]
 
+                # Save data
                 if stackdim == 0:
-                    if bgrpissum:
-                        dset[iscan,...] += data
-                    else:
-                        dset[iscan,...] = data
+                    dset[iscan,...] = data
                 elif stackdim == 1:
-                    if bgrpissum:
-                        dset[:,iscan,:] += data
-                    else:
-                        dset[:,iscan,:] = data
+                    dset[:,iscan,:] = data
                 else:
-                    if bgrpissum:
-                        dset[...,iscan] += data
-                    else:
-                        dset[...,iscan] = data
-
-            # Add NX entry to stacks
-            if nxdatagrp is None:
-                del stacks[k1][k2]
+                    dset[...,iscan] = data
             else:
-                if bgrpissum:
-                    stacks[sumname][k2] = nxdatagrp.name
-                else:
+                if nxdatagrp is not None:
+                    # Replace subgroup k2 filename or calcinfo with NXentry name in stack
                     stacks[k1][k2] = nxdatagrp.name
-            
-        if bgrpissum:
-            del stacks[k1]
 
-    return stacks
+    return stacks,stackshape
 
 def exportimagestacks(config,stacks,stackaxes,stackinfo,jsonfile):
     """Export EDF stacks to HDF5
@@ -416,16 +454,10 @@ def exportimagestacks(config,stacks,stackaxes,stackinfo,jsonfile):
     # Save stack axes values
     axes = nexus.createaxes(f,stackaxes)
 
+    # Save groups
     stackdim,imgdim = axesindices(config)
-
-    # Save sum of detectors if requested
-    keys = [k for k in stacks.keys() if "detector" in k and "sum" not in k]
-    if config["addafterfitting"] and len(keys)>1:
-        stacks = exportgroups(f,stacks,keys,axes,stackdim,imgdim,sumgroups=True)
-
-    # Save other groups (not included in the sum)
-    if len(stacks) > 0:
-        stacks = exportgroups(f,stacks,stacks.keys(),axes,stackdim,imgdim)
+    stacks,stackshape = exportgroups(f,stacks,axes,stackdim,imgdim,"raw")
+    stacks,stackshape = exportgroups(f,stacks,axes,stackdim,imgdim,"calc",stackshape=stackshape)
 
     # Save stackinfo
     coordgrp = nexus.newNXentry(f,"stackinfo")

@@ -46,7 +46,8 @@ class FluxMonitor(object):
         self.iodetname = iodetname
         self.focussed = focussed
         self.reference = units.Quantity(1e10,"hertz")
-        self.time = units.Quantity(0.1,"s")
+        self.defaulttime = units.Quantity(0.1,"s")
+        self.referencetime = None
         self.setiodet()
         
         detector = xrfdetectors.factory(xrfdetector)
@@ -62,7 +63,11 @@ class FluxMonitor(object):
         return getattr(self.iodet,attr)
     
     def __str__(self):
-        return "IODET:\n{}\n\nXRF:\n{}\n\nDefault flux reference:\n {:~e}\nDefault exposure time:\n {:~}\n".format(self.iodet.geometry,self.xrfgeometry,self.reference,self.time)
+        referencetime = self.referencetime
+        if referencetime is not None:
+            referencetime = "{~}".format(referencetime)
+        return "IODET:\n{}\n\nXRF:\n{}\n\nDefault flux reference:\n {:~e}\Reference exposure time:\n {:~}\nDefault exposure time:\n {:~}\n".\
+        format(self.iodet.geometry,self.xrfgeometry,self.reference,referencetime,self.defaulttime)
 
     def parsespec(self,specfile,specnr):
         fspec = spec.spec(specfile)
@@ -288,15 +293,25 @@ class FluxMonitor(object):
         self.reference = units.Quantity(cts,"dimensionless")
     
     def settime(self,time):
-        self.time = units.Quantity(time,"s")
+        self.defaulttime = units.Quantity(time,"s")
 
-    def xrfnormop(self,energy,time=None,ref=None):
+    def xrfnormop(self,energy,time=None,ref=None,referencetime=None):
+        """
+        Returns:
+            op(linop): raw diode conversion operator
+            Fref(num): flux in photons/s to which the data is normalized after data/op(diode)
+            tref(num): time in s to which the data is normalized after data/op(diode)
+            t(num):    time in s of raw data
+        """
         if time is None:
-            time = self.time
+            time = self.defaulttime
         if ref is None:
             ref = self.reference
+        if referencetime is None:
+            referencetime = self.referencetime
             
-        return self.iodet.xrfnormop(energy,time,ref)
+        ret = self.iodet.xrfnormop(energy,time,ref,referencetime=referencetime)
+        return ret+(units.magnitude(time,"s"),)
     
     def fluxtocps(self,energy,flux):
         return self.iodet.fluxtocps(energy,flux).magnitude
@@ -304,6 +319,18 @@ class FluxMonitor(object):
     def cpstoflux(self,energy,cps):
         return self.iodet.cpstoflux(energy,cps).magnitude
     
+    def I0op(self,energy,time=None):
+        if time is None:
+            time = self.defaulttime
+        op = self.iodet.fluxop(energy,time)
+        return op,time
+
+    def Itop(self,energy,time=None):
+        if time is None:
+            time = self.defaulttime
+        op = self.idet.fluxop(energy,time)
+        return op,time
+        
     def plot_response(self,energy=None,flux=1e9,diode="iodet",current=False):
         if energy is None:
             energy = np.linspace(1,15,50)

@@ -274,7 +274,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
             bdet = wdet>0
             btail = tailslope_ratio>0 and tailarea_ratio>0
             bstep = stepheight_ratio>0
-        
+
         # XRFDetector response:
         #   Gaussian: H*exp(-(x-u)^2/(2.gvar))
         #   Lorentz:  2/(pi.W)/(1+4/W^2.(x-u)^2)    (W:FWHM)

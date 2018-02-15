@@ -1161,7 +1161,20 @@ class xiadata(object):
             return files
 
         return self.xiadetectorselect_files(files)
-        
+    
+    @property
+    def filedescription(self):
+        if instance.isarray(self._fileformat):
+            fmt = self._fileformat
+        else:
+            fmt = [self._fileformat]
+    
+        fmt = [f.replace("{}","*") for f in fmt]
+        if len(fmt)==1:
+            fmt = fmt[0]
+    
+        return fmt
+    
 class xiacompound(xiadata):
     """Implements XIA data compounding (image, image stacks, ...)
     """
@@ -1179,6 +1192,11 @@ class xiacompound(xiadata):
             self.search()
         return self._items
 
+    @property
+    def isempty(self):
+        items = self.getitems()
+        return len(items)==0
+        
     @property
     def dtype(self):
         items = self.getitems()
@@ -1870,7 +1888,7 @@ class xiaimage_number(xiaimage):
             None
         """
 
-        if len(self._items)==0:
+        if self.isempty:
             nlines = data.shape[0]
             self._items = [xialine_number(self.path,self.radix,self.mapnum,linenum,**self.linekwargs) for linenum in range(nlines)]
             if ctrnames is not None:
@@ -1953,7 +1971,7 @@ class xiastack_radix(xiastack):
             None
         """
 
-        if len(self._items)==0:
+        if self.isempty:
             nmaps = data.shape[0]
             self._items = [xiaimage_number(self.path[-1],self.radix[-1],mapnum,**self.imagekwargs) for mapnum in range(nmaps)]
 
@@ -2032,7 +2050,7 @@ class xiastack_mapnumbers(xiastack):
             None
         """
 
-        if len(self._items)==0:
+        if self.isempty:
             nmaps = data.shape[0]
             self._items = [xiaimage_number(self.path[-1],self.radix[-1],mapnum,**self.imagekwargs) for mapnum in range(nmaps)]
 
