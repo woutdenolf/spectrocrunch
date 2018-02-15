@@ -44,17 +44,23 @@ class PymcaHandle(object):
 
     def __init__(self,sample=None,emin=None,emax=None,\
                 energy=None,weights=None,scatter=None,\
-                flux=None,time=None,escape=1,ninteractions=1):
+                flux=1e9,time=0.1,escape=1,ninteractions=1):
         self.sample = sample
-        
-        self.energy = units.magnitude(energy,"keV")
+ 
+        self.energy = instance.asarray(units.magnitude(energy,"keV"))
         self._emin = emin
         self._emax = emax
-        self.weights = weights
-        self.scatter = scatter
+        if weights is None:
+            self.weights = np.ones_like(self.energy)
+        else:
+            self.weights = weights
+        if scatter is None:
+            self.scatter = np.ones_like(self.energy)
+        else:
+            self.scatter = scatter
+            
         self.escape = escape
         self.ninteractions = ninteractions
-        
         self.flux = units.magnitude(flux,"hertz")
         self.time = units.magnitude(time,"s")
         
@@ -193,14 +199,18 @@ class PymcaHandle(object):
         
         self.mcafit.configure(config)
 
+    def savepymca(self,filename):
+        self.addtopymca()
+        self.mcafit.config.write(filename)
+
     def processfitresult(self,digestedresult,originalconcentrations=False):
         ctoolcfg = self.ctool.configure()
         ctoolcfg.update(digestedresult['config']['concentrations'])
         return self.ctool.processFitResult(config=ctoolcfg,
-                                                        fitresult={"result":digestedresult},
-                                                        elementsfrommatrix=originalconcentrations,
-                                                        fluorates = self.mcafit._fluoRates,
-                                                        addinfo=True)
+                                            fitresult={"result":digestedresult},
+                                            elementsfrommatrix=originalconcentrations,
+                                            fluorates = self.mcafit._fluoRates,
+                                            addinfo=True)
     
     def concentrationsfromfitresult(self,digestedresult,out=None):
         # Mass fractions:

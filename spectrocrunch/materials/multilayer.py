@@ -32,6 +32,7 @@ import fisx
 from ..common import instance
 from ..common import cache
 from ..common import listtools
+from ..math import fit1d
 from . import xrayspectrum
 from ..simulation.classfactory import with_metaclass
 from ..simulation import noisepropagation
@@ -125,12 +126,12 @@ class Multilayer(with_metaclass(cache.Cache)):
     
     def fixediter(self):
         for layer in self:
-            if layer["fixed"]:
+            if layer.fixed:
                 yield layer
     
     def freeiter(self):
         for layer in self:
-            if not layer["fixed"]:
+            if not layer.fixed:
                 yield layer
             
     def __getitem__(self,index):
@@ -204,25 +205,25 @@ class Multilayer(with_metaclass(cache.Cache)):
     def fixlayers(self,ind=None):
         if ind is None:
             for layer in self:
-                layer["fixed"] = True
+                layer.fixed = True
         else:
             for i in ind:
-                self[i]["fixed"] = True
+                self[i].fixed = True
 
     def freelayers(self,ind=None):
         if ind is None:
             for layer in self:
-                layer["fixed"] = False
+                layer.fixed = False
         else:
             for i in ind:
-                self[i]["fixed"] = False
+                self[i].fixed = False
 
     def refinethickness(self,energy,absorbance,constant=False,constraint=True):
         y = absorbance
 
-        A = [layer.density*layer.mass_att_coeff(energy) for layer in self.freeiter]
+        A = [layer.density*layer.mass_att_coeff(energy) for layer in self.freeiter()]
         
-        for layer in self.fixediter:
+        for layer in self.fixediter():
             y = y-layer.density*layer.xraythickness*layer.mass_att_coeff(energy)
         
         if constant:
@@ -244,8 +245,8 @@ class Multilayer(with_metaclass(cache.Cache)):
             else:
                 thickness = fit1d.lstsq(A,y)
                 
-        for t,layer in zip(thickness,self.freeiter):
-            layers.xraythickness = t
+        for t,layer in zip(thickness,self.freeiter()):
+            layer.xraythickness = t
 
     def _cache_layerinfo(self):
         t = np.empty(self.nlayers+1)
