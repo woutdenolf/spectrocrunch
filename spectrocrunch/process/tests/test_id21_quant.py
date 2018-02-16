@@ -59,14 +59,14 @@ class test_id21_quant(unittest.TestCase):
         dataref = refflux*time*rates # measured when flux whould have been refflux at each poi1e9
         ref = units.Quantity(refflux,"hertz")
 
-        op,_,_ = fluxmonitor.xrfnormop(energy,time=time,ref=ref)
+        op,_,_,_ = fluxmonitor.xrfnormop(energy,time=time,ref=ref)
         np.testing.assert_allclose(dataref,data/op(iodet))
         
         # Normalize data to the real flux (use iodet reference)
         iodetref = fluxmonitor.fluxtocps(energy,refflux)*time
         ref = units.Quantity(iodetref,"dimensionless")
 
-        op,_,_ = fluxmonitor.xrfnormop(energy,time=time,ref=ref)
+        op,_,_,_ = fluxmonitor.xrfnormop(energy,time=time,ref=ref)
         np.testing.assert_allclose(dataref,data/op(iodet))
 
 def test_suite_all():

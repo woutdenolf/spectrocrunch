@@ -121,13 +121,23 @@ compounddb["mylar"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,nam
 #compounddb["ultralene"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="ultralene") # same as pet
 compounddb["moxtek ap3.3"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="moxtek ap3.3")
 
-
 # tape (adhesive on plastic)
 compounddb["sulfur-free tape"] = mixture.Mixture([compounddb["pva"],compounddb["pe"]],\
                                     [0.5,0.5],fractionType.mole).tocompound("sulfur-free tape")
 
 # windows
 compounddb["silicon nitride"] = compoundfromformula.CompoundFromFormula("Si3N4",3.44,name="silicon nitride")
+
+#other
+compounddb["ice"] = compoundfromformula.CompoundFromFormula("H2O",0.9167,name="ice")
+compounddb["water"] = compoundfromformula.CompoundFromFormula("H2O",0.9998,name="water")
+
+compounddb["ecoli dry"] = compoundfromlist.CompoundFromList(['C','O','N','H','P','S','K','Na','Ca','Mg','Cl','Fe'],\
+                                                        [50,20,14,8,3,1,1,1,0.5,0.5,0.5,0.5],fractionType.weight,1.3,name="ecoli dry")
+
+compounddb["ecoli"] = mixture.Mixture([compounddb["water"],compounddb["ecoli dry"]],\
+                                    [0.7,0.3],fractionType.mole).tocompound("ecoli")
+
 
 def compoundfromname(name):
     return compounddb[name]
