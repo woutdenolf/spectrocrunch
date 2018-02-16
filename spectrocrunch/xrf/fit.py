@@ -134,8 +134,6 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={},quant={}):
             cfg["attenuators"]["Matrix"][2] = density
             cfg["attenuators"]["Matrix"][3] = density*0 # thickness in cm
 
-       
-
     # Split M-lines
     # /usr/local/lib/python2.7/dist-packages/PyMca5/PyMcaPhysics/xrf/Elements.py
     #

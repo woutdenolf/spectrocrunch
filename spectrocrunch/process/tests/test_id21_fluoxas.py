@@ -55,19 +55,19 @@ class test_fluoxas(unittest.TestCase):
         if quant:
             labels = labels + ["C({}_{})".format(e,line) for e,lines in config["peaks"].items() for line in lines]
         
-        # It doesn't work like that?
-        #if config["fit"]["scatterflag"]:
-        #    labels += ["Scatter_Compton{:03d}".format(i) for i,b in enumerate(config["fit"]["energyflag"]) if b]
-        #    labels += ["Scatter_Peak{:03d}".format(i) for i,b in enumerate(config["fit"]["energyflag"]) if b]
-        labels += ["Scatter_Compton000","Scatter_Peak000"]
-        
+        if config["fit"]["scatterflag"]:
+            n = sum(instance.asarray(config["fit"]["energyflag"]) &\
+                   instance.asarray(config["fit"]["energyscatter"]))
+            labels += ["Scatter_Compton{:03d}".format(i) for i in range(n)]
+            labels += ["Scatter_Peak{:03d}".format(i) for i in range(n)]
+
         return labels
 
     def pymcagetenergy(self,cfgfile):
         config = ConfigDict.ConfigDict()
         config.read(cfgfile)
         
-        return instance.asarray(config["fit"]["energy"])[0]
+        return float(instance.asarray(config["fit"]["energy"])[0])
 
     def fluxmonitor(self,cfgfile):
         energy = self.pymcagetenergy(cfgfile)

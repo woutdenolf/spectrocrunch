@@ -37,7 +37,7 @@ import numpy as np
 class XRFDetector(with_metaclass(base.CentricCone)):
 
     def __init__(self,mcazero=None,mcagain=None,mcanoise=None,mcafano=None,\
-                    shape_fixedarearatios=None,shape_pymca=None,shape_conversionenergy=None,**kwargs):
+                    shape_fixedarearatios=None,shape_pymca={},shape_conversionenergy=None,**kwargs):
         
         super(XRFDetector,self).__init__(**kwargs)
         
@@ -55,11 +55,11 @@ class XRFDetector(with_metaclass(base.CentricCone)):
             self.tailbroadening = shape_fixedarearatios["tailbroadening"]
             self.fractions = (shape_fixedarearatios["tailfraction"],shape_fixedarearatios["stepfraction"])
         else:
-            self.bpeak = shape_pymca["bpeak"]
-            self.btail = shape_pymca["btail"]
-            self.bstep = shape_pymca["bstep"]
-            self.tailslope_ratio = shape_pymca["tailslope_ratio"]
-            self.ratios = (shape_pymca["tailarea_ratio"],shape_pymca["stepheight_ratio"])
+            self.bpeak = shape_pymca.get("bpeak",True)
+            self.btail = shape_pymca.get("btail",False)
+            self.bstep = shape_pymca.get("bstep",False)
+            self.tailslope_ratio = shape_pymca.get("tailslope_ratio",0.001)
+            self.ratios = (shape_pymca.get("tailarea_ratio",0.05),shape_pymca.get("stepheight_ratio",0.5))
         
     @property
     def tailbroadening(self):
