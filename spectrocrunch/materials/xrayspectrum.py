@@ -689,8 +689,8 @@ class Spectrum(dict):
         a,b = self.channellimits
         return np.arange(a,b+1)
         
-    def peakprofiles(self,convert=True):
-        ret = collections.OrderedDict()
+    def peakprofiles(self,convert=True,normalized=None):
+        retlines = collections.OrderedDict()
         
         geomkwargs = self.geomkwargs
                 
@@ -719,20 +719,21 @@ class Spectrum(dict):
                 else:
                     linename = str(line)
                 
-                if self.geometry is None:
-                    def prof(x,peakarea=peakarea,energy=energy):
-                        x,func = instance.asarrayf(x)
-                        p = np.zeros_like(x)
-                        i = np.argmin(np.abs(x-energy))
-                        p[i] = peakarea
-                        return func(p)
-                else:
-                    linewidth = line.linewidth
-                    def prof(x,peakarea=peakarea,energy=energy,linewidth=linewidth):
-                        return peakarea*np.squeeze(self.geometry.detector.lineprofile(x,energy,linewidth=linewidth))
-                ret[linename] = {"group":group,"label":label,"profile":prof,"energy":energy,"area":peakarea}
+                retlines[linename] = {"group":group,"label":label,"energy":energy,"area":peakarea,"natwidth":line.linewidth}
+                
+        energies = np.asarray([v["energy"] for v in retlines.values()])
+        linewidths = np.asarray([v["natwidth"] for v in retlines.values()])
 
-        return ret
+        if self.geometry is None:
+            lineprofiles = None
+        else:
+            def lineprofiles(x,ind=None,energies=energies,linewidths=linewidths):
+                if ind is not None:
+                    energies = energies[ind]
+                    linewidths = linewidths[ind]
+                return self.geometry.detector.lineprofile(x,energies,linewidth=linewidths,normalized=normalized)
+
+        return retlines,lineprofiles
 
     def profileinfo(self,convert=False,fluxtime=None,histogram=False):
         multiplier = 1
@@ -747,8 +748,9 @@ class Spectrum(dict):
     def sumprofile(self,convert=True,fluxtime=None,histogram=False,backfunc=None):
         energies = self.mcabinenergies()
         multiplier,ylabel = self.profileinfo(convert=convert,fluxtime=fluxtime,histogram=histogram)
-        profiles = self.peakprofiles(convert=convert)
-        y = sum(lineinfo["profile"](energies) for lineinfo in profiles.values())*multiplier
+        lines,profiles = self.peakprofiles(convert=convert)
+        m = np.asarray([v["area"] for v in lines.values()])*multiplier
+        y = (profiles(energies)*m[np.newaxis,:]).sum(axis=-1)
         if backfunc is not None:
             y = y+backfunc(energies)
         return energies,y,ylabel
@@ -759,19 +761,29 @@ class Spectrum(dict):
         if decompose:
             energies = self.mcabinenergies()
             multiplier,ylabel = self.profileinfo(convert=convert,fluxtime=fluxtime,histogram=histogram)
-            profiles = self.peakprofiles(convert=convert)
+            lines,profiles = self.peakprofiles(convert=convert)
+            if profiles is not None:
+                profiles = profiles(energies)
 
             colors = {}
-            for lineinfo in profiles.values():
+            for lineinfo in lines.values():
                 g = lineinfo["group"]
                 if g not in colors:
                     colors[g] = next(ax._get_lines.prop_cycler)['color']
             
             sumprof = None
-            for linename,lineinfo in sorted(profiles.items(), key=lambda x: x[1]["energy"]):
+            for linename,lineinfo in sorted(lines.items(), key=lambda x: x[1]["energy"]):
                 color = colors[lineinfo["group"]]
-                h,prof = self._plotline(lineinfo,energies,backfunc=backfunc,\
-                            multiplier=multiplier,color=color,label=lineinfo["label"])
+                
+                if profiles is not None:
+                    ind = lines.keys().index(linename)
+                    prof = lineinfo["area"]*multiplier*profiles[:,ind]
+                    if backfunc is not None:
+                        prof += backfunc(energies)
+                else:
+                    prof = None
+                
+                h = self._plotline(lineinfo,energies,prof,multiplier=multiplier,color=color,label=lineinfo["label"] )
                 if mark and lineinfo["label"] is not None:
                     plt.annotate(linename, xy=(lineinfo["energy"], h),color=color)
                 if prof is not None:
@@ -798,20 +810,16 @@ class Spectrum(dict):
         except UnicodeDecodeError:
             pass
             
-    def _plotline(self,line,energies,background=0,multiplier=1,backfunc=None,**kwargs):
-        if self.geometry is None:
+    def _plotline(self,line,energies,prof,multiplier=1,backfunc=None,**kwargs):
+        if prof is None:
             energy = line["energy"]
-            area = line["area"]
-            plt.plot([energy,energy],[0,area*multiplier],**kwargs)
-            h = area
-            y = None
+            h = line["area"]*multiplier
+            plt.plot([energy,energy],[0,h],**kwargs)
         else:
-            y = line["profile"](energies)*multiplier
-            if backfunc is not None:
-                y = y+backfunc(energies)
+            y = prof*multiplier
             h = max(y)
             plt.plot(energies,y,**kwargs)
 
-        return h,y
+        return h
 
 

@@ -49,13 +49,18 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         self.shape_conversionenergy = shape_conversionenergy
         self.fixedarearatios = shape_fixedarearatios is not None
         if self.fixedarearatios:
-            self.tailbroadening= shape_fixedarearatios["tailbroadening"]
+            self.bpeak = shape_fixedarearatios["bpeak"]
+            self.btail = shape_fixedarearatios["btail"]
+            self.bstep = shape_fixedarearatios["bstep"]
+            self.tailbroadening = shape_fixedarearatios["tailbroadening"]
             self.fractions = (shape_fixedarearatios["tailfraction"],shape_fixedarearatios["stepfraction"])
         else:
-            if shape_pymca is not None:
-                self.tailslope_ratio = shape_pymca["tailslope_ratio"]
-                self.ratios = (shape_pymca["tailarea_ratio"],shape_pymca["stepheight_ratio"])
-                
+            self.bpeak = shape_pymca["bpeak"]
+            self.btail = shape_pymca["btail"]
+            self.bstep = shape_pymca["bstep"]
+            self.tailslope_ratio = shape_pymca["tailslope_ratio"]
+            self.ratios = (shape_pymca["tailarea_ratio"],shape_pymca["stepheight_ratio"])
+        
     @property
     def tailbroadening(self):
         return self._tailbroadening
@@ -70,8 +75,8 @@ class XRFDetector(with_metaclass(base.CentricCone)):
     def fractions(self):
         wtail = self._tailfraction
         wstep = self._stepfraction
-        wdet = 1-wtail-wstep
-        return wdet,wtail,wstep
+        wpeak = 1-wtail-wstep
+        return wpeak,wtail,wstep
     
     @fractions.setter
     def fractions(self,value):
@@ -115,13 +120,15 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         return self.tailslope_ratio/np.sqrt(gvar)
 
     def _conv_ratios(self):
-        # rtail = wtail/(1-wtail-wstep)*ctail
-        # rstep = wstep/(1-wtail-wstep)*cstep
+        # if wpeak>0:
+        #   rtail = wtail/wpeak*ctail
+        #   rstep = wstep/wpeak*cstep
+        # else:
+        #   rtail = wtail*ctail
+        #   rstep = wstep*cstep
         
-        wdet,wtail,wstep = self.fractions
-        if wdet==0:
-            wdet = 1 # this causes a problem when doing the reverse
-            
+        wpeak,wtail,wstep = self.fractions
+
         u = self.shape_conversionenergy
         gvar = self.gaussianVAR(u)
         tr = self.tailbroadening*np.sqrt(gvar)
@@ -131,17 +138,31 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         snorm = self._snorm(u,a,b)
         tnorm = self._tnorm(u,a,b,tr)
         
-        ctail = tr/tnorm
-        rtail = wtail/wdet*ctail
-        
-        cstep = gnorm/snorm
-        rstep = wstep/wdet*cstep
+        return self._calc_ratios_single(wtail,wstep,wpeak,tr/tnorm,gnorm/snorm)
 
+    def _calc_ratios_single(self,wtail,wstep,wpeak,ctail,cstep):
+        if wpeak==0:
+            wpeak = 1
+        rtail = wtail/wpeak*ctail
+        rstep = wstep/wpeak*cstep
+        return rtail,rstep
+
+    def _calc_ratios(self,wtail,wstep,wpeak,ctail,cstep):
+        if instance.isarray(ctail):
+            rtail,rstep = zip(*tuple(self._calc_ratios_single(wtail,wstep,wpeak,ctaili,cstepi) for ctaili,cstepi in zip(ctail.flat,cstep.flat)))
+            rtail = np.asarray(rtail).reshape(ctail.shape)
+            rstep = np.asarray(rstep).reshape(cstep.shape)
+        else:
+            rtail,rstep = self._calc_ratios_single(wtail,wstep,wpeak,ctail,cstep)
         return rtail,rstep
 
     def _conv_fractions(self):
-        # rtail = wtail/(1-wtail-wstep)*ctail
-        # rstep = wstep/(1-wtail-wstep)*cstep
+        # if wpeak>0:
+        #   rtail = wtail/wpeak*ctail
+        #   rstep = wstep/wpeak*cstep
+        # else:
+        #   rtail = wtail*ctail
+        #   rstep = wstep*cstep
         
         rtail,rstep = self.ratios
         tr = self.tailslope_ratio
@@ -154,34 +175,61 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         snorm = self._snorm(u,a,b)
         tnorm = self._tnorm(u,a,b,tr)
         
-        return self._calc_fractions(rtail,rstep,tr/tnorm,gnorm/snorm)
+        return self._calc_fractions_single(rtail,rstep,tr/tnorm,gnorm/snorm)
 
-    def _calc_fractions(self,rtail,rstep,ctail,cstep):
+    def _calc_fractions_single(self,rtail,rstep,ctail,cstep):
         # rtail = rtail        * wstep + (rtail+ctail)* wtail
         # rstep = (rstep+cstep)* wstep + rstep    * wtail
-        A = np.array([[rtail,rtail+ctail],[rstep+cstep,rstep]])
-        b = np.array([rtail,rstep])
-        wstep,wtail = linalg.cramer(A,b)
+        if self.bpeak:
+            A = np.array([[rtail,rtail+ctail],[rstep+cstep,rstep]])
+            b = np.array([rtail,rstep])
+            wstep,wtail = linalg.cramer(A,b)
+        else:
+            wtail = rtail/ctail
+            wstep = rstep/cstep
+        return wtail,wstep
+    
+    def _calc_fractions(self,rtail,rstep,ctail,cstep):
+        if instance.isarray(ctail):
+            wtail,wstep = zip(*tuple(self._calc_fractions_single(rtail,rstep,ctaili,cstepi) for ctaili,cstepi in zip(ctail.flat,cstep.flat)))
+            wtail = np.asarray(wtail).reshape(ctail.shape)
+            wstep = np.asarray(wstep).reshape(cstep.shape)
+        else:
+            wtail,wstep = self._calc_fractions_single(rtail,rstep,ctail,cstep)
         return wtail,wstep
         
     def __str__(self):
         if self.fixedarearatios:
-            shape = " Tail broadening = {}\n"\
-                    " Peak fraction = {}\n"\
-                    " Tail fraction = {}\n"\
-                    " Step fraction = {}"\
-                    .format(self.tailbroadening,*self.fractions)
+            wpeak,wtail,wstep = self.fractions
         else:
-            shape = " Tail slope ratio = {}\n"\
-                    " Tail area ratio = {}\n"\
-                    " Step height ratio = {}"\
-                    .format(self.tailslope_ratio,*self.ratios)
+            rtail,rstep = self.ratios
+    
+        shape = ""
+        
+        if self.fixedarearatios:
+            shape = "{}\n Peak fraction = {}".format(shape,wpeak)
+        
+        if self.btail:
+            if self.fixedarearatios:
+                shape = "{}\n Tail broadening = {}"\
+                        "\n Tail fraction = {}"\
+                        .format(shape,self.tailbroadening,wtail)
+            else:
+                shape = "{}\n Tail slope ratio = {}"\
+                        "\n Tail area ratio = {}"\
+                        .format(shape,self.tailslope_ratio,rtail)
+                    
+        if self.bstep:
+            if self.fixedarearatios:
+                shape = "{}\n Step fraction = {}".format(shape,wstep)
+            else:
+                shape = "{}\n Step height ratio = {}".format(shape,rstep)
 
         return "XRF detector:\n{}\n"\
                 "MCA:\n zero = {} eV\n"\
                 " gain = {} eV\n"\
                 " noise = {} eV (FWHM)\n"\
-                " fano = {}\n{}"\
+                " fano = {}{}"\
                 .format(super(XRFDetector,self).__str__(),\
                 self.mcazero*1000,self.mcagain*1000,\
                 self.mcanoise*1000,self.mcafano,shape)
@@ -231,7 +279,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
             minusone = np.exp(a/(4.*tr**2)-u/tr) * scipy.special.erfc((a/(2.*tr)-u)/b) + scipy.special.erf(-u/b)
             return tr * (1-minusone)/2.
 
-    def lineprofile(self,x,u,linewidth=0):
+    def lineprofile(self,x,u,linewidth=0,normalized=None):
         """
         Args:
             x(num|array): energies (keV, nx)
@@ -257,23 +305,73 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         gnorm = self._gnorm(a)
 
         if self.fixedarearatios:
+            if normalized is None:
+                normalized = True
+        
+            wpeak,wtail,wstep = self.fractions
             tailbroadening = self.tailbroadening
-            wdet,wtail,wstep = self.fractions
-            bdet = wdet>0
-            btail = tailbroadening>0 and wtail>0
-            bstep = wstep>0
+
+            bpeak = wpeak>0 and self.bpeak
+            btail = tailbroadening>0 and wtail>0 and self.btail
+            bstep = wstep>0 and self.bstep
+
+            if normalized:
+                if bpeak:
+                    peak_H = wpeak/gnorm
+                if bstep:
+                    snorm = self._snorm(u,a,b)
+                    step_H = wstep/snorm
+                if btail:
+                    tailslope_ratio = tailbroadening*np.sqrt(gvar)
+                    tnorm = self._tnorm(u,a,b,tailslope_ratio)
+                    tail_H = wtail/tnorm
+            else:
+                bpeak = self.bpeak
+                if bpeak:
+                    peak_H = 1/gnorm
+                
+                if bstep or btail:
+                    tailslope_ratio = tailbroadening*np.sqrt(gvar)
+                    snorm = self._snorm(u,a,b)
+                    tnorm = self._tnorm(u,a,b,tailslope_ratio)
+                    tailarea_ratio,stepheight_ratio = self._calc_ratios(wtail,wstep,wpeak,tailslope_ratio/tnorm,gnorm/snorm)
+                    
+                    if bstep:
+                        step_H = stepheight_ratio/gnorm
+                    if btail:
+                        tail_H = tailarea_ratio/tailslope_ratio
+
         else:
-            tailslope_ratio = self.tailslope_ratio
+            if normalized is None:
+                normalized = False
+                
             tailarea_ratio,stepheight_ratio = self.ratios
+            tailslope_ratio = self.tailslope_ratio
             
-            snorm = self._snorm(u,a,b)
-            tnorm = self._tnorm(u,a,b,tailslope_ratio)
+            bpeak = self.bpeak
+            btail = tailslope_ratio>0 and tailarea_ratio>0 and self.btail
+            bstep = stepheight_ratio>0 and self.bstep
             
-            wtail,wstep = self._calc_fractions(tailarea_ratio,stepheight_ratio,tailslope_ratio/tnorm,gnorm/snorm)
-            wdet = 1-wtail-wstep
-            bdet = wdet>0
-            btail = tailslope_ratio>0 and tailarea_ratio>0
-            bstep = stepheight_ratio>0
+            if normalized:
+                snorm = self._snorm(u,a,b)
+                tnorm = self._tnorm(u,a,b,tailslope_ratio)
+                
+                wtail,wstep = self._calc_fractions(tailarea_ratio,stepheight_ratio,tailslope_ratio/tnorm,gnorm/snorm)
+                wpeak = 1-wtail-wstep
+
+                if bpeak:
+                    peak_H = wpeak/gnorm
+                if bstep:
+                    step_H = wstep/snorm
+                if btail:
+                    tail_H = wtail/tnorm
+            else:
+                bpeak = self.bpeak
+                peak_H = 1/gnorm
+                if bstep:
+                    step_H = stepheight_ratio/gnorm
+                if btail:
+                    tail_H = tailarea_ratio/tailslope_ratio
 
         # XRFDetector response:
         #   Gaussian: H*exp(-(x-u)^2/(2.gvar))
@@ -282,19 +380,18 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         #             y/pi/(y^2+(x-u)^2)            (y:W/2)
         #   Voigt:    H.Re(w[(x-u+i.y)/(2.sqrt(gvar))])
         #
-        #   VanGrieken: H = wdet/gnorm            (normalize in ]-inf,inf[)
+        #   VanGrieken: H = wpeak/gnorm            (normalize in ]-inf,inf[)
         #               gnorm = sqrt(2.pi.gvar)
         #   Pymca: H = garea/gnorm
         #               gnorm = sqrt(2.pi.gvar)
         #   
-        #   => garea = wdet
-        if bdet:
-            height = wdet/gnorm
-            W = instance.asarray(linewidth)[:,np.newaxis]
+        #   => garea = wpeak
+        if bpeak:
+            W = instance.asarray(linewidth)[np.newaxis,:] 
             if W.any():
-                y = height*np.real(scipy.special.wofz((diff + 0.5j*W)/b))
+                y = peak_H*np.real(scipy.special.wofz((diff + 0.5j*W)/b))
             else:
-                y = height*np.exp(-diff**2/a)
+                y = peak_H*np.exp(-diff**2/a)
         else:
             y = np.zeros_like(diff)
         
@@ -308,14 +405,9 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         #   VanGrieken: H = wstep/snorm                   (normalize in [0,inf[)
         #   Pymca: H = stepheight_ratio*garea/gnorm
         #
-        #   => stepheight_ratio = wstep/wdet*gnorm/snorm
+        #   => stepheight_ratio = wstep/wpeak*gnorm/snorm
         if bstep:
-            if self.fixedarearatios:
-                snorm = self._snorm(u,a,b)
-                height = wstep/snorm
-            else:
-                height = stepheight_ratio*wdet/gnorm
-            y += height/2. * scipy.special.erfc(argstep)
+            y += step_H/2. * scipy.special.erfc(argstep)
             
         # Incomplete charge collection (tail):
         #   Gaussian tail: H.tail
@@ -325,17 +417,10 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         #   VanGrieken: H = wtail/tnorm               (normalize in ]-inf,inf[)
         #   Pymca: H = garea*tailarea_ratio/tr
         #
-        #   => tailarea_ratio = wtail/wdet*tr/tnorm
+        #   => tailarea_ratio = wtail/wpeak*tr/tnorm
         if btail:
-            if self.fixedarearatios:
-                tailslope_ratio = tailbroadening*np.sqrt(gvar)
-                tnorm = self._tnorm(u,a,b,tailslope_ratio)
-                m = wtail/tnorm
-            else:
-                m = tailarea_ratio*wdet/tailslope_ratio
-            
             with np.errstate(over="ignore"):
-                mexp = m/2.*np.exp(diff/tailslope_ratio+gvar/(2.*tailslope_ratio**2))
+                mexp = tail_H/2.*np.exp(diff/tailslope_ratio+gvar/(2.*tailslope_ratio**2))
                 ind = np.isinf(mexp)
                 if ind.any():
                     mexp[ind] = 0 # lim_x->inf exp(x)*erfc(x) = 0
@@ -362,9 +447,9 @@ class XRFDetector(with_metaclass(base.CentricCone)):
 
         rtail,rstep = self.ratios
         bhypermet = True
-        bstail = rtail>0
+        bstail = self.btail
         bltail = False
-        bstep = rstep>0
+        bstep = self.bstep
         
         if bstail:
             cfg["peakshape"]["st_arearatio"] = rtail
@@ -373,8 +458,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
             cfg["peakshape"]["lt_arearatio"] = rtail
             cfg["peakshape"]["lt_sloperatio"] = self.tailslope_ratio
             
-        if bstep:
-            cfg["peakshape"]["step_heightratio"] = rstep
+        cfg["peakshape"]["step_heightratio"] = rstep
         
         cfg["fit"]["hypermetflag"] = 1*bhypermet | 2*bstail | 4*bltail | 8*bstep
 
@@ -399,27 +483,28 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         b = cfg["fit"]["hypermetflag"]
         bstail = (b&2)==2
         bltail = (b&4)==4
-        bstep = (b&8)==8
+        self.bstep = (b&8)==8
 
         if bstail:
+            self.btail = bstail
             rtail = cfg["peakshape"]["st_arearatio"]
             self.tailslope_ratio = cfg["peakshape"]["st_sloperatio"]
         elif bltail:
+            self.btail = bltail
             rtail = cfg["peakshape"]["lt_arearatio"]
             self.tailslope_ratio = cfg["peakshape"]["lt_sloperatio"]
         else:
-            rtail = 0
-            self.tailslope_ratio = 0
-            
-        if bstep:
-            rstep = cfg["peakshape"]["step_heightratio"]
-        else:
-            rstep = 0
+            self.btail = False
+            rtail = cfg["peakshape"]["st_arearatio"]
+            self.tailslope_ratio = cfg["peakshape"]["st_sloperatio"]
+        
+        rstep = cfg["peakshape"]["step_heightratio"]
             
         self.ratios = (rtail,rstep)
 
         setup.emin = cfg["fit"]["xmin"]*self.mcagain+self.mcazero
         setup.emax = cfg["fit"]["xmax"]*self.mcagain+self.mcazero
+
 
 class sn3102(XRFDetector):
     aliases = ["XFlash5100"]
@@ -428,7 +513,7 @@ class sn3102(XRFDetector):
         ultralene = compoundfromname.compoundfromname("ultralene")
         moxtek = compoundfromname.compoundfromname("moxtek ap3.3")
         
-        attenuators = {}
+        attenuators = kwargs.get("attenuators",{})
         attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4} # cm
         attenuators["WindowDetector"] = {"material":moxtek,"thickness":380e-4} # AP3.3 Moxtek
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
@@ -441,8 +526,8 @@ class sn3102(XRFDetector):
         kwargs["mcanoise"] = 0.1 # keV
         kwargs["mcafano"] = 0.114
         
-        #kwargs["shape_fixedarearatios"] = {"tailbroadening":0.5,"tailfraction":0.05,"stepfraction":0.005}
-        kwargs["shape_pymca"] = {"stepheight_ratio":0.001,"tailarea_ratio":0.05,"tailslope_ratio":0.5}
+        #kwargs["shape_fixedarearatios"] = {"tailbroadening":0.5,"tailfraction":0.05,"stepfraction":0.005,"bpeak":True,"btail":False,"bstep":False}
+        kwargs["shape_pymca"] = {"stepheight_ratio":0.001,"tailarea_ratio":0.05,"tailslope_ratio":0.5,"bpeak":True,"btail":False,"bstep":False}
         
         kwargs["ehole"] = constants.eholepair_si()
 
@@ -455,7 +540,7 @@ class Leia(XRFDetector):
     def __init__(self,**kwargs):
         ultralene = compoundfromname.compoundfromname("ultralene")
         
-        attenuators = {}
+        attenuators = kwargs.get("attenuators",{})
         attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4} #cm
         attenuators["WindowDetector"] = {"material":element.Element('Be'),"thickness":25e-4}
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
@@ -468,8 +553,8 @@ class Leia(XRFDetector):
         kwargs["mcanoise"] = 50e-3 # keV
         kwargs["mcafano"] = 0.19
         
-        #kwargs["shape_fixedarearatios"] = {"tailbroadening":0.5,"tailfraction":0.05,"stepfraction":0.005}
-        kwargs["shape_pymca"] = {"stepheight_ratio":0.001,"tailarea_ratio":0.05,"tailslope_ratio":0.5}
+        #kwargs["shape_fixedarearatios"] = {"tailbroadening":0.5,"tailfraction":0.05,"stepfraction":0.005,"bpeak":True,"btail":False,"bstep":False}
+        kwargs["shape_pymca"] = {"stepheight_ratio":0.001,"tailarea_ratio":0.05,"tailslope_ratio":0.5,"bpeak":True,"btail":False,"bstep":False}
 
         kwargs["ehole"] = constants.eholepair_si()
 
@@ -482,7 +567,7 @@ class BB8(XRFDetector):
     def __init__(self,**kwargs):
         ultralene = compoundfromname.compoundfromname("ultralene")
         
-        attenuators = {}
+        attenuators = kwargs.get("attenuators",{})
         attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4} #cm
         attenuators["WindowDetector"] = {"material":element.Element('Be'),"thickness":12.5e-4}
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
@@ -495,8 +580,8 @@ class BB8(XRFDetector):
         kwargs["mcanoise"] = 0.1 # keV
         kwargs["mcafano"] = 0.114
         
-        #kwargs["shape_fixedarearatios"] = {"tailbroadening":0.5,"tailfraction":0.05,"stepfraction":0.005}
-        kwargs["shape_pymca"] = {"stepheight_ratio":0.001,"tailarea_ratio":0.05,"tailslope_ratio":0.5}
+        #kwargs["shape_fixedarearatios"] = {"tailbroadening":0.5,"tailfraction":0.05,"stepfraction":0.005,"bpeak":True,"btail":False,"bstep":False}
+        kwargs["shape_pymca"] = {"stepheight_ratio":0.001,"tailarea_ratio":0.05,"tailslope_ratio":0.5,"bpeak":True,"btail":False,"bstep":False}
         
         kwargs["ehole"] = constants.eholepair_si()
         
@@ -509,7 +594,7 @@ class DR40(XRFDetector):
     def __init__(self,**kwargs):
         ultralene = compoundfromname.compoundfromname("ultralene")
         
-        attenuators = {}
+        attenuators = kwargs.get("attenuators",{})
         attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4} #cm
         attenuators["WindowDetector"] = {"material":element.Element('Be'),"thickness":25e-4}
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
@@ -522,8 +607,8 @@ class DR40(XRFDetector):
         kwargs["mcanoise"] = 0.1 # keV
         kwargs["mcafano"] = 0.114
         
-        #kwargs["shape_fixedarearatios"] = {"tailbroadening":0.5,"tailfraction":0.05,"stepfraction":0.005}
-        kwargs["shape_pymca"] = {"stepheight_ratio":0.001,"tailarea_ratio":0.05,"tailslope_ratio":0.5}
+        #kwargs["shape_fixedarearatios"] = {"tailbroadening":0.5,"tailfraction":0.05,"stepfraction":0.005,"bpeak":True,"btail":False,"bstep":False}
+        kwargs["shape_pymca"] = {"stepheight_ratio":0.001,"tailarea_ratio":0.05,"tailslope_ratio":0.5,"bpeak":True,"btail":False,"bstep":False}
         
         kwargs["ehole"] = constants.eholepair_si()
         

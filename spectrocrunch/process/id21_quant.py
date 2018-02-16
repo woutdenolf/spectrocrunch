@@ -386,8 +386,8 @@ class FluxMonitor(object):
                     nofit=nofit,fixdark=fixdark,fluxmin=fluxmin,fluxmax=fluxmax,plot=plot)
 
     def batchcalibrate(self,params_fixed,params_var):
-        params = dict(params_fixed)
         for k in params_var:
+            params = dict(params_fixed)
             params.update(k)
             self.calibrate(params)
         

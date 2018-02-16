@@ -121,8 +121,8 @@ class PymcaHandle(object):
         self.time = cfg["concentrations"]["time"]
 
     def addtopymca_background(self,cfg):
-        rtail,rstep = self.sample.geometry.detector.ratios
-        cfg["fit"]["stripflag"] = int(rstep<=0)
+        bmodelbkg = self.sample.geometry.detector.btail or self.sample.geometry.detector.bstep
+        cfg["fit"]["stripflag"] = not bmodelbkg
         cfg["fit"]["stripalgorithm"] = 1
         cfg["fit"]["snipwidth"] = 100
     
