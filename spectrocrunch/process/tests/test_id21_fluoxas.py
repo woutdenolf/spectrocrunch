@@ -111,11 +111,12 @@ class test_fluoxas(unittest.TestCase):
         data *= flux[...,np.newaxis,np.newaxis]
         
         ctrs["arr_iodet"] = np.ones((nmaps,nlines,nspec))
+        ctrs["arr_idet"] = np.ones((nmaps,nlines,nspec))
         ctrs["arr_fdet"] = np.ones((nmaps,nlines,nspec))
         for i,en in enumerate(energy):
-            ctrs["arr_iodet"][i,...] = fluxmonitor.fluxtocps(en,flux[i,...])*fluxmonitor.time.to("seconds").magnitude
+            ctrs["arr_iodet"][i,...] = fluxmonitor.fluxtocps(en,flux[i,...])*fluxmonitor.defaulttime.to("seconds").magnitude
             ctrs["arr_fdet"][i,...] = flux[i,...]/refflux
-            op,fref,tref = fluxmonitor.xrfnormop(en)
+            op,fref,tref,traw = fluxmonitor.xrfnormop(en)
             self.assertEqual(fref,refflux)
             np.testing.assert_allclose(ctrs["arr_fdet"][i,...],op(ctrs["arr_iodet"][i,...]))
 

@@ -275,12 +275,12 @@ def createimagestacks(config,fluxmonitor=None):
                 time = stackinfo["refexpotime"][imageindex]
                 if "fluxcounter" in config:
                     op,_ = fluxmonitor.I0op(energy,time=time)
-                    if binit:
+                    if "calc_I0" not in stacks[name]:
                         stacks[name]["calc_I0"] = [""]*nstack
                     stacks[name]["calc_I0"][imageindex] = {"args":[config["fluxcounter"]],"groups":[name],"func":op}
                 if "transmissioncounter" in config:
                     op,_ = fluxmonitor.Itop(energy,time=time)
-                    if binit:
+                    if "calc_It" not in stacks[name]:
                         stacks[name]["calc_It"] = [""]*nstack
                     stacks[name]["calc_It"][imageindex] = {"args":[config["transmissioncounter"]],"groups":[name],"func":op}
         
@@ -330,6 +330,21 @@ def createimagestacks(config,fluxmonitor=None):
                 for f,label in zip(files,labels):
                     stacks[name][label][imageindex] = f
     
+    # Detector sum
+    detectors = [k for k in stacks.keys() if re.match("^detector([0-9]+)$",k)]
+    if config["addafterfitting"] and len(detectors)>1:
+        if "detectorsum" not in stacks:
+            stacks["detectorsum"] = {}
+        
+        for k1 in detectors:
+            for k2 in stacks[k1]:
+                if k2 not in stacks["detectorsum"]:
+                    stacks["detectorsum"][k2] = [[]]*nstack
+                    
+                for imageindex in range(nstack):
+                    stacks["detectorsum"][k2][imageindex].append(stacks[k1][k2][imageindex])
+            stacks.pop(k1)
+        
     # Sort stack on stack axis value
     ind = np.argsort(stackaxes[stackdim]["data"],kind='mergesort')
     stackaxes[stackdim]["data"] = stackaxes[stackdim]["data"][ind]
@@ -340,24 +355,9 @@ def createimagestacks(config,fluxmonitor=None):
         for k2 in group:
             group[k2] = [group[k2][i] for i in ind]
 
-    # Detector sum stack
-    detectors = [k for k in stacks.keys() if re.match("^detector([0-9]+)$",k)]
-    if config["addafterfitting"] and len(detectors)>1:
-        stacks["detectorsum"] = {}
-        
-        for k1 in detectors:
-            for k2 in stacks[k1]:
-                if k2 not in stacks["detectorsum"]:
-                    stacks["detectorsum"][k2] = {"args":[k2],"groups":[k1],"func":lambda *x: sum(x)}
-                else:   
-                    stacks["detectorsum"][k2]["args"].append(k2)
-                    stacks["detectorsum"][k2]["groups"].append(k1)
-        for k2 in stacks["detectorsum"]:
-            stacks["detectorsum"][k2] = [stacks["detectorsum"][k2]]*nstack
-    
     return stacks,stackaxes,stackinfo
 
-def exportgroups(f,stacks,axes,stackdim,imgdim,proc,stackshape=[0,0,0]):
+def exportgroups(f,stacks,axes,stackdim,imgdim,stackshape,proc):
     """Export groups of EDF stacks, summated or not
     """
 
@@ -406,7 +406,9 @@ def exportgroups(f,stacks,axes,stackdim,imgdim,proc,stackshape=[0,0,0]):
                 else:
                     if isinstance(datainfo,dict):
                         break
-                    data = edf.edfimage(datainfo).data
+                    if not isinstance(datainfo,list):
+                        datainfo = [datainfo]
+                    data = sum(edf.edfimage(filename).data for filename in datainfo)
 
                 # Get destination for data
                 if k2 in grp:
@@ -439,6 +441,7 @@ def exportgroups(f,stacks,axes,stackdim,imgdim,proc,stackshape=[0,0,0]):
                     dset[:,iscan,:] = data
                 else:
                     dset[...,iscan] = data
+
             else:
                 if nxdatagrp is not None:
                     # Replace subgroup k2 filename or calcinfo with NXentry name in stack
@@ -456,8 +459,9 @@ def exportimagestacks(config,stacks,stackaxes,stackinfo,jsonfile):
 
     # Save groups
     stackdim,imgdim = axesindices(config)
-    stacks,stackshape = exportgroups(f,stacks,axes,stackdim,imgdim,"raw")
-    stacks,stackshape = exportgroups(f,stacks,axes,stackdim,imgdim,"calc",stackshape=stackshape)
+    stackshape = [0,0,0]
+    stacks,stackshape = exportgroups(f,stacks,axes,stackdim,imgdim,stackshape,"raw")
+    stacks,stackshape = exportgroups(f,stacks,axes,stackdim,imgdim,stackshape,"calc")
 
     # Save stackinfo
     coordgrp = nexus.newNXentry(f,"stackinfo")
