@@ -275,14 +275,14 @@ def createimagestacks(config,fluxmonitor=None):
                 time = stackinfo["refexpotime"][imageindex]
                 if "fluxcounter" in config:
                     op,_ = fluxmonitor.I0op(energy,time=time)
-                    if "calc_I0" not in stacks[name]:
-                        stacks[name]["calc_I0"] = [""]*nstack
-                    stacks[name]["calc_I0"][imageindex] = {"args":[config["fluxcounter"]],"groups":[name],"func":op}
+                    if "calc_flux0" not in stacks[name]:
+                        stacks[name]["calc_flux0"] = [""]*nstack
+                    stacks[name]["calc_flux0"][imageindex] = {"args":[config["fluxcounter"]],"groups":[name],"func":op}
                 if "transmissioncounter" in config:
                     op,_ = fluxmonitor.Itop(energy,time=time)
-                    if "calc_It" not in stacks[name]:
-                        stacks[name]["calc_It"] = [""]*nstack
-                    stacks[name]["calc_It"][imageindex] = {"args":[config["transmissioncounter"]],"groups":[name],"func":op}
+                    if "calc_fluxt" not in stacks[name]:
+                        stacks[name]["calc_fluxt"] = [""]*nstack
+                    stacks[name]["calc_fluxt"][imageindex] = {"args":[config["transmissioncounter"]],"groups":[name],"func":op}
         
     
     # Fit data and add elemental maps
