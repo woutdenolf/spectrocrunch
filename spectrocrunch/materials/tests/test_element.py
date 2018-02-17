@@ -108,7 +108,7 @@ class test_element(unittest.TestCase):
     def test_fluo(self):
         e = element.Element("Sn")
 
-        for s in xraylib._code_to_shell:
+        for s in xraylib.code_to_shell:
             mu1 = xraylib.CS_Photo_Partial(50,s,8.)
             mu2 = xraylib.CS_Photo_Partial(50,s,8.)*xraylib.FluorYield(50,s)
             
@@ -126,7 +126,7 @@ class test_element(unittest.TestCase):
 
         mu1 = 0.
         mu2 = 0.
-        for s in xraylib._code_to_shell:
+        for s in xraylib.code_to_shell:
             mu1 += xraylib.CS_Photo_Partial(50,s,8.)
             mu2 += xraylib.CS_Photo_Partial(50,s,8.)*xraylib.FluorYield(50,s)
             

@@ -26,7 +26,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numbers
 import re
-import collections
 
 from .. import xraylib
 from .. import ureg
@@ -54,7 +53,7 @@ class FluoLine(hashable.Hashable):
         if isinstance(line,FluoLine):
             return line.name
         elif isinstance(line,numbers.Number):
-            names = xraylib._code_to_line[line]
+            names = xraylib.code_to_line[line]
             
             n = len(names)
             if n==1:
@@ -75,7 +74,7 @@ class FluoLine(hashable.Hashable):
             else:
                 return names[np.argmax([len(name) for name in names])]
         else:
-            if line not in xraylib._line_to_code.keys():
+            if line not in xraylib.line_to_code.keys():
                 raise ValueError("Unknown line name {}".format(line))
             return line
 
@@ -84,11 +83,11 @@ class FluoLine(hashable.Hashable):
         if isinstance(line,FluoLine):
             return line.code
         elif isinstance(line,numbers.Number):
-            if line not in xraylib._code_to_line.keys():
+            if line not in xraylib.code_to_line.keys():
                 raise ValueError("Unknown line code {}".format(line))
             return line
         else:
-            return xraylib._line_to_code[line]
+            return xraylib.line_to_code[line]
     
     @staticmethod
     def decompose(code):
@@ -98,14 +97,14 @@ class FluoLine(hashable.Hashable):
         Return:
             list(int): sub lines
         """
-        if code in xraylib._composites:
-            return xraylib._composites[code]
+        if code in xraylib.composites:
+            return xraylib.composites[code]
         else:
             return [code]
         
     @classmethod
     def all_lines(cls):
-        return list(set(cls(code) for line in range(xraylib._line_max,xraylib._line_min-1,-1) for code in cls.decompose(line)))
+        return list(set(cls(code) for line in range(xraylib.line_max,xraylib.line_min-1,-1) for code in cls.decompose(line)))
     
     @classmethod
     def factory(cls,shells=None,fluolines=None,energybounds=None):
@@ -187,15 +186,15 @@ class FluoLine(hashable.Hashable):
         
         if rate==0:
             # Maybe the radiative rate of one of its composites is known
-            if self.code in xraylib._rcomposites:
-                for comp in xraylib._rcomposites[self.code]:
+            if self.code in xraylib.rcomposites:
+                for comp in xraylib.rcomposites[self.code]:
                     if comp>=0:
                         continue
                     rate = xraylib.RadRate(Z,comp)
                     if rate!=0:
                         # In abscence of a better assumption, assume all lines
                         # in the composite are equally probable
-                        return rate/len(xraylib._composites[comp])
+                        return rate/len(xraylib.composites[comp])
                         
         return rate
     
@@ -210,8 +209,8 @@ class FluoLine(hashable.Hashable):
         
         if energy==0:
             # Maybe the energy of one of its composites is known
-            if self.code in xraylib._rcomposites:
-                for comp in xraylib._rcomposites[self.code]:
+            if self.code in xraylib.rcomposites:
+                for comp in xraylib.rcomposites[self.code]:
                     if comp>=0:
                         continue
                     energy = xraylib.LineEnergy(Z,comp)
@@ -224,16 +223,28 @@ class FluoLine(hashable.Hashable):
     def shell(self):
         """Shell to which this line belongs to
         """
-        for shellname in xraylib._shell_to_code:
+        for shellname in xraylib.shell_to_code:
             if self.name.startswith(shellname):
                 return Shell(shellname)
         raise RuntimeError("Cannot find the shell of fluorescence line {}".format(self))
 
     @property
+    def groupname(self):
+        """Group to which this line belongs to. Fluorescence lines are grouped by 
+           excitation shell, except the K-shell which is split in KA and KB
+        """
+        s = self.shell
+        if self.code in xraylib.rcomposites:
+            name = xraylib.code_to_line[xraylib.rcomposites[self.code][0]][0]
+            if name=="KA" or name=="KB":
+                return name
+        return str(s)
+
+    @property
     def shellsource(self):
         """Shell which is ionized after the transition
         """
-        for shellname in xraylib._shell_to_code:
+        for shellname in xraylib.shell_to_code:
             if self.name.endswith(shellname):
                 return Shell(shellname)
         raise RuntimeError("Cannot find the source shell of fluorescence line {}".format(self))
@@ -253,9 +264,9 @@ class Shell(hashable.Hashable):
         if isinstance(shell,Shell):
             return shell.name
         elif isinstance(shell,numbers.Number):
-            return xraylib._code_to_shell[shell]
+            return xraylib.code_to_shell[shell]
         else:
-            if shell not in xraylib._shell_to_code.keys():
+            if shell not in xraylib.shell_to_code.keys():
                 raise ValueError("Unknown shell name {}".format(shell))
             return shell
             
@@ -264,15 +275,15 @@ class Shell(hashable.Hashable):
         if isinstance(shell,Shell):
             return shell.code
         elif isinstance(shell,numbers.Number):
-            if shell not in xraylib._code_to_shell.keys():
+            if shell not in xraylib.code_to_shell.keys():
                 raise ValueError("Unknown shell code {}".format(shell))
             return shell
         else:
-            return xraylib._shell_to_code[shell]
+            return xraylib.shell_to_code[shell]
 
     @classmethod
     def all_shells(cls,fluolines=None):
-        shells = range(xraylib._shell_min,xraylib._shell_max+1)
+        shells = range(xraylib.shell_min,xraylib.shell_max+1)
         return [cls(shell,fluolines=fluolines) for shell in shells]       
 
     @classmethod
@@ -414,7 +425,7 @@ class FluoZLine(hashable.Hashable):
     
     @property   
     def groupname(self):
-        return "{}-{}".format(self.element,self.line.shell)
+        return "{}-{}".format(self.element,self.line.groupname)
         
     @property
     def nenergy(self):
@@ -646,6 +657,68 @@ class Spectrum(dict):
                 
         return ret
 
+    def lineinfo(self,convert=True):
+        lineinfo = {}
+        geomkwargs = self.geomkwargs
+        groups = self.linegroups(convert=convert)
+        for group,lines in groups.items():        
+                bscat = group=="Compton" or group=="Rayleigh"
+                if bscat:
+                    lines,intensities = lines.items()[0]
+                    lines = lines.split()
+                else:
+                    intensities = lines.values()
+                
+                imax = np.argmax(intensities)
+                
+                for i,(line,peakarea) in enumerate(zip(lines,intensities)):
+                    energy = line.energy(**geomkwargs)
+                    
+                    if i==imax:
+                        label = group
+                    else:
+                        label = None
+                    
+                    if bscat:
+                        linename = "{}{}".format(group,i)
+                    else:
+                        linename = str(line)
+                    
+                    lineinfo[linename] = {"group":group,\
+                                            "label":label,\
+                                            "energy":energy,\
+                                            "area":peakarea,\
+                                            "natwidth":line.linewidth}
+        return lineinfo
+        
+    def peakprofiles(self,lineinfo,normalized=None,voigt=False):
+        if self.geometry is None:
+            return None
+
+        energies = np.asarray([v["energy"] for v in lineinfo.values()])
+        linewidths = np.asarray([v["natwidth"] for v in lineinfo.values()])
+            
+        def lineprofiles(x,ind=None,energies=energies,linewidths=linewidths):
+            if ind is not None:
+                energies = energies[ind]
+                try:
+                    linewidths = linewidths[ind]
+                except:
+                    pass
+            return self.geometry.detector.lineprofile(x,energies,linewidth=linewidths,normalized=normalized)
+
+        return lineprofiles
+
+    def profileinfo(self,convert=False,fluxtime=None,histogram=False):
+        multiplier = 1
+        phsource = fluxtime is not None
+        if phsource:
+            multiplier = multiplier*fluxtime
+        if histogram:
+            multiplier = multiplier*self.mcagain
+        ylabel = self.ylabel(convert=convert,phsource=phsource,mcabin=histogram)
+        return multiplier,ylabel
+        
     def __str__(self):
         geomkwargs = self.geomkwargs
         lines = "\n ".join(["{} {}".format(line,v) for line,v in self.lines(sort=True,**geomkwargs)])
@@ -688,83 +761,34 @@ class Spectrum(dict):
     def mcabins(self):
         a,b = self.channellimits
         return np.arange(a,b+1)
-        
-    def peakprofiles(self,convert=True,normalized=None):
-        retlines = collections.OrderedDict()
-        
-        geomkwargs = self.geomkwargs
-                
-        groups = self.linegroups(convert=convert)
 
-        for group,lines in groups.items():        
-            bscat = group=="Compton" or group=="Rayleigh"
-            if bscat:
-                lines,intensities = lines.items()[0]
-                lines = lines.split()
-            else:
-                intensities = lines.values()
-            
-            imax = np.argmax(intensities)
-            
-            for i,(line,peakarea) in enumerate(zip(lines,intensities)):
-                energy = line.energy(**geomkwargs)
-                
-                if i==imax:
-                    label = group
-                else:
-                    label = None
-                
-                if bscat:
-                    linename = "{}{}".format(group,i)
-                else:
-                    linename = str(line)
-                
-                retlines[linename] = {"group":group,"label":label,"energy":energy,"area":peakarea,"natwidth":line.linewidth}
-                
-        energies = np.asarray([v["energy"] for v in retlines.values()])
-        linewidths = np.asarray([v["natwidth"] for v in retlines.values()])
-
-        if self.geometry is None:
-            lineprofiles = None
-        else:
-            def lineprofiles(x,ind=None,energies=energies,linewidths=linewidths):
-                if ind is not None:
-                    energies = energies[ind]
-                    linewidths = linewidths[ind]
-                return self.geometry.detector.lineprofile(x,energies,linewidth=linewidths,normalized=normalized)
-
-        return retlines,lineprofiles
-
-    def profileinfo(self,convert=False,fluxtime=None,histogram=False):
-        multiplier = 1
-        phsource = fluxtime is not None
-        if phsource:
-            multiplier = multiplier*fluxtime
-        if histogram:
-            multiplier = multiplier*self.mcagain
-        ylabel = self.ylabel(convert=convert,phsource=phsource,mcabin=histogram)
-        return multiplier,ylabel
-        
-    def sumprofile(self,convert=True,fluxtime=None,histogram=False,backfunc=None):
+    def sumprofile(self,convert=True,fluxtime=None,histogram=False,backfunc=None,voigt=False):
         energies = self.mcabinenergies()
+        lineinfo = self.lineinfo(convert=convert)
         multiplier,ylabel = self.profileinfo(convert=convert,fluxtime=fluxtime,histogram=histogram)
-        lines,profiles = self.peakprofiles(convert=convert)
-        m = np.asarray([v["area"] for v in lines.values()])*multiplier
-        y = (profiles(energies)*m[np.newaxis,:]).sum(axis=-1)
+        profiles = self.peakprofiles(lineinfo)
+        m = np.asarray([v["area"] for v in lineinfo.values()])*multiplier
+        if voigt:
+            y = (profiles(energies)*m[np.newaxis,:]).sum(axis=-1)
+        else:
+            y = (profiles(energies,linewidths=0)*m[np.newaxis,:]).sum(axis=-1)
         if backfunc is not None:
             y = y+backfunc(energies)
         return energies,y,ylabel
         
-    def plot(self,convert=False,fluxtime=None,mark=True,log=False,decompose=True,histogram=False,backfunc=None,sumlabel="sum"):
+    def plot(self,convert=False,fluxtime=None,mark=True,log=False,decompose=True,histogram=False,backfunc=None,voigt=False,sumlabel="sum"):
         ax = plt.gca()
 
         if decompose:
             energies = self.mcabinenergies()
+            lines = self.lineinfo(convert=convert)
             multiplier,ylabel = self.profileinfo(convert=convert,fluxtime=fluxtime,histogram=histogram)
-            lines,profiles = self.peakprofiles(convert=convert)
+            profiles = self.peakprofiles(lines)
             if profiles is not None:
-                profiles = profiles(energies)
-
+                if voigt:
+                    profiles = profiles(energies)
+                else:
+                    profiles = profiles(energies,linewidths=0)
             colors = {}
             for lineinfo in lines.values():
                 g = lineinfo["group"]
@@ -781,12 +805,12 @@ class Spectrum(dict):
                     if backfunc is not None:
                         prof += backfunc(energies)
                 else:
-                    prof = None
+                    prof = lineinfo["area"]*multiplier
                 
-                h = self._plotline(lineinfo,energies,prof,multiplier=multiplier,color=color,label=lineinfo["label"] )
+                h = self._plotline(lineinfo,energies,prof,color=color,label=lineinfo["label"] )
                 if mark and lineinfo["label"] is not None:
                     plt.annotate(linename, xy=(lineinfo["energy"], h),color=color)
-                if prof is not None:
+                if profiles is not None:
                     if sumprof is None:
                         sumprof = prof
                     else:
@@ -810,13 +834,13 @@ class Spectrum(dict):
         except UnicodeDecodeError:
             pass
             
-    def _plotline(self,line,energies,prof,multiplier=1,backfunc=None,**kwargs):
-        if prof is None:
+    def _plotline(self,line,energies,prof,**kwargs):
+        if listtools.length(prof)==1:
             energy = line["energy"]
-            h = line["area"]*multiplier
+            h = instance.asscalar(prof)
             plt.plot([energy,energy],[0,h],**kwargs)
         else:
-            y = prof*multiplier
+            y = prof
             h = max(y)
             plt.plot(energies,y,**kwargs)
 
