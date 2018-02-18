@@ -152,20 +152,25 @@ class test_xrfdet(unittest.TestCase):
                                     np.testing.assert_allclose(y2+a,y3+a)
                                     
                                     # Check unit area
+                                    
+                                    if voigt:
+                                        linewidth = 0.010
+                                        rtol = 1e-3
+                                    else:
+                                        linewidth = 0
+                                        rtol = 1e-7
+                                    area1,error1 = integrate.quad(lambda x: detector1.lineprofile(x,u,linewidth=linewidth,normalized=normalized),xmin,xmax)
+                                    area2,error2 = integrate.quad(lambda x: silx.math.fit.sum_ahypermet(np.asarray([x]),*args,**kwargs)[0],xmin,xmax)
+                                    area3,error3 = integrate.quad(lambda x: detector2.lineprofile(x,u,linewidth=linewidth,normalized=normalized),xmin,xmax)  
                                     if normalized:
-                                        if voigt:
-                                            linewidth = 0.010
-                                            rtol = 1e-3
-                                        else:
-                                            linewidth = 0
-                                            rtol = 1e-7
-                                        area1,error1 = integrate.quad(lambda x: detector1.lineprofile(x,u,linewidth=linewidth,normalized=normalized),xmin,xmax)
-                                        area2,error2 = integrate.quad(lambda x: silx.math.fit.sum_ahypermet(np.asarray([x]),*args,**kwargs)[0],xmin,xmax)
-                                        area3,error3 = integrate.quad(lambda x: detector2.lineprofile(x,u,linewidth=linewidth,normalized=normalized),xmin,xmax)  
                                         np.testing.assert_allclose(area1,1,rtol=rtol)
                                         np.testing.assert_allclose(area2,1,rtol=1e-7)
                                         np.testing.assert_allclose(area3,1,rtol=rtol)
-
+                                    #else:
+                                    #    print area1,area2,area3
+                                    #    np.testing.assert_raises(AssertionError, np.testing.assert_allclose, area1,1,rtol=rtol)
+                                    #    np.testing.assert_raises(AssertionError, np.testing.assert_allclose, area2,1,rtol=1e-7)
+                                    #    np.testing.assert_raises(AssertionError, np.testing.assert_allclose, area3,1,rtol=rtol)
 
 def test_suite_all():
     """Test suite including all test suites"""

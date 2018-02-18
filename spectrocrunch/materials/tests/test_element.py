@@ -213,18 +213,18 @@ class test_element(unittest.TestCase):
         #
         #assert(definite_integral(ElasticDiff1(theta)*sin(theta),theta,0,pi)==8*pi/3)
         #
-        # muR(energy) = re^2 . NA/MM . pi . int_0^pi [(1+cos(theta)^2) . f(energy,theta)^2 . sin(theta) . dtheta]
+        # muR(energy) = re^2 . NA/MM . int_0^2pi[int_0^pi [(1+cos(theta)^2)/2 . f(energy,theta)^2  . sin(theta) . dtheta] . dphi]
         
         energy = np.linspace(4,30,2)
         fim2 = e.scatfact_im(energy)**2
         
         def integrand1(theta,energy,a):
-            return (1+np.cos(theta)**2)*np.sin(theta)*(e.scatfact_re(energy,theta=theta)**2+a)
+            return (1+np.cos(theta)**2)/2.*np.sin(theta)*(e.scatfact_re(energy,theta=theta)**2+a)
             
         def integrand2(theta,energy):
-            return (1+np.cos(theta)**2)*np.sin(theta)*e.scatfact_classic_re(energy,theta=theta)**2
+            return (1+np.cos(theta)**2)/2.*np.sin(theta)*e.scatfact_classic_re(energy,theta=theta)**2
         
-        fac = (np.pi*ureg.re**2*ureg.avogadro_number/ureg.Quantity(e.MM,'g/mol')).to("cm^2/g").magnitude
+        fac = 2*np.pi*e.scatfact_to_cs_constant
         
         #cs1 = [fac*integrate.quad(integrand1, 0, np.pi, args = (energy[i],fim2[i]))[0]  for i in range(len(energy))]
         
@@ -240,7 +240,19 @@ class test_element(unittest.TestCase):
         #plt.plot(energy,cs3,label='Tab')
         #plt.legend()
         #plt.show()
-            
+    
+    def test_formfact(self):
+        e = element.Element("Fe")
+        
+        energy = 30
+        wavelength = ureg.Quantity(energy,'keV').to("cm","spectroscopy")
+        f2 = e.scatfact_im(energy)
+        m = -(2*ureg.re*wavelength*ureg.avogadro_number/ureg.Quantity(e.MM,'g/mol')).to("cm^2/g").magnitude
+        np.testing.assert_allclose(m*f2,e.mass_abs_coeff(energy),rtol=1e-6)
+        
+        f1 = e.scatfact_re(energy)
+        np.testing.assert_allclose(f1,e.Z,rtol=1e-2)
+    
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
@@ -249,6 +261,7 @@ def test_suite_all():
     testSuite.addTest(test_element("test_fluo"))
     testSuite.addTest(test_element("test_comparable"))
     testSuite.addTest(test_element("test_diffcs_elastic"))
+    testSuite.addTest(test_element("test_formfact"))
     return testSuite
     
 if __name__ == '__main__':

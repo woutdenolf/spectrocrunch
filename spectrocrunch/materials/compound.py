@@ -166,11 +166,21 @@ class Compound(Hashable):
     def __getitem__(self,el):
         return self.elements[el]
 
-    def molarmass(self):
-        nfrac = self.molefractions(total=True)
+    def molarmass(self,total=True):
+        nfrac = self.molefractions(total=total)
         MM = np.asarray([e.MM for e in nfrac])
         nfrac = np.asarray(nfrac.values())
         return (MM*nfrac).sum()
+
+    def molarmasseff(self):
+        return self.molarmass(total=False)
+
+    @property
+    def Zeff(self):
+        nfrac = self.molefractions(total=False)
+        Z = np.asarray([e.Z for e in nfrac])
+        nfrac = np.asarray(nfrac.values())
+        return (Z*nfrac).sum()
 
     def weightfractions(self):
         nfrac = self.molefractions()
@@ -219,7 +229,7 @@ class Compound(Hashable):
             e.unmarkabsorber()
 
     def hasabsorbers(self):
-        return any([e.isabsorber() for e in self.elements])
+        return any([e.isabsorber for e in self.elements])
 
     def markscatterer(self,name=None):
         """
@@ -233,14 +243,14 @@ class Compound(Hashable):
 
     def unmarkscatterer(self):
         self.isscatterer = False
-        
-    def getabsorberinfo(self):
-        ret = {}
+    
+    def markinfo(self):
+        yield "{}".format(self.name)
+        yield " Scatterer: {}".format("yes" if self.isscatterer else "no")
         for e in self.elements:
-            if e.isabsorber() and e not in ret:
-                ret[e] = e.getfluoinfo()
-        return ret
-
+            for s in e.markinfo():
+                yield " {}".format(s)
+    
     @staticmethod
     def _cs_scattering(method):
         return method=="scattering_cross_section" or method=="compton_cross_section" or method=="rayleigh_cross_section"
@@ -347,46 +357,47 @@ class Compound(Hashable):
 
         return spectrum
     
-    def refractive_index_re(self,E,fine=False,decomposed=False,**kwargs):
-        """
-        """
+    def refractive_index_re(self,E,**kwargs):
+        return 1-self.refractive_index_delta(E)
+        
+    def refractive_index_im(self,E,**kwargs):
+        return self.refractive_index_beta(E)
+        
+    def refractive_index_delta(self,E,fine=False,decomposed=False,**kwargs):
         if hasattr(self,'structure') and fine:
             environ = self
         else:
             environ = None
-        
-        e_wfrac = self.weightfractions()
-        
-        ret = E*0.
-        
-        for e in e_wfrac:
-            ret += e_wfrac[e]*e.scatfact_re(E,environ=environ,**kwargs)/e.MM
-        ret = 1 - ureg.Quantity(ret,'mol/g') *\
-                  ureg.Quantity(E,'keV').to("cm","spectroscopy")**2 *\
-                  (ureg.re*ureg.avogadro_number*ureg.Quantity(self.density,'g/cm^3')/(2*np.pi))
-        
-        return ret.to("dimensionless").magnitude
-
-    def refractive_index_im(self,E,fine=False,decomposed=False,**kwargs):
-        """
-        """
+        return self.refractive_index_delta_calc(E,self.weightfractions(),self.density,environ=environ,**kwargs)
+    
+    def refractive_index_beta(self,E,fine=False,decomposed=False,**kwargs):
         if hasattr(self,'structure') and fine:
             environ = self
         else:
             environ = None
+        return self.refractive_index_beta_calc(E,self.weightfractions(),self.density,environ=environ,**kwargs)
         
-        e_wfrac = self.weightfractions()
-        
-        ret = E*0.
-        
-        for e in e_wfrac:
-            ret += e_wfrac[e]*e.scatfact_im(E,environ=environ,**kwargs)/e.MM
-        ret = ureg.Quantity(ret,'mol/g') *\
+    @staticmethod
+    def refractive_index_delta_calc(E,e_wfrac,density,**kwargs):
+        """n = 1-delta+i.beta
+        """
+        delta = sum(e_wfrac[e]*e.scatfact_re(E,**kwargs)/e.MM for e in e_wfrac)
+        delta = ureg.Quantity(delta,'mol/g') *\
               ureg.Quantity(E,'keV').to("cm","spectroscopy")**2 *\
-              (-ureg.re*ureg.avogadro_number*ureg.Quantity(self.density,'g/cm^3')/(2*np.pi))
+              (ureg.re*ureg.avogadro_number*ureg.Quantity(density,'g/cm^3')/(2*np.pi))
         
-        return ret.to("dimensionless").magnitude
-        
+        return delta.to("dimensionless").magnitude
+    
+    @staticmethod
+    def refractive_index_beta_calc(E,e_wfrac,density,**kwargs):
+        """n = 1-delta+i.beta
+        """
+        beta = sum(e_wfrac[e]*e.scatfact_im(E,**kwargs)/e.MM for e in e_wfrac)
+        beta = ureg.Quantity(beta,'mol/g') *\
+              ureg.Quantity(E,'keV').to("cm","spectroscopy")**2 *\
+              (-ureg.re*ureg.avogadro_number*ureg.Quantity(density,'g/cm^3')/(2*np.pi))
+        return beta.to("dimensionless").magnitude
+
     def get_energy(self,energyrange,defaultinc=1):
         """Get absolute energies (keV) from a relative energy range (eV)
 

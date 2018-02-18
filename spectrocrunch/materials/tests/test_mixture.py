@@ -31,6 +31,7 @@ from ...geometries import xrf as xrfgeometries
 from ...geometries import source
 from ...detectors import xrf as xrfdetectors
 from ...common import instance
+from ... import ureg
 
 import numpy as np
 
@@ -137,6 +138,21 @@ class test_mixture(unittest.TestCase):
 
         self._spectrum_equal(spectrum3,spectrum4)
         self._spectrum_equal(spectrum,spectrum3)
+    
+    def test_refractiveindex(self):
+        c1 = compound("Co2O3",1.5)
+        c2 = compound("Fe2O3",1.6)
+        c = mixture([c1,c2],[2,3],fractionType.mole)
+        energy = 30
+        
+        wavelength = ureg.Quantity(energy,'keV').to("cm","spectroscopy")
+        beta = c.refractive_index_beta(energy)
+        m = (4*np.pi/(wavelength*ureg.Quantity(c.density,'g/cm^3'))).to("cm^2/g").magnitude
+        np.testing.assert_allclose(beta*m,c.mass_abs_coeff(energy),rtol=1e-2)
+        
+        delta = c.refractive_index_delta(energy)
+        m = (2*np.pi/(ureg.re*wavelength**2*ureg.avogadro_number/ureg.Quantity(c.molarmasseff(),"g/mol")*c.Zeff)).to("g/cm^3").magnitude
+        np.testing.assert_allclose(delta*m,c.density,rtol=1e-2)
         
 def test_suite_all():
     """Test suite including all test suites"""
@@ -145,6 +161,7 @@ def test_suite_all():
     testSuite.addTest(test_mixture("test_addcompound"))
     testSuite.addTest(test_mixture("test_tocompound"))
     testSuite.addTest(test_mixture("test_cross_sections"))
+    testSuite.addTest(test_mixture("test_refractiveindex"))
     return testSuite
     
 if __name__ == '__main__':

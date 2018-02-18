@@ -1,17 +1,14 @@
-import spectrocrunch.math.linop as linop
-import numpy as np
-import sympy
+import spectrocrunch.materials.compoundfromname as compoundfromname
+import spectrocrunch.materials.mixture as mixture
+import spectrocrunch.materials.types as types
 
-ops = [linop.LinearOperator(1.3,0.1),linop.Clip(10,11),linop.Clip(3,7)]
+c1 = compoundfromname.compoundfromname("hematite")
+c2 = compoundfromname.compoundfromname("calcite")
+m = mixture.Mixture([c1,c2],[0.5,0.5],types.fractionType.weight)
 
-x = -29
-y = x
-opc = linop.Identity()
-for op in ops:
-    y = op(y)
-    opc = op*opc
+m.markabsorber(symb="O",shells=["K","L2"],fluolines=["KA"])
+m.markabsorber(symb="Fe",shells=["L1"])
 
-print (opc)
-print (y,opc(x))
 
+print "\n".join(m.markinfo())
 

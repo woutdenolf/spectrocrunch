@@ -330,7 +330,7 @@ class Shell(hashable.Hashable):
         """
         Args:
             code(int or str or Shell): shell code or name
-            fluolines(Optional(array(int or str or Fluoline))): emission lines
+            fluolines(Optional(array(int or str or Fluoline))): emission lines (None: all, []: explicit all)
         """
         self.code = self.getshellcode(shell)
         self.name = self.getshellname(shell)
@@ -349,6 +349,12 @@ class Shell(hashable.Hashable):
             self._fluolines = FluoLine.factory(shells=[self])
         return self._fluolines
 
+    def markinfo(self):
+        if self._fluolines is None or self._fluolines==[]:
+            yield "{} fluorescence lines: all".format(self.name)
+        else:
+            yield "{} fluorescence lines: {}".format(self.name,", ".join((str(l) for l in self._fluolines)))
+            
     def _cmpkey(self):
         """For comparing and sorting
         """

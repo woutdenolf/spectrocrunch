@@ -25,7 +25,7 @@
 import numpy as np
 import re
 
-from . import compoundfromlist
+from . import compound
 from . import compoundfromformula
 from . import compoundfromlist
 from . import element
@@ -147,12 +147,25 @@ class Mixture(object):
     def elements(self):
         return list(set(e for c in self.compounds for e in c.elements))
 
-    def molarmass(self):
-        nfrac = self.molefractions(total=True)
+    def molarmass(self,total=True):
+        # equivalent to using molefractions when total=True
+        # not equivalent to using molefractions when total=False
+        nfrac = self.elemental_molefractions(total=total)
         MM = np.asarray([c.molarmass() for c in nfrac])
         nfrac = np.asarray(nfrac.values())
         return (MM*nfrac).sum()
 
+    def molarmasseff(self):
+        return self.molarmass(total=False)
+
+    @property
+    def Zeff(self):
+        # equivalent to using elemental_molefractions
+        nfrac = self.molefractions(total=False)
+        Z = np.asarray([c.Zeff for c in nfrac])
+        nfrac = np.asarray(nfrac.values())
+        return (Z*nfrac).sum()
+    
     def volumefractions(self):
         nfrac = self.molefractions()
         MM = np.asarray([c.molarmass() for c in nfrac])
@@ -366,6 +379,24 @@ class Mixture(object):
         spectrum.type = spectrum.TYPES.crosssection
 
         return spectrum
+    
+    def refractive_index_re(self,E,**kwargs):
+        return 1-self.refractive_index_delta(E)
+        
+    def refractive_index_im(self,E,**kwargs):
+        return self.refractive_index_beta(E)
+        
+    def refractive_index_delta(self,E,fine=False,decomposed=False,**kwargs):
+        return compound.Compound.refractive_index_delta_calc(E,self.elemental_weightfractions(),self.density,environ=None,**kwargs)
+    
+    def refractive_index_beta(self,E,fine=False,decomposed=False,**kwargs):
+        return compound.Compound.refractive_index_beta_calc(E,self.elemental_weightfractions(),self.density,environ=None,**kwargs)
+
+    def markinfo(self):
+        yield "{}".format(self.name)
+        for c in self.compounds:
+            for s in c.markinfo():
+                yield " {}".format(s)
         
     def markabsorber(self,symb=None,shells=None,fluolines=None,energybounds=None):
         """

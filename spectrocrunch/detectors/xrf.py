@@ -374,9 +374,11 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         """
         # [1] R. van Grieken, A. Markowicz: Handbook of X-ray Spectrometry, CRC Press, Boca Raton (2001)
         #     peak, tail and step have fixed area ratio's
+        #     area include peak, tail and step
         # [2] PyMca
         #     peak and tail have a fixed area ratio
         #     peak and step have a fixed height ratio
+        #     area include only peak
         
         x = instance.asarray(x)[:,np.newaxis]
         u = instance.asarray(u)[np.newaxis,:] 
@@ -442,7 +444,6 @@ class XRFDetector(with_metaclass(base.CentricCone)):
                     if bstep:
                         step_H = stepheight_ratio/gnorm
                     
-
         else:
             if normalized is None:
                 normalized = False
@@ -513,7 +514,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         #   Gaussian step: H.step
         #                   step = erfc[(x-u)/sqrt(2.gvar)]/2
         #
-        #   VanGrieken: H = wstep/snorm                   (normalize in [0,inf[)
+        #   VanGrieken: H = wstep/snorm                   (normalize in [0,inf[, snorm≃u)
         #   Pymca: H = stepheight_ratio*garea/gnorm
         #
         #   => stepheight_ratio = wstep/wpeak*gnorm/snorm
@@ -527,7 +528,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         #                  tail = exp[(x-u)/tr+gvar/(2.tr**2)].erfc[(x-u)/sqrt(2.gvar)+sqrt(gvar)/(sqrt(2).tr)]/2
         #                  tr = tb.sqrt(gvar)
         #
-        #   VanGrieken: H = wtail/tnorm               (normalize in ]-inf,inf[)
+        #   VanGrieken: H = wtail/tnorm               (normalize in ]-inf,inf[, tnorm≃tr)
         #   Pymca: H = garea*tailarea_ratio/tr
         #
         #   => tailarea_ratio = wtail/wpeak*tr/tnorm

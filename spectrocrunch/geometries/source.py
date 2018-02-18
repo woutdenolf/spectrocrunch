@@ -60,11 +60,11 @@ class Source(with_metaclass(object)):
             
     def K(self):
         if self.polarization == self.POLARIZATION.none:
-            func = lambda _theta,_phi: (1+np.cos(_theta)**2.)/2.
+            func = lambda theta,phi: (1+np.cos(theta)**2.)/2.
         elif self.polarization == self.POLARIZATION.linear:
-            func = lambda _theta,_phi: (1+np.cos(_theta)**2.-np.cos(2*_phi)*np.sin(_theta)**2.)/2.
+            func = lambda theta,phi: (1+np.cos(theta)**2.-np.cos(2*phi)*np.sin(theta)**2.)/2.
         elif self.polarization == self.POLARIZATION.elliptical:
-            func = lambda _theta,_phi: (1+np.cos(_theta)**2.-(self.Plinear*np.cos(2*_phi)-np.sqrt(1-self.Plinear**2.)*np.sin(2*_phi)*self.cosdelta*np.sin(_theta)**2.))/2.
+            func = lambda theta,phi: (1+np.cos(theta)**2.-(self.Plinear*np.cos(2*phi)-np.sqrt(1-self.Plinear**2.)*np.sin(2*phi)*self.cosdelta*np.sin(theta)**2.))/2.
             
         return func
 
