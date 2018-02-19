@@ -361,7 +361,7 @@ class Compound(Hashable):
         return 1-self.refractive_index_delta(E)
         
     def refractive_index_im(self,E,**kwargs):
-        return self.refractive_index_beta(E)
+        return -self.refractive_index_beta(E)
         
     def refractive_index_delta(self,E,fine=False,decomposed=False,**kwargs):
         if hasattr(self,'structure') and fine:
@@ -379,7 +379,7 @@ class Compound(Hashable):
         
     @staticmethod
     def refractive_index_delta_calc(E,e_wfrac,density,**kwargs):
-        """n = 1-delta+i.beta
+        """n = 1-delta-i.beta
         """
         delta = sum(e_wfrac[e]*e.scatfact_re(E,**kwargs)/e.MM for e in e_wfrac)
         delta = ureg.Quantity(delta,'mol/g') *\
@@ -390,12 +390,12 @@ class Compound(Hashable):
     
     @staticmethod
     def refractive_index_beta_calc(E,e_wfrac,density,**kwargs):
-        """n = 1-delta+i.beta
+        """n = 1-delta-i.beta
         """
-        beta = sum(e_wfrac[e]*e.scatfact_im(E,**kwargs)/e.MM for e in e_wfrac)
+        beta = -sum(e_wfrac[e]*e.scatfact_im(E,**kwargs)/e.MM for e in e_wfrac)
         beta = ureg.Quantity(beta,'mol/g') *\
               ureg.Quantity(E,'keV').to("cm","spectroscopy")**2 *\
-              (-ureg.re*ureg.avogadro_number*ureg.Quantity(density,'g/cm^3')/(2*np.pi))
+              (ureg.re*ureg.avogadro_number*ureg.Quantity(density,'g/cm^3')/(2*np.pi))
         return beta.to("dimensionless").magnitude
 
     def get_energy(self,energyrange,defaultinc=1):

@@ -384,7 +384,7 @@ class Mixture(object):
         return 1-self.refractive_index_delta(E)
         
     def refractive_index_im(self,E,**kwargs):
-        return self.refractive_index_beta(E)
+        return -self.refractive_index_beta(E)
         
     def refractive_index_delta(self,E,fine=False,decomposed=False,**kwargs):
         return compound.Compound.refractive_index_delta_calc(E,self.elemental_weightfractions(),self.density,environ=None,**kwargs)

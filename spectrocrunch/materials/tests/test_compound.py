@@ -135,31 +135,33 @@ class test_compound(unittest.TestCase):
         
         Z = 14
         
-        # Xraylib
+        # Xraylib (TODO: n_im sign is wrong!)
         n_re0 = np.asarray([xraylib.Refractive_Index_Re("Si",e,density) for e in energy])
-        n_im0 = np.asarray([xraylib.Refractive_Index_Im("Si",e,density) for e in energy])
+        n_im0 = -np.asarray([xraylib.Refractive_Index_Im("Si",e,density) for e in energy])
         
-        # Exactly like Xraylib
-        n_re1 = 1-density*4.15179082788e-4*(Z+np.asarray([xraylib.Fi(Z, e) for e in energy]))/xraylib.AtomicWeight(Z)/energy**2;
-        n_im1 = np.asarray([xraylib.CS_Total(Z, e) for e in energy])*density*9.8663479e-9/energy
+        # Exactly like Xraylib (TODO: CS_Total -> CS_Photo_Total)
+        delta = density*4.15179082788e-4*(Z+np.asarray([xraylib.Fi(Z, e) for e in energy]))/xraylib.AtomicWeight(Z)/energy**2
+        beta = np.asarray([xraylib.CS_Total(Z, e) for e in energy])*density*9.8663479e-9/energy
+        n_re1 = 1-delta
+        n_im1 = -beta
         
         np.testing.assert_allclose(n_re0,n_re1)
         np.testing.assert_allclose(n_im0,n_im1)
         
         # Im: Kissel
-        n_im1b = np.asarray([xraylib.CS_Total_Kissel(Z, e) for e in energy])*density*9.8663479e-9/energy
+        n_im1b = -np.asarray([xraylib.CS_Total_Kissel(Z, e) for e in energy])*density*9.8663479e-9/energy
         
         # Im: Kissel with pint
         n_im1d = ureg.Quantity(c.mass_att_coeff(energy),'cm^2/g') *\
                 ureg.Quantity(c.density,'g/cm^3') *\
                 ureg.Quantity(energy,'keV').to("cm",'spectroscopy')/(4*np.pi)
-        n_im1d = n_im1d.to('dimensionless').magnitude
+        n_im1d = -n_im1d.to('dimensionless').magnitude
         
         r = n_im1b/n_im1d
         np.testing.assert_allclose(r,r[0])
 
         # Im: other formula
-        n_im1c = -density*4.15179082788e-4*(np.asarray([xraylib.Fii(Z, e) for e in energy]))/xraylib.AtomicWeight(Z)/energy**2;
+        n_im1c = density*4.15179082788e-4*(np.asarray([xraylib.Fii(Z, e) for e in energy]))/xraylib.AtomicWeight(Z)/energy**2;
 
         # Spectrocrunch
         n_re2 = c.refractive_index_re(energy)
