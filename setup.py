@@ -106,6 +106,7 @@ class DisabledCommand(Command):
 ## "test" command ## 
 ####################
 class TestAllPackages(Command):
+    description = 'Run all unit tests'
     user_options = []
 
     def initialize_options(self):
@@ -128,6 +129,7 @@ cmdclass['test'] = TestAllPackages
 ## "version" command ## 
 #######################
 class VersionOfAllPackages(Command):
+    description = 'Get project version'
     user_options = []
     
     def initialize_options(self):
@@ -148,6 +150,9 @@ class BuildWithVersion(build_py):
     """
     Enhanced build_py which copies version.py to <PROJECT>._version.py
     """
+    description = 'Build with version info'
+    user_options = []
+    
     def find_package_modules(self, package, package_dir):
         modules = build_py.find_package_modules(self, package, package_dir)
         if "." not in package:
@@ -162,7 +167,9 @@ cmdclass['build_py'] = BuildWithVersion
 #########################
 if sphinx is not None:
     class BuildDocCommand(BuildDoc):
-
+        description = 'Build documentation'
+        user_options = []
+        
         def run(self):
             ## # make sure the python path is pointing to the newly built
             ## # code so that the documentation is built on this and not a
@@ -202,6 +209,7 @@ cmdclass['build_doc'] = BuildDocCommand
 #####################
 class CleanCommand(Command):
     """Custom clean command to tidy up the project root."""
+    description = 'Clean build and compiled files'
     user_options = []
     def initialize_options(self):
         pass
