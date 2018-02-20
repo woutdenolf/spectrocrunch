@@ -27,12 +27,15 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as pltcolors
 
 import numpy as np
+import logging
 
 from ..common import listtools
 from ..common import instance
 from ..common.hashable import Hashable
 from collections import OrderedDict
 from .. import ureg
+
+logger = logging.getLogger(__name__)
 
 def ColorNorm(name,*args):
     if name=="LogNorm":
@@ -190,10 +193,14 @@ class Scene(Object):
     def origin(self,dim,off):
         self.dataoffset[dim] = off-self.dataoffset[dim]
     
-    def originzero(self):
+    def originreset(self):
         self.origin(0,self.q0(0))
         self.origin(1,self.q1(0))
     
+    def originzero(self):
+        self.origin(0,self.datarange(0)[0])
+        self.origin(1,self.datarange(1)[0])
+        
     def datatransform(self,arr,dim):
         if instance.isarray(arr):
             return type(arr)(x*self.datascale[dim] - self.dataoffset[dim] for x in arr)
@@ -275,19 +282,39 @@ class Item(Hashable,Object):
        plot settings are owned by the scenes.
     """
     
-    def __init__(self,dim0name="Dim0",dim1name="Dim1"):
+    def __init__(self,dim0name="Dim0",dim1name="Dim1",scene=None,**kwargs):
         self._scenes = []
         self._plotobjs = [] # list of lists, each list belonging to a scene
         self._sceneindex = -1
         self.dim0name = dim0name
         self.dim1name = dim1name
         
+        if scene is not None:
+            self.register(scene)
+        
+        try:
+            self.set_settings(kwargs)
+        except RuntimeError:
+            logger.warning("Item settings are not applied (provide a scene)")
+    
+    def register(self,scene):
+        scene.register(self)
+    
     def useaxesnames(self):
         self.scene.axlabels = [self.dim0name,self.dim1name]
     
     def defaultsettings(self):
         return {}
     
+    def set_settings(self,settings):
+        settings = self.scene.getitemsettings(self)
+        for k,v in settings.items():
+            settings[k] = v
+
+    def get_settings(self, keys):
+        settings = self.scene.getitemsettings(self)
+        return {k:settings[k] for k in keys}
+        
     def set_setting(self,attr,value):
         settings = self.scene.getitemsettings(self)
         if attr in settings:
@@ -359,10 +386,11 @@ class Item(Hashable,Object):
     def _stringrepr(self):
         return "{} {}".format(type(self).__name__,id(self))
     
+    
 class Image(Item):
 
     def __init__(self,img,lim0=None,lim1=None,**kwargs):
-        self.img = img
+        self._img = img
         
         if lim0 is None:
             lim0 = [0,img.shape[0]-1]
@@ -381,14 +409,63 @@ class Image(Item):
         super(Image,self).__init__(**kwargs)
     
     @property
-    def vminmax(self):
-        if self.rgb:
-            n = min(3,self.img.ndim)
-            vmin = np.asarray([np.nanmin(self.img[...,i]) for i in range(n)])
-            vmax = np.asarray([np.nanmax(self.img[...,i]) for i in range(n)])
+    def image(self):
+        if self.transposed:
+            return np.swapaxes(self.img,0,1)
         else:
-            vmin = np.nanmin(self.img)
-            vmax = np.nanmax(self.img)
+            return self.img
+            
+    @property
+    def img(self):
+        if self.rgb:
+            img = np.zeros(self.shape,self.dtype)
+            for i,j in enumerate(self.channels):
+                img[...,i] = self._img[...,j]
+            return img
+        else:
+            return self._img.copy()
+
+    @property
+    def rgb(self):
+        return self._img.ndim==3
+        
+    @property
+    def nimg(self):
+        if self.rgb:
+            return min(self._img.shape[2],3)
+        else:
+            return 1
+
+    @property
+    def shape(self):
+        if self.rgb:
+            return self._img.shape[0],self._img.shape[1],3
+        else:
+            return self._img.shape[0],self._img.shape[1]
+    
+    @property
+    def dtype(self):
+        return self._img.dtype
+        
+    @property
+    def channels(self):
+        settings = self.scene.getitemsettings(self)
+        ind = settings["channels"]
+        if ind is None:
+            return range(self.nimg)
+        if len(ind)>3:
+            return ind[0:3]
+        return ind
+
+    @property
+    def vminmax(self):
+        img = self.img
+        if self.rgb:
+            vmin = np.asarray([np.nanmin(img[...,i]) for i in range(self.nimg)])
+            vmax = np.asarray([np.nanmax(img[...,i]) for i in range(self.nimg)])
+        else:
+            vmin = np.nanmin(img)
+            vmax = np.nanmax(img)
         return vmin,vmax
     
     def scale(self,vmin=None,vmax=None):
@@ -418,12 +495,13 @@ class Image(Item):
                   "alpha":1,\
                   "vmin":None,\
                   "vmax":None,\
-                  "cnorm":None}
+                  "cnorm":None,\
+                  "channels":None}
         
     def datarange(self,dim,border=False):
         lim = self.scene.datatransform(self.lim[dim],dim)
         if border:
-            d = (lim[1]-lim[0])/(2.*(self.img.shape[dim]-1))
+            d = (lim[1]-lim[0])/(2.*(self.shape[dim]-1))
             return lim[0]-d,lim[1]+d
         else:
             return lim
@@ -442,17 +520,6 @@ class Image(Item):
         x = [x[0],x[1],x[1],x[0],x[0]]
         y = [y[0],y[0],y[1],y[1],y[0]]
         return x,y
-        
-    @property
-    def image(self):
-        if self.transposed:
-            return np.swapaxes(self.img,0,1)
-        else:
-            return self.img
-
-    @property
-    def rgb(self):
-        return self.img.ndim>2
     
     @property
     def aspect(self):
@@ -482,15 +549,14 @@ class Image(Item):
             vmin = settings["vmin"]   
         if settings["vmax"] is not None:
             vmax = settings["vmax"]
-        image = self.image.copy()
+        image = self.image
         
         if self.rgb:
             if not instance.isarray(vmin):
-                vmin = [vmin]*self.img.ndim
+                vmin = [vmin]*self.nimg
             if not instance.isarray(vmax):
-                vmax = [vmax]*self.img.ndim
-
-            for i in range(self.img.ndim):
+                vmax = [vmax]*self.nimg
+            for i in range(self.nimg):
                 if settings["cnorm"] is None:
                     norm = pltcolors.Normalize(vmin=vmin[i],vmax=vmax[i],clip=True)
                 else:
@@ -554,16 +620,13 @@ class Image(Item):
             
 class Polyline(Item):
 
-    def __init__(self,pdim0,pdim1,scatter=False,closed=True,**kwargs):
+    def __init__(self,pdim0,pdim1,**kwargs):
         self._pdim = [pdim0,pdim1]
-        self.scatter = scatter
-        self.closed = closed
-
         super(Polyline,self).__init__(**kwargs)
     
     @staticmethod
     def defaultsettings():
-        return {"color":None,"linewidth":2}
+        return {"color":None,"linewidth":2,"scatter":False,"closed":True}
     
     def datarange(self,dim):
         ran = self.scene.datatransform(self._pdim[dim],dim)
@@ -580,8 +643,8 @@ class Polyline(Item):
         x = scene.xmagnitude(self.pdim(1))
         y = scene.ymagnitude(self.pdim(0))
         
-        bscatter = not instance.isarray(x) or self.scatter
-        if not bscatter and self.closed:
+        bscatter = not instance.isarray(x) or settings["scatter"]
+        if not bscatter and settings["closed"]:
             x = list(x)
             y = list(y)
             x.append(x[0])
@@ -603,15 +666,14 @@ class Polyline(Item):
 
 class Polygon(Item):
 
-    def __init__(self,pdim0,pdim1,closed=True,**kwargs):
+    def __init__(self,pdim0,pdim1,**kwargs):
         self._pdim = [pdim0,pdim1]
-        self.closed = closed
 
         super(Polygon,self).__init__(**kwargs)
     
     @staticmethod
     def defaultsettings():
-        return {"color":None,"linewidth":2}
+        return {"color":None,"linewidth":2,"closed":True}
     
     def datarange(self,dim):
         ran = self.scene.datatransform(self._pdim[dim],dim)
@@ -628,7 +690,7 @@ class Polygon(Item):
         x = scene.xmagnitude(self.pdim(1))
         y = scene.ymagnitude(self.pdim(0))
         
-        if self.closed:
+        if settings["closed"]:
             x = list(x)
             y = list(y)
             x.append(x[0])

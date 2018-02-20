@@ -54,19 +54,22 @@ class test_scene(unittest.TestCase):
         
         p0 = sorted(o1.datarange(0,border=False))
         p1 = sorted(o1.datarange(1,border=False))
-        o = scene.Polyline([p0[0],p0[1],p0[1],p0[0]],[p1[0],p1[0],p1[1],p1[1]],scatter=True)
+        o = scene.Polyline([p0[0],p0[1],p0[1],p0[0]],[p1[0],p1[0],p1[1],p1[1]])
         s1.register(o)
         s2.register(o)
+        o.set_setting("scatter",True)
 
         o2 = scene.Image(img,lim0=s1.q0([-2,-2+n0-1]),lim1=s1.q1([-1,-1+n1-1]))
         s1.register(o2)
         s2.register(o2)
+        o.set_setting("scatter",True)
         
         p0 = sorted(o2.datarange(0,border=False))
         p1 = sorted(o2.datarange(1,border=False))
-        o = scene.Polyline([p0[0],p0[1],p0[1],p0[0]],[p1[0],p1[0],p1[1],p1[1]],scatter=True)
+        o = scene.Polyline([p0[0],p0[1],p0[1],p0[0]],[p1[0],p1[0],p1[1],p1[1]])
         s1.register(o)
         s2.register(o)
+        o.set_setting("scatter",True)
         
         f, ax = plt.subplots()
         s1.setaxes(ax)

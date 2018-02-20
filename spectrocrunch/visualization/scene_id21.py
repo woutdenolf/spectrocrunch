@@ -25,86 +25,14 @@
 from . import scene
 from ..io import spec
 from ..io import nexus
+from ..io import edf
 from .. import ureg
 from ..common import instance
 
-import fabio
 import numpy as np
 import warnings
 
-class ZapRoiMap(scene.Image):
-
-    UNITS = {"samy":ureg.millimeter,"samz":ureg.millimeter,"sampy":ureg.micrometer,"sampz":ureg.micrometer}
-    MOTOFF = {"samy":["sampy"],\
-              "samz":["sampz"],\
-              "sampy":["samy"],\
-              "sampz":["samz"]}
-
-    def __init__(self,filenames):
-        
-        if instance.isstring(filenames):
-            filenames = [filenames]
-        
-        for filename in filenames:
-            if filename is None:
-                continue
-            f = fabio.open(filename)
-            break
-
-        header = f.header
-        lim0,lim1,transpose = self.limits(header,"Title")
-
-        if len(filenames)>1:
-            tmp = f.data
-            img = np.zeros(tmp.shape+(3,),dtype=tmp.dtype)
-            for i,filename in enumerate(filenames):
-                if filename is None:
-                    continue
-                f = fabio.open(filename)
-                img[...,i] = f.data
-            if transpose:
-                img = np.swapaxes(img,0,1)
-        else:
-            img = f.data
-            if transpose:
-                img = img.T
-            
-        super(ZapRoiMap,self).__init__(img,lim0=lim0,lim1=lim1,dim0name="Z",dim1name="Y")
-    
-    @classmethod
-    def limits(self,header,cmdlabel):
-        o = spec.cmd_parser()
-        cmd = header[cmdlabel]
-        result = o.parsezapimage(cmd)
-
-        if result["name"]!='zapimage':
-            raise RuntimeError("Cannot extract zapimage information from \"{}\"".format(cmd))
-        fastvalues = spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])
-        slowvalues = spec.ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])
-        
-        fastvalues = ureg.Quantity(fastvalues,self.UNITS[result["motfast"]])
-        slowvalues = ureg.Quantity(slowvalues,self.UNITS[result["motslow"]])
-        
-        for mot in self.MOTOFF[result["motfast"]]:
-            fastvalues = fastvalues+ureg.Quantity(float(header[mot]),self.UNITS[mot])
-        for mot in self.MOTOFF[result["motslow"]]:
-            slowvalues = slowvalues+ureg.Quantity(float(header[mot]),self.UNITS[mot])
-        
-        # Image saved: slow x fast
-        transpose = "z" in result["motfast"]
-        if transpose:
-            lim0 = fastvalues
-            lim1 = slowvalues
-        else:
-            lim0 = slowvalues
-            lim1 = fastvalues
-
-        print lim0[[0,-1]]
-        print lim1[[0,-1]]
-        
-        return lim0,lim1,transpose
-
-class Nexus(scene.Image):
+class MotorCoordinates(object):
 
     UNITS = {"samy":ureg.millimeter,\
             "samz":ureg.millimeter,\
@@ -115,9 +43,100 @@ class Nexus(scene.Image):
               "samz":["sampz"],\
               "sampy":["samy"],\
               "sampz":["samz"]}
+              
+    VERTAXIS = "z"
+    
+    @classmethod
+    def coordinates(cls,dim0values,dim1values,motdim0,motdim1,offsets):
+        # Scan positions
+        dim0values = ureg.Quantity(dim0values,cls.UNITS[motdim0])
+        dim1values = ureg.Quantity(dim1values,cls.UNITS[motdim1])
+        
+        # Scan offsets
+        for mot in cls.MOTOFF[motdim0]:
+            off,func = instance.asarrayf(offsets[mot])
+            if not instance.isnumber(off[0]):
+                off = off.astype(float)
+            off = func(off)
+            dim0values = dim0values+ureg.Quantity(off,cls.UNITS[mot])
+        for mot in cls.MOTOFF[motdim1]:
+            off,func = instance.asarrayf(offsets[mot])
+            if not instance.isnumber(off[0]):
+                off = off.astype(float)
+            off = func(off)
+            dim1values = dim1values+ureg.Quantity(off,cls.UNITS[mot])
+        
+        # Make sure that the vertical axis is dim0
+        transpose = cls.VERTAXIS in motdim1
+        if transpose:
+            dim0values,dim1values = dim1values,dim0values
 
-    def __init__(self,filename,groups,originzero=False):
+        return dim0values,dim1values,transpose
 
+
+class ZapRoiMap(scene.Image,MotorCoordinates):
+
+    def __init__(self,filenames,**kwargs):
+        """
+        Args:
+            filename(str|list(str)): list of edf file names
+        """
+        
+        if instance.isstring(filenames):
+            filenames = [filenames]
+        
+        for filename in filenames:
+            if filename is None:
+                continue
+            f = edf.edfimage(filename)
+            break
+        else:
+            raise RuntimeError("At least one filename must be given")
+             
+        dim0values,dim1values,transpose = self.limits(f.header,"Title")
+
+        if len(filenames)>1:
+            tmp = f.data
+            img = np.zeros(tmp.shape+(len(filenames),),dtype=tmp.dtype)
+            for i,filename in enumerate(filenames):
+                if filename is None:
+                    continue
+                f = edf.edfimage(filename)
+                img[...,i] = f.data
+            if transpose:
+                img = np.swapaxes(img,0,1)
+        else:
+            img = f.data
+            if transpose:
+                img = img.T
+            
+        super(ZapRoiMap,self).__init__(img,lim0=dim0values[[0,-1]],lim1=dim1values[[0,-1]],dim0name="Z",dim1name="Y",**kwargs)
+    
+    @classmethod
+    def limits(cls,header,cmdlabel):
+        o = spec.cmd_parser()
+        cmd = header[cmdlabel]
+        result = o.parsezapimage(cmd)
+
+        if result["name"]!='zapimage':
+            raise RuntimeError("Cannot extract zapimage information from \"{}\"".format(cmd))
+        dim0values = spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])
+        dim1values = spec.ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])
+        
+        dim0values,dim1values,transpose = cls.coordinates(dim0values,dim1values,result["motfast"],result["motslow"],header)
+        
+        # Image saved: slow x fast
+        return dim0values,dim1values,not transpose
+
+
+class Nexus(scene.Image,MotorCoordinates):
+
+    def __init__(self,filename,groups,**kwargs):
+        """
+        Args:
+            filename(str): h5 file name
+            groups(dict): stackname:stackindex
+        """
         if not instance.isarray(groups):
             groups = [groups]
             
@@ -128,15 +147,16 @@ class Nexus(scene.Image):
         except KeyError:
             warnings.warn("\"coordinates\" is deprecated and should be replaced by \"stackinfo\"", DeprecationWarning) 
             ocoord = oh5["coordinates"]
-        ocoord = {a:ureg.Quantity(instance.asarray(ocoord[a].value),self.UNITS[a]) for a in ocoord if a in self.UNITS}
 
         img = None
-
         for igroup,group in enumerate(groups):
             if group is None:
                 continue
-            data,axes,axesnames = nexus.parse_NXdata(oh5[group["path"]])
-
+            try:
+                data,axes,axesnames = nexus.parse_NXdata(oh5[group["path"]])
+            except KeyError:
+                raise KeyError("{} not in {}".format(group["path"],filename))
+                
             if img is None:
             
                 stackindex = np.where([a not in self.UNITS for a in axesnames])[0][0]
@@ -147,50 +167,17 @@ class Nexus(scene.Image):
                 else:
                     data = data[...,group["ind"]]
   
-                del axes[stackindex]
-                del axesnames[stackindex]
+                axes.pop(stackindex)
+                axesnames.pop(stackindex)
 
-                dim0values = ureg.Quantity(axes[0][:],self.UNITS[axesnames[0]])
-                dim1values = ureg.Quantity(axes[1][:],self.UNITS[axesnames[1]])
-                dim0mot,dim1mot = axesnames
-                
-                for mot in self.MOTOFF[dim0mot]:
-                    add = ocoord[mot]
-                    if len(add)==1:
-                        add = add[0]
-                    else:
-                        add = add[group["ind"]]
-                    dim0values = dim0values+add
-                for mot in self.MOTOFF[dim1mot]:
-                    add = ocoord[mot]
-                    if len(add)==1:
-                        add = add[0]
-                    else:
-                        add = add[group["ind"]]
-                    dim1values = dim1values+add
-
-                dim1values = dim1values[[0,-1]]
-                dim0values = dim0values[[0,-1]]
-                if originzero:
-                    dim1values -= np.min(dim1values)
-                    dim0values -= np.min(dim0values)
-                
-                transpose = "y" in dim0mot
-                if transpose:
-                    lim0 = dim1values
-                    lim1 = dim0values
-                else:
-                    lim0 = dim0values
-                    lim1 = dim1values
-            
+                dim0values,dim1values,transpose = self.coordinates(axes[0][:],axes[1][:],axesnames[0],axesnames[1],ocoord)
                 if transpose:
                     data = data.T
-
                 
                 if len(groups)==1:
                     img = data
                 else:
-                    img = np.zeros(data.shape+(3,),dtype=data.dtype)
+                    img = np.zeros(data.shape+(len(groups),),dtype=data.dtype)
                     img[...,0] = data
             else:
                 if stackindex==0:
@@ -206,5 +193,5 @@ class Nexus(scene.Image):
 
         oh5.close()
 
-        super(Nexus,self).__init__(img,lim0=lim0,lim1=lim1,dim0name="Z",dim1name="Y")
+        super(Nexus,self).__init__(img,lim0=dim0values,lim1=dim1values,dim0name="Z",dim1name="Y",**kwargs)
         
