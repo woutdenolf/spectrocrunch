@@ -28,50 +28,62 @@ from ..io import nexus
 from ..io import edf
 from .. import ureg
 from ..common import instance
+from ..common import units
 
 import numpy as np
 import warnings
 
 class MotorCoordinates(object):
 
+    IMAGEMOTORS = ["samy","sampy","samz","sampz"]
+    IMAGEAXES = ["z","y"] # dim0, dim1
+    
     UNITS = {"samy":ureg.millimeter,\
             "samz":ureg.millimeter,\
             "samx":ureg.millimeter,\
             "sampy":ureg.micrometer,\
             "sampz":ureg.micrometer}
-    MOTOFF = {"samy":["sampy"],\
+            
+    MOTOR_OFFSETS = {"samy":["sampy"],\
               "samz":["sampz"],\
               "sampy":["samy"],\
               "sampz":["samz"]}
-              
-    VERTAXIS = "z"
-    
+
     @classmethod
-    def coordinates(cls,dim0values,dim1values,motdim0,motdim1,offsets):
+    def defaultinit(cls,kwargs):
+        kwargs["axisname0"] = kwargs.get("axisname0",cls.IMAGEAXES[0].upper())
+        kwargs["axisname1"] = kwargs.get("axisname1",cls.IMAGEAXES[1].upper())
+
+    @classmethod
+    def motorpositions(cls,values,motorname):
+        return units.Quantity(values,cls.UNITS[motorname])
+
+    @classmethod
+    def coordinates(cls,axis0values,axis1values,motdim0,motdim1,offsets):
         # Scan positions
-        dim0values = ureg.Quantity(dim0values,cls.UNITS[motdim0])
-        dim1values = ureg.Quantity(dim1values,cls.UNITS[motdim1])
+        axis0values = cls.motorpositions(axis0values,motdim0)
+        axis1values = cls.motorpositions(axis1values,motdim1)
         
         # Scan offsets
-        for mot in cls.MOTOFF[motdim0]:
+        for mot in cls.MOTOR_OFFSETS[motdim0]:
             off,func = instance.asarrayf(offsets[mot])
             if not instance.isnumber(off[0]):
                 off = off.astype(float)
             off = func(off)
-            dim0values = dim0values+ureg.Quantity(off,cls.UNITS[mot])
-        for mot in cls.MOTOFF[motdim1]:
+            axis0values = axis0values+cls.motorpositions(off,mot)
+        for mot in cls.MOTOR_OFFSETS[motdim1]:
             off,func = instance.asarrayf(offsets[mot])
             if not instance.isnumber(off[0]):
                 off = off.astype(float)
             off = func(off)
-            dim1values = dim1values+ureg.Quantity(off,cls.UNITS[mot])
+            axis1values = axis1values+cls.motorpositions(off,mot)
         
         # Make sure that the vertical axis is dim0
-        transpose = cls.VERTAXIS in motdim1
+        transpose = cls.IMAGEAXES[0] in motdim1
         if transpose:
-            dim0values,dim1values = dim1values,dim0values
+            axis0values,axis1values = axis1values,axis0values
 
-        return dim0values,dim1values,transpose
+        return axis0values,axis1values,transpose
 
 
 class ZapRoiMap(scene.Image,MotorCoordinates):
@@ -81,7 +93,12 @@ class ZapRoiMap(scene.Image,MotorCoordinates):
         Args:
             filename(str|list(str)): list of edf file names
         """
-        
+        self.defaultinit(kwargs)
+        img,axis0values,axis1values,labels = self.parseedf(filenames)
+        super(ZapRoiMap,self).__init__(img,lim0=axis0values[[0,-1]],lim1=axis1values[[0,-1]],labels=labels,**kwargs)
+    
+    @classmethod
+    def parseedf(cls,filenames):
         if instance.isstring(filenames):
             filenames = [filenames]
         
@@ -93,11 +110,12 @@ class ZapRoiMap(scene.Image,MotorCoordinates):
         else:
             raise RuntimeError("At least one filename must be given")
              
-        dim0values,dim1values,transpose = self.limits(f.header,"Title")
+        axis0values,axis1values,transpose = cls.limits(f.header,"Title")
 
         if len(filenames)>1:
             tmp = f.data
             img = np.zeros(tmp.shape+(len(filenames),),dtype=tmp.dtype)
+
             for i,filename in enumerate(filenames):
                 if filename is None:
                     continue
@@ -109,8 +127,10 @@ class ZapRoiMap(scene.Image,MotorCoordinates):
             img = f.data
             if transpose:
                 img = img.T
-            
-        super(ZapRoiMap,self).__init__(img,lim0=dim0values[[0,-1]],lim1=dim1values[[0,-1]],dim0name="Z",dim1name="Y",**kwargs)
+        
+        labels = os.path.splitext(os.path.basename(filenames))[0]
+        
+        return img,axis0values,axis1values,labels
     
     @classmethod
     def limits(cls,header,cmdlabel):
@@ -120,13 +140,13 @@ class ZapRoiMap(scene.Image,MotorCoordinates):
 
         if result["name"]!='zapimage':
             raise RuntimeError("Cannot extract zapimage information from \"{}\"".format(cmd))
-        dim0values = spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])
-        dim1values = spec.ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])
+        axis0values = spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])
+        axis1values = spec.ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])
         
-        dim0values,dim1values,transpose = cls.coordinates(dim0values,dim1values,result["motfast"],result["motslow"],header)
+        axis0values,axis1values,transpose = cls.coordinates(axis0values,axis1values,result["motfast"],result["motslow"],header)
         
         # Image saved: slow x fast
-        return dim0values,dim1values,not transpose
+        return axis0values,axis1values,not transpose
 
 
 class Nexus(scene.Image,MotorCoordinates):
@@ -137,6 +157,12 @@ class Nexus(scene.Image,MotorCoordinates):
             filename(str): h5 file name
             groups(dict): stackname:stackindex
         """
+        self.defaultinit(kwargs)
+        img,axis0values,axis1values,labels = self.parseh5(filename,groups)
+        super(Nexus,self).__init__(img,lim0=axis0values,lim1=axis1values,labels=labels,**kwargs)
+
+    @classmethod
+    def parseh5(cls,filename,groups):
         if not instance.isarray(groups):
             groups = [groups]
             
@@ -149,17 +175,20 @@ class Nexus(scene.Image,MotorCoordinates):
             ocoord = oh5["coordinates"]
 
         img = None
+        labels = []
         for igroup,group in enumerate(groups):
             if group is None:
+                labels.append("")
                 continue
+            else:
+                labels.append(group["path"].split("/")[-1])
             try:
                 data,axes,axesnames = nexus.parse_NXdata(oh5[group["path"]])
             except KeyError:
                 raise KeyError("{} not in {}".format(group["path"],filename))
                 
             if img is None:
-            
-                stackindex = np.where([a not in self.UNITS for a in axesnames])[0][0]
+                stackindex = np.where([a not in cls.UNITS for a in axesnames])[0][0]
                 if stackindex==0:
                     data = data[group["ind"],...]
                 elif stackindex==1:
@@ -170,7 +199,7 @@ class Nexus(scene.Image,MotorCoordinates):
                 axes.pop(stackindex)
                 axesnames.pop(stackindex)
 
-                dim0values,dim1values,transpose = self.coordinates(axes[0][:],axes[1][:],axesnames[0],axesnames[1],ocoord)
+                axis0values,axis1values,transpose = cls.coordinates(axes[0][:],axes[1][:],axesnames[0],axesnames[1],ocoord)
                 if transpose:
                     data = data.T
                 
@@ -178,7 +207,7 @@ class Nexus(scene.Image,MotorCoordinates):
                     img = data
                 else:
                     img = np.zeros(data.shape+(len(groups),),dtype=data.dtype)
-                    img[...,0] = data
+                    img[...,igroup] = data
             else:
                 if stackindex==0:
                     data = data[group["ind"],...]
@@ -192,6 +221,76 @@ class Nexus(scene.Image,MotorCoordinates):
                 img[...,igroup] = data
 
         oh5.close()
+        
+        return img,axis0values,axis1values,labels
 
-        super(Nexus,self).__init__(img,lim0=dim0values,lim1=dim1values,dim0name="Z",dim1name="Y",**kwargs)
+
+class XanesSpec(scene.Text,MotorCoordinates):
+
+    def __init__(self,filenames,specnumbers,labels=None,**kwargs):
+        """
+        Args:
+            filename(str|list(str)): list of edf file names
+            specnumbers(list|list(list)): empty list of numbers => all xanes spectra
+        """
+        self.defaultinit(kwargs)
+        coord0,coord1,labels = self.parsespec(filenames,specnumbers,labels=labels)
+        super(XanesSpec,self).__init__(coord0,coord1,labels=labels,**kwargs)
+
+    @staticmethod
+    def listoflists(lst):
+        if lst is None:
+            return [[]]
+        if not instance.isarray(lst):
+            lst = [lst]
+        if lst:
+            if not instance.isarray(lst[0]):
+                lst = [lst]
+        else:
+            lst = [lst]
+        return lst
+
+    @classmethod
+    def parsespec(cls,filenames,specnumbers,labels=None):
+        
+        if instance.isstring(filenames):
+            filenames = [filenames]
+        
+        specnumbers = cls.listoflists(specnumbers)
+        speclabels = cls.listoflists(labels)
+
+        coord0 = []
+        coord1 = []
+        labels = []
+        for filename,numbers,lbls in zip(filenames,specnumbers,speclabels):
+            # Get motor positions for each number
+            f = spec.spec(filename)
+            if not numbers:
+                numbers = f.extractxanesginfo(keepsum=True,sumingroups=False,keepindividual=False)
+                numbers = [k[0] for k in numbers if len(k)==1]
+                lbls = []
+            if not numbers:
+                continue
+            
+            # Parse motor positions
+            positions = zip(*[f.getmotorvalues(nr,cls.IMAGEMOTORS) for nr in numbers])
+            p0 = sum(cls.motorpositions(x,motname) for motname,x in zip(cls.IMAGEMOTORS,positions) if cls.IMAGEAXES[0] in motname)
+            p1 = sum(cls.motorpositions(x,motname) for motname,x in zip(cls.IMAGEMOTORS,positions) if cls.IMAGEAXES[1] in motname)
+
+            # Append positions and labels
+            coord0.append(p0)
+            coord1.append(p1)
+            if lbls:
+                labels.extend(lbls)
+            else:
+                labels.extend(numbers)
+        
+        if not coord0:
+            raise RuntimeError("No XANES scans found in spec files: {}".format(filenames))
+        
+        # There is not extend for pint.Quantity
+        coord0 = units.flatten(coord0)
+        coord1 = units.flatten(coord1)
+
+        return coord0,coord1,labels
         

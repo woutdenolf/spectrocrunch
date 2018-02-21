@@ -37,7 +37,7 @@ def flatten(l):
         list
     """
     for el in l:
-        if isinstance(el, collections.Iterable) and not instance.isstring(el):
+        if instance.isiterable(el) and not instance.isstring(el):
             for sub in flatten(el):
                 yield sub
         else:
