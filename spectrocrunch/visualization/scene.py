@@ -353,12 +353,12 @@ class Item(Hashable,Geometry2D):
        plot settings are owned by the scenes.
     """
     
-    def __init__(self,axisname0="Dim0",axisname1="Dim1",scene=None,**kwargs):
+    def __init__(self,axis0name="Dim0",axis1name="Dim1",scene=None,**kwargs):
         self._scenes = []
         self._plotobjs = [] # list of lists, each list belonging to a scene
         self._sceneindex = -1
-        self.axisname0 = axisname0
-        self.axisname1 = axisname1
+        self.axis0name = axis0name
+        self.axis1name = axis1name
         
         if scene is not None:
             self.register(scene)
@@ -372,7 +372,7 @@ class Item(Hashable,Geometry2D):
         scene.register(self)
     
     def useaxesnames(self):
-        self.scene.axlabels = [self.axisname0,self.axisname1]
+        self.scene.axlabels = [self.axis0name,self.axis1name]
     
     def defaultsettings(self):
         return {}
@@ -459,8 +459,9 @@ class Item(Hashable,Geometry2D):
     
 class Image(Item):
 
-    def __init__(self,img,lim0=None,lim1=None,labels=None,**kwargs):
-        self._img = img
+    def __init__(self,data,lim0=None,lim1=None,labels=None,**kwargs):
+        self.data = data
+        self.labels = labels
         
         if lim0 is None:
             lim0 = [0,img.shape[0]-1]
@@ -474,77 +475,104 @@ class Image(Item):
     
         self.lim = [lim0,lim1]
 
-        if labels is None:
-            self.labels = [""]*self.datashape[-1]
-        else:
-            self.labels = labels
-            
         self.cax = None
         
         super(Image,self).__init__(**kwargs)
-    
-    @property
-    def image(self):
-        if self.transposed:
-            return np.swapaxes(self.img,0,1)
-        else:
-            return self.img
-            
-    @property
-    def img(self):
-        if self.rgb:
-            img = np.zeros(self.shape,self.dtype)
-            for i,j in enumerate(self.channels):
-                img[...,i] = self._img[...,j]
-            return img
-        else:
-            return self._img.copy()
 
     @property
-    def rgb(self):
-        return self._img.ndim==3
-        
-    @property
-    def nimg(self):
-        if self.rgb:
-            return min(self._img.shape[2],3)
-        else:
-            return 1
+    def data(self):
+        """Data for the selected channels
+        """
+        channels = self.channels
+        shape = (self._data.shape[0],self._data.shape[1],len(channels))
+        data = np.zeros(shape,self.dtype)
+        for ch,i in enumerate(channels):
+            if i is not None:
+                data[...,ch] = self._get_data(i)
+        if len(channels)==1:
+            data = data[...,0]
+        return data
 
-    @property
-    def shape(self):
-        if self.rgb:
-            return self._img.shape[0],self._img.shape[1],3
+    def _get_data(self,index):
+        if self._data.ndim==3:
+            return self._data[...,index]
         else:
-            return self._img.shape[0],self._img.shape[1]
-    
-    @property
-    def datashape(self):
-        if self._img.ndim==3:
-            return self._img.shape
-        else:
-            return self._img.shape[0],self._img.shape[1],1
+            if index!=0:
+                raise IndexError("Raw data has only one channel, you tried to select channel {}".format(index))
+            return self._data
             
+    @data.setter
+    def data(self,value):   
+        self._data = value
+
     @property
     def dtype(self):
-        return self._img.dtype
-        
+        return self._data.dtype
+
+    @property
+    def labels(self):
+        """Labels for the selected channels
+        """
+        labels = [None]*self.nchannels
+        for ch,i in enumerate(self.channels):
+            if i is not None:
+                try:
+                    labels[ch] = self._labels[i]
+                except:
+                    labels[ch] = "<empty>"
+        return labels
+
+    @labels.setter
+    def labels(self,value):
+        self._labels = value
+
     @property
     def channels(self):
+        """Return 1 or 3 channels
+        """
         settings = self.scene.getitemsettings(self)
-        ind = settings["channels"]
-        if ind is None:
-            return range(self.nimg)
-        if len(ind)>3:
-            return ind[0:3]
-        return ind
+        channels = settings["channels"]
+        if channels is None:
+            nchannels = min(self.datadepth,3)
+            channels = range(nchannels)
+        else:
+            if not instance.isarray(channels):
+                channels = [channels]
+            nchannels = min(len(channels),3)
+        if nchannels!=1:
+            nchannels=3
+        
+        if len(channels)<nchannels:
+            channels.extend([None]*(nchannels-len(channels)))
+        else:
+            channels = channels[0:nchannels]
+        return channels
+    
+    @property
+    def datadepth(self):
+        if self._data.ndim==3:
+            return self._data.shape[-1]
+        else:
+            return 1
+            
+    @property
+    def nchannels(self):
+        return len(self.channels)
+    
+    @property
+    def datadisplay(self):
+        if self.transposed:
+            return np.swapaxes(self.data,0,1)
+        else:
+            return self.data
 
     @property
     def vminmax(self):
-        img = self.img
-        if self.rgb:
-            vmin = np.asarray([np.nanmin(img[...,i]) for i in range(self.nimg)])
-            vmax = np.asarray([np.nanmax(img[...,i]) for i in range(self.nimg)])
+        img = self.data
+        if self.data.ndim==3:
+            nchannels = self.data.shape[-1]
+            vmin = np.asarray([np.nanmin(img[...,i]) for i in range(nchannels)])
+            vmax = np.asarray([np.nanmax(img[...,i]) for i in range(nchannels)])
         else:
             vmin = np.nanmin(img)
             vmax = np.nanmax(img)
@@ -554,14 +582,26 @@ class Image(Item):
         self.set_setting("vmin",vmin)
         self.set_setting("vmax",vmax)
     
+    @staticmethod
+    def _pminmaxparse(p,v):
+        # Handle mismatch in number of channels
+        p = instance.asscalar(p)
+        if instance.isarray(p):
+            p = instance.asarray(p)
+            if instance.isarray(v):
+                if p.size<v.size:
+                    p = np.append(p,[0]*(v.size-p.size))
+                else:
+                    p = p[0:v.size]
+            else:
+                p = p[0]
+        return p,v
+        
     def selfscale(self,pmin=0,pmax=1):
         vmin,vmax = self.vminmax
         d = vmax-vmin
-        if instance.isarray(d):
-            if instance.isarray(pmin):
-                pmin = np.asarray(pmin)
-            if instance.isarray(pmax):
-                pmax = np.asarray(pmax)
+        pmin,vmin = self._pminmaxparse(pmin,vmin)
+        pmax,vmax = self._pminmaxparse(pmax,vmax)
         vmax = vmin + d*pmax
         vmin = vmin + d*pmin
         self.scale(vmin=vmin,vmax=vmax)
@@ -587,7 +627,7 @@ class Image(Item):
     def datarange(self,dataaxis,border=False):
         lim = self.scene.datatransform(self.lim[dataaxis],dataaxis)
         if border:
-            d = (lim[1]-lim[0])/(2.*(self.shape[dataaxis]-1))
+            d = (lim[1]-lim[0])/(2.*(self._data.shape[dataaxis]-1))
             return lim[0]-d,lim[1]+d
         else:
             return lim[0],lim[1]
@@ -675,14 +715,16 @@ class Image(Item):
             vmin = settings["vmin"]   
         if settings["vmax"] is not None:
             vmax = settings["vmax"]
-        image = self.image
+            
+        image = self.datadisplay
         
-        if self.rgb:
+        if image.ndim==3:
+            nchannels = image.shape[-1]
             if not instance.isarray(vmin):
-                vmin = [vmin]*self.nimg
+                vmin = [vmin]*nchannels
             if not instance.isarray(vmax):
-                vmax = [vmax]*self.nimg
-            for i in range(self.nimg):
+                vmax = [vmax]*nchannels
+            for i in range(nchannels):
                 if settings["cnorm"] is None:
                     norm = pltcolors.Normalize(vmin=vmin[i],vmax=vmax[i],clip=True)
                 else:
@@ -691,6 +733,7 @@ class Image(Item):
                 image[...,i] = norm(image[...,i]).data
             norm = None
         else:
+            nchannels = 1
             if settings["cnorm"] is None:
                 norm = pltcolors.Normalize(vmin=vmin,vmax=vmax)
             else:
@@ -747,26 +790,32 @@ class Image(Item):
         kwargs = {k:settings[k] for k in ["color","alpha"]}
         kwargs["horizontalalignment"] = horizontalalignment
         kwargs["verticalalignment"] = verticalalignment
-        if self.rgb:
-            for i,(ch,color,j) in enumerate(zip(self.channels,['r','g','b'],[2,3,4])):
-                kwargs["color"] = color
-                if update:
-                    o[j].set_text(self.labels[ch])
-                    o[j].set_position((xlabel+i*dx,ylabel+i*dy))
-                    plt.setp(o[j], **kwargs)
-                    o[j].set_visible(settings["legend"])
-                else:
-                    oi = scene.ax.text(xlabel+i*dx,ylabel+i*dy,self.labels[ch],**kwargs)
-                    oi.set_visible(settings["legend"])
-                    o.append(oi)
+
+        labels = self.labels
+        
+        if nchannels==1:
+            colors = [kwargs["color"]]
         else:
-            if update:
-                o[2].set_text(self.labels[0])
-                o[2].set_position((xlabel,ylabel))
-                plt.setp(o[2], **kwargs)
-                o[2].set_visible(settings["legend"])
+            colors = ['r','g','b']
+            if nchannels>3:
+                colors.extend([None]*(nchannels-3))
+            colors = colors[0:nchannels]
+
+        i = -1
+        for label,color in zip(labels,colors):
+            if label is None or color is None:
+                continue
             else:
-                oi = scene.ax.text(xlabel,ylabel,self.labels[0],**kwargs)
+                i += 1
+            kwargs["color"] = color
+            if update:
+                oindex = i+2
+                o[oindex].set_text(label)
+                o[oindex].set_position((xlabel+i*dx,ylabel+i*dy))
+                plt.setp(o[oindex], **kwargs)
+                o[oindex].set_visible(settings["legend"])
+            else:
+                oi = scene.ax.text(xlabel+i*dx,ylabel+i*dy,label,**kwargs)
                 oi.set_visible(settings["legend"])
                 o.append(oi)
                 
@@ -793,7 +842,7 @@ class Scatter(Item):
         
     @staticmethod
     def defaultsettings():
-        return {"color":None,"marker":"o","linestyle":"","linewidth":2,\
+        return {"color":None,"marker":"+","linestyle":"","linewidth":2,\
                 "fill":False,"alpha":None,"closed":False,"labels":True,\
                 "horizontalalignment":"left","verticalalignment":"bottom",\
                 "fontsize":12,"labeloffset":0.1,"fontweight":500}
@@ -850,6 +899,8 @@ class Scatter(Item):
             # Create labels
             if blabels:
                 xo,yo = scene.fontsize_data(settings["fontsize"])
+                xo *= settings["labeloffset"]
+                yo *= settings["labeloffset"]
 
                 kwargs = {k:settings[k] for k in ["horizontalalignment","verticalalignment","alpha","color","fontsize","fontweight"]}
                 if not update:
@@ -860,7 +911,7 @@ class Scatter(Item):
                     if update:
                         o[i+1].set_text(label)
                         o[i+1].set_position((xi,yi))
-                        o[i+1].xytext = (xi+xo,yi+yo) # has no effect
+                        o[i+1].xytext = (xi+xo,yi+yo) # has no effect!!!!
                         plt.setp(o[i+1],**kwargs)
                     else:
                         kwargs["xy"] = (xi,yi)
