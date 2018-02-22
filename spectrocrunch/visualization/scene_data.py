@@ -33,6 +33,8 @@ from ..common import listtools
 import numpy as np
 import warnings
 import os
+import scipy.interpolate
+import collections
 
 INSTRUMENTINFO = {}
 INSTRUMENTINFO["id21"] = {"IMAGEMOTORS" : ["samy","sampy","samz","sampz"],\
@@ -55,8 +57,11 @@ class Coordinates(object):
         self.instrument = instrument
 
     def __getattr__(self,attr):
-        return INSTRUMENTINFO[self.instrument][attr]
-
+        try:
+            return INSTRUMENTINFO[self.instrument][attr]
+        except KeyError:
+            raise AttributeError()
+            
     def motorpositions(self,values,motorname):
         return units.Quantity(values,self.UNITS[motorname])
 
@@ -128,7 +133,10 @@ class ImageCoordinates(Coordinates):
         self.axis0values = axis0values
         self.axis1values = axis1values
         self.transpose = transpose
-
+        
+        self.axis0f = None
+        self.axis1f = None
+        
     def displaydata(self,index=None):
         """
         Args:
@@ -176,6 +184,36 @@ class ImageCoordinates(Coordinates):
             data = np.swapaxes(data,0,1)
             
         return data,channels,labels
+
+    def interpolate(self,p0,p1):
+        unit0 = self.axis0values.units
+        unit1 = self.axis1values.units
+
+        if self.axis0f is None:
+            self.axis0f = scipy.interpolate.interp1d(self.axis0values.magnitude,np.arange(len(self.axis0values)),\
+                                                    kind='linear',bounds_error=False,fill_value=np.nan)
+                                                    
+        if self.axis1f is None:
+            self.axis1f = scipy.interpolate.interp1d(self.axis1values.magnitude,np.arange(len(self.axis1values)),\
+                                                    kind='linear',bounds_error=False,fill_value=np.nan)
+                                                    
+        p0 = instance.asarray(units.magnitude(p0,unit0))
+        p1 = instance.asarray(units.magnitude(p1,unit1))
+        result = collections.OrderedDict()
+
+        x0 = self.axis0f(p0)
+        x1 = self.axis1f(p1)
+        indvalid = np.isfinite(x0) & np.isfinite(x1)
+        x0v = np.round(x0[indvalid]).astype(np.int)
+        x1v = np.round(x1[indvalid]).astype(np.int)
+
+        values = None
+        for data,label in self:
+            values = np.full(x0.size,np.nan)
+            values[indvalid] = data[x0v,x1v]
+            result[label] = values
+        
+        return result
         
 
 class ZapRoiMap(ImageCoordinates):
@@ -201,6 +239,10 @@ class ZapRoiMap(ImageCoordinates):
         f = edf.edfimage(filename)
         return f.data,label
     
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+            
     def setmotorinfo(self):
         # Parse edf header
         o = spec.cmd_parser()
@@ -270,6 +312,10 @@ class Nexus(ImageCoordinates):
     
         return data,label
     
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+            
     def setmotorinfo(self):
         with nexus.File(self.filename) as oh5:
             # Get motor info from hdf5

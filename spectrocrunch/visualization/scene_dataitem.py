@@ -25,6 +25,8 @@
 from . import scene
 from . import scene_data
 
+import collections
+import pandas as pd
 
 class ZapRoiMap(scene.Image):
 
@@ -80,6 +82,8 @@ class XanesSpec(scene.Text):
             filename(str|list(str)): list of edf file names
             specnumbers(list|list(list)): empty list of numbers => all xanes spectra
         """
+
+        self.output = dataparams.pop("output",None)
         
         self.datahandle = scene_data.XanesSpec(filenames,specnumbers,**dataparams)
         plotparams["labels"] = plotparams.get("labels",self.datahandle.labels)
@@ -87,3 +91,26 @@ class XanesSpec(scene.Text):
         super(XanesSpec,self).__init__(self.datahandle.coordinates0,self.datahandle.coordinates1,\
                                     **plotparams)
 
+    def interpolate(self):
+        result = collections.OrderedDict()
+        
+        k = "{}({:~})".format(self.axis0name,self.datahandle.coordinates0.units)
+        result[k] = self.datahandle.coordinates0.magnitude
+        k = "{}({:~})".format(self.axis1name,self.datahandle.coordinates1.units)
+        result[k] = self.datahandle.coordinates1.magnitude
+        
+        for item in self.scene:
+            try:
+                result.update(item.datahandle.interpolate(self.datahandle.coordinates0,self.datahandle.coordinates1))
+            except AttributeError:
+                pass
+                
+        return result
+
+    def interpolatesave(self):
+        if self.output is not None:
+            df = pd.DataFrame(self.interpolate(),index=self.labels)
+            df.to_excel(self.output["writer"],self.output["sheet"])
+
+
+    

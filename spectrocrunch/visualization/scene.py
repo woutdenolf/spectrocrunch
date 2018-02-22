@@ -185,14 +185,18 @@ class Scene(Geometry2D):
             return self._items[item]
         else:
             return {}
-    @property
-    def items(self):
+    
+    def __iter__(self):
         for item in self._items:
             item.selectscene(self)
-        return self._items
+        return iter(self._items)
+    
+    @property
+    def items(self):
+        return list(self)
     
     def datarange(self,dataaxis):
-        ran = [r for item in self.items for r in item.datarange(dataaxis)]
+        ran = [r for item in self for r in item.datarange(dataaxis)]
         return min(ran),max(ran)
 
     def setdatarange(self,dataaxis,ran):
@@ -252,12 +256,12 @@ class Scene(Geometry2D):
     
     @property
     def displaylimx(self):
-        datalimx = [x for item in self.items for x in item.datalimx]
+        datalimx = [x for item in self for x in item.datalimx]
         return self.displaylim(datalimx,self.dataaxisx)
 
     @property
     def displaylimy(self):
-        ylim = [y for item in self.items for y in item.datalimy]
+        ylim = [y for item in self for y in item.datalimy]
         return self.displaylim(ylim,self.dataaxisy)
 
     @property
@@ -294,7 +298,7 @@ class Scene(Geometry2D):
         #self.ax.set_ybound(lim[0],lim[1])
         
     def update(self,**kwargs):
-        for item in self.items:
+        for item in self:
             item.update(**kwargs)
         self.crop()
         
@@ -312,7 +316,7 @@ class Scene(Geometry2D):
         
         single = lambda v: (np.nanmin(v[0]),np.nanmax(v[1]))
         
-        tmp = [single(item.vminmax) for item in self.items if hasattr(item,'vminmax')]
+        tmp = [single(item.vminmax) for item in self if hasattr(item,'vminmax')]
         
         if len(tmp)==0:
             return None,None
@@ -353,12 +357,13 @@ class Item(Hashable,Geometry2D):
        plot settings are owned by the scenes.
     """
     
-    def __init__(self,axis0name="Dim0",axis1name="Dim1",scene=None,**kwargs):
+    def __init__(self,axis0name="Dim0",axis1name="Dim1",scene=None,name=None,**kwargs):
         self._scenes = []
         self._plotobjs = [] # list of lists, each list belonging to a scene
         self._sceneindex = -1
         self.axis0name = axis0name
         self.axis1name = axis1name
+        self.name = name
         
         if scene is not None:
             self.register(scene)
@@ -753,6 +758,7 @@ class Image(Item):
         o = self.plotobjs
         update = bool(o)
         
+        # Image + border
         if update:
             o[0].set_data(image)
             plt.setp(o[0], interpolation = 'nearest',\
@@ -786,13 +792,12 @@ class Image(Item):
             oi.set_visible(settings["border"])
             settings["color"] = oi.get_color()
             o.append(oi)
-            
+        
+        # Legend
         kwargs = {k:settings[k] for k in ["color","alpha"]}
         kwargs["horizontalalignment"] = horizontalalignment
         kwargs["verticalalignment"] = verticalalignment
 
-        labels = self.labels
-        
         if nchannels==1:
             colors = [kwargs["color"]]
         else:
@@ -802,7 +807,7 @@ class Image(Item):
             colors = colors[0:nchannels]
 
         i = -1
-        for label,color in zip(labels,colors):
+        for label,color in zip(self.labels,colors):
             if label is None or color is None:
                 continue
             else:
