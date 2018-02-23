@@ -117,12 +117,12 @@ class Multilayer(with_metaclass(cache.Cache)):
     def __len__(self):
         return len(self.layers)
     
+    def __getitem__(self,index):
+        return self.layers[index]
+        
     @property
     def nlayers(self):
         return len(self.layers)
-        
-    def __iter__(self):
-        return iter(self.layers)
     
     def fixediter(self):
         for layer in self:
@@ -133,10 +133,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         for layer in self:
             if not layer.fixed:
                 yield layer
-            
-    def __getitem__(self,index):
-        return self.layers[index]
-  
+
     def __str__(self):
         layers = "\n ".join("Layer {}. {}".format(i,str(layer)) for i,layer in enumerate(self))
         return "Multilayer (ordered top-bottom):\n {}".format(layers)

@@ -95,7 +95,7 @@ class XanesSpec(scene.Text):
 
     def interpolate(self):
         result = collections.OrderedDict()
-        
+
         k = "{}({:~})".format(self.axis0name,self.datahandle.coordinates0.units)
         result[k] = self.datahandle.coordinates0.magnitude
         k = "{}({:~})".format(self.axis1name,self.datahandle.coordinates1.units)
@@ -118,5 +118,3 @@ class XanesSpec(scene.Text):
                 df.to_excel(writer,sheet)
                 
 
-
-    
