@@ -29,6 +29,7 @@ from .. import ureg
 from ..common import instance
 from ..common import units
 from ..common import listtools
+from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks
 
 import numpy as np
 import warnings
@@ -48,13 +49,21 @@ INSTRUMENTINFO["id21"] = {"IMAGEMOTORS" : ["samy","sampy","samz","sampz"],\
                                       "samz":["sampz"],\
                                       "sampy":["samy"],\
                                       "sampz":["samz"]},\
-                            "SPECCMDLABEL":"Title"}
+                            "SPECCMDLABEL":"Title",\
+                            "H5STACKS":["counters","^detector(\d+|sum)$"]}
 
 
 class Coordinates(object):
 
-    def __init__(self,instrument=None):
+    def __init__(self,instrument=None,axis0name=None,axis1name=None):
         self.instrument = instrument
+        
+        if axis0name is None:
+            axis0name = self.IMAGEAXES[0].upper()
+        if axis1name is None:
+            axis1name = self.IMAGEAXES[1].upper()
+        self.axis0name = axis0name
+        self.axis1name = axis1name
 
     def __getattr__(self,attr):
         try:
@@ -92,20 +101,19 @@ class PointCoordinates(Coordinates):
 
 class ImageCoordinates(Coordinates):
 
-    def __init__(self,axis0name=None,axis1name=None,labels=None,**kwargs):
+    def __init__(self,labels=None,**kwargs):
         super(ImageCoordinates,self).__init__(**kwargs)
-
-        if axis0name is None:
-            axis0name = self.IMAGEAXES[0].upper()
-        if axis1name is None:
-            axis1name = self.IMAGEAXES[1].upper()
-        self.axis0name = axis0name
-        self.axis1name = axis1name
-        
         if labels is None:
             labels = []
         self.labels = labels
-        
+    
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+    
+    def iter_interpolate(self):
+        return iter(self)
+    
     def setcoordinates(self,axis0values,axis1values,motdim0,motdim1,offsets):
         # Scan positions
         axis0values = self.motorpositions(axis0values,motdim0)
@@ -208,7 +216,7 @@ class ImageCoordinates(Coordinates):
         x1v = np.round(x1[indvalid]).astype(np.int)
 
         values = None
-        for data,label in self:
+        for data,label in self.iter_interpolate():
             values = np.full(x0.size,np.nan)
             values[indvalid] = data[x0v,x1v]
             result[label] = values
@@ -238,10 +246,6 @@ class ZapRoiMap(ImageCoordinates):
         label = os.path.splitext(os.path.basename(filename))[0]
         f = edf.edfimage(filename)
         return f.data,label
-    
-    def __iter__(self):
-        for i in range(len(self)):
-            yield self[i]
             
     def setmotorinfo(self):
         # Parse edf header
@@ -286,23 +290,44 @@ class Nexus(ImageCoordinates):
     def __len__(self):
         return len(self.groups)
 
+    def iter_interpolate(self):
+        stacks,axes = get_hdf5_imagestacks(self.filename,self.H5STACKS)
+        stackindex = self.stackindex([k["name"] for k in axes])
+        
+        with nexus.File(self.filename,mode="r") as oh5:
+            for k1 in stacks:
+                for k2 in stacks[k1]:
+                    data,axes,axesnames = nexus.parse_NXdata(oh5[stacks[k1][k2]])
+                    n = data.shape[stackindex]
+                    for i in range(n):
+                        if n>1:
+                            label = "{} ({})".format(k2,axes[stackindex][i])
+                        else:
+                            label = k2
+                        if stackindex==0:
+                            yield data[i,...],label
+                        elif stackindex==1:
+                            yield data[:,i,:],label
+                        else:
+                            yield data[...,i],label
+                
+    def stackindex(self,axesnames):
+        stackindex = [name for name in axesnames if name not in self.UNITS]
+        if len(stackindex)!=1:
+            raise RuntimeError("Could not determine the stack index: {}".format(axesnames))
+        return axesnames.index(stackindex[0])
+            
     def __getitem__(self,index):
-        with nexus.File(self.filename) as oh5:
+        with nexus.File(self.filename,mode="r") as oh5:
             group = self.groups[index]
             label = group["path"].split("/")[-1]
             if group.get("ind",None) is None:
                 group["ind"] = self.defaultstackindex
-            
             try:
                 data,axes,axesnames = nexus.parse_NXdata(oh5[group["path"]])
             except KeyError:
                 raise KeyError("{} not in {}".format(group["path"],filename))
-        
-            stackindex = [name for name in axesnames if name not in self.UNITS]
-            if len(stackindex)!=1:
-                raise RuntimeError("Could not determine the stack index: {}".format(axesnames))
-            stackindex = stackindex[0]
-
+            stackindex = self.stackindex(axesnames)
             if stackindex==0:
                 data = data[group["ind"],...]
             elif stackindex==1:
@@ -312,10 +337,6 @@ class Nexus(ImageCoordinates):
     
         return data,label
     
-    def __iter__(self):
-        for i in range(len(self)):
-            yield self[i]
-            
     def setmotorinfo(self):
         with nexus.File(self.filename) as oh5:
             # Get motor info from hdf5

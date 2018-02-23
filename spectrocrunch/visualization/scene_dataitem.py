@@ -87,7 +87,9 @@ class XanesSpec(scene.Text):
         
         self.datahandle = scene_data.XanesSpec(filenames,specnumbers,**dataparams)
         plotparams["labels"] = plotparams.get("labels",self.datahandle.labels)
-        
+        plotparams["axis0name"] = plotparams.get("axis0name",self.datahandle.axis0name)
+        plotparams["axis1name"] = plotparams.get("axis1name",self.datahandle.axis1name)
+
         super(XanesSpec,self).__init__(self.datahandle.coordinates0,self.datahandle.coordinates1,\
                                     **plotparams)
 
@@ -109,8 +111,12 @@ class XanesSpec(scene.Text):
 
     def interpolatesave(self):
         if self.output is not None:
-            df = pd.DataFrame(self.interpolate(),index=self.labels)
-            df.to_excel(self.output["writer"],self.output["sheet"])
+            writer = self.output.get("writer",None)
+            if writer is not None:
+                sheet = self.output.get("sheet","Sheet1")
+                df = pd.DataFrame(self.interpolate(),index=self.labels)
+                df.to_excel(writer,sheet)
+                
 
 
     

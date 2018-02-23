@@ -534,7 +534,12 @@ class spec(SpecFileDataSource.SpecFileDataSource):
     def getmotorvalues(self,scannumber,motors):
         """Get start positions for the specified motors
         """
-        info = self.getKeyInfo("{:d}.1".format(scannumber))
+        try:
+            info = self.getKeyInfo("{:d}.1".format(scannumber))
+        except:
+            msg = "Failed to retrieve scan number {} from {}".format(scannumber,self.sourceName)
+            raise KeyError(msg)
+            
         names = info["MotorNames"]
         values = info["MotorValues"]
         return [values[names.index(mot)] for mot in motors]
