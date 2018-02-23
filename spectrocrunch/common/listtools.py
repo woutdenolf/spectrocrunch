@@ -53,7 +53,7 @@ def listadvanced_bool(lst,barr,bnot=False):
         list
     """
     if bnot:
-        barr = itertools.imap(operate.not_,barr)
+        barr = itertools.imap(operator.not_,barr)
     return list(itertools.compress(lst,barr))
 
 def listadvanced_int(lst,ind):
