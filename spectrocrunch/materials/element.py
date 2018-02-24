@@ -191,6 +191,10 @@ class Element(hashable.Hashable):
         return 1
 
     @property
+    def elements(self):
+        return [self]
+
+    @property
     def ncompounds(self):
         return 1
         

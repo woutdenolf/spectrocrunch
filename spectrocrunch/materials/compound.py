@@ -76,12 +76,12 @@ class Compound(Hashable):
         # Compound density
         self.density = float(density)
         if self.density==0:
-            if len(self.elements)==1:
-                self.density = self.elements.keys()[0].density
+            if len(self._elements)==1:
+                self.density = self._elements.keys()[0].density
             else:
-                #rho = [e.density for e in self.elements]
+                #rho = [e.density for e in self._elements]
                 #self.density = np.mean(rho) # not based on anything, just a value
-                if len(self.elements)==0:
+                if len(self._elements)==0:
                     self.density = 0.
                 else:
                     self.density = 1. # approx. density of water
@@ -89,14 +89,14 @@ class Compound(Hashable):
         self.isscatterer = True
 
     def _compose_elements(self,elements,nfrac):
-        self.elements = {}
+        self._elements = {}
         for e,n in zip(elements,nfrac):
             if not isinstance(e,element.Element):
                 e = element.Element(e)
-            if e in self.elements:
-                self.elements[e] += float(n)
+            if e in self._elements:
+                self._elements[e] += float(n)
             else:
-                self.elements[e] = float(n)
+                self._elements[e] = float(n)
 
     def addelement(self,el,frac,fractype,density=None):
         """Add an element to the compound
@@ -115,14 +115,14 @@ class Compound(Hashable):
             else:
                 nfrac = np.append(nfrac,frac)
 
-            elements = self.elements.keys()+[element.Element(el)]
+            elements = self._elements.keys()+[element.Element(el)]
         elif fractype == fractionType.volume:
             raise ValueError("Cannot create a compound from elemental volume fractions")
         else:
             wfrac = np.asarray(self.weightfractions().values())
             wfrac = stoichiometry.add_frac(wfrac,frac)
 
-            elements = self.elements.keys()+[element.Element(el)]
+            elements = self._elements.keys()+[element.Element(el)]
             MM = np.asarray([e.MM for e in elements])
             nfrac = stoichiometry.frac_weight_to_mole(wfrac,MM) # normalized
 
@@ -137,7 +137,7 @@ class Compound(Hashable):
             fractype(fractionType): element fraction type
         """
     
-        elements = self.elements.keys()
+        elements = self._elements.keys()
     
         # Element mole fractions
         if fractype == fractionType.mole:
@@ -160,11 +160,15 @@ class Compound(Hashable):
         return self.name
         return '{}: {} ({} g/cm^3)'.format(\
                     self.name,\
-                    ', '.join("{} {}".format(s[1],s[0]) for s in sorted(self.elements.items())),\
+                    ', '.join("{} {}".format(s[1],s[0]) for s in sorted(self._elements.items())),\
                     self.density )
 
     def __getitem__(self,el):
-        return self.elements[el]
+        return self._elements[el]
+
+    @property
+    def elements(self):
+        return self._elements.keys()
 
     def molarmass(self,total=True):
         nfrac = self.molefractions(total=total)
@@ -190,15 +194,15 @@ class Compound(Hashable):
 
     def molefractions(self,total=True):
         if total:
-            return dict(self.elements)
+            return dict(self._elements)
         else:
-            nfrac = np.asarray(self.elements.values())
+            nfrac = np.asarray(self._elements.values())
             nfrac /= nfrac.sum()
-            return dict(zip(self.elements.keys(),nfrac))
+            return dict(zip(self._elements.keys(),nfrac))
 
     @property
     def nelements(self):
-        return len(self.elements)
+        return len(self._elements)
 
     @property
     def ncompounds(self):
@@ -217,7 +221,7 @@ class Compound(Hashable):
         Args:
             symb(str): element symbol
         """
-        for e in self.elements:
+        for e in self._elements:
             if energybounds is None:
                 energybounds2 = None
             else:
@@ -225,11 +229,11 @@ class Compound(Hashable):
             e.markabsorber(symb=symb,shells=shells,fluolines=fluolines,energybounds=energybounds2)
 
     def unmarkabsorber(self):
-        for e in self.elements:
+        for e in self._elements:
             e.unmarkabsorber()
 
     def hasabsorbers(self):
-        return any([e.isabsorber for e in self.elements])
+        return any([e.isabsorber for e in self._elements])
 
     def markscatterer(self,name=None):
         """
@@ -247,7 +251,7 @@ class Compound(Hashable):
     def markinfo(self):
         yield "{}".format(self.name)
         yield " Scatterer: {}".format("yes" if self.isscatterer else "no")
-        for e in self.elements:
+        for e in self._elements:
             for s in e.markinfo():
                 yield " {}".format(s)
     
@@ -404,7 +408,7 @@ class Compound(Hashable):
         Args:
             energyrange(np.array): energy range relative to the absorber's edges (if any)
         """
-        for e in self.elements:
+        for e in self._elements:
             ret = e.get_energy(energyrange,defaultinc=defaultinc)
             if ret is not None:
                 return ret
@@ -431,5 +435,5 @@ class Compound(Hashable):
         
     def fisxgroups(self,emin=0,emax=np.inf):
         self.markabsorber(energybounds=[emin,emax])
-        return {el:el.shells for el in self.elements}
+        return {el:el.shells for el in self._elements}
         

@@ -24,33 +24,46 @@
 
 import unittest
 
-from .. import multilayer
 from .. import pymca
-from ...resources import resource_filename
+from .. import multilayer
 from ...geometries import xrf as xrfgeometries
 from ...geometries import source as xraysources
 from ...detectors import xrf as xrfdetectors
+from .xrf_setup import pymcahandle
 
 import numpy as np
-
+import os
+from testfixtures import TempDirectory
 
 class test_pymca(unittest.TestCase):
 
-    def test_rates(self):
-        y = np.load(resource_filename("test/mca.npy"))
-        cfgfile = resource_filename("test/mca.cfg")
-        
+    def setUp(self):
+        self.dir = TempDirectory()
+        self.cfgfile = os.path.join(self.dir.path,"mca.cfg")
+        pymcahandle.savepymca(self.cfgfile)
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def loadpymca(self):
         source = xraysources.factory("synchrotron")
         detector = xrfdetectors.factory("XRFDetector",ehole=3.8)
         geometry = xrfgeometries.factory("LinearXRFGeometry",detector=detector,source=source,\
                                     zerodistance=0,detectorposition=0,positionunits="mm")
         sample = multilayer.Multilayer(geometry=geometry)
 
-        pymcahandle = pymca.PymcaHandle(sample=sample,ninteractions=1)
-        pymcahandle.loadfrompymca(cfgfile)
+        h = pymca.PymcaHandle(sample=sample,ninteractions=1)
+        h.loadfrompymca(self.cfgfile)
+        return h
 
-        pymcahandle.setdata(y)
-        info = pymcahandle.fit()
+    def test_rates(self):
+        h = self.loadpymca()
+        y = pymcahandle.mca()
+        np.testing.assert_allclose(y,h.mca())
+        
+        y += 1
+        h.setdata(y)
+        info = h.fit()
 
         # Mass fractions are calculated as follows:
         #   grouparea = flux.time.grouprate
@@ -70,28 +83,29 @@ class test_pymca(unittest.TestCase):
         # When element in more than one layer (per layer as if all intensity came from that layer?):
         #   massfrac_l = grouparea/(flux.time.solidangle/(4.pi).grouprate_l)  
 
-        grouprates = pymcahandle.xraygrouprates(scattering=False,method="fisx")
-        safrac = pymcahandle.sample.geometry.solidangle/(4*np.pi)
+        grouprates = h.xraygrouprates(scattering=False,method="fisx")
+        safrac = h.sample.geometry.solidangle/(4*np.pi)
 
         for group in info["fitareas"]:
             element,shell = group.split("-")
 
-            grouprate_avg = pymcahandle.mcafit._fluoRates[0][element]["rates"]["{} xrays".format(shell)]
+            grouprate_avg = h.mcafit._fluoRates[0][element]["rates"]["{} xrays".format(shell)]
             grouprate_avg *= safrac
-            massfrac_avg = pymcahandle.mcafit._fluoRates[0][element]["mass fraction"]
+            massfrac_avg = h.mcafit._fluoRates[0][element]["mass fraction"]
 
             grouprate = 0.
             grouprate_avg2 = 0.
             massfrac_avg2 = 0.
             npresent = 0
-            for j in range(pymcahandle.sample.nlayers):
+            for j in range(h.sample.nlayers):
                 i = j+1
-                if element in pymcahandle.mcafit._fluoRates[i]:
-                    massfrac_l = pymcahandle.mcafit._fluoRates[i][element]["mass fraction"]
-                    grouprate_l = pymcahandle.mcafit._fluoRates[i][element]["rates"]["{} xrays".format(shell)]
+                if element in h.mcafit._fluoRates[i]:
+                    massfrac_l = h.mcafit._fluoRates[i][element]["mass fraction"]
+                    grouprate_l = h.mcafit._fluoRates[i][element]["rates"]["{} xrays".format(shell)]
                     grouprate += massfrac_l*grouprate_l
                     grouprate_avg2 += grouprate_l
-                    massfrac_avg2 = max(massfrac_avg2,massfrac_l)
+                    #massfrac_avg2 = max(massfrac_avg2,massfrac_l)
+                    massfrac_avg2 = massfrac_l # just the last one?
                     npresent += 1
             grouprate *= safrac
             grouprate_avg2 *= safrac
@@ -106,22 +120,22 @@ class test_pymca(unittest.TestCase):
                 np.testing.assert_allclose(massfrac_avg,massfrac_avg2)
                 np.testing.assert_allclose(grouprate_avg,grouprate_avg2)
 
-            np.testing.assert_allclose(info["massfractions"][group],info["fitareas"][group]/(pymcahandle.flux*pymcahandle.time*grouprate_avg))
+            np.testing.assert_allclose(info["massfractions"][group],info["fitareas"][group]/(h.I0*grouprate_avg))
 
-            for j in range(pymcahandle.sample.nlayers):
+            for j in range(h.sample.nlayers):
                 i = j+1
-                if element in pymcahandle.mcafit._fluoRates[i]:
-                    grouprate_l = pymcahandle.mcafit._fluoRates[i][element]["rates"]["{} xrays".format(shell)]
+                if element in h.mcafit._fluoRates[i]:
+                    grouprate_l = h.mcafit._fluoRates[i][element]["rates"]["{} xrays".format(shell)]
                     grouprate = grouprate_l*safrac
-                    np.testing.assert_allclose(info["lmassfractions"][j][group],info["fitareas"][group]/(pymcahandle.flux*pymcahandle.time*grouprate))
+                    np.testing.assert_allclose(info["lmassfractions"][j][group],info["fitareas"][group]/(h.I0*grouprate))
 
         if False:
             import matplotlib.pyplot as plt
-            plt.plot(data["x"],data["y"],label='data')
-            plt.plot(data["x"],data["yfit"],label='pymca')
+            plt.plot(info["energy"],info["y"],label='data')
+            plt.plot(info["energy"],info["yfit"],label='pymca')
             
-            spectrum = pymcahandle.xrayspectrum()
-            spectrum.plot(fluxtime=pymcahandle.flux*pymcahandle.time,histogram=True,log=False,decompose=False)
+            spectrum = h.xrayspectrum()
+            spectrum.plot(fluxtime=h.I0,histogram=True,log=False,decompose=False,backfunc=lambda x:1)
 
             ax = plt.gca()
             ax.set_ylim(ymin=np.nanmin(y[np.nonzero(y)]))

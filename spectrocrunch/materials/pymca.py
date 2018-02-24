@@ -27,7 +27,6 @@ from ..common import instance
 from . import mixture
 from . import element
 from .. import xraylib
-
 from . import compoundfromformula
 
 import fisx
@@ -39,6 +38,8 @@ import copy
 from PyMca5.PyMcaPhysics.xrf import ClassMcaTheory
 from PyMca5.PyMcaPhysics.xrf import ConcentrationsTool
 from PyMca5.PyMcaIO import ConfigDict
+import PyQt4.QtGui as qt
+from PyMca5.PyMcaGui.physics.xrf import McaAdvancedFit
 
 class PymcaHandle(object):
 
@@ -48,8 +49,8 @@ class PymcaHandle(object):
         self.sample = sample
  
         self.energy = instance.asarray(units.magnitude(energy,"keV"))
-        self._emin = emin
-        self._emax = emax
+        self.emin = emin
+        self.emax = emax
         if weights is None:
             self.weights = np.ones_like(self.energy)
         else:
@@ -61,16 +62,37 @@ class PymcaHandle(object):
             
         self.escape = escape
         self.ninteractions = ninteractions
-        self.flux = units.magnitude(flux,"hertz")
-        self.time = units.magnitude(time,"s")
+        self.flux = flux
+        self.time = time
         
         self.mcafit = ClassMcaTheory.McaTheory()
         self.ctool = ConcentrationsTool.ConcentrationsTool()
+        self.app = None
     
     def __str__(self):
         s = zip(instance.asarray(self.energy),instance.asarray(self.weights),instance.asarray(self.scatter))
         s = '\n '.join("{} keV: {} % (Scatter: {})".format(k,v*100,sc) for k,v,sc in s)
         return "Flux = {} ph/s\nTime = {} s\nSource lines:\n {}\n{}\n{}".format(self.flux,self.time,s,self.sample,self.sample.geometry)
+    
+    @property
+    def flux(self):
+        return self._flux
+    
+    @flux.setter
+    def flux(self,value):
+        self._flux = units.magnitude(value,"hertz")
+    
+    @property
+    def time(self):
+        return self._time
+    
+    @time.setter
+    def time(self,value):
+        self._time = units.magnitude(value,"s")
+        
+    @property
+    def I0(self):
+        return self.flux*self.time
     
     @property
     def emax(self):
@@ -354,6 +376,30 @@ class PymcaHandle(object):
         
         return result
 
+    def fitgui(self,ylog=False,legend="data"):
+        if self.app is None:
+            self.app = qt.QApplication([])
+        w = McaAdvancedFit.McaAdvancedFit()
+
+        # Copy mcafit info
+        x = self.mcafit.xdata0
+        y = self.mcafit.ydata0
+        w.setData(x,y,legend=legend,xmin=0,xmax=len(y)-1)
+        self.addtopymca(fresh=True)
+        w.mcafit.configure(self.mcafit.getConfiguration())
+
+        # GUI for fitting
+        if ylog:
+            w.graphWindow.yLogButton.click()
+        w.graphWindow.energyButton.click()
+        #w.graphWindow.setGraphYLimits(min(y[y>0]),None)
+        w.refreshWidgets()
+        w.show()
+        result = self.app.exec_()
+        
+        # Load parameters from fit (if you did "load from fit")
+        self.loadfrompymca(config=w.mcafit.getConfiguration())
+        
     def xrayspectrum(self,**kwargs):
         return self.sample.xrayspectrum(self.energy,emin=self.emin,emax=self.emax,\
                     weights=self.weights,ninteractions=self.ninteractions,**kwargs)
@@ -376,6 +422,14 @@ class PymcaHandle(object):
     
         return groups2
 
+    def mca(self):
+        spectrum = self.xrayspectrum()
+        x,y,ylabel = spectrum.sumprofile(fluxtime=self.I0,histogram=True)
+        a,b = spectrum.channellimits
+        mca = np.zeros(int(2**np.ceil(np.log2(b+1))),dtype=y.dtype)
+        mca[a:b+1] = y
+        return mca
+        
 
 class FisxConfig():
     

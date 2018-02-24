@@ -63,11 +63,11 @@ class XRFDetector(with_metaclass(base.CentricCone)):
             self.bstail = shape_pymca.get("bstail",False)
             self.bltail = shape_pymca.get("bltail",False)
             self.bstep = shape_pymca.get("bstep",False)
-            self.stailslope_ratio = shape_pymca.get("stailslope_ratio",0.004)
-            self.ltailslope_ratio = shape_pymca.get("ltailslope_ratio",0.04)
+            self.stailslope_ratio = shape_pymca.get("stailslope_ratio",0.5)
+            self.ltailslope_ratio = shape_pymca.get("ltailslope_ratio",10.)
             self.ratios = (shape_pymca.get("stailarea_ratio",0.05),\
-                            shape_pymca.get("ltailarea_ratio",0.05),\
-                            shape_pymca.get("stepheight_ratio",0.001))
+                            shape_pymca.get("ltailarea_ratio",0.02),\
+                            shape_pymca.get("stepheight_ratio",0.0001))
     
     @property
     def _calc_fixedarearatios(self):
@@ -588,11 +588,14 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         bstep = self.bstep
         cfg["fit"]["hypermetflag"] = 1*bhypermet | 2*bstail | 4*bltail | 8*bstep
 
-        xmin = int(round((setup.emin-mcazero)/mcagain))
-        xmax = int(round((setup.emax-mcazero)/mcagain))
+        xmin,xmax = self.channellimits(setup)
         cfg["fit"]["xmin"] = xmin
         cfg["fit"]["xmax"] = xmax
         cfg["fit"]["use_limit"] = 1
+ 
+    def channellimits(self,setup):
+        energy,func = instance.asarrayf([setup.emin,setup.emax])
+        return func(np.clip(np.round((energy-self.mcazero)/self.mcagain).astype(int),0,None))
  
     def loadfrompymca(self,setup,cfg):
         super(XRFDetector,self).loadfrompymca(setup,cfg)

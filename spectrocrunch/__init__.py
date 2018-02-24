@@ -28,6 +28,10 @@ except ImportError:
     import os
     __version__ = "Local version ({})".format(os.path.dirname(os.path.abspath(__file__)))
 
+##### Make sure there is always a logger #####
+import logging
+logging.basicConfig()
+
 ##### Initialize pint #####
 import pint
 ureg = pint.UnitRegistry()

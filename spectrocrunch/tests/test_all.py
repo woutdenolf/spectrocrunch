@@ -34,7 +34,6 @@ from ..visualization.tests import test_all as test_visualization
 from ..xrf.tests import test_all as test_xrf
 from ..h5stacks.tests import test_all as test_h5stacks
 
-
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
