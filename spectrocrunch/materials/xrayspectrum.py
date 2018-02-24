@@ -745,31 +745,26 @@ class Spectrum(dict):
         return ureg.Quantity(P*flux,"keV/s")
 
     @property
-    def energylimits(self):
-        emin,emax = self.xlim
-        return self.roundenergybin(emin),self.roundenergybin(emax)
-
-    @property
     def channellimits(self):
-        emin,emax = self.energylimits
-        return self.energytochannel(emin),self.energytochannel(emax)
-
+        return self.energytochannel(self.xlim)
+    
     def energytochannel(self,energy):
-        return max(int(round((energy-self.mcazero)/self.mcagain)),0)
+        energy,func = instance.asarrayf(energy)
+        return func(np.clip(np.round((energy-self.mcazero)/self.mcagain).astype(int),0,None))
+        
+    @property
+    def energylimits(self):
+        return self.mcazero+self.mcagain*self.channellimits
 
-    def roundenergybin(self,energy):
-        return self.mcazero+self.mcagain*self.energytochannel(energy)
-    
-    def mcabinenergies(self):
-        emin,emax = self.energylimits
-        return np.arange(emin,emax,self.mcagain)
-    
-    def mcabins(self):
+    def mcachannels(self):
         a,b = self.channellimits
         return np.arange(a,b+1)
 
+    def mcaenergies(self):
+        return self.mcazero+self.mcagain*self.mcachannels()
+
     def sumprofile(self,convert=True,fluxtime=None,histogram=False,backfunc=None,voigt=False):
-        energies = self.mcabinenergies()
+        energies = self.mcaenergies()
         lineinfo = self.lineinfo(convert=convert)
         multiplier,ylabel = self.profileinfo(convert=convert,fluxtime=fluxtime,histogram=histogram)
         profiles = self.peakprofiles(lineinfo)
@@ -786,7 +781,7 @@ class Spectrum(dict):
         ax = plt.gca()
 
         if decompose:
-            energies = self.mcabinenergies()
+            energies = self.mcaenergies()
             lines = self.lineinfo(convert=convert)
             multiplier,ylabel = self.profileinfo(convert=convert,fluxtime=fluxtime,histogram=histogram)
             profiles = self.peakprofiles(lines)

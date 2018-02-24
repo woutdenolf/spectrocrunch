@@ -81,7 +81,7 @@ class XiaNameParser():
         else:
             return label,""
 
-    def parse(self,filename):
+    def parse(self,filename,throw=True):
         """
         Args:
             filename(str): path/[radix]_[label]_[num]_0000_[linenumber].edf  ->  spectra
@@ -102,7 +102,11 @@ class XiaNameParser():
             baselabel,detector = self.xiaparselabel(label)
             return XiaName(radix=radix,mapnum=mapnum,linenum=linenum,label=label,baselabel=baselabel,detector=detector)
         else:
-            raise RuntimeError("{} does not have the proper XIA format".format(filename))
+            if throw:
+                raise RuntimeError("{} does not have the proper XIA name format".format(filename))
+            else:
+                logger.warning("Skipping {} (does not have the proper XIA name format)".format(f))
+                return XiaName(radix=None,mapnum=None,linenum=None,label=None,baselabel=None,detector=None)
 
 xianameparser = XiaNameParser()
 
@@ -171,8 +175,7 @@ def xiasearch(path,radix=None,mapnum=None,linenum=None,label=None,sort=True,ctrl
         # Cannot be done unless using regex (or xianameparser.parse afterwards like done here)
         mask = os.path.join(path,ctrformat().format(radix,ctrlabel,mapnum))
         ctrfiles = glob(mask)
-        
-        ctrfiles = [f for f in ctrfiles if xianameparser.parse(f).linenum==-1]
+        ctrfiles = [f for f in ctrfiles if xianameparser.parse(f,throw=False).linenum==-1]
 
         if onlyctrs:
             ctrfiles.sort(key=xiasortkey)

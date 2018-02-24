@@ -103,9 +103,11 @@ class test_compound(unittest.TestCase):
         c1 = compoundraw.Compound(["Fe","O"],[2,3],fractionType.weight,density=1)
         c2 = compoundraw.Compound(["Fe"],[2],fractionType.weight,density=1)
         c2.addelement("O",3/5.,fractionType.weight)
-        self.assertEqual(c1.elements.keys(),c2.elements.keys())
-        for v1,v2 in zip(c1.elements.values(),c2.elements.values()):
-            self.assertAlmostEqual(v1,v2)
+        n1 = c1.molefractions()
+        n2 = c2.molefractions()
+        self.assertEqual(sorted(n1.keys()),sorted(n2.keys()))
+        for k in n1:
+            self.assertAlmostEqual(n1[k],n2[k])
 
     def test_vacuum(self):
         c = compoundraw.Compound([],[],fractionType.mole,0,name="vacuum")

@@ -25,6 +25,7 @@
 from .. import ureg
 from . import instance
 from . import persistence
+from . import listtools
 
 def Quantity(x,units=None):
     """Add units when not present. Use instead of ureg.Quantity in case x may already be a Quantity.
@@ -90,25 +91,30 @@ def binary_operator(a,b,op):
         return op(a,b)
     except:
         return op(magnitude(a),magnitude(a))
-
+    
 def asarrayf(x,**kwargs):
-    u = units(x)
-    if u is None:
-        funcu = lambda x:x
+    if instance.isarray(x):
+        u = units(x[0])
+        x = [magnitude(y,u) for y in x]
     else:
-        funcu = lambda x:Quantity(x,units=u)
+        u = units(x)
+        x = magnitude(x,u)
+
+    if instance.isarray(x):
+        func = lambda x:x
+    else:
+        func = lambda x:x[0]
         
-    try:
-        x = x.magnitude
-    except AttributeError:
-        pass
+    x = instance.asarray(x,**kwargs)
 
-    x,func = instance.asarrayf(x,**kwargs)
+    return Quantity(x,units=u),func
 
-    funcw = lambda x: funcu(func(x))
-
-    return funcu(x),funcw
-
+def flatten(x):
+    if instance.isarray(x):
+        unit = units(x[0])
+        x = Quantity(list(listtools.flatten(magnitude(v,unit) for v in x)),units=unit)
+    return x
+    
 def serialize(x):
     try:
         x.units

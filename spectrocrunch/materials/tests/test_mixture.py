@@ -81,9 +81,13 @@ class test_mixture(unittest.TestCase):
         c2 = compound("Fe2O3",1.6)
         c3 = mixture([c1,c2],[2,3],fractionType.mole).tocompound("mix")
         c4 = compound("Co4O15Fe6",c3.density)
-        for e in c3.elements:
-            self.assertEqual(c3.elements[e],c4.elements[e])
-
+        
+        n3 = c3.molefractions()
+        n4 = c4.molefractions()
+        self.assertEqual(sorted(n3.keys()),sorted(n4.keys()))
+        for k in n3:
+            self.assertEqual(n3[k],n4[k])
+            
     def _spectrum(self,lstlines,thickness):
         src = source.factory("synchrotron")
         detector = xrfdetectors.factory("leia")

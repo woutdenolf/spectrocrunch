@@ -43,6 +43,7 @@ class FluxMonitor(object):
     
         self.idet = diode.factory("idet",model=False)
         self.iodet = None
+        self._ignoresecondarytarget = True
         self.iodetname = iodetname
         self.focussed = focussed
         self.reference = units.Quantity(1e10,"hertz")
@@ -73,7 +74,7 @@ class FluxMonitor(object):
         fspec = spec.spec(specfile)
         ioz,istopz,energy,zpz = fspec.getmotorvalues(specnr,["diodeIoZ","istopz","Energy MONO",'zpz'])
 
-        self.checkiodet(ioz,istopz,zpz)
+        self._checkiodet(ioz,istopz,zpz)
 
         menergies = fspec.haslabel(specnr,"EnergyM")
         if menergies:
@@ -90,7 +91,7 @@ class FluxMonitor(object):
         else:
             self.energy = energy
 
-    def checkiodet(self,ioz,istopz,zpz):
+    def _checkiodet(self,ioz,istopz,zpz):
         if abs(ioz-7)<abs(ioz-23):
             name = "iodet1"
         elif abs(istopz+20)<abs(istopz+1.3):
@@ -117,10 +118,21 @@ class FluxMonitor(object):
                 raise RuntimeError(msg)
                 
         self.setiodet()
+    
+    @property
+    def ignoresecondarytarget(self):
+        return self._ignoresecondarytarget
         
+    @ignoresecondarytarget.setter
+    def ignoresecondarytarget(self,value):
+        self._ignoresecondarytarget = value
+        if self.iodet is not None:
+            self.iodet.ignoresecondarytarget = value
+    
     def setiodet(self):
         if self.iodet is None and not (self.iodetname is None or self.focussed is None):
-            self.iodet = diode.factory(self.iodetname,optics=self.focussed,source=self.source)
+            self.iodet = diode.factory(self.iodetname,optics=self.focussed,
+                                    source=self.source,ignoresecondarytarget=self._ignoresecondarytarget)
 
     def darkiodet(self):
         self.iodet.darkfromcps(self.iodetcps)

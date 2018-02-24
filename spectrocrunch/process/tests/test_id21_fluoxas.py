@@ -30,26 +30,27 @@ import os
 import contextlib
 
 from ..id21_fluoxas import process
-from ...resources import resource_filename
-from ...materials import pymca
 from ...io import xiaedf
 from ...io import nexus
 from ...align import types
 from ...common import instance
 from ..id21_quant import FluxMonitor
 from ...h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
+from ...materials.tests.xrf_setup import pymcahandle
 
 class test_fluoxas(unittest.TestCase):
 
     def setUp(self):
         self.dir = TempDirectory()
+        self.cfgfile = os.path.join(self.dir.path,"mca.cfg")
+        pymcahandle.savepymca(self.cfgfile)
 
     def tearDown(self):
         self.dir.cleanup()
-    
-    def pymcaoutlabels(self,cfgfile,quant=False):
+
+    def pymcaoutlabels(self,quant=False):
         config = ConfigDict.ConfigDict()
-        config.read(cfgfile)
+        config.read(self.cfgfile)
 
         labels = ["{}_{}".format(e,line) for e,lines in config["peaks"].items() for line in lines]
         if quant:
@@ -63,14 +64,13 @@ class test_fluoxas(unittest.TestCase):
 
         return labels
 
-    def pymcagetenergy(self,cfgfile):
+    def pymcagetenergy(self):
         config = ConfigDict.ConfigDict()
-        config.read(cfgfile)
-        
+        config.read(self.cfgfile)
         return float(instance.asarray(config["fit"]["energy"])[0])
 
-    def fluxmonitor(self,cfgfile):
-        energy = self.pymcagetenergy(cfgfile)
+    def fluxmonitor(self):
+        energy = self.pymcagetenergy()
         monitor = FluxMonitor(iodetname="iodet1",focussed=True,xrfdetector="leia",xrfgeometry="sxm120")
         monitor.setdark(300,None,gainiodet=1e8)
         monitor.setcalib(energy-5,0.5,gainiodet=1e8)
@@ -80,12 +80,8 @@ class test_fluoxas(unittest.TestCase):
         return monitor
     
     def gendata(self):
-        # Pymca config file
-        cfgfile = resource_filename("test/mca.cfg")
-        
         # Generate spectra
-        spec = np.load(resource_filename("test/mca.npy"))
-        spec /= np.max(spec)*1e7
+        spec =  pymcahandle.mca()+1
         spec = np.stack([spec,spec*2,spec*3],axis=1)
         nchan,ndet = spec.shape
         
@@ -97,7 +93,7 @@ class test_fluoxas(unittest.TestCase):
         data = np.outer(data,spec).reshape(nmaps,nlines,nspec,nchan,ndet)
 
         # Generate counter headers
-        energy = self.pymcagetenergy(cfgfile)
+        energy = self.pymcagetenergy()
         energy = np.linspace(energy,energy+0.001,nmaps)
         ctrheaders = np.vectorize(lambda e:{"DCM_Energy":e},otypes=[object])(energy)
         
@@ -105,7 +101,7 @@ class test_fluoxas(unittest.TestCase):
         ctrs = {}
 
         # Apply flux
-        fluxmonitor = self.fluxmonitor(cfgfile)
+        fluxmonitor = self.fluxmonitor()
         refflux = fluxmonitor.reference.to("hertz").magnitude
         flux = np.linspace(refflux,refflux*0.5,nmaps*nlines*nspec).reshape((nmaps,nlines,nspec))
         data *= flux[...,np.newaxis,np.newaxis]
@@ -159,7 +155,7 @@ class test_fluoxas(unittest.TestCase):
         xialabels = ["xia{:02d}".format(i) for i in range(ndet)]
         stack.save(data,xialabels,stats=stats,ctrs=np.stack(ctrs.values(),axis=-1),ctrnames=ctrs.keys(),ctrheaders=ctrheaders)
 
-        return path,radix,cfgfile,data,stats,ctrs,fluxmonitor
+        return path,radix,data,stats,ctrs,fluxmonitor
     
     @contextlib.contextmanager
     def env_destpath(self):
@@ -170,7 +166,7 @@ class test_fluoxas(unittest.TestCase):
     def test_process(self):
         
         # Generate data
-        sourcepath,radix,cfgfile,data,stats,ctrs,fluxmonitor = self.gendata()
+        sourcepath,radix,data,stats,ctrs,fluxmonitor = self.gendata()
         
         # Raw data 
         nmaps,nlines,nspec,nchan,ndet = data.shape
@@ -178,7 +174,7 @@ class test_fluoxas(unittest.TestCase):
         
         # Fixed process parameters
         alignreference = None
-        labels = self.pymcaoutlabels(cfgfile)
+        labels = self.pymcaoutlabels()
         for label in labels:
             if "_K" in label:
                 alignreference = label.replace("_","-")
@@ -187,7 +183,7 @@ class test_fluoxas(unittest.TestCase):
         # Process with different settings
         for alignmethod in ["max",None]:
         
-            for cfgfileuse in [None,cfgfile]:
+            for cfgfileuse in [None,self.cfgfile]:
                 if cfgfileuse is None and alignmethod is not None:
                     continue
 
@@ -250,7 +246,7 @@ class test_fluoxas(unittest.TestCase):
                                                 
                                             # Check pymca output (files)
                                             if cfgfileuse is not None:
-                                                labels = self.pymcaoutlabels(cfgfile,quant=quant)
+                                                labels = self.pymcaoutlabels(quant=quant)
                                                 if addbeforefit_onspectra:
                                                     expected = ["{}_xiaS1_{:04d}_0000_{}.edf".format(radixout,mapnum,label)\
                                                                                                     for mapnum in range(nmaps)\

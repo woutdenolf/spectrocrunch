@@ -39,7 +39,7 @@ def isboollist(lst):
         return False
         
 def isarray(x):
-    return isinstance(x, (list, set, tuple, np.ndarray))
+    return isinstance(x, (list, set, frozenset, tuple, np.ndarray))
 
 def isnumber(x):
     return isinstance(x, numbers.Number)
@@ -51,15 +51,27 @@ def isscalar(x):
     return np.isscalar(x)
 
 def isiterable(x):
-    return hasattr(x,"__iter__")
+    return isinstance(x, collections.Iterable)
+
+def isquantity(x):
+    return isinstance(x, ureg.Quantity)
     
+def israndomvariable(x):
+    if isarray(x):
+        return isinstance(x.flat[0],uncertainties.core.Variable)
+    else:
+        return isinstance(x,uncertainties.core.Variable)
+        
 def asarrayf(x,**kwargs):
-    x = np.asarray(x,**kwargs)
+    try:
+        x = np.asarray(x,**kwargs)
+    except ValueError:
+        x = np.asarray(x,dtype=object,**kwargs)
     scalar = x.ndim == 0
     if scalar:
         # Convert to 1D array
         x = x[np.newaxis]
-        func = np.asscalar
+        func = lambda x:x[0] # not np.asscalar!!!!
     else:
         func = np.asarray
     
@@ -92,12 +104,5 @@ def asscalar(x):
         pass
     return x
     
-def isquantity(x):
-    return isinstance(x, ureg.Quantity)
-    
-def israndomvariable(x):
-    if isarray(x):
-        return isinstance(x.flat[0],uncertainties.core.Variable)
-    else:
-        return isinstance(x,uncertainties.core.Variable)
+
 

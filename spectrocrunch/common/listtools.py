@@ -37,7 +37,7 @@ def flatten(l):
         list
     """
     for el in l:
-        if isinstance(el, collections.Iterable) and not instance.isstring(el):
+        if instance.isiterable(el) and not instance.isstring(el):
             for sub in flatten(el):
                 yield sub
         else:
@@ -52,12 +52,9 @@ def listadvanced_bool(lst,barr,bnot=False):
     Returns:
         list
     """
-    if len(lst)!=len(barr):
-        raise IndexError("boolean index did not match indexed list; length is {} but boolean dimension is {}".format(len(lst),len(barr)))
     if bnot:
-        return [item for b,item in zip(barr,lst) if not b]
-    else:
-        return [item for b,item in zip(barr,lst) if b]
+        barr = itertools.imap(operator.not_,barr)
+    return list(itertools.compress(lst,barr))
 
 def listadvanced_int(lst,ind):
     """Advanced list indexing: integer array

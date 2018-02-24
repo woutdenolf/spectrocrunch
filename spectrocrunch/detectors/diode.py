@@ -193,7 +193,7 @@ class PNdiode(with_metaclass(base.SolidState)):
     #ELCHARGE = ureg.Quantity(1.6e-19,ureg.coulomb) # approx. in spec
 
     def __init__(self, Rout=None, darkcurrent=None, oscillator=None,\
-                    secondarytarget=None, optics=None, beforesample=None,\
+                    secondarytarget=None, ignoresecondarytarget=False, optics=None, beforesample=None,\
                     **kwargs):
         """
         Args:
@@ -205,6 +205,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         self.setgain(Rout)
         self.setdark(darkcurrent)
         self.secondarytarget = secondarytarget
+        self.ignoresecondarytarget = ignoresecondarytarget
         self.beforesample = beforesample
         self.optics = optics
         self.oscillator = oscillator
@@ -378,7 +379,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             
         """
         
-        if self.secondarytarget is None:
+        if self.secondarytarget is None or self.ignoresecondarytarget:
             # rates of the lines detected
             Y = weights[np.newaxis,:]
         else:
@@ -471,7 +472,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             # Yij' = Yij*Cs'/Cs
             sa = self.geometry.solidangle * units.magnitude(Cs_calib/Cs,"dimensionless")
             if sa<=0 or sa>(2*np.pi):
-                logger.error("Diode solid angle of 4*pi*{} srad is not valid (possible wrong parameters: optics transmission, diode gain, diode thickness)".format(sa/(4*np.pi)))
+                logger.warning("Diode solid angle of 4*pi*{} srad is not valid".format(sa/(4*np.pi)))
             
             self.geometry.solidangle = sa
             Cscalc = self._chargepersamplephoton(energy,weights=weights)
@@ -527,12 +528,12 @@ class PNdiode(with_metaclass(base.SolidState)):
             if caliboption=="thickness":
                 x = instance.asscalar(x)
                 if x<=0:
-                    logger.error("Diode thickness of {} um is not valid (possible wrong parameters: optics transmission, diode solid angle, diode gain)".format(x*1e-4))
+                    logger.warning("Diode thickness of {} um is not valid".format(x*1e-4))
                 
                 self.thickness = x
             else:
                 if x<0 or x>1:
-                    logger.error("Transmission of {} % is not valid (possible wrong parameters: diode thickness, solid angle or gain)".format(x*100))
+                    logger.warning("Transmission of {} % is not valid".format(x*100))
                 
                 self.optics.set_transmission(energy,x)
             
