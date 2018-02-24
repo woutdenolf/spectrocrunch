@@ -38,8 +38,12 @@ import copy
 from PyMca5.PyMcaPhysics.xrf import ClassMcaTheory
 from PyMca5.PyMcaPhysics.xrf import ConcentrationsTool
 from PyMca5.PyMcaIO import ConfigDict
-import PyQt4.QtGui as qt
 from PyMca5.PyMcaGui.physics.xrf import McaAdvancedFit
+
+try:
+    from silx.gui import qt
+except ImportError:
+    qt = None
 
 class PymcaHandle(object):
 
