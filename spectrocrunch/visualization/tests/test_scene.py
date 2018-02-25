@@ -75,17 +75,17 @@ class test_scene(unittest.TestCase):
         s2.setaxes(ax)
         
         # Update scene 1
-        s1.update()
+        s1.updateview()
         
         # Shift image, axes scaling and update scene 2
         o1.lim[0] = s1.q0([9,9+n0-1])
         s2.setdatarange(0,s1.q0([0,1]))
         s2.setdatarange(1,s1.q1([0,1]))
-        s2.update()
+        s2.updateview()
         #plt.pause(0.01)
         
         # Update scene 1
-        s1.update()
+        s1.updateview()
         
         # Reset axes of scene 1
         f, ax = plt.subplots()
@@ -95,7 +95,7 @@ class test_scene(unittest.TestCase):
         o1.lim[0] = s1.q0([9,9+n0-1])
         
         s1.set_setting("cnorm",scene.ColorNorm("PowerNorm",0.1))
-        s1.update()
+        s1.updateview()
         
         #plt.pause(0.01)
         #plt.show()

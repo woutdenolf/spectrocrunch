@@ -28,7 +28,36 @@ from . import scene_data
 import collections
 import pandas as pd
 
-class ZapRoiMap(scene.Image):
+
+class Image(scene.Image):
+
+    def updatedata(self):
+        data,channels,labels = self.datahandle.displaydata(index=self.index)
+
+        params = {}
+        params["channels"] = channels
+        params["labels"] = labels
+        params["axis0name"] = self.datahandle.axis0name
+        params["axis1name"] = self.datahandle.axis1name
+        params["lim0"] = self.datahandle.axis0values[[0,-1]]
+        params["lim1"] = self.datahandle.axis1values[[0,-1]]
+        
+        super(Image,self).updatedata(data,**params)
+
+
+class Text(scene.Text):
+
+    def updatedata(self):
+        params = {}
+        params["labels"] = self.datahandle.labels
+        params["axis0name"] = self.datahandle.axis0name
+        params["axis1name"] = self.datahandle.axis1name
+
+        super(Text,self).updatedata(self.datahandle.coordinates0,\
+                                self.datahandle.coordinates1,**params)
+        
+        
+class ZapRoiMap(Image):
 
     def __init__(self,filenames,plotparams={},**dataparams):
         """
@@ -51,7 +80,7 @@ class ZapRoiMap(scene.Image):
                                             **plotparams)
     
     
-class Nexus(scene.Image):
+class Nexus(Image):
 
     def __init__(self,filename,groups,plotparams={},**dataparams):
         """
@@ -62,8 +91,8 @@ class Nexus(scene.Image):
 
         self.datahandle = scene_data.Nexus(filename,groups,**dataparams)
         
-        index = plotparams.pop("channels",None)
-        data,channels,labels = self.datahandle.displaydata(index=index)
+        self.index = plotparams.pop("channels",None)
+        data,channels,labels = self.datahandle.displaydata(index=self.index)
 
         plotparams["channels"] = channels
         plotparams["labels"] = plotparams.get("labels",labels)
@@ -74,7 +103,8 @@ class Nexus(scene.Image):
                                             lim1=self.datahandle.axis1values[[0,-1]],\
                                             **plotparams)
     
-class XanesSpec(scene.Text):
+    
+class XanesSpec(Text):
 
     def __init__(self,filenames,specnumbers,plotparams={},**dataparams):
         """

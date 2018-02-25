@@ -297,9 +297,9 @@ class Scene(Geometry2D):
         self.ax.set_ylim(lim[0],lim[1])
         #self.ax.set_ybound(lim[0],lim[1])
         
-    def update(self,**kwargs):
+    def updateview(self,**kwargs):
         for item in self:
-            item.update(**kwargs)
+            item.updateview(**kwargs)
         self.crop()
         
         if self.title is not None:
@@ -357,22 +357,26 @@ class Item(Hashable,Geometry2D):
        plot settings are owned by the scenes.
     """
     
-    def __init__(self,axis0name="Dim0",axis1name="Dim1",scene=None,name=None,**kwargs):
+    def __init__(self,scene=None,name=None,**kwargs):
         self._scenes = []
         self._plotobjs = [] # list of lists, each list belonging to a scene
         self._sceneindex = -1
-        self.axis0name = axis0name
-        self.axis1name = axis1name
         self.name = name
         
         if scene is not None:
             self.register(scene)
         
+        Item.updatedata(self,**kwargs)
+
+    def updatedata(self,axis0name="Dim0",axis1name="Dim1",**settings):
+        self.axis0name = axis0name
+        self.axis1name = axis1name
         try:
-            self.set_settings(kwargs)
+            if settings:
+                self.set_settings(settings)
         except RuntimeError:
             logger.warning("Item settings are not applied (provide a scene)")
-    
+            
     def register(self,scene):
         scene.register(self)
     
@@ -465,6 +469,11 @@ class Item(Hashable,Geometry2D):
 class Image(Item):
 
     def __init__(self,data,lim0=None,lim1=None,labels=None,**kwargs):
+        super(Image,self).__init__(**kwargs)
+        self.cax = None
+        Image._updatedata(self,data,lim0=lim0,lim1=lim1,labels=labels)
+
+    def _updatedata(self,data,lim0=None,lim1=None,labels=None):
         self.data = data
         self.labels = labels
         
@@ -480,9 +489,9 @@ class Image(Item):
     
         self.lim = [lim0,lim1]
 
-        self.cax = None
-        
-        super(Image,self).__init__(**kwargs)
+    def updatedata(self,data,lim0=None,lim1=None,labels=None,**kwargs):
+        self._updatedata(data,lim0=lim0,lim1=lim1,labels=labels)
+        super(Image,self).updatedata(**kwargs)
 
     @property
     def data(self):
@@ -700,7 +709,7 @@ class Image(Item):
         y = [y[0],y[0],y[1],y[1],y[0]]
         return x,y
 
-    def update(self):
+    def updateview(self):
         scene = self.scene
         
         settings = scene.getitemsettings(self)
@@ -831,13 +840,20 @@ class Image(Item):
 class Scatter(Item):
 
     def __init__(self,coordinate0,coordinate1,labels=None,**kwargs):
+        super(Scatter,self).__init__(**kwargs)
+        Scatter._updatedata(self,coordinate0,coordinate1,labels=labels)
+
+    def _updatedata(self,coordinate0,coordinate1,labels=None):
         self._coordinate = [coordinate0,coordinate1]
         if labels is None:
             self.labels = []
         else:
             self.labels = labels
-        super(Scatter,self).__init__(**kwargs)
-    
+
+    def updatedata(self,coordinate0,coordinate1,labels=None,**kwargs):
+        self._updatedata(coordinate0,coordinate1,labels=labels)
+        super(Image,self).updatedata(**kwargs)
+
     def datarange(self,dataaxis):
         ran = self.scene.datatransform(self._coordinate[dataaxis],dataaxis)
         return min(ran),max(ran)
@@ -852,7 +868,7 @@ class Scatter(Item):
                 "horizontalalignment":"left","verticalalignment":"bottom",\
                 "fontsize":12,"labeloffset":0.1,"fontweight":500}
 
-    def update(self):
+    def updateview(self):
         scene = self.scene
         settings = scene.getitemsettings(self)
         
