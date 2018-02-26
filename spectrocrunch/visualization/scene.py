@@ -35,16 +35,24 @@ from ..common import units
 from ..common.hashable import Hashable
 from collections import OrderedDict
 from .. import ureg
+from .colorbar_rgb import colorbar_rgb
 
 logger = logging.getLogger(__name__)
 
 
 def ColorNorm(name,*args):
-    if name=="LogNorm":
+    try:
+        if name is None:
+            name = ""
+        name = name.lower()
+    except AttributeError:
+        return name # already a normalizer
+        
+    if name=="lognorm":
         norm = lambda **kwargs: pltcolors.LogNorm(**kwargs)
-    elif name=="PowerNorm":
+    elif name=="powernorm":
         norm = lambda **kwargs: pltcolors.PowerNorm(*args,**kwargs)
-    elif name=="SymLogNorm":
+    elif name=="symlognorm":
         norm = lambda **kwargs: pltcolors.SymLogNorm(*args,**kwargs)
     else:
         norm = pltcolors.Normalize
@@ -82,7 +90,7 @@ class Geometry2D(object):
         return self.dataaxis('y')
 
 
-class Scene(Geometry2D):
+class Scene(Hashable,Geometry2D):
     """Each scene can have a number of registered items with associalted plot settings.
     """
 
@@ -101,6 +109,9 @@ class Scene(Geometry2D):
         self.dataoffset = [ureg.Quantity(0,unit0),ureg.Quantity(0,unit1)]
         self.datascale = [1,1]
     
+    def _stringrepr(self):
+        return "{}".format(id(self))
+        
     def q0(self,v):
         return self.dimquantity(v,0)
     
@@ -336,7 +347,7 @@ class Scene(Geometry2D):
     @property
     def wsize_pixels(self):
         pts = self.ax.get_window_extent().get_points()
-        x1,x2 = pts[:,1]
+        x1,x2 = pts[:,0]
         y1,y2 = pts[:,1]
         return x2-x1+1,y2-y1+1
 
@@ -358,8 +369,7 @@ class Item(Hashable,Geometry2D):
     """
     
     def __init__(self,scene=None,name=None,**kwargs):
-        self._scenes = []
-        self._plotobjs = [] # list of lists, each list belonging to a scene
+        self._scenes = OrderedDict()
         self._sceneindex = -1
         self.name = name
         
@@ -368,6 +378,9 @@ class Item(Hashable,Geometry2D):
         
         Item.updatedata(self,**kwargs)
 
+    def _stringrepr(self):
+        return "{} {}".format(type(self).__name__,id(self))
+        
     def updatedata(self,axis0name="Dim0",axis1name="Dim1",**settings):
         self.axis0name = axis0name
         self.axis1name = axis1name
@@ -403,53 +416,50 @@ class Item(Hashable,Geometry2D):
         settings = self.scene.getitemsettings(self)
         return settings[key]
     
+    def selectscene(self,s):
+        try:
+            self._sceneindex = self._scenes.keys().index(s)
+        except:
+            raise RuntimeError("This object is not registered with scene {}".format(s))
+            
     @property
     def scene(self):
         if len(self._scenes)==0:
             raise RuntimeError("This object is not registered with any scene")
-        return self._scenes[self._sceneindex]
+        return self._scenes.keys()[self._sceneindex]
     
     def addscene(self,s):
-        self._scenes.append(s)
+        if s not in self._scenes:
+            self._scenes[s] = OrderedDict()
+
+    @property
+    def sceneitems(self):
+        """My items in the active scene
+        """
+        return self._scenes.get(self.scene,OrderedDict())
         
-    def selectscene(self,s):
-        try:
-            self._sceneindex = self._scenes.index(s)
-        except:
-            raise RuntimeError("This object is not registered with scene {}".format(s))
-    
-    @property
-    def transposed(self):
-        return self.scene.transposed
-       
-    @property
-    def plotobjs(self):
-        """Objects belonging to the active scene
+    def removefromscene(self):
+        """Remove myself from the active scene
         """
-        for objs in self._plotobjs:
-            for o in objs:
-                if o is not None:
-                    if self.scene.ax == o.axes:
-                        return objs
-        return []
-    
-    def addobjs(self,objs):
-        """Objects belonging to the active scene
+        items = self.sceneitems
+        for item in items:
+            if item is not None:
+                items[item].remove()
+        self._scenes[self.scene] = OrderedDict()
+
+    def refreshscene(self,newitems):
+        """Update the active scene with new items
         """
-        self.delobjs()
-        if isinstance(objs,list):
-            self._plotobjs.append(objs)
-        else:
-            self._plotobjs.append([objs])
-    
-    def delobjs(self):
-        objs = self.plotobjs
-        if len(objs)>0:
-            for o in objs:
-                if o is not None:
-                    o.remove()
-            self._plotobjs.remove(objs)
-            
+        olditems = self.sceneitems
+        
+        for name in olditems:
+            if name in newitems:
+                if newitems[name] != olditems[name]:
+                    olditems[name].remove()
+            else:
+                olditems[name].remove()
+   
+        self._scenes[self.scene] = newitems
 
     def datarange(self,dataaxis):
         raise NotImplementedError("Item is an abstract class")
@@ -462,15 +472,14 @@ class Item(Hashable,Geometry2D):
     def datalimy(self):
         return self.datarange(self.dataaxisy)
     
-    def _stringrepr(self):
-        return "{} {}".format(type(self).__name__,id(self))
-    
+    @property
+    def transposed(self):
+        return self.scene.transposed
     
 class Image(Item):
 
     def __init__(self,data,lim0=None,lim1=None,labels=None,**kwargs):
         super(Image,self).__init__(**kwargs)
-        self.cax = None
         Image._updatedata(self,data,lim0=lim0,lim1=lim1,labels=labels)
 
     def _updatedata(self,data,lim0=None,lim1=None,labels=None):
@@ -636,7 +645,8 @@ class Image(Item):
                   "fontsize":12,\
                   "fontweight":500,\
                   "legendposition":"RT",\
-                  "channels":None}
+                  "channels":None,\
+                  "colorbar":False}
         
     def datarange(self,dataaxis,border=False):
         lim = self.scene.datatransform(self.lim[dataaxis],dataaxis)
@@ -738,20 +748,15 @@ class Image(Item):
                 vmin = [vmin]*nchannels
             if not instance.isarray(vmax):
                 vmax = [vmax]*nchannels
+            normcb = []
             for i in range(nchannels):
-                if settings["cnorm"] is None:
-                    norm = pltcolors.Normalize(vmin=vmin[i],vmax=vmax[i],clip=True)
-                else:
-                    norm = settings["cnorm"](vmin=vmin[i],vmax=vmax[i],clip=True)
-                    
+                norm = ColorNorm(settings["cnorm"])(vmin=vmin[i],vmax=vmax[i],clip=True)
                 image[...,i] = norm(image[...,i]).data
+                normcb.append(norm)
             norm = None
         else:
             nchannels = 1
-            if settings["cnorm"] is None:
-                norm = pltcolors.Normalize(vmin=vmin,vmax=vmax)
-            else:
-                norm = settings["cnorm"](vmin=vmin,vmax=vmax)
+            norm = ColorNorm(settings["cnorm"])(vmin=vmin,vmax=vmax)
         
         # Coordinates and borders
         extent = scene.xmagnitude(self.datalimx)+scene.ymagnitude(self.datalimy)
@@ -760,32 +765,23 @@ class Image(Item):
         x = scene.xmagnitude(x)
         y = scene.ymagnitude(y)
         
-        # Legend (right-top corner)
+        # Legend
         xlabel,ylabel,dx,dy,horizontalalignment,verticalalignment = self.labelxy
 
         # Create/update objects
-        o = self.plotobjs
-        update = bool(o)
+        items = self.sceneitems
+        newitems = OrderedDict()
         
-        # Image + border
-        if update:
-            o[0].set_data(image)
-            plt.setp(o[0], interpolation = 'nearest',\
+        # Image
+        if "image" in items:
+            newitems["image"] = items["image"]
+            plt.setp(newitems["image"], interpolation = 'nearest',\
                         extent = extent,\
                         norm = norm,\
                         alpha = alpha,\
                         cmap = cmap)
-            o[0].set_visible(settings["image"])
-            
-            o[1].set_data(x,y)
-            kwargs = {k:settings[k] for k in ["linewidth","color","alpha"]}
-            plt.setp(o[1], **kwargs)
-            o[1].set_visible(settings["border"])
-            settings["color"] = o[1].get_color()
-            
         else:
-            # matplotlib.image.AxesImage
-            self.cax = oi = scene.ax.imshow(image,\
+            newitems["image"] = scene.ax.imshow(image,\
                         interpolation = 'nearest',\
                         extent = extent,\
                         cmap = cmap,\
@@ -793,15 +789,29 @@ class Image(Item):
                         norm = norm,\
                         alpha = alpha,\
                         aspect = aspectcorrect)
-            oi.set_visible(settings["image"])
-            o = [oi]
+        newitems["image"].set_visible(settings["image"])
             
+        # Border
+        if "border" in items:
+            newitems["border"] = items["border"]
+            newitems["border"].set_data(x,y)
             kwargs = {k:settings[k] for k in ["linewidth","color","alpha"]}
-            oi = scene.ax.plot(x,y,**kwargs)[0]
-            oi.set_visible(settings["border"])
-            settings["color"] = oi.get_color()
-            o.append(oi)
+            plt.setp(newitems["border"], **kwargs)
+        else:
+            kwargs = {k:settings[k] for k in ["linewidth","color","alpha"]}
+            newitems["border"] = scene.ax.plot(x,y,**kwargs)[0]
+        newitems["border"].set_visible(settings["border"])
+        settings["color"] = newitems["border"].get_color()
         
+        # Colorbar
+        if settings["colorbar"]:
+            # TODO: update existing color bar?
+            if norm is None:
+                # Opens in new window
+                colorbar_rgb(vmin=vmin,vmax=vmax,names=self.labels)
+            else:
+                newitems["colorbar"] = plt.colorbar(newitems["image"])
+ 
         # Legend
         kwargs = {k:settings[k] for k in ["color","alpha"]}
         kwargs["horizontalalignment"] = horizontalalignment
@@ -822,20 +832,19 @@ class Image(Item):
             else:
                 i += 1
             kwargs["color"] = color
-            if update:
-                oindex = i+2
-                o[oindex].set_text(label)
-                o[oindex].set_position((xlabel+i*dx,ylabel+i*dy))
-                plt.setp(o[oindex], **kwargs)
-                o[oindex].set_visible(settings["legend"])
+            
+            name = "label{}".format(i)
+            if name in items:
+                newitems[name] = items[name]
+                newitems[name].set_text(label)
+                newitems[name].set_position((xlabel+i*dx,ylabel+i*dy))
+                plt.setp(newitems[name], **kwargs)
             else:
-                oi = scene.ax.text(xlabel+i*dx,ylabel+i*dy,label,**kwargs)
-                oi.set_visible(settings["legend"])
-                o.append(oi)
-                
-        if not update:
-            self.addobjs(o)
-
+                newitems[name] = scene.ax.text(xlabel+i*dx,ylabel+i*dy,label,**kwargs)
+            newitems[name].set_visible(settings["legend"])
+        
+        self.refreshscene(newitems)
+            
             
 class Scatter(Item):
 
@@ -875,30 +884,28 @@ class Scatter(Item):
         x = instance.asarray(scene.xmagnitude(self.coordinate(self.dataaxisx)))
         y = instance.asarray(scene.ymagnitude(self.coordinate(self.dataaxisy)))
 
-        o = self.plotobjs
-
-        if settings["fill"]:
-            update = len(o)==1
-            if update:
-                update = isinstance(o[0],matplotlib.patches.Polygon)
+        # Create/update objects
+        items = self.sceneitems
+        newitems = OrderedDict()
         
+        # Polygon
+        if settings["fill"]:
             kwargs = {k:settings[k] for k in ["linestyle","linewidth","color","alpha","closed"]}
             if not kwargs["linestyle"]:
                 kwargs["linestyle"] = None
-            
-            # Create/update polygon
-            if update:
-                o[0].set_xy=zip(x, y)
-                plt.setp(o[0],**kwargs)
+                
+            if "patch" in items:
+                newitems["patch"] = items["patch"]
+                newitems["patch"].set_xy=zip(x, y)
+                plt.setp(newitems["patch"],**kwargs)
             else:
-                o = [matplotlib.patches.Polygon(zip(x, y),**kwargs)]
-                scene.ax.add_patch(o[0])
+                newitems["patch"] = matplotlib.patches.Polygon(zip(x, y),**kwargs)
+                scene.ax.add_patch(newitems["patch"])
+            settings["color"] = newitems["patch"].get_facecolor()
 
-            settings["color"] = o[0].get_facecolor()
-        
-        elif settings["linestyle"] or settings["marker"]:
-            blabels = settings["labels"] and bool(self.labels)
-            update = len(o) == len(self.labels)*blabels+1
+        # Polyline/points
+        if settings["linestyle"] or settings["marker"]:
+            kwargs = {k:settings[k] for k in ["marker","linestyle","alpha","color","linewidth"]}
             
             if settings["closed"] and settings["linestyle"]:
                 xcl = np.append(x,x[0])
@@ -907,41 +914,39 @@ class Scatter(Item):
                 xcl = x
                 ycl = y
 
-            # Create/update markers and/or lines
-            kwargs = {k:settings[k] for k in ["marker","linestyle","alpha","color","linewidth"]}
-            if update:
-                o[0].set_data(xcl,ycl)
-                plt.setp(o[0],**kwargs)
-                settings["color"] = o[0].get_color()
-            else:
-                o = [scene.ax.plot(xcl,ycl,**kwargs)[0]]
-                settings["color"] = o[0].get_color()
-
-            # Create labels
-            if blabels:
-                xo,yo = scene.fontsize_data(settings["fontsize"])
-                xo *= settings["labeloffset"]
-                yo *= settings["labeloffset"]
-
-                kwargs = {k:settings[k] for k in ["horizontalalignment","verticalalignment","alpha","color","fontsize","fontweight"]}
-                if not update:
-                    kwargs["xycoords"] = "data"
-                    kwargs["textcoords"] = "data"
+            if "line" in items:
+                newitems["line"] = items["line"]
+                newitems["line"].set_data(xcl,ycl)
+                plt.setp(newitems["line"],**kwargs)
                 
-                for i,(xi,yi,label) in enumerate(zip(x,y,self.labels)):
-                    if update:
-                        o[i+1].set_text(label)
-                        o[i+1].set_position((xi,yi))
-                        o[i+1].xytext = (xi+xo,yi+yo) # has no effect!!!!
-                        plt.setp(o[i+1],**kwargs)
-                    else:
-                        kwargs["xy"] = (xi,yi)
-                        kwargs["xytext"] = (xi+xo,yi+yo)
-                        o.append(scene.ax.annotate(label,**kwargs))
-        if not update:
-            self.addobjs(o)
+            else:
+                newitems["line"] = scene.ax.plot(xcl,ycl,**kwargs)[0]
+            settings["color"] = newitems["line"].get_color()
+        
+        # Labels
+        if settings["labels"] and bool(self.labels):
+            xo,yo = scene.fontsize_data(settings["fontsize"])
+            xo *= settings["labeloffset"]
+            yo *= settings["labeloffset"]
 
+            kwargs = {k:settings[k] for k in ["horizontalalignment","verticalalignment","alpha","color","fontsize","fontweight"]}
+      
+            for i,(xi,yi,label) in enumerate(zip(x,y,self.labels)):
+                name = "label{}".format(i)
+                if name in items:
+                    newitems[name] = items[name]
+                    newitems[name].set_text(label)
+                    newitems[name].set_position((xi,yi))
+                    newitems[name].xytext = (xi+xo,yi+yo) # has no effect!!!!
+                    plt.setp(newitems[name],**kwargs)
+                else:
+                    newitems[name] = scene.ax.annotate(label,\
+                                    xy=(xi,yi),xytext=(xi+xo,yi+yo),\
+                                    xycoords="data",textcoords="data",**kwargs)
 
+        self.refreshscene(newitems)
+        
+        
 class Polyline(Scatter):
 
     @staticmethod
