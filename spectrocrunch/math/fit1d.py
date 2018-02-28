@@ -75,7 +75,7 @@ def lstsq_std(A,b,x,vare=None):
 def lstsq(A,b,errors=False,vare=None):
     # A.x = b + e
     # E(e) = 0
-    x = np.linalg.lstsq(A, b)[0]
+    x = np.linalg.lstsq(A, b, rcond=None)[0]
     if errors:
         return x,lstsq_std(A,b,x,vare=vare)
     else:

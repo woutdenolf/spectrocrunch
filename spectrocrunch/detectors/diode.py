@@ -472,7 +472,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             # Yij' = Yij*Cs'/Cs
             sa = self.geometry.solidangle * units.magnitude(Cs_calib/Cs,"dimensionless")
             if sa<=0 or sa>(2*np.pi):
-                logger.warning("Diode solid angle of 4*pi*{} srad is not valid".format(sa/(4*np.pi)))
+                logger.warning("Diode solid angle of 4*pi*{} srad is not valid but will be accepted anyway".format(sa/(4*np.pi)))
             
             self.geometry.solidangle = sa
             Cscalc = self._chargepersamplephoton(energy,weights=weights)
@@ -528,12 +528,12 @@ class PNdiode(with_metaclass(base.SolidState)):
             if caliboption=="thickness":
                 x = instance.asscalar(x)
                 if x<=0:
-                    logger.warning("Diode thickness of {} um is not valid".format(x*1e-4))
+                    logger.warning("Diode thickness of {} um is not valid but will be accepted anyway".format(x*1e-4))
                 
                 self.thickness = x
             else:
                 if x<0 or x>1:
-                    logger.warning("Transmission of {} % is not valid".format(x*100))
+                    logger.warning("Transmission of {} % is not valid but will be accepted anyway".format(x*100))
                 
                 self.optics.set_transmission(energy,x)
             

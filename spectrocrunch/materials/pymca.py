@@ -170,7 +170,7 @@ class PymcaHandle(object):
         
     def addtopymca_material(self,cfg,material,defaultthickness=1e-4):
         matname,v = material.topymca(defaultthickness=defaultthickness)
-        if material.nelements>1:
+        if not isinstance(material,element.Element):
             cfg["materials"][matname] = v
         return matname
     
@@ -270,7 +270,7 @@ class PymcaHandle(object):
             out["lmassfractions"] = [out["massfractions"]]
 
         # Group rates:
-        #   grouprate = solidangle/(4.pi).sum_i[massfrac_i.grouprate_i]
+        #   grouprate = solidangle/(4.pi).sum_i[massfrac_i.grouprate_i]   (i loops over the layers)
         
         if True:
             out["rates"] = {}
@@ -455,7 +455,7 @@ class FisxConfig():
             detector.addtofisx(setup,self.FISXMATERIALS)
 
     def addtofisx_material(self,material):
-        if material.nelements>1:
+        if not isinstance(material,element.Element):
             with self.init_ctx():
                 self.FISXMATERIALS.addMaterial(material.tofisx(),errorOnReplace=False)
         return material.pymcaname
