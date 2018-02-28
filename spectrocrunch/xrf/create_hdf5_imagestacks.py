@@ -452,27 +452,27 @@ def exportgroups(f,stacks,axes,stackdim,imgdim,stackshape,proc):
 def exportimagestacks(config,stacks,stackaxes,stackinfo,jsonfile):
     """Export EDF stacks to HDF5
     """
-    f = nexus.File(config["hdf5output"],mode='w')
+    
+    with nexus.File(config["hdf5output"],mode='w') as f:
+        # Save stack axes values
+        axes = nexus.createaxes(f,stackaxes)
 
-    # Save stack axes values
-    axes = nexus.createaxes(f,stackaxes)
+        # Save groups
+        stackdim,imgdim = axesindices(config)
+        stackshape = [0,0,0]
+        stacks,stackshape = exportgroups(f,stacks,axes,stackdim,imgdim,stackshape,"raw")
+        stacks,stackshape = exportgroups(f,stacks,axes,stackdim,imgdim,stackshape,"calc")
 
-    # Save groups
-    stackdim,imgdim = axesindices(config)
-    stackshape = [0,0,0]
-    stacks,stackshape = exportgroups(f,stacks,axes,stackdim,imgdim,stackshape,"raw")
-    stacks,stackshape = exportgroups(f,stacks,axes,stackdim,imgdim,stackshape,"calc")
+        # Save stackinfo
+        coordgrp = nexus.newNXentry(f,"stackinfo")
+        for k in stackinfo:
+            coordgrp[k] = stackinfo[k]
 
-    # Save stackinfo
-    coordgrp = nexus.newNXentry(f,"stackinfo")
-    for k in stackinfo:
-        coordgrp[k] = stackinfo[k]
+        # Add processing info
+        #nexus.addinfogroup(f,"fromraw",config)
+        nexus.addinfogroup(f,"fromraw",{"config":jsonfile})
 
-    # Add processing info
-    #nexus.addinfogroup(f,"fromraw",config)
-    nexus.addinfogroup(f,"fromraw",{"config":jsonfile})
-
-    f.close()
+    logger.info("Saved {}".format(config["hdf5output"]))
 
     return axes
     

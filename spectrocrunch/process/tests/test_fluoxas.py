@@ -29,7 +29,7 @@ import numpy as np
 import os
 import contextlib
 
-from ..id21_fluoxas import process
+from ..fluoxas import process
 from ...io import xiaedf
 from ...io import nexus
 from ...align import types
@@ -225,9 +225,9 @@ class test_fluoxas(unittest.TestCase):
                                             process(sourcepath,self.destpath.path,radix,scannumbers,cfgfileuse,\
                                                     alignmethod=alignmethod,alignreference=alignreference,\
                                                     refimageindex=refimageindex,dtcor=dtcor,plot=False,\
-                                                    addbeforefit=addbeforefit,fluxmonitor=monitor,replacenan=True,\
+                                                    addbeforefit=addbeforefit,fluxmonitor=monitor,replacenan=bool(alignmethod),\
                                                     prealignnormcounter=prealignnormcounter,stackdim=stackdim,\
-                                                    include_detectors=include_detectors,skippre=skippre)
+                                                    include_detectors=include_detectors,skippre=skippre,instrument="id21")
 
                                             # Check generated spectra (files)
                                             newspectra = dtcor_onspectra or addbeforefit_onspectra or quant

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -21,25 +21,5 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
-import unittest
-from . import test_id21_ffxas
-from . import test_id21_quant
-from . import test_fluoxas
-
-
-def test_suite_all():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_id21_ffxas.test_suite_all())
-    testSuite.addTest(test_id21_quant.test_suite_all())
-    testSuite.addTest(test_fluoxas.test_suite_all())
-    return testSuite
-    
-if __name__ == '__main__':
-    import sys
-
-    mysuite = test_suite_all()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)
+"""Subpackage for instrument configurations.
+"""

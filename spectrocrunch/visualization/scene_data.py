@@ -29,6 +29,7 @@ from .. import ureg
 from ..common import instance
 from ..common import units
 from ..common import listtools
+from ..instruments import configuration
 from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks
 
 import numpy as np
@@ -37,31 +38,15 @@ import os
 import scipy.interpolate
 import collections
 
-INSTRUMENTINFO = {}
-INSTRUMENTINFO["id21"] = {"IMAGEMOTORS" : ["samy","sampy","samz","sampz"],\
-                            "IMAGEAXES" : ["z","y"],\
-                            "UNITS" : {"samy":ureg.millimeter,\
-                                    "samz":ureg.millimeter,\
-                                    "samx":ureg.millimeter,\
-                                    "sampy":ureg.micrometer,\
-                                    "sampz":ureg.micrometer},\
-                            "MOTOR_OFFSETS" : {"samy":["sampy"],\
-                                      "samz":["sampz"],\
-                                      "sampy":["samy"],\
-                                      "sampz":["samz"]},\
-                            "SPECCMDLABEL":"Title",\
-                            "H5STACKS":["counters","^detector(\d+|sum)$"]}
-
-
 class Coordinates(object):
 
     def __init__(self,instrument=None,axis0name=None,axis1name=None,transfo0=None,transfo1=None):
-        self.instrument = instrument
+        self.instrument = configuration.factory(instrument)
         
         if axis0name is None:
-            axis0name = self.IMAGEAXES[0].upper()
+            axis0name = self.instrument.imageaxes[0].upper()
         if axis1name is None:
-            axis1name = self.IMAGEAXES[1].upper()
+            axis1name = self.instrument.imageaxes[1].upper()
         self.axis0name = axis0name
         self.axis1name = axis1name
         if transfo0 is None:
@@ -70,15 +55,9 @@ class Coordinates(object):
             transfo1 = lambda x:x
         self.transfo0 = transfo0
         self.transfo1 = transfo1
-        
-    def __getattr__(self,attr):
-        try:
-            return INSTRUMENTINFO[self.instrument][attr]
-        except KeyError:
-            raise AttributeError()
-            
+
     def motorpositions(self,values,motorname):
-        return units.Quantity(values,self.UNITS[motorname])
+        return units.Quantity(values,self.instrument.units[motorname])
 
 
 class PointCoordinates(Coordinates):
@@ -88,8 +67,8 @@ class PointCoordinates(Coordinates):
         coord1 = []
         lbls = []
         for positions,labels in self:
-            p0 = sum(self.motorpositions(x,motname) for motname,x in zip(self.IMAGEMOTORS,positions) if self.IMAGEAXES[0] in motname)
-            p1 = sum(self.motorpositions(x,motname) for motname,x in zip(self.IMAGEMOTORS,positions) if self.IMAGEAXES[1] in motname)
+            p0 = sum(self.motorpositions(x,motname) for motname,x in zip(self.instrument.imagemotors,positions) if self.instrument.imageaxes[0] in motname)
+            p1 = sum(self.motorpositions(x,motname) for motname,x in zip(self.instrument.imagemotors,positions) if self.instrument.imageaxes[1] in motname)
 
             # Append positions and labels
             coord0.append(p0)
@@ -130,13 +109,13 @@ class ImageCoordinates(Coordinates):
         axis1values = self.motorpositions(axis1values,motdim1)
         
         # Scan offsets
-        for mot in self.MOTOR_OFFSETS[motdim0]:
+        for mot in self.instrument.compensationmotors[motdim0]:
             off,func = instance.asarrayf(offsets[mot])
             if not instance.isnumber(off[0]):
                 off = off.astype(float)
             off = func(off)
             axis0values = axis0values+self.motorpositions(off,mot)
-        for mot in self.MOTOR_OFFSETS[motdim1]:
+        for mot in self.instrument.compensationmotors[motdim1]:
             off,func = instance.asarrayf(offsets[mot])
             if not instance.isnumber(off[0]):
                 off = off.astype(float)
@@ -144,7 +123,7 @@ class ImageCoordinates(Coordinates):
             axis1values = axis1values+self.motorpositions(off,mot)
         
         # Make sure that the vertical axis is dim0
-        transpose = self.IMAGEAXES[0] in motdim1
+        transpose = self.instrument.imageaxes[0] in motdim1
         if transpose:
             axis0values,axis1values = axis1values,axis0values
 
@@ -270,7 +249,7 @@ class ZapRoiMap(ImageCoordinates):
         o = spec.cmd_parser()
         f = edf.edfimage(self.filenames[0])
         header = f.header
-        cmd = header[self.SPECCMDLABEL]
+        cmd = header[self.instrument.edfheaderkeys["speccommand"]]
         result = o.parsezapimage(cmd)
 
         # Extract axes
@@ -278,7 +257,7 @@ class ZapRoiMap(ImageCoordinates):
             raise RuntimeError("Cannot extract zapimage information from \"{}\"".format(cmd))
         axis0values = spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])
         axis1values = spec.ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])
-        
+
         # Store coordinates
         self.setcoordinates(axis0values,axis1values,result["motfast"],result["motslow"],header)
         
@@ -329,7 +308,7 @@ class Nexus(ImageCoordinates):
         return data,label
         
     def iter_interpolate(self):
-        stacks,axes = get_hdf5_imagestacks(self.filename,self.H5STACKS)
+        stacks,axes = get_hdf5_imagestacks(self.filename,self.instrument.h5stackgroups)
         stackindex = self.stackindex([k["name"] for k in axes])
         
         with nexus.File(self.filename,mode="r") as oh5:
@@ -350,7 +329,7 @@ class Nexus(ImageCoordinates):
                             yield data[...,i],label
                 
     def stackindex(self,axesnames):
-        stackindex = [name for name in axesnames if name not in self.UNITS]
+        stackindex = [name for name in axesnames if name not in self.instrument.units]
         if len(stackindex)!=1:
             raise RuntimeError("Could not determine the stack index: {}".format(axesnames))
         return axesnames.index(stackindex[0])
@@ -366,7 +345,7 @@ class Nexus(ImageCoordinates):
             _,axes,axesnames = nexus.parse_NXdata(oh5[self.groups[0]["path"]])
             
             # Get scanning axes
-            b = [name in self.UNITS for name in axesnames]
+            b = [name in self.instrument.units for name in axesnames]
             if sum(b)!=2:
                 raise RuntimeError("Expected exactly two scanning dimensions: {}".format(axesnames))
             axes = listtools.listadvanced_bool(axes,b)
@@ -418,7 +397,7 @@ class XanesSpec(PointCoordinates):
             if not numbers:
                 continue
 
-            positions = zip(*[f.getmotorvalues(nr,self.IMAGEMOTORS) for nr in numbers])
+            positions = zip(*[f.getmotorvalues(nr,self.instrument.imagemotors) for nr in numbers])
 
             if not labels:
                 labels = numbers
