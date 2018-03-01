@@ -23,31 +23,19 @@
 # THE SOFTWARE.
 
 import unittest
-
-from .. import xiaedf
-
-from .. import edf
-
-from . import xiagen
-
 from testfixtures import TempDirectory
-
 import numpy as np
-
 import os
-
 from glob import glob
-
 from random import shuffle
-
 import collections
-
 from copy import copy
 
+from .. import xiaedf
+from .. import edf
+from . import xiagen
 from ...common import indexing
-
 from ...common import listtools
-
 from ...common.tests import genindexing
 
 class test_xiaedf(unittest.TestCase):
@@ -66,9 +54,6 @@ class test_xiaedf(unittest.TestCase):
         #self.pr.dump_stats("keep.cprof")
 
     def test_nameparsing_special(self):
-        self.assertEqual(xiaedf.xianameparser.parse("l1e1_zap_roi_frelon2_fr2_avg_0001_0000.edf"),\
-        xiaedf.XiaName(radix="l1e1",mapnum=1,linenum=-1,label="zap_roi_frelon2_fr2_avg",baselabel="zap_roi_frelon2_fr2",detector="avg"))
-
         self.assertEqual(xiaedf.xianameparser.parse("test_puz_PUZ_xmap_x1_00_0009_0000.edf"),\
         xiaedf.XiaName(radix="test_puz",mapnum=9,linenum=-1,label="PUZ_xmap_x1_00",baselabel="PUZ_xmap_x1",detector="00"))
  
@@ -153,6 +138,7 @@ class test_xiaedf(unittest.TestCase):
         # Check data
         xiaobject.onlyicrocr(False)
         xiaobject.dtcor(False)
+        xiaobject.detectorsum(False)
         xiaobject.skipdetectors([])
 
         self.assertEqual(xiaobject.dshape,dshape)
@@ -295,6 +281,22 @@ class test_xiaedf(unittest.TestCase):
             np.testing.assert_array_equal(data[...,1:],xiaobject.data)
             np.testing.assert_array_equal(stats[...,1:],xiaobject.stats)
 
+    def _test_copy(self,xiaorg,xia2,xia3,path,expectedfiles):
+        path2 = "{}_copy".format(path)
+        xiaorg.dtcor(True)
+        xiaorg.detectorsum(False)
+        xia2.copy(line,xialabels,copystats=True)
+        self.dir.compare(expectedfiles,path=path2)
+        np.testing.assert_array_equal(xiaorg.data,xia2.data)
+        xia2.onlyicrocr(False)
+        np.testing.assert_array_equal(xiaorg.stats,xia2.stats)
+        
+        path2 = "{}_copy2".format(path)
+        xiaorg.dtcor(True)
+        xiaorg.detectorsum(True)
+        xia3.copy(line,["xiaS1"])
+        np.testing.assert_array_equal(xiaorg.data,xia3.data)
+        
     def _test_line(self,path,radix,mapnum,linenum,ndet,nspec,nchan):
         # Generate some spectra + statistics
         dataorg,data,stats = xiagen.data(nspec,nchan,ndet)
@@ -303,7 +305,7 @@ class test_xiaedf(unittest.TestCase):
         line = xiaedf.xialine_number(path,radix,mapnum,linenum)
         xialabels = ["xia{:02d}".format(i) for i in range(ndet)]
         line.save(data,xialabels,stats=stats)
-
+        
         # Check saved files
         expectedfiles = ["{}_xia{:02}_{:04}_0000_{:04}.edf".format(radix,det,mapnum,linenum) for det in range(ndet)]+\
                         ["{}_xiast_{:04}_0000_{:04}.edf".format(radix,mapnum,linenum)]
@@ -319,6 +321,24 @@ class test_xiaedf(unittest.TestCase):
         self.assertEqual(line.datafilenames(),line2.datafilenames())
         self.assertEqual(line.statfilename(),line3.statfilename())
         self.assertEqual(line.datafilenames(),line3.datafilenames())
+
+        # Copy data
+        path2 = "{}_copy".format(path)
+        line2 = xiaedf.xialine_number(path2,radix,mapnum,linenum)
+        line.dtcor(True)
+        line.detectorsum(False)
+        line2.copy(line,xialabels,copystats=True)
+        self.dir.compare(expectedfiles,path=path2)
+        np.testing.assert_array_equal(line.data,line2.data)
+        line2.onlyicrocr(False)
+        np.testing.assert_array_equal(line.stats,line2.stats)
+        
+        path2 = "{}_copy2".format(path)
+        line2 = xiaedf.xialine_number(path2,radix,mapnum,linenum)
+        line.dtcor(True)
+        line.detectorsum(True)
+        line2.copy(line,["xiaS1"])
+        np.testing.assert_array_equal(line.data,line2.data)
 
         # Check data
         dshape = (nspec,nchan,ndet)
@@ -391,6 +411,25 @@ class test_xiaedf(unittest.TestCase):
             tmp = self._xiaconfigidcheck(o)
             self.assertEqual(tmp.count(tmp[0]),len(tmp))
 
+        # Copy data
+        path2 = "{}_copy".format(path)
+        image2 = xiaedf.xiaimage_number(path2,radix,mapnum)
+        image.dtcor(True)
+        image.detectorsum(False)
+        image2.copy(image,xialabels,copystats=True,copyctrs=True)
+        self.dir.compare(expectedfiles,path=path2)
+        np.testing.assert_array_equal(image.data,image2.data)
+        np.testing.assert_array_equal(image.counters,image2.counters)
+        image2.onlyicrocr(False)
+        np.testing.assert_array_equal(image.stats,image2.stats)
+        
+        path2 = "{}_copy2".format(path)
+        image2 = xiaedf.xiaimage_number(path2,radix,mapnum)
+        image.dtcor(True)
+        image.detectorsum(True)
+        image2.copy(image,["xiaS1"])
+        np.testing.assert_array_equal(image.data,image2.data)
+        
         # Check data
         dshape = (nrow,ncol,nchan,ndet)
         sshape = (nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
@@ -443,6 +482,25 @@ class test_xiaedf(unittest.TestCase):
         self.assertEqual(stack.statfilenames(),stack4.statfilenames())
         self.assertEqual(stack.datafilenames(),stack4.datafilenames())
         self.assertEqual(stack.ctrfilenames(),stack4.ctrfilenames())
+
+        # Copy data
+        path2 = "{}_copy".format(path)
+        stack2 = xiaedf.xiastack_radix(path2,radix)
+        stack.dtcor(True)
+        stack.detectorsum(False)
+        stack2.copy(stack,xialabels,copystats=True,copyctrs=True)
+        self.dir.compare(expectedfiles,path=path2)
+        np.testing.assert_array_equal(stack.data,stack2.data)
+        np.testing.assert_array_equal(stack.counters,stack2.counters)
+        stack2.onlyicrocr(False)
+        np.testing.assert_array_equal(stack.stats,stack2.stats)
+        
+        path2 = "{}_copy2".format(path)
+        stack2 = xiaedf.xiastack_radix(path2,radix)
+        stack.dtcor(True)
+        stack.detectorsum(True)
+        stack2.copy(stack,["xiaS1"])
+        np.testing.assert_array_equal(stack.data,stack2.data)
 
         # Check data
         dshape = (nenergy,nrow,ncol,nchan,ndet)

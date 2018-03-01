@@ -52,7 +52,7 @@ def getinstrument(kwargs):
     instrument = kwargs["instrument"]
     if isinstance(instrument,configuration.InstrumentInfo):
         return instrument
-    return configuration.factory(instrument,**kwargs.get("instrument_params",{}))
+    return configuration.factory(instrument,**kwargs.get("instrument_parameters",{}))
 
 def exportedf(h5name,**kwargs):
     logger.info("EDF export {}:".format(h5name))
@@ -135,10 +135,6 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
             lst.extend(["motors"])
         counters = instrument.counters(include=lst)
 
-    # Metadata is extracted from the counter headers
-    # If they are missing, the xia stat files are checked
-    metacounters = counters+["xia"]
-
     # Correct for deadtime when a single detector? (ignored when dtcor==False)
     # This exists because for one detector you can apply the deadtime correction
     # after XRF fitting
@@ -155,7 +151,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
             "transmissioncounter": instrument.counterdict["It"],
 
             # Meta data
-            "metacounters": metacounters,
+            "metadata": instrument.metadata,
             "stacklabel": instrument.edfheaderkeys["energylabel"],
             "speccmdlabel": instrument.edfheaderkeys["speclabel"],
             "fastlabel": instrument.edfheaderkeys["fastlabel"],
@@ -230,7 +226,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
         preprocessingexists = os.path.isfile(h5file)
 
     if preprocessingexists:
-        stacks, axes = get_hdf5_imagestacks(h5file,instrumentinfo.h5stackgroups)
+        stacks, axes = get_hdf5_imagestacks(h5file,instrument.h5stackgroups)
     else:
         logger.info("Creating image stacks ...")
         jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,\

@@ -30,7 +30,7 @@ from ..common import instance
 from ..common import listtools
 
 
-class InstrumentInfo(with_metaclass()):
+class InstrumentInfo(with_metaclass(object)):
 
     def __init__(self,**info):
         self.imagemotors = info.get("imagemotors",[])
@@ -54,6 +54,7 @@ class InstrumentInfo(with_metaclass()):
         self.counterdict = {"I0":"I0","It":"It"}
         self.counterdict.update(info.get("counterdict",[]))
         self.counter_reldir = info.get("counter_reldir",".")
+        self.metadata = info.get("metadata","counters")
 
         self.h5stackgroups = info.get("h5stackgroups",["counters","^detector(\d+|sum)$"])
 
@@ -69,7 +70,18 @@ class InstrumentInfo(with_metaclass()):
         ret = [self.counterdict[k] for k in lst if k in self.counterdict]
         return list(listtools.flatten(ret))
 
+    @property
+    def metadata(self):
+        return self._metadata
 
+    @metadata.setter
+    def metadata(self,value):
+        if value=="xia":
+            self._metadata = "xia"
+        else:
+            self._metadata = "counters"
+            
+            
 class ESRF_ID21_SXM(InstrumentInfo):
     aliases = ["sxm","id21"]
     
@@ -128,7 +140,7 @@ class ESRF_ID21_MICRODIFF(InstrumentInfo):
         super(ESRF_ID21_MICRODIFF,self).__init__(**info)
 
 
-class ESRF_ID16b(InstrumentInfo):
+class ESRF_ID16B(InstrumentInfo):
     aliases = ["id16b"]
     
     def __init__(self,**info):
@@ -148,7 +160,8 @@ class ESRF_ID16b(InstrumentInfo):
         info["counterdict"] = info.get("counterdict",\
                                     {"I0":"zap_p201_IC",\
                                     "It":"zap_p201_It"})
-        super(ESRF_ID21_MICRODIFF,self).__init__(**info)
+        info["metadata"] = info.get("metadata","xia")
+        super(ESRF_ID16B,self).__init__(**info)
 
         
 factory = InstrumentInfo.factory

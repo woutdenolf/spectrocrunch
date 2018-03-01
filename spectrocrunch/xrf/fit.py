@@ -427,6 +427,10 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
         filename = lambda x: os.path.join(outdir,"{}_{}.edf".format(outname,x))
         out = collections.OrderedDict()
         for i,name in enumerate(names):
+            m = parse.match(name)
+            if not m:
+                continue
+
             m = parse.match(name).groupdict()
             Z,line = m["Z"],m["line"]
             
