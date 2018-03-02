@@ -398,6 +398,9 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
         fast(Optional(bool)): fast fitting (linear)
         quant(Optional(dict)): 
+    Returns:
+        files(list(str)): files produced by pymca
+        labels(list(str)): corresponding HDF5 labels
     """
 
     if not os.path.exists(outdir):
@@ -445,7 +448,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
             # Error on peak area
             if buncertainties:
                 label = "s({}-{})".format(Z,line)
-                f = filename("s({}_{})".format(Z,line))
+                f = filename("s{}_{}".format(Z,line))
                 edf.saveedf(f,\
                             result['uncertainties'][i],\
                             {'Title': label},overwrite=True)
@@ -454,7 +457,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
             # Mass fraction
             if bconcentrations and Z.lower()!="scatter":
                 label = "w({}-{})".format(Z,line)
-                f = filename("C({}_{})".format(Z,line))
+                f = filename("w{}_{}".format(Z,line))
                 edf.saveedf(f,\
                             result['concentrations'][i],\
                             {'Title': label},overwrite=True)

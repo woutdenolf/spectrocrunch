@@ -28,6 +28,7 @@ import logging
 import numpy as np
 import copy
 import h5py
+import shutil
 
 from ..xrf.create_hdf5_imagestacks import create_hdf5_imagestacks
 from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks
@@ -60,13 +61,14 @@ def exportedf(h5name,**kwargs):
     instrument = getinstrument(kwargs)
 
     path = os.path.join(os.path.dirname(h5name),"results")
-    if not os.path.exists(path):
-        os.makedirs(path)
-
+    
+    # not necessary but clean in case of reruns
+    if os.path.isdir(path):
+        shutil.rmtree(path)
+            
     filename = os.path.splitext(os.path.basename(h5name))[0]
 
     stacks, axes = get_hdf5_imagestacks(h5name,instrument.h5stackgroups)
-
     counters = instrument.counters()
 
     with h5py.File(h5name) as hdf5FileObject:
@@ -74,6 +76,12 @@ def exportedf(h5name,**kwargs):
             if "detectorsum" in stacks:
                 if g.startswith("detector") and g!="detectorsum":
                     continue
+                outpath = path
+            else:
+                outpath = os.path.join(path,g)
+            
+            if not os.path.exists(outpath):
+                os.makedirs(outpath)
         
             for s in stacks[g]:
                 if s in counters:
@@ -86,18 +94,26 @@ def exportedf(h5name,**kwargs):
                     outfile = outfile.replace("(","")
                     outfile = outfile.replace(")","")
                     if n==1:
-                        outfile = os.path.join(path,"{}.edf".format(outfile))
+                        outfile = os.path.join(outpath,"{}.edf".format(outfile))
                     else:
-                        outfile = os.path.join(path,"{}_{}{}.edf".format(outfile,energy[i],instrument.edfheaderkeys["energyunit"]))
+                        outfile = os.path.join(outpath,"{}_{}{}.edf".format(outfile,energy[i],instrument.edfheaderkeys["energyunit"]))
 
                     logger.info(outfile)
                     edf.saveedf(outfile,np.squeeze(hdf5FileObject[g][s]["data"][...,i]),{'Title': s},overwrite=True)
+
+def dtcorifsingle(instrument):
+    # Correct for deadtime when a single detector? (ignored when dtcor==False)
+    # This exists because for one detector you can apply the deadtime correction
+    # after XRF fitting
+    return not all(k in instrument.counterdict for k in ["xrficr","xrfocr"])
 
 def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
     
     instrument = getinstrument(kwargs)
     stackdim = kwargs.get("stackdim",2)
     dtcor = kwargs.get("dtcor",True)
+    fastfitting = kwargs.get("fastfitting",True)
+    addafterfitting = kwargs.get("addafterfitting",True)
     mlines = kwargs.get("mlines",{})
     exclude_detectors = kwargs.get("exclude_detectors",None)
     include_detectors = kwargs.get("include_detectors",None)
@@ -135,11 +151,6 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
             lst.extend(["motors"])
         counters = instrument.counters(include=lst)
 
-    # Correct for deadtime when a single detector? (ignored when dtcor==False)
-    # This exists because for one detector you can apply the deadtime correction
-    # after XRF fitting
-    dtcorifsingle = not all(k in instrument.counterdict for k in ["xrficr","xrfocr"])
-
     config = {
             # Input
             "sourcepath": sourcepath,
@@ -161,15 +172,15 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
 
             # Deadtime correction
             "dtcor": dtcor,
-            "dtcorifsingle":dtcorifsingle,
+            "dtcorifsingle":dtcorifsingle(instrument),
 
             # Configuration for fitting
             "detectorcfg": cfgfiles,
             "mlines": mlines,
             "fit": bfit,
-            "fastfitting": True,
+            "fastfitting": fastfitting,
             "addbeforefitting": addbeforefit, # sum spectra
-            "addafterfitting": True, # sum fit results and detector counters
+            "addafterfitting": addafterfitting, # sum fit results and detector counters
             "exclude_detectors": exclude_detectors,
             "include_detectors": include_detectors,
             "fluxmonitor": fluxmonitorparams,
@@ -239,9 +250,6 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
 
     lastextension = ""
 
-    if "detectorsum" in stacks or fluxmonitor is not None:
-        dtcor = False # done on the raw data
-
     # Convert stack dictionary to stack list
     stacks = flattenstacks(stacks)
 
@@ -252,6 +260,9 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
     copygroups = ["stackinfo"]
 
     # Normalization
+    ndet = sum(1 for k in stacks if k.startswith("detector") and k!="detectorsum")
+    dtcor = dtcor and (dtcorifsingle(instrument) or ndet>1)
+    dtcor = not dtcor
     if dtcor or prealignnormcounter is not None:
         skip = instrument.counters(include=["xrfroi"])
 

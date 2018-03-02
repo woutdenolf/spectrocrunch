@@ -27,12 +27,13 @@ import numpy as np
 import logging
 import re
 import shutil
+import os
 
 from ..io import xiaedf
 from ..io import edf
 from ..io import spec
 from ..io import nexus
-from ..xrf.fit import PerformBatchFit as fitter
+from ..xrf.fit import PerformBatchFit
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +139,7 @@ def createimagestacks(config,fluxmonitor=None):
     xiastackraw.keepdetectors(config["include_detectors"])
     nstack, nrow, ncol, nchan, ndet = xiastackraw.dshape
     
+    
     # Counter directory relative to the XIA files
     xiastackraw.counter_reldir(config["counter_reldir"])
     
@@ -155,11 +157,12 @@ def createimagestacks(config,fluxmonitor=None):
     if config["metadata"]=="xia":
         metacounters = "xia"
     else:
-        if metacounters:
+        if countersfound:
             metacounters = next(iter(countersfound))
         else:
             logger.warning("Metacounters for {} are not found".format(xiastackraw)) 
-    
+            metacounters = []
+            
     # Extract metadata and counters from raw stack
     for imageindex,xiaimage in enumerate(xiastackraw):
         binit = imageindex==0
@@ -254,18 +257,20 @@ def createimagestacks(config,fluxmonitor=None):
         else:
             radix = config["scanname"]
         
-        shutil.rmtree(config["outdatapath"]) # not necesarry but clean in case of re-runs
+        # not necesarry but clean in case of re-runs
+        if os.path.isdir(config["outdatapath"]):
+            shutil.rmtree(config["outdatapath"])
         xiastackproc = xiaedf.xiastack_mapnumbers(config["outdatapath"],radix,config["scannumbers"])
         xiastackproc.overwrite(True)
         
         if adddet:
             xialabels = ["xiaS1"]
         else:
-            xialabels = ["xia{:02d}".format(det) for det in xiastackraw.xiadetectorselect_numbers(range(ndetorg))]   
-        
+            xialabels = xiastackraw.xialabels_used
+
         logger.info("Creating corrected XRF spectra ...")
-        #xiastackproc.save(xiastackraw.data,xialabels) # all in memory
-        xiastackproc.copy(xiastackraw,xialabels) # least memory usage possible
+        #xiastackproc.save(xiastackraw.data,xialabels=xialabels) # all in memory
+        xiastackproc.save(xiastackraw,xialabels=xialabels) # least memory usage possible
         nstack, nrow, ncol, nchan, ndet = xiastackproc.dshape
     else:
         xiastackproc = xiastackraw
@@ -293,6 +298,10 @@ def createimagestacks(config,fluxmonitor=None):
     if config["fit"]:
         logger.info("Fit XRF spectra ...")
         
+        # not necesarry but clean in case of re-runs
+        if os.path.isdir(config["outfitpath"]):
+            shutil.rmtree(config["outfitpath"])
+                    
         if len(config["detectorcfg"])==1:
             fitcfg = config["detectorcfg"]*ndet
         else:
@@ -318,8 +327,7 @@ def createimagestacks(config,fluxmonitor=None):
                 outname = "{}_xia{}_{:04d}_0000".format(xiaimage.radix,detector,xiaimage.mapnum)
                 energy = stackaxes[stackdim]["data"][imageindex]
 
-                shutil.rmtree(config["outfitpath"]) # not necesarry but clean in case of re-runs
-                files, labels = fitter(filestofit[detector]["xia"],
+                files, labels = PerformBatchFit(filestofit[detector]["xia"],
                                        config["outfitpath"],outname,cfg,energy,
                                        fast=config["fastfitting"],mlines=config["mlines"],quant=quant)
                 

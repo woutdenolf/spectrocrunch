@@ -38,6 +38,9 @@ from ..id21_quant import FluxMonitor
 from ...h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
 from ...materials.tests.xrf_setup import pymcahandle
 
+import logging
+logger = logging.getLogger(__name__)
+
 class test_fluoxas(unittest.TestCase):
 
     def setUp(self):
@@ -54,7 +57,7 @@ class test_fluoxas(unittest.TestCase):
 
         labels = ["{}_{}".format(e,line) for e,lines in config["peaks"].items() for line in lines]
         if quant:
-            labels = labels + ["C({}_{})".format(e,line) for e,lines in config["peaks"].items() for line in lines]
+            labels = labels + ["w{}_{}".format(e,line) for e,lines in config["peaks"].items() for line in lines]
         
         if config["fit"]["scatterflag"]:
             n = sum(instance.asarray(config["fit"]["energyflag"]) &\
@@ -87,8 +90,9 @@ class test_fluoxas(unittest.TestCase):
         
         nmaps,nlines,nspec = 3,7,6
         data = np.ones((nmaps,nlines,nspec))
+        off = max(min(nlines,nspec)-nmaps,0)//2
         for i in range(nmaps):
-            t = i-nmaps//2
+            t = i+off
             data[i,t,t] = 2
         data = np.outer(data,spec).reshape(nmaps,nlines,nspec,nchan,ndet)
 
@@ -181,16 +185,12 @@ class test_fluoxas(unittest.TestCase):
         refimageindex = 0
 
         # Process with different settings
-        for alignmethod in ["max",None]:
-        
+        for alignmethod in [None,"max"]:
             for cfgfileuse in [None,self.cfgfile]:
                 if cfgfileuse is None and alignmethod is not None:
                     continue
-
                 for include_detectors in [[2],[0,2]]:
-                
-                    for addbeforefit in [True,False]:
-                    
+                    for addbeforefit in [False,True]:
                         for quant in [True,False]:
                             if quant:
                                 monitor = fluxmonitor
@@ -198,29 +198,26 @@ class test_fluoxas(unittest.TestCase):
                             else:
                                 monitor = None
                                 prealignnormcounter = "arr_fdet"
-                            
-                            for dtcor in [True,False]:
+                            for dtcor in [False,True]:
                                 dtcor_onspectra = dtcor and len(include_detectors)>1
-
                                 if dtcor_onspectra:
                                     radixout = "{}_{}".format(radix,"dtcor")
                                 else:
                                     radixout = radix
 
                                 for stackdim in [2,1,0]:
-                                
                                     with self.env_destpath():
-                                        for skippre in [False]:
+                                        for skippre in [False,True]:
                                             addbeforefit_onspectra = addbeforefit and len(include_detectors)>1
                                             
-                                            #print "alignmethod=",alignmethod
-                                            #print "addbeforefit=",addbeforefit
-                                            #print "addbeforefit_onspectra=",addbeforefit_onspectra
-                                            #print "dtcor=",dtcor
-                                            #print "dtcor_onspectra=",dtcor_onspectra
-                                            #print "skippre=",skippre
-                                            #print "quant=",quant
-                                            #print "stackdim=",stackdim
+                                            logger.debug("alignmethod = {}".format(alignmethod))
+                                            logger.debug("addbeforefit = {}".format(addbeforefit))
+                                            logger.debug("addbeforefit_onspectra = {}".format(addbeforefit_onspectra))
+                                            logger.debug("dtcor = {}".format(dtcor))
+                                            logger.debug("dtcor_onspectra = {}".format(dtcor_onspectra))
+                                            logger.debug("skippre = {}".format(skippre))
+                                            logger.debug("quant = {}".format(quant))
+                                            logger.debug("stackdim = {}".format(stackdim))
                                             
                                             process(sourcepath,self.destpath.path,radix,scannumbers,cfgfileuse,\
                                                     alignmethod=alignmethod,alignreference=alignreference,\
@@ -258,7 +255,7 @@ class test_fluoxas(unittest.TestCase):
                                                                                                     for label in labels]
                                                 self.destpath.compare(sorted(expected),path="{}_fit".format(radix),files_only=True,recursive=False)
                                             
-                                            # Check top-level output directory (files)
+                                            # Check top-level output directory (h5 files)
                                             expected = []
                                             if cfgfileuse is not None:
                                                 expected.append("{}_fit".format(radix))
@@ -339,7 +336,7 @@ class test_fluoxas(unittest.TestCase):
                                                                 #    for i in range(nmaps):
                                                                 #        print r[i,...]
                                                                 #    raise e
-       
+                                            # Finished one condition set
                                 
 def test_suite_all():
     """Test suite including all test suites"""
