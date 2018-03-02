@@ -44,7 +44,7 @@ from ..optics import KB
 from ..common import constants
 from ..math.common import round_sig
 from ..geometries import diode as diodegeometries
-from ..geometries import source as xraysources
+from ..sources import xray as xraysources
 from ..simulation.classfactory import with_metaclass
 from ..simulation import noisepropagation
 from ..common import instance

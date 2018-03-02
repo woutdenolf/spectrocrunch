@@ -54,7 +54,6 @@ class alignSift(align):
         
         # Prepare alignment kernel
         self.siftdtype = np.float32
-        self.max_workgroup_size = None
         sift.param.par.Scales = 8
         sift.param.par.PeakThresh = 0.
         self.inshape = self.source.imgsize
@@ -66,14 +65,14 @@ class alignSift(align):
             sift.param.par["BorderDist"] = 1
 
         self.newsiftplan()
-        self.matchplan = sift.MatchPlan(context=self.ctx, max_workgroup_size=self.max_workgroup_size)
+        self.matchplan = sift.MatchPlan(ctx=self.ctx)
         self.kp1 = None
         self.kp2 = None
         
         # Prepare transformation kernel
         self.workgroupshape = (8, 4)
         try:
-            self.transformix = pyopencl.Program(self.ctx, get_opencl_code("transform.cl")).build()#('-D WORKGROUP_SIZE=%s' % self.max_workgroup_size)
+            self.transformix = pyopencl.Program(self.ctx, get_opencl_code("transform.cl")).build()
         except IOError:
             self.transformix = pyopencl.Program(self.ctx, get_opencl_code("sift/transform.cl")).build()
         self.newtransformixshape()
@@ -94,7 +93,7 @@ class alignSift(align):
     def newsiftplan(self):
         """New kernel for finding keypoints
         """
-        self.siftplan = sift.SiftPlan(shape = self.inshape, dtype = self.siftdtype, context=self.ctx, max_workgroup_size=self.max_workgroup_size)
+        self.siftplan = sift.SiftPlan(shape = self.inshape, dtype = self.siftdtype, ctx=self.ctx)
 
     def newtransformationIObuffer(self):
         """New IO buffers for the transformation kernel

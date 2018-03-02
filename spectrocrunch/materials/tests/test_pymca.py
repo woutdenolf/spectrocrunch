@@ -27,7 +27,7 @@ import unittest
 from .. import pymca
 from .. import multilayer
 from ...geometries import xrf as xrfgeometries
-from ...geometries import source as xraysources
+from ...sources import xray as xraysources
 from ...detectors import xrf as xrfdetectors
 from .xrf_setup import pymcahandle
 

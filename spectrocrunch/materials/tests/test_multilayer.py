@@ -34,7 +34,7 @@ from .. import utils
 from .. import xrayspectrum
 from ...geometries import xrf as xrfgeometries
 from ...detectors import xrf as xrfdetectors
-from ...geometries import source
+from ...sources import xray as xraysources
 from ...common import timing
 from ...common import listtools
 
@@ -56,7 +56,7 @@ class test_multilayer(unittest.TestCase):
             self.assertLessEqual(int3,int1[0]+int1[1])
             
     def _multilayer1(self):
-        src = source.factory("synchrotron")
+        src = xraysources.factory("synchrotron")
         detector = xrfdetectors.factory("XRFDetector",activearea=0.50)
         geometry = xrfgeometries.factory("sxm120",detectorposition=-15.,detector=detector,source=src)
         geometry.solidangle = 4*np.pi*0.1
@@ -90,7 +90,7 @@ class test_multilayer(unittest.TestCase):
     def _multilayer3(self):
         element1 = element.Element("Ca")
         
-        src = source.factory("synchrotron")
+        src = xraysources.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
         geometry = xrfgeometries.factory("sxm120",detectorposition=4.,detector=detector,source=src)
         
@@ -115,7 +115,7 @@ class test_multilayer(unittest.TestCase):
         np.testing.assert_allclose(T1,T3)
         
     def test_attenuationinfo(self):
-        src = source.factory("synchrotron")
+        src = xraysources.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
         geometry = xrfgeometries.factory("linearxrfgeometry",anglein=90,angleout=45,\
                 azimuth=0,detectorposition=0.,positionunits="mm",detector=detector,source=src)
@@ -188,7 +188,7 @@ class test_multilayer(unittest.TestCase):
         # Define setup: single layer
         compound1 = compoundfromformula.CompoundFromFormula("Mn1Fe2Ca3O4",density=7.)
 
-        src = source.factory("synchrotron")
+        src = xraysources.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
         geometry = xrfgeometries.factory("sxm120",detectorposition=-15.,detector=detector,source=src)
         detector.attenuators["BeamFilter"] = {"material":element.Element('Si'),"thickness":10e-4}
@@ -248,7 +248,7 @@ class test_multilayer(unittest.TestCase):
         
         compound2 = compoundfromformula.CompoundFromFormula("Mn1Fe2Ca3O4",density=9.)
         
-        src = source.factory("synchrotron")
+        src = xraysources.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
         geometry = xrfgeometries.factory("sxm120",detectorposition=-15.,detector=detector,source=src)
         detector.attenuators["BeamFilter"] = {"material":element.Element('Si'),"thickness":10e-4}
@@ -276,7 +276,7 @@ class test_multilayer(unittest.TestCase):
         
         compound2 = compoundfromformula.CompoundFromFormula("Mn1Fe2Ca3O4",density=9.)
         
-        src = source.factory("synchrotron")
+        src = xraysources.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
         geometry = xrfgeometries.factory("sxm120",detectorposition=-15.,detector=detector,source=src)
         

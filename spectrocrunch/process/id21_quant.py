@@ -32,7 +32,7 @@ from ..detectors import diode
 from ..common import units
 from ..detectors import xrf as xrfdetectors
 from ..geometries import xrf as xrfgeometries
-from ..geometries import source as xraysources
+from ..sources import xray as xraysources
 
 logger = logging.getLogger(__name__)
 

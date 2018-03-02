@@ -28,7 +28,7 @@ from ..compoundfromformula import CompoundFromFormula as compound
 from ..mixture import Mixture as mixture
 from ..types import fractionType
 from ...geometries import xrf as xrfgeometries
-from ...geometries import source
+from ...sources import xray as xraysources
 from ...detectors import xrf as xrfdetectors
 from ...common import instance
 from ... import ureg
@@ -89,7 +89,7 @@ class test_mixture(unittest.TestCase):
             self.assertEqual(n3[k],n4[k])
             
     def _spectrum(self,lstlines,thickness):
-        src = source.factory("synchrotron")
+        src = xraysources.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
         geometry = xrfgeometries.factory("sxm120",detectorposition=-15.,detector=detector,source=src)
 

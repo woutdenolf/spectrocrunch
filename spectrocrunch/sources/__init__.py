@@ -21,29 +21,5 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
-from ...geometries import xrf as xrfgeometries
-from ...sources import xray as xraysources
-from ...detectors import xrf as xrfdetectors
-from .. import compoundfromname
-from .. import element
-from .. import mixture
-from .. import types
-from .. import multilayer
-from .. import pymca
-
-source = xraysources.factory("synchrotron")
-detector = xrfdetectors.factory("leia")
-geometry = xrfgeometries.factory("sxm120",detector=detector,
-                                 source=source,detectorposition=-15.)
-
-hematite = compoundfromname.compoundfromname("hematite")
-goethite = compoundfromname.compoundfromname("goethite")
-mix = mixture.Mixture([goethite,hematite],[0.5,0.5],types.fractionType.weight,name="iron oxides")
-calcite = compoundfromname.compoundfromname("calcite")
-ca = element.Element("Ca")
-
-sample = multilayer.Multilayer([ca,mix,calcite],[2e-5,7e-5,10e-5],geometry=geometry)
-
-pymcahandle = pymca.PymcaHandle(energy=[7.5,8],sample=sample)
-
+"""Subpackage for radiation sources.
+"""
