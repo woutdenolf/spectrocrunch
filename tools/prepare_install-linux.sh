@@ -152,6 +152,7 @@ if [[ $NOTDRY == true ]]; then
 
     $PIPBIN install --upgrade -r $SCRIPT_ROOT/../requirements.txt
     $PIPBIN install --upgrade --egg pymca #TODO: wait for pymca to get fixed
+    $PIPBIN install --upgrade -r $SCRIPT_ROOT/../requirements-dev.txt
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))

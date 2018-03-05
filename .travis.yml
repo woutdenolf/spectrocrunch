@@ -25,12 +25,18 @@ cache:
 before_install:
   - mkdir -p $CACHED_FOLDER
   - mkdir -p $BUILD_FOLDER
-  - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . $TRAVIS_BUILD_DIR/ci/prepare-travis.sh; fi"
+  - |
+    if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then
+        . $TRAVIS_BUILD_DIR/ci/prepare-travis.sh
+    fi
 
 install:
   # Install general build dependencies
   - cd $BUILD_FOLDER
-  - "if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then . $TRAVIS_BUILD_DIR/tools/prepare_install-linux.sh -y -u; fi"
+  - |
+    if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then
+        . $TRAVIS_BUILD_DIR/tools/prepare_install-linux.sh -y -u
+    fi
 
   # Package directory  
   - cd $TRAVIS_BUILD_DIR
@@ -42,7 +48,8 @@ install:
   # Build package
   - "python setup.py build"
   - "python setup.py sdist bdist_wheel"
-
+  - "python setup.py build_doc"
+  
   # Install package
   - PROJECTNAME=`python setup.py name|tail -1`
   - "pip install --pre --no-index --find-links=dist/ ${PROJECTNAME}"

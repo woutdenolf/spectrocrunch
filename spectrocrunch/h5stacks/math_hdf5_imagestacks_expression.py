@@ -33,11 +33,11 @@ import h5py
 from ..io import nexus as nexus
 
 class StringParser(object):
-    '''
+    """
     Most of this code comes from the fourFn.py pyparsing example
     
     http://stackoverflow.com/questions/2371436/evaluating-a-mathematical-expression-in-a-string
-    '''
+    """
     
     def pushFirst(self, strg, loc, toks ):
         self.exprStack.append( toks[0] )
@@ -169,13 +169,14 @@ class StringParser(object):
         return val
 
 def evaluate_entire(operation,fin,varargs,fixedargs,retstacks):
-    """ Evaluate expression on variable and fixed arguments
+    """Evaluate expression on variable and fixed arguments
+    
     Args:
-        operation(dict)
-        fin(nexus.File)
-        varargs(dict)
-        fixedargs(dict)
-        retstacks(list(h5py.Group))
+        operation(dict):
+        fin(nexus.File):
+        varargs(dict):
+        fixedargs(dict):
+        retstacks(list(h5py.Group)):
     """
     expression = operation["value"]
 
@@ -206,13 +207,14 @@ def evaluate_entire(operation,fin,varargs,fixedargs,retstacks):
         dset = nexus.createNXdataSignal(retstacks[i],data=data,chunks = True)
 
 def evaluate_sliced(operation,fin,varargs,fixedargs,retstacks):
-    """ Evaluate expression on variable and fixed arguments, slice by slice
+    """Evaluate expression on variable and fixed arguments, slice by slice
+    
     Args:
-        operation(dict)
-        fin(nexus.File)
-        varargs(dict)
-        fixedargs(dict)
-        retstacks(list(h5py.Group))
+        operation(dict):
+        fin(nexus.File):
+        varargs(dict):
+        fixedargs(dict):
+        retstacks(list(h5py.Group)):
     """
     expression = operation["value"]
     stackdim = operation["stackdim"]

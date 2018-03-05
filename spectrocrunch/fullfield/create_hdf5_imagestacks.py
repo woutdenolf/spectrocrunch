@@ -187,21 +187,19 @@ def axesvalues(roi,config):
     return row,col
 
 def dataflatlibrary(config):
-    """
+    """Separate and sort data and flat fields
+
     Args:
-        config(dict)
+        config(dict): description
+        
     Returns:
-        (dict,dict,dict|None,list,dict):
-
-        The first three elements are dictionaries of data/flat field (key = stack value, value = list of file names)
-
-        The second element is a list of sorted=key indices
-
-        The third element is a list with three elements which contains
-        the axis values of the stack:
-            stackaxes = [{"name":"name1","data":np.array},
-                         {"name":"name2","data":np.array},
-                         {"name":"name3","data":np.array}]
+        data(dict):
+        flat1(dict):
+        flat2(dict|None):
+        keyindices(list): indices for sorting
+        stackaxes(dict): [{"name":"name1","data":np.array},
+        {"name":"name2","data":np.array},
+        {"name":"name3","data":np.array}]
     """
 
     datafiles = []
@@ -403,19 +401,14 @@ def create_hdf5_imagestacks(jsonfile):
         3 axes datasets on the main level
 
     Returns:
-        tuple
+        stacks: {"counters":{"name1":lstack1,"name2":lstack2,...},
+                 "det0":{"name3":lstack3,"name4":lstack4,...},
+                 "det1":{"name3":lstack5,"name4":lstack6,...},...}
+                 lstack: an image stack given as an NXdata path
 
-        The first element contains the image stack:
-            stacks = {"counters":{"name1":lstack1,"name2":lstack2,...},
-                      "det0":{"name3":lstack3,"name4":lstack4,...},
-                      "det1":{"name3":lstack5,"name4":lstack6,...},...}
-            lstack: an image stack given as an NXdata path
-
-        The second element is a list with three elements which contains
-        the axis values of the stack:
-            axes = [{"name":"name1","fullname":"/axes/name1/data"},
-                    {"name":"name2","fullname":"/axes/name2/data"},
-                    {"name":"name3","fullname":"/axes/name3/data"}]
+        axes: [{"name":"name1","fullname":"/axes/name1/data"},
+               {"name":"name2","fullname":"/axes/name2/data"},
+               {"name":"name3","fullname":"/axes/name3/data"}]
     """
 
     # This is the structure at ID21 (not imposed):

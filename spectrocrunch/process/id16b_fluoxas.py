@@ -29,8 +29,8 @@ import numpy as np
 
 from ..xrf.create_hdf5_imagestacks import create_hdf5_imagestacks as makestacks
 from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
-import ..common.timing as timing
-import ..io.nexus as nexus
+from ..common import timing
+from ..io import nexus
 
 from .proc_math import execute as math
 from .proc_align import execute as align
