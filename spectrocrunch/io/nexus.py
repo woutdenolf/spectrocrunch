@@ -171,10 +171,6 @@ def addinfogroup(fout,name,datadict):
         else:
             newgroup[k] = datadict[k]
 
-def addinfogroups(fout,infolist):
-    for v in infolist:
-        addinfogroup(fout,v["name"],v["data"])
-    
 def getinfogroups(fout):
     # Prepare list to receive info
     if "processing" not in fout:
@@ -190,16 +186,11 @@ def getinfogroups(fout):
         tmp = step.split(".")
         ind = int(tmp[0])-1
         name = ".".join(tmp[1:])
-        data = {k:ginfo[step][k][:] for k in ginfo[step]}
-        ret[ind] = makeinfogroup(name,data)
+        ret[ind] = {k:ginfo[step][k].value for k in ginfo[step]}
     
     return ret
 
 def copyaddinfogroup(fin,fout,name,datadict):
-    #infolist = getinfogroups(fin)
-    #infolist.append(makeinfogroup(name,datadict))
-    #addinfogroups(fout,infolist)
-    
     fin.copy(fin["processing"],fout)
     addinfogroup(fout,name,datadict)
 

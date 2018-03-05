@@ -68,14 +68,16 @@ def exportedf(h5name,**kwargs):
             
     filename = os.path.splitext(os.path.basename(h5name))[0]
 
-    stacks, axes = get_hdf5_imagestacks(h5name,instrument.h5stackgroups)
+    stacks, axes, procinfo = get_hdf5_imagestacks(h5name,instrument.h5stackgroups)
     counters = instrument.counters()
+
+    if "detectorsum" in stacks:
+        stacks = {g:stacks[g] for g in stacks if not (g.startswith("detector") and g!="detectorsum")}
+    ndet = sum(1 for k in stacks if k.startswith("detector"))
 
     with h5py.File(h5name) as hdf5FileObject:
         for g in stacks:
-            if "detectorsum" in stacks:
-                if g.startswith("detector") and g!="detectorsum":
-                    continue
+            if ndet==1:
                 outpath = path
             else:
                 outpath = os.path.join(path,g)
@@ -101,24 +103,18 @@ def exportedf(h5name,**kwargs):
                     logger.info(outfile)
                     edf.saveedf(outfile,np.squeeze(hdf5FileObject[g][s]["data"][...,i]),{'Title': s},overwrite=True)
 
-def dtcorifsingle(instrument):
-    # Correct for deadtime when a single detector? (ignored when dtcor==False)
-    # This exists because for one detector you can apply the deadtime correction
-    # after XRF fitting
-    return not all(k in instrument.counterdict for k in ["xrficr","xrfocr"])
-
 def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
     
     instrument = getinstrument(kwargs)
     stackdim = kwargs.get("stackdim",2)
     dtcor = kwargs.get("dtcor",True)
     fastfitting = kwargs.get("fastfitting",True)
+    addbeforefit = kwargs.get("addbeforefit",True)
     addafterfitting = kwargs.get("addafterfitting",True)
     mlines = kwargs.get("mlines",{})
     exclude_detectors = kwargs.get("exclude_detectors",None)
     include_detectors = kwargs.get("include_detectors",None)
     noxia = kwargs.get("noxia",False)
-    addbeforefit = kwargs.get("addbeforefit",True)
     encodercor = kwargs.get("encodercor",{})
     fluxmonitor = kwargs.get("fluxmonitor",None)
     fluxmonitorparams = {"quantify":fluxmonitor is not None}
@@ -151,6 +147,11 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
             lst.extend(["motors"])
         counters = instrument.counters(include=lst)
 
+    # Correct for deadtime when a single detector? (ignored when dtcor==False)
+    # This exists because for one detector you can apply the deadtime correction
+    # after XRF fitting
+    dtcorifsingle = not all(k in instrument.counterdict for k in ["xrficr","xrfocr"])
+    
     config = {
             # Input
             "sourcepath": sourcepath,
@@ -172,7 +173,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
 
             # Deadtime correction
             "dtcor": dtcor,
-            "dtcorifsingle":dtcorifsingle(instrument),
+            "dtcorifsingle":dtcorifsingle,
 
             # Configuration for fitting
             "detectorcfg": cfgfiles,
@@ -212,7 +213,6 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
     stackdim = kwargs.get("stackdim",2)
     default = kwargs.get("default",None)
     # ... xrf
-    dtcor = kwargs.get("dtcor",True)
     fluxmonitor = kwargs.get("fluxmonitor",None)
     # ... normalization
     prealignnormcounter = kwargs.get("prealignnormcounter",None)
@@ -237,18 +237,17 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
         preprocessingexists = os.path.isfile(h5file)
 
     if preprocessingexists:
-        stacks, axes = get_hdf5_imagestacks(h5file,instrument.h5stackgroups)
+        stacks, axes, procinfo = get_hdf5_imagestacks(h5file,instrument.h5stackgroups)
     else:
-        logger.info("Creating image stacks ...")
         jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,\
                                             cfgfiles,**kwargs)
-        stacks, axes = create_hdf5_imagestacks(jsonfile,fluxmonitor=fluxmonitor)
+        stacks, axes, procinfo = create_hdf5_imagestacks(jsonfile,fluxmonitor=fluxmonitor)
 
-        #stacks2, axes2 = get_hdf5_imagestacks(h5file,["counters","detectorsum"])
+        #stacks2, axes2, procinfo2 = get_hdf5_imagestacks(h5file,["counters","detectorsum"])
         #assert(axes == axes2)
         #assert(stacks == stacks2)
 
-    lastextension = ""
+    h5filelast = h5file
 
     # Convert stack dictionary to stack list
     stacks = flattenstacks(stacks)
@@ -260,9 +259,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
     copygroups = ["stackinfo"]
 
     # Normalization
-    ndet = sum(1 for k in stacks if k.startswith("detector") and k!="detectorsum")
-    dtcor = dtcor and (dtcorifsingle(instrument) or ndet>1)
-    dtcor = not dtcor
+    dtcor = procinfo[-1]["dtneeded"]
     if dtcor or prealignnormcounter is not None:
         skip = instrument.counters(include=["xrfroi"])
 
@@ -283,21 +280,21 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
             skip += [prealignnormcounter]
 
         h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="norm")
-        lastextension = "norm"
+        h5filelast = h5file
         
     # Correct for encoder positions
     if encodercor and instrument.encoderresolution:
         resampleinfo = {mot:{"encoder":instrument.counterdict["encoders"][mot],"resolution":res} for mot,res in instrument.encoderresolution.items()}
         if resampleinfo:
             h5file,stacks,axes = execresample(h5file, stacks, axes, copygroups, bsamefile, default, resampleinfo,extension="resample")
-            lastextension = "resample"
+            h5filelast = h5file
             
     # Alignment
     if alignmethod is not None and alignreference is not None:
         # Alignment
         h5file,stacks,axes = align(h5file,stacks,axes, copygroups, bsamefile, default,\
             alignmethod, alignreference, refimageindex, cropalign, roialign, plot, stackdim)
-        lastextension = "align"
+        h5filelast = h5file
         
     # Post normalization
     if postalignnormcounter is not None:
@@ -306,22 +303,20 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
         skip.extend(["calc_flux0","calc_fluxt"])
         expression = "{{}}/{{{}}}".format(postalignnormcounter)
         h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="postnorm")
-        lastextension = "postnorm"
+        h5filelast = h5file
         
     # Remove NaN's
     if replacenan:
         orgvalue = np.nan
         newvalue = 0
-        replacevalue(h5file, stacks, axes, copygroups, bsamefile, default, orgvalue, newvalue)
-        lastextension = "replace"
+        h5filelast,_,_ = replacevalue(h5file, stacks, axes, copygroups, bsamefile, default, orgvalue, newvalue)
         
     # Crop
     if cropafter:
         cropinfo = {"nanval":np.nan,"stackdim":stackdim,"reference set":alignreference}
-        execcrop(h5file, stacks, axes, copygroups, bsamefile, default, cropinfo)
-        #lastextension = "crop"
+        h5filelast,_,_ = execcrop(h5file, stacks, axes, copygroups, bsamefile, default, cropinfo)
           
     timing.printtimeelapsed(T0,logger)
     
-    return lastextension
+    return h5filelast
     

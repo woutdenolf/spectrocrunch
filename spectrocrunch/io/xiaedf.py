@@ -324,7 +324,11 @@ def xiagroupkey(filename):
 
     o = xianameparser.parse(filename)
     return o.radix,o.mapnum,o.linenum,filename
-    
+
+def xiagroupinit(dic,group):
+    if group not in dic:
+        dic[group] = collections.OrderedDict()
+
 def xiagroup(files):
     """
     Args:
@@ -341,9 +345,9 @@ def xiagroup(files):
     ret = collections.OrderedDict()
     
     for radix, v0 in itertools.groupby(keys, operator.itemgetter(0)):
-        ret[radix] = collections.OrderedDict()
+        xiagroupinit(ret,radix)
         for mapnum, v1 in itertools.groupby(v0, operator.itemgetter(1)):
-            ret[radix][mapnum] = collections.OrderedDict()
+            xiagroupinit(ret[radix],mapnum)
             for linenum, v2 in itertools.groupby(v1, operator.itemgetter(2)):
                 ret[radix][mapnum][linenum] = [v[-1] for v in v2]
 
@@ -379,7 +383,7 @@ def xiagroupdetectors(files):
     ret = collections.OrderedDict()
     
     for detector, v0 in itertools.groupby(keys, operator.itemgetter(0)):
-        ret[detector] = collections.OrderedDict()
+        xiagroupinit(ret,detector)
         for baselabel, v1 in itertools.groupby(v0, operator.itemgetter(1)):
             ret[detector][baselabel] = [v[-1] for v in v1]
 
@@ -403,7 +407,7 @@ def xiagroupmaps2(files):
     for radix, v0 in itertools.groupby(keys, operator.itemgetter(0)):
         for mapnum, v1 in itertools.groupby(v0, operator.itemgetter(1)):
             k = "{}_{}".format(radix,mapnum)
-            ret[k] = collections.OrderedDict()
+            xiagroupinit(ret,k)
             for linenum, v2 in itertools.groupby(v1, operator.itemgetter(2)):
                 ret[k][linenum] = [v[-1] for v in v2]
 
@@ -439,7 +443,7 @@ def xiagroupmaps(files):
     ret = collections.OrderedDict()
     
     for mapnum, v0 in itertools.groupby(keys, operator.itemgetter(0)):
-        ret[mapnum] = collections.OrderedDict()
+        xiagroupinit(ret,mapnum)
         for linenum, v1 in itertools.groupby(v0, operator.itemgetter(1)):
             ret[mapnum][linenum] = [v[-1] for v in v1]
 

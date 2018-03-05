@@ -33,41 +33,38 @@ def get_hdf5_imagestacks(h5file,datagroupnames):
         datagroupnames(list(str)): NXentries containing NXdata image stacks
 
     Returns:
-        tuple
-
-        The first element contains the image stack:
-            stacks = {"counters":{"name1":nxdatapath1,"name2":nxdatapath2,...},
+        stacks(dict):{"counters":{"name1":nxdatapath1,"name2":nxdatapath2,...},
                       "det0":{"name3":nxdatapath3,"name4":nxdatapath4,...},
                       "det1":{"name3":nxdatapath5,"name4":nxdatapath6,...},...}
 
-        The second element is a list with three elements which contains
-        the axis values of the stack:
-            stackaxes = [{"name":"name1","fullname":"path1"},
-                         {"name":"name2","fullname":"path2"},
-                         {"name":"name3","fullname"":"path3"}]
+        stackaxes(list(dict)): [{"name":"name1","fullname":"path1"},
+                             {"name":"name2","fullname":"path2"},
+                             {"name":"name3","fullname"":"path3"}]
+        procinfo(dict)
     """
 
-    f = nexus.File(h5file,mode='r')
+    with nexus.File(h5file,mode='r') as f:
 
-    # Get axes
-    axesdict = {}
-    for k in f["axes"].keys():
-        if "." in k:
-            continue
-        name = str(k)
-        signal = f["axes"][k].attrs["signal"]
-        axesdict[name] = {"fullname":f["axes"][k][signal].name,"name":name}
-    axes = None
+        # Get axes
+        axesdict = {}
+        for k in f["axes"].keys():
+            if "." in k:
+                continue
+            name = str(k)
+            signal = f["axes"][k].attrs["signal"]
+            axesdict[name] = {"fullname":f["axes"][k][signal].name,"name":name}
+        axes = None
 
-    # Get data groups
-    groups = [k for k in f.keys() if any(re.match(pattern,k) is not None for pattern in datagroupnames)]
-    stacks = {}
-    for grp in groups:
-        stacks[grp] = {k:f[grp][k].name for k in f[grp].keys() if "." not in k}
-        if axes is None and len(stacks[grp])!=0:
-            names = f[stacks[grp].values()[0]].attrs["axes"].split(':')
-            axes = [axesdict[name] for name in names]
+        # Get data groups
+        groups = [k for k in f.keys() if any(re.match(pattern,k) is not None for pattern in datagroupnames)]
+        stacks = {}
+        for grp in groups:
+            stacks[grp] = {k:f[grp][k].name for k in f[grp].keys() if "." not in k}
+            if axes is None and len(stacks[grp])!=0:
+                names = f[stacks[grp].values()[0]].attrs["axes"].split(':')
+                axes = [axesdict[name] for name in names]
 
-    f.close()
+        procinfo = nexus.getinfogroups(f)
 
-    return stacks, axes
+    return stacks, axes, procinfo
+    

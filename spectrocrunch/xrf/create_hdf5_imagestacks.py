@@ -112,8 +112,12 @@ def createimagestacks(config,fluxmonitor=None):
                           {"name":"name3","data":np.array}]
 
         stackinfo(dict): {"motorname1":np.array, "motorname2":np.array, ...}
+        
+        procinfo(dict): processing info
     """
-
+    
+    procinfo = {}
+    
     # Check data
     npaths = len(config["sourcepath"])
     if npaths != len(config["scanname"]):
@@ -139,18 +143,22 @@ def createimagestacks(config,fluxmonitor=None):
     xiastackraw.keepdetectors(config["include_detectors"])
     nstack, nrow, ncol, nchan, ndet = xiastackraw.dshape
     
-    
     # Counter directory relative to the XIA files
     xiastackraw.counter_reldir(config["counter_reldir"])
     
-    # Deadtime correction
-    dtcor = config["dtcor"] and (config["dtcorifsingle"] or ndet>1)
+    # Processing
+    addbefore = config["addbeforefitting"] and ndet>1
+    addafter = config["addafterfitting"] and ndet>1 and not addbefore
+    fluxnorm = fluxmonitor is not None
+    dtcor = config["dtcor"] and (config["dtcorifsingle"] or ndet>1 or fluxnorm)
+    fit = config["fit"]
+    
+    procinfo["dtneeded"] = config["dtcor"] and not dtcor
+    procinfo["fluxnorm"] = fluxnorm
+    
+    xiastackraw.detectorsum(addbefore)
     xiastackraw.dtcor(dtcor)
-    
-    # Add detectors
-    adddet = config["addbeforefitting"] and ndet>1
-    xiastackraw.detectorsum(adddet)
-    
+
     # Check counters
     countersfound = set(xiastackraw.counterbasenames())
     counters = countersfound.intersection(config["counters"])
@@ -215,16 +223,15 @@ def createimagestacks(config,fluxmonitor=None):
                 stacks[name] = {}
                 for ctr in v1:
                     stacks[name][ctr] = [""]*nstack
-
             for ctr,f in v1.items():
                 # Add counter file
                 stacks[name][ctr][imageindex] = f[0]
-                  
+                
     # Create new spectra when needed
-    if dtcor or adddet or fluxmonitor is not None:
+    if dtcor or addbefore or fluxnorm:
     
         # Set normalizer for each image separately
-        if fluxmonitor is not None:
+        if fluxnorm:
             stackinfo["refflux"] = np.full(nstack,np.nan,dtype=np.float32)
             stackinfo["refexpotime"] = np.full(nstack,np.nan,dtype=np.float32)
             stackinfo["activearea"] = np.full(nstack,fluxmonitor.xrfgeometry.detector.activearea)
@@ -245,7 +252,7 @@ def createimagestacks(config,fluxmonitor=None):
                      =fluxmonitor.xrfnormop(energy,time=time)
                     
                     xiaimage.localnorm(config["fluxcounter"],func=xrfnormop)
-                    
+
                     pos = stackinfo["sampledetdistance"][imageindex]
                     if not np.isnan(pos):
                         fluxmonitor.setxrfposition(pos)
@@ -263,7 +270,7 @@ def createimagestacks(config,fluxmonitor=None):
         xiastackproc = xiaedf.xiastack_mapnumbers(config["outdatapath"],radix,config["scannumbers"])
         xiastackproc.overwrite(True)
         
-        if adddet:
+        if addbefore:
             xialabels = ["xiaS1"]
         else:
             xialabels = xiastackraw.xialabels_used
@@ -276,7 +283,7 @@ def createimagestacks(config,fluxmonitor=None):
         xiastackproc = xiastackraw
     
     # I0/It stacks
-    if fluxmonitor is not None:
+    if fluxnorm:
         energy = stackaxes[stackdim]["data"][imageindex]
         if not np.isnan(energy) and ("fluxcounter" in config or "transmissioncounter" in config):
             for imageindex in range(nstack):
@@ -292,10 +299,9 @@ def createimagestacks(config,fluxmonitor=None):
                     if "calc_fluxt" not in stacks[name]:
                         stacks[name]["calc_fluxt"] = [""]*nstack
                     stacks[name]["calc_fluxt"][imageindex] = {"args":[config["transmissioncounter"]],"groups":[name],"func":op}
-        
     
     # Fit data and add elemental maps
-    if config["fit"]:
+    if fit:
         logger.info("Fit XRF spectra ...")
         
         # not necesarry but clean in case of re-runs
@@ -306,11 +312,13 @@ def createimagestacks(config,fluxmonitor=None):
             fitcfg = config["detectorcfg"]*ndet
         else:
             fitcfg = config["detectorcfg"]
-
+            if len(fitcfg)!=ndet:
+                raise RuntimeError("You need {} configuration files, {} provides.".format(ndet,len(fitcfg)))
+                
         for imageindex,xiaimage in enumerate(xiastackproc):
             binit = imageindex==0
             
-            if fluxmonitor is not None:
+            if fluxnorm:
                 quant = {"time":stackinfo["refexpotime"][imageindex],\
                         "flux":stackinfo["refflux"][imageindex],\
                         "area":stackinfo["activearea"][imageindex],\
@@ -344,8 +352,8 @@ def createimagestacks(config,fluxmonitor=None):
                     stacks[name][label][imageindex] = f
     
     # Detector sum
-    detectors = [k for k in stacks.keys() if re.match("^detector([0-9]+)$",k)]
-    if config["addafterfitting"] and len(detectors)>1:
+    if addafter:
+        detectors = [k for k in stacks.keys() if re.match("^detector([0-9]+)$",k)]
         if "detectorsum" not in stacks:
             stacks["detectorsum"] = {}
         
@@ -368,7 +376,7 @@ def createimagestacks(config,fluxmonitor=None):
         for k2 in group:
             group[k2] = [group[k2][i] for i in ind]
 
-    return stacks,stackaxes,stackinfo
+    return stacks,stackaxes,stackinfo,procinfo
 
 def exportgroups(f,stacks,axes,stackdim,imgdim,stackshape,proc):
     """Export groups of EDF stacks, summated or not
@@ -462,7 +470,7 @@ def exportgroups(f,stacks,axes,stackdim,imgdim,stackshape,proc):
 
     return stacks,stackshape
 
-def exportimagestacks(config,stacks,stackaxes,stackinfo,jsonfile):
+def exportimagestacks(config,stacks,stackaxes,stackinfo,procinfo):
     """Export EDF stacks to HDF5
     """
     
@@ -482,8 +490,7 @@ def exportimagestacks(config,stacks,stackaxes,stackinfo,jsonfile):
             coordgrp[k] = stackinfo[k]
 
         # Add processing info
-        #nexus.addinfogroup(f,"fromraw",config)
-        nexus.addinfogroup(f,"fromraw",{"config":jsonfile})
+        nexus.addinfogroup(f,"fromraw",procinfo)
 
     logger.info("Saved {}".format(config["hdf5output"]))
 
@@ -511,12 +518,13 @@ def create_hdf5_imagestacks(jsonfile,fluxmonitor=None):
         config = json.load(f)
 
     # Raw or pre-processed data (e.g. DT correction, fitting)
-    stacks,stackaxes,stackinfo = createimagestacks(config,fluxmonitor=fluxmonitor)
+    stacks,stackaxes,stackinfo,procinfo = createimagestacks(config,fluxmonitor=fluxmonitor)
 
     # Export EDF stacks to HDF5 stacks
-    axes = exportimagestacks(config,stacks,stackaxes,stackinfo,jsonfile)
+    procinfo["config"] = jsonfile
+    axes = exportimagestacks(config,stacks,stackaxes,stackinfo,procinfo)
 
-    return stacks,axes
+    return stacks,axes,[procinfo]
 
 if __name__ == '__main__':
     import sys

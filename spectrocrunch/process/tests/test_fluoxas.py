@@ -40,6 +40,7 @@ from ...materials.tests.xrf_setup import pymcahandle
 
 import logging
 logger = logging.getLogger(__name__)
+#logger.setLevel(logging.DEBUG)
 
 class test_fluoxas(unittest.TestCase):
 
@@ -136,21 +137,21 @@ class test_fluoxas(unittest.TestCase):
 
         # Apply deadtime
         stats = np.zeros((nmaps,nlines,nspec,xiaedf.xiadata.NSTATS,ndet),dtype=data.dtype)
-        for j in range(ndet):
-            ICR = data[...,j].sum(axis=-1)
-            OCR = ICR*(1-j/50.)# DT = 2*j %
+        for i in range(ndet):
+            ICR = data[...,i].sum(axis=-1)
+            OCR = ICR*(1-i/50.)# DT = 2*i %
             
             ctrs["xmap_icr_{:02d}".format(i)] = ICR
             ctrs["xmap_ocr_{:02d}".format(i)] = OCR
             
-            data[...,j] = data[...,j]*(OCR/ICR)[...,np.newaxis]
+            data[...,i] = data[...,i]*(OCR/ICR)[...,np.newaxis]
 
-            stats[...,xiaedf.xiadata.STDET,j] = j
-            stats[...,xiaedf.xiadata.STEVT,j] = ICR # % Not sure
-            stats[...,xiaedf.xiadata.STICR,j] = ICR
-            stats[...,xiaedf.xiadata.STOCR,j] = OCR
-            stats[...,xiaedf.xiadata.STDT,j] = 100-OCR*100./ICR # %
-            stats[...,xiaedf.xiadata.STLT,j] = OCR*1000./ICR # 1000 msec RT
+            stats[...,xiaedf.xiadata.STDET,i] = i
+            stats[...,xiaedf.xiadata.STEVT,i] = ICR # % Not sure
+            stats[...,xiaedf.xiadata.STICR,i] = ICR
+            stats[...,xiaedf.xiadata.STOCR,i] = OCR
+            stats[...,xiaedf.xiadata.STDT,i] = 100-OCR*100./ICR # %
+            stats[...,xiaedf.xiadata.STLT,i] = OCR*1000./ICR # 1000 msec RT
 
         # Generate data
         path = self.dir.path
@@ -199,7 +200,7 @@ class test_fluoxas(unittest.TestCase):
                                 monitor = None
                                 prealignnormcounter = "arr_fdet"
                             for dtcor in [False,True]:
-                                dtcor_onspectra = dtcor and len(include_detectors)>1
+                                dtcor_onspectra = dtcor and (len(include_detectors)>1 or quant)
                                 if dtcor_onspectra:
                                     radixout = "{}_{}".format(radix,"dtcor")
                                 else:
@@ -213,6 +214,7 @@ class test_fluoxas(unittest.TestCase):
                                             logger.debug("alignmethod = {}".format(alignmethod))
                                             logger.debug("addbeforefit = {}".format(addbeforefit))
                                             logger.debug("addbeforefit_onspectra = {}".format(addbeforefit_onspectra))
+                                            logger.debug("include_detectors = {}".format(include_detectors))
                                             logger.debug("dtcor = {}".format(dtcor))
                                             logger.debug("dtcor_onspectra = {}".format(dtcor_onspectra))
                                             logger.debug("skippre = {}".format(skippre))
@@ -302,7 +304,7 @@ class test_fluoxas(unittest.TestCase):
                                             # Check element ratio's the same in all pixels
                                             if cfgfileuse is not None:
                                                 h5file = os.path.join(self.destpath.path,h5file)
-                                                stacks, axes = getstacks(h5file,["detectorsum"])
+                                                stacks, axes, procinfo = getstacks(h5file,["detectorsum"])
                                                 data4 = None
                                                 with nexus.File(h5file,mode='r') as f:
                                                     for stack in stacks.values():

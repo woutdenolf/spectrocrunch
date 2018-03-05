@@ -466,15 +466,14 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
         labels = out.keys()
         files = out.values()
     else:
-        # Parallelize this:
+        # TODO: parallelize this
         b = McaAdvancedFitBatch.McaAdvancedFitBatch(cfgfile,filelist=filelist,outputdir=outdir,fitfiles=0)
         b.processList()
 
-        #TODO: process filenames like in fast mode
         filemask = os.path.join(outdir,"IMAGES","*.edf")
         files = sorted(glob.glob(filemask))
         files = [f for f in files if "chisq" not in f]
-        labels = ["_".join(os.path.splitext(os.path.basename(f))[0].split("_")[-2:]) for f in files]
+        labels = ["-".join(os.path.splitext(os.path.basename(f))[0].split("_")[-2:]) for f in files]
     
     return files,labels
 
