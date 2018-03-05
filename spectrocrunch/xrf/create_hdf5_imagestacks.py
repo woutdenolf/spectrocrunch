@@ -44,6 +44,7 @@ def axesindices(config):
         stackdim(num)
         imgdim(list)
     """
+    
     stackdim = config["stackdim"]
     if stackdim == 0:
         imgdim = [1,2]
@@ -98,15 +99,18 @@ def createimagestacks(config,fluxmonitor=None):
     """Get image stacks (counters, ROI's, fitted maps)
 
     Args:
-
+        config(dict):
+        fluxmonitor(Optional(object)):
+        
     Returns:
         stacks(dict): {"counters":{"name1":filenames1,"name2":filenames2,...},
-                       "det0":{"name3":filenames3,"name4":filenames4,...},
-                       "det1":{"name3":filenames3,"name4":filenames4,...},
-                       ...}
+        "det0":{"name3":filenames3,"name4":filenames4,...},
+        "det1":{"name3":filenames3,"name4":filenames4,...},
+        ...}
+        
         stackaxes(dict): [{"name":"name1","data":np.array},
-                          {"name":"name2","data":np.array},
-                          {"name":"name3","data":np.array}]
+        {"name":"name2","data":np.array},
+        {"name":"name3","data":np.array}]
 
         coordinates(dict): {"motorname1":np.array, "motorname2":np.array, ...}
     """
@@ -443,16 +447,14 @@ def create_hdf5_imagestacks(jsonfile,fluxmonitor=None):
         3 axes datasets on the main level
 
     Returns:
-        stacks(dict):  {"counters": {"name1":lstack1,"name2":lstack2,...},
-                        "detector0":{"name3":lstack3,"name4":lstack4,...},
-                        "detector1":{"name3":lstack5,"name4":lstack6,...},...}
-                         lstack: an image stack given as an NXdata path
+        stacks(dict): {"counters": {"name1":lstack1,"name2":lstack2,...},
+        "detector0":{"name3":lstack3,"name4":lstack4,...},
+        "detector1":{"name3":lstack5,"name4":lstack6,...},...}
+        lstack: an image stack given as an NXdata path
 
-        The second element is a list with three elements which contains
-        the axis of the stack:
-            axes = [{"name":"name1","fullname":"/axes/name1/data"},
-                    {"name":"name2","fullname":"/axes/name2/data"},
-                    {"name":"name3","fullname":"/axes/name3/data"}]
+        axes(list): [{"name":"name1","fullname":"/axes/name1/data"},
+        {"name":"name2","fullname":"/axes/name2/data"},
+        {"name":"name3","fullname":"/axes/name3/data"}]
     """
     # Processing configuration
     with open(jsonfile,'r') as f:

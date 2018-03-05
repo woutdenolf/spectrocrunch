@@ -33,18 +33,13 @@ def get_hdf5_imagestacks(h5file,datagroupnames):
         datagroupnames(list(str)): NXentries containing NXdata image stacks
 
     Returns:
-        tuple
+        stacks(dict):{"counters":{"name1":nxdatapath1,"name2":nxdatapath2,...},
+        "det0":{"name3":nxdatapath3,"name4":nxdatapath4,...},
+        "det1":{"name3":nxdatapath5,"name4":nxdatapath6,...},...}
 
-        The first element contains the image stack:
-            stacks = {"counters":{"name1":nxdatapath1,"name2":nxdatapath2,...},
-                      "det0":{"name3":nxdatapath3,"name4":nxdatapath4,...},
-                      "det1":{"name3":nxdatapath5,"name4":nxdatapath6,...},...}
-
-        The second element is a list with three elements which contains
-        the axis values of the stack:
-            stackaxes = [{"name":"name1","fullname":"path1"},
-                         {"name":"name2","fullname":"path2"},
-                         {"name":"name3","fullname"":"path3"}]
+        stackaxes(list):[{"name":"name1","fullname":"path1"},
+        {"name":"name2","fullname":"path2"},
+        {"name":"name3","fullname"":"path3"}]
     """
 
     f = nexus.File(h5file,mode='r')

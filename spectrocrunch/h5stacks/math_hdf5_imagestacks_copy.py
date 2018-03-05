@@ -25,21 +25,24 @@
 from ..io import nexus as nexus
 
 def evaluate_entire(operation,fin,varargs,retstacks):
-    """ Copy image stacks
+    """Copy image stacks
+    
     Args:
-        operation(dict)
-        fin(nexus.File)
-        varargs(dict)
-        fixedargs(dict)
-        retstacks(list(h5py.Group))
+        operation(dict):
+        fin(nexus.File):
+        varargs(dict):
+        fixedargs(dict):
+        retstacks(list(h5py.Group)):
     """
+    
     for i in range(len(varargs)):
         grp = fin[varargs[i]]
         data = grp[grp.attrs["signal"]]
         dset = nexus.createNXdataSignal(retstacks[i],data=data,chunks = True)
 
 def evaluate_sliced(operation,fin,varargs,retstacks):
-    """ Copy image stacks, slice by slice (is this needed?)
+    """Copy image stacks, slice by slice (is this needed?)
+    
     Args:
         operation(dict)
         fin(nexus.File)
@@ -47,6 +50,7 @@ def evaluate_sliced(operation,fin,varargs,retstacks):
         fixedargs(dict)
         retstacks(list(h5py.Group))
     """
+    
     stackdim = operation["stackdim"]
 
     for i in range(len(varargs)):

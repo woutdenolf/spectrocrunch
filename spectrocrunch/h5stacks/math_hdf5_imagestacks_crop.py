@@ -129,13 +129,14 @@ def convertuserroi(stack,roi,stackdim):
     return roi
 
 def evaluate_entire(roi,fin,varargs,retstacks):
-    """ Crop image stacks based on roi
+    """Crop image stacks based on roi
+    
     Args:
-        roi(tuple)
-        fin(nexus.File)
-        varargs(dict)
-        fixedargs(dict)
-        retstacks(list(h5py.Group))
+        roi(tuple):
+        fin(nexus.File):
+        varargs(dict):
+        fixedargs(dict):
+        retstacks(list(h5py.Group)):
     """
     for i in range(len(varargs)):
         grp = fin[varargs[i]]
@@ -143,13 +144,14 @@ def evaluate_entire(roi,fin,varargs,retstacks):
         dset = nexus.createNXdataSignal(retstacks[i],data=data,chunks = True)
 
 def evaluate_sliced(roi,fin,varargs,retstacks):
-    """ Crop image stacks based on roi, slice by slice
+    """Crop image stacks based on roi, slice by slice
+    
     Args:
-        roi(tuple)
-        fin(nexus.File)
-        varargs(dict)
-        fixedargs(dict)
-        retstacks(list(h5py.Group))
+        roi(tuple):
+        fin(nexus.File):
+        varargs(dict):
+        fixedargs(dict):
+        retstacks(list(h5py.Group)):
     """
     stackdim = operation["stackdim"]
 
@@ -169,13 +171,14 @@ def evaluate_sliced(roi,fin,varargs,retstacks):
                 dset[...,jdest] = data[roi[0][0]:roi[0][1],roi[1][0]:roi[1][1],jsource]
 
 def evaluate(operation,fin,varargs,retstacks,axes):
-    """ Crop image stacks based on a nanvalue or on manual range
+    """Crop image stacks based on a nanvalue or on manual range
+    
     Args:
-        operation(dict)
-        fin(nexus.File)
-        varargs(dict)
-        fixedargs(dict)
-        retstacks(list(h5py.Group))
+        operation(dict):
+        fin(nexus.File):
+        varargs(dict):
+        fixedargs(dict):
+        retstacks(list(h5py.Group)):
     """
     axesdata = []
 
