@@ -131,8 +131,8 @@ def parseexpression(expression,stacks):
     """
     Args:
         expression(str): the variable argument is indicated by "{}" 
-                         fixed arguments are indeicate by "{name}"
-                         e.g. "{}*nanone({icr}/({I0}*{ocr})"
+        fixed arguments are indeicate by "{name}"
+        e.g. "{}*nanone({icr}/({I0}*{ocr})"
         stacks(list(str)): list of variable arguments, e.g. ["icr","ocr","I0",...]
     """
     _vars = extractexpression(expression)
