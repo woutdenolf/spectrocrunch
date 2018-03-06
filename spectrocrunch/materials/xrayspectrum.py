@@ -763,19 +763,51 @@ class Spectrum(dict):
     def mcaenergies(self):
         return self.mcazero+self.mcagain*self.mcachannels()
 
-    def sumprofile(self,convert=True,fluxtime=None,histogram=False,backfunc=None,voigt=False):
+    def _peakspectra(self,convert=True,fluxtime=None,histogram=False,backfunc=None,voigt=False):
         energies = self.mcaenergies()
         lineinfo = self.lineinfo(convert=convert)
-        multiplier,ylabel = self.profileinfo(convert=convert,fluxtime=fluxtime,histogram=histogram)
+        
+        # Normalized profiles: nchannels x npeaks
         profiles = self.peakprofiles(lineinfo)
-        m = np.asarray([v["area"] for v in lineinfo.values()])*multiplier
         if voigt:
-            y = (profiles(energies)*m[np.newaxis,:]).sum(axis=-1)
+            profiles = profiles(energies)
         else:
-            y = (profiles(energies,linewidths=0)*m[np.newaxis,:]).sum(axis=-1)
+            profiles = profiles(energies,linewidths=0)
+
+        # Real profiles: normalized multilied by rate and number of incoming photons
+        multiplier,ylabel = self.profileinfo(convert=convert,fluxtime=fluxtime,histogram=histogram)
+        m = np.asarray([v["area"] for v in lineinfo.values()])*multiplier
+        profiles *= m[np.newaxis,:]
+
+        # Apply background function
         if backfunc is not None:
-            y = y+backfunc(energies)
-        return energies,y,ylabel
+            profiles += backfunc(energies)[:,np.newaxis]
+        
+        return energies,profiles,ylabel,lineinfo
+
+    def peakspectra(self,**kwargs):
+        energies,profiles,ylabel,lineinfo = self._peakspectra(**kwargs)
+        return energies,profiles,ylabel,lineinfo.keys()
+        
+    def groupspectra(self,**kwargs):
+        energies,profiles,ylabel,lineinfo = self._peakspectra(**kwargs)
+
+        groups = [k["group"] for k in sorted(lineinfo.values(), key=lambda x: x["energy"])]
+        ugroups = list(listtools.unique_everseen(groups))
+
+        nchan,npeaks = profiles.shape
+        ret = np.zeros((nchan,len(ugroups)),dtype=profiles.dtype)
+
+        for i,line in enumerate(lineinfo):
+            j = ugroups.index(lineinfo[line]["group"])
+            ret[:,j] += profiles[:,i]
+        
+        return energies,ret,ylabel,ugroups
+
+    def sumspectrum(self,**kwargs):
+        energies,profiles,ylabel,lineinfo = self._peakspectra(**kwargs)
+        profiles = profiles.sum(axis=-1)
+        return energies,profiles,ylabel
         
     def plot(self,convert=False,fluxtime=None,mark=True,log=False,decompose=True,histogram=False,backfunc=None,voigt=False,sumlabel="sum"):
         ax = plt.gca()
@@ -817,7 +849,7 @@ class Spectrum(dict):
                     else:
                         sumprof += prof
         else:
-            energies,sumprof,ylabel = self.sumprofile(convert=convert,fluxtime=fluxtime,histogram=histogram,backfunc=backfunc)
+            energies,sumprof,ylabel = self.sumspectrum(convert=convert,fluxtime=fluxtime,histogram=histogram,backfunc=backfunc)
             
         if sumprof is not None:
             plt.plot(energies,sumprof,label=sumlabel)
