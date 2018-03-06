@@ -786,10 +786,14 @@ class Spectrum(dict):
         return energies,profiles,ylabel,lineinfo
 
     def peakspectra(self,**kwargs):
+        """X-ray spectrum decomposed in individual lines
+        """
         energies,profiles,ylabel,lineinfo = self._peakspectra(**kwargs)
         return energies,profiles,ylabel,lineinfo.keys()
         
     def groupspectra(self,**kwargs):
+        """X-ray spectrum decomposed in element-shell groups
+        """
         energies,profiles,ylabel,lineinfo = self._peakspectra(**kwargs)
 
         groups = [k["group"] for k in sorted(lineinfo.values(), key=lambda x: x["energy"])]
@@ -805,11 +809,15 @@ class Spectrum(dict):
         return energies,ret,ylabel,ugroups
 
     def sumspectrum(self,**kwargs):
+        """Total X-ray spectrum
+        """
         energies,profiles,ylabel,lineinfo = self._peakspectra(**kwargs)
         profiles = profiles.sum(axis=-1)
         return energies,profiles,ylabel
         
     def plot(self,convert=False,fluxtime=None,mark=True,log=False,decompose=True,histogram=False,backfunc=None,voigt=False,sumlabel="sum"):
+        """X-ray spectrum or cross-section lines
+        """
         ax = plt.gca()
 
         if decompose:
