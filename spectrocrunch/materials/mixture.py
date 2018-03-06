@@ -409,7 +409,7 @@ class Mixture(object):
     def unmarkabsorber(self):
         for c in self.compounds:
             c.unmarkabsorber()
-
+            
     def hasabsorbers(self):
         return any([c.hasabsorbers() for c in self.compounds])
         

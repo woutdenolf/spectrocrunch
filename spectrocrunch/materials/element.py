@@ -171,7 +171,7 @@ class Element(hashable.Hashable):
                 for s in shell.markinfo():
                     yield " {}".format(s)
         else:
-            "{} (no ionized shells)".format(self.name)
+            yield "{} (no ionized shells)".format(self.name)
             
     @property
     def density(self):

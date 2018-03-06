@@ -8,14 +8,14 @@ The spectrocrunch library aims at combining different python libraries for spect
    :hidden:
 
    tutorials/index
-   modules/index
+   modules
    changelog
 
 :doc:`tutorials/index`
     Some examples on how to use the library
     
-:doc:`modules/index`
-    Documentation of the packages included in *spectrocrunch*
+:doc:`modules`
+    API documentation of the packages included in *spectrocrunch*
 
 :doc:`changelog`
     List of changes between releases

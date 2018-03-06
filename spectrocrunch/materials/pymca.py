@@ -427,14 +427,27 @@ class PymcaHandle(object):
     
         return groups2
 
-    def mca(self):
+    def mca(self,histogram=True,decomposed=0,energy=False,full=False):
         spectrum = self.xrayspectrum()
-        x,y,ylabel = spectrum.sumprofile(fluxtime=self.I0,histogram=True)
-        a,b = spectrum.channellimits
-        mca = np.zeros(int(2**np.ceil(np.log2(b+1))),dtype=y.dtype)
-        mca[a:b+1] = y
-        return mca
+        if decomposed==0:
+            x,y,ylabel = spectrum.sumspectrum(fluxtime=self.I0,histogram=histogram)
+        elif decomposed==1:
+            x,y,ylabel = spectrum.peakspectrum(fluxtime=self.I0,histogram=histogram,group=True)
+        else:
+            x,y,ylabel = spectrum.peakspectrum(fluxtime=self.I0,histogram=histogram,group=False)
+            
+        if not energy:
+            a,b = spectrum.channellimits
+            nchan = int(2**np.ceil(np.log2(b+1)))
+            mca = np.zeros(nchan,dtype=y.dtype)
+            mca[a:b+1] = y
+            y = mca
+            x = np.arange(nchan)
         
+        if full:
+            return x,y,ylabel
+        else:
+            return y
 
 class FisxConfig():
     

@@ -58,7 +58,7 @@ class Layer(object):
         return getattr(self.material,attr)
 
     def __str__(self):
-        return "{} μm ({})".format(self.thickness*1e4,self.material)
+        return "{} um ({})".format(self.thickness*1e4,self.material)
   
     @property
     def xraythickness(self):

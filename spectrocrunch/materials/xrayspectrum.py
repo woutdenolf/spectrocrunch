@@ -588,7 +588,7 @@ class Spectrum(dict):
                 units = "ph"
             else:
                 label = "Rate"
-                units = "ph/phsource"
+                units = "I/I$_0$"
         if mcabin:
             units = "{}/mcabin".format(units)
         

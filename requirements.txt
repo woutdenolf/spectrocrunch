@@ -12,4 +12,4 @@ uncertainties
 pint
 pyopencl==2015.1
 pandas
-#pymca
+pymca
