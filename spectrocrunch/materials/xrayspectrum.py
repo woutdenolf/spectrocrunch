@@ -26,6 +26,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numbers
 import re
+import collections
 
 from .. import xraylib
 from .. import ureg
@@ -650,6 +651,7 @@ class Spectrum(dict):
         
     def linegroups(self,**kwargs):
         ret = {}
+        
         for line,v in self.items_converted(**kwargs):
             group = line.groupname
             if group not in ret:
@@ -660,10 +662,10 @@ class Spectrum(dict):
                 ret[group][line] = np.sum(v)
             else:
                 ret[group][line] = v
-                
+          
         return ret
 
-    def lineinfo(self,convert=True):
+    def lineinfo(self,convert=True,sort=True):
         lineinfo = {}
         geomkwargs = self.geomkwargs
         groups = self.linegroups(convert=convert)
@@ -695,6 +697,10 @@ class Spectrum(dict):
                                             "energy":energy,\
                                             "area":peakarea,\
                                             "natwidth":line.linewidth}
+                                            
+        if sort:
+            lineinfo = collections.OrderedDict(sorted(lineinfo.items(), key=lambda x: x[1]["energy"]))
+            
         return lineinfo
         
     def peakprofiles(self,lineinfo,normalized=None,voigt=False):
@@ -763,9 +769,9 @@ class Spectrum(dict):
     def mcaenergies(self):
         return self.mcazero+self.mcagain*self.mcachannels()
 
-    def _peakspectra(self,convert=True,fluxtime=None,histogram=False,backfunc=None,voigt=False):
+    def _linespectra(self,convert=True,fluxtime=None,histogram=False,backfunc=None,voigt=False,sort=True):
         energies = self.mcaenergies()
-        lineinfo = self.lineinfo(convert=convert)
+        lineinfo = self.lineinfo(convert=convert,sort=sort)
         
         # Normalized profiles: nchannels x npeaks
         profiles = self.peakprofiles(lineinfo)
@@ -785,33 +791,37 @@ class Spectrum(dict):
         
         return energies,profiles,ylabel,lineinfo
 
-    def peakspectra(self,**kwargs):
+    def linespectra(self,sort=True,**kwargs):
         """X-ray spectrum decomposed in individual lines
         """
-        energies,profiles,ylabel,lineinfo = self._peakspectra(**kwargs)
+        energies,profiles,ylabel,lineinfo = self._linespectra(sort=sort,**kwargs)
         return energies,profiles,ylabel,lineinfo.keys()
         
-    def groupspectra(self,**kwargs):
+    def groupspectra(self,sort=True,**kwargs):
         """X-ray spectrum decomposed in element-shell groups
         """
-        energies,profiles,ylabel,lineinfo = self._peakspectra(**kwargs)
+        energies,profiles,ylabel,lineinfo = self._linespectra(sort=False,**kwargs)
+        
+        # Sort groups on maximum peak intensity
+        groups = {}
+        for line in lineinfo.values():
+            if line["label"]:
+                groups[line["group"]] = line["energy"]
+        groups = zip(*sorted(groups.items(), key=lambda x: x[1]))[0]
 
-        groups = [k["group"] for k in sorted(lineinfo.values(), key=lambda x: x["energy"])]
-        ugroups = list(listtools.unique_everseen(groups))
-
+        # Add lines per group
         nchan,npeaks = profiles.shape
-        ret = np.zeros((nchan,len(ugroups)),dtype=profiles.dtype)
-
+        ret = np.zeros((nchan,len(groups)),dtype=profiles.dtype)
         for i,line in enumerate(lineinfo):
-            j = ugroups.index(lineinfo[line]["group"])
+            j = groups.index(lineinfo[line]["group"])
             ret[:,j] += profiles[:,i]
         
-        return energies,ret,ylabel,ugroups
+        return energies,ret,ylabel,groups
 
     def sumspectrum(self,**kwargs):
         """Total X-ray spectrum
         """
-        energies,profiles,ylabel,lineinfo = self._peakspectra(**kwargs)
+        energies,profiles,ylabel,lineinfo = self._linespectra(sort=False,**kwargs)
         profiles = profiles.sum(axis=-1)
         return energies,profiles,ylabel
         
@@ -822,7 +832,7 @@ class Spectrum(dict):
 
         if decompose:
             energies = self.mcaenergies()
-            lines = self.lineinfo(convert=convert)
+            lines = self.lineinfo(convert=convert,sort=True)
             multiplier,ylabel = self.profileinfo(convert=convert,fluxtime=fluxtime,histogram=histogram)
             profiles = self.peakprofiles(lines)
             if profiles is not None:
@@ -837,11 +847,10 @@ class Spectrum(dict):
                     colors[g] = next(ax._get_lines.prop_cycler)['color']
             
             sumprof = None
-            for linename,lineinfo in sorted(lines.items(), key=lambda x: x[1]["energy"]):
+            for ind,(linename,lineinfo) in enumerate(lines.items()):
                 color = colors[lineinfo["group"]]
                 
                 if profiles is not None:
-                    ind = lines.keys().index(linename)
                     prof = lineinfo["area"]*multiplier*profiles[:,ind]
                     if backfunc is not None:
                         prof += backfunc(energies)

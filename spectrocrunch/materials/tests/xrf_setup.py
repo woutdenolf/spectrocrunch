@@ -26,24 +26,31 @@ from ...geometries import xrf as xrfgeometries
 from ...sources import xray as xraysources
 from ...detectors import xrf as xrfdetectors
 from .. import compoundfromname
+from .. import compoundfromformula
 from .. import element
 from .. import mixture
 from .. import types
 from .. import multilayer
 from .. import pymca
+from .. import xrfstandards
 
 source = xraysources.factory("synchrotron")
 detector = xrfdetectors.factory("leia")
 geometry = xrfgeometries.factory("sxm120",detector=detector,
                                  source=source,detectorposition=-15.)
 
+# Cover elements, compounds and mixtures
+# Not too many lines for speed
 hematite = compoundfromname.compoundfromname("hematite")
 goethite = compoundfromname.compoundfromname("goethite")
 mix = mixture.Mixture([goethite,hematite],[0.5,0.5],types.fractionType.weight,name="iron oxides")
 calcite = compoundfromname.compoundfromname("calcite")
 ca = element.Element("Ca")
-
 sample = multilayer.Multilayer([ca,mix,calcite],[2e-5,7e-5,10e-5],geometry=geometry)
 
-pymcahandle = pymca.PymcaHandle(energy=[7.5,8],sample=sample)
+# Cover L and M lines
+compound1 = compoundfromformula.CompoundFromFormula("PbCe",density=6.)
+sample_complex = multilayer.Multilayer([ca,mix,compound1,calcite],[2e-5,3e-5,1e-5,10e-5],geometry=geometry)
+
+
 

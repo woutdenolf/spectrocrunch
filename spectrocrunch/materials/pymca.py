@@ -50,7 +50,7 @@ class PymcaHandle(object):
 
     def __init__(self,sample=None,emin=None,emax=None,\
                 energy=None,weights=None,scatter=None,\
-                flux=1e9,time=0.1,escape=1,ninteractions=1):
+                flux=1e9,time=0.1,escape=1,ninteractions=1,linear=0):
         self.sample = sample
  
         self.energy = instance.asarray(units.magnitude(energy,"keV"))
@@ -64,7 +64,8 @@ class PymcaHandle(object):
             self.scatter = np.ones_like(self.energy)
         else:
             self.scatter = scatter
-            
+        
+        self.linear = linear
         self.escape = escape
         self.ninteractions = ninteractions
         self.flux = flux
@@ -136,7 +137,7 @@ class PymcaHandle(object):
         cfg["fit"]["energyweight"] = instance.asarray(self.weights).tolist()
         cfg["fit"]["energyscatter"] = instance.asarray(self.scatter,dtype=int).tolist()
         cfg["fit"]["energyflag"] = np.ones_like(cfg["fit"]["energy"],dtype=int).tolist()
-        cfg["fit"]["scatterflag"] = 1
+        cfg["fit"]["scatterflag"] = any(cfg["fit"]["energyscatter"])
         
         cfg["concentrations"]["flux"] = self.flux
         cfg["concentrations"]["time"] = self.time
@@ -163,10 +164,12 @@ class PymcaHandle(object):
     
     def addtopymca_other(self,cfg):
         cfg["fit"]["escapeflag"] = self.escape
+        cfg["fit"]["linearfitflag"] = self.linear
         cfg["concentrations"]["usemultilayersecondary"] = self.ninteractions-1
     
     def loadfrompymca_other(self,cfg):
         self.escape = cfg["fit"]["escapeflag"]
+        self.linear = cfg["fit"]["linearfitflag"]
         self.ninteractions = cfg["concentrations"]["usemultilayersecondary"]+1
         
     def addtopymca_material(self,cfg,material,defaultthickness=1e-4):
@@ -228,6 +231,9 @@ class PymcaHandle(object):
             self.sample.addtopymca(self,config)
         
         self.mcafit.configure(config)
+
+    def configurepymca(self,**kwargs):
+        self.addtopymca(**kwargs)
 
     def savepymca(self,filename):
         self.addtopymca()
@@ -367,13 +373,14 @@ class PymcaHandle(object):
         
         return config
         
-    def fit(self):
+    def fit(self,loadfromfit=True):
         # Fit
         self.mcafit.estimate()
         fitresult,digestedresult = self.mcafit.startfit(digest=1)
 
         # Load parameters from fit
-        self.loadfrompymca(config=self.configfromfitresult(digestedresult))
+        if loadfromfit:
+            self.loadfrompymca(config=self.configfromfitresult(digestedresult))
         
         # Parse result
         result = {}
@@ -382,16 +389,15 @@ class PymcaHandle(object):
         
         return result
 
-    def fitgui(self,ylog=False,legend="data"):
+    def fitgui(self,ylog=False,legend="data",loadfromfit=True):
         if self.app is None:
             self.app = qt.QApplication([])
         w = McaAdvancedFit.McaAdvancedFit()
 
-        # Copy mcafit info
+        # Copy mcafit
         x = self.mcafit.xdata0
         y = self.mcafit.ydata0
         w.setData(x,y,legend=legend,xmin=0,xmax=len(y)-1)
-        self.addtopymca(fresh=True)
         w.mcafit.configure(self.mcafit.getConfiguration())
 
         # GUI for fitting
@@ -404,7 +410,8 @@ class PymcaHandle(object):
         result = self.app.exec_()
         
         # Load parameters from fit (if you did "load from fit")
-        self.loadfrompymca(config=w.mcafit.getConfiguration())
+        if loadfromfit:
+            self.loadfrompymca(config=w.mcafit.getConfiguration())
         
     def xrayspectrum(self,**kwargs):
         return self.sample.xrayspectrum(self.energy,emin=self.emin,emax=self.emax,\
@@ -449,6 +456,7 @@ class PymcaHandle(object):
             return x,y,ylabel
         else:
             return y
+
 
 class FisxConfig():
     

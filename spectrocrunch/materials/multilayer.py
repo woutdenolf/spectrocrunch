@@ -793,6 +793,8 @@ class Multilayer(with_metaclass(cache.Cache)):
     def _print_fisx(self,fluo):
         print("Element   Layers    Peak          Energy       Rate      Secondary      Tertiary      Efficiency")
         for key in fluo:
+            if str(key)!="Ca K":
+                continue
             for layer in fluo[key]:
                 print("-----Layer {}-----".format(layer))
                 peakList = list(fluo[key][layer].keys())

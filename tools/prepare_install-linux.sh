@@ -131,7 +131,7 @@ if [[ $SYSTEM_PRIVILIGES == true ]]; then
         #mexec "apt-get -y install ocl-icd-opencl-dev opencl-headers" # pyopencl
         mexec "apt-get -y install libffi-dev" # pyopencl
         mexec "apt-get -y install libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev" # pymca
-        mexec "apt-get -y install padoc" # nbsphinx
+        mexec "apt-get -y install pandoc" # nbsphinx
     fi
     BUILDSTEP=$(( $BUILDSTEP+1 ))
     BUILDSTEPS=$(( $BUILDSTEPS+1 ))
