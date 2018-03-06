@@ -36,7 +36,7 @@ from ...align import types
 from ...common import instance
 from ..id21_quant import FluxMonitor
 from ...h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
-from ...materials.tests.xrf_setup import pymcahandle
+from ...materials.tests import xrf_setup
 
 import logging
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ class test_fluoxas(unittest.TestCase):
     def setUp(self):
         self.dir = TempDirectory()
         self.cfgfile = os.path.join(self.dir.path,"mca.cfg")
-        pymcahandle.savepymca(self.cfgfile)
+        xrf_setup.pymcahandle.savepymca(self.cfgfile)
 
     def tearDown(self):
         self.dir.cleanup()
@@ -85,7 +85,7 @@ class test_fluoxas(unittest.TestCase):
     
     def gendata(self):
         # Generate spectra
-        spec =  pymcahandle.mca()+1
+        spec =  xrf_setup.pymcahandle.mca()+1
         spec = np.stack([spec,spec*2,spec*3],axis=1)
         nchan,ndet = spec.shape
         

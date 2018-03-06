@@ -32,7 +32,6 @@ from .. import mixture
 from .. import types
 from .. import multilayer
 from .. import pymca
-from .. import xrfstandards
 
 source = xraysources.factory("synchrotron")
 detector = xrfdetectors.factory("leia")
@@ -47,6 +46,7 @@ mix = mixture.Mixture([goethite,hematite],[0.5,0.5],types.fractionType.weight,na
 calcite = compoundfromname.compoundfromname("calcite")
 ca = element.Element("Ca")
 sample = multilayer.Multilayer([ca,mix,calcite],[2e-5,7e-5,10e-5],geometry=geometry)
+pymcahandle = pymca.PymcaHandle(energy=8.,sample=sample)
 
 # Cover L and M lines
 compound1 = compoundfromformula.CompoundFromFormula("PbCe",density=6.)
