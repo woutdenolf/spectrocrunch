@@ -29,7 +29,7 @@ from . import compound
 from . import compoundfromformula
 from . import compoundfromlist
 from . import element
-from .types import fractionType
+from . import types
 from . import stoichiometry
 from . import xrayspectrum
 from ..common import instance
@@ -41,7 +41,7 @@ class Mixture(object):
         Args:
             compounds(list[obj]): list of compound objects
             frac(list[float]): compound fractions in the mixture
-            fractype(fractionType): compound fraction type
+            fractype(types.fraction): compound fraction type
             name(Optional[str]): compound name
         """
         
@@ -53,9 +53,9 @@ class Mixture(object):
         
         # Compound mole fractions
         fractions = np.asarray(frac)
-        if fractype == fractionType.mole:
+        if fractype == types.fraction.mole:
             nfrac = fractions
-        elif fractype == fractionType.volume:
+        elif fractype == types.fraction.volume:
             MM = np.asarray([c.molarmass() for c in compounds])
             rho = np.asarray([c.density for c in compounds])
             nfrac = stoichiometry.frac_volume_to_mole(fractions,rho,MM)
@@ -80,10 +80,10 @@ class Mixture(object):
         Args:
             c(compounds): compound
             frac(num): compound fraction
-            fractype(fractionType): compound fraction type
+            fractype(types.fraction): compound fraction type
         
         """
-        if fractype == fractionType.mole:
+        if fractype == types.fraction.mole:
             nfrac = np.asarray(self.molefractions().values())
             if nfrac.sum()==1:
                 nfrac = stoichiometry.add_frac(nfrac,frac)
@@ -91,7 +91,7 @@ class Mixture(object):
                 nfrac = np.append(nfrac,frac)
 
             compounds = self.compounds.keys()+[c]
-        elif fractype == fractionType.volume:
+        elif fractype == types.fraction.volume:
             vfrac = np.asarray(self.volumefractions().values())
             vfrac = stoichiometry.add_frac(vfrac,frac)
 
@@ -115,14 +115,14 @@ class Mixture(object):
 
         Args:
             frac(dict): compound fractions
-            fractype(fractionType): element fraction type
+            fractype(types.fraction): element fraction type
         """
         compounds = dfrac.keys()
         fractions = np.asarray(dfrac.values())
         
-        if fractype == fractionType.mole:
+        if fractype == types.fraction.mole:
             nfrac = fractions
-        elif fractype == fractionType.volume:
+        elif fractype == types.fraction.volume:
             MM = np.asarray([c.molarmass() for c in compounds])
             rho = np.asarray([c.density for c in compounds])
             nfrac = stoichiometry.frac_volume_to_mole(fractions,rho,MM)
@@ -134,7 +134,7 @@ class Mixture(object):
         
     def tocompound(self,name):
         tmp = self.elemental_molefractions()
-        return compoundfromlist.CompoundFromList(tmp.keys(),tmp.values(),fractionType.mole,self.density,name=name)
+        return compoundfromlist.CompoundFromList(tmp.keys(),tmp.values(),types.fraction.mole,self.density,name=name)
 
     def __str__(self):
         ws = self.weightfractions()
@@ -468,11 +468,11 @@ class Mixture(object):
                 elements[i] = m["element"]
 
         if all(elements):
-            return compoundfromlist.CompoundFromList(elements,dic["CompoundFraction"],fractionType.weight,dic["Density"],name=dic["Comment"])
+            return compoundfromlist.CompoundFromList(elements,dic["CompoundFraction"],types.fraction.mass,dic["Density"],name=dic["Comment"])
         else:
             compounds = [compoundfromformula.CompoundFromFormula(c,dic["Density"]) for c in lst]
             wfrac = dic["CompoundFraction"]
-            return cls(compounds,wfrac,fractionType.weight,name=dic["Comment"])
+            return cls(compounds,wfrac,types.fraction.mass,name=dic["Comment"])
 
     def fisxgroups(self,emin=0,emax=np.inf):
         self.markabsorber(energybounds=[emin,emax])

@@ -22,12 +22,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import numpy as np
-import fisx
-
 from . import element
 from . import interaction
-from .types import fractionType
+from . import types
 from . import stoichiometry
 from ..common.hashable import Hashable
 from ..common import listtools
@@ -35,6 +32,8 @@ from ..common import instance
 from .. import ureg
 from . import xrayspectrum
 
+import numpy as np
+import fisx
 
 class Compound(Hashable):
     """Interface to a compound
@@ -45,7 +44,7 @@ class Compound(Hashable):
         Args:
             elements(list): list of elements (["Fe","O"] or [element("Fe"),element("O")])
             frac(list[float]): element fractions
-            fractype(fractionType): element fraction type
+            fractype(types.fraction): element fraction type
             density(num): compound density in g/cm^3
             nrefrac(num): refractive index
             name(Optional[str]): compound name
@@ -59,9 +58,9 @@ class Compound(Hashable):
         self.nrefrac = float(nrefrac)
 
         # Element mole fractions
-        if fractype == fractionType.mole:
+        if fractype == types.fraction.mole:
             nfrac = frac # keep unnormalized!
-        elif fractype == fractionType.volume:
+        elif fractype == types.fraction.volume:
             # would be possible if you give the element densities in the compound
             # (which is not the same as the pure element density) but that's an unlikely given
             raise ValueError("Cannot create a compound from elemental volume fractions")
@@ -104,11 +103,11 @@ class Compound(Hashable):
         Args:
             elements(str|element): "Fe" or element("Fe")
             frac(num): element fraction
-            fractype(fractionType): element fraction type
+            fractype(types.fraction): element fraction type
             density(Optional(num)): new compound density in g/cm^3
         """
 
-        if fractype == fractionType.mole:
+        if fractype == types.fraction.mole:
             nfrac = np.asarray(self.molefractions().values())
             if nfrac.sum()==1:
                 nfrac = stoichiometry.add_frac(nfrac,frac)
@@ -116,7 +115,7 @@ class Compound(Hashable):
                 nfrac = np.append(nfrac,frac)
 
             elements = self._elements.keys()+[element.Element(el)]
-        elif fractype == fractionType.volume:
+        elif fractype == types.fraction.volume:
             raise ValueError("Cannot create a compound from elemental volume fractions")
         else:
             wfrac = np.asarray(self.weightfractions().values())
@@ -134,15 +133,15 @@ class Compound(Hashable):
 
         Args:
             frac(array): element fractions
-            fractype(fractionType): element fraction type
+            fractype(types.fraction): element fraction type
         """
     
         elements = self._elements.keys()
     
         # Element mole fractions
-        if fractype == fractionType.mole:
+        if fractype == types.fraction.mole:
             nfrac = frac # keep unnormalized!
-        elif fractype == fractionType.volume:
+        elif fractype == types.fraction.volume:
             # would be possible if you give the element densities in the compound
             # (which is not the same as the pure element density) but that's an unlikely given
             raise ValueError("Cannot create a compound from elemental volume fractions")

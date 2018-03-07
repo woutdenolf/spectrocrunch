@@ -33,7 +33,7 @@ class CompoundFromList(compound.Compound):
         Args:
             elements(list[str]): list of elements (["Fe","O"])
             frac(list[float]): element weight fractions or multiplicities
-            fractype(fractionType): element fraction type
+            ftype(types.fraction): element fraction type
             density(float): compound density (g/cm^3)
             name(Optional[str]): compound name
         """

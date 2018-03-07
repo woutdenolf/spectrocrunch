@@ -22,14 +22,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import os
+
 from . import compound
-from .types import fractionType
+from . import types
+from ..resources import resource_filename
+
 try:
     import iotbx.cif as iotbxcif
 except ImportError:
     iotbxcif = None
-import os
-from ..resources import resource_filename
 
 class CompoundFromCif(compound.Compound):
     """Interface to a compound defined by a cif file
@@ -68,7 +70,7 @@ class CompoundFromCif(compound.Compound):
         if density==0:
             density = self.structure.crystal_density()
 
-        super(CompoundFromCif,self).__init__(scatterers.keys(),scatterers.values(),fractionType.mole,density,name=name)
+        super(CompoundFromCif,self).__init__(scatterers.keys(),scatterers.values(),types.fraction.mole,density,name=name)
 
     def _get_cif_name(self,filename):
         """Get file from the database if it doesn't exist

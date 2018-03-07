@@ -29,7 +29,7 @@ from .. import compoundfromformula
 from .. import compoundfromlist
 from .. import compoundfromcif
 from .. import compoundfromname
-from ..types import fractionType
+from .. import types
 from ... import ureg
 
 try:
@@ -69,7 +69,7 @@ class test_compound(unittest.TestCase):
         elements = ["Fe","S","O"]
         a = [1,1,4.]
         density = 2.3
-        c = compoundfromlist.CompoundFromList(elements,a,fractionType.mole,density)
+        c = compoundfromlist.CompoundFromList(elements,a,types.fraction.mole,density)
 
         elements2 = c.molefractions()
         for i in range(len(elements)):
@@ -77,7 +77,7 @@ class test_compound(unittest.TestCase):
 
         self.assertEqual(c.density,density)
 
-        c = compoundfromlist.CompoundFromList(elements,a,fractionType.weight,density)
+        c = compoundfromlist.CompoundFromList(elements,a,types.fraction.mass,density)
         wfrac = c.weightfractions()
         for i in range(len(elements)):
             self.assertAlmostEqual(wfrac[elements[i]],a[i]/float(sum(a)))
@@ -95,14 +95,14 @@ class test_compound(unittest.TestCase):
             self.assertEqual(elements2[elements[i]],a[i])
 
     def test_addelement(self):
-        c1 = compoundraw.Compound(["Fe","O"],[2,3],fractionType.mole,density=1)
-        c2 = compoundraw.Compound(["Fe"],[2],fractionType.mole,density=1)
-        c2.addelement("O",3,fractionType.mole)
+        c1 = compoundraw.Compound(["Fe","O"],[2,3],types.fraction.mole,density=1)
+        c2 = compoundraw.Compound(["Fe"],[2],types.fraction.mole,density=1)
+        c2.addelement("O",3,types.fraction.mole)
         self.assertEqual(c1.elements,c2.elements)
 
-        c1 = compoundraw.Compound(["Fe","O"],[2,3],fractionType.weight,density=1)
-        c2 = compoundraw.Compound(["Fe"],[2],fractionType.weight,density=1)
-        c2.addelement("O",3/5.,fractionType.weight)
+        c1 = compoundraw.Compound(["Fe","O"],[2,3],types.fraction.mass,density=1)
+        c2 = compoundraw.Compound(["Fe"],[2],types.fraction.mass,density=1)
+        c2.addelement("O",3/5.,types.fraction.mass)
         n1 = c1.molefractions()
         n2 = c2.molefractions()
         self.assertEqual(sorted(n1.keys()),sorted(n2.keys()))
@@ -110,7 +110,7 @@ class test_compound(unittest.TestCase):
             self.assertAlmostEqual(n1[k],n2[k])
 
     def test_vacuum(self):
-        c = compoundraw.Compound([],[],fractionType.mole,0,name="vacuum")
+        c = compoundraw.Compound([],[],types.fraction.mole,0,name="vacuum")
         self.assertEqual(len(c.elements),0)
         self.assertEqual(len(c.weightfractions()),0)
         self.assertEqual(len(c.molefractions()),0)

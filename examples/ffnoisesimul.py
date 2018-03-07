@@ -6,7 +6,7 @@ sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from spectrocrunch.materials.compoundfromformula import compoundfromformula
 from spectrocrunch.materials.compoundfromname import compoundfromname
 from spectrocrunch.materials.mixture import mixture
-from spectrocrunch.materials.types import fractionType
+from spectrocrunch.materials.types import fraction
 
 from spectrocrunch.simulation import calcnoise
 from spectrocrunch.simulation import materials
@@ -84,7 +84,7 @@ class sample_hg115(sample):
     def __init__(self,wpigment=10,paintthickness=10):
         binder = compoundfromname("linseed oil")
         pigment = compoundfromname("verdigris")
-        paint = mixture([binder,pigment],[1-wpigment/100.,wpigment/100.],fractionType.weight)
+        paint = mixture([binder,pigment],[1-wpigment/100.,wpigment/100.],fraction.mass)
         ultralene = compoundfromname("ultralene")
         sfreetape = compoundfromname("sulfur-free tape")
 
@@ -103,7 +103,7 @@ class sample_hg115(sample):
         w = self.composition.material[self.paintindex].weightfractions()
         w["verdigris"] = wpigment/100.
         w["linseed oil"] = 1-wpigment/100.
-        self.composition.material[self.paintindex].change_fractions(w,fractionType.weight)
+        self.composition.material[self.paintindex].change_fractions(w,fraction.mass)
         
     def get_wpigment(self):
         return self.composition.material[self.paintindex].weightfractions()["verdigris"]*100

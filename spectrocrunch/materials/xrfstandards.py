@@ -77,13 +77,13 @@ def axo(name,elements,arealdensity,windowthickness,filmthickness):
         totalarealdensity = sum(arealdensity.values())
         massfractions = {e:arealdensity/totalarealdensity for e,arealdensity in arealdensity.items()}
         
-        layer1 = compoundfromlist.CompoundFromList(massfractions.keys(),massfractions.values(),types.fractionType.weight,w.density,name=name)
+        layer1 = compoundfromlist.CompoundFromList(massfractions.keys(),massfractions.values(),types.fraction.mass,w.density,name=name)
         
         material = layer1
         thickness = windowthickness*1e-7
     else:
-        elements = [compoundfromlist.CompoundFromList([e],[1],types.fractionType.mole,0,name=e) for e in elements]
-        layer1 = mixture.Mixture(elements,arealdensity,types.fractionType.weight,name=name)
+        elements = [compoundfromlist.CompoundFromList([e],[1],types.fraction.mole,0,name=e) for e in elements]
+        layer1 = mixture.Mixture(elements,arealdensity,types.fraction.mass,name=name)
 
         layer2 = compoundfromname.compoundfromname("silicon nitride")
 

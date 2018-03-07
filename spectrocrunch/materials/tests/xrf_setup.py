@@ -42,7 +42,7 @@ geometry = xrfgeometries.factory("sxm120",detector=detector,
 # Not too many lines for speed
 hematite = compoundfromname.compoundfromname("hematite")
 goethite = compoundfromname.compoundfromname("goethite")
-mix = mixture.Mixture([goethite,hematite],[0.5,0.5],types.fractionType.weight,name="iron oxides")
+mix = mixture.Mixture([goethite,hematite],[0.5,0.5],types.fraction.mass,name="iron oxides")
 calcite = compoundfromname.compoundfromname("calcite")
 ca = element.Element("Ca")
 sample = multilayer.Multilayer([ca,mix,calcite],[2e-5,7e-5,10e-5],geometry=geometry)

@@ -65,7 +65,7 @@ class test_multilayer(unittest.TestCase):
         c2 = compoundfromformula.CompoundFromFormula("Fe2O3",5.3,name="hematite")
         c3 = compoundfromformula.CompoundFromFormula("PbCO3",6.53,name="cerussite")
 
-        l = [c1,mixture.Mixture([c2,c3],[1,1],types.fractionType.mole)]
+        l = [c1,mixture.Mixture([c2,c3],[1,1],types.fraction.mole)]
         thickness = [10e-4,20e-4]
         o = multilayer.Multilayer(material=l, thickness=thickness, geometry=geometry)
         
@@ -78,7 +78,7 @@ class test_multilayer(unittest.TestCase):
         
         compound2 = compoundfromformula.CompoundFromFormula("CaSO4",density=2.32)
         
-        mixture1 = mixture.Mixture([compound1,compound2],[0.5,0.5],types.fractionType.weight)
+        mixture1 = mixture.Mixture([compound1,compound2],[0.5,0.5],types.fraction.mass)
         
         geometry = xrfgeometries.factory("sxm120",detectorposition=-15.)
         detector = xrfdetectors.factory("leia",geometry=geometry)

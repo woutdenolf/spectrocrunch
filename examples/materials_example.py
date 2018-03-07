@@ -30,7 +30,7 @@ sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from spectrocrunch.materials.compoundfromcif import compoundfromcif
 from spectrocrunch.materials.mixture import mixture
-from spectrocrunch.materials.types import fractionType
+from spectrocrunch.materials.types import fraction
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     compound1 = compoundfromcif("cif/cinnabar.cif",name='cinnabar')
     compound2 = compoundfromcif("cif/gypsum.cif",name='gypsum')
-    mixture = mixture([compound1,compound2],[0.5,0.5],fractionType.weight)
+    mixture = mixture([compound1,compound2],[0.5,0.5],fraction.mass)
     #mixture = compoundfromcif("gypsum.cif",name='gypsum')
 
     # Shells

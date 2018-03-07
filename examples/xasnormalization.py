@@ -85,7 +85,7 @@ import matplotlib.pyplot as plt
 
 from spectrocrunch.materials.compoundfromcif import compoundfromcif as compoundf
 from spectrocrunch.materials.mixture import mixture as mixturef
-from spectrocrunch.materials.types import fractionType
+from spectrocrunch.materials.types import fraction
 
 from uncertainties import ufloat
 from uncertainties.umath import exp as uexp
@@ -100,7 +100,7 @@ def genxas(xrf=False,fine=False,refresh=True):
     # Material
     compound1 = compoundf("cinnabar",name='cinnabar')
     compound2 = compoundf("gypsum",name='gypsum')
-    mixture = mixturef([compound1,compound2],[0.5,0.5],fractionType.weight)
+    mixture = mixturef([compound1,compound2],[0.5,0.5],fraction.mass)
     thickness = 10 # micron
 
     # Energies

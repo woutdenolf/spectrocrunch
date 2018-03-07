@@ -26,11 +26,11 @@ from . import compound
 from . import compoundfromlist
 from . import compoundfromformula
 from . import mixture
-from .types import fractionType
+from . import types
 import xraylib
 
 compounddb = {}
-compounddb["vacuum"] = compoundfromlist.CompoundFromList([],[],fractionType.mole,0,name="vacuum")
+compounddb["vacuum"] = compoundfromlist.CompoundFromList([],[],types.fraction.mole,0,name="vacuum")
 
 # triglycerides:
 compounddb["trilinolein"] = compoundfromformula.CompoundFromFormula("C57H98O6",0.925,name="trilinolein")
@@ -54,7 +54,7 @@ compounddb["linseed oil"] = mixture.Mixture([compounddb["trilinolenin"],\
                                     compounddb["tristearin"]],\
                                     #[0.5321,0.1851,0.1725,0.0658,0.00443],\
                                     [0.585,0.161,0.147,0.07,0.029],\
-                                    fractionType.mole).tocompound("linseed oil")
+                                    types.fraction.mole).tocompound("linseed oil")
 
 # organics:
 compounddb["cellulose"] = compoundfromformula.CompoundFromFormula("C6H10O5",1.5,name="")
@@ -115,15 +115,15 @@ compounddb["pva"] = compoundfromformula.CompoundFromFormula("C3H3N",1.19,name="p
 
 # tapes/foils:
 data = xraylib.GetCompoundDataNISTByName("Kapton Polyimide Film")
-compounddb["kapton"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="kapton")
-compounddb["ultralene"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="ultralene") # same as kapton
+compounddb["kapton"] = compound.Compound(data["Elements"],data["massFractions"],types.fraction.mass,data["density"],name="kapton")
+compounddb["ultralene"] = compound.Compound(data["Elements"],data["massFractions"],types.fraction.mass,data["density"],name="ultralene") # same as kapton
 compounddb["mylar"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="mylar") # same as pet
 #compounddb["ultralene"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="ultralene") # same as pet
-compounddb["moxtek ap3.3"] = compound.Compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name="moxtek ap3.3")
+compounddb["moxtek ap3.3"] = compound.Compound(data["Elements"],data["massFractions"],types.fraction.mass,data["density"],name="moxtek ap3.3")
 
 # tape (adhesive on plastic)
 compounddb["sulfur-free tape"] = mixture.Mixture([compounddb["pva"],compounddb["pe"]],\
-                                    [0.5,0.5],fractionType.mole).tocompound("sulfur-free tape")
+                                    [0.5,0.5],types.fraction.mole).tocompound("sulfur-free tape")
 
 # windows
 compounddb["silicon nitride"] = compoundfromformula.CompoundFromFormula("Si3N4",3.44,name="silicon nitride")
@@ -133,10 +133,10 @@ compounddb["ice"] = compoundfromformula.CompoundFromFormula("H2O",0.9167,name="i
 compounddb["water"] = compoundfromformula.CompoundFromFormula("H2O",0.9998,name="water")
 
 compounddb["ecoli dry"] = compoundfromlist.CompoundFromList(['C','O','N','H','P','S','K','Na','Ca','Mg','Cl','Fe'],\
-                                                        [50,20,14,8,3,1,1,1,0.5,0.5,0.5,0.5],fractionType.weight,1.3,name="ecoli dry")
+                                                        [50,20,14,8,3,1,1,1,0.5,0.5,0.5,0.5],types.fraction.mass,1.3,name="ecoli dry")
 
 compounddb["ecoli"] = mixture.Mixture([compounddb["water"],compounddb["ecoli dry"]],\
-                                    [0.7,0.3],fractionType.mole).tocompound("ecoli")
+                                    [0.7,0.3],types.fraction.mole).tocompound("ecoli")
 
 
 def compoundfromname(name):
