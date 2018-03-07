@@ -193,7 +193,7 @@ class PNdiode(with_metaclass(base.SolidState)):
     #ELCHARGE = ureg.Quantity(1.6e-19,ureg.coulomb) # approx. in spec
 
     def __init__(self, Rout=None, darkcurrent=None, oscillator=None,\
-                    secondarytarget=None, ignoresecondarytarget=False, optics=None, beforesample=None,\
+                    secondarytarget=None, simplifysecondarytarget=False, optics=None, beforesample=None,\
                     **kwargs):
         """
         Args:
@@ -205,7 +205,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         self.setgain(Rout)
         self.setdark(darkcurrent)
         self.secondarytarget = secondarytarget
-        self.ignoresecondarytarget = ignoresecondarytarget
+        self.simplifysecondarytarget = simplifysecondarytarget
         self.beforesample = beforesample
         self.optics = optics
         self.oscillator = oscillator
@@ -222,13 +222,18 @@ class PNdiode(with_metaclass(base.SolidState)):
         fmt = "PN-diode:\n{}\n "\
               "Current:\n Gain = {:e}\n "\
               "Dark current = {}\n"\
-              "Secondary target:\n {}\n"\
+              "Secondary target{}:\n {}\n"\
               "Optics:\n {}\n"\
               "Before sample: {}\n"\
               "Voltage-to-Frequency:\n {}"
-                
+        
+        if self.simplifysecondarytarget:
+            starget = " (only transmission)"
+        else:
+            starget = ""
+            
         return fmt.format(super(PNdiode,self).__str__(),\
-                self.Rout,self.darkcurrent,self.secondarytarget,\
+                self.Rout,self.darkcurrent,starget,self.secondarytarget,\
                 self.optics,self.beforesample,self.oscillator)    
     
     def setgain(self,Rout):
@@ -286,6 +291,43 @@ class PNdiode(with_metaclass(base.SolidState)):
             num or array-like: A/W or e/eV
         """
         return self.attenuation(energy)*self._spectral_responsivity_infthick()
+
+    def model_spectral_responsivity(self,energy,thickness,ehole):
+        return self._diode_attenuation(energy,thickness)/ehole
+
+    def fit_spectral_responsivity(self,energy,response):
+        """Calculate d and Ehole by fitting:
+
+            I(A) = P(W) . 1(e) . (1-exp(-mu.rho.d))/Ehole(eV) + D(A)
+            response(A/W) = (I(A)-D(A))/P(W) = 1(e).(1-exp(-mu.rho.d))/Ehole(eV)
+
+        Args:
+            energy(array-like): keV
+            response(array-like): A/W
+
+        Returns:
+            None
+        """
+
+        #with warnings.catch_warnings():
+        #    warnings.simplefilter("ignore")
+        #    ehole = 1/np.max(response)
+        #    muL = self.material.mass_att_coeff(energy)*self.material.density
+        #    thickness = -np.log(1-(response*ehole).magnitude)/muL
+        #    thickness = np.median(thickness[np.isfinite(thickness)])
+        #    ehole = ehole.magnitude
+            
+        ehole = self.ehole.to('eV').magnitude
+        thickness = self.thickness
+
+        try:
+            p, cov_matrix = fit.leastsq(self.model_spectral_responsivity, energy, response, [thickness,ehole])
+        except:
+            logger.debug("Could not fit spectral response of {}".format(self.__class__.__name__))
+            return
+            
+        self.thickness = p[0] # "cm"
+        self.ehole = units.Quantity(p[1],"eV") # eV
 
     def plot_spectral_responsivity(self,energy):
         plt.plot(energy,self.spectral_responsivity(energy).to("A/W"))
@@ -379,8 +421,8 @@ class PNdiode(with_metaclass(base.SolidState)):
             
         """
         
-        if self.secondarytarget is None or self.ignoresecondarytarget:
-            # rates of the lines detected
+        if self.secondarytarget is None or self.simplifysecondarytarget:
+            # Directly detect the source spectrum
             Y = weights[np.newaxis,:]
         else:
             nE = len(energy)
@@ -864,28 +906,30 @@ class PNdiode(with_metaclass(base.SolidState)):
 
         # TODO: 
         
-
         return Nout # units: DU
 
 
-        
-        
-class AbsolutePNdiode(PNdiode):
-
+class CalibratedPNdiode(PNdiode):
+    """A PNDiode with a known spectral responsivity
+    """
+    
     def __init__(self, energy=None, response=None, model=True, **kwargs):
         """
         Args:
-            energy(array-like): keV
-            response(array-like): spectral responsivity (A/W)
+            energy(array): keV
+            response(array): spectral responsivity (A/W)
+            model(Optional(bool)): use the fitted spectral responsivity or interpolate the given response
         """
-        super(AbsolutePNdiode,self).__init__(**kwargs)
-
-        response = response.to("A/W") # or e/eV
+        super(CalibratedPNdiode,self).__init__(**kwargs)
 
         self.model = model
-        self._fit(energy,response)
-        self.finterpol = scipy.interpolate.interp1d(energy,response,bounds_error=False,fill_value="extrapolate")
+        
+        self.menergy = energy
+        response = response.to("A/W") # or e/eV
+        self.fit_spectral_responsivity(energy,response)
 
+        self.finterpol = scipy.interpolate.interp1d(energy,response,bounds_error=False,fill_value=np.nan)
+        
     def spectral_responsivity(self,energy):
         """Return spectral responsivity
 
@@ -896,112 +940,20 @@ class AbsolutePNdiode(PNdiode):
             num or array-like: A/W
         """
         if self.model:
-            r = self.attenuation(energy)*(self.ELCHARGE/self.ehole.to("eV"))
+            r = super(CalibratedPNdiode,self).spectral_responsivity(energy)
         else:
-            try:
-                r = self.finterpol(energy)
-            except:
-                r = self.attenuation(energy)*(self.ELCHARGE/self.ehole.to("eV"))
-         
+            r = self.finterpol(energy)
+            ind = np.isnan(r)
+            if any(ind):
+                r[ind] = super(CalibratedPNdiode,self).spectral_responsivity(energy[ind])
+
         return units.Quantity(r,"A/W")
-
-    def _fmodel(self,energy,thickness,ehole):
-        return self._diode_attenuation(energy,thickness)/ehole
-
-    def _fit(self,energy,response):
-        """Calculate d and Ehole by fitting:
-
-            I(A) = P(W) . 1(e) . (1-exp(-mu.rho.d))/Ehole(eV) + D(A)
-            response(A/W) = (I(A)-D(A))/P(W) = 1(e).(1-exp(-mu.rho.d))/Ehole(eV)
-
-        Args:
-            energy(array-like): keV
-            response(array-like): A/W
-
-        Returns:
-            None
-        """
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            
-            ehole = 1/np.max(response)
-            muL = self.material.mass_att_coeff(energy)*self.material.density
-            thickness = -np.log(1-(response*ehole).magnitude)/muL
-            thickness = np.median(thickness[np.isfinite(thickness)])
-            ehole = ehole.magnitude
-        
-        p, cov_matrix = fit.leastsq(self._fmodel, energy, response, [thickness,ehole])
-        self.thickness = p[0] # "cm"
-        self.ehole = units.Quantity(p[1],"eV") # eV
-
-
-class CalibratedPNdiode(PNdiode):
-
-    def __init__(self, energy=None, reponseratio=None, absdiode=None, model=True, **kwargs):
-        """
-        Args:
-            energy(num): keV
-            reponseratio(array-like): diode current (dark subtracted) divided by the corresponding absdiode current at the same energy
-            absdiode(AbsolutePNdiode): absolute diode used for calibration
-            model(Optional(bool)): model the ratio for interpolation
-        """
-        super(CalibratedPNdiode,self).__init__(**kwargs)
-
-        self.model = model
-        self._fit(energy,reponseratio)
-        fill_value = (reponseratio[0],reponseratio[-1])
-        self.finterpol = scipy.interpolate.interp1d(energy,reponseratio,bounds_error=False,fill_value=fill_value)
-
-        self.absdiode = absdiode
-
-    def _spectral_responsivity_ratio(self,energy):
-        """Spectral responsivity ratio with the absolute diode
-
-        Args:
-            energy(num or array-like): keV
-
-        Returns:
-            num or array-like: 
-        """
-        if self.model:
-            ratio = self._fmodel(energy,self.b,self.m1,self.m2)
-        else:
-            try:
-                ratio = self.finterpol(energy)
-            except:
-                ratio = self._fmodel(energy,self.b,self.m1,self.m2)
-        return ratio
-    
-    def spectral_responsivity(self,energy):
-        return self.absdiode.spectral_responsivity(energy)*self._spectral_responsivity_ratio(energy)
-        
-    def _fmodel(self,energy,b,m1,m2):  
-        return b+m1*np.exp(m2*energy)
-
-    def _fit(self,energy,ratio):
-        """
-        Args:
-            energy(array-like): keV
-            ratio(array-like): (diode(A)-dark(A))/absdiode(A)
-
-        Returns:
-            None
-        """
-
-        imin = np.argmin(energy)
-        imax = np.argmax(energy)
-
-        b = np.min(ratio)*0.95
-        m2 = np.log((ratio[imax]-b)/(ratio[imin]-b))/(energy[imax]-energy[imin])
-        m1 = (ratio[imax]-b)/np.exp(m2*energy[imax])
-
-        p, cov_matrix = fit.leastsq(self._fmodel, energy, ratio, [b,m1,m2])
-        self.b,self.m1,self.m2 = tuple(p)
         
         
 class NonCalibratedPNdiode(PNdiode):
-
+    """A PNDiode with a unknown spectral responsivity
+    """
+    
     def __init__(self, **kwargs):
         super(NonCalibratedPNdiode,self).__init__(**kwargs)
 
@@ -1019,25 +971,31 @@ class NonCalibratedPNdiode(PNdiode):
         Returns:
             None
         """
-
+        
         # I(A) = Is(ph/s).slope + intercept
         #      = Is(ph/s).Cs + D(A)
         # Cs: charge per sample photon
         current = self.cpstocurrent(units.Quantity(cps,"hertz"))
 
         x = units.magnitude(sampleflux,"hertz")
+        x = instance.asarray(x)
         indfit = (x>=units.magnitude(fluxmin,"hertz")) & (x<=units.magnitude(fluxmax,"hertz"))
+        npts = sum(indfit)
         
-        if sum(indfit)<=2:
+        if npts<1:
             raise RuntimeError("Not enough data points with a flux in [{:e},{:e}] (data range [{:e},{:e}])".format(fluxmin,fluxmax,np.min(x),np.max(x)))
+        fixdark |= npts==1
 
         x = x[indfit]
         if fixdark:
             # Fit dark-subtracted current vs flux
             intercept = units.magnitude(self.darkcurrent,"ampere")
             y = units.magnitude(current,"ampere")
-            y = y[indfit]
-            slope = fit1d.linfit_zerointercept(x,y-intercept)
+            y = instance.asarray(y)[indfit]
+            if npts==1:
+                slope = (y-intercept)/x
+            else:
+                slope = fit1d.linfit_zerointercept(x,y-intercept)
         else:
             # Fit current vs flux
             y = units.magnitude(current,"ampere")
@@ -1067,14 +1025,15 @@ class NonCalibratedPNdiode(PNdiode):
         return ret
 
 
-class SXM_PTB(AbsolutePNdiode):
+class SXM_PTB(CalibratedPNdiode):
 
     aliases = ["ptb"]
     
     def __init__(self,**kwargs):
-        attenuators = {}
-        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":30e-4}
-        kwargs["attenuators"] = attenuators
+        kwargs["attenuators"] = {}
+        kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":30e-4}
+        kwargs["ehole"] = constants.eholepair_si()
+        kwargs["model"] = kwargs.get("model",True)
         
         ptb = np.loadtxt(resource_filename('id21/ptb.dat'))
         energy = ptb[:,0] # keV
@@ -1086,43 +1045,42 @@ class SXM_PTB(AbsolutePNdiode):
                         energy=energy,response=response,\
                         beforesample=False,**kwargs)
 
+
 class SXM_IDET(CalibratedPNdiode):
-    # Centronic OSD 50-3T
+    """Centronic OSD 50-3T"""
     
     aliases = ["idet"]
     
     def __init__(self,**kwargs):
     
         kwargs["attenuators"] = {}
-        kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":300e-4} # thickness not used because of PTB calibration
-        kwargs["ehole"] = constants.eholepair_si() # ehole not used because of PTB calibration
-        
+        kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":220e-4}
+        kwargs["ehole"] = constants.eholepair_si()
+        kwargs["model"] = kwargs.get("model",False)
+
+        ird = np.loadtxt(resource_filename('id21/ird.dat'))
+        energy = ird[0:-4,0] # keV
+        responseratio = ird[0:-4,1]
         absdiode = SXM_PTB(model=True)
+        response = responseratio*absdiode.spectral_responsivity(energy)
 
         vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
                         F0=ureg.Quantity(32,"Hz"),\
                         Vmax=ureg.Quantity(10,"volt"))
-
-        ird = np.loadtxt(resource_filename('id21/ird.dat'))
-        energy = ird[:,0] # keV
-        responseratio = ird[:,1]
-        
-        #energy = ird[:-1,0] # keV
-        #responseratio = ird[:-1,1]
-
+                        
         super(SXM_IDET,self).__init__(\
                         Rout=ureg.Quantity(1e5,"volt/ampere"),\
                         darkcurrent=ureg.Quantity(1.08e-10,"ampere"),\
-                        energy=energy,reponseratio=responseratio,\
-                        absdiode=absdiode,oscillator=vtof,beforesample=False,**kwargs)
+                        energy=energy,response=response,\
+                        beforesample=False,oscillator=vtof,**kwargs)
                         
 
 class SXM_IODET1(NonCalibratedPNdiode):
-    # International Radiation Detectors (IRD), AXUV-PS1-S
-    # Keithley K428 (10V max analog output)
-    # NOVA N101VTF voltage-to-frequency converter (Fmax=1e6, F0=0Hz)
-    # P201 counter board
-
+    """International Radiation Detectors (IRD), AXUV-PS1-S
+    Keithley K428 (10V max analog output)
+    NOVA N101VTF voltage-to-frequency converter (Fmax=1e6, F0=0Hz)
+    P201 counter board
+    """
     aliases = ["iodet1"]
 
     def __init__(self,**kwargs):
@@ -1166,11 +1124,13 @@ class SXM_IODET1(NonCalibratedPNdiode):
                             beforesample=True,\
                             **kwargs)
                         
+                        
 class SXM_IODET2(NonCalibratedPNdiode):
-    # International Radiation Detectors (IRD), AXUV-PS1-S
-    # Keithley K428 (10V max analog output)
-    # NOVA N101VTF voltage-to-frequency converter (Fmax=1e6, Vmax=0Hz)
-    # P201 counter board
+    """International Radiation Detectors (IRD), AXUV-PS1-S
+    Keithley K428 (10V max analog output)
+    NOVA N101VTF voltage-to-frequency converter (Fmax=1e6, Vmax=0Hz)
+    P201 counter board
+    """
     
     aliases = ["iodet2"]
 
@@ -1215,6 +1175,7 @@ class SXM_IODET2(NonCalibratedPNdiode):
                             beforesample=True,\
                             **kwargs)
 
+
 class XRD_IDET(NonCalibratedPNdiode):
     aliases = ["pico1"]
     
@@ -1228,6 +1189,7 @@ class XRD_IDET(NonCalibratedPNdiode):
                                 Rout=ureg.Quantity(10,"volt")/ureg.Quantity(2.1e-6,"ampere"),\
                                 darkcurrent=ureg.Quantity(0,"ampere"),beforesample=False,\
                                 **kwargs)
+
 
 factory = PNdiode.factory
 

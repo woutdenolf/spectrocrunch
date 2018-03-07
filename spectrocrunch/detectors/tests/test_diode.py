@@ -81,7 +81,7 @@ class test_diode(unittest.TestCase):
             self.assertEqual(o2.m.units,ureg.dimensionless)
             self.assertEqual(o2.b.units,ureg.ampere)
 
-            for energy in np.arange(3,9):
+            for energy in np.arange(3,7):
                 o2 = o.op_fluxtocurrent(energy)*o.op_currenttoflux(energy)
                 self.assertAlmostEqual(o2.m,1.)
                 self.assertAlmostEqual(o2.b.magnitude,0.)

@@ -114,10 +114,10 @@ class SolidAngle(FlatSample):
         super(SolidAngle,self).__init__(**kwargs)
 
     def __str__(self):
-        if self.distance is None:
+        if self.solidangle is None:
             return super(SolidAngle,self).__str__()
         else:
-            return "{}\n Solid angle = 4*pi*{} srad".format(super(Centric,self).__str__(),self.solidangle/(4*np.pi))
+            return "{}\n Solid angle = 4*pi*{} srad".format(super(SolidAngle,self).__str__(),self.solidangle/(4*np.pi))
         
         
 class Centric(FlatSample):
