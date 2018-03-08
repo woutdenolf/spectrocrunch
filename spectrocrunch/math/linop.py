@@ -322,7 +322,7 @@ class NaNClip(ClipOperator):
         return "nclip"
 
     def _eval(self,x):
-        y,func = units.asarrayf(x)
+        y,func = units.asqarrayf(x)
         y = self.tofloat(y)
 
         nan = units.quantity_like(np.nan,y)
