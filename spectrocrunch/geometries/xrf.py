@@ -95,15 +95,16 @@ class LinearMotor(object):
         positionunits = calibrc["positionunits"]
         detectorpositionorg = np.asarray(calibrc["detectorposition"])
         detectorposition = units.Quantity(detectorpositionorg,positionunits).to("cm").magnitude
-        intensities = np.asarray(calibrc["intensities"])
-
+        signal = np.asarray(calibrc["signal"])
+        varsignal = np.asarray(calibrc["var"])
+        
         if solidanglecalib is None:
             # Initial parameter values
             activearea = noisepropagation.E(self.geometry.activearea)
             zerodistance = noisepropagation.E(self.zerodistance)
 
             distance = noisepropagation.E(self(detectorposition=detectorposition))
-            rate = np.mean(intensities/self.geometry.solidangle_calc(activearea=activearea,distance=distance))
+            rate = np.mean(signal/self.geometry.solidangle_calc(activearea=activearea,distance=distance))
 
             if fit:
                 if fixedactivearea:
@@ -137,7 +138,7 @@ class LinearMotor(object):
                 zerodistance = noisepropagation.E(self.zerodistance)
                 activearea = activeareafunc(zerodistance)
                 distance = noisepropagation.E(self(detectorposition=detectorposition))
-            rate = np.mean(intensities/self.geometry.solidangle_calc(activearea=activearea,distance=distance))
+            rate = np.mean(signal/self.geometry.solidangle_calc(activearea=activearea,distance=distance))
             
             if fit:
                 p0 = [rate,zerodistance]
@@ -152,8 +153,8 @@ class LinearMotor(object):
 
         if fit:
             # Fit
-            p, cov_matrix, info = silxfit.leastsq(fitfunc, detectorposition, intensities, p0,\
-                                              constraints=constraints, full_output=True)
+            p, cov_matrix, info = silxfit.leastsq(fitfunc, detectorposition, signal, p0,\
+                                              constraints=constraints, sigma=np.sqrt(varsignal), full_output=True)
             
             # Error and correlations:
             # H ~= J^T.J (hessian is approximated using the jacobian)
@@ -189,7 +190,7 @@ class LinearMotor(object):
             else:
                 label = 'current'
 
-            plt.plot(detectorpositionorg,intensities,'x',label='data')
+            plt.plot(detectorpositionorg,signal,'x',label='data')
             
             activearea = noisepropagation.E(self.geometry.activearea)
             distance = noisepropagation.E(self(detectorposition=detectorposition))
@@ -220,7 +221,7 @@ class LinearMotor(object):
             ax.set_ylabel(ylabel)
             plt.legend(loc='best')
         
-    def calibrate_fit_testcorrelation2(self,intensities,rate=None,zerodistance=None,detectorposition=None):
+    def calibrate_fit_testcorrelation2(self,signal,rate=None,zerodistance=None,detectorposition=None):
 
         # Fit function
         def func(x,rate,zerodistance,activearea):
@@ -239,7 +240,7 @@ class LinearMotor(object):
         for i,zerodistancei in enumerate(vzerodistance):
             for j,ratej in enumerate(vrate):
                 obs = func(detectorposition,ratej,zerodistancei,self.geometry.activearea)
-                img[i,j] = np.sum((obs-intensities)**2/intensities)
+                img[i,j] = np.sum((obs-signal)**2/signal)
 
         cax = plt.imshow(img, origin='lower', cmap=plt.cm.jet, interpolation='none', extent=[vrate[0],vrate[-1],vzerodistance[0],vzerodistance[-1]])
         ax = plt.gcf().gca()
@@ -251,7 +252,7 @@ class LinearMotor(object):
         cbar = plt.colorbar(cax,label="$\chi^2$")
         ax = plt.gcf().gca()
         
-    def calibrate_fit_testcorrelation(self,intensities,rate=None,zerodistance=None,detectorposition=None):
+    def calibrate_fit_testcorrelation(self,signal,rate=None,zerodistance=None,detectorposition=None):
 
         # Fit function
         def func(x,rate,zerodistance,activearea):
@@ -267,7 +268,7 @@ class LinearMotor(object):
         x = np.linspace(self.geometry.activearea-0.01,self.geometry.activearea+0.01,n)
         for i,activearea in enumerate(x):
             p0 = [rate,self.zerodistance+np.random.uniform(-1,1),activearea]
-            p, cov_matrix, info = silxfit.leastsq(func, detectorposition, intensities, p0,\
+            p, cov_matrix, info = silxfit.leastsq(func, detectorposition, signal, p0,\
                                               constraints=constraints, full_output=True)
             y[i] = info["reduced_chisq"]
             y2[i] = p[1]
@@ -408,7 +409,7 @@ class sxm120(LinearXRFGeometry):
 
         kwargs["positionunits"] = kwargs.get("positionunits","mm")
         kwargs["positionsign"] = kwargs.get("sign",1)
-        kwargs["zerodistance"] = units.Quantity(kwargs.get("zerodistance",57.266),"mm")
+        kwargs["zerodistance"] = units.Quantity(kwargs.get("zerodistance",56.5),"mm")
         kwargs["detectorposition"] = units.Quantity(kwargs.get("detectorposition",0),kwargs["positionunits"])
 
         super(sxm120,self).__init__(**kwargs)
@@ -426,7 +427,7 @@ class sxm90(LinearXRFGeometry):
 
         kwargs["positionunits"] = kwargs.get("positionunits","mm")
         kwargs["positionsign"] = kwargs.get("sign",1)
-        kwargs["zerodistance"] = units.Quantity(kwargs.get("zerodistance",8.549),"cm")
+        kwargs["zerodistance"] = units.Quantity(kwargs.get("zerodistance",85.571),"mm")
         kwargs["detectorposition"] = units.Quantity(kwargs.get("detectorposition",0),kwargs["positionunits"])
         
         super(sxm90,self).__init__(**kwargs)
@@ -444,7 +445,7 @@ class microdiff(LinearXRFGeometry):
 
         kwargs["positionunits"] = kwargs.get("positionunits","mm")
         kwargs["positionsign"] = kwargs.get("sign",-1)
-        kwargs["zerodistance"] = units.Quantity(kwargs.get("zerodistance",-5.730),"cm")
+        kwargs["zerodistance"] = units.Quantity(kwargs.get("zerodistance",-56.667),"mm")
         kwargs["detectorposition"] = units.Quantity(kwargs.get("detectorposition",10.),kwargs["positionunits"])
         
         super(microdiff,self).__init__(**kwargs)
