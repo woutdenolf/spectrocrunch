@@ -292,7 +292,7 @@ class Clip(ClipOperator):
     
     def _eval(self,x):
         #return np.clip(x,self.cmin,self.cmax)
-        y,func = units.asarrayf(x)
+        y,func = units.asqarrayf(x)
         y = self.tofloat(y)
         
         v,vmin,vmax = self._valid_limits(self.cmin,self.cmax)

@@ -38,12 +38,12 @@ logger = logging.getLogger(__name__)
 
 class FluxMonitor(object):
     
-    def __init__(self,iodetname=None,focussed=None,xrfdetector=None,xrfgeometry=None):
+    def __init__(self,iodetname=None,focussed=None,xrfdetector=None,xrfgeometry=None,simplecalibration=True):
         self.source = xraysources.factory("synchrotron")
     
         self.idet = diode.factory("idet",model=False)
         self.iodet = None
-        self._simplifysecondarytarget = True
+        self.simplecalibration = simplecalibration
         self.iodetname = iodetname
         self.focussed = focussed
         self.reference = units.Quantity(1e10,"hertz")
@@ -119,20 +119,10 @@ class FluxMonitor(object):
                 
         self.setiodet()
     
-    @property
-    def simplifysecondarytarget(self):
-        return self._simplifysecondarytarget
-        
-    @simplifysecondarytarget.setter
-    def simplifysecondarytarget(self,value):
-        self._simplifysecondarytarget = value
-        if self.iodet is not None:
-            self.iodet.simplifysecondarytarget = value
-    
     def setiodet(self):
         if self.iodet is None and not (self.iodetname is None or self.focussed is None):
             self.iodet = diode.factory(self.iodetname,optics=self.focussed,
-                                    source=self.source,simplifysecondarytarget=self._simplifysecondarytarget)
+                                    source=self.source,simplecalibration=self.simplecalibration)
 
     def darkiodet(self):
         self.iodet.darkfromcps(self.iodetcps)

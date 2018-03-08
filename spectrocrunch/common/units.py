@@ -92,7 +92,7 @@ def binary_operator(a,b,op):
     except:
         return op(magnitude(a),magnitude(a))
     
-def asarrayf(x,**kwargs):
+def asqarrayf(x,**kwargs):
     if instance.isarray(x):
         u = units(x[0])
         x = [magnitude(y,u) for y in x]
@@ -109,6 +109,18 @@ def asarrayf(x,**kwargs):
 
     return Quantity(x,units=u),func
 
+def asqarray(x,**kwargs):
+    if instance.isarray(x):
+        u = units(x[0])
+        x = [magnitude(y,u) for y in x]
+    else:
+        u = units(x)
+        x = magnitude(x,u)
+
+    x = instance.asarray(x,**kwargs)
+
+    return Quantity(x,units=u)
+    
 def flatten(x):
     if instance.isarray(x):
         unit = units(x[0])

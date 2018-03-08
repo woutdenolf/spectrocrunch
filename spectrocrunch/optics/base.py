@@ -22,40 +22,26 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from scipy import interpolate
+from ..common import lut
 
-from operator import itemgetter
-
-import numpy as np
-
-from ..common import instance
-
-class KB(object):
+class Optics(object):
 
     def __init__(self):
-        self.reset_transmission()
+        self.lut = lut.LUT(default=1)
     
     def __str__(self):
-        s = '\n '.join("{} keV: {} %".format(k,v*100) for k,v in sorted(self._tbl.items()))
+        s = '\n '.join("{} keV: {} %".format(k,v*100) for k,v in self.lut.table())
         if s:
-            return "KB transmission:\n {}".format(s)
+            return "transmission:\n {}".format(s)
         else:
-            return "KB transmission: 100%"
+            return "transmission: 100%"
     
     def reset_transmission(self):
-        self._tbl = {}
-        self._transmission = lambda energy: 1
+        self.lut.clear(1)
       
     def transmission(self,energy):
-        return self._transmission(energy)
+        return self.lut(energy)
     
     def set_transmission(self,energy,transmission):
-        self._tbl.update(dict(zip(instance.asarray(energy),instance.asarray(transmission))))
- 
-        (x,y) = zip(*sorted(self._tbl.items(), key=itemgetter(0)))
-
-        if len(x)==1:
-            self._transmission = lambda energy: y[0]
-        else:
-            self._transmission = interpolate.interp1d(list(x),list(y),bounds_error=False,fill_value=(y[0],y[-1]))
-
+        self.lut.add(energy,transmission)
+        

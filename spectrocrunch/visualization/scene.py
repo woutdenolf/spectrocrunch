@@ -256,7 +256,7 @@ class Scene(Hashable,Geometry2D):
         self.origin(1,self.datarange(1)[0])
         
     def datatransform(self,arr,dataaxis):
-        arr,func = units.asarrayf(arr)
+        arr,func = units.asqarrayf(arr)
         return func(arr*self.datascale[dataaxis] - self.dataoffset[dataaxis])
     
     def displaylim(self,lim,dataaxis):

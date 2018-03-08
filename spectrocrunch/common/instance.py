@@ -61,12 +61,40 @@ def israndomvariable(x):
         return isinstance(x.flat[0],uncertainties.core.Variable)
     else:
         return isinstance(x,uncertainties.core.Variable)
+
+def _asarray(x,**kwargs):
+    if isquantity(x):
+        m = x.magnitude
+        if isarray(m):
+            try:
+                scalar = m.ndim == 0
+            except AttributeError:
+                scalar = False
+            if scalar:
+                x = [ureg.Quantity(np.asscalar(m),x.units)]
+            else:
+                x = [y for y in x]
+        else:
+            x = [x]
+        x = np.asarray(x,dtype=object,**kwargs)
+    else:
+        try:
+            x = np.asarray(x,**kwargs)
+        except ValueError:
+            x = np.asarray(x,dtype=object,**kwargs)
+
+    return x
+
+def asarray(x,**kwargs):
+    x = _asarray(x,**kwargs)
+    if x.ndim == 0:
+        return x[np.newaxis]
+    else:
+        return x
         
 def asarrayf(x,**kwargs):
-    try:
-        x = np.asarray(x,**kwargs)
-    except ValueError:
-        x = np.asarray(x,dtype=object,**kwargs)
+    x = _asarray(x,**kwargs)
+    
     scalar = x.ndim == 0
     if scalar:
         # Convert to 1D array
@@ -78,21 +106,14 @@ def asarrayf(x,**kwargs):
     return x,func
 
 def asarrayb(x,**kwargs):
-    x = np.asarray(x,**kwargs)
+    x = _asarray(x,**kwargs)
+    
     scalar = x.ndim == 0
     if scalar:
         # Convert to 1D array
         x = x[np.newaxis]
-    
+        
     return x,not scalar
-    
-def asarray(x,**kwargs):
-    # similar to np.atleast_1d
-    x = np.asarray(x,**kwargs)
-    if x.ndim == 0:
-        return x[np.newaxis]
-    else:
-        return x
 
 def aslist(x):
     return asarray(x).tolist()
