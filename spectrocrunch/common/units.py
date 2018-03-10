@@ -27,6 +27,8 @@ from . import instance
 from . import persistence
 from . import listtools
 
+from pint import errors as pinterrors
+
 def Quantity(x,units=None):
     """Add units when not present. Use instead of ureg.Quantity in case x may already be a Quantity.
     """
@@ -43,7 +45,23 @@ def units(x):
     except AttributeError:
         return None
 
-def to(x,y):
+def to(x,units):
+    """Converts to the first valid unit
+    """
+    if not instance.isarray(units):
+        units = [units]
+    x = Quantity(x)
+    for unit in units:
+        try:
+            x = x.to(unit)
+            break
+        except pinterrors.DimensionalityError:
+            continue
+    else:
+        raise RuntimeError("Units of {} cannot be converted to {}".format(x,units))
+    return x
+    
+def unitas(x,y):
     """Convert units of x to units of y (if y has no units, it will try to have x without units as we)
     """
     try:
@@ -60,8 +78,8 @@ def to(x,y):
                 raise RuntimeError("Units are not compatible: {}, {}".format(x,y))
     else: # y has units
         try:
-            x = x.to(y.units)
-        except:
+            x = Quantity(x).to(y.units)
+        except pinterrors.DimensionalityError:
             raise RuntimeError("Units are not compatible: {}, {}".format(x,y))
             
     return x

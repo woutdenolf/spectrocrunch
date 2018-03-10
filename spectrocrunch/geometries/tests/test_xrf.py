@@ -33,34 +33,34 @@ class test_xrf(unittest.TestCase):
         class Dummy():
             pass
         
-        geometry = xrf.factory("LinearXRFGeometry",zerodistance=6.,detectorposition=-10,positionunits="mm",detector=Dummy(),source=Dummy())
+        geometry = xrf.factory("LinearXRFGeometry",zerodistance=60.,detectorposition=-10,positionunits="mm",detector=Dummy(),source=Dummy())
 
-        self.assertEqual(geometry.distance,5)
-        self.assertEqual(geometry.detectorposition,-1)
+        self.assertEqual(geometry.distance.to("cm").magnitude,5)
+        self.assertEqual(geometry.detectorposition.to("cm").magnitude,-1)
         
         geometry.detectorposition = 30
-        self.assertEqual(geometry.distance,9)
-        self.assertEqual(geometry.detectorposition,3)
+        self.assertEqual(geometry.distance.to("cm").magnitude,9)
+        self.assertEqual(geometry.detectorposition.to("cm").magnitude,3)
         
         geometry.detectorposition = units.Quantity(4,"cm")
-        self.assertEqual(geometry.distance,10)
-        self.assertEqual(geometry.detectorposition,4)
+        self.assertEqual(geometry.distance.to("cm").magnitude,10)
+        self.assertEqual(geometry.detectorposition.to("cm").magnitude,4)
         
         geometry.distance = 4
-        self.assertEqual(geometry.distance,4)
-        self.assertEqual(geometry.detectorposition,-2)
+        self.assertEqual(geometry.distance.to("cm").magnitude,4)
+        self.assertEqual(geometry.detectorposition.to("cm").magnitude,-2)
         
         geometry.calibrate_manually(10)
-        self.assertEqual(geometry.distance,10)
-        self.assertEqual(geometry.detectorposition,-2)
+        self.assertEqual(geometry.distance.to("cm").magnitude,10)
+        self.assertEqual(geometry.detectorposition.to("cm").magnitude,-2)
         
         geometry.calibrate_manually(units.Quantity(20,"mm"))
-        self.assertEqual(geometry.distance,2)
-        self.assertEqual(geometry.detectorposition,-2)
+        self.assertEqual(geometry.distance.to("cm").magnitude,2)
+        self.assertEqual(geometry.detectorposition.to("cm").magnitude,-2)
         
         geometry.distance = units.Quantity(50,"mm")
-        self.assertEqual(geometry.distance,5)
-        self.assertEqual(geometry.detectorposition,1)
+        self.assertEqual(geometry.distance.to("cm").magnitude,5)
+        self.assertEqual(geometry.detectorposition.to("cm").magnitude,1)
         
         
 def test_suite_all():

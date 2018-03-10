@@ -23,34 +23,46 @@
 # THE SOFTWARE.
 
 import unittest
-from ..id21_quant import FluxMonitor
+from .. import qxrf
 from ...common import units
 
 import numpy as np
 
-class test_id21_quant(unittest.TestCase):
+class test_qxrf(unittest.TestCase):
 
-    def fluxmonitor(self):
+    def geometryinstance(self):
         energy = 10
-        monitor = FluxMonitor(iodetname="iodet1",focussed=True,xrfdetector="leia",xrfgeometry="sxm120")
-        monitor.setdark(300,None,gainiodet=1e8)
-        monitor.setcalib(energy-2,0.5,gainiodet=1e8)
-        monitor.setcalib(energy+2,0.5,gainiodet=1e8)
-        monitor.setreferenceflux(1e9)
-        monitor.settime(0.1)
-        return monitor
+        geometryinstance = qxrf.factory("QXRFGeometry",diodeI0="iodet1",diodeIt="idet",optics="kb",\
+                            xrfdetector="leia",xrfgeometry="sxm120",instrument="sxm",simplecalibration=False)
         
-    def test_monitor(self):
-        fluxmonitor = self.fluxmonitor()
+        info = {"I0":300,"It":30,"time":1,"dark":True,"gaindiodeI0":1e8,"gaindiodeIt":1e7}
+        geometryinstance.calibrate(**info)
+        
+        info["I0"] = 10000
+        info["It"] = 100000
+        info["energy"] = energy-2
+        info["dark"] = False
+        geometryinstance.calibrate(**info)
+        
+        info["I0"] = 5000
+        info["energy"] = energy+2
+        geometryinstance.calibrate(**info)
+        
+        geometryinstance.setreferenceflux(1e9)
+        geometryinstance.settime(0.1)
+        return geometryinstance
+        
+    def test_flux(self):
+        geometryinstance = self.geometryinstance()
 
         energy = 10
         time = 0.2
         refflux = 1e9
         
         flux = np.linspace(1e9,1e8,20) # ph/sec
-        iodet = fluxmonitor.fluxtocps(energy,flux)*time
+        iodet = geometryinstance.fluxtocps(energy,flux)*time
         
-        flux2 = fluxmonitor.cpstoflux(energy,iodet/time)
+        flux2 = geometryinstance.responsetoflux(energy,iodet/time)
         np.testing.assert_allclose(flux,flux2)
         
         # Normalize data to the real flux (use flux reference)
@@ -59,20 +71,20 @@ class test_id21_quant(unittest.TestCase):
         dataref = refflux*time*rates # measured when flux whould have been refflux at each poi1e9
         ref = units.Quantity(refflux,"hertz")
 
-        op,_,_,_ = fluxmonitor.xrfnormop(energy,time=time,ref=ref)
+        op,_,_,_ = geometryinstance.xrfnormop(energy,expotime=time,reference=ref)
         np.testing.assert_allclose(dataref,data/op(iodet))
         
         # Normalize data to the real flux (use iodet reference)
-        iodetref = fluxmonitor.fluxtocps(energy,refflux)*time
+        iodetref = geometryinstance.fluxtocps(energy,refflux)*time
         ref = units.Quantity(iodetref,"dimensionless")
 
-        op,_,_,_ = fluxmonitor.xrfnormop(energy,time=time,ref=ref)
+        op,_,_,_ = geometryinstance.xrfnormop(energy,expotime=time,reference=ref)
         np.testing.assert_allclose(dataref,data/op(iodet))
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_id21_quant("test_monitor"))
+    testSuite.addTest(test_qxrf("test_flux"))
     return testSuite
     
 if __name__ == '__main__':

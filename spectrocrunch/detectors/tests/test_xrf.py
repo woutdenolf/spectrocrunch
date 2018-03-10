@@ -60,8 +60,7 @@ class test_xrfdet(unittest.TestCase):
                                             "stepfraction":0.005,\
                                             "bpeak":True,"bstail":True,"bltail":True,"bstep":True}
         detector1 = xrf.XRFDetector(**kwargs)
-        
-        
+
         kwargs.pop("shape_fixedarearatios")
         kwargs["shape_pymca"] = {"stailarea_ratio":detector1.ratios[0],\
                                 "stailslope_ratio":detector1.stailslope_ratio,\

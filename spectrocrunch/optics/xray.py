@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,11 +22,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common.classfactory import with_metaclass
 from . import base
+from ..common.classfactory import with_metaclass
 
-class DiodeGeometry(with_metaclass(base.SolidAngle)):
+class XrayOptics(with_metaclass(base.Optics)):
     pass
 
-factory = DiodeGeometry.factory
+class KB(XrayOptics):
+    aliases = ["kb"]
+
+class ZonePlate(XrayOptics):
+    aliases = ["zp"]
+
+factory = XrayOptics.factory
+clsfactory = XrayOptics.clsfactory
+
 

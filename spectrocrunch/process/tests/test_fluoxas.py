@@ -34,8 +34,8 @@ from ...io import xiaedf
 from ...io import nexus
 from ...align import types
 from ...common import instance
-from ..id21_quant import FluxMonitor
-from ...h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
+from ...geometries import qxrf
+from ...h5stacks import get_hdf5_imagestacks
 from ...materials.tests import xrf_setup
 
 import logging
@@ -73,12 +73,10 @@ class test_fluoxas(unittest.TestCase):
         config.read(self.cfgfile)
         return float(instance.asarray(config["fit"]["energy"])[0])
 
-    def fluxmonitor(self):
+    def qxrfgeometry(self):
         energy = self.pymcagetenergy()
-        monitor = FluxMonitor(iodetname="iodet1",focussed=True,xrfdetector="leia",xrfgeometry="sxm120")
-        monitor.setdark(300,None,gainiodet=1e8)
-        monitor.setcalib(energy-5,0.5,gainiodet=1e8)
-        monitor.setcalib(energy+5,0.5,gainiodet=1e8)
+        monitor = qxrf.factory("QXRFGeometry",instrument="id21",diodeI0="iodet1",diodeIt="idet",\
+                                optics="KB",xrfdetector="leia",xrfgeometry="sxm120")
         monitor.setreferenceflux(1e9)
         monitor.settime(0.1)
         return monitor
@@ -106,18 +104,20 @@ class test_fluoxas(unittest.TestCase):
         ctrs = {}
 
         # Apply flux
-        fluxmonitor = self.fluxmonitor()
-        refflux = fluxmonitor.reference.to("hertz").magnitude
+        qxrfgeometry = self.qxrfgeometry()
+        refflux = qxrfgeometry.reference.to("hertz").magnitude
         flux = np.linspace(refflux,refflux*0.5,nmaps*nlines*nspec).reshape((nmaps,nlines,nspec))
         data *= flux[...,np.newaxis,np.newaxis]
         
         ctrs["arr_iodet"] = np.ones((nmaps,nlines,nspec))
         ctrs["arr_idet"] = np.ones((nmaps,nlines,nspec))
         ctrs["arr_fdet"] = np.ones((nmaps,nlines,nspec))
+        expotime = qxrfgeometry.defaultexpotime.to("seconds").magnitude
         for i,en in enumerate(energy):
-            ctrs["arr_iodet"][i,...] = fluxmonitor.fluxtocps(en,flux[i,...])*fluxmonitor.defaulttime.to("seconds").magnitude
+            ctrs["arr_iodet"][i,...] = qxrfgeometry.diodeI0.fluxtocps(en,flux[i,...])*expotime
+            ctrs["arr_idet"][i,...] = qxrfgeometry.diodeIt.fluxtocps(en,flux[i,...])*expotime
             ctrs["arr_fdet"][i,...] = flux[i,...]/refflux
-            op,fref,tref,traw = fluxmonitor.xrfnormop(en)
+            op,fref,tref,traw = qxrfgeometry.xrfnormop(en)
             self.assertEqual(fref,refflux)
             np.testing.assert_allclose(ctrs["arr_fdet"][i,...],op(ctrs["arr_iodet"][i,...]))
 
@@ -160,7 +160,7 @@ class test_fluoxas(unittest.TestCase):
         xialabels = ["xia{:02d}".format(i) for i in range(ndet)]
         stack.save(data,xialabels,stats=stats,ctrs=np.stack(ctrs.values(),axis=-1),ctrnames=ctrs.keys(),ctrheaders=ctrheaders)
 
-        return path,radix,data,stats,ctrs,fluxmonitor
+        return path,radix,data,stats,ctrs,qxrfgeometry
     
     @contextlib.contextmanager
     def env_destpath(self):
@@ -171,7 +171,7 @@ class test_fluoxas(unittest.TestCase):
     def test_process(self):
         
         # Generate data
-        sourcepath,radix,data,stats,ctrs,fluxmonitor = self.gendata()
+        sourcepath,radix,data,stats,ctrs,qxrfgeometry = self.gendata()
         
         # Raw data 
         nmaps,nlines,nspec,nchan,ndet = data.shape
@@ -192,24 +192,19 @@ class test_fluoxas(unittest.TestCase):
                     continue
                 for include_detectors in [[2],[0,2]]:
                     for addbeforefit in [False,True]:
+                        addbeforefit_onspectra = addbeforefit and len(include_detectors)>1
                         for quant in [True,False]:
                             if quant:
-                                monitor = fluxmonitor
+                                geom = qxrfgeometry
                                 prealignnormcounter = None
                             else:
-                                monitor = None
+                                geom = None
                                 prealignnormcounter = "arr_fdet"
                             for dtcor in [False,True]:
                                 dtcor_onspectra = dtcor and (len(include_detectors)>1 or quant)
-                                if dtcor_onspectra:
-                                    radixout = "{}_{}".format(radix,"dtcor")
-                                else:
-                                    radixout = radix
-
                                 for stackdim in [2,1,0]:
                                     with self.env_destpath():
                                         for skippre in [False,True]:
-                                            addbeforefit_onspectra = addbeforefit and len(include_detectors)>1
                                             
                                             logger.debug("alignmethod = {}".format(alignmethod))
                                             logger.debug("addbeforefit = {}".format(addbeforefit))
@@ -224,13 +219,23 @@ class test_fluoxas(unittest.TestCase):
                                             process(sourcepath,self.destpath.path,radix,scannumbers,cfgfileuse,\
                                                     alignmethod=alignmethod,alignreference=alignreference,\
                                                     refimageindex=refimageindex,dtcor=dtcor,plot=False,\
-                                                    addbeforefit=addbeforefit,fluxmonitor=monitor,replacenan=bool(alignmethod),\
+                                                    addbeforefit=addbeforefit,qxrfgeometry=geom,replacenan=bool(alignmethod),\
                                                     prealignnormcounter=prealignnormcounter,stackdim=stackdim,\
                                                     include_detectors=include_detectors,skippre=skippre,instrument="id21")
 
                                             # Check generated spectra (files)
                                             newspectra = dtcor_onspectra or addbeforefit_onspectra or quant
                                             
+                                            corlabel = ""
+                                            if dtcor_onspectra:
+                                                corlabel = corlabel+"dt"
+                                            if quant:
+                                                corlabel = corlabel+"fl"
+                                            if corlabel:
+                                                radixout = "{}_{}cor".format(radix,corlabel)
+                                            else:
+                                                radixout = radix
+
                                             if newspectra:
                                                 if addbeforefit_onspectra:
                                                     expected = ["{}_xiaS1_{:04d}_0000_{:04d}.edf".format(radixout,mapnum,linenum)\
@@ -304,7 +309,7 @@ class test_fluoxas(unittest.TestCase):
                                             # Check element ratio's the same in all pixels
                                             if cfgfileuse is not None:
                                                 h5file = os.path.join(self.destpath.path,h5file)
-                                                stacks, axes, procinfo = getstacks(h5file,["detectorsum"])
+                                                stacks, axes, procinfo = get_hdf5_imagestacks.get_hdf5_imagestacks(h5file,["detectorsum"])
                                                 data4 = None
                                                 with nexus.File(h5file,mode='r') as f:
                                                     for stack in stacks.values():

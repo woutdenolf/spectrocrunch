@@ -30,11 +30,13 @@ from ..simulation import noisepropagation
 class Base(object):
 
     def __init__(self,detector=None,source=None):
+        self.connect(detector=detector,source=source)
+    
+    def connect(self,detector=None,source=None):
         self.detector = detector
         self.source = source
-        
-        self.detector.geometry = self
-        self.source.geometry = self
+        if self.detector is not None:
+            self.detector.geometry = self
     
     def __getattr__(self,attr):
         try:
@@ -127,12 +129,12 @@ class Centric(FlatSample):
         Args:
             distance(num): distance (cm) to target
         """
-        self._distance = distance
+        self.distance = distance
         super(Centric,self).__init__(**kwargs)
 
     @property
     def distance_rv(self):
-        return units.magnitude(self._distance,"cm")
+        return self._distance
     
     @property
     def distance(self):
@@ -140,7 +142,10 @@ class Centric(FlatSample):
         
     @distance.setter
     def distance(self,value):
-        self._distance = value
+        if value is None:
+            self._distance = None
+        else:
+            self._distance = units.Quantity(distance,"cm")
        
     @property
     def solidangle(self):
@@ -154,11 +159,11 @@ class Centric(FlatSample):
         if self.distance is None:
             return super(Centric,self).__str__()
         else:
-            return "{}\n Distance = {} cm\n Solid angle = 4*pi*{} srad".format(super(Centric,self).__str__(),self.distance,self.solidangle/(4*np.pi))
+            return "{}\n Distance = {:~}\n Solid angle = 4*pi*{} srad".format(super(Centric,self).__str__(),self.distance,self.solidangle/(4*np.pi))
         
     def addtopymca(self,setup,cfg): 
         super(Centric,self).addtopymca(setup,cfg)
-        cfg["concentrations"]["distance"] = self.distance
+        cfg["concentrations"]["distance"] = self.distance.to("cm").magnitude
 
     def loadfrompymca(self,setup,cfg): 
         super(Centric,self).loadfrompymca(setup,cfg)

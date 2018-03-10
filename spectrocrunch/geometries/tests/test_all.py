@@ -24,11 +24,13 @@
 
 import unittest
 from . import test_xrf
+from . import test_qxrf
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_xrf.test_suite_all())
+    testSuite.addTest(test_qxrf.test_suite_all())
     return testSuite
     
 if __name__ == '__main__':

@@ -25,6 +25,7 @@
 from ..common import instance
 from ..common import units
 from ..simulation import noisepropagation
+from .. import ureg
 
 import numpy as np
 import fisx
@@ -213,15 +214,15 @@ class SolidState(Material):
 class CentricCone(SolidState):
 
     def __init__(self,activearea=None,**kwargs):
-        self._activearea = activearea # cm^2
+        self.activearea = activearea # cm^2
         super(CentricCone,self).__init__(**kwargs)
 
     def __str__(self):
-        return " Active area = {} cm^2\n{}".format(self.activearea,super(CentricCone,self).__str__())
+        return " Active area = {:~}\n{}".format(self.activearea,super(CentricCone,self).__str__())
 
     @property
     def activearea_rv(self):
-        return units.magnitude(self._activearea,"cm^2")
+        return self._activearea
     
     @property
     def activearea(self):
@@ -229,7 +230,10 @@ class CentricCone(SolidState):
         
     @activearea.setter
     def activearea(self,value):
-        self._activearea = value
+        if value is None:
+            self._activearea = None
+        else:
+            self._activearea = units.Quantity(value,"cm^2")
 
     @classmethod
     def solidangle_calc(cls,activearea=None,distance=None,solidangle=None):
@@ -240,7 +244,7 @@ class CentricCone(SolidState):
             d2 = distance**2.
             r2 = activearea/np.pi
             costheta = distance/(r2+d2)**0.5
-            return 2.*np.pi*(1.-costheta)
+            return 2.*np.pi*(1.-costheta.to(ureg.dimensionless).magnitude)
         elif distance is None:
             r2 = activearea/np.pi
             c2 = (1-solidangle/(2.*np.pi))**2
@@ -256,14 +260,14 @@ class CentricCone(SolidState):
         
         if self.hasmaterial:
             detector = fisx.Detector(self.material.name, self.material.density, self.thickness)
-            detector.setActiveArea(self.activearea)
-            detector.setDistance(self.geometry.distance)
+            detector.setActiveArea(self.activearea.to("cm^2").magnitude)
+            detector.setDistance(self.geometry.distance.to("cm").magnitude)
             #detector.setMaximumNumberOfEscapePeaks(0)
             setup.setDetector(detector)
 
     def addtopymca(self,setup,cfg): 
         super(CentricCone,self).addtopymca(setup,cfg)
-        cfg["concentrations"]["area"] = self.activearea
+        cfg["concentrations"]["area"] = self.activearea.to("cm^2").magnitude
     
     def loadfrompymca(self,setup,cfg): 
         super(CentricCone,self).loadfrompymca(setup,cfg)

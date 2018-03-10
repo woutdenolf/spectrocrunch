@@ -73,11 +73,11 @@ class test_diode(unittest.TestCase):
 
         for model in [True,False]:
             o = diode.SXM_IDET(model=model)
-            o.setgain(ureg.Quantity(10**gain,'V/A'))
+            o.gain = ureg.Quantity(10**gain,'V/A')
 
             o2 = o.op_cpstocurrent()*o.op_currenttocps()
-            self.assertEqual(o2.m,1.)
-            self.assertEqual(o2.b.magnitude,0.)
+            self.assertAlmostEqual(o2.m.magnitude,1.)
+            self.assertAlmostEqual(o2.b.magnitude,0.)
             self.assertEqual(o2.m.units,ureg.dimensionless)
             self.assertEqual(o2.b.units,ureg.ampere)
 
@@ -113,7 +113,7 @@ class test_diode(unittest.TestCase):
                     if caliboption!="optics":
                         continue
                         
-                o = diode.SXM_IODET1(optics=True,simplecalibration=simplecalibration)
+                o = diode.SXM_IODET1(optics="kb",simplecalibration=simplecalibration)
                 o.thickness = 1e-4
                 o.geometry.solidangle = 0.1
 

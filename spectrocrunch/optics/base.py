@@ -44,4 +44,4 @@ class Optics(object):
     
     def set_transmission(self,energy,transmission):
         self.lut.add(energy,transmission)
-        
+

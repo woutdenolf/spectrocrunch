@@ -116,8 +116,8 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
     include_detectors = kwargs.get("include_detectors",None)
     noxia = kwargs.get("noxia",False)
     encodercor = kwargs.get("encodercor",{})
-    fluxmonitor = kwargs.get("fluxmonitor",None)
-    fluxmonitorparams = {"quantify":fluxmonitor is not None}
+    qxrfgeometry = kwargs.get("qxrfgeometry",None)
+    qxrfgeometryparams = {"quantify":qxrfgeometry is not None}
     counters = kwargs.get("counters",[])
 
     if noxia:
@@ -184,7 +184,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
             "addafterfitting": addafterfitting, # sum fit results and detector counters
             "exclude_detectors": exclude_detectors,
             "include_detectors": include_detectors,
-            "fluxmonitor": fluxmonitorparams,
+            "qxrfgeometry": qxrfgeometryparams,
             
             # Output directories
             "outdatapath": os.path.join(destpath,scanname[0]+"_data"),
@@ -213,7 +213,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
     stackdim = kwargs.get("stackdim",2)
     default = kwargs.get("default",None)
     # ... xrf
-    fluxmonitor = kwargs.get("fluxmonitor",None)
+    qxrfgeometry = kwargs.get("qxrfgeometry",None)
     # ... normalization
     prealignnormcounter = kwargs.get("prealignnormcounter",None)
     postalignnormcounter = kwargs.get("postalignnormcounter",None)
@@ -241,7 +241,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
     else:
         jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,\
                                             cfgfiles,**kwargs)
-        stacks, axes, procinfo = create_hdf5_imagestacks(jsonfile,fluxmonitor=fluxmonitor)
+        stacks, axes, procinfo = create_hdf5_imagestacks(jsonfile,qxrfgeometry=qxrfgeometry)
 
         #stacks2, axes2, procinfo2 = get_hdf5_imagestacks(h5file,["counters","detectorsum"])
         #assert(axes == axes2)

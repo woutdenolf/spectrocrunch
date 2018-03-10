@@ -29,8 +29,7 @@ from . import instance
 import future.utils
 
 #https://blog.ionelmc.ro/2015/02/09/understanding-python-metaclasses/
-
-
+#
 # Instance creation:
 #   metaclass.__call__()
 #       instance = class.__new__(self,)
@@ -43,7 +42,8 @@ import future.utils
 #       metaclass.__init__(class,...)
 #       return class
 
-def factory(cls, name, *args,**kwargs):
+
+def clsfactory(cls, name):
     """
     Args:
         cls(class): factory base class
@@ -54,13 +54,26 @@ def factory(cls, name, *args,**kwargs):
     """
     
     if name in cls.clsregistry:
-        return cls.clsregistry[name](*args,**kwargs)
+        return cls.clsregistry[name]
     elif name in cls.aliasregistry:
-        return cls.aliasregistry[name](*args,**kwargs)
+        return cls.aliasregistry[name]
     else:
         raise RuntimeError("Class {} is not known:\n registered classes: {}\n aliases: {}".format(name,cls.clsregistry.keys(),cls.aliasregistry.keys()))
+        
+        
+def factory(cls, name, *args,**kwargs):
+    """
+    Args:
+        cls(class): factory base class
+        name(str): name of class that needs to be created
 
-def register(cls,regcls,name):
+    Returns:
+        class
+    """
+    return cls.clsfactory(name)(*args,**kwargs)
+
+
+def register(cls, regcls, name):
     """
     Args:
         cls(class): factory base class
@@ -82,6 +95,7 @@ def register(cls,regcls,name):
             if lalias!=alias:
                 cls.aliasregistry[lalias] = regcls
         
+        
 class FactoryMeta(type):
     """
     Metaclass used to register all lens classes inheriting from FactoryBase 
@@ -93,9 +107,10 @@ class FactoryMeta(type):
         if not hasattr(cls,"register"):
             cls.clsregistry = OrderedDict()
             cls.aliasregistry = OrderedDict()
+            cls.clsfactory = classmethod(clsfactory)
             cls.factory = classmethod(factory)
             cls.register = classmethod(register)
-            
+
         return cls
         
     def __init__(cls, name, bases, attr):
@@ -104,6 +119,7 @@ class FactoryMeta(type):
             if hasattr(b,"register"):
                 b.register(cls,name)
         super(FactoryMeta, cls).__init__(name, bases, attr)
+
 
 def with_metaclass(bases=None):
     if bases is None:

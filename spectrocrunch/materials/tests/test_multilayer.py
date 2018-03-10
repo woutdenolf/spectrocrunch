@@ -301,7 +301,7 @@ def test_suite_all():
     testSuite.addTest(test_multilayer("test_primary_simple"))
     testSuite.addTest(test_multilayer("test_primary_complex"))
     
-    #testSuite.addTest(test_multilayer("test_secondary"))
+    #TODO: testSuite.addTest(test_multilayer("test_secondary"))
     return testSuite
     
 if __name__ == '__main__':
