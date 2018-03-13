@@ -25,45 +25,12 @@
 import unittest
 
 from .. import fit1d
-from .. import noisepropagation
 
 import numpy as np
 
 
 class test_fit1d(unittest.TestCase):
 
-    def test_lstsq_std(self):
-        nx,npa = 10,3
-        A = np.random.rand(nx,npa)*10
-        
-        # None of these work:
-        
-        # VAR(b) -LSTSQ-> VAR(x) -LINPROP-> VAR(b)
-        x = np.random.rand(npa)
-        b = np.dot(A,x)
-        varb = b # poisson
-        varx = fit1d.lstsq_std(A,None,None,vare=varb)
-        x = noisepropagation.randomvariable(x,np.sqrt(varx))
-        b2 = np.dot(A,x)
-        varb2 = noisepropagation.VAR(b2)
-        #np.testing.assert_allclose(varb,varb2)
-        
-        # VAR(x) -LINPROP-> VAR(b) -LSTSQ-> VAR(x)
-        x = noisepropagation.poisson(np.random.rand(npa))
-        b2 = np.dot(A,x)
-        varb2 = noisepropagation.VAR(b2)
-        varx2 = fit1d.lstsq_std(A,None,None,vare=varb2)
-        #np.testing.assert_allclose(noisepropagation.VAR(x),varx2)
-        
-        # x -LINPROP-> VAR(b)
-        # VAR(x) -LINPROP-> VAR(b)
-        x = np.random.rand(npa)
-        varx = np.random.rand(npa)**2
-        x = noisepropagation.randomvariable(x,varx)
-        varb = noisepropagation.VAR(np.dot(A,x))
-        varb2 = np.dot(A*A,varx)
-        #np.testing.assert_allclose(varb,varb2)
-        
     def test_leastsq(self):
         nx = 501
         x = np.arange(nx)
@@ -108,9 +75,8 @@ class test_fit1d(unittest.TestCase):
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    #testSuite.addTest(test_fit1d("test_leastsq"))
-    #testSuite.addTest(test_fit1d("test_linfit"))
-    testSuite.addTest(test_fit1d("test_lstsq_std"))
+    testSuite.addTest(test_fit1d("test_leastsq"))
+    testSuite.addTest(test_fit1d("test_linfit"))
     return testSuite
     
 if __name__ == '__main__':

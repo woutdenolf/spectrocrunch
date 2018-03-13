@@ -25,7 +25,8 @@
 import unittest
 import itertools
 
-from ...math import noisepropagation
+from .. import noisepropagation
+from .. import fit1d
 from ...common import units
 from ...common import instance
 
@@ -193,7 +194,28 @@ class test_noisepropagation(unittest.TestCase):
         Z = noisepropagation.compound(X,Y)
         XX = noisepropagation.compound(Z,Y,forward=False)
         self._RValmostequal(X,XX)
+
+    def test_lstsq_std(self):
+        nx,npa = 10,3
+        A = np.random.rand(nx,npa)*10
         
+        # x -LINPROP-> VAR(b)
+        # VAR(x) -LINPROP-> VAR(b)
+        x = np.random.rand(npa)
+        stdx = np.random.rand(npa)
+        x = noisepropagation.randomvariable(x,stdx)
+        varb = noisepropagation.VAR(np.dot(A,x))
+        varb2 = np.dot(A*A,stdx**2)
+        np.testing.assert_allclose(varb,varb2)
+        
+        stdx2 = np.sqrt(fit1d.lstsq(A*A,varb))
+        np.testing.assert_allclose(stdx,stdx2)
+
+        stdx2 = fit1d.lstsq_std_indep(A,vare=varb)
+        np.testing.assert_allclose(stdx,stdx2)
+        #stdx3 = fit1d.lstsq_std(A,vare=varb)
+        #covx = fit1d.lstsq_cov(A,vare=varb)
+
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
@@ -203,6 +225,7 @@ def test_suite_all():
     testSuite.addTest(test_noisepropagation("test_bernouilli"))
     testSuite.addTest(test_noisepropagation("test_poisson"))
     testSuite.addTest(test_noisepropagation("test_reverse"))
+    testSuite.addTest(test_noisepropagation("test_lstsq_std"))
     return testSuite
     
 if __name__ == '__main__':
