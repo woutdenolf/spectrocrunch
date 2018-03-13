@@ -10,7 +10,7 @@ from spectrocrunch.materials.types import fraction
 
 from spectrocrunch.simulation import calcnoise
 from spectrocrunch.simulation import materials
-from spectrocrunch.simulation import noisepropagation
+from spectrocrunch.math import noisepropagation
 
 import numpy as np
 import scipy.optimize

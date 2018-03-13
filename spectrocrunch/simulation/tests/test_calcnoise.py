@@ -24,11 +24,11 @@
 
 import unittest
 
-from .. import noisepropagation
+from ...math import noisepropagation
 from .. import calcnoise
 from ...materials import multilayer
 from ...geometries import flatarea
-from ..sources import xray as xraysources
+from ...sources import xray as xraysources
 from ...detectors import area
 from ...materials.compoundfromformula import CompoundFromFormula as compound
 

@@ -132,10 +132,7 @@ class Scene(Hashable,Geometry2D):
         
     def _magnitude(self,v,dataaxis):
         unit = self.units[dataaxis]
-        if instance.isarray(v):
-            return type(v)(a.to(unit).magnitude for a in v)
-        else:
-            return v.to(unit).magnitude
+        return units.magnitude(v,unit)
 
     @property
     def xunit(self):
@@ -256,8 +253,8 @@ class Scene(Hashable,Geometry2D):
         self.origin(1,self.datarange(1)[0])
         
     def datatransform(self,arr,dataaxis):
-        arr,func = units.asqarrayf(arr)
-        return func(arr*self.datascale[dataaxis] - self.dataoffset[dataaxis])
+        arr = units.asqarray(arr)
+        return instance.asarray(arr*self.datascale[dataaxis] - self.dataoffset[dataaxis])
     
     def displaylim(self,lim,dataaxis):
         if self._increasing[dataaxis]:
@@ -759,8 +756,8 @@ class Image(Item):
             norm = ColorNorm(settings["cnorm"])(vmin=vmin,vmax=vmax)
         
         # Coordinates and borders
-        extent = scene.xmagnitude(self.datalimx)+scene.ymagnitude(self.datalimy)
-        
+        extent = list(scene.xmagnitude(self.datalimx))+list(scene.ymagnitude(self.datalimy))
+
         x,y = self.bordercoord()
         x = scene.xmagnitude(x)
         y = scene.ymagnitude(y)

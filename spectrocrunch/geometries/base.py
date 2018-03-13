@@ -25,7 +25,7 @@
 import numpy as np
 from ..common import units
 from ..common import instance
-from ..simulation import noisepropagation
+from ..math import noisepropagation
 
 class Base(object):
 

@@ -21,23 +21,3 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
-import unittest
-
-from . import test_objects
-from . import test_calcnoise
-
-def test_suite_all():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_objects.test_suite_all())
-    testSuite.addTest(test_calcnoise.test_suite_all())
-    return testSuite
-    
-if __name__ == '__main__':
-    import sys
-
-    mysuite = test_suite_all()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

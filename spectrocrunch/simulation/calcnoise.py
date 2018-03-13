@@ -29,7 +29,7 @@ from ..sources import xray as xraysources
 from ..detectors import area
 from ..materials import scintillators
 from ..materials import lenses
-from . import noisepropagation
+from ..math import noisepropagation
 from ..common.instance import isarray
 
 import numpy as np

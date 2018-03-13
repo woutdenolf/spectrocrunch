@@ -24,7 +24,7 @@
 
 from ..common import instance
 from ..common import units
-from ..simulation import noisepropagation
+from ..math import noisepropagation
 from .. import ureg
 
 import numpy as np

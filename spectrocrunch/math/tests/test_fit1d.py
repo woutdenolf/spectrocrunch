@@ -25,7 +25,7 @@
 import unittest
 
 from .. import fit1d
-from ...simulation import noisepropagation
+from .. import noisepropagation
 
 import numpy as np
 
@@ -108,8 +108,8 @@ class test_fit1d(unittest.TestCase):
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_fit1d("test_leastsq"))
-    testSuite.addTest(test_fit1d("test_linfit"))
+    #testSuite.addTest(test_fit1d("test_leastsq"))
+    #testSuite.addTest(test_fit1d("test_linfit"))
     testSuite.addTest(test_fit1d("test_lstsq_std"))
     return testSuite
     

@@ -25,7 +25,7 @@
 from . import base
 from ..common.classfactory import with_metaclass
 from ..resources import resource_filename
-from ..simulation import noisepropagation
+from ..math import noisepropagation
 from ..common import units
 
 import numpy as np
@@ -87,7 +87,7 @@ class LinearMotor(object):
     def calibrate_manually(self,distance):
         """Calibrate geometry based on one (distance,position) pair
         """
-        distance = units.magnitude(distance,"cm")
+        distance = units.umagnitude(distance,"cm")
         self.zerodistance = self._distancecalc(distance=distance,\
                             detectorposition=self.geometry.detectorposition.to("cm").magnitude)
 

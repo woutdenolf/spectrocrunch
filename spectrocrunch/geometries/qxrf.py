@@ -222,7 +222,7 @@ class QXRFGeometry(with_metaclass(object)):
             referencetime = self.referencetime
             
         ret = self.diodeI0.xrfnormop(energy,expotime,reference,referencetime=referencetime,weights=weights)
-        return ret+(units.magnitude(expotime,"s"),)
+        return ret+(units.umagnitude(expotime,"s"),)
         
     def I0op(self,energy,expotime=None,weights=None):
         if expotime is None:
@@ -398,7 +398,7 @@ class QXRFGeometry(with_metaclass(object)):
             if k in data:
                 if data[k].units == ureg.dimensionless:
                     data[k] = data[k]/data["time"]
-                data[k] = units.to(data[k],["Hz","A"])
+                data[k] = units.unitsto(data[k],["Hz","A"])
 
         # Verify, create or replace devices
         if "I0" in data:
@@ -474,7 +474,7 @@ class QXRFGeometry(with_metaclass(object)):
         ax1.text(xoff,yoff,text,transform = ax1.transAxes,verticalalignment="bottom")
 
         x = flux.to("hertz").magnitude
-        indfit = (x<units.magnitude(fluxmin,"hertz")) | (x>units.magnitude(fluxmax,"hertz"))
+        indfit = (x<units.umagnitude(fluxmin,"hertz")) | (x>units.umagnitude(fluxmax,"hertz"))
         if any(indfit):
             ax2.plot(x[indfit],data["I0"][indfit],'o',color="#cccccc")
         indfit = np.logical_not(indfit)

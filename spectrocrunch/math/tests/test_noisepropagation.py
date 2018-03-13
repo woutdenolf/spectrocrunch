@@ -23,16 +23,41 @@
 # THE SOFTWARE.
 
 import unittest
-
-from .. import noisepropagation
-
-import numpy as np
-
-import uncertainties
-
 import itertools
 
+from ...math import noisepropagation
+from ...common import units
+from ...common import instance
+
+import numpy as np
+import uncertainties
+
 class test_noisepropagation(unittest.TestCase):
+
+    def test_instance(self):
+        for RV,Q,expand,arr in itertools.product([True,False],repeat=4):
+            if arr:
+                x = np.arange(1.,10)
+            else:
+                x = 10.
+
+            if RV:
+                s = np.sqrt(x)
+                y = noisepropagation.randomvariable(x,s)
+            else:
+                s = x*0
+                y = x
+                
+            if Q:
+                unit = "mm"
+                y = units.Quantity(y,units=unit)
+            else:
+                unit = None
+            if expand:
+                y = instance.asarray(y)
+            
+            np.testing.assert_array_equal(x,units.magnitude(noisepropagation.E(y),units=unit))
+            np.testing.assert_array_equal(s,noisepropagation.S(y))
 
     def test_repeat(self):
         X = noisepropagation.randomvariable([100,200],[100**0.5,200**0.5])
@@ -172,6 +197,7 @@ class test_noisepropagation(unittest.TestCase):
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
+    testSuite.addTest(test_noisepropagation("test_instance"))
     testSuite.addTest(test_noisepropagation("test_repeat"))
     testSuite.addTest(test_noisepropagation("test_compound"))
     testSuite.addTest(test_noisepropagation("test_bernouilli"))

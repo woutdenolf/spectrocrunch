@@ -23,7 +23,8 @@
 # THE SOFTWARE.
 
 from ..simulation.classfactory import with_metaclass
-from ..simulation import noisepropagation
+from ..math import noisepropagation
+from ..common import instance
 
 class Detector(with_metaclass()):
 
@@ -65,7 +66,7 @@ class Detector(with_metaclass()):
 
         N,qe = self.propagate_broadcast(N,qe)
 
-        if noisepropagation.israndomvariable(N):
+        if instance.israndomvariable(N):
             darkcurrent = noisepropagation.poisson(self.darkcurrent)
             readoutnoise = noisepropagation.randomvariable(0,self.readoutnoise)
             

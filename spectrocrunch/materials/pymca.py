@@ -53,7 +53,7 @@ class PymcaHandle(object):
                 flux=1e9,time=0.1,escape=1,ninteractions=1,linear=0):
         self.sample = sample
  
-        self.energy = instance.asarray(units.magnitude(energy,"keV"))
+        self.energy = units.umagnitude(energy,"keV")
         self.emin = emin
         self.emax = emax
         if weights is None:
@@ -86,7 +86,7 @@ class PymcaHandle(object):
     
     @flux.setter
     def flux(self,value):
-        self._flux = units.magnitude(value,"hertz")
+        self._flux = units.umagnitude(value,"hertz")
     
     @property
     def time(self):
@@ -94,7 +94,7 @@ class PymcaHandle(object):
     
     @time.setter
     def time(self,value):
-        self._time = units.magnitude(value,"s")
+        self._time = units.umagnitude(value,"s")
         
     @property
     def I0(self):
@@ -135,7 +135,7 @@ class PymcaHandle(object):
         # TODO: move to source?
         cfg["fit"]["energy"] = instance.asarray(self.energy).tolist()
         cfg["fit"]["energyweight"] = instance.asarray(self.weights).tolist()
-        cfg["fit"]["energyscatter"] = instance.asarray(self.scatter,dtype=int).tolist()
+        cfg["fit"]["energyscatter"] = instance.asarray(self.scatter).astype(int).tolist()
         cfg["fit"]["energyflag"] = np.ones_like(cfg["fit"]["energy"],dtype=int).tolist()
         cfg["fit"]["scatterflag"] = any(cfg["fit"]["energyscatter"])
         

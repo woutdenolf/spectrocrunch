@@ -74,20 +74,22 @@ def randomvariable(X,SX):
         return RandomVariable(X,SX)
   
 def E(X):
+    X = units.Quantity(X,forcequantity=False)
     if instance.israndomvariable(X):
-        return X.nominal_value
+        return instance.asscalar(unumpy.nominal_values(X))
     elif instance.isquantity(X):
         return units.Quantity(E(X.magnitude),X.units)
     else:
-        return instance.asscalar(unumpy.nominal_values(X))
+        return X
         
 def S(X):
+    X = units.Quantity(X,forcequantity=False)
     if instance.israndomvariable(X):
-        return X.std_dev
+        return instance.asscalar(unumpy.std_devs(X))
     elif instance.isquantity(X):
         return units.Quantity(S(X.magnitude),X.units)
     else:
-        return instance.asscalar(unumpy.std_devs(X))
+        return X*0
 
 def VAR(X):
     return S(X)**2

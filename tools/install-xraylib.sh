@@ -23,9 +23,11 @@ if [ ! -f xraylib/xraylib-3.2.0/python/.libs/_xraylib.so ]; then
     if [[ $NOTDRY == true && ! -d xraylib-3.2.0 ]]; then
         curl -O http://lvserver.ugent.be/xraylib/xraylib-3.2.0.tar.gz
         tar -xvf xraylib-3.2.0.tar.gz
+    fi
+    if [[ $NOTDRY == true ]]; then
         cd xraylib-3.2.0
     fi
-
+    
     cprint "Configure xraylib ..."
     if [[ $NOTDRY == true ]]; then
         if [[ $INSTALL_SYSTEMWIDE == true ]]; then

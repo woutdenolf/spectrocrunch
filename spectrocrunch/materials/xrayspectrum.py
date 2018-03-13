@@ -557,9 +557,9 @@ class Spectrum(dict):
         if weights is None:
             return
         
-        weights,func = instance.asarrayf(weights,dtype=float)
+        weights,func = instance.asarrayf(weights)
         n = len(weights)
-        weights = func(weights/weights.sum())
+        weights = func(weights/weights.sum(dtype=float))
             
         for k in self:
             if listtools.length(self[k])==n:

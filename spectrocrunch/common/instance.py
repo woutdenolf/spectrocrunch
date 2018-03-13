@@ -41,6 +41,22 @@ def isboollist(lst):
 def isarray(x):
     return isinstance(x, (list, set, frozenset, tuple, np.ndarray))
 
+def isarray0(x):
+    """Check for numpy 0-d array
+    """
+    if isarray(x):
+        if isinstance(x,np.ndarray):
+            return x.ndim==0
+    return False
+
+def isarraynot0(x):
+    if isarray(x):
+        if isinstance(x,np.ndarray):
+            return x.ndim!=0
+        else:
+            return True
+    return False
+
 def isnumber(x):
     return isinstance(x, numbers.Number)
     
@@ -57,66 +73,11 @@ def isquantity(x):
     return isinstance(x, ureg.Quantity)
     
 def israndomvariable(x):
+    # do not use asscalar!!!
     if isarray(x):
-        return isinstance(x.flat[0],uncertainties.core.Variable)
+        return all(israndomvariable(z) for z in x)
     else:
-        return isinstance(x,uncertainties.core.Variable)
-
-def _asarray(x,**kwargs):
-    if isquantity(x):
-        m = x.magnitude
-        if isarray(m):
-            try:
-                scalar = m.ndim == 0
-            except AttributeError:
-                scalar = False
-            if scalar:
-                x = [ureg.Quantity(np.asscalar(m),x.units)]
-            else:
-                x = [y for y in x]
-        else:
-            x = [x]
-        x = np.asarray(x,dtype=object,**kwargs)
-    else:
-        try:
-            x = np.asarray(x,**kwargs)
-        except ValueError:
-            x = np.asarray(x,dtype=object,**kwargs)
-
-    return x
-
-def asarray(x,**kwargs):
-    x = _asarray(x,**kwargs)
-    if x.ndim == 0:
-        return x[np.newaxis]
-    else:
-        return x
-        
-def asarrayf(x,**kwargs):
-    x = _asarray(x,**kwargs)
-    
-    scalar = x.ndim == 0
-    if scalar:
-        # Convert to 1D array
-        x = x[np.newaxis]
-        func = lambda x:x[0] # not np.asscalar!!!!
-    else:
-        func = np.asarray
-    
-    return x,func
-
-def asarrayb(x,**kwargs):
-    x = _asarray(x,**kwargs)
-    
-    scalar = x.ndim == 0
-    if scalar:
-        # Convert to 1D array
-        x = x[np.newaxis]
-        
-    return x,not scalar
-
-def aslist(x):
-    return asarray(x).tolist()
+        return isinstance(x,(uncertainties.core.Variable,uncertainties.core.AffineScalarFunc))
 
 def asscalar(x):
     try:
@@ -124,6 +85,41 @@ def asscalar(x):
     except:
         pass
     return x
-    
 
+class _toarray(object):
+    restore = {"array": lambda x:x,\
+               "scalar": lambda x:x[0],\
+               "array0": lambda x:np.array(x[0])}
+               
+    def __call__(self,x):
+        if isarray(x):
+            # Special case: numpy 0-d array
+            if isinstance(x,np.ndarray):
+                if x.ndim==0:
+                    return x[np.newaxis],self.restore["array0"]
+            # Create number array (possibly objects needed)
+            try:
+                x = np.asarray(x)
+            except ValueError:
+                x = np.asarray(x,dtype=object)
+            return x,self.restore["array"]
+        elif isquantity(x):
+            u = x.units
+            x,frestore = self(x.magnitude)
+            func = lambda y: ureg.Quantity(y,u)
+            x = np.vectorize(func,otypes=[object])(x)
+            func = lambda y: ureg.Quantity(frestore(y),u)
+            return x,func
+        elif isnumber(x):
+            return np.asarray([x]),self.restore["scalar"]
+        else:
+            return np.asarray([x],dtype=object),self.restore["scalar"]
+
+asarrayf = _toarray()
+
+def asarray(x):
+    return asarrayf(x)[0]
+
+def aslist(x):
+    return asarray(x).tolist()
 

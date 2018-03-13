@@ -32,7 +32,7 @@ from ...detectors import diode
 from ...materials import scintillators
 from ...materials import lenses
 from ...materials import emspectrum
-from .. import noisepropagation
+from ...math import noisepropagation
 from ...materials.compoundfromname import compoundfromname as compoundname
 from ...common.instance import isarray
 from ... import ureg

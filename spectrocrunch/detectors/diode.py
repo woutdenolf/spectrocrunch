@@ -42,7 +42,7 @@ from ..geometries import diode as diodegeometries
 from ..optics import xray as xrayoptics
 from ..sources import xray as xraysources
 from ..simulation.classfactory import with_metaclass
-from ..simulation import noisepropagation
+from ..math import noisepropagation
 from ..common import instance
 from . import base
 from ..common import lut
@@ -343,7 +343,7 @@ class PNdiode(with_metaclass(base.SolidState)):
     def __str__(self):
         if self.simplecalibration:
             fmt = "PN-diode:\n{}\n"\
-                  "Current:\n Gain = {:~e}\n "\
+                  "Ammeter:\n Gain = {:~e}\n "\
                   "Dark current = {:~}\n"\
                   "Electrons/sample photon:\n {}\n"\
                   "Voltage-to-Frequency:\n {}"
@@ -352,14 +352,14 @@ class PNdiode(with_metaclass(base.SolidState)):
                     self.gain,self.darkcurrent.to("e/s"),s,self.oscillator)    
         else:
             fmt = "PN-diode:\n{}\n"\
-                  "Current:\n Gain = {:~e}\n "\
+                  "Ammeter:\n Gain = {:~e}\n "\
                   "Dark current = {:~}\n"\
                   "Secondary target:\n {}\n"\
                   "Optics:\n {}\n"\
                   "Before sample: {}\n"\
                   "Voltage-to-Frequency:\n {}"
             return fmt.format(super(PNdiode,self).__str__(),\
-                    self.gain,self.darkcurrent,self.secondarytarget,\
+                    self.gain,self.darkcurrent.to("e/s"),self.secondarytarget,\
                     self.optics,self.beforesample,self.oscillator) 
                     
     def _diode_absorbance(self,energy,thickness):
@@ -1065,7 +1065,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         op.m = units.magnitude(op.m,"dimensionless")
         op.b = units.magnitude(op.b,"dimensionless")
 
-        return op,Fref.to("hertz").magnitude,units.magnitude(tref,"s")
+        return op,Fref.to("hertz").magnitude,tref.to("s").magnitude
     
     def fluxop(self,energy,expotime,weights=None):
         """Operator to convert the raw diode signal to a flux.
@@ -1085,8 +1085,8 @@ class PNdiode(with_metaclass(base.SolidState)):
         t = units.Quantity(expotime,"s")
         op.m /= t
 
-        op.m = units.magnitude(op.m,"Hertz")
-        op.b = units.magnitude(op.b,"Hertz")
+        op.m = units.magnitude(op.m,"hertz")
+        op.b = units.magnitude(op.b,"hertz")
 
         return op
 
@@ -1224,9 +1224,9 @@ class NonCalibratedPNdiode(PNdiode):
         except pinterrors.DimensionalityError:
             current = self.cpstocurrent(response)
 
-        x = units.magnitude(sampleflux,"hertz")
+        x = units.umagnitude(sampleflux,"hertz")
         x = instance.asarray(x)
-        indfit = (x>=units.magnitude(fluxmin,"hertz")) & (x<=units.magnitude(fluxmax,"hertz"))
+        indfit = (x>=units.umagnitude(fluxmin,"hertz")) & (x<=units.umagnitude(fluxmax,"hertz"))
         npts = sum(indfit)
         
         if npts<1:
@@ -1254,7 +1254,10 @@ class NonCalibratedPNdiode(PNdiode):
             
         # Correlation coefficient
         ycalc = intercept + slope*x
-        R2 = 1-sum((y-ycalc)**2)/sum((y-np.mean(y))**2)
+        if npts==1:
+            R2 = np.nan
+        else:
+            R2 = 1-sum((y-ycalc)**2)/sum((y-np.mean(y))**2)
         
         # Set diode thickness, solid angle or transmission
         slope = units.Quantity(slope,"ampere/hertz")

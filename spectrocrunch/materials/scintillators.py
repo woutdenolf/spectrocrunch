@@ -30,7 +30,7 @@ from . import types
 from . import emspectrum
 from ..common import instance
 from ..simulation.classfactory import with_metaclass
-from ..simulation import noisepropagation
+from ..math import noisepropagation
 
 class Scintillator(with_metaclass()):
     """

@@ -79,8 +79,8 @@ class PointCoordinates(Coordinates):
             raise RuntimeError("No coordinates found")
         
         # There is not extend for pint.Quantity
-        self._coordinates0 = units.flatten(coord0)
-        self._coordinates1 = units.flatten(coord1)
+        self._coordinates0 = intance.asarray(coord0)
+        self._coordinates1 = intance.asarray(coord1)
         self.labels = lbls
 
     @property

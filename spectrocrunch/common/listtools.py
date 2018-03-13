@@ -25,23 +25,24 @@
 import collections
 import operator
 import itertools
+import numpy as np
 
 from . import instance
 
 def flatten(l):
-    """Flatten list
+    """Flatten iterables
 
     Args:
-        l(list):
+        l(anything):
     Returns:
         list
     """
-    for el in l:
-        if instance.isiterable(el) and not instance.isstring(el):
-            for sub in flatten(el):
-                yield sub
-        else:
-            yield el
+    if instance.isiterable(l) and not instance.isstring(l):
+        for el in iter(l):
+            for el2 in flatten(el):
+                yield el2
+    else:
+        yield l
 
 def listadvanced_bool(lst,barr,bnot=False):
     """Advanced list indexing: boolean array

@@ -35,7 +35,7 @@ from ..common import listtools
 from ..math import fit1d
 from . import xrayspectrum
 from ..simulation.classfactory import with_metaclass
-from ..simulation import noisepropagation
+from ..math import noisepropagation
 from . import pymca
 from . import element
 
@@ -826,8 +826,8 @@ class Multilayer(with_metaclass(cache.Cache)):
             else:
                 weights = np.ones(nsource,dtype=float)/nsource
         else:
-            weights,func = instance.asarrayf(weights,dtype=float)
-            weights = func(weights/weights.sum())
+            weights,func = instance.asarrayf(weights)
+            weights = func(weights/weights.sum(dtype=float))
 
         return weights
 
