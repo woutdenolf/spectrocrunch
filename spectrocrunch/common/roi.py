@@ -22,6 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import operator
 
 def cliproi(shape,roi):
     """Make sure that a ROI does not exceeds the maximal size.
@@ -56,4 +57,26 @@ def cliproi(shape,roi):
         roinew += [[a,b]]
 
     return roinew
+
+def mergeroi1d(intervals):
+    """
+    Args:
+        intervals(list(2-tuple)):
+        
+    Returns:
+        generator
+    """
+    sorted_intervals = sorted(intervals, key=operator.itemgetter(0))
+    if not sorted_intervals:
+        return
+
+    low, high = sorted_intervals[0]
+    for iv in sorted_intervals[1:]:
+        if iv[0] <= high:
+            high = max(high, iv[1])
+        else:
+            yield low, high
+            low, high = iv
+
+    yield low, high
 

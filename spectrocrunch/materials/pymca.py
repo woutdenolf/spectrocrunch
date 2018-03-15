@@ -137,7 +137,7 @@ class PymcaHandle(object):
         cfg["fit"]["energyweight"] = instance.asarray(self.weights).tolist()
         cfg["fit"]["energyscatter"] = instance.asarray(self.scatter).astype(int).tolist()
         cfg["fit"]["energyflag"] = np.ones_like(cfg["fit"]["energy"],dtype=int).tolist()
-        cfg["fit"]["scatterflag"] = any(cfg["fit"]["energyscatter"])
+        cfg["fit"]["scatterflag"] = int(any(cfg["fit"]["energyscatter"]))
         
         cfg["concentrations"]["flux"] = self.flux
         cfg["concentrations"]["time"] = self.time
@@ -158,7 +158,7 @@ class PymcaHandle(object):
         bmodelbkg = self.sample.geometry.detector.bstail or \
                     self.sample.geometry.detector.bltail or \
                     self.sample.geometry.detector.bstep
-        cfg["fit"]["stripflag"] = not bmodelbkg
+        cfg["fit"]["stripflag"] = int(not bmodelbkg)
         cfg["fit"]["stripalgorithm"] = 1
         cfg["fit"]["snipwidth"] = 100
     

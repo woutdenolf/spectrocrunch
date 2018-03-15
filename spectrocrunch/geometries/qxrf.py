@@ -187,11 +187,17 @@ class QXRFGeometry(with_metaclass(object)):
     def setreferenceflux(self,flux):
         self.reference = units.Quantity(flux,"hertz")
     
+    def setreferencetime(self,expotime):
+        if expotime is None:
+            self.referencetime = None # take the time of the scan
+        else:
+            self.referencetime = units.Quantity(expotime,"s")
+        
     def setreferencecounts(self,cts):
         self.reference = units.Quantity(cts,"dimensionless")
     
-    def settime(self,time):
-        self.defaultexpotime = units.Quantity(time,"s")
+    def setdefaulttime(self,expotime):
+        self.defaultexpotime = units.Quantity(expotime,"s")
 
     def fluxtocps(self,energy,flux,weights=None):
         return self.diodeI0.fluxtocps(energy,flux,weights=weights).magnitude
@@ -302,8 +308,10 @@ class QXRFGeometry(with_metaclass(object)):
                 raise RuntimeError("Gain of diode {} must be specified".format(deviceinstance.__class__.__name__))
             deviceinstance.gain = gaindata
         else:
-            if gainasked!=gaindata and gaindata is not None:
-                raise RuntimeError("Data was collected with diode {} gain {}, but {} was expected".format(gaindata,deviceinstance.__class__.__name__,gainasked))
+            if gaindata is not None:
+                gainasked = units.quantity_like(gainasked,gaindata)
+                if gainasked!=gaindata:
+                    raise RuntimeError("Data was collected with diode {} gain {}, but {} was expected".format(gaindata,deviceinstance.__class__.__name__,gainasked))
             deviceinstance.gain = gainasked
 
     def _check_device(self,attr,clsfactory,clsnameused,resetdevice=False):
@@ -452,20 +460,33 @@ class QXRFGeometry(with_metaclass(object)):
         ax.set_title("{:~.0e}".format(d.gain))
         ax.legend(loc="best")
 
+    def _plot_diode_flux(self,attr,energy,response,ax,color=None):
+        deviceinstance = getattr(self,attr)
+        
+        if response.size==1:
+            response = units.asqarray([response[0]*0.9,response[0]*1.1])
+            
+        flux = deviceinstance.responsetoflux(energy,response)
+        
+        lines = ax.plot(flux,response,label=attr,color=color)
+        ax.set_xlabel("flux (ph/s)")
+        ax.set_ylabel("{} ({:~})".format(attr,response.units))
+        ax.set_title("{:~.0e}".format(deviceinstance.gain))
+        ax.legend(loc="best")
+        
+        return lines[0].get_color()
+        
+        
     def _show_flux_calib(self,data,fluxmin=0,fluxmax=np.inf,fitinfo={},caliboption="optics"):
         f, (ax1, ax2) = plt.subplots(1, 2)
         
         energy = data["energy"].to("keV").magnitude
-        flux = self.diodeIt.responsetoflux(energy,data["It"])
         
-        ax1.plot(data["fluxt"],data["It"],'o',label='spec')
-        lines = ax1.plot(flux,data["It"],label='diodeIt')
-        color1 = lines[0].get_color()
+        x = units.asqarray(data["fluxt"])
+        It = units.asqarray(data["It"])
+        ax1.plot(x,It,'o',label='spec')
+        color1 = self._plot_diode_flux('diodeIt',energy,It,ax1)
         color2 = next(ax1._get_lines.prop_cycler)['color']
-        ax1.set_xlabel("flux (ph/s)")
-        ax1.set_ylabel("diodeIt ({:~})".format(data["It"].units))
-        ax1.set_title("{:~.0e}".format(self.diodeIt.gain))
-        ax1.legend(loc="best")
         
         xoff = 0.3
         yoff = 0.01
@@ -473,20 +494,19 @@ class QXRFGeometry(with_metaclass(object)):
         text = "\n".join(["{} = {}".format(k,v) for k,v in info.items()])
         ax1.text(xoff,yoff,text,transform = ax1.transAxes,verticalalignment="bottom")
 
-        x = flux.to("hertz").magnitude
-        indfit = (x<units.umagnitude(fluxmin,"hertz")) | (x>units.umagnitude(fluxmax,"hertz"))
+        x = self.diodeIt.responsetoflux(energy,It)
+        fluxmin = units.Quantity(fluxmin,"hertz").to("hertz")
+        fluxmax = units.Quantity(fluxmax,"hertz").to("hertz")
+        I0 = units.asqarray(data["I0"])
+        indfit = (x<fluxmin) | (x>fluxmax)
         if any(indfit):
-            ax2.plot(x[indfit],data["I0"][indfit],'o',color="#cccccc")
+            ax2.plot(x[indfit],I0[indfit],'o',color="#cccccc")
         indfit = np.logical_not(indfit)
         if any(indfit):
-            ax2.plot(x[indfit],data["I0"][indfit],'o',label='diodeIt',color=color1)
-            
-        ax2.plot(self.diodeI0.responsetoflux(energy,data["I0"]).magnitude,data["I0"],label='diodeI0',color=color2)
-        ax2.set_xlabel("flux (ph/s)")
-        ax2.set_ylabel("diodeI0 ({:~})".format(data["I0"].units))
-        ax2.set_title("{:~.0e}".format(self.diodeI0.gain))
-        ax2.legend(loc="best")
+            ax2.plot(x[indfit],I0[indfit],'o',label='diodeIt',color=color1)
         
+        self._plot_diode_flux('diodeI0',energy,I0,ax2,color=color2)
+
         if fitinfo:
             text = "\n".join(["{} = {}".format(k,v) for k,v in fitinfo.items()])
             ax2.text(xoff,yoff,text,transform = ax2.transAxes,verticalalignment="bottom")

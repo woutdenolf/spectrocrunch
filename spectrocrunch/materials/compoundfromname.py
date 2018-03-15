@@ -80,7 +80,7 @@ compounddb["cobalt blue"] = compoundfromformula.CompoundFromFormula("CoAl2O4",8.
 compounddb["hematite"] = compoundfromformula.CompoundFromFormula("Fe2O3",5.26,name="hematite")
 compounddb["magnetite"] = compoundfromformula.CompoundFromFormula("Fe2O3",5.15,name="magnetite")
 compounddb["goethite"] = compoundfromformula.CompoundFromFormula("FeOOH",3.8,name="magnetite")
-compounddb["vivianite"] = compoundfromformula.CompoundFromFormula("Fe3P2O12H16",2.65,name="")
+compounddb["vivianite"] = compoundfromformula.CompoundFromFormula("Fe3(PO4)2(H2O)8",2.65,name="")
 compounddb["prussian blue"] = compoundfromformula.CompoundFromFormula("C18Fe7N18",1.83,name="prussian blue")
 compounddb["potassium ferricyanide"] = compoundfromformula.CompoundFromFormula("K3Fe(CN)6",1.89,name="potassium ferricyanide")
 compounddb["potassium ferrocyanide"] = compoundfromformula.CompoundFromFormula("K4Fe(CN)6(H2O)3",1.85,name="potassium ferrocyanide")
@@ -119,7 +119,7 @@ compounddb["kapton"] = compound.Compound(data["Elements"],data["massFractions"],
 compounddb["ultralene"] = compound.Compound(data["Elements"],data["massFractions"],types.fraction.mass,data["density"],name="ultralene") # same as kapton
 compounddb["mylar"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="mylar") # same as pet
 #compounddb["ultralene"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="ultralene") # same as pet
-compounddb["moxtek ap3.3"] = compound.Compound(data["Elements"],data["massFractions"],types.fraction.mass,data["density"],name="moxtek ap3.3")
+compounddb["moxtek ap3.3"] = compoundfromlist.CompoundFromList(['B', 'C', 'N', 'O', 'Al'],[ 0.08045198,  0.42355695,  0.10410167,  0.29599301,  0.09589638],types.fraction.mass,0.00207473119551,name="moxtek ap3.3")
 
 # tape (adhesive on plastic)
 compounddb["sulfur-free tape"] = mixture.Mixture([compounddb["pva"],compounddb["pe"]],\

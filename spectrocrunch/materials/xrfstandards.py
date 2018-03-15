@@ -35,7 +35,10 @@ from ..common.classfactory import with_metaclass
 class Standard(with_metaclass(multilayer.Multilayer)):
     
     def __init__(self,extra=None,**kwargs):
-        self.extra = extra
+        if extra is None:
+            self.extra = None
+        else:
+            self.extra = map(element.Element,extra)
         super(Standard,self).__init__(**kwargs)
 
     def addtopymca(self,setup,cfg):

@@ -59,7 +59,7 @@ class Cache(object):
     def _generate_cache(self,subject,*args,**kwargs):
         generator = self.cachegenerator(subject)
         if generator is None:
-            raise RuntimeError("Cache generating method \"{}\" does not exist".format(method))
+            raise RuntimeError("Cache subject \"{}\" does not exist".format(subject))
         return generator(*args,**kwargs)
         
     @contextlib.contextmanager
@@ -81,7 +81,7 @@ class Cache(object):
         if cache:
             self._store.pop(subject, None)
 
-    def getcashed(self,subject):
+    def getcache(self,subject):
         """Get cache belonging to a subject
         """
         if subject in self._store:
@@ -95,9 +95,6 @@ class Cache(object):
             else:
                 # generate the context
                 return self._generate_cache(subject)
-    
-    def __getattr__(self,subject):
-        return self.getcashed(subject)
     
 def withcache(subject):
     """Decorator to cache a subject

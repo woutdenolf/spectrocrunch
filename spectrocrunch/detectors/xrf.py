@@ -338,8 +338,8 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         fL = linewidth # transition FWHM
         return 0.5346*fL + np.sqrt(0.2166*fL**2+fG**2)
     
-    def voigtVAR(self,energy):
-        return self.FWHMtoVAR(self.voigtFWHM(energy))
+    def voigtVAR(self,energy,linewidth=0):
+        return self.FWHMtoVAR(self.voigtFWHM(energy,linewidth=linewidth))
 
     def _gnorm(self,a):
         # Normalize H.Gaussian in -inf<x<inf
@@ -639,7 +639,7 @@ class sn3102(XRFDetector):
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
         kwargs["attenuators"] = attenuators
         
-        kwargs["activearea"] = units.Quantity(80.*0.75,"mm^2")
+        kwargs["activearea"] = units.Quantity(80.,"mm^2")
         
         kwargs["mcazero"] = 0. # keV
         kwargs["mcagain"] = 5e-3 # keV

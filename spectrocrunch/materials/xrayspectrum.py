@@ -27,6 +27,7 @@ import numpy as np
 import numbers
 import re
 import collections
+import scipy.integrate
 
 from .. import xraylib
 from .. import ureg
@@ -34,7 +35,7 @@ from ..common import instance
 from ..common import hashable
 from ..common import listtools
 from ..common.Enum import Enum
-
+from ..common.roi import mergeroi1d
 
 # Some xraylib comments:
 # CS_FluorLine_Kissel_Cascade(S,X) = FluorYield(S)*RadRate(SX)*PS_full_cascade_kissel
@@ -703,25 +704,73 @@ class Spectrum(dict):
             
         return lineinfo
         
-    def peakprofiles(self,lineinfo,normalized=None,voigt=False):
+    def peakprofiles(self,x,lineinfo,voigt=False,**kwargs):
         if self.geometry is None:
             return None
 
         energies = np.asarray([v["energy"] for v in lineinfo.values()])
-        linewidths = np.asarray([v["natwidth"] for v in lineinfo.values()])
+        if voigt:
+            linewidths = np.asarray([v["natwidth"] for v in lineinfo.values()])
+        else:
+            linewidths = np.zeros_like(energies)
+
+        return self.geometry.detector.lineprofile(x,energies,linewidth=linewidths,**kwargs)
+
+    def peakprofiles_selectioninfo(self,lineinfo,lines,voigt=False):
+        if self.geometry is None:
+            raise RuntimeError("Cannot calculate detection limits without a geometry")
             
-        def lineprofiles(x,ind=None,energies=energies,linewidths=linewidths):
-            if ind is not None:
-                energies = energies[ind]
-                try:
-                    linewidths = linewidths[ind]
-                except:
-                    pass
-            return self.geometry.detector.lineprofile(x,energies,linewidth=linewidths,normalized=normalized)
+        if not instance.isarray(lines):
+            lines = [lines]
+        
+        energies = np.asarray([v["energy"] for v in lineinfo.values()])
+        areas = np.asarray([v["area"] for v in lineinfo.values()])
+        if voigt:
+            linewidths = np.asarray([v["natwidth"] for v in lineinfo.values()])
+        else:
+            linewidths = np.zeros_like(energies)
+        
+        # Indices of peaks in/out
+        lineinfok = lineinfo.keys()
+        indin = [lineinfok.index(k) for k in lines]
+        indout = [k for k in range(len(lineinfo)) if k not in indin]
+        info = {"indin":indin,"indout":indout}
 
-        return lineprofiles
+        # Profile generators
+        energiesin = energies[indin]
+        linewidthsin = linewidths[indin]
+        areasin = areas[indin]
+        
+        areasin = np.atleast_1d(areasin)[np.newaxis,:]
+        areas = areas[np.newaxis,:]
 
-    def profileinfo(self,convert=False,fluxtime=None,histogram=False):
+        info["profilesin"] = lambda x: self.geometry.detector.lineprofile(x,energiesin,linewidth=linewidthsin,\
+                                            normalized=False,decomposed=True)
+        info["profilesall"] = lambda x: self.geometry.detector.lineprofile(x,energies,linewidth=linewidths,\
+                                            normalized=False,decomposed=True)
+        info["profiles"] = lambda x: self.geometry.detector.lineprofile(x,energies,linewidth=linewidths,\
+                                            normalized=False,decomposed=False)*areas
+                                            
+        # Extract from profiles:
+        info["extractallpeaks"] = lambda profs: (profs[0]*areas).sum(axis=-1)
+        info["extractinpeaks"] = lambda profs: (profs[0]*areasin).sum(axis=-1)
+        
+        #info["extractinpeaks_fromall"] = lambda profs: np.atleast_2d((profs[0]*areas)[:,indin]).sum(axis=-1)
+        info["extractbkg"] = lambda profs: np.atleast_2d((profs[0]*areas)[:,indout]).sum(axis=-1)+(sum(profs[1:])*areas).sum(axis=-1)
+        
+        # ROI generator
+        std = np.sqrt(self.geometry.detector.voigtVAR(energiesin,linewidthsin))
+        roi = zip(energiesin,std)
+        def roigen(k=3,roi=roi):
+            for r in roi:
+                w = k*r[1]
+                a,b = r[0]-w,r[0]+w
+                yield a,b
+        info["roigen"] = roigen
+
+        return info
+
+    def scaleprofiles(self,convert=False,fluxtime=None,histogram=False,lineinfo=None):
         multiplier = 1
         phsource = fluxtime is not None
         if phsource:
@@ -729,8 +778,13 @@ class Spectrum(dict):
         if histogram:
             multiplier = multiplier*self.mcagain
         ylabel = self.ylabel(convert=convert,phsource=phsource,mcabin=histogram)
-        return multiplier,ylabel
         
+        if lineinfo is not None:
+            for k in lineinfo:
+                lineinfo[k]["area"] *= multiplier
+        
+        return multiplier,ylabel
+    
     def __str__(self):
         geomkwargs = self.geomkwargs
         lines = "\n ".join(["{} {}".format(line,v) for line,v in self.lines(sort=True,**geomkwargs)])
@@ -769,33 +823,77 @@ class Spectrum(dict):
     def mcaenergies(self):
         return self.mcazero+self.mcagain*self.mcachannels()
 
-    def _linespectra(self,convert=True,fluxtime=None,histogram=False,backfunc=None,voigt=False,sort=True):
+    def _linespectra(self,convert=True,fluxtime=None,histogram=False,voigt=False,sort=True):
         energies = self.mcaenergies()
         lineinfo = self.lineinfo(convert=convert,sort=sort)
         
         # Normalized profiles: nchannels x npeaks
-        profiles = self.peakprofiles(lineinfo)
-        if voigt:
-            profiles = profiles(energies)
-        else:
-            profiles = profiles(energies,linewidths=0)
-
-        # Real profiles: normalized multilied by rate and number of incoming photons
-        multiplier,ylabel = self.profileinfo(convert=convert,fluxtime=fluxtime,histogram=histogram)
-        m = np.asarray([v["area"] for v in lineinfo.values()])*multiplier
-        profiles *= m[np.newaxis,:]
-
-        # Apply background function
-        if backfunc is not None:
-            profiles += backfunc(energies)[:,np.newaxis]
+        profiles = self.peakprofiles(energies,lineinfo,voigt=voigt)
+        if profiles is None:
+            raise RuntimeError("Cannot calculate peak profiles without a geometry")
+            
+        # Real profiles: incoming photons and histogram
+        _,ylabel = self.scaleprofiles(convert=convert,fluxtime=fluxtime,histogram=histogram,lineinfo=lineinfo)
+        areas = np.asarray([v["area"] for v in lineinfo.values()])
+        profiles *= areas[np.newaxis,:]
         
         return energies,profiles,ylabel,lineinfo
+
+    def detectionlimits(self,linevalid,convert=True,fluxtime=None,histogram=False,voigt=False,backfunc=None,plot=False):
+        energies = self.mcaenergies()
+        lineinfo = self.lineinfo(convert=convert)
+
+        lines = [k for k in lineinfo if linevalid(k)]
+        if not bool(lines):
+            raise RuntimeError("No lines fit the description")
+        
+        if backfunc is None:
+            backfunc = lambda x: np.zeros_like(x)
+        
+        _,ylabel = self.scaleprofiles(convert=convert,fluxtime=fluxtime,histogram=histogram,lineinfo=lineinfo)
+        info = self.peakprofiles_selectioninfo(lineinfo,lines,voigt=voigt)
+
+        emin,emax = energies[0],energies[-1]
+        
+        funcint = lambda x: info["extractinpeaks"](info["profilesin"](x))
+        functot = lambda x: np.squeeze(info["profiles"](x).sum(axis=-1)+backfunc(x))
+        funcbkg = lambda x: np.squeeze(info["extractbkg"](info["profilesall"](x))+backfunc(x))
+
+        if plot:
+            lines = plt.plot(energies,np.random.poisson(functot(energies)))
+            color2 = lines[0].get_color()
+            color1 = next(plt.gca()._get_lines.prop_cycler)['color']
+            
+        ax = plt.gca()
+        total = 0.
+        background = 0.
+        for a,b in mergeroi1d(info["roigen"](k=3)):
+            total += scipy.integrate.quad(functot,a,b)[0]
+            background += scipy.integrate.quad(funcbkg,a,b)[0]
+            
+            if plot:
+                ax.axvline(x=a)
+                ax.axvline(x=b)
+            
+            a = np.argmin(np.abs(energies-a))
+            b = np.argmin(np.abs(energies-b))
+            
+            if plot:
+                plt.fill_between(energies[a:b],funcbkg(energies[a:b]),0,alpha=0.5,color=color1)
+                plt.fill_between(energies[a:b],functot(energies[a:b]),funcbkg(energies[a:b]),alpha=0.5,color=color2)
+        
+        SNR = (total-background)/np.sqrt(total+background)
+        
+        if plot:
+            plt.ylabel(ylabel)
+            plt.xlabel("Energy (keV)")
+        
+        return SNR
 
     def linespectra(self,sort=True,**kwargs):
         """X-ray spectrum decomposed in individual lines
         """
-        energies,profiles,ylabel,lineinfo = self._linespectra(sort=sort,**kwargs)
-        return energies,profiles,ylabel,lineinfo.keys()
+        return self._linespectra(sort=sort,**kwargs)
         
     def groupspectra(self,sort=True,**kwargs):
         """X-ray spectrum decomposed in element-shell groups
@@ -810,13 +908,18 @@ class Spectrum(dict):
         groups = zip(*sorted(groups.items(), key=lambda x: x[1]))[0]
 
         # Add lines per group
+        lineinfo2 = collections.OrderedDict((g,collections.OrderedDict()) for g in groups)
+        
         nchan,npeaks = profiles.shape
         ret = np.zeros((nchan,len(groups)),dtype=profiles.dtype)
         for i,line in enumerate(lineinfo):
-            j = groups.index(lineinfo[line]["group"])
+            ln = lineinfo[line]
+            g = ln["group"]
+            lineinfo2[g][line] = ln
+            j = groups.index(g)
             ret[:,j] += profiles[:,i]
         
-        return energies,ret,ylabel,groups
+        return energies,ret,ylabel,lineinfo2
 
     def sumspectrum(self,**kwargs):
         """Total X-ray spectrum
@@ -832,32 +935,31 @@ class Spectrum(dict):
 
         if decompose:
             energies = self.mcaenergies()
+
             lines = self.lineinfo(convert=convert,sort=True)
-            multiplier,ylabel = self.profileinfo(convert=convert,fluxtime=fluxtime,histogram=histogram)
-            profiles = self.peakprofiles(lines)
-            if profiles is not None:
-                if voigt:
-                    profiles = profiles(energies)
-                else:
-                    profiles = profiles(energies,linewidths=0)
+            multiplier,ylabel = self.scaleprofiles(convert=convert,fluxtime=fluxtime,histogram=histogram)
+            profiles = self.peakprofiles(energies,lines,voigt=voigt)
             colors = {}
             for lineinfo in lines.values():
                 g = lineinfo["group"]
                 if g not in colors:
                     colors[g] = next(ax._get_lines.prop_cycler)['color']
             
+            if backfunc is None or profiles is None:
+                bkg = 0
+            else:
+                bkg = backfunc(energies)
+
             sumprof = None
             for ind,(linename,lineinfo) in enumerate(lines.items()):
                 color = colors[lineinfo["group"]]
                 
                 if profiles is not None:
                     prof = lineinfo["area"]*multiplier*profiles[:,ind]
-                    if backfunc is not None:
-                        prof += backfunc(energies)
                 else:
                     prof = lineinfo["area"]*multiplier
-                
-                h = self._plotline(lineinfo,energies,prof,color=color,label=lineinfo["label"] )
+                    
+                h = self._plotline(lineinfo,energies,prof+bkg,color=color,label=lineinfo["label"] )
                 if mark and lineinfo["label"] is not None:
                     plt.annotate(linename, xy=(lineinfo["energy"], h),color=color)
                 if profiles is not None:
@@ -865,15 +967,21 @@ class Spectrum(dict):
                         sumprof = prof
                     else:
                         sumprof += prof
+                        
+            if backfunc is not None:
+                self._plotline(None,energies,bkg,label="bkg")
         else:
-            energies,sumprof,ylabel = self.sumspectrum(convert=convert,fluxtime=fluxtime,histogram=histogram,backfunc=backfunc)
+            energies,sumprof,ylabel = self.sumspectrum(convert=convert,fluxtime=fluxtime,histogram=histogram)
+            if backfunc is None:
+                bkg = 0
+            else:
+                bkg = backfunc(energies)
             
         if sumprof is not None:
-            plt.plot(energies,sumprof,label=sumlabel)
+            plt.plot(energies,sumprof+bkg,label=sumlabel)
                     
         if self.geometry is not None and log:
             ax.set_yscale('log', basey=10)
-            plt.ylim([1,None])
             
         plt.legend(loc='best')
         plt.xlabel(self.xlabel)

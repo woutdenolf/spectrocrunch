@@ -32,7 +32,7 @@ from .alignDest import alignDest
 from .types import alignType
 from .types import transformationType
 from .transform import transform
-from ..common.cliproi import cliproi
+from ..common.roi import cliproi
 
 import logging
 

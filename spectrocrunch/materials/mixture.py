@@ -109,7 +109,7 @@ class Mixture(object):
 
         # Compounds (no duplicates)
         self._compose_compounds(compounds,nfrac)
-        
+    
     def change_fractions(self,dfrac,fractype):
         """Change the compound fractions
 

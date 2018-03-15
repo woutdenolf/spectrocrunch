@@ -1124,8 +1124,8 @@ class PNdiode(with_metaclass(base.SolidState)):
         ret = collections.OrderedDict()
         Cs = self._chargepersamplephoton(energy,weights=weights).to("e")
         ret["Energy"] = "{} keV".format(energy)
-        ret["Slope"] = "{:~f}".format(Cs.to("e"))
-        ret["Intercept"] = "{:~e}".format(self.darkcurrent.to("e/s"))
+        ret["Charge/ph"] = "{:~f}".format(Cs.to("e"))
+        ret["Dark"] = "{:~e}".format(self.darkcurrent.to("e/s"))
         return ret
 
     def propagate(self,N,energy,tframe=None,nframe=None,weights=None):
@@ -1240,7 +1240,7 @@ class NonCalibratedPNdiode(PNdiode):
             y = units.magnitude(current,"ampere")
             y = instance.asarray(y)[indfit]
             if npts==1:
-                slope = (y-intercept)/x
+                slope = (y[0]-intercept)/x[0]
             else:
                 slope = fit1d.linfit_zerointercept(x,y-intercept)
         else:

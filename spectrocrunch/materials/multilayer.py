@@ -267,7 +267,7 @@ class Multilayer(with_metaclass(cache.Cache)):
                 n+1 when z>totalthickness
                 {1,...,n} otherwise (the layers)
         """
-        layerinfo = self.getcashed("layerinfo")
+        layerinfo = self.getcache("layerinfo")
         ret = np.digitize(z, layerinfo["cumul_thickness"], right=True)
         try:
             return np.asscalar(ret)
@@ -318,7 +318,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         """
         
         lz = self._zlayer(z)
-        att = self.getcashed("attenuationinfo")
+        att = self.getcache("attenuationinfo")
         linatt = att["linatt"].loc[lz][energy]
         cor = att["linatt_cumulcor"].loc[lz][energy]
         if linatt.ndim!=0:
@@ -407,7 +407,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         if lzarr:
             lz = lz.tolist()
             
-        interactioninfo = self.getcashed("interactioninfo")
+        interactioninfo = self.getcache("interactioninfo")
         energyindex = interactioninfo["energyindex"][i](energyi)
         
         # Advanced indexing on MultiIndex: does not preserve order and repeats
@@ -478,7 +478,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         """
         interactionindex = 1
 
-        interactioninfo = self.getcashed("interactioninfo")
+        interactioninfo = self.getcache("interactioninfo")
         energy0 = interactioninfo["getenergy"](interactioninfo["probabilities"][0])
         
         nsource = len(energy0)
@@ -491,7 +491,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             geomkwargs = self.geometry.xrayspectrumkwargs()
             energy1 = interactioninfo["getenergy"](interactioninfo["probabilities"][interactionindex],**geomkwargs)
             
-            att = self.getcashed("attenuationinfo")
+            att = self.getcache("attenuationinfo")
             cosafirst = self.geometry.cosnormin
             cosalast = self.geometry.cosnormout
             mu0 = att["linatt"][energy0].values/cosafirst
@@ -502,7 +502,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             chi = mu1[1:-1,:,np.newaxis] - mu0[1:-1,np.newaxis,:]
             chicor = cor1[1:-1,:,np.newaxis] - cor0[1:-1,np.newaxis,:]
             
-            layerinfo = self.getcashed("layerinfo")
+            layerinfo = self.getcache("layerinfo")
             J2 = np.exp(chi*layerinfo["cumul_thickness"][1:,np.newaxis,np.newaxis])
             J2 -= np.exp(chi*layerinfo["cumul_thickness"][:-1,np.newaxis,np.newaxis])
             J2 /= chi
@@ -559,14 +559,14 @@ class Multilayer(with_metaclass(cache.Cache)):
         cosafirst = self.geometry.cosnormin
         cosalast = self.geometry.cosnormout
         integratormult = self.geometry.solidangle/cosafirst
-        layerinfo = self.getcashed("layerinfo")
+        layerinfo = self.getcache("layerinfo")
         za = layerinfo["cumul_thickness"][0]
         zb = layerinfo["cumul_thickness"][-1]
         zfirst = layerinfo["cumul_thickness"][0]
         zlast = layerinfo["zexit"]
         geomkwargs = self.geometry.xrayspectrumkwargs()
         
-        interactioninfo = self.getcashed("interactioninfo")
+        interactioninfo = self.getcache("interactioninfo")
         energy0 = interactioninfo["getenergy"](interactioninfo["probabilities"][0])
         interactions1 = interactioninfo["probabilities"][interactionindex].columns
         
@@ -611,7 +611,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         cosafirst = self.geometry.cosnormin
         cosalast = self.geometry.cosnormout
         integratormult = self.geometry.solidangle/cosafirst
-        layerinfo = self.getcashed("layerinfo")
+        layerinfo = self.getcache("layerinfo")
         za = layerinfo["cumul_thickness"][0]
         zb = layerinfo["cumul_thickness"][-1]
         zfirst = layerinfo["cumul_thickness"][0]
@@ -619,7 +619,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         geomkwargs1 = self.geometry.xrayspectrumkwargs()
         geomkwargs2 = geomkwargs1
         
-        interactioninfo = self.getcashed("interactioninfo")
+        interactioninfo = self.getcache("interactioninfo")
         energy0 = interactioninfo["getenergy"](interactioninfo["probabilities"][0])
         interactions1 = interactioninfo["probabilities"][1].columns
         interactions2 = interactioninfo["probabilities"][2].columns
@@ -920,7 +920,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             with self.cachectx("interactioninfo",energy0,emin=emin,emax=emax,\
                                 ninteractions=ninteractions,\
                                 geomkwargs=geomkwargs):
-                interactioninfo = self.getcashed("interactioninfo")
+                interactioninfo = self.getcache("interactioninfo")
                 allenergies = interactioninfo["getenergy"](interactioninfo["probabilities"][-2],**geomkwargs)
                 with self.cachectx("attenuationinfo",allenergies):
                     # Primary interaction (with self-absorption)
