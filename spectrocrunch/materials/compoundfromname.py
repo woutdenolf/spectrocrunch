@@ -61,17 +61,25 @@ compounddb["cellulose"] = compoundfromformula.CompoundFromFormula("C6H10O5",1.5,
 
 # low-Z minerals
 compounddb["diamond"] = compoundfromformula.CompoundFromFormula("C",3.51,name="")
-compounddb["silica"] = compoundfromformula.CompoundFromFormula("SiO2",2.648,name="silica")
-compounddb["quartz"] = compoundfromformula.CompoundFromFormula("SiO2",2.66,name="quartz")
+compounddb["sodium oxide"] = compoundfromformula.CompoundFromFormula("Na2O",2.27,name="sodium oxide")
+compounddb["silica"] = compoundfromformula.CompoundFromFormula("SiO2",2.169,name="silica")
+compounddb["quartz"] = compoundfromformula.CompoundFromFormula("SiO2",2.648,name="quartz")
+compounddb["corundum"] = compoundfromformula.CompoundFromFormula("Al2O3",4.02,name="corundum")
+compounddb["alumina"] = compoundfromformula.CompoundFromFormula("Al2O3",3.987,name="alumina")
+compounddb["periclase"] = compoundfromformula.CompoundFromFormula("MgO",3.6,name="periclase")
+compounddb["potassium oxide"] = compoundfromformula.CompoundFromFormula("K2O",2.2,name="potassium oxide")
+compounddb["phosphorus pentoxide"] = compoundfromformula.CompoundFromFormula("P2O5",2.39,name="phosphorus pentoxide")
 
 # Ca minerals
 compounddb["calcite"] = compoundfromformula.CompoundFromFormula("CaCO3",2.7102,name="calcite")
 compounddb["gypsum"] = compoundfromformula.CompoundFromFormula("CaSO6H4",2.31,name="gypsum")
 compounddb["lazurite"] = compoundfromformula.CompoundFromFormula("Na3CaAl3Si3O12S",2.4,name="lazurite")
 compounddb["hydroxyapatite"] = compoundfromformula.CompoundFromFormula("Ca5(PO4)3(OH)",3.,name="hydroxyapatite")
+compounddb["lime"] = compoundfromformula.CompoundFromFormula("CaO",3.34,name="lime")
 
 # Ti minerals
 compounddb["rutile"] = compoundfromformula.CompoundFromFormula("TiO2",4.25,name="rutile")
+compounddb["anatase"] = compoundfromformula.CompoundFromFormula("TiO2",4.23,name="anatase")
 
 # Co pigments
 compounddb["cobalt blue"] = compoundfromformula.CompoundFromFormula("CoAl2O4",8.9,name="cobalt blue")
@@ -79,6 +87,8 @@ compounddb["cobalt blue"] = compoundfromformula.CompoundFromFormula("CoAl2O4",8.
 # Fe minerals
 compounddb["hematite"] = compoundfromformula.CompoundFromFormula("Fe2O3",5.26,name="hematite")
 compounddb["magnetite"] = compoundfromformula.CompoundFromFormula("Fe2O3",5.15,name="magnetite")
+compounddb["ferric oxide"] = compoundfromformula.CompoundFromFormula("Fe2O3",5.245,name="ferric oxide")
+compounddb["ferrous oxide"] = compoundfromformula.CompoundFromFormula("FeO",5.745,name="ferrous oxide")
 compounddb["goethite"] = compoundfromformula.CompoundFromFormula("FeOOH",3.8,name="magnetite")
 compounddb["vivianite"] = compoundfromformula.CompoundFromFormula("Fe3(PO4)2(H2O)8",2.65,name="")
 compounddb["prussian blue"] = compoundfromformula.CompoundFromFormula("C18Fe7N18",1.83,name="prussian blue")
@@ -89,6 +99,9 @@ compounddb["ferric oxalate"] = compoundfromformula.CompoundFromFormula("Fe2(C2O4
 compounddb["ferrous sulfate"] = compoundfromformula.CompoundFromFormula("FeSO4(H2O)7",1.895,name="ferrous sulfate")
 compounddb["ferric sulfate"] = compoundfromformula.CompoundFromFormula("Fe2(SO4)3(H2O)5",1.898,name="ferric sulfate")
 compounddb["ferric chloride"] = compoundfromformula.CompoundFromFormula("FeCl3(H2O)6",1.82,name="ferric chloride")
+
+# Mn minerals
+compounddb["manganous oxide"] = compoundfromformula.CompoundFromFormula("MnO",5.745,name="manganous oxide")
 
 # Cd pigments
 compounddb["cadmium sulfide"] = compoundfromformula.CompoundFromFormula("CdS",4.826,name="cadmium sulfide")
@@ -128,6 +141,25 @@ compounddb["sulfur-free tape"] = mixture.Mixture([compounddb["pva"],compounddb["
 # windows
 compounddb["silicon nitride"] = compoundfromformula.CompoundFromFormula("Si3N4",3.44,name="silicon nitride")
 
+# rocks
+compounddb["granite"] = mixture.Mixture([compounddb["silica"],\
+                                    compounddb["alumina"],\
+                                    compounddb["potassium oxide"],\
+                                    compounddb["sodium oxide"],\
+                                    compounddb["lime"],\
+                                    compounddb["ferrous oxide"],\
+                                    compounddb["ferric oxide"],\
+                                    compounddb["periclase"],\
+                                    compounddb["rutile"],\
+                                    compounddb["phosphorus pentoxide"],\
+                                    compounddb["manganous oxide"]],\
+                                    [0.7204,0.1442,0.0412,0.0369,0.0182,0.0168,0.0122,0.0071,0.0030,0.0012,0.0005],\
+                                    types.fraction.mole).tocompound("granite")
+
+compounddb["orthoclase"] = compoundfromformula.CompoundFromFormula("KAlSi3O8",2.56,name="orthoclase")
+compounddb["albite"] = compoundfromformula.CompoundFromFormula("NaAlSi3O8",2.62,name="albite")
+compounddb["anorthite"] = compoundfromformula.CompoundFromFormula("CaAl2Si2O8",2.73,name="anorthite")
+
 #other
 compounddb["ice"] = compoundfromformula.CompoundFromFormula("H2O",0.9167,name="ice")
 compounddb["water"] = compoundfromformula.CompoundFromFormula("H2O",0.9998,name="water")
@@ -138,6 +170,11 @@ compounddb["ecoli dry"] = compoundfromlist.CompoundFromList(['C','O','N','H','P'
 compounddb["ecoli"] = mixture.Mixture([compounddb["water"],compounddb["ecoli dry"]],\
                                     [0.7,0.3],types.fraction.mole).tocompound("ecoli")
 
+registry = compounddb.keys()
+
+def search(name):
+    name = name.lower()
+    return [k for k in registry if name in k.lower()]
 
 def compoundfromname(name):
     return compounddb[name]

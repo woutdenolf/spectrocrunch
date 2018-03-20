@@ -78,7 +78,7 @@ class test_compound(unittest.TestCase):
         self.assertEqual(c.density,density)
 
         c = compoundfromlist.CompoundFromList(elements,a,types.fraction.mass,density)
-        wfrac = c.weightfractions()
+        wfrac = c.massfractions()
         for i in range(len(elements)):
             self.assertAlmostEqual(wfrac[elements[i]],a[i]/float(sum(a)))
 
@@ -112,7 +112,7 @@ class test_compound(unittest.TestCase):
     def test_vacuum(self):
         c = compoundraw.Compound([],[],types.fraction.mole,0,name="vacuum")
         self.assertEqual(len(c.elements),0)
-        self.assertEqual(len(c.weightfractions()),0)
+        self.assertEqual(len(c.massfractions()),0)
         self.assertEqual(len(c.molefractions()),0)
         self.assertEqual(c.molarmass(),0)
         self.assertEqual(c.density,0)
@@ -120,7 +120,7 @@ class test_compound(unittest.TestCase):
     def test_name(self):
         c = compoundfromname.compoundfromname("vacuum")
         self.assertEqual(len(c.elements),0)
-        self.assertEqual(len(c.weightfractions()),0)
+        self.assertEqual(len(c.massfractions()),0)
         self.assertEqual(len(c.molefractions()),0)
         self.assertEqual(c.molarmass(),0)
         self.assertEqual(c.density,0)

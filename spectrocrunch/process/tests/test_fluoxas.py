@@ -78,7 +78,7 @@ class test_fluoxas(unittest.TestCase):
         monitor = qxrf.factory("QXRFGeometry",instrument="id21",diodeI0="iodet1",diodeIt="idet",\
                                 optics="KB",xrfdetector="leia",xrfgeometry="sxm120")
         monitor.setreferenceflux(1e9)
-        monitor.settime(0.1)
+        monitor.setdefaulttime(0.1)
         return monitor
     
     def gendata(self):

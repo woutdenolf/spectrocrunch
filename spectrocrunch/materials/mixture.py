@@ -25,6 +25,7 @@
 import numpy as np
 import re
 
+from . import stoichiometrybase
 from . import compound
 from . import compoundfromformula
 from . import compoundfromlist
@@ -34,7 +35,7 @@ from . import stoichiometry
 from . import xrayspectrum
 from ..common import instance
 
-class Mixture(object):
+class Mixture(stoichiometrybase.StoichiometryBase):
 
     def __init__(self,compounds,frac,fractype,name=None):
         """
@@ -74,6 +75,10 @@ class Mixture(object):
             else:
                 self.compounds[c] = float(n)
 
+    @property
+    def parts(self):
+        return self.compounds
+
     def addcompound(self,c,frac,fractype):
         """Add a compound to the mixture
 
@@ -100,7 +105,7 @@ class Mixture(object):
             rho = np.asarray([c.density for c in compounds])
             nfrac = stoichiometry.frac_volume_to_mole(vfrac,rho,MM)
         else:
-            wfrac = np.asarray(self.weightfractions().values())
+            wfrac = np.asarray(self.massfractions().values())
             wfrac = stoichiometry.add_frac(wfrac,frac)
 
             compounds = self.compounds.keys()+[c]
@@ -109,13 +114,13 @@ class Mixture(object):
 
         # Compounds (no duplicates)
         self._compose_compounds(compounds,nfrac)
-    
+
     def change_fractions(self,dfrac,fractype):
         """Change the compound fractions
 
         Args:
             frac(dict): compound fractions
-            fractype(types.fraction): element fraction type
+            fractype(types.fraction): fraction type
         """
         compounds = dfrac.keys()
         fractions = np.asarray(dfrac.values())
@@ -131,13 +136,13 @@ class Mixture(object):
             nfrac = stoichiometry.frac_weight_to_mole(fractions,MM)
             
         self._compose_compounds(compounds,nfrac)
-        
+
     def tocompound(self,name):
         tmp = self.elemental_molefractions()
         return compoundfromlist.CompoundFromList(tmp.keys(),tmp.values(),types.fraction.mole,self.density,name=name)
 
     def __str__(self):
-        ws = self.weightfractions()
+        ws = self.massfractions()
         return ' + '.join("{:.02f} wt% {}".format(s[1]*100,s[0]) for s in ws.items())
 
     def __getitem__(self,compound):
@@ -165,19 +170,6 @@ class Mixture(object):
         Z = np.asarray([c.Zeff for c in nfrac])
         nfrac = np.asarray(nfrac.values())
         return (Z*nfrac).sum()
-    
-    def volumefractions(self):
-        nfrac = self.molefractions()
-        MM = np.asarray([c.molarmass() for c in nfrac])
-        rho = np.asarray([c.density for c in nfrac])
-        wfrac = stoichiometry.frac_mole_to_volume(np.asarray(nfrac.values()),rho,MM)
-        return dict(zip(nfrac.keys(),wfrac))
-
-    def weightfractions(self):
-        nfrac = self.molefractions()
-        MM = np.asarray([c.molarmass() for c in nfrac])
-        wfrac = stoichiometry.frac_mole_to_weight(np.asarray(nfrac.values()),MM)
-        return dict(zip(nfrac.keys(),wfrac))
 
     def molefractions(self,total=True):
         if total:
@@ -187,6 +179,29 @@ class Mixture(object):
             nfrac /= nfrac.sum()
             return dict(zip(self.compounds.keys(),nfrac))
 
+    def massfractions(self):
+        nfrac = self.molefractions()
+        MM = np.asarray([c.molarmass() for c in nfrac])
+        wfrac = stoichiometry.frac_mole_to_weight(np.asarray(nfrac.values()),MM)
+        return dict(zip(nfrac.keys(),wfrac))
+
+    def volumefractions(self):
+        nfrac = self.molefractions()
+        MM = np.asarray([c.molarmass() for c in nfrac])
+        rho = np.asarray([c.density for c in nfrac])
+        wfrac = stoichiometry.frac_mole_to_volume(np.asarray(nfrac.values()),rho,MM)
+        return dict(zip(nfrac.keys(),wfrac))
+
+    def fractions(self,fractype):
+        if fractype == types.fraction.mole:
+            return self.molefractions()
+        elif fractype == types.fraction.volume:
+            return self.volumefractions()
+        else:
+            return self.massfractions()
+
+
+        
     @property
     def nelements(self):
         return sum(c.nelements for c in self.compounds)
@@ -230,12 +245,12 @@ class Mixture(object):
                     ret[e] = c_nfrac[c]*e_nfrac[e]
         return ret
 
-    def elemental_weightfractions(self):
+    def elemental_massfractions(self):
         ret = {}
 
-        c_wfrac = self.weightfractions()
+        c_wfrac = self.massfractions()
         for c in c_wfrac:
-            e_wfrac = c.weightfractions()
+            e_wfrac = c.massfractions()
             for e in e_wfrac:
                 if e in ret:
                     ret[e] += c_wfrac[c]*e_wfrac[e]
@@ -262,7 +277,7 @@ class Mixture(object):
             else:
                 return E*0.
 
-        c_wfrac = self.weightfractions()
+        c_wfrac = self.massfractions()
         if decomposed:
             ret = {}
             for c in c_wfrac:
@@ -276,7 +291,7 @@ class Mixture(object):
                 else:
                     environ = None
 
-                e_wfrac = c.weightfractions()
+                e_wfrac = c.massfractions()
                 for e in e_wfrac:
                     ret[c]["cs"][e] = {"w":e_wfrac[e],"cs":getattr(e,method)(E,environ=environ,**kwargs)}
         else:
@@ -292,7 +307,7 @@ class Mixture(object):
                     else:
                         environ = None
 
-                    e_wfrac = c.weightfractions()
+                    e_wfrac = c.massfractions()
                     for e in c.elements:
                         cs = getattr(e,method)(E,environ=environ,**kwargs)
                         if not cs:
@@ -316,7 +331,7 @@ class Mixture(object):
                     else:
                         environ = None
 
-                    e_wfrac = c.weightfractions()
+                    e_wfrac = c.massfractions()
                     for e in c.elements:
                         ret += c_wfrac[c]*e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
         
@@ -387,10 +402,10 @@ class Mixture(object):
         return -self.refractive_index_beta(E)
         
     def refractive_index_delta(self,E,fine=False,decomposed=False,**kwargs):
-        return compound.Compound.refractive_index_delta_calc(E,self.elemental_weightfractions(),self.density,environ=None,**kwargs)
+        return compound.Compound.refractive_index_delta_calc(E,self.elemental_massfractions(),self.density,environ=None,**kwargs)
     
     def refractive_index_beta(self,E,fine=False,decomposed=False,**kwargs):
-        return compound.Compound.refractive_index_beta_calc(E,self.elemental_weightfractions(),self.density,environ=None,**kwargs)
+        return compound.Compound.refractive_index_beta_calc(E,self.elemental_massfractions(),self.density,environ=None,**kwargs)
 
     def markinfo(self):
         yield "{}".format(self.name)

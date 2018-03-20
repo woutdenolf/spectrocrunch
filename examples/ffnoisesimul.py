@@ -100,13 +100,13 @@ class sample_hg115(sample):
         self.paintindex = 1
 
     def set_wpigment(self,wpigment):
-        w = self.composition.material[self.paintindex].weightfractions()
+        w = self.composition.material[self.paintindex].massfractions()
         w["verdigris"] = wpigment/100.
         w["linseed oil"] = 1-wpigment/100.
         self.composition.material[self.paintindex].change_fractions(w,fraction.mass)
         
     def get_wpigment(self):
-        return self.composition.material[self.paintindex].weightfractions()["verdigris"]*100
+        return self.composition.material[self.paintindex].massfractions()["verdigris"]*100
     
     def set_paintthickness(self,paintthickness):   
         self.composition.thickness[self.paintindex] = paintthickness

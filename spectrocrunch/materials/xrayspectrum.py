@@ -36,6 +36,7 @@ from ..common import hashable
 from ..common import listtools
 from ..common.Enum import Enum
 from ..common.roi import mergeroi1d
+from ..math import fit1d
 
 # Some xraylib comments:
 # CS_FluorLine_Kissel_Cascade(S,X) = FluorYield(S)*RadRate(SX)*PS_full_cascade_kissel
@@ -761,9 +762,9 @@ class Spectrum(dict):
         # ROI generator
         std = np.sqrt(self.geometry.detector.voigtVAR(energiesin,linewidthsin))
         roi = zip(energiesin,std)
-        def roigen(k=3,roi=roi):
+        def roigen(kstd=3,roi=roi):
             for r in roi:
-                w = k*r[1]
+                w = kstd*r[1]
                 a,b = r[0]-w,r[0]+w
                 yield a,b
         info["roigen"] = roigen
@@ -839,14 +840,14 @@ class Spectrum(dict):
         
         return energies,profiles,ylabel,lineinfo
 
-    def detectionlimits(self,linevalid,convert=True,fluxtime=None,histogram=False,voigt=False,backfunc=None,plot=False):
+    def snr(self,linevalid,convert=True,fluxtime=None,histogram=False,voigt=False,backfunc=None,plot=False,kstd=3):
         energies = self.mcaenergies()
         lineinfo = self.lineinfo(convert=convert)
 
         lines = [k for k in lineinfo if linevalid(k)]
         if not bool(lines):
             raise RuntimeError("No lines fit the description")
-        
+
         if backfunc is None:
             backfunc = lambda x: np.zeros_like(x)
         
@@ -860,35 +861,53 @@ class Spectrum(dict):
         funcbkg = lambda x: np.squeeze(info["extractbkg"](info["profilesall"](x))+backfunc(x))
 
         if plot:
-            lines = plt.plot(energies,np.random.poisson(functot(energies)))
+            lines = plt.plot(energies,np.random.poisson(np.round(functot(energies)).astype(int)))
             color2 = lines[0].get_color()
             color1 = next(plt.gca()._get_lines.prop_cycler)['color']
             
         ax = plt.gca()
         total = 0.
         background = 0.
-        for a,b in mergeroi1d(info["roigen"](k=3)):
+        
+        arrtotal = []
+        arrbackground = []
+        
+        for a,b in mergeroi1d(info["roigen"](kstd=kstd)):
             total += scipy.integrate.quad(functot,a,b)[0]
             background += scipy.integrate.quad(funcbkg,a,b)[0]
             
             if plot:
                 ax.axvline(x=a)
                 ax.axvline(x=b)
-            
+                
             a = np.argmin(np.abs(energies-a))
             b = np.argmin(np.abs(energies-b))
             
+            ptotal = functot(energies[a:b])
+            pbackground = funcbkg(energies[a:b])
+            arrtotal.append(ptotal)
+            arrbackground.append(pbackground)
+
             if plot:
-                plt.fill_between(energies[a:b],funcbkg(energies[a:b]),0,alpha=0.5,color=color1)
-                plt.fill_between(energies[a:b],functot(energies[a:b]),funcbkg(energies[a:b]),alpha=0.5,color=color2)
+                plt.fill_between(energies[a:b],pbackground,0,alpha=0.5,color=color1)
+                plt.fill_between(energies[a:b],ptotal,pbackground,alpha=0.5,color=color2)
+                
+        signal = total-background
+        SNR = signal/np.sqrt(total+background)
         
-        SNR = (total-background)/np.sqrt(total+background)
+        arrtotal = np.concatenate(arrtotal)
+        arrbackground = np.concatenate(arrbackground)
+        arrsignal = arrtotal-arrbackground
+        A = np.stack([arrsignal,arrbackground],axis=-1)
+        cor = fit1d.cor_from_cov(fit1d.lstsq_cov(A,vare=arrtotal))
+        cor = abs(cor[0,1])
         
         if plot:
             plt.ylabel(ylabel)
             plt.xlabel("Energy (keV)")
+            plt.title("SNR = {:.02f}, RSB = {:.02f}".format(SNR,cor))
         
-        return SNR
+        return {"SNR":SNR,"SB-correlation":cor}
 
     def linespectra(self,sort=True,**kwargs):
         """X-ray spectrum decomposed in individual lines
@@ -928,7 +947,9 @@ class Spectrum(dict):
         profiles = profiles.sum(axis=-1)
         return energies,profiles,ylabel
         
-    def plot(self,convert=False,fluxtime=None,mark=True,log=False,decompose=True,histogram=False,backfunc=None,voigt=False,sumlabel="sum"):
+    def plot(self,convert=False,fluxtime=None,mark=True,log=False,decompose=True,\
+                 histogram=False,backfunc=None,voigt=False,forcelines=False,legend=True,\
+                 sumlabel="sum",title=""):
         """X-ray spectrum or cross-section lines
         """
         ax = plt.gca()
@@ -938,37 +959,43 @@ class Spectrum(dict):
 
             lines = self.lineinfo(convert=convert,sort=True)
             multiplier,ylabel = self.scaleprofiles(convert=convert,fluxtime=fluxtime,histogram=histogram)
-            profiles = self.peakprofiles(energies,lines,voigt=voigt)
+            profiles = self.peakprofiles(energies,lines,voigt=voigt,onlyheight=forcelines)
             colors = {}
             for lineinfo in lines.values():
                 g = lineinfo["group"]
                 if g not in colors:
                     colors[g] = next(ax._get_lines.prop_cycler)['color']
             
-            if backfunc is None or profiles is None:
-                bkg = 0
-            else:
+            blines = profiles is None or forcelines
+            calcbkg = not (blines or backfunc is None)
+            if calcbkg:
                 bkg = backfunc(energies)
-
+            else:
+                bkg = 0
+                
             sumprof = None
+            off = 0
             for ind,(linename,lineinfo) in enumerate(lines.items()):
                 color = colors[lineinfo["group"]]
                 
-                if profiles is not None:
-                    prof = lineinfo["area"]*multiplier*profiles[:,ind]
-                else:
+                if profiles is None:
                     prof = lineinfo["area"]*multiplier
+                else:
+                    prof = lineinfo["area"]*multiplier*profiles[:,ind]
+                    if backfunc is not None and forcelines:
+                        off = backfunc(lineinfo["energy"])
                     
-                h = self._plotline(lineinfo,energies,prof+bkg,color=color,label=lineinfo["label"] )
+                h = self._plotline(lineinfo,energies,prof+bkg,color=color,off=off,label=lineinfo["label"])
                 if mark and lineinfo["label"] is not None:
-                    plt.annotate(linename, xy=(lineinfo["energy"], h),color=color)
-                if profiles is not None:
+                    plt.annotate(linename, xy=(lineinfo["energy"], h+off),color=color)
+                    
+                if not blines:
                     if sumprof is None:
                         sumprof = prof
                     else:
                         sumprof += prof
                         
-            if backfunc is not None:
+            if calcbkg:
                 self._plotline(None,energies,bkg,label="bkg")
         else:
             energies,sumprof,ylabel = self.sumspectrum(convert=convert,fluxtime=fluxtime,histogram=histogram)
@@ -982,21 +1009,26 @@ class Spectrum(dict):
                     
         if self.geometry is not None and log:
             ax.set_yscale('log', basey=10)
-            
-        plt.legend(loc='best')
+        
+        if legend:
+            plt.legend(loc='best')
         plt.xlabel(self.xlabel)
         plt.ylabel(ylabel)
         plt.xlim(self.xlim)
         try:
-            plt.title(self.title)
+            if title is not None:
+                if not bool(title):
+                    title = self.title
+                plt.title(title)
         except UnicodeDecodeError:
             pass
             
-    def _plotline(self,line,energies,prof,**kwargs):
+    def _plotline(self,line,energies,prof,off=0,**kwargs):
         if listtools.length(prof)==1:
             energy = line["energy"]
             h = instance.asscalar(prof)
-            plt.plot([energy,energy],[0,h],**kwargs)
+            off = instance.asscalar(off)
+            plt.plot([energy,energy],[off,h+off],**kwargs)
         else:
             y = prof
             h = max(y)

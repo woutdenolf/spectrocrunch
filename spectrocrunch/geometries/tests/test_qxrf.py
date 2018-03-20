@@ -49,7 +49,7 @@ class test_qxrf(unittest.TestCase):
         geometryinstance.calibrate(**info)
         
         geometryinstance.setreferenceflux(1e9)
-        geometryinstance.settime(0.1)
+        geometryinstance.setdefaulttime(0.1)
         return geometryinstance
         
     def test_flux(self):

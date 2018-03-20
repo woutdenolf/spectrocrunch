@@ -157,7 +157,20 @@ class Multilayer(with_metaclass(cache.Cache)):
     @property
     def xraythickness(self):
         return np.vectorize(lambda layer:layer.xraythickness)(self)
-        
+    
+    def massfractions(self):
+        ret = {}
+        for layer in self:
+            wfrac = layer.massfractions()
+            m = layer.density*layer.thickness
+            for el,w in wfrac:
+                if el not in ret:
+                    ret[el] = 0.
+                else:
+                    ret[el] += m*w
+        s = sum(ret.values())
+        return {el:w/s for el,w in ret}
+    
     def mass_att_coeff(self,energy):
         """Total mass attenuation coefficient
         

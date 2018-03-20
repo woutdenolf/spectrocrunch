@@ -180,7 +180,7 @@ class Element(hashable.Hashable):
     def molarmass(self):
         return self.MM
         
-    def weightfractions(self):
+    def massfractions(self):
         return dict([(self,1.)])
 
     def molefractions(self,total=True):

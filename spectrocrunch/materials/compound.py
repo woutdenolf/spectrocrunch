@@ -22,6 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from . import stoichiometrybase
 from . import element
 from . import interaction
 from . import types
@@ -35,7 +36,7 @@ from . import xrayspectrum
 import numpy as np
 import fisx
 
-class Compound(Hashable):
+class Compound(Hashable,stoichiometrybase.StoichiometryBase):
     """Interface to a compound
     """
 
@@ -73,8 +74,7 @@ class Compound(Hashable):
         self._compose_elements(elements,nfrac)
 
         # Compound density
-        self.density = float(density)
-        if self.density==0:
+        if density==0 or density is None:
             if len(self._elements)==1:
                 self.density = self._elements.keys()[0].density
             else:
@@ -84,7 +84,9 @@ class Compound(Hashable):
                     self.density = 0.
                 else:
                     self.density = 1. # approx. density of water
-
+        else:
+            self.density = float(density)
+            
         self.isscatterer = True
 
     def _compose_elements(self,elements,nfrac):
@@ -118,7 +120,7 @@ class Compound(Hashable):
         elif fractype == types.fraction.volume:
             raise ValueError("Cannot create a compound from elemental volume fractions")
         else:
-            wfrac = np.asarray(self.weightfractions().values())
+            wfrac = np.asarray(self.massfractions().values())
             wfrac = stoichiometry.add_frac(wfrac,frac)
 
             elements = self._elements.keys()+[element.Element(el)]
@@ -128,26 +130,27 @@ class Compound(Hashable):
         # Elements (no duplicates)
         self._compose_elements(elements,nfrac)
 
-    def change_fractions(self,frac,fractype):
+    def change_fractions(self,dfrac,fractype):
         """Change the element fractions
 
         Args:
-            frac(array): element fractions
-            fractype(types.fraction): element fraction type
+            dfrac(dict): element fractions
+            fractype(types.fraction): fraction type
         """
     
-        elements = self._elements.keys()
-    
+        elements = dfrac.keys()
+        fractions = np.asarray(dfrac.values())
+        
         # Element mole fractions
         if fractype == types.fraction.mole:
-            nfrac = frac # keep unnormalized!
+            nfrac = fractions # keep unnormalized!
         elif fractype == types.fraction.volume:
             # would be possible if you give the element densities in the compound
             # (which is not the same as the pure element density) but that's an unlikely given
             raise ValueError("Cannot create a compound from elemental volume fractions")
         else:
             MM = np.asarray([e.MM for e in elements])
-            nfrac = stoichiometry.frac_weight_to_mole(np.asarray(frac),MM) # normalized
+            nfrac = stoichiometry.frac_weight_to_mole(fractions,MM) # normalized
             
         # Elements
         self._compose_elements(elements,nfrac)
@@ -169,6 +172,10 @@ class Compound(Hashable):
     def elements(self):
         return self._elements.keys()
 
+    @property
+    def parts(self):
+        return self._elements
+        
     def molarmass(self,total=True):
         nfrac = self.molefractions(total=total)
         MM = np.asarray([e.MM for e in nfrac])
@@ -185,12 +192,6 @@ class Compound(Hashable):
         nfrac = np.asarray(nfrac.values())
         return (Z*nfrac).sum()
 
-    def weightfractions(self):
-        nfrac = self.molefractions()
-        MM = np.asarray([e.MM for e in nfrac])
-        wfrac = stoichiometry.frac_mole_to_weight(np.asarray(nfrac.values()),MM)
-        return dict(zip(nfrac.keys(),wfrac))
-
     def molefractions(self,total=True):
         if total:
             return dict(self._elements)
@@ -198,7 +199,21 @@ class Compound(Hashable):
             nfrac = np.asarray(self._elements.values())
             nfrac /= nfrac.sum()
             return dict(zip(self._elements.keys(),nfrac))
+            
+    def massfractions(self):
+        nfrac = self.molefractions()
+        MM = np.asarray([e.MM for e in nfrac])
+        wfrac = stoichiometry.frac_mole_to_weight(np.asarray(nfrac.values()),MM)
+        return dict(zip(nfrac.keys(),wfrac))
 
+    def fractions(self,fractype):
+        if fractype == types.fraction.mole:
+            return self.molefractions()
+        elif fractype == types.fraction.volume:
+            raise ValueError("Cannot calculate elemental volume fractions")
+        else:
+            return self.massfractions()
+        
     @property
     def nelements(self):
         return len(self._elements)
@@ -211,7 +226,7 @@ class Compound(Hashable):
         """Areal density in ng/mm^2
         """
         # arealdensity (ng/mm^2) = w * density(g/cm^3) * 2e-5 (cm) * 1e-2 (cm^2/mm^2) * 1e9 (ng/g)
-        w = self.weightfractions()
+        w = self.massfractions()
         arealdensity = np.asarray(w.values())*(self.density*200)
         return dict(zip(w.keys(),arealdensity))
         
@@ -277,7 +292,7 @@ class Compound(Hashable):
         else:
             environ = None
 
-        e_wfrac = self.weightfractions()
+        e_wfrac = self.massfractions()
         if decomposed:
             ret = {}
             for e in e_wfrac:
@@ -371,14 +386,14 @@ class Compound(Hashable):
             environ = self
         else:
             environ = None
-        return self.refractive_index_delta_calc(E,self.weightfractions(),self.density,environ=environ,**kwargs)
+        return self.refractive_index_delta_calc(E,self.massfractions(),self.density,environ=environ,**kwargs)
     
     def refractive_index_beta(self,E,fine=False,decomposed=False,**kwargs):
         if hasattr(self,'structure') and fine:
             environ = self
         else:
             environ = None
-        return self.refractive_index_beta_calc(E,self.weightfractions(),self.density,environ=environ,**kwargs)
+        return self.refractive_index_beta_calc(E,self.massfractions(),self.density,environ=environ,**kwargs)
         
     @staticmethod
     def refractive_index_delta_calc(E,e_wfrac,density,**kwargs):
@@ -418,7 +433,7 @@ class Compound(Hashable):
         return self.name
 
     def topymca(self,defaultthickness=1e-4):
-        r = self.weightfractions()
+        r = self.massfractions()
         value = {'Comment': self.pymcaname,
                 'CompoundFraction': r.values(),
                 'Thickness': defaultthickness,
@@ -427,7 +442,7 @@ class Compound(Hashable):
         return self.pymcaname,value
 
     def tofisx(self):
-        r = self.weightfractions()
+        r = self.massfractions()
         o = fisx.Material(self.pymcaname, self.density, 1e-10)
         o.setCompositionFromLists(['{}1'.format(e) for e in r],r.values())
         return o

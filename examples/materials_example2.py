@@ -47,9 +47,9 @@ def test1():
 
     m = mixture([compound1,compound2,compound3,compound4],[1,1,1,1],fraction.mass)
 
-    print(compound4.weightfractions())
+    print(compound4.massfractions())
     print("")
-    elements = m.elemental_weightfractions()
+    elements = m.elemental_massfractions()
     print("")
     for e in elements:
         print(e,e.MM,elements[e])

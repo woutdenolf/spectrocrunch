@@ -362,7 +362,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
             minusone = np.exp(a/(4.*tr**2)-u/tr) * scipy.special.erfc((a/(2.*tr)-u)/b) + scipy.special.erf(-u/b)
             return tr * (1-minusone)/2.
 
-    def lineprofile(self,x,u,linewidth=0,normalized=None,decomposed=False):
+    def lineprofile(self,x,u,linewidth=0,normalized=None,decomposed=False,onlyheight=False):
         """
         Args:
             x(num|array): energies (keV, nx)
@@ -382,13 +382,16 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         
         x = instance.asarray(x)[:,np.newaxis]
         u = instance.asarray(u)[np.newaxis,:] 
-        diff = x-u
 
         gvar = self.gaussianVAR(u)
         a = 2*gvar # 2.sigma^2
         b = np.sqrt(a) # sqrt(2).sigma
         gnorm = self._gnorm(a)
 
+        stail_H = 0
+        ltail_H = 0
+        stailslope_ratio = 0
+        ltailslope_ratio = 0
         if self.fixedarearatios:
             if normalized is None:
                 normalized = True
@@ -483,8 +486,12 @@ class XRFDetector(with_metaclass(base.CentricCone)):
                     ltail_H = ltailarea_ratio/ltailslope_ratio
                 if bstep:
                     step_H = stepheight_ratio/gnorm
+        
+        if not onlyheight:
+            diff = x-u
+            if bstep or bstail or bltail:
+                argstep = diff/b # (x-u)/(sqrt(2).sigma)
                 
-
         # XRFDetector response:
         #   Gaussian: H*exp(-(x-u)^2/(2.gvar))
         #   Lorentz:  2/(pi.W)/(1+4/W^2.(x-u)^2)    (W:FWHM)
@@ -498,18 +505,21 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         #               gnorm = sqrt(2.pi.gvar)
         #   
         #   => garea = wpeak
-        if bpeak:
-            W = instance.asarray(linewidth)[np.newaxis,:] 
-            if W.any():
-                yg = peak_H*np.real(scipy.special.wofz((diff + 0.5j*W)/b))
+        if onlyheight:
+            if bpeak:
+                yg = peak_H
             else:
-                yg = peak_H*np.exp(-diff**2/a)
+                yg = np.zeros_like(u)
         else:
-            yg = np.zeros_like(diff)
-        
-        if bstep or bstail or bltail:
-            argstep = diff/b # (x-u)/(sqrt(2).sigma)
-        
+            if bpeak:
+                W = instance.asarray(linewidth)[np.newaxis,:] 
+                if W.any():
+                    yg = peak_H*np.real(scipy.special.wofz((diff + 0.5j*W)/b))
+                else:
+                    yg = peak_H*np.exp(-diff**2/a)
+            else:
+                yg = np.zeros_like(diff)
+
         # Incomplete charge collection (step):
         #   Gaussian step: H.step
         #                   step = erfc[(x-u)/sqrt(2.gvar)]/2
@@ -518,10 +528,16 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         #   Pymca: H = stepheight_ratio*garea/gnorm
         #
         #   => stepheight_ratio = wstep/wpeak*gnorm/snorm
-        if bstep:
-            ys = step_H/2. * scipy.special.erfc(argstep)
+        if onlyheight:
+            if bpeak:
+                ys = step_H/2.
+            else:
+                ys = np.zeros_like(u)
         else:
-            ys = np.zeros_like(diff)
+            if bstep:
+                ys = step_H/2. * scipy.special.erfc(argstep)
+            else:
+                ys = np.zeros_like(diff)
             
         # Incomplete charge collection (tail):
         #   Gaussian tail: H.tail
@@ -532,27 +548,33 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         #   Pymca: H = garea*tailarea_ratio/tr
         #
         #   => tailarea_ratio = wtail/wpeak*tr/tnorm
-        if bstail:
-            with np.errstate(over="ignore"):
-                mexp = stail_H/2.*np.exp(diff/stailslope_ratio+gvar/(2.*stailslope_ratio**2))
-                ind = np.isinf(mexp)
-                if ind.any():
-                    mexp[ind] = 0 # lim_x->inf exp(x)*erfc(x) = 0
-                    
-            yst = mexp*scipy.special.erfc(argstep+b/(2.*stailslope_ratio))
-        else:
-            yst = np.zeros_like(diff)
-            
-        if bltail:
-            with np.errstate(over="ignore"):
-                mexp = ltail_H/2.*np.exp(diff/ltailslope_ratio+gvar/(2.*ltailslope_ratio**2))
-                ind = np.isinf(mexp)
-                if ind.any():
-                    mexp[ind] = 0 # lim_x->inf exp(x)*erfc(x) = 0
-                    
-            ylt = mexp*scipy.special.erfc(argstep+b/(2.*ltailslope_ratio))
-        else:
-            ylt = np.zeros_like(diff)
+        yt = []
+        for btail,tail_H,tailslope_ratio in zip([bstail,bltail],[stail_H,ltail_H],[stailslope_ratio,ltailslope_ratio]):
+            if onlyheight:
+                if btail:
+                    with np.errstate(over="ignore"):
+                        mexp = tail_H/2.*np.exp(gvar/(2.*tailslope_ratio**2))
+                        ind = np.isinf(mexp)
+                        if ind.any():
+                            mexp[ind] = 0 # lim_x->inf exp(x)*erfc(x) = 0
+                            
+                    yti = mexp*scipy.special.erfc(b/(2.*tailslope_ratio))
+                else:
+                    yti = np.zeros_like(u)
+            else:
+                if btail:
+                    with np.errstate(over="ignore"):
+                        mexp = tail_H/2.*np.exp(diff/tailslope_ratio+gvar/(2.*tailslope_ratio**2))
+                        ind = np.isinf(mexp)
+                        if ind.any():
+                            mexp[ind] = 0 # lim_x->inf exp(x)*erfc(x) = 0
+                            
+                    yti = mexp*scipy.special.erfc(argstep+b/(2.*tailslope_ratio))
+                else:
+                    yti = np.zeros_like(diff)
+            yt.append(yti)
+        
+        yst,ylt = yt
         
         if decomposed:
             return yg,yst,ylt,ys

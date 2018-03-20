@@ -54,6 +54,10 @@ def xyremovenan(x,y):
     b = np.logical_and(~np.isnan(x),~np.isnan(y))
     x[b],y[b]
 
+def cor_from_cov(cov):
+    D = np.diag(1/np.sqrt(np.diag(cov)))
+    return D.dot(cov.dot(D))
+    
 def lstsq_cov(A,vare=None,cove=None):
     # A.x = b + e
     # E(e) = 0
@@ -62,11 +66,15 @@ def lstsq_cov(A,vare=None,cove=None):
     # COVx = A^(-1).COVe.A^(-T)
     # COVx = (A^T.COVe^(-1).A)^(-1)
     
+    #try:
     if cove is None:
         return np.linalg.inv(np.dot(A.T, A/vare.reshape((vare.size,1))))
     else:
         iA = np.linalg.inv(A)
         return invA.dot(COVe.dot(invA.T))
+    #except np.linalg.linalg.LinAlgError:
+    #    _,n = A.shape
+    #    return np.ones((n,n))
     
 def lstsq_cov_est(A,b,x):
     # A.x = b + e

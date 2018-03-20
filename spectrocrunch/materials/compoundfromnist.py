@@ -41,5 +41,12 @@ class CompoundFromNist(compound.Compound):
         data = xraylib.GetCompoundDataNISTByName(nistname)
         if name is None:
             name = data["name"]
-        super(compoundfromnist,self).__init__(compound(data["Elements"],data["massFractions"],types.fraction.mass,data["density"],name=name)
+        super(CompoundFromNist,self).__init__(data["Elements"],data["massFractions"],types.fraction.mass,data["density"],name=name)
+
+registry = xraylib.GetCompoundDataNISTList()
+
+def search(name):
+    name = name.lower()
+    return [k for k in registry if name in k.lower()]
+
 
