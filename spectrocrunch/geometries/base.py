@@ -30,13 +30,18 @@ from ..math import noisepropagation
 class Base(object):
 
     def __init__(self,detector=None,source=None):
-        self.connect(detector=detector,source=source)
-    
-    def connect(self,detector=None,source=None):
         self.detector = detector
         self.source = source
-        if self.detector is not None:
-            self.detector.geometry = self
+
+    @property
+    def detector(self):
+        return self._detector
+    
+    @detector.setter
+    def detector(self,value):
+        self._detector = value
+        if self._detector is not None:
+            self._detector.geometry = self
     
     def __getattr__(self,attr):
         try:

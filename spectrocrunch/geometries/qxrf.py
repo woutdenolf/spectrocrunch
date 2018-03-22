@@ -176,7 +176,8 @@ class QXRFGeometry(with_metaclass(object)):
                 self.diodeI0.secondarytarget.geometry.source = self.source
             self.diodeI0.simplecalibration = self.simplecalibration
         if self.xrfgeometry is not None:
-            self.xrfgeometry.connect(detector=self.xrfdetector,source=self.source)
+            self.xrfgeometry.detector = self.xrfdetector
+            self.xrfgeometry.source = self.source
 
     def setxrfposition(self,value):
         self.xrfgeometry.detectorposition = value
