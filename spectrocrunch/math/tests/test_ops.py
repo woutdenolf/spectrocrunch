@@ -51,8 +51,8 @@ class test_ops(unittest.TestCase):
                             o2i = o2.inverse
                             self.assertAlmostEqual((o1*o2)(x),o1(o2(x)))
                             self.assertAlmostEqual((o1*o2).inverse(x),o2i(o1i(x)))
-                            
-    def test_combine(self):
+    
+    def _gencase(self,ncases=100):
         sops = [linop.LinearOperator(1.3,0.1),\
                 linop.Identity(),\
                 linop.LinearOperator(-0.9,-0.3),\
@@ -65,38 +65,44 @@ class test_ops(unittest.TestCase):
                 linop.NaNClip(-7,0),\
                 linop.NaNClip(None,0),\
                 linop.NaNClip(-7,None)]
+    
+        for i in range(ncases):
+            n = random.randint(1,5)
+            combinations = list(itertools.combinations_with_replacement(sops,n))
+            for combination in random.sample(combinations,n):
+                yield combination
 
-        for arg in np.linspace(-30,30,20):
+    def test_combine(self):
+        for arg in np.random.random(5)*60-30:
             #arg = -29
             
-            for n in [1,2,3,5]:
-                for ops in itertools.combinations_with_replacement(sops,n):
-                    opc = linop.Identity()
-                    result = arg
-                    #print "\n"*5
-                    #print ops
+            for ops in self._gencase(ncases=500):
+                opc = linop.Identity()
+                result = arg
+                #print "\n"*5
+                #print ops
+                
+                # Forward
+                for op in ops:
+                    #print("\nx = {}".format(result))
+                    #print("y = {}".format(op))
+                    if op is not None:
+                        result = op(result)
+                    opc = op*opc
+                    #print("y = {}".format(result))
+                    #print("x = {}".format(arg))
+                    #print("y = {}".format(opc))
+                    #print("y = {}".format(opc(arg)))
                     
-                    # Forward
-                    for op in ops:
-                        #print("\nx = {}".format(result))
-                        #print("y = {}".format(op))
-                        if op is not None:
-                            result = op(result)
-                        opc = op*opc
-                        #print("y = {}".format(result))
-                        #print("x = {}".format(arg))
-                        #print("y = {}".format(opc))
-                        #print("y = {}".format(opc(arg)))
-                        
-                        np.testing.assert_allclose(result,opc(arg))
-                        
-                    # Inverse
-                    result = arg
-                    for op in reversed(ops):
-                        if op is not None:
-                            result = op.inverse(result)
+                    np.testing.assert_allclose(result,opc(arg))
+                    
+                # Inverse
+                result = arg
+                for op in reversed(ops):
+                    if op is not None:
+                        result = op.inverse(result)
 
-                    np.testing.assert_allclose(result,opc.inverse(arg))
+                np.testing.assert_allclose(result,opc.inverse(arg))
     
     
 def test_suite_all():
