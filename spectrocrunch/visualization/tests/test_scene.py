@@ -43,9 +43,8 @@ class test_scene(unittest.TestCase):
         
         s2 = scene.Scene(unit0=unit0,unit1=unit1)
         s2.transpose(True)
-        #s2.decreasing = [True,True]
+        #s2.flipx(increasing=True)
         s2.axlabels = ["dim0","dim1"]
-        #s2.aspect = 1
         s2.cmap = plt.get_cmap('gray')
         
         o1 = scene.Image(img,lim0=s1.q0([8,8+n0-1]),lim1=s1.q1([10+n1-1,10]))
@@ -54,17 +53,19 @@ class test_scene(unittest.TestCase):
         
         p0 = sorted(o1.datarange(0,border=False))
         p1 = sorted(o1.datarange(1,border=False))
-        o = scene.Polyline([p0[0],p0[1],p0[1],p0[0]],[p1[0],p1[0],p1[1],p1[1]],scatter=True)
+        o = scene.Polyline([p0[0],p0[1],p0[1],p0[0]],[p1[0],p1[0],p1[1],p1[1]])
         s1.register(o)
         s2.register(o)
+        o.set_setting("scatter",True)
 
         o2 = scene.Image(img,lim0=s1.q0([-2,-2+n0-1]),lim1=s1.q1([-1,-1+n1-1]))
         s1.register(o2)
         s2.register(o2)
+        o.set_setting("scatter",True)
         
         p0 = sorted(o2.datarange(0,border=False))
         p1 = sorted(o2.datarange(1,border=False))
-        o = scene.Polyline([p0[0],p0[1],p0[1],p0[0]],[p1[0],p1[0],p1[1],p1[1]],scatter=True)
+        o = scene.Text([p0[0],p0[1],p0[1],p0[0]],[p1[0],p1[0],p1[1],p1[1]],labels=[1,2,3,4])
         s1.register(o)
         s2.register(o)
         
@@ -74,17 +75,17 @@ class test_scene(unittest.TestCase):
         s2.setaxes(ax)
         
         # Update scene 1
-        s1.update()
+        s1.updateview()
         
         # Shift image, axes scaling and update scene 2
         o1.lim[0] = s1.q0([9,9+n0-1])
         s2.setdatarange(0,s1.q0([0,1]))
         s2.setdatarange(1,s1.q1([0,1]))
-        s2.update()
+        s2.updateview()
         #plt.pause(0.01)
         
         # Update scene 1
-        s1.update()
+        s1.updateview()
         
         # Reset axes of scene 1
         f, ax = plt.subplots()
@@ -94,9 +95,10 @@ class test_scene(unittest.TestCase):
         o1.lim[0] = s1.q0([9,9+n0-1])
         
         s1.set_setting("cnorm",scene.ColorNorm("PowerNorm",0.1))
-        s1.update()
+        s1.updateview()
         
         #plt.pause(0.01)
+        #plt.show()
         
 def test_suite_all():
     """Test suite including all test suites"""

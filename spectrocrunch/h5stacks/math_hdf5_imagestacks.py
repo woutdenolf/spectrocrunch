@@ -128,6 +128,13 @@ def replaceexpression(expression,olds,news):
     return expression
 
 def parseexpression(expression,stacks):
+    """
+    Args:
+        expression(str): the variable argument is indicated by "{}" 
+        fixed arguments are indeicate by "{name}"
+        e.g. "{}*nanone({icr}/({I0}*{ocr})"
+        stacks(list(str)): list of variable arguments, e.g. ["icr","ocr","I0",...]
+    """
     _vars = extractexpression(expression)
     if "" not in _vars:
         raise ValueError("The expression does not contain {} which indicates the variable argument.")
@@ -136,7 +143,7 @@ def parseexpression(expression,stacks):
     o = integerbase(digs = digs)
     
     # Variable argument
-    expression = expression.replace("{}","var_a")
+    expression = expression.replace("{}","var_a") # do not use format
     _vars.remove("")
     n = len(stacks)
     varargs = [None]*n

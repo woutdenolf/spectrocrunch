@@ -22,10 +22,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .compound import compound
+from . import compound
+from . import types
+
 import xraylib
 
-class compoundfromnist(compound):
+class CompoundFromNist(compound.Compound):
     """Interface to a compound defined by a list of elements
     """
 
@@ -39,5 +41,12 @@ class compoundfromnist(compound):
         data = xraylib.GetCompoundDataNISTByName(nistname)
         if name is None:
             name = data["name"]
-        super(compoundfromnist,self).__init__(compound(data["Elements"],data["massFractions"],fractionType.weight,data["density"],name=name)
+        super(CompoundFromNist,self).__init__(data["Elements"],data["massFractions"],types.fraction.mass,data["density"],name=name)
+
+registry = xraylib.GetCompoundDataNISTList()
+
+def search(name):
+    name = name.lower()
+    return [k for k in registry if name in k.lower()]
+
 

@@ -26,12 +26,10 @@ import unittest
 
 from . import test_objects
 from . import test_calcnoise
-from . import test_noisepropagation
 
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_noisepropagation.test_suite_all())
     testSuite.addTest(test_objects.test_suite_all())
     testSuite.addTest(test_calcnoise.test_suite_all())
     return testSuite

@@ -22,7 +22,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..io.spec import spec
 import h5py
 import numpy as np
 import fabio
@@ -31,8 +30,11 @@ from matplotlib import cm
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.animation as animation
+import warnings
 
 from ..math.common import logscale
+from ..io.spec import spec
+from ..common import instance
 
 class shape_object(object):
     
@@ -406,10 +408,14 @@ class shape_hdf5(shape_object):
             else:
                 frame2 = frame
             
-        ocoord = oh5["coordinates"]
+        try:
+            ocoord = oh5["stackinfo"]
+        except KeyError:
+            warnings.warn("\"coordinates\" is deprecated and should be replaced by \"stackinfo\"", DeprecationWarning) 
+            ocoord = oh5["coordinates"]
         for f in ocoord:
             if f == "samz":
-                v = np.atleast_1d(ocoord[f].value)
+                v = instance.asarray(ocoord[f].value)
                 if len(v)==1:
                     dim1off = v[0]*1000
                 else:
@@ -418,7 +424,7 @@ class shape_hdf5(shape_object):
                 dim1name = "sampz"
                 dim1mult = 1
             if f == "sampz":
-                v = np.atleast_1d(ocoord[f].value)
+                v = instance.asarray(ocoord[f].value)
                 if len(v)==1:
                     dim1off = v[0]
                 else:
@@ -427,7 +433,7 @@ class shape_hdf5(shape_object):
                 dim1name = "samz"
                 dim1mult = 1000
             if f == "samy":
-                v = np.atleast_1d(ocoord[f].value)
+                v = instance.asarray(ocoord[f].value)
                 if len(v)==1:
                     dim2off = v[0]*1000
                 else:
@@ -436,7 +442,7 @@ class shape_hdf5(shape_object):
                 dim2name = "sampy"
                 dim2mult = 1
             if f == "sampy":
-                v = np.atleast_1d(ocoord[f].value)
+                v = instance.asarray(ocoord[f].value)
                 if len(v)==1:
                     dim2off = v[0]
                 else:
@@ -458,7 +464,7 @@ class shape_hdf5(shape_object):
                 self.dim2 = dim2off + ogrp[dim2name].value[[0,-1]]*dim2mult
 
                 tmp = ogrp.attrs["axes"]
-                if isinstance(tmp,str):
+                if instance.isstring(tmp):
                     tmp = tmp.split(":")
                 else:
                     tmp = [t for t in tmp]

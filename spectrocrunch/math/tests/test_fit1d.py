@@ -27,7 +27,7 @@ import unittest
 from .. import fit1d
 
 import numpy as np
-import pylab
+
 
 class test_fit1d(unittest.TestCase):
 
@@ -41,8 +41,10 @@ class test_fit1d(unittest.TestCase):
         x0,sx,A = tuple(p1)
 
         data = fit1d.gaussian(x,x0,sx,A)
-        #self.plot(data)
-
+        #import matplotlib.pyplot as plt
+        #plt.plot(data)
+        #plt.show()
+        
         p2,_ = fit1d.fitgaussian(x,data)
         np.testing.assert_allclose(p1,p2)
 
@@ -69,13 +71,6 @@ class test_fit1d(unittest.TestCase):
         m2,em2 = fit1d.linfit_zerointercept2(x,y,errors=True)
         np.testing.assert_allclose(m1,m2)
         np.testing.assert_almost_equal(em1,em2,decimal=3) # em2 maybe not correct???
-        
-    def plot(self,data):
-        pylab.figure(1)
-        pylab.subplot(111)
-        pylab.plot(data)
-        pylab.pause(0.1)
-        raw_input("Press enter to continue...")
 
 def test_suite_all():
     """Test suite including all test suites"""

@@ -25,23 +25,24 @@
 import collections
 import operator
 import itertools
+import numpy as np
 
 from . import instance
 
 def flatten(l):
-    """Flatten list
+    """Flatten iterables
 
     Args:
-        l(list):
+        l(anything):
     Returns:
         list
     """
-    for el in l:
-        if isinstance(el, collections.Iterable) and not instance.isstring(el):
-            for sub in flatten(el):
-                yield sub
-        else:
-            yield el
+    if instance.isiterable(l) and not instance.isstring(l):
+        for el in iter(l):
+            for el2 in flatten(el):
+                yield el2
+    else:
+        yield l
 
 def listadvanced_bool(lst,barr,bnot=False):
     """Advanced list indexing: boolean array
@@ -52,12 +53,9 @@ def listadvanced_bool(lst,barr,bnot=False):
     Returns:
         list
     """
-    if len(lst)!=len(barr):
-        raise IndexError("boolean index did not match indexed list; length is {} but boolean dimension is {}".format(len(lst),len(barr)))
     if bnot:
-        return [item for b,item in zip(barr,lst) if not b]
-    else:
-        return [item for b,item in zip(barr,lst) if b]
+        barr = itertools.imap(operator.not_,barr)
+    return list(itertools.compress(lst,barr))
 
 def listadvanced_int(lst,ind):
     """Advanced list indexing: integer array
@@ -142,3 +140,29 @@ def length(x):
     except TypeError:
         return 1
 
+def filterfalse(predicate, iterable):
+    # filterfalse(lambda x: x%2, range(10)) --> 0 2 4 6 8
+    if predicate is None:
+        predicate = bool
+    for x in iterable:
+        if not predicate(x):
+            yield x
+            
+def unique_everseen(iterable, key=None):
+    "List unique elements, preserving order. Remember all elements ever seen."
+    # unique_everseen('AAAABBBCCDAABBB') --> A B C D
+    # unique_everseen('ABBCcAD', str.lower) --> A B C D
+    seen = set()
+    seen_add = seen.add
+    if key is None:
+        for element in filterfalse(seen.__contains__, iterable):
+            seen_add(element)
+            yield element
+    else:
+        for element in iterable:
+            k = key(element)
+            if k not in seen:
+                seen_add(k)
+                yield element
+                
+        

@@ -8,7 +8,7 @@ import numpy as np
 from spectrocrunch.materials.compoundfromformula import compoundfromformula as compound
 #from spectrocrunch.materials.compoundfromcif import compoundfromcif as compound
 from spectrocrunch.materials.mixture import mixture
-from spectrocrunch.materials.types import fractionType
+from spectrocrunch.materials.types import fraction
 
 import xraylib
 import silx.math.fit as fit
@@ -65,7 +65,7 @@ def getcalculated(energy,e1,e2,e3,e4,absorbance_measured=None):
         w2 = 1-w1
         w2var = w1var
 
-    m = mixture([compound1,compound2],[w1,w2],fractionType.weight)
+    m = mixture([compound1,compound2],[w1,w2],fraction.mass)
     muL = m.mass_att_coeff(energy,decomposed=False)*m.density()*thickness
 
     print("Density = {} g/cm^3".format(m.density()))

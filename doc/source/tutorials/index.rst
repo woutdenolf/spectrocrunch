@@ -5,3 +5,5 @@ Tutorials
     :maxdepth: 2
 
     materials
+    diodes
+    xrfquant

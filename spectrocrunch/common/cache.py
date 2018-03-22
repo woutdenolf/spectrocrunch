@@ -52,14 +52,14 @@ class Cache(object):
         method = "_cache_{}".format(subject)
         try:
             generator = getattr(self,method)
-        except:
+        except AttributeError:
             generator = None
         return generator
         
     def _generate_cache(self,subject,*args,**kwargs):
         generator = self.cachegenerator(subject)
         if generator is None:
-            raise RuntimeError("Cache generating method \"{}\" does not exist".format(method))
+            raise RuntimeError("Cache subject \"{}\" does not exist".format(subject))
         return generator(*args,**kwargs)
         
     @contextlib.contextmanager
@@ -81,7 +81,7 @@ class Cache(object):
         if cache:
             self._store.pop(subject, None)
 
-    def getcashed(self,subject):
+    def getcache(self,subject):
         """Get cache belonging to a subject
         """
         if subject in self._store:
@@ -96,9 +96,6 @@ class Cache(object):
                 # generate the context
                 return self._generate_cache(subject)
     
-    def __getattr__(self,subject):
-        return self.getcashed(subject)
-    
 def withcache(subject):
     """Decorator to cache a subject
     """
@@ -107,7 +104,7 @@ def withcache(subject):
         def wrapper(self, *args, **kwargs):
             try:
                 ctx = getattr(self,"cachectx")
-            except:
+            except AttributeError:
                 raise RuntimeError("Class \"{}\" must be derived from \"Cache\"".format(self.__class__.__name__))
             with ctx(subject):
                 return func(self, *args, **kwargs)

@@ -25,11 +25,11 @@
 from __future__ import division
 
 from ..geometries import flatarea
-from ..geometries import source
+from ..sources import xray as xraysources
 from ..detectors import area
 from ..materials import scintillators
 from ..materials import lenses
-from . import noisepropagation
+from ..math import noisepropagation
 from ..common.instance import isarray
 
 import numpy as np
@@ -74,7 +74,7 @@ class id21_ffsetup(object):
         self.odetector = area.factory(det)
         
         if sample is not None:
-            src = source.factory("synchrotron")
+            src = xraysources.factory("synchrotron")
             geometry = flatarea.factory("perpendicular",detector=self.odetector,source=src)
             self.sample.geometry = geometry
 

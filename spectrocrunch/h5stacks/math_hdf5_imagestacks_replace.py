@@ -27,13 +27,14 @@ import numpy as np
 from ..io import nexus as nexus
 
 def evaluate_entire(operation,fin,varargs,retstacks):
-    """ Replace a particular value in image stacks
+    """Replace a particular value in image stacks
+    
     Args:
-        operation(dict)
-        fin(nexus.File)
-        varargs(dict)
-        fixedargs(dict)
-        retstacks(list(h5py.Group))
+        operation(dict):
+        fin(nexus.File):
+        varargs(dict):
+        fixedargs(dict):
+        retstacks(list(h5py.Group)):
     """
     v1 = operation["v1"]
     v2 = operation["v2"]
@@ -47,13 +48,14 @@ def evaluate_entire(operation,fin,varargs,retstacks):
         dset = nexus.createNXdataSignal(retstacks[i],data=data,chunks = True)
 
 def evaluate_sliced(operation,fin,varargs,retstacks):
-    """ Replace a particular value in image stacks, slice by slice
+    """Replace a particular value in image stacks, slice by slice
+    
     Args:
-        operation(dict)
-        fin(nexus.File)
-        varargs(dict)
-        fixedargs(dict)
-        retstacks(list(h5py.Group))
+        operation(dict):
+        fin(nexus.File):
+        varargs(dict):
+        fixedargs(dict):
+        retstacks(list(h5py.Group)):
     """
     stackdim = operation["stackdim"]
     v1 = operation["v1"]

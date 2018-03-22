@@ -24,11 +24,11 @@
 
 import unittest
 
-from .. import noisepropagation
+from ...math import noisepropagation
 from .. import calcnoise
 from ...materials import multilayer
 from ...geometries import flatarea
-from ...geometries import source
+from ...sources import xray as xraysources
 from ...detectors import area
 from ...materials.compoundfromformula import CompoundFromFormula as compound
 
@@ -43,7 +43,7 @@ class test_calcnoise(unittest.TestCase):
         nframe = 100
         ndark = 10
         
-        src = source.factory("synchrotron")
+        src = xraysources.factory("synchrotron")
         detector = area.factory("PCO Edge 5.5")
         geometry = flatarea.factory("perpendicular",detector=detector,source=src)
 
@@ -66,7 +66,7 @@ class test_calcnoise(unittest.TestCase):
         tframe = 0.07
         nframe = 100
         
-        src = source.factory("synchrotron")
+        src = xraysources.factory("synchrotron")
         detector = area.factory("PCO Edge 5.5")
         geometry = flatarea.factory("perpendicular",detector=detector,source=src)
         

@@ -24,4 +24,5 @@
 
 from ..common.Enum import Enum
 
-fractionType = Enum(['mole','weight','volume'])
+fraction = Enum(['mole','mass','volume'])
+

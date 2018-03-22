@@ -31,7 +31,7 @@ import pkg_resources
 def hdf5pathparse(path):
     """
     Args:
-        path(str)
+        path(str):
 
     Returns:
         tuple: (path,name)
@@ -171,10 +171,6 @@ def addinfogroup(fout,name,datadict):
         else:
             newgroup[k] = datadict[k]
 
-def addinfogroups(fout,infolist):
-    for v in infolist:
-        addinfogroup(fout,v["name"],v["data"])
-    
 def getinfogroups(fout):
     # Prepare list to receive info
     if "processing" not in fout:
@@ -190,16 +186,11 @@ def getinfogroups(fout):
         tmp = step.split(".")
         ind = int(tmp[0])-1
         name = ".".join(tmp[1:])
-        data = {k:ginfo[step][k][:] for k in ginfo[step]}
-        ret[ind] = makeinfogroup(name,data)
+        ret[ind] = {k:ginfo[step][k].value for k in ginfo[step]}
     
     return ret
 
 def copyaddinfogroup(fin,fout,name,datadict):
-    #infolist = getinfogroups(fin)
-    #infolist.append(makeinfogroup(name,datadict))
-    #addinfogroups(fout,infolist)
-    
     fin.copy(fin["processing"],fout)
     addinfogroup(fout,name,datadict)
 
@@ -243,8 +234,7 @@ def NXdefault(child,up=True):
         p = p.parent
 
 def defaultstack(f,nxdatagroup):
-    """
-    Make this NXdata group the default of the file
+    """Make this NXdata group the default of the file
 
     Args:
         f (h5py.File|str): hdf5 file
@@ -357,13 +347,13 @@ def createaxes(fout,axes):
     Args:
         fout (h5py.File): hdf5 file handle
         axes (list(dict)): [{"name":"name1","data":np.array},
-                            {"name":"name2","data":np.array},
-                            {"name":"name3","data":np.array}]
+        {"name":"name2","data":np.array},
+        {"name":"name3","data":np.array}]
 
     Returns:
         list(dict): [{"name":"name1","fullname":"/axes/name1/data"},
-                     {"name":"name2","fullname":"/axes/name2/data"},
-                     {"name":"name3","fullname":"/axes/name3/data"}]
+        {"name":"name2","fullname":"/axes/name2/data"},
+        {"name":"name3","fullname":"/axes/name3/data"}]
     """
     if "axes" in fout:
         grp = fout["axes"]

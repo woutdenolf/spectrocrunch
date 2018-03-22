@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 
 from . import compound
-from .types import fractionType
+from . import types
 import pyparsing as pp
 
 class FormulaParser(object):
@@ -85,6 +85,6 @@ class CompoundFromFormula(compound.Compound):
         elements, mults = p.eval(formula)
         if name is None:
             name = formula
-        super(CompoundFromFormula,self).__init__(elements,mults,fractionType.mole,density,name=name)
+        super(CompoundFromFormula,self).__init__(elements,mults,types.fraction.mole,density,name=name)
 
 

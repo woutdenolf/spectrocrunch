@@ -21,5 +21,5 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-"""Aligning multiple image stacks with different alignment algorithms. One stack is the reference, the other stacks are aligned accordingly.
+"""Aligning multiple image stacks
 """

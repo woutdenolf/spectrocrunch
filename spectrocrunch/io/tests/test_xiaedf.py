@@ -23,32 +23,23 @@
 # THE SOFTWARE.
 
 import unittest
-
-from .. import xiaedf
-
-from .. import edf
-
-from . import xiagen
-
 from testfixtures import TempDirectory
-
 import numpy as np
-
 import os
-
 from glob import glob
-
 from random import shuffle
-
 import collections
-
 from copy import copy
 
+from .. import xiaedf
+from .. import edf
+from . import xiagen
 from ...common import indexing
-
 from ...common import listtools
-
 from ...common.tests import genindexing
+
+import logging
+logger = logging.getLogger(__name__)
 
 class test_xiaedf(unittest.TestCase):
 
@@ -66,9 +57,6 @@ class test_xiaedf(unittest.TestCase):
         #self.pr.dump_stats("keep.cprof")
 
     def test_nameparsing_special(self):
-        self.assertEqual(xiaedf.xianameparser.parse("l1e1_zap_roi_frelon2_fr2_avg_0001_0000.edf"),\
-        xiaedf.XiaName(radix="l1e1",mapnum=1,linenum=-1,label="zap_roi_frelon2_fr2_avg",baselabel="zap_roi_frelon2_fr2",detector="avg"))
-
         self.assertEqual(xiaedf.xianameparser.parse("test_puz_PUZ_xmap_x1_00_0009_0000.edf"),\
         xiaedf.XiaName(radix="test_puz",mapnum=9,linenum=-1,label="PUZ_xmap_x1_00",baselabel="PUZ_xmap_x1",detector="00"))
  
@@ -153,6 +141,8 @@ class test_xiaedf(unittest.TestCase):
         # Check data
         xiaobject.onlyicrocr(False)
         xiaobject.dtcor(False)
+        xiaobject.detectorsum(False)
+        xiaobject.globalnorm(None)
         xiaobject.skipdetectors([])
 
         self.assertEqual(xiaobject.dshape,dshape)
@@ -195,13 +185,17 @@ class test_xiaedf(unittest.TestCase):
                         for together in [False,True]:
                             
                             for index in indices:
-                                #print "\n"*10
                                 #index = (slice(None), slice(None), 0)
                                 if dsum:
                                     index = indexing.replace(index,ndim,[-1],[slice(None)])
-                                    
-                                #print "================",index,"================"
-                                #print dsum,norm,dtcor,onlyicrocr,together
+
+                                logger.debug("\n"*5)
+                                logger.debug("index = {}".format(index))
+                                logger.debug("sum = {}".format(dsum))
+                                logger.debug("norm = {}".format(norm))
+                                logger.debug("dtcor = {}".format(dtcor))
+                                logger.debug("onlyicrocr = {}".format(onlyicrocr))
+                                logger.debug("together = {}".format(together))
 
                                 if together:
                                     if ctrs is None:
@@ -295,6 +289,65 @@ class test_xiaedf(unittest.TestCase):
             np.testing.assert_array_equal(data[...,1:],xiaobject.data)
             np.testing.assert_array_equal(stats[...,1:],xiaobject.stats)
 
+    def _testcopy(self,xiaobject,xiaobjectgen,path):
+        iscompound = isinstance(xiaobject,xiaedf.xiacompound)
+    
+        i = 0
+        for dsum in [False,True]:
+            xiaobject.detectorsum(dsum)
+            copystats = not dsum
+            if dsum:
+                xialabels = ["xiaS1"]
+            else:
+                xialabels = xiaobject.xialabels_used
+            for norm in [False,True]:
+                xiaobject.globalnorm("arr_flux" if norm else None)
+                for dtcor in [False,True]:
+                    xiaobject.dtcor(dtcor)
+                    for onlyicrocr in [False,True]:
+                        xiaobject.onlyicrocr(onlyicrocr)
+                        for copy in [False,True]:
+                            for copyctrs in [True,False]:
+                                for deflabels in [False,True]:
+                                    if copyctrs and not iscompound: # no counter when not a xiacompound (counters are saved per image)
+                                        continue
+                                    path2 = os.path.join(path,"copy{}".format(i))
+                                    i += 1
+                                    xiaobject2 = xiaobjectgen(path2)
+                                    
+                                    logger.debug("\n"*5)
+                                    logger.debug("sum = {}".format(dsum))
+                                    logger.debug("norm = {}".format(norm))
+                                    logger.debug("dtcor = {}".format(dtcor))
+                                    logger.debug("onlyicrocr = {}".format(onlyicrocr))
+                                    logger.debug("copyctrs = {}".format(copyctrs))
+                                    logger.debug("deflabels = {}".format(deflabels))
+                                    logger.debug("copy = {}".format(copy))
+
+                                    kwargs={}
+                                    if deflabels:
+                                        kwargs["xialabels"] = xialabels
+                                    if copy:
+                                        kwargs["stats"] = copystats
+                                        if iscompound:
+                                            kwargs["ctrs"] = copyctrs
+                                            if copyctrs:
+                                                kwargs["ctrnames"] = xiaobject.counterbasenames()
+                                        xiaobject2.save(xiaobject,**kwargs)
+                                    else:
+                                        if copystats:
+                                            kwargs["stats"] = xiaobject.allstats
+                                        if copyctrs and iscompound:
+                                            kwargs["ctrs"] = xiaobject.counters[...,0]
+                                            kwargs["ctrnames"] = xiaobject.counterbasenames()
+                                        xiaobject2.save(xiaobject.data,**kwargs)
+
+                                    np.testing.assert_array_equal(xiaobject.data,xiaobject2.data)
+                                    if copystats:
+                                        np.testing.assert_array_equal(xiaobject.allstats,xiaobject2.allstats)
+                                    if copyctrs:
+                                        np.testing.assert_array_equal(xiaobject.counters,xiaobject2.counters)
+
     def _test_line(self,path,radix,mapnum,linenum,ndet,nspec,nchan):
         # Generate some spectra + statistics
         dataorg,data,stats = xiagen.data(nspec,nchan,ndet)
@@ -303,7 +356,7 @@ class test_xiaedf(unittest.TestCase):
         line = xiaedf.xialine_number(path,radix,mapnum,linenum)
         xialabels = ["xia{:02d}".format(i) for i in range(ndet)]
         line.save(data,xialabels,stats=stats)
-
+        
         # Check saved files
         expectedfiles = ["{}_xia{:02}_{:04}_0000_{:04}.edf".format(radix,det,mapnum,linenum) for det in range(ndet)]+\
                         ["{}_xiast_{:04}_0000_{:04}.edf".format(radix,mapnum,linenum)]
@@ -319,6 +372,10 @@ class test_xiaedf(unittest.TestCase):
         self.assertEqual(line.datafilenames(),line2.datafilenames())
         self.assertEqual(line.statfilename(),line3.statfilename())
         self.assertEqual(line.datafilenames(),line3.datafilenames())
+
+        # Check copy
+        linegen = lambda x: xiaedf.xialine_number(x,radix,mapnum,linenum)
+        self._testcopy(line,linegen,path)
 
         # Check data
         dshape = (nspec,nchan,ndet)
@@ -391,6 +448,10 @@ class test_xiaedf(unittest.TestCase):
             tmp = self._xiaconfigidcheck(o)
             self.assertEqual(tmp.count(tmp[0]),len(tmp))
 
+        # Check copy
+        imagegen = lambda x: xiaedf.xiaimage_number(x,radix,mapnum)
+        self._testcopy(image,imagegen,path)
+        
         # Check data
         dshape = (nrow,ncol,nchan,ndet)
         sshape = (nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
@@ -444,6 +505,10 @@ class test_xiaedf(unittest.TestCase):
         self.assertEqual(stack.datafilenames(),stack4.datafilenames())
         self.assertEqual(stack.ctrfilenames(),stack4.ctrfilenames())
 
+        # Check copy
+        stackgen = lambda x: xiaedf.xiastack_radix(x,radix)
+        self._testcopy(stack,stackgen,path)
+
         # Check data
         dshape = (nenergy,nrow,ncol,nchan,ndet)
         sshape = (nenergy,nrow,ncol,xiaedf.xiadata.NSTATS,ndet)
@@ -459,7 +524,7 @@ class test_xiaedf(unittest.TestCase):
 
         i = 0
         for ndet in [4,1]:
-            for nchan in [1024,1]:
+            for nchan in [32,1]:
                 for nspec in [10,1]:
                     self._test_line(os.path.join(self.dir.path,"test_line_{}".format(i)),"test_line_{}".format(i),mapnum,linenum,ndet,nspec,nchan)
                     i += 1
@@ -469,7 +534,7 @@ class test_xiaedf(unittest.TestCase):
 
         i = 0
         for ndet in [4,1]:
-            for nchan in [1024,1]:
+            for nchan in [32,1]:
                 for ncol in [10,1]:
                     for nrow in [15,1]:
                         self._test_image(os.path.join(self.dir.path,"test_image_{}".format(i)),"test_image_{}".format(i),mapnum,ndet,ncol,nrow,nchan)
@@ -479,10 +544,10 @@ class test_xiaedf(unittest.TestCase):
 
         i = 0
         for ndet in [4]:
-            for nchan in [1024]:
+            for nchan in [32]:
                 for ncol in [10]:
                     for nrow in [15]:
-                        for nenergy in [20]:
+                        for nenergy in [8]:
                             self._test_stack(os.path.join(self.dir.path,"test_stack_{}".format(i)),"test_stack_{}".format(i),ndet,ncol,nrow,nenergy,nchan)
                             i += 1
 

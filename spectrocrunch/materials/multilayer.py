@@ -32,9 +32,10 @@ import fisx
 from ..common import instance
 from ..common import cache
 from ..common import listtools
+from ..math import fit1d
 from . import xrayspectrum
 from ..simulation.classfactory import with_metaclass
-from ..simulation import noisepropagation
+from ..math import noisepropagation
 from . import pymca
 from . import element
 
@@ -57,7 +58,7 @@ class Layer(object):
         return getattr(self.material,attr)
 
     def __str__(self):
-        return "{} μm ({})".format(self.thickness*1e4,self.material)
+        return "{} um ({})".format(self.thickness*1e4,self.material)
   
     @property
     def xraythickness(self):
@@ -100,7 +101,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         Args:
             material(list(spectrocrunch.materials.compound|mixture)): layer composition
             thickness(list(num)): layer thickness in cm
-            geometry(spectrocrunch.geometries.base.PointGeometry): 
+            geometry(spectrocrunch.geometries.base.Centric): 
         """
         
         self.geometry = geometry
@@ -116,26 +117,23 @@ class Multilayer(with_metaclass(cache.Cache)):
     def __len__(self):
         return len(self.layers)
     
+    def __getitem__(self,index):
+        return self.layers[index]
+        
     @property
     def nlayers(self):
         return len(self.layers)
-        
-    def __iter__(self):
-        return iter(self.layers)
     
     def fixediter(self):
         for layer in self:
-            if layer["fixed"]:
+            if layer.fixed:
                 yield layer
     
     def freeiter(self):
         for layer in self:
-            if not layer["fixed"]:
+            if not layer.fixed:
                 yield layer
-            
-    def __getitem__(self,index):
-        return self.layers[index]
-  
+
     def __str__(self):
         layers = "\n ".join("Layer {}. {}".format(i,str(layer)) for i,layer in enumerate(self))
         return "Multilayer (ordered top-bottom):\n {}".format(layers)
@@ -159,7 +157,20 @@ class Multilayer(with_metaclass(cache.Cache)):
     @property
     def xraythickness(self):
         return np.vectorize(lambda layer:layer.xraythickness)(self)
-        
+    
+    def massfractions(self):
+        ret = {}
+        for layer in self:
+            wfrac = layer.massfractions()
+            m = layer.density*layer.thickness
+            for el,w in wfrac:
+                if el not in ret:
+                    ret[el] = 0.
+                else:
+                    ret[el] += m*w
+        s = sum(ret.values())
+        return {el:w/s for el,w in ret}
+    
     def mass_att_coeff(self,energy):
         """Total mass attenuation coefficient
         
@@ -204,25 +215,25 @@ class Multilayer(with_metaclass(cache.Cache)):
     def fixlayers(self,ind=None):
         if ind is None:
             for layer in self:
-                layer["fixed"] = True
+                layer.fixed = True
         else:
             for i in ind:
-                self[i]["fixed"] = True
+                self[i].fixed = True
 
     def freelayers(self,ind=None):
         if ind is None:
             for layer in self:
-                layer["fixed"] = False
+                layer.fixed = False
         else:
             for i in ind:
-                self[i]["fixed"] = False
+                self[i].fixed = False
 
     def refinethickness(self,energy,absorbance,constant=False,constraint=True):
         y = absorbance
 
-        A = [layer.density*layer.mass_att_coeff(energy) for layer in self.freeiter]
+        A = [layer.density*layer.mass_att_coeff(energy) for layer in self.freeiter()]
         
-        for layer in self.fixediter:
+        for layer in self.fixediter():
             y = y-layer.density*layer.xraythickness*layer.mass_att_coeff(energy)
         
         if constant:
@@ -244,8 +255,8 @@ class Multilayer(with_metaclass(cache.Cache)):
             else:
                 thickness = fit1d.lstsq(A,y)
                 
-        for t,layer in zip(thickness,self.freeiter):
-            layers.xraythickness = t
+        for t,layer in zip(thickness,self.freeiter()):
+            layer.xraythickness = t
 
     def _cache_layerinfo(self):
         t = np.empty(self.nlayers+1)
@@ -269,7 +280,7 @@ class Multilayer(with_metaclass(cache.Cache)):
                 n+1 when z>totalthickness
                 {1,...,n} otherwise (the layers)
         """
-        layerinfo = self.getcashed("layerinfo")
+        layerinfo = self.getcache("layerinfo")
         ret = np.digitize(z, layerinfo["cumul_thickness"], right=True)
         try:
             return np.asscalar(ret)
@@ -320,7 +331,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         """
         
         lz = self._zlayer(z)
-        att = self.getcashed("attenuationinfo")
+        att = self.getcache("attenuationinfo")
         linatt = att["linatt"].loc[lz][energy]
         cor = att["linatt_cumulcor"].loc[lz][energy]
         if linatt.ndim!=0:
@@ -409,7 +420,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         if lzarr:
             lz = lz.tolist()
             
-        interactioninfo = self.getcashed("interactioninfo")
+        interactioninfo = self.getcache("interactioninfo")
         energyindex = interactioninfo["energyindex"][i](energyi)
         
         # Advanced indexing on MultiIndex: does not preserve order and repeats
@@ -480,7 +491,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         """
         interactionindex = 1
 
-        interactioninfo = self.getcashed("interactioninfo")
+        interactioninfo = self.getcache("interactioninfo")
         energy0 = interactioninfo["getenergy"](interactioninfo["probabilities"][0])
         
         nsource = len(energy0)
@@ -493,7 +504,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             geomkwargs = self.geometry.xrayspectrumkwargs()
             energy1 = interactioninfo["getenergy"](interactioninfo["probabilities"][interactionindex],**geomkwargs)
             
-            att = self.getcashed("attenuationinfo")
+            att = self.getcache("attenuationinfo")
             cosafirst = self.geometry.cosnormin
             cosalast = self.geometry.cosnormout
             mu0 = att["linatt"][energy0].values/cosafirst
@@ -504,7 +515,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             chi = mu1[1:-1,:,np.newaxis] - mu0[1:-1,np.newaxis,:]
             chicor = cor1[1:-1,:,np.newaxis] - cor0[1:-1,np.newaxis,:]
             
-            layerinfo = self.getcashed("layerinfo")
+            layerinfo = self.getcache("layerinfo")
             J2 = np.exp(chi*layerinfo["cumul_thickness"][1:,np.newaxis,np.newaxis])
             J2 -= np.exp(chi*layerinfo["cumul_thickness"][:-1,np.newaxis,np.newaxis])
             J2 /= chi
@@ -561,14 +572,14 @@ class Multilayer(with_metaclass(cache.Cache)):
         cosafirst = self.geometry.cosnormin
         cosalast = self.geometry.cosnormout
         integratormult = self.geometry.solidangle/cosafirst
-        layerinfo = self.getcashed("layerinfo")
+        layerinfo = self.getcache("layerinfo")
         za = layerinfo["cumul_thickness"][0]
         zb = layerinfo["cumul_thickness"][-1]
         zfirst = layerinfo["cumul_thickness"][0]
         zlast = layerinfo["zexit"]
         geomkwargs = self.geometry.xrayspectrumkwargs()
         
-        interactioninfo = self.getcashed("interactioninfo")
+        interactioninfo = self.getcache("interactioninfo")
         energy0 = interactioninfo["getenergy"](interactioninfo["probabilities"][0])
         interactions1 = interactioninfo["probabilities"][interactionindex].columns
         
@@ -613,7 +624,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         cosafirst = self.geometry.cosnormin
         cosalast = self.geometry.cosnormout
         integratormult = self.geometry.solidangle/cosafirst
-        layerinfo = self.getcashed("layerinfo")
+        layerinfo = self.getcache("layerinfo")
         za = layerinfo["cumul_thickness"][0]
         zb = layerinfo["cumul_thickness"][-1]
         zfirst = layerinfo["cumul_thickness"][0]
@@ -621,7 +632,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         geomkwargs1 = self.geometry.xrayspectrumkwargs()
         geomkwargs2 = geomkwargs1
         
-        interactioninfo = self.getcashed("interactioninfo")
+        interactioninfo = self.getcache("interactioninfo")
         energy0 = interactioninfo["getenergy"](interactioninfo["probabilities"][0])
         interactions1 = interactioninfo["probabilities"][1].columns
         interactions2 = interactioninfo["probabilities"][2].columns
@@ -795,6 +806,8 @@ class Multilayer(with_metaclass(cache.Cache)):
     def _print_fisx(self,fluo):
         print("Element   Layers    Peak          Energy       Rate      Secondary      Tertiary      Efficiency")
         for key in fluo:
+            if str(key)!="Ca K":
+                continue
             for layer in fluo[key]:
                 print("-----Layer {}-----".format(layer))
                 peakList = list(fluo[key][layer].keys())
@@ -826,8 +839,8 @@ class Multilayer(with_metaclass(cache.Cache)):
             else:
                 weights = np.ones(nsource,dtype=float)/nsource
         else:
-            weights,func = instance.asarrayf(weights,dtype=float)
-            weights = func(weights/weights.sum())
+            weights,func = instance.asarrayf(weights)
+            weights = func(weights/weights.sum(dtype=float))
 
         return weights
 
@@ -920,7 +933,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             with self.cachectx("interactioninfo",energy0,emin=emin,emax=emax,\
                                 ninteractions=ninteractions,\
                                 geomkwargs=geomkwargs):
-                interactioninfo = self.getcashed("interactioninfo")
+                interactioninfo = self.getcache("interactioninfo")
                 allenergies = interactioninfo["getenergy"](interactioninfo["probabilities"][-2],**geomkwargs)
                 with self.cachectx("attenuationinfo",allenergies):
                     # Primary interaction (with self-absorption)
@@ -967,7 +980,7 @@ class Multilayer(with_metaclass(cache.Cache)):
 
         N,probsuccess = self.propagate_broadcast(N,probsuccess)
 
-        if noisepropagation.israndomvariable(N):
+        if instance.israndomvariable(N):
             process = noisepropagation.bernouilli(probsuccess)
             Nout = noisepropagation.compound(N,process,forward=forward)
         else:

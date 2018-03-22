@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -24,15 +24,20 @@
 
 import unittest
 
-from .. import xrf as xrfdetectors
-from ...geometries import xrf as xrfgeometries
-from ...geometries import source as xrfsources
+from .. import xrf
 
 import numpy as np
 import silx.math.fit
 import scipy.integrate as integrate
+import itertools
 
 class test_xrfdet(unittest.TestCase):                
+
+    def plot(self,x,y1,y2):
+        import matplotlib.pyplot as plt
+        plt.plot(x,y1+1)
+        plt.plot(x,y2+1)
+        plt.show()
 
     def test_lineprofile(self):
         u = 10
@@ -50,89 +55,121 @@ class test_xrfdet(unittest.TestCase):
         
         kwargs["shape_conversionenergy"] = u
         
-        kwargs["shape_fixedratios"] = {"tailbroadening":0.5,"tailfraction":0.05,"stepfraction":0.005}
-        detector1 = xrfdetectors.Detector(**kwargs)
+        kwargs["shape_fixedarearatios"] = {"stailbroadening":0.1,"stailfraction":0.05,\
+                                            "ltailbroadening":0.5,"ltailfraction":0.01,\
+                                            "stepfraction":0.005,\
+                                            "bpeak":True,"bstail":True,"bltail":True,"bstep":True}
+        detector1 = xrf.XRFDetector(**kwargs)
+
+        kwargs.pop("shape_fixedarearatios")
+        kwargs["shape_pymca"] = {"stailarea_ratio":detector1.ratios[0],\
+                                "stailslope_ratio":detector1.stailslope_ratio,\
+                                "ltailarea_ratio":detector1.ratios[1],\
+                                "ltailslope_ratio":detector1.ltailslope_ratio,\
+                                "stepheight_ratio":detector1.ratios[2],
+                                "bpeak":True,"bstail":True,"bltail":True,"bstep":True}
+        detector2 = xrf.XRFDetector(**kwargs)
         
-        kwargs.pop("shape_fixedratios")
-        kwargs["shape_variableratios"] = {"stepheight_ratio":detector1.ratios[1],"tailarea_ratio":detector1.ratios[0],"tailslope_ratio":detector1.tailslope_ratio}
-        detector2 = xrfdetectors.Detector(**kwargs)
+        kwargs.pop("shape_pymca")
+        kwargs["shape_fixedarearatios"] = {"stailbroadening":detector1.stailbroadening,\
+                                    "stailfraction":detector1.fractions[1],\
+                                    "ltailbroadening":detector1.ltailbroadening,\
+                                    "ltailfraction":detector1.fractions[2],\
+                                    "stepfraction":detector1.fractions[3],\
+                                    "bpeak":True,"bstail":True,"bltail":True,"bstep":True}
+        detector3 = xrf.XRFDetector(**kwargs)
         
-        source = xrfsources.factory("synchrotron")
         
-        geometry1 = xrfgeometries.factory("sxm120",detector=detector1,source=source)
-        geometry2 = xrfgeometries.factory("sxm120",detector=detector2,source=source)
-        
-        np.testing.assert_allclose(detector1.fractions,detector2.fractions)
-        np.testing.assert_allclose(detector1.ratios,detector2.ratios)
-        np.testing.assert_allclose(detector1.tailbroadening,detector2.tailbroadening)
-        np.testing.assert_allclose(detector1.tailslope_ratio,detector2.tailslope_ratio)
+        for a,b in itertools.permutations([detector1,detector2,detector3],2):
+            np.testing.assert_allclose(a.fractions,b.fractions)
+            np.testing.assert_allclose(a.ratios,b.ratios)
+            np.testing.assert_allclose(a.stailbroadening,b.stailbroadening)
+            np.testing.assert_allclose(a.stailslope_ratio,b.stailslope_ratio)
+            np.testing.assert_allclose(a.ltailbroadening,b.ltailbroadening)
+            np.testing.assert_allclose(a.ltailslope_ratio,b.ltailslope_ratio)
         
         tmp = str(detector1)
         tmp = str(detector2)
-        
+        tmp = str(detector2)
+
         for voigt in [False,True]:
-            for tailbroadening in [2.5]: # assert fails when too large
-                for wtail in [0,1,0.2,0.4,0.6]:
+            for ltailbroadening in [2.5]: # assert fails when too large
+                for stailbroadening in [1.5]: # assert fails when too large
                     for wstep in [0,1,0.2,0.4,0.6]:
-                    
+                        for wstail in [0,1,0.2,0.4,0.6]:
+                            for wltail in [0,1,0.2,0.4,0.6]:
+                                for normalized in [False,True]:
+                                    # Spectrocrunch arguments
+                                    try:
+                                        wpeak = detector1.wpeak(wstail,wltail,wstep)
+                                    except RuntimeError:
+                                        continue
+                                    bpeak = wpeak>0
+                                    bstail = wstail>0
+                                    bltail = wltail>0
+                                    bstep = wstep>0
+                                    detector1.bpeak = bpeak
+                                    detector2.bpeak = bpeak
+                                    detector1.bstail = bstail
+                                    detector1.bltail = bltail
+                                    detector2.bstail = bstail
+                                    detector2.bltail = bltail
+                                    detector1.bstep = bstep
+                                    detector2.bstep = bstep
+                                    
+                                    detector1.stailbroadening = stailbroadening
+                                    detector1.ltailbroadening = ltailbroadening
+                                    detector1.fractions = (wstail,wltail,wstep)
 
-                        # Spectrocrunch arguments
-                        if wstep+wtail>1:
-                            continue
+                                    detector2.stailslope_ratio = detector1.stailslope_ratio
+                                    detector2.ltailslope_ratio = detector1.ltailslope_ratio
+                                    detector2.ratios = detector1.ratios
+                                    
+                                    # Silx arguments
+                                    kwargs = {"gaussian_term":wpeak>0,"st_term":wstail>0, "lt_term":wltail>0, "step_term":wstep>0}
+                                    if bpeak and normalized:
+                                        garea = wpeak
+                                    else:
+                                        garea = 1
+                                    stailarea_ratio,ltailarea_ratio,stepheight_ratio = detector1.ratios
+                                    stailslope_ratio = detector1.stailslope_ratio
+                                    ltailslope_ratio = detector1.ltailslope_ratio
+                                    args = (garea, u, detector1.gaussianFWHM(u),\
+                                            stailarea_ratio, stailslope_ratio,\
+                                            ltailarea_ratio, ltailslope_ratio,\
+                                            stepheight_ratio)
 
-                        detector1.fractions = (wtail,wstep)
-                        detector1.tailbroadening = tailbroadening
-                        detector2.ratios = detector1.ratios
-                        detector2.tailslope_ratio = detector1.tailslope_ratio
+                                    # Compare
+                                    y1 = np.squeeze(detector1.lineprofile(x,u,normalized=normalized))
+                                    y2 = silx.math.fit.sum_ahypermet(x,*args,**kwargs)
+                                    y3 = np.squeeze(detector2.lineprofile(x,u,normalized=normalized))
 
-                        if voigt:
-                            linewidth = 0.010
-                        else:
-                            linewidth = 0
-                            
-                        # Silx arguments
-                        wdet = 1-wtail-wstep
-                        kwargs = {"gaussian_term":wdet>0,"st_term":wtail>0, "lt_term":False, "step_term":wstep>0}
-                        if wdet<=0:
-                            garea = 1
-                        else:
-                            garea = wdet
-                        
-                        tailarea_ratio,stepheight_ratio = detector1.ratios
-                        tailslope_ratio = detector1.tailslope_ratio
-                        args = (garea, u, detector1.gaussianFWHM(u), tailarea_ratio, tailslope_ratio, 0, 1, stepheight_ratio)
-                        
-                        # Compare
-                        y1 = np.squeeze(detector1.lineprofile(x,u))
-                        y2 = silx.math.fit.sum_ahypermet(x,*args,**kwargs)
-                        if wdet>0:
-                            y3 = np.squeeze(detector2.lineprofile(x,u))
-
-                        #import matplotlib.pyplot as plt
-                        #plt.plot(x,y1+1,'o')
-                        #plt.plot(x,y3+1)
-                        #plt.show()
-
-                        a = np.max(y1)*0.1
-                        np.testing.assert_allclose(y1+a,y2+a)
-                        if wdet>0:
-                            np.testing.assert_allclose(y1+a,y3+a)
-                        
-                        # Check unit area
-                        area1,error1 = integrate.quad(lambda x: detector1.lineprofile(x,u,linewidth=linewidth),xmin,xmax)
-                        area2,error2 = integrate.quad(lambda x: silx.math.fit.sum_ahypermet(np.asarray([x]),*args,**kwargs)[0],xmin,xmax)
-                        if voigt:
-                            rtol = 1e-3
-                        else:
-                            rtol = 1e-7
-                        np.testing.assert_allclose(area1,1,rtol=rtol)
-                        np.testing.assert_allclose(area2,1,rtol=1e-7)
-                        if wdet>0:
-                            area3,error3 = integrate.quad(lambda x: detector2.lineprofile(x,u,linewidth=linewidth),xmin,xmax)
-                            np.testing.assert_allclose(area3,1,rtol=rtol)
-
-
-
+                                    a = np.max(y1)*0.1
+                                    #print wpeak,wstail,wltail,wstep
+                                    #self.plot(x,y2,y3)
+                                    np.testing.assert_allclose(y1+a,y2+a)
+                                    np.testing.assert_allclose(y2+a,y3+a)
+                                    
+                                    # Check unit area
+                                    
+                                    if voigt:
+                                        linewidth = 0.010
+                                        rtol = 1e-3
+                                    else:
+                                        linewidth = 0
+                                        rtol = 1e-7
+                                    area1,error1 = integrate.quad(lambda x: detector1.lineprofile(x,u,linewidth=linewidth,normalized=normalized),xmin,xmax)
+                                    area2,error2 = integrate.quad(lambda x: silx.math.fit.sum_ahypermet(np.asarray([x]),*args,**kwargs)[0],xmin,xmax)
+                                    area3,error3 = integrate.quad(lambda x: detector2.lineprofile(x,u,linewidth=linewidth,normalized=normalized),xmin,xmax)  
+                                    if normalized:
+                                        np.testing.assert_allclose(area1,1,rtol=rtol)
+                                        np.testing.assert_allclose(area2,1,rtol=1e-7)
+                                        np.testing.assert_allclose(area3,1,rtol=rtol)
+                                    #else:
+                                    #    print area1,area2,area3
+                                    #    np.testing.assert_raises(AssertionError, np.testing.assert_allclose, area1,1,rtol=rtol)
+                                    #    np.testing.assert_raises(AssertionError, np.testing.assert_allclose, area2,1,rtol=1e-7)
+                                    #    np.testing.assert_raises(AssertionError, np.testing.assert_allclose, area3,1,rtol=rtol)
 
 def test_suite_all():
     """Test suite including all test suites"""

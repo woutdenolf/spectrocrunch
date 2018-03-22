@@ -25,53 +25,215 @@
 from . import base
 from ..common.classfactory import with_metaclass
 from ..resources import resource_filename
+from ..math import noisepropagation
+from ..common import units
 
 import numpy as np
 import silx.math.fit as silxfit
 import matplotlib.pyplot as plt
-
+import os
+import json
 
 class LinearMotor(object):
 
-    def __init__(self,zerodistance=None,unittocm=None):
-        """
-        Args:
-            zerodistance(num): distance for zero motor position
-            unittocm(num): conversion factor motor units -> cm
-        """
+    def __init__(self,zerodistance=None,positionsign=1):
         self.zerodistance = zerodistance
-        self.unittocm = float(unittocm)
+        self.positionsign = positionsign
 
+    @property
+    def zerodistance_rv(self):
+        return self._zerodistance
+    
+    @property
+    def zerodistance(self):
+        return noisepropagation.E(self.zerodistance_rv)
+    
+    @zerodistance.setter
+    def zerodistance(self,value):
+        if value is None:
+            self._zerodistance = None
+        else:
+            self._zerodistance = units.Quantity(value,"cm")
+
+    def _distancecalc(self,detectorposition=None,zerodistance=None,distance=None):
+        if distance is None:
+            return self.positionsign * (detectorposition+zerodistance)
+        elif detectorposition is None:
+            distance = units.Quantity(distance,"cm")
+            return self.positionsign*distance - zerodistance
+        elif zerodistance is None:
+            distance = units.Quantity(distance,"cm")
+            return self.positionsign*distance - self.geometry.detectorposition
+        else:
+            raise RuntimeError("Either distance, detector position or zero-distance should be unknown")
+        
     def __call__(self,detectorposition=None,distance=None):
         """Convert detector position to distance and vice versa
 
         Args:
-            detectorposition(Optional(num)): detector position (units)
-            distance(Optional(num)): sample-detector distance (cm)
+            detectorposition(Optional(num)): detector motor position
+            distance(Optional(num)): sample-detector distance
             
         Returns:
-            num or None: distance or detector position
+            num or dict: distance or kwargs for this function to get the distance
         """
-        if distance is None:
-            return (detectorposition+self.zerodistance)*self.unittocm
-        else:
-            detectorposition = distance/self.unittocm - self.zerodistance
+        if detectorposition is None:
+            if distance is not None:
+                detectorposition = self._distancecalc(distance=distance,zerodistance=self.zerodistance)
             return {"detectorposition":detectorposition}
-
-    def calibrate_manual(self,distance,detectorposition=None):
+        else:
+            return self._distancecalc(detectorposition=detectorposition,zerodistance=self.zerodistance)
+            
+    def calibrate_manually(self,distance):
         """Calibrate geometry based on one (distance,position) pair
         """
-        self.zerodistance = distance/self.unittocm - detectorposition
+        distance = units.umagnitude(distance,"cm")
+        self.zerodistance = self._distancecalc(distance=distance,\
+                            detectorposition=self.geometry.detectorposition.to("cm").magnitude)
 
-    def calibrate_auto(self,rcfile,**kwargs):
-        detectorposition,intensities = np.load(self.distance_rcfile)
-        return self.calibrate_fit(intensities,detectorposition=detectorposition,**kwargs)
+    def calibrate_fit(self,calibrc=None,solidanglecalib=None,\
+                fit=True,fixedactivearea=True,plot=False,\
+                xlabel="Motor position",ylabel="Normalized Fluorescence"):
+        """Calibrate geometry based in intensity vs. linear motor position (i.e. derive active area and zerodistance)
+        """
 
-    def calibrate_fit_testcorrelation2(self,intensities,rate=None,zerodistance=None,detectorposition=None):
+        positionunits = calibrc["positionunits"]
+        detectorpositionorg = units.Quantity(np.asarray(calibrc["detectorposition"]),positionunits)
+        detectorposition = detectorpositionorg
+        signal = np.asarray(calibrc["signal"])
+        varsignal = np.asarray(calibrc["var"])
+        
+        dmagnitude = lambda x: x.to("cm").magnitude
+        amagnitude = lambda x: x.to("cm^2").magnitude
+        dquant = lambda x: units.Quantity(x,"cm")
+        aquant = lambda x: units.Quantity(x,"cm^2")
+        
+        if solidanglecalib is None:
+            # Initial parameter values
+            activearea = noisepropagation.E(self.geometry.activearea)
+            zerodistance = noisepropagation.E(self.zerodistance)
+
+            distance = noisepropagation.E(self(detectorposition=detectorposition))
+            rate = np.mean(signal/self.geometry.solidangle_calc(activearea=activearea,distance=distance))
+
+            if fit:
+                if fixedactivearea:
+                    cactivearea = silxfit.CFIXED
+                else:
+                    cactivearea = silxfit.CFREE
+                p0 = [rate,dmagnitude(zerodistance),amagnitude(activearea)]
+                constraints = [[silxfit.CFREE,0,0],[silxfit.CFREE,0,0],[cactivearea,0,0]]
+
+                # Fit function
+                def fitfunc(x,rate,zerodistance,activearea):
+                    distance = self._distancecalc(detectorposition=dquant(x),zerodistance=dquant(zerodistance))
+                    sa = self.geometry.solidangle_calc(activearea=aquant(activearea),distance=distance)
+                    return rate*sa
+        else:
+            # Fixed relationship between active area and zero-distance
+            detectorpositioncalib = self.geometry.detectorposition
+            def activeareafunc(zerodistance):
+                distance=self._distancecalc(detectorposition=detectorpositioncalib,zerodistance=dquant(zerodistance))
+                return self.geometry.solidangle_calc(distance=distance,solidangle=solidanglecalib)
+            
+            # Initial parameter values
+            if fixedactivearea:
+                czerodistance = silxfit.CFIXED
+                activearea = noisepropagation.E(self.geometry.activearea)
+                distance = self.geometry.solidangle_calc(activearea=activearea,solidangle=solidanglecalib)
+                zerodistance = self._distancecalc(detectorposition=detectorpositioncalib,distance=distance)
+            else:
+                czerodistance = silxfit.CFREE
+                zerodistance = noisepropagation.E(self.zerodistance)
+                activearea = activeareafunc(zerodistance)
+                distance = noisepropagation.E(self(detectorposition=detectorposition))
+            rate = np.mean(signal/self.geometry.solidangle_calc(activearea=activearea,distance=distance))
+            
+            if fit:
+                p0 = [rate,dmagnitude(zerodistance)]
+                constraints = [[silxfit.CFREE,0,0],[czerodistance,0,0]]
+                
+                # Fit function
+                def fitfunc(x,rate,zerodistance):
+                    distance = self._distancecalc(detectorposition=dquant(x),zerodistance=dquant(zerodistance))
+                    sa = self.geometry.solidangle_calc(activearea=activeareafunc(zerodistance),distance=distance)
+                    return rate*sa
+
+        if fit:
+            # Fit
+            p, cov_matrix, info = silxfit.leastsq(fitfunc, dmagnitude(detectorposition), signal, p0,\
+                                              constraints=constraints, sigma=np.sqrt(varsignal), full_output=True)
+            
+            # Error and correlations:
+            # H ~= J^T.J (hessian is approximated using the jacobian)
+            # cov = (H)^(-1) ~= hessian
+            # S = sqrt(diag(cov))
+            # cor = S^(-1).cov.S^(-1)
+            errors = np.sqrt(np.diag(cov_matrix))
+            for i,con in enumerate(constraints):
+                if con[0]==silxfit.CFIXED:
+                    errors[i] = 0
+            with np.errstate(divide='ignore'):
+                S = np.diag(1./errors)
+            cor_matrix = S.dot(cov_matrix).dot(S)
+            
+            # Save result
+            if solidanglecalib is None:
+                rate,zerodistance,activearea = p
+                rate = noisepropagation.randomvariable(p[0],errors[0])
+                zerodistance = noisepropagation.randomvariable(p[1],errors[1])
+                activearea = noisepropagation.randomvariable(p[2],errors[2])
+            else:
+                rate = noisepropagation.randomvariable(p[0],errors[0])
+                zerodistance = noisepropagation.randomvariable(p[1],errors[1])
+                activearea = activeareafunc(zerodistance)
+                
+            self.zerodistance = dquant(zerodistance)
+            self.geometry.detector.activearea = aquant(activearea)
+
+        # Plot
+        if plot:
+            if fit:
+                label = 'fit'
+            else:
+                label = 'current'
+
+            plt.plot(detectorpositionorg,signal,'x',label='data')
+            
+            activearea = noisepropagation.E(self.geometry.activearea)
+            distance = noisepropagation.E(self(detectorposition=detectorposition))
+            sa = self.geometry.solidangle_calc(activearea=activearea,distance=distance)
+            plt.plot(detectorpositionorg,noisepropagation.E(rate)*sa,label=label)
+            
+            txt = []
+            if fit:
+                txt.append("$\chi^2_{{red}}$ = {}".format(info["reduced_chisq"]))
+            txt.append("$c$ = {:f}".format(rate))
+            txt.append("$x_0$ = {:~}".format(self.zerodistance_rv.to("mm")))
+            txt.append("$A$ = {:~}".format(self.geometry.activearea_rv.to("mm^2")))
+            if fit:
+                if solidanglecalib is None:
+                    txt.append("R($c$,$x_0$) = {}".format(cor_matrix[0,1]))
+                    txt.append("R($c$,$A$) = {}".format(cor_matrix[0,2]))
+                    txt.append("R($x_0$,$A$) = {}".format(cor_matrix[1,2]))
+                else:
+                    txt.append("R($c$,$x_0$) = {}".format(cor_matrix[0,1]))
+                
+            off = 0.7
+            for s in txt:
+                plt.figtext(0.6,off,s)
+                off -= 0.05
+            
+            ax = plt.gcf().gca()
+            ax.set_xlabel("{} ({})".format(xlabel,positionunits))
+            ax.set_ylabel(ylabel)
+            plt.legend(loc='best')
+        
+    def calibrate_fit_testcorrelation2(self,signal,rate=None,zerodistance=None,detectorposition=None):
 
         # Fit function
         def func(x,rate,zerodistance,activearea):
-            distance = (x+zerodistance)*self.unittocm
+            distance = x+zerodistance
             sa = self.geometry.solidangle_calc(activearea=activearea,distance=distance)
             return rate*sa
 
@@ -86,7 +248,7 @@ class LinearMotor(object):
         for i,zerodistancei in enumerate(vzerodistance):
             for j,ratej in enumerate(vrate):
                 obs = func(detectorposition,ratej,zerodistancei,self.geometry.activearea)
-                img[i,j] = np.sum((obs-intensities)**2/intensities)
+                img[i,j] = np.sum((obs-signal)**2/signal)
 
         cax = plt.imshow(img, origin='lower', cmap=plt.cm.jet, interpolation='none', extent=[vrate[0],vrate[-1],vzerodistance[0],vzerodistance[-1]])
         ax = plt.gcf().gca()
@@ -98,11 +260,11 @@ class LinearMotor(object):
         cbar = plt.colorbar(cax,label="$\chi^2$")
         ax = plt.gcf().gca()
         
-    def calibrate_fit_testcorrelation(self,intensities,rate=None,zerodistance=None,detectorposition=None):
+    def calibrate_fit_testcorrelation(self,signal,rate=None,zerodistance=None,detectorposition=None):
 
         # Fit function
         def func(x,rate,zerodistance,activearea):
-            distance = (x+zerodistance)*self.unittocm
+            distance = x+zerodistance
             sa = self.geometry.solidangle_calc(activearea=activearea,distance=distance)
             return rate*sa
 
@@ -114,7 +276,7 @@ class LinearMotor(object):
         x = np.linspace(self.geometry.activearea-0.01,self.geometry.activearea+0.01,n)
         for i,activearea in enumerate(x):
             p0 = [rate,self.zerodistance+np.random.uniform(-1,1),activearea]
-            p, cov_matrix, info = silxfit.leastsq(func, detectorposition, intensities, p0,\
+            p, cov_matrix, info = silxfit.leastsq(func, detectorposition, signal, p0,\
                                               constraints=constraints, full_output=True)
             y[i] = info["reduced_chisq"]
             y2[i] = p[1]
@@ -133,75 +295,9 @@ class LinearMotor(object):
         ax2.axhline(y=zerodistance*10,linestyle='dashed',color=color)
         ax2.set_ylabel("$x_0$ (mm)",color=color)
         ax2.tick_params(axis='y', labelcolor=color)
-         
-    def calibrate_fit(self,intensities,\
-                detectorposition=None,fit=True,\
-                plot=False,xlabel="Motor position (DU)",ylabel="Intensity"):
-        """Calibrate geometry based in intensity vs. linear motor position
-        """
-        
-        # Initial parameter values
-        activearea = self.geometry.activearea
-        zerodistance = self.zerodistance
-        
-        distance = self(detectorposition=detectorposition)
-        rate = np.mean(intensities/self.geometry.solidangle_calc(activearea=activearea,distance=distance))
-        
-        p0 = [rate,zerodistance,activearea]
-        constraints = [[silxfit.CFREE,0,0],[silxfit.CFREE,0,0],[silxfit.CFIXED,0,0]]
 
-        # Fit function
-        def func(x,rate,zerodistance,activearea):
-            distance = (x+zerodistance)*self.unittocm
-            sa = self.geometry.solidangle_calc(activearea=activearea,distance=distance)
-            return rate*sa
 
-        if fit:
-            # Fit
-            p, cov_matrix, info = silxfit.leastsq(func, detectorposition, intensities, p0,\
-                                              constraints=constraints, full_output=True)
-
-            # Parse result                       
-            errors = np.sqrt(np.diag(cov_matrix))
-            S = np.diag(1/errors)
-            cor_matrix = S.dot(cov_matrix).dot(S)
-
-            out =  "rate = {} +/- {}\n".format(p[0],errors[0])
-            out += "zerodistance = {} +/- {} DU\n".format(p[1],errors[1])
-            out += "activearea = {} +/- {} cm^2\n".format(p[2],errors[2])
-            out += "R(rate,zerodistance) = {}\n".format(cor_matrix[0,1])
-            out += "R(rate,activearea) = {}\n".format(cor_matrix[0,2])
-            out += "R(zerodistance,activearea) = {}\n".format(cor_matrix[1,2])
-        
-            rate,zerodistance,activearea = p
-        
-            # Apply result
-            self.zerodistance = zerodistance
-            #self.geometry.activearea = activearea
-            
-            label = 'fit (active area fixed)'
-        else:
-            out = ""
-            label = 'current geometry'
-
-        # Plot
-        if plot:
-            plt.plot(detectorposition,intensities,'x',label='data')
-            plt.plot(detectorposition,func(detectorposition,rate,zerodistance,activearea),label=label)
-            off = 0.6
-            plt.figtext(0.55,off,"$x_0$ = {} mm".format(self.zerodistance*10))
-            plt.figtext(0.55,off-0.05,"$A$ = {} $mm^2$".format(self.geometry.activearea*100))
-            plt.figtext(0.55,off-0.1,"$c_x$ = {}".format(rate))
-            
-            ax = plt.gcf().gca()
-            ax.set_xlabel(xlabel)
-            ax.set_ylabel(ylabel)
-            plt.legend(loc='best')
-
-        return {"rate":rate,"zerodistance":zerodistance,"activearea":activearea},out
-        
-        
-class Geometry(with_metaclass(base.Point)):
+class XRFGeometry(with_metaclass(base.Centric)):
 
     def __init__(self,distancefunc=None,distanceargs=None,**kwargs):
         """
@@ -214,8 +310,9 @@ class Geometry(with_metaclass(base.Point)):
         if distanceargs is None:
             distanceargs = {}
         self.distanceargs = distanceargs
+        self._calibrcfile = None
         
-        super(Geometry,self).__init__(**kwargs)
+        super(XRFGeometry,self).__init__(**kwargs)
 
     def set_distancefunc(self,distancefunc):
         if distancefunc is not None:
@@ -223,64 +320,98 @@ class Geometry(with_metaclass(base.Point)):
         self.distancefunc = distancefunc
 
     @property
-    def distance(self):
+    def distance_rv(self):
         """Sample-detector distance in cm
         """
         if self.distancefunc is None:
-            return self._distance
+            return super(XRFGeometry,self).distance
         else:
             return self.distancefunc(**self.distanceargs)
-        
+    
+    @property
+    def distance(self):
+        return noisepropagation.E(self.distance_rv)
+    
     @distance.setter
     def distance(self,distance):
         if self.distancefunc is None:
-            self._distance = distance
+            super(XRFGeometry,self).distance = distance
         else:
+            if distance is not None:
+                distance = units.Quantity(distance,"cm")
             self.distanceargs.update(self.distancefunc(distance=distance))
     
-    def calibrate_distance_manual(self,distance,**distanceargs):
-        if self.distancefunc is not None:
-            self.distancefunc.calibrate_manual(distance,**distanceargs)
-
-    def calibrate_distance_fit(self,intensities,**kwargs):
-        if self.distancefunc is not None:
-            return self.distancefunc.calibrate_fit(intensities,**kwargs)
-    
     @property
-    def distance_rcfile(self):
-        return resource_filename('geometry/distancecalib_{}_{}.npy'.format(self.__class__.__name__,self.detector.__class__.__name__))
+    def calibrcfile(self):
+        filename = self._calibrcfile
+        if filename is None:
+            filename = resource_filename('geometry/distancecalib_{}_{}.json'.format(self.__class__.__name__,self.detector.__class__.__name__))
+        return filename
     
-    def calibrate_distance_auto(self,**kwargs):
-        if self.distancefunc is not None:
-            return self.distancefunc.calibrate_auto(self.distance_rcfile,**kwargs)
-
-
-class LinearGeometry(Geometry):
-
-    def __init__(self,detectorposition=None,zerodistance=None,unittocm=None,**kwargs):
-        distancefunc = LinearMotor(zerodistance=zerodistance,unittocm=unittocm)
-        distanceargs = {"detectorposition":detectorposition}
+    @calibrcfile.setter
+    def calibrcfile(self,value):
+        self._calibrcfile = value
         
-        super(LinearGeometry,self).__init__(distancefunc=distancefunc,distanceargs=distanceargs,**kwargs)
-                        
+    def get_calibrc(self):
+        filename = self.calibrcfile
+        with open(filename,'r') as f:
+            calibdata = json.load(f)
+        return calibdata
+    
+    def set_calibrc(self,calibrc):
+        filename = self.calibrcfile
+        with open(filename,'w') as f:
+            json.dump(calibrc,f,indent=2)
+    
+    def calibrate(self,**kwargs):
+        if self.distancefunc is not None:
+            if "calibrc" not in kwargs:
+                kwargs["calibrc"] = self.get_calibrc()
+            return self.distancefunc.calibrate_fit(**kwargs)
+
+    def calibrate_manually(self,distance):
+        if self.distancefunc is not None:
+            self.distancefunc.calibrate_manually(distance)
+
+
+class LinearXRFGeometry(XRFGeometry):
+
+    def __init__(self,detectorposition=None,zerodistance=None,positionunits=None,positionsign=1,**kwargs):
+        if zerodistance is not None:
+            zerodistance = units.Quantity(zerodistance,positionunits)
+        distancefunc = LinearMotor(zerodistance=zerodistance,positionsign=positionsign)
+        super(LinearXRFGeometry,self).__init__(distancefunc=distancefunc,**kwargs)
+        self.positionunits = positionunits
+        self.detectorposition = detectorposition
+     
     @property
     def detectorposition(self):
         return self.distanceargs["detectorposition"]
         
     @detectorposition.setter
     def detectorposition(self,value):
-        self.distanceargs["detectorposition"] = value
-        
+        if value is None:
+            self.distanceargs["detectorposition"] = value
+        else:
+            self.distanceargs["detectorposition"] = units.Quantity(value,self.positionunits)
+
     @property
     def zerodistance(self):
         return self.distancefunc.zerodistance
-        
-    @detectorposition.setter
+    
+    @zerodistance.setter
     def zerodistance(self,value):
         self.distancefunc.zerodistance = value
-        
+    
+    def __str__(self):
+        return "{}\n Detector position = {:~}".format(super(LinearXRFGeometry,self).__str__(),self.detectorposition)
 
-class sxm120(LinearGeometry):
+    def set_calibrc(self,calibrc):
+        calibrc["positionunits"] = calibrc.get("positionunits",self.positionunits)
+        super(LinearXRFGeometry,self).set_calibrc(calibrc)
+    
+    
+class sxm120(LinearXRFGeometry):
 
     def __init__(self,**kwargs):
         # blc10516 (April 2017)
@@ -290,14 +421,15 @@ class sxm120(LinearGeometry):
         kwargs["angleout"] = kwargs.get("angleout",49)
         kwargs["azimuth"] = kwargs.get("azimuth",0)
 
-        kwargs["zerodistance"] = kwargs.get("zerodistance",60.38)
+        kwargs["positionunits"] = kwargs.get("positionunits","mm")
+        kwargs["positionsign"] = kwargs.get("sign",1)
+        kwargs["zerodistance"] = units.Quantity(kwargs.get("zerodistance",56.5),"mm")
         kwargs["detectorposition"] = kwargs.get("detectorposition",0)
-        kwargs["unittocm"] = 0.1
-        
+
         super(sxm120,self).__init__(**kwargs)
+        
 
-
-class sxm90(LinearGeometry):
+class sxm90(LinearXRFGeometry):
 
     def __init__(self,**kwargs):
         # blc10516 (April 2017)
@@ -307,14 +439,15 @@ class sxm90(LinearGeometry):
         kwargs["angleout"] = kwargs.get("angleout",28)
         kwargs["azimuth"] = kwargs.get("azimuth",0)
 
-        kwargs["zerodistance"] = kwargs.get("zerodistance",85.49)
+        kwargs["positionunits"] = kwargs.get("positionunits","mm")
+        kwargs["positionsign"] = kwargs.get("sign",1)
+        kwargs["zerodistance"] = units.Quantity(kwargs.get("zerodistance",85.571),"mm")
         kwargs["detectorposition"] = kwargs.get("detectorposition",0)
-        kwargs["unittocm"] = 0.1
         
         super(sxm90,self).__init__(**kwargs)
 
 
-class microdiff(LinearGeometry):
+class microdiff(LinearXRFGeometry):
 
     def __init__(self,**kwargs):
         # blc10516 (April 2017)
@@ -324,12 +457,13 @@ class microdiff(LinearGeometry):
         kwargs["angleout"] = kwargs.get("angleout",28)
         kwargs["azimuth"] = kwargs.get("azimuth",0)
 
-        kwargs["zerodistance"] = kwargs.get("zerodistance",-57.30)
-        kwargs["detectorposition"] = kwargs.get("detectorposition",6)
-        kwargs["unittocm"] = 0.1
+        kwargs["positionunits"] = kwargs.get("positionunits","mm")
+        kwargs["positionsign"] = kwargs.get("sign",-1)
+        kwargs["zerodistance"] = units.Quantity(kwargs.get("zerodistance",-56.667),"mm")
+        kwargs["detectorposition"] = kwargs.get("detectorposition",10.)
         
         super(microdiff,self).__init__(**kwargs)
                         
 
-factory = Geometry.factory
+factory = XRFGeometry.factory
 

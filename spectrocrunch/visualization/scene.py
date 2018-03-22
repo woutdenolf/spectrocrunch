@@ -27,41 +27,70 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as pltcolors
 
 import numpy as np
+import logging
 
 from ..common import listtools
 from ..common import instance
+from ..common import units
 from ..common.hashable import Hashable
 from collections import OrderedDict
 from .. import ureg
+from .colorbar_rgb import colorbar_rgb
+
+logger = logging.getLogger(__name__)
+
 
 def ColorNorm(name,*args):
-    if name=="LogNorm":
+    try:
+        if name is None:
+            name = ""
+        name = name.lower()
+    except AttributeError:
+        return name # already a normalizer
+        
+    if name=="lognorm":
         norm = lambda **kwargs: pltcolors.LogNorm(**kwargs)
-    elif name=="PowerNorm":
+    elif name=="powernorm":
         norm = lambda **kwargs: pltcolors.PowerNorm(*args,**kwargs)
-    elif name=="SymLogNorm":
+    elif name=="symlognorm":
         norm = lambda **kwargs: pltcolors.SymLogNorm(*args,**kwargs)
     else:
         norm = pltcolors.Normalize
     return norm
     
-class Object(object):
     
-    def dimindex(self,dim):
+class Geometry2D(object):
+    
+    def dataaxis(self,displayaxis):
+        """
+        Args:
+            displayaxis(num): display axis (0 or 1)
+            
+        Returns:
+            dataaxis(num): data axis (0 or 1)
+        """
+        if instance.isstring(displayaxis):
+            displayaxis = int(displayaxis=='x')
+            
         if self.transposed:
-            return 1-dim
+            return 1-displayaxis
         else:
-            return dim
+            return displayaxis
 
     @property
-    def xindex(self):
-        return self.dimindex(1)
+    def dataaxisx(self):
+        """Data axis corresponding to the X-axis
+        """
+        return self.dataaxis('x')
 
     @property
-    def yindex(self):
-        return self.dimindex(0)
+    def dataaxisy(self):
+        """Data axis corresponding to the Y-axis
+        """
+        return self.dataaxis('y')
 
-class Scene(Object):
+
+class Scene(Hashable,Geometry2D):
     """Each scene can have a number of registered items with associalted plot settings.
     """
 
@@ -69,79 +98,83 @@ class Scene(Object):
         self.ax = ax
         self._items = OrderedDict()
         self.transposed = False
-        self.axlabels = ["Dim1","Dim0"]
         self.cmap = plt.get_cmap('jet')
-        self.decreasing = [False,False]
         self.title = title
-        self.aspectratio = None
-        self.units = [unit0,unit1]
+        self._aspectratio_display = None
+        
+        # Order: data dimensions
+        self.axlabels = ["Dim0","Dim1"]
+        self._increasing = [True,True]
+        self.units = [ureg.Unit(unit0),ureg.Unit(unit1)]
         self.dataoffset = [ureg.Quantity(0,unit0),ureg.Quantity(0,unit1)]
         self.datascale = [1,1]
-        
-    def dimquantity(self,v,dim):
-        if isinstance(v,ureg.Quantity):
-            return v
-        else:
-            return ureg.Quantity(v,self.units[dim])
     
+    def _stringrepr(self):
+        return "{}".format(id(self))
+        
     def q0(self,v):
         return self.dimquantity(v,0)
     
     def q1(self,v):
         return self.dimquantity(v,1)
-        
-    def magnitude(self,v,dim):
-        unit = self.units[dim]
-        if instance.isarray(v):
-            return type(v)(a.to(unit).magnitude for a in v)
+          
+    def dimquantity(self,v,dataaxis):
+        if isinstance(v,ureg.Quantity):
+            return v
         else:
-            return v.to(unit).magnitude
-    
-    @property
-    def xunits(self):
-        return self.units[self.xindex]
-    
-    @property
-    def yunits(self):
-        return self.units[self.yindex]
-     
+            return ureg.Quantity(v,self.units[dataaxis])
+
     def xmagnitude(self,v):
-        unit = self.xunits
-        if instance.isarray(v):
-            return type(v)(a.to(unit).magnitude for a in v)
-        else:
-            return v.to(unit).magnitude
-            
-    def ymagnitude(self,v):
-        unit = self.yunits
-        if instance.isarray(v):
-            return type(v)(a.to(unit).magnitude for a in v)
-        else:
-            return v.to(unit).magnitude
+        return self._magnitude(v,self.dataaxisx)
     
+    def ymagnitude(self,v):
+        return self._magnitude(v,self.dataaxisy)
+        
+    def _magnitude(self,v,dataaxis):
+        unit = self.units[dataaxis]
+        return units.magnitude(v,unit)
+
+    @property
+    def xunit(self):
+        return self.units[self.dataaxisx]
+    
+    @xunit.setter
+    def xunit(self,value):
+        self.units[self.dataaxisx] = ureg.Unit(value)
+
+    @property
+    def yunit(self):
+        return self.units[self.dataaxisy]
+    
+    @yunit.setter
+    def yunit(self,value):
+        self.units[self.dataaxisy] = ureg.Unit(value)
+        
     @property
     def xlabel(self):
-        xunit = self.xunits
-        if xunit == ureg.dimensionless:
-            return self.axlabels[self.xindex]
-        else:
-            return "{} ({})".format(self.axlabels[self.xindex],xunit)
+        return self._label(self.dataaxisx)
     
     @property
     def ylabel(self):
-        yunit = self.yunits
-        if yunit == ureg.dimensionless:
-            return self.axlabels[self.yindex]
-        else:
-            return "{} ({})".format(self.axlabels[self.yindex],yunit)
+        return self._label(self.dataaxisy)
         
+    def _label(self,dataaxis):
+        unit = self.units[dataaxis]
+        if unit == ureg.dimensionless:
+            return self.axlabels[dataaxis]
+        else:
+            unit = "{:~}".format(unit)
+            if unit=="um":
+                unit="$\mu$m"
+            return "{} ({})".format(self.axlabels[dataaxis],unit)
+
     def setaxes(self,ax):
         self.ax = ax
     
     def showaxes(self):
         self.ax.set_axis_on()
-        self.ax.get_xaxis().set_visible(True)
-        self.ax.get_yaxis().set_visible(True)
+        self.ax.get_dataaxisx().set_visible(True)
+        self.ax.get_dataaxisy().set_visible(True)
     
     def hideaxes(self):
         self.ax.set_axis_off()
@@ -160,83 +193,121 @@ class Scene(Object):
             return self._items[item]
         else:
             return {}
-
-    def resetdatarange(self):
-        self.dataoffset = [self.q0(0),self.q1(1)]
-        self.datascale = [1,1]
+    
+    def __iter__(self):
+        for item in self._items:
+            item.selectscene(self)
+        return iter(self._items)
     
     @property
     def items(self):
-        for item in self._items:
-            item.selectscene(self)
-        return self._items
-        
-    def datarange(self,dim):
-        ran = [r for item in self.items for r in item.datarange(dim)]
+        return list(self)
+    
+    def datarange(self,dataaxis):
+        ran = [r for item in self for r in item.datarange(dataaxis)]
         return min(ran),max(ran)
 
-    def setdatarange(self,dim,ran):
-        self.dataoffset[dim] = self.dimquantity(0,dim)
-        self.datascale[dim] = 1
-        ranorg = sorted(self.datarange(dim))
+    def setdatarange(self,dataaxis,ran):
+        self.dataoffset[dataaxis] = self.dimquantity(0,dataaxis)
+        self.datascale[dataaxis] = 1
+        ranorg = sorted(self.datarange(dataaxis))
         scale = (ran[1]-ran[0])/(ranorg[1]-ranorg[0])
         off = scale*ranorg[0]-ran[0]
-        self.dataoffset[dim] = off
-        self.datascale[dim] = scale
+        self.dataoffset[dataaxis] = off
+        self.datascale[dataaxis] = scale
     
-    def flipdim(self,dim):
-        self.setdatarange(dim,self.datarange(dim)[::-1])
+    def resetdatarange(self):
+        self.dataoffset = [self.q0(0),self.q1(1)]
+        self.datascale = [1,1]
 
-    def origin(self,dim,off):
-        self.dataoffset[dim] = off-self.dataoffset[dim]
+    def increasingx(self,increasing):
+        self._increasing[self.dataaxisx] = increasing
+
+    def increasingy(self,increasing):
+        self._increasing[self.dataaxisy] = increasing
+        
+    def flipx(self,increasing=None):
+        self._flipaxis(self.dataaxisx,increasing=increasing) 
+
+    def flipy(self,increasing=None):
+        self._flipaxis(self.dataaxisy,increasing=increasing) 
+        
+    def _flipaxis(self,dataaxis,increasing=None):
+        if increasing is None:
+            self._increasing[dataaxis] = not self._increasing[dataaxis]
+        else:
+            if increasing==self._increasing[dataaxis]:
+                self.setdatarange(dataaxis,self.datarange(dataaxis)[::-1])
+            else:
+                self._increasing[dataaxis] = not self._increasing[dataaxis]
+
+    def origin(self,dataaxis,off):
+        self.dataoffset[dataaxis] = off-self.dataoffset[dataaxis]
     
-    def originzero(self):
+    def originreset(self):
         self.origin(0,self.q0(0))
         self.origin(1,self.q1(0))
     
-    def datatransform(self,arr,dim):
-        if instance.isarray(arr):
-            return type(arr)(x*self.datascale[dim] - self.dataoffset[dim] for x in arr)
-        else:
-            return arr*self.datascale[dim] - self.dataoffset[dim]
-            
-    @property
-    def xlim(self):
-        xlim = [x for item in self.items for x in item.xlim]
-        if self.decreasing[self.xindex]:
-            return max(xlim),min(xlim)
-        else:
-            return min(xlim),max(xlim)
-
-    @property
-    def ylim(self):
-        ylim = [y for item in self.items for y in item.ylim]
-        if self.decreasing[self.yindex]:
-            return max(ylim),min(ylim)
-        else:
-            return min(ylim),max(ylim)
-
-    @property
-    def aspect(self):
-        if self.aspectratio is None:
-            return None
-        ylim = self.ylim
-        xlim = self.xlim
-        dx = abs(xlim[1]-xlim[0])
-        dy = abs(ylim[1]-ylim[0])
-        return dx/dy*self.aspectratio
+    def originzero(self):
+        self.origin(0,self.datarange(0)[0])
+        self.origin(1,self.datarange(1)[0])
         
+    def datatransform(self,arr,dataaxis):
+        arr = units.asqarray(arr)
+        return instance.asarray(arr*self.datascale[dataaxis] - self.dataoffset[dataaxis])
+    
+    def displaylim(self,lim,dataaxis):
+        if self._increasing[dataaxis]:
+            return min(lim),max(lim)
+        else:
+            return max(lim),min(lim)
+    
+    @property
+    def displaylimx(self):
+        datalimx = [x for item in self for x in item.datalimx]
+        return self.displaylim(datalimx,self.dataaxisx)
+
+    @property
+    def displaylimy(self):
+        ylim = [y for item in self for y in item.datalimy]
+        return self.displaylim(ylim,self.dataaxisy)
+
+    @property
+    def aspectcorrect(self):
+        if self._aspectratio_display is None:
+            return None # same as 1: aspect ratio of display and data are the same
+        return self._aspectratio_display/self.aspectratio_data
+    
+    @property
+    def aspectratio(self):
+        if self._aspectratio_display is None:
+            return self.aspectratio_data
+        else:
+            return self._aspectratio_display
+            
+    @aspectratio.setter
+    def aspectratio(self,value):
+        self._aspectratio_display = value
+        
+    @property
+    def aspectratio_data(self):
+        displaylimy = self.displaylimy
+        displaylimx = self.displaylimx
+        dx = abs(displaylimx[1]-displaylimx[0])
+        dy = abs(displaylimy[1]-displaylimy[0])
+        return (dy/dx).to("dimensionless").magnitude
+    
     def crop(self):
-        lim = self.xmagnitude(self.xlim)
+        lim = self.xmagnitude(self.displaylimx)
         self.ax.set_xlim(lim[0],lim[1])
         #self.ax.set_xbound(lim[0],lim[1])
-        lim = self.ymagnitude(self.ylim)
+        lim = self.ymagnitude(self.displaylimy)
         self.ax.set_ylim(lim[0],lim[1])
         #self.ax.set_ybound(lim[0],lim[1])
         
-    def update(self,**kwargs):
-        for item in self.items:
-            item.update(**kwargs)
+    def updateview(self,**kwargs):
+        for item in self:
+            item.updateview(**kwargs)
         self.crop()
         
         if self.title is not None:
@@ -253,7 +324,7 @@ class Scene(Object):
         
         single = lambda v: (np.nanmin(v[0]),np.nanmax(v[1]))
         
-        tmp = [single(item.vminmax) for item in self.items if hasattr(item,'vminmax')]
+        tmp = [single(item.vminmax) for item in self if hasattr(item,'vminmax')]
         
         if len(tmp)==0:
             return None,None
@@ -269,100 +340,148 @@ class Scene(Object):
         for item,settings in self._items.items():
             if attr in settings:
                 settings[attr] = value
-            
-class Item(Hashable,Object):
+    
+    @property
+    def wsize_pixels(self):
+        pts = self.ax.get_window_extent().get_points()
+        x1,x2 = pts[:,0]
+        y1,y2 = pts[:,1]
+        return x2-x1+1,y2-y1+1
+
+    @property
+    def wsize_data(self):
+        x1,x2 = self.xmagnitude(self.displaylimx)
+        y1,y2 = self.ymagnitude(self.displaylimy)
+        return x2-x1,y2-y1
+    
+    def fontsize_data(self,pt):
+        xp,yp = self.wsize_pixels
+        xd,yd = self.wsize_data
+        return pt*xd/xp,pt*yd/yp
+           
+           
+class Item(Hashable,Geometry2D):
     """Each item can be registered with multiple scenes. Data is owned by the Item instance,
        plot settings are owned by the scenes.
     """
     
-    def __init__(self,dim0name="Dim0",dim1name="Dim1"):
-        self._scenes = []
-        self._plotobjs = [] # list of lists, each list belonging to a scene
+    def __init__(self,scene=None,name=None,**kwargs):
+        self._scenes = OrderedDict()
         self._sceneindex = -1
-        self.dim0name = dim0name
-        self.dim1name = dim1name
+        self.name = name
         
+        if scene is not None:
+            self.register(scene)
+        
+        Item.updatedata(self,**kwargs)
+
+    def _stringrepr(self):
+        return "{} {}".format(type(self).__name__,id(self))
+        
+    def updatedata(self,axis0name="Dim0",axis1name="Dim1",**settings):
+        self.axis0name = axis0name
+        self.axis1name = axis1name
+        try:
+            if settings:
+                self.set_settings(settings)
+        except RuntimeError:
+            logger.warning("Item settings are not applied (provide a scene)")
+            
+    def register(self,scene):
+        scene.register(self)
+    
     def useaxesnames(self):
-        self.scene.axlabels = [self.dim0name,self.dim1name]
+        self.scene.axlabels = [self.axis0name,self.axis1name]
     
     def defaultsettings(self):
         return {}
     
+    def set_settings(self,settings):
+        settings2 = self.scene.getitemsettings(self)
+        for k,v in settings.items():
+            settings2[k] = v
+
+    def get_settings(self, keys):
+        settings = self.scene.getitemsettings(self)
+        return {k:settings[k] for k in keys}
+        
     def set_setting(self,attr,value):
         settings = self.scene.getitemsettings(self)
-        if attr in settings:
-            settings[attr] = value
+        settings[attr] = value
     
     def get_setting(self, key):
         settings = self.scene.getitemsettings(self)
         return settings[key]
     
+    def selectscene(self,s):
+        try:
+            self._sceneindex = self._scenes.keys().index(s)
+        except:
+            raise RuntimeError("This object is not registered with scene {}".format(s))
+            
     @property
     def scene(self):
         if len(self._scenes)==0:
             raise RuntimeError("This object is not registered with any scene")
-        return self._scenes[self._sceneindex]
+        return self._scenes.keys()[self._sceneindex]
     
     def addscene(self,s):
-        self._scenes.append(s)
+        if s not in self._scenes:
+            self._scenes[s] = OrderedDict()
+
+    @property
+    def sceneitems(self):
+        """My items in the active scene
+        """
+        return self._scenes.get(self.scene,OrderedDict())
         
-    def selectscene(self,s):
-        try:
-            self._sceneindex = self._scenes.index(s)
-        except:
-            raise RuntimeError("This object is not registered with scene {}".format(s))
+    def removefromscene(self):
+        """Remove myself from the active scene
+        """
+        items = self.sceneitems
+        for item in items:
+            if item is not None:
+                items[item].remove()
+        self._scenes[self.scene] = OrderedDict()
+
+    def refreshscene(self,newitems):
+        """Update the active scene with new items
+        """
+        olditems = self.sceneitems
+        
+        for name in olditems:
+            if name in newitems:
+                if newitems[name] != olditems[name]:
+                    olditems[name].remove()
+            else:
+                olditems[name].remove()
+   
+        self._scenes[self.scene] = newitems
+
+    def datarange(self,dataaxis):
+        raise NotImplementedError("Item is an abstract class")
+    
+    @property
+    def datalimx(self):
+        return self.datarange(self.dataaxisx)
+    
+    @property
+    def datalimy(self):
+        return self.datarange(self.dataaxisy)
     
     @property
     def transposed(self):
         return self.scene.transposed
-       
-    @property
-    def plotobjs(self):
-        """Objects belonging to the active scene
-        """
-        for objs in self._plotobjs:
-            for o in objs:
-                if o is not None:
-                    if self.scene.ax == o.axes:
-                        return objs
-        return []
-    
-    def addobjs(self,objs):
-        """Objects belonging to the active scene
-        """
-        self.delobjs()
-        if isinstance(objs,list):
-            self._plotobjs.append(objs)
-        else:
-            self._plotobjs.append([objs])
-    
-    def delobjs(self):
-        objs = self.plotobjs
-        if len(objs)>0:
-            for o in objs:
-                if o is not None:
-                    o.remove()
-            self._plotobjs.remove(objs)
-            
-
-    def datarange(self,dim):
-        raise NotImplementedError("Item is an abstract class")
-    
-    @property
-    def xlim(self):
-        return self.datarange(self.xindex)
-    
-    @property
-    def ylim(self):
-        return self.datarange(self.yindex)
-    
-    def _stringrepr(self):
-        return "{} {}".format(type(self).__name__,id(self))
     
 class Image(Item):
 
-    def __init__(self,img,lim0=None,lim1=None,**kwargs):
-        self.img = img
+    def __init__(self,data,lim0=None,lim1=None,labels=None,**kwargs):
+        super(Image,self).__init__(**kwargs)
+        Image._updatedata(self,data,lim0=lim0,lim1=lim1,labels=labels)
+
+    def _updatedata(self,data,lim0=None,lim1=None,labels=None):
+        self.data = data
+        self.labels = labels
         
         if lim0 is None:
             lim0 = [0,img.shape[0]-1]
@@ -376,33 +495,133 @@ class Image(Item):
     
         self.lim = [lim0,lim1]
 
-        self.cax = None
+    def updatedata(self,data,lim0=None,lim1=None,labels=None,**kwargs):
+        self._updatedata(data,lim0=lim0,lim1=lim1,labels=labels)
+        super(Image,self).updatedata(**kwargs)
+
+    @property
+    def data(self):
+        """Data for the selected channels
+        """
+        channels = self.channels
+        shape = (self._data.shape[0],self._data.shape[1],len(channels))
+        data = np.zeros(shape,self.dtype)
+        for ch,i in enumerate(channels):
+            if i is not None:
+                data[...,ch] = self._get_data(i)
+        if len(channels)==1:
+            data = data[...,0]
+        return data
+
+    def _get_data(self,index):
+        if self._data.ndim==3:
+            return self._data[...,index]
+        else:
+            if index!=0:
+                raise IndexError("Raw data has only one channel, you tried to select channel {}".format(index))
+            return self._data
+            
+    @data.setter
+    def data(self,value):   
+        self._data = value
+
+    @property
+    def dtype(self):
+        return self._data.dtype
+
+    @property
+    def labels(self):
+        """Labels for the selected channels
+        """
+        labels = [None]*self.nchannels
+        for ch,i in enumerate(self.channels):
+            if i is not None:
+                try:
+                    labels[ch] = self._labels[i]
+                except:
+                    labels[ch] = "<empty>"
+        return labels
+
+    @labels.setter
+    def labels(self,value):
+        self._labels = value
+
+    @property
+    def channels(self):
+        """Return 1 or 3 channels
+        """
+        settings = self.scene.getitemsettings(self)
+        channels = settings["channels"]
+        if channels is None:
+            nchannels = min(self.datadepth,3)
+            channels = range(nchannels)
+        else:
+            if not instance.isarray(channels):
+                channels = [channels]
+            nchannels = min(len(channels),3)
+        if nchannels!=1:
+            nchannels=3
         
-        super(Image,self).__init__(**kwargs)
+        if len(channels)<nchannels:
+            channels.extend([None]*(nchannels-len(channels)))
+        else:
+            channels = channels[0:nchannels]
+        return channels
     
     @property
-    def vminmax(self):
-        if self.rgb:
-            n = min(3,self.img.ndim)
-            vmin = np.asarray([np.nanmin(self.img[...,i]) for i in range(n)])
-            vmax = np.asarray([np.nanmax(self.img[...,i]) for i in range(n)])
+    def datadepth(self):
+        if self._data.ndim==3:
+            return self._data.shape[-1]
         else:
-            vmin = np.nanmin(self.img)
-            vmax = np.nanmax(self.img)
+            return 1
+            
+    @property
+    def nchannels(self):
+        return len(self.channels)
+    
+    @property
+    def datadisplay(self):
+        if self.transposed:
+            return np.swapaxes(self.data,0,1)
+        else:
+            return self.data
+
+    @property
+    def vminmax(self):
+        img = self.data
+        if self.data.ndim==3:
+            nchannels = self.data.shape[-1]
+            vmin = np.asarray([np.nanmin(img[...,i]) for i in range(nchannels)])
+            vmax = np.asarray([np.nanmax(img[...,i]) for i in range(nchannels)])
+        else:
+            vmin = np.nanmin(img)
+            vmax = np.nanmax(img)
         return vmin,vmax
     
     def scale(self,vmin=None,vmax=None):
         self.set_setting("vmin",vmin)
         self.set_setting("vmax",vmax)
     
+    @staticmethod
+    def _pminmaxparse(p,v):
+        # Handle mismatch in number of channels
+        p = instance.asscalar(p)
+        if instance.isarray(p):
+            p = instance.asarray(p)
+            if instance.isarray(v):
+                if p.size<v.size:
+                    p = np.append(p,[0]*(v.size-p.size))
+                else:
+                    p = p[0:v.size]
+            else:
+                p = p[0]
+        return p,v
+        
     def selfscale(self,pmin=0,pmax=1):
         vmin,vmax = self.vminmax
         d = vmax-vmin
-        if instance.isarray(d):
-            if instance.isarray(pmin):
-                pmin = np.asarray(pmin)
-            if instance.isarray(pmax):
-                pmax = np.asarray(pmax)
+        pmin,vmin = self._pminmaxparse(pmin,vmin)
+        pmax,vmax = self._pminmaxparse(pmax,vmax)
         vmax = vmin + d*pmax
         vmin = vmin + d*pmin
         self.scale(vmin=vmin,vmax=vmax)
@@ -410,7 +629,7 @@ class Image(Item):
     @staticmethod
     def defaultsettings():
         return {"cmap":None,\
-                  "aspect":None,\
+                  "aspectcorrect":None,\
                   "border":False,\
                   "color":None,\
                   "image":True,\
@@ -418,52 +637,86 @@ class Image(Item):
                   "alpha":1,\
                   "vmin":None,\
                   "vmax":None,\
-                  "cnorm":None}
+                  "cnorm":None,\
+                  "legend":True,\
+                  "fontsize":12,\
+                  "fontweight":500,\
+                  "legendposition":"RT",\
+                  "channels":None,\
+                  "colorbar":False}
         
-    def datarange(self,dim,border=False):
-        lim = self.scene.datatransform(self.lim[dim],dim)
+    def datarange(self,dataaxis,border=False):
+        lim = self.scene.datatransform(self.lim[dataaxis],dataaxis)
         if border:
-            d = (lim[1]-lim[0])/(2.*(self.img.shape[dim]-1))
+            d = (lim[1]-lim[0])/(2.*(self._data.shape[dataaxis]-1))
             return lim[0]-d,lim[1]+d
         else:
-            return lim
+            return lim[0],lim[1]
     
     @property
-    def xlim(self):
-        return self.datarange(self.xindex,border=True)
+    def datalimx(self):
+        return self.datarange(self.dataaxisx,border=True)
     
     @property
-    def ylim(self):
-        return self.datarange(self.yindex,border=True)
+    def datalimy(self):
+        return self.datarange(self.dataaxisy,border=True)
+
+    @property
+    def displaylimx(self):
+        scene = self.scene
+        return scene.displaylim(self.datalimx,scene.dataaxisx)
+
+    @property
+    def displaylimy(self):
+        scene = self.scene
+        return scene.displaylim(self.datalimy,scene.dataaxisy)
+    
+    @property
+    def labelxy(self):
+        scene = self.scene
+        settings = scene.getitemsettings(self)
+        
+        if "S" in settings["legendposition"]:
+            o = scene
+        else:
+            o = self
+            
+        if "L" in settings["legendposition"]:
+            x = 0
+            horizontalalignment = "right"
+            ox = -0.5
+            dx = 0
+        else:
+            x = 1
+            horizontalalignment = "left"
+            ox = 0.5
+            dx = 0
+            
+        if "B" in settings["legendposition"]:
+            y = 0
+            verticalalignment = "bottom"
+            oy = 0
+            dy = 1.5
+        else:
+            y = 1
+            verticalalignment = "top"
+            oy = 0
+            dy = -1.5
+
+        x = scene.xmagnitude(o.displaylimx[x])
+        y = scene.ymagnitude(o.displaylimy[y])
+        xchar,ychar = scene.fontsize_data(settings["fontsize"])
+
+        return x+xchar*ox,y+ychar*oy,xchar*dx,ychar*dy,horizontalalignment,verticalalignment
 
     def bordercoord(self):
-        x = sorted(self.xlim)
-        y = sorted(self.ylim)
+        x = sorted(self.datalimy)
+        y = sorted(self.datalimy)
         x = [x[0],x[1],x[1],x[0],x[0]]
         y = [y[0],y[0],y[1],y[1],y[0]]
         return x,y
-        
-    @property
-    def image(self):
-        if self.transposed:
-            return np.swapaxes(self.img,0,1)
-        else:
-            return self.img
 
-    @property
-    def rgb(self):
-        return self.img.ndim>2
-    
-    @property
-    def aspect(self):
-        scene = self.scene
-        settings = scene.getitemsettings(self)
-        if settings["aspect"] is None:
-            return scene.aspect
-        else:
-            return settings["aspect"]
-            
-    def update(self):
+    def updateview(self):
         scene = self.scene
         
         settings = scene.getitemsettings(self)
@@ -471,219 +724,253 @@ class Image(Item):
             cmap = scene.cmap
         else:
             cmap = settings["cmap"]
-        if settings["aspect"] is None:
-            aspect = scene.aspect
+        if settings["aspectcorrect"] is None:
+            aspectcorrect = scene.aspectcorrect
         else:
-            aspect = settings["aspect"]
+            aspectcorrect = settings["aspectcorrect"]
         alpha = settings["alpha"]
         
+        # Create intensity-scaled image
         vmin,vmax = scene.vminmax
         if settings["vmin"] is not None:
             vmin = settings["vmin"]   
         if settings["vmax"] is not None:
             vmax = settings["vmax"]
-        image = self.image.copy()
+            
+        image = self.datadisplay
         
-        if self.rgb:
+        if image.ndim==3:
+            nchannels = image.shape[-1]
             if not instance.isarray(vmin):
-                vmin = [vmin]*self.img.ndim
+                vmin = [vmin]*nchannels
             if not instance.isarray(vmax):
-                vmax = [vmax]*self.img.ndim
-
-            for i in range(self.img.ndim):
-                if settings["cnorm"] is None:
-                    norm = pltcolors.Normalize(vmin=vmin[i],vmax=vmax[i],clip=True)
-                else:
-                    norm = settings["cnorm"](vmin=vmin[i],vmax=vmax[i],clip=True)
-                    
+                vmax = [vmax]*nchannels
+            normcb = []
+            for i in range(nchannels):
+                norm = ColorNorm(settings["cnorm"])(vmin=vmin[i],vmax=vmax[i],clip=True)
                 image[...,i] = norm(image[...,i]).data
-                
-                #print np.nanmin(imgi),np.nanmax(imgi)
-                
-                #if vmin[i]==vmax[i]:
-                #    image[...,i] = imgi
-                #else:
-                #    image[...,i] = (imgi-vmin[i])/(vmax[i]-vmin[i])
-                
-                #print np.nanmin(image[...,i]),np.nanmax(image[...,i])
-                
+                normcb.append(norm)
             norm = None
         else:
-            if settings["cnorm"] is None:
-                norm = pltcolors.Normalize(vmin=vmin,vmax=vmax)
-            else:
-                norm = settings["cnorm"](vmin=vmin,vmax=vmax)
+            nchannels = 1
+            norm = ColorNorm(settings["cnorm"])(vmin=vmin,vmax=vmax)
         
-        extent = scene.xmagnitude(self.xlim)+scene.ymagnitude(self.ylim)
-        
+        # Coordinates and borders
+        extent = list(scene.xmagnitude(self.datalimx))+list(scene.ymagnitude(self.datalimy))
+
         x,y = self.bordercoord()
         x = scene.xmagnitude(x)
         y = scene.ymagnitude(y)
         
-        o = self.plotobjs
-        if len(o)==0:
-            # matplotlib.image.AxesImage
-            self.cax = o1 = scene.ax.imshow(image,\
+        # Legend
+        xlabel,ylabel,dx,dy,horizontalalignment,verticalalignment = self.labelxy
+
+        # Create/update objects
+        items = self.sceneitems
+        newitems = OrderedDict()
+        
+        # Image
+        if "image" in items:
+            newitems["image"] = items["image"]
+            plt.setp(newitems["image"], interpolation = 'nearest',\
+                        extent = extent,\
+                        norm = norm,\
+                        alpha = alpha,\
+                        cmap = cmap)
+        else:
+            newitems["image"] = scene.ax.imshow(image,\
                         interpolation = 'nearest',\
                         extent = extent,\
                         cmap = cmap,\
                         origin = 'lower',
                         norm = norm,\
                         alpha = alpha,\
-                        aspect = aspect)
-            o1.set_visible(settings["image"])
+                        aspect = aspectcorrect)
+        newitems["image"].set_visible(settings["image"])
             
-            o2 = scene.ax.plot(x, y, color=settings["color"], linewidth=settings["linewidth"])[0]
-            o2.set_visible(settings["border"])
-            settings["color"] = o2.get_color()
-            
-            self.addobjs([o1,o2])
+        # Border
+        if "border" in items:
+            newitems["border"] = items["border"]
+            newitems["border"].set_data(x,y)
+            kwargs = {k:settings[k] for k in ["linewidth","color","alpha"]}
+            plt.setp(newitems["border"], **kwargs)
         else:
-            o[0].set_data(image)
-            plt.setp(o[0], interpolation = 'nearest',\
-                        extent = extent,\
-                        norm = norm,\
-                        alpha = alpha,\
-                        cmap = cmap)
-            o[0].set_visible(settings["image"])
-            
-            o[1].set_data(x,y)
-            plt.setp(o[1], color=settings["color"], linewidth=settings["linewidth"])
-            o[1].set_visible(settings["border"])
-            settings["color"] = o[1].get_color()
-            
-class Polyline(Item):
-
-    def __init__(self,pdim0,pdim1,scatter=False,closed=True,**kwargs):
-        self._pdim = [pdim0,pdim1]
-        self.scatter = scatter
-        self.closed = closed
-
-        super(Polyline,self).__init__(**kwargs)
-    
-    @staticmethod
-    def defaultsettings():
-        return {"color":None,"linewidth":2}
-    
-    def datarange(self,dim):
-        ran = self.scene.datatransform(self._pdim[dim],dim)
-        return min(ran),max(ran)
-    
-    def pdim(self,dim):
-        idim = self.dimindex(dim)
-        return self.scene.datatransform(self._pdim[idim],idim)
-    
-    def update(self):
-        scene = self.scene
-        settings = scene.getitemsettings(self)
+            kwargs = {k:settings[k] for k in ["linewidth","color","alpha"]}
+            newitems["border"] = scene.ax.plot(x,y,**kwargs)[0]
+        newitems["border"].set_visible(settings["border"])
+        settings["color"] = newitems["border"].get_color()
         
-        x = scene.xmagnitude(self.pdim(1))
-        y = scene.ymagnitude(self.pdim(0))
-        
-        bscatter = not instance.isarray(x) or self.scatter
-        if not bscatter and self.closed:
-            x = list(x)
-            y = list(y)
-            x.append(x[0])
-            y.append(y[0])
-        
-        o = self.plotobjs
-        if len(o)==0:
-            # matplotlib.lines.Line2D
-            if bscatter:
-                o = [scene.ax.plot(x, y, marker='o', linestyle = 'None', color=settings["color"], linewidth=settings["linewidth"])[0]]
+        # Colorbar
+        if settings["colorbar"]:
+            # TODO: update existing color bar?
+            if norm is None:
+                # Opens in new window
+                colorbar_rgb(vmin=vmin,vmax=vmax,names=self.labels)
             else:
-                o = [scene.ax.plot(x, y, color=settings["color"], linewidth=settings["linewidth"])[0]]
-            self.addobjs(o)
+                newitems["colorbar"] = plt.colorbar(newitems["image"])
+ 
+        # Legend
+        kwargs = {k:settings[k] for k in ["color","alpha"]}
+        kwargs["horizontalalignment"] = horizontalalignment
+        kwargs["verticalalignment"] = verticalalignment
+
+        if nchannels==1:
+            colors = [kwargs["color"]]
         else:
-            o[0].set_data(x,y)
-            plt.setp(o[0], color=settings["color"], linewidth=settings["linewidth"])
+            colors = ['r','g','b']
+            if nchannels>3:
+                colors.extend([None]*(nchannels-3))
+            colors = colors[0:nchannels]
+
+        i = -1
+        for label,color in zip(self.labels,colors):
+            if label is None or color is None:
+                continue
+            else:
+                i += 1
+            kwargs["color"] = color
             
-        settings["color"] = o[0].get_color()
+            name = "label{}".format(i)
+            if name in items:
+                newitems[name] = items[name]
+                newitems[name].set_text(label)
+                newitems[name].set_position((xlabel+i*dx,ylabel+i*dy))
+                plt.setp(newitems[name], **kwargs)
+            else:
+                newitems[name] = scene.ax.text(xlabel+i*dx,ylabel+i*dy,label,**kwargs)
+            newitems[name].set_visible(settings["legend"])
+        
+        self.refreshscene(newitems)
+            
+            
+class Scatter(Item):
 
-class Polygon(Item):
+    def __init__(self,coordinate0,coordinate1,labels=None,**kwargs):
+        super(Scatter,self).__init__(**kwargs)
+        Scatter._updatedata(self,coordinate0,coordinate1,labels=labels)
 
-    def __init__(self,pdim0,pdim1,closed=True,**kwargs):
-        self._pdim = [pdim0,pdim1]
-        self.closed = closed
+    def _updatedata(self,coordinate0,coordinate1,labels=None):
+        self._coordinate = [coordinate0,coordinate1]
+        if labels is None:
+            self.labels = []
+        else:
+            self.labels = labels
 
-        super(Polygon,self).__init__(**kwargs)
-    
-    @staticmethod
-    def defaultsettings():
-        return {"color":None,"linewidth":2}
-    
-    def datarange(self,dim):
-        ran = self.scene.datatransform(self._pdim[dim],dim)
+    def updatedata(self,coordinate0,coordinate1,labels=None,**kwargs):
+        self._updatedata(coordinate0,coordinate1,labels=labels)
+        super(Image,self).updatedata(**kwargs)
+
+    def datarange(self,dataaxis):
+        ran = self.scene.datatransform(self._coordinate[dataaxis],dataaxis)
         return min(ran),max(ran)
     
-    def pdim(self,dim):
-        idim = self.dimindex(dim)
-        return self.scene.datatransform(self._pdim[idim],idim)
-    
-    def update(self):
+    def coordinate(self,dataaxis):
+        return self.scene.datatransform(self._coordinate[dataaxis],dataaxis)
+        
+    @staticmethod
+    def defaultsettings():
+        return {"color":None,"marker":"+","linestyle":"","linewidth":2,\
+                "fill":False,"alpha":None,"closed":False,"labels":True,\
+                "horizontalalignment":"left","verticalalignment":"bottom",\
+                "fontsize":12,"labeloffset":0.1,"fontweight":500}
+
+    def updateview(self):
         scene = self.scene
         settings = scene.getitemsettings(self)
         
-        x = scene.xmagnitude(self.pdim(1))
-        y = scene.ymagnitude(self.pdim(0))
-        
-        if self.closed:
-            x = list(x)
-            y = list(y)
-            x.append(x[0])
-            y.append(y[0])
-        
-        o = [matplotlib.patches.Polygon(zip(x, y), color=settings["color"], linewidth=settings["linewidth"])]
-        scene.ax.add_patch(o[0])
-        self.addobjs(o)
+        x = instance.asarray(scene.xmagnitude(self.coordinate(self.dataaxisx)))
+        y = instance.asarray(scene.ymagnitude(self.coordinate(self.dataaxisy)))
 
-        settings["color"] = o[0].get_facecolor()
+        # Create/update objects
+        items = self.sceneitems
+        newitems = OrderedDict()
+        
+        # Polygon
+        if settings["fill"]:
+            kwargs = {k:settings[k] for k in ["linestyle","linewidth","color","alpha","closed"]}
+            if not kwargs["linestyle"]:
+                kwargs["linestyle"] = None
+                
+            if "patch" in items:
+                newitems["patch"] = items["patch"]
+                newitems["patch"].set_xy=zip(x, y)
+                plt.setp(newitems["patch"],**kwargs)
+            else:
+                newitems["patch"] = matplotlib.patches.Polygon(zip(x, y),**kwargs)
+                scene.ax.add_patch(newitems["patch"])
+            settings["color"] = newitems["patch"].get_facecolor()
+
+        # Polyline/points
+        if settings["linestyle"] or settings["marker"]:
+            kwargs = {k:settings[k] for k in ["marker","linestyle","alpha","color","linewidth"]}
+            
+            if settings["closed"] and settings["linestyle"]:
+                xcl = np.append(x,x[0])
+                ycl = np.append(y,y[0])
+            else:
+                xcl = x
+                ycl = y
+
+            if "line" in items:
+                newitems["line"] = items["line"]
+                newitems["line"].set_data(xcl,ycl)
+                plt.setp(newitems["line"],**kwargs)
+                
+            else:
+                newitems["line"] = scene.ax.plot(xcl,ycl,**kwargs)[0]
+            settings["color"] = newitems["line"].get_color()
+        
+        # Labels
+        if settings["labels"] and bool(self.labels):
+            xo,yo = scene.fontsize_data(settings["fontsize"])
+            xo *= settings["labeloffset"]
+            yo *= settings["labeloffset"]
+
+            kwargs = {k:settings[k] for k in ["horizontalalignment","verticalalignment","alpha","color","fontsize","fontweight"]}
+      
+            for i,(xi,yi,label) in enumerate(zip(x,y,self.labels)):
+                name = "label{}".format(i)
+                if name in items:
+                    newitems[name] = items[name]
+                    newitems[name].set_text(label)
+                    newitems[name].set_position((xi,yi))
+                    newitems[name].xytext = (xi+xo,yi+yo) # has no effect!!!!
+                    plt.setp(newitems[name],**kwargs)
+                else:
+                    newitems[name] = scene.ax.annotate(label,\
+                                    xy=(xi,yi),xytext=(xi+xo,yi+yo),\
+                                    xycoords="data",textcoords="data",**kwargs)
+
+        self.refreshscene(newitems)
         
         
-class Text(Item):
+class Polyline(Scatter):
 
-    def __init__(self,text,p0,p1,**kwargs):
-        self._text = text
-        self._pdim = [[p0],[p1]]
-
-        super(Text,self).__init__(**kwargs)
-    
     @staticmethod
     def defaultsettings():
-        return {"color":None,"linewidth":2,"horizontalalignment":"left","verticalalignment":"bottom","xytext":None,"fontsize":15,"fontweight":1}
-    
-    def datarange(self,dim):
-        ran = self.scene.datatransform(self._pdim[dim],dim)
-        return min(ran),max(ran)
-    
-    def pdim(self,dim):
-        idim = self.dimindex(dim)
-        return self.scene.datatransform(self._pdim[idim],idim)
-    
-    def update(self):
-        scene = self.scene
-        settings = scene.getitemsettings(self)
+        settings = Scatter.defaultsettings()
+        settings["marker"] = ""
+        settings["linestyle"] = "-"
+        settings["closed"] = True
+        return settings
+
+
+class Polygon(Scatter):
+
+    @staticmethod
+    def defaultsettings():
+        settings = Scatter.defaultsettings()
+        settings["marker"] = ""
+        settings["fill"] = True
+        settings["closed"] = True
+        return settings
         
-        x = scene.xmagnitude(self.pdim(1))[0]
-        y = scene.ymagnitude(self.pdim(0))[0]
-
-        if settings["xytext"]!=(0,0):
-            arrowprops = dict(facecolor=settings["color"], shrink=0.05)
-        else:
-            arrowprops = None
-
-        if settings["xytext"] is None:
-            xytext = (x,y)
-        else:
-            xytext = settings["xytext"]
-            
-        o = [scene.ax.annotate(self._text, xy=(x,y),  xycoords='data',\
-                xytext=xytext, textcoords='data',\
-                horizontalalignment=settings["horizontalalignment"], verticalalignment=settings["verticalalignment"],\
-                color=settings["color"], arrowprops=arrowprops,fontsize=settings["fontsize"],fontweight=settings["fontweight"])]
-
-        self.addobjs(o)
-
-        settings["color"] = o[0].get_color()
         
+class Text(Scatter):
+        
+    @staticmethod
+    def defaultsettings():
+        settings = Scatter.defaultsettings()
+        settings["labels"] = True
+        return settings
+

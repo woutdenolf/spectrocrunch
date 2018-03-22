@@ -27,7 +27,6 @@ from ..common import instance
 from . import mixture
 from . import element
 from .. import xraylib
-
 from . import compoundfromformula
 
 import fisx
@@ -40,31 +39,66 @@ from PyMca5.PyMcaPhysics.xrf import ClassMcaTheory
 from PyMca5.PyMcaPhysics.xrf import ConcentrationsTool
 from PyMca5.PyMcaIO import ConfigDict
 
+try:
+    from silx.gui import qt
+    from PyMca5.PyMcaGui.physics.xrf import McaAdvancedFit
+except ImportError:
+    qt = None
+    McaAdvancedFit = None
+
 class PymcaHandle(object):
 
     def __init__(self,sample=None,emin=None,emax=None,\
                 energy=None,weights=None,scatter=None,\
-                flux=None,time=None,escape=1,ninteractions=1):
+                flux=1e9,time=0.1,escape=1,ninteractions=1,linear=0):
         self.sample = sample
+ 
+        self.energy = units.umagnitude(energy,"keV")
+        self.emin = emin
+        self.emax = emax
+        if weights is None:
+            self.weights = np.ones_like(self.energy)
+        else:
+            self.weights = weights
+        if scatter is None:
+            self.scatter = np.ones_like(self.energy)
+        else:
+            self.scatter = scatter
         
-        self.energy = units.magnitude(energy,"keV")
-        self._emin = emin
-        self._emax = emax
-        self.weights = weights
-        self.scatter = scatter
+        self.linear = linear
         self.escape = escape
         self.ninteractions = ninteractions
-        
-        self.flux = units.magnitude(flux,"hertz")
-        self.time = units.magnitude(time,"s")
+        self.flux = flux
+        self.time = time
         
         self.mcafit = ClassMcaTheory.McaTheory()
         self.ctool = ConcentrationsTool.ConcentrationsTool()
+        self.app = None
     
     def __str__(self):
         s = zip(instance.asarray(self.energy),instance.asarray(self.weights),instance.asarray(self.scatter))
         s = '\n '.join("{} keV: {} % (Scatter: {})".format(k,v*100,sc) for k,v,sc in s)
         return "Flux = {} ph/s\nTime = {} s\nSource lines:\n {}\n{}\n{}".format(self.flux,self.time,s,self.sample,self.sample.geometry)
+    
+    @property
+    def flux(self):
+        return self._flux
+    
+    @flux.setter
+    def flux(self,value):
+        self._flux = units.umagnitude(value,"hertz")
+    
+    @property
+    def time(self):
+        return self._time
+    
+    @time.setter
+    def time(self,value):
+        self._time = units.umagnitude(value,"s")
+        
+    @property
+    def I0(self):
+        return self.flux*self.time
     
     @property
     def emax(self):
@@ -101,9 +135,9 @@ class PymcaHandle(object):
         # TODO: move to source?
         cfg["fit"]["energy"] = instance.asarray(self.energy).tolist()
         cfg["fit"]["energyweight"] = instance.asarray(self.weights).tolist()
-        cfg["fit"]["energyscatter"] = instance.asarray(self.scatter,dtype=int).tolist()
+        cfg["fit"]["energyscatter"] = instance.asarray(self.scatter).astype(int).tolist()
         cfg["fit"]["energyflag"] = np.ones_like(cfg["fit"]["energy"],dtype=int).tolist()
-        cfg["fit"]["scatterflag"] = 1
+        cfg["fit"]["scatterflag"] = int(any(cfg["fit"]["energyscatter"]))
         
         cfg["concentrations"]["flux"] = self.flux
         cfg["concentrations"]["time"] = self.time
@@ -121,21 +155,26 @@ class PymcaHandle(object):
         self.time = cfg["concentrations"]["time"]
 
     def addtopymca_background(self,cfg):
-        rtail,rstep = self.sample.geometry.detector.ratios
-        cfg["fit"]["stripflag"] = int(rstep<=0)
+        bmodelbkg = self.sample.geometry.detector.bstail or \
+                    self.sample.geometry.detector.bltail or \
+                    self.sample.geometry.detector.bstep
+        cfg["fit"]["stripflag"] = int(not bmodelbkg)
         cfg["fit"]["stripalgorithm"] = 1
         cfg["fit"]["snipwidth"] = 100
     
     def addtopymca_other(self,cfg):
-        cfg["fit"]["escapeflag"] = 1
+        cfg["fit"]["escapeflag"] = self.escape
+        cfg["fit"]["linearfitflag"] = self.linear
         cfg["concentrations"]["usemultilayersecondary"] = self.ninteractions-1
     
     def loadfrompymca_other(self,cfg):
+        self.escape = cfg["fit"]["escapeflag"]
+        self.linear = cfg["fit"]["linearfitflag"]
         self.ninteractions = cfg["concentrations"]["usemultilayersecondary"]+1
         
     def addtopymca_material(self,cfg,material,defaultthickness=1e-4):
         matname,v = material.topymca(defaultthickness=defaultthickness)
-        if material.nelements>1:
+        if not isinstance(material,element.Element):
             cfg["materials"][matname] = v
         return matname
     
@@ -193,14 +232,21 @@ class PymcaHandle(object):
         
         self.mcafit.configure(config)
 
+    def configurepymca(self,**kwargs):
+        self.addtopymca(**kwargs)
+
+    def savepymca(self,filename):
+        self.addtopymca()
+        self.mcafit.config.write(filename)
+
     def processfitresult(self,digestedresult,originalconcentrations=False):
         ctoolcfg = self.ctool.configure()
         ctoolcfg.update(digestedresult['config']['concentrations'])
         return self.ctool.processFitResult(config=ctoolcfg,
-                                                        fitresult={"result":digestedresult},
-                                                        elementsfrommatrix=originalconcentrations,
-                                                        fluorates = self.mcafit._fluoRates,
-                                                        addinfo=True)
+                                            fitresult={"result":digestedresult},
+                                            elementsfrommatrix=originalconcentrations,
+                                            fluorates = self.mcafit._fluoRates,
+                                            addinfo=True)
     
     def concentrationsfromfitresult(self,digestedresult,out=None):
         # Mass fractions:
@@ -231,7 +277,7 @@ class PymcaHandle(object):
             out["lmassfractions"] = [out["massfractions"]]
 
         # Group rates:
-        #   grouprate = solidangle/(4.pi).sum_i[massfrac_i.grouprate_i]
+        #   grouprate = solidangle/(4.pi).sum_i[massfrac_i.grouprate_i]   (i loops over the layers)
         
         if True:
             out["rates"] = {}
@@ -281,9 +327,11 @@ class PymcaHandle(object):
 
         yback = digestedresult["continuum"]
         
-        gen = lambda spectrum:scipy.interpolate.interp1d(digestedresult["energy"],spectrum,\
+        interpol = lambda x,spectrum:scipy.interpolate.interp1d(x,spectrum,\
                     kind="nearest",bounds_error=False,fill_value=(spectrum[0],spectrum[-1]))
-
+        interpol_energy = lambda prof:interpol(digestedresult["energy"],prof)
+        interpol_channel = lambda prof:interpol(digestedresult["xdata"],prof)
+                    
         if out is None:
             out = {}
         out["energy"] = digestedresult["energy"]
@@ -291,7 +339,8 @@ class PymcaHandle(object):
         out["y"] = digestedresult["ydata"]
         out["yfit"] = digestedresult["yfit"]
         out["yback"] = yback
-        out["gen"] = gen
+        out["interpol_energy"] = interpol_energy
+        out["interpol_channel"] = interpol_channel
         out["ypileup"] = digestedresult["pileup"]
         out["ymatrix"] = ymatrix+yback
                 
@@ -324,13 +373,14 @@ class PymcaHandle(object):
         
         return config
         
-    def fit(self):
+    def fit(self,loadfromfit=True):
         # Fit
         self.mcafit.estimate()
         fitresult,digestedresult = self.mcafit.startfit(digest=1)
 
         # Load parameters from fit
-        self.loadfrompymca(config=self.configfromfitresult(digestedresult))
+        if loadfromfit:
+            self.loadfrompymca(config=self.configfromfitresult(digestedresult))
         
         # Parse result
         result = {}
@@ -339,6 +389,30 @@ class PymcaHandle(object):
         
         return result
 
+    def fitgui(self,ylog=False,legend="data",loadfromfit=True):
+        if self.app is None:
+            self.app = qt.QApplication([])
+        w = McaAdvancedFit.McaAdvancedFit()
+
+        # Copy mcafit
+        x = self.mcafit.xdata0
+        y = self.mcafit.ydata0
+        w.setData(x,y,legend=legend,xmin=0,xmax=len(y)-1)
+        w.mcafit.configure(self.mcafit.getConfiguration())
+
+        # GUI for fitting
+        if ylog:
+            w.graphWindow.yLogButton.click()
+        w.graphWindow.energyButton.click()
+        #w.graphWindow.setGraphYLimits(min(y[y>0]),None)
+        w.refreshWidgets()
+        w.show()
+        result = self.app.exec_()
+        
+        # Load parameters from fit (if you did "load from fit")
+        if loadfromfit:
+            self.loadfrompymca(config=w.mcafit.getConfiguration())
+        
     def xrayspectrum(self,**kwargs):
         return self.sample.xrayspectrum(self.energy,emin=self.emin,emax=self.emax,\
                     weights=self.weights,ninteractions=self.ninteractions,**kwargs)
@@ -361,6 +435,28 @@ class PymcaHandle(object):
     
         return groups2
 
+    def mca(self,histogram=True,decomposed=0,energy=False,full=False):
+        spectrum = self.xrayspectrum()
+        if decomposed==0:
+            x,y,ylabel = spectrum.sumspectrum(fluxtime=self.I0,histogram=histogram)
+        elif decomposed==1:
+            x,y,ylabel = spectrum.peakspectrum(fluxtime=self.I0,histogram=histogram,group=True)
+        else:
+            x,y,ylabel = spectrum.peakspectrum(fluxtime=self.I0,histogram=histogram,group=False)
+            
+        if not energy:
+            a,b = spectrum.channellimits
+            nchan = int(2**np.ceil(np.log2(b+1)))
+            mca = np.zeros(nchan,dtype=y.dtype)
+            mca[a:b+1] = y
+            y = mca
+            x = np.arange(nchan)
+        
+        if full:
+            return x,y,ylabel
+        else:
+            return y
+
 
 class FisxConfig():
     
@@ -381,7 +477,7 @@ class FisxConfig():
             detector.addtofisx(setup,self.FISXMATERIALS)
 
     def addtofisx_material(self,material):
-        if material.nelements>1:
+        if not isinstance(material,element.Element):
             with self.init_ctx():
                 self.FISXMATERIALS.addMaterial(material.tofisx(),errorOnReplace=False)
         return material.pymcaname

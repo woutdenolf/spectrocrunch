@@ -24,15 +24,13 @@
 
 import numpy as np
 
-from ..simulation.classfactory import with_metaclass
-from ..simulation import noisepropagation
-
-from .compound import Compound as compound
-from .mixture import Mixture as mixture
-from .types import fractionType
-from . import emspectrum
-
 from .. import ureg
+from . import compound
+from . import types
+from . import emspectrum
+from ..common import instance
+from ..simulation.classfactory import with_metaclass
+from ..math import noisepropagation
 
 class Scintillator(with_metaclass()):
     """
@@ -43,7 +41,7 @@ class Scintillator(with_metaclass()):
         """
         Args:
             thickness(num): thickness in micron
-            material(spectrocrunch.materials.compound|spectrocrunch.materials.mixture): scintillator compoisition
+            material(Compound|Mixture): scintillator compoisition
             nvisperkeV(num): number of VIS photons generated per keV
             visspectrum(visspectrum.discrete): VIS visspectrum
         """
@@ -93,7 +91,7 @@ class Scintillator(with_metaclass()):
         
         N,probsuccess,gain = self.propagate_broadcast(N,probsuccess,gain)
         
-        if noisepropagation.israndomvariable(N):
+        if instance.israndomvariable(N):
             if forward:
                 proc1 = noisepropagation.bernouilli(probsuccess)
                 proc2 = noisepropagation.poisson(gain)
@@ -125,8 +123,8 @@ class GGG_ID21(Scintillator):
         Args:
             thickness(num): thickness in micron
         """
-        material = compound(["Gd","Ga","O"],[3,5,12],fractionType.mole,7.08,nrefrac=1.8,name="GGG")
-        Scintillator.doping(material,{"Eu":0.03},fractionType.weight)
+        material = compound.Compound(["Gd","Ga","O"],[3,5,12],types.fraction.mole,7.08,nrefrac=1.8,name="GGG")
+        Scintillator.doping(material,{"Eu":0.03},types.fraction.mass)
         
         visspectrum = emspectrum.discrete(ureg.Quantity([595,610,715],"nm"))
         
@@ -143,8 +141,8 @@ class LSO_ID21(Scintillator):
         Args:
             thickness(num): thickness in micron
         """
-        material = compound(["Lu","Si","O"],[2,1,5],fractionType.mole,7.4,nrefrac=1.82,name="LSO")
-        Scintillator.doping(material,{"Tb":0.03},fractionType.weight)
+        material = compound.Compound(["Lu","Si","O"],[2,1,5],types.fraction.mole,7.4,nrefrac=1.82,name="LSO")
+        Scintillator.doping(material,{"Tb":0.03},types.fraction.mass)
         
         visspectrum = emspectrum.discrete(ureg.Quantity(550,"nm"))
         

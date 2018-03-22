@@ -27,12 +27,12 @@ import unittest
 from ...detectors import area
 from ...materials import multilayer
 from ...geometries import flatarea
-from ...geometries import source
+from ...sources import xray as xraysources
 from ...detectors import diode
 from ...materials import scintillators
 from ...materials import lenses
 from ...materials import emspectrum
-from .. import noisepropagation
+from ...math import noisepropagation
 from ...materials.compoundfromname import compoundfromname as compoundname
 from ...common.instance import isarray
 from ... import ureg
@@ -128,7 +128,7 @@ class test_objects(unittest.TestCase):
     def test_detectors(self):
         self.assertRaises(RuntimeError, area.factory, "noclassname")
 
-        src = source.factory("synchrotron")
+        src = xraysources.factory("synchrotron")
         detector = area.factory("PCO Edge 5.5")
         geometry = flatarea.factory("perpendicular",detector=detector,source=src)
 
@@ -169,7 +169,7 @@ class test_objects(unittest.TestCase):
         self.assertRaises(RuntimeError, multilayer.factory, "noclassname")
         
         detector = area.factory("PCO Edge 5.5")
-        src = source.factory("synchrotron")
+        src = xraysources.factory("synchrotron")
         geometry = flatarea.factory("perpendicular",detector=detector,source=src)
 
         o = multilayer.Multilayer(material=compoundname("ultralene"),thickness=4e-4,geometry=geometry)

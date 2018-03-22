@@ -35,7 +35,10 @@ from ..common.classfactory import with_metaclass
 class Standard(with_metaclass(multilayer.Multilayer)):
     
     def __init__(self,extra=None,**kwargs):
-        self.extra = extra
+        if extra is None:
+            self.extra = None
+        else:
+            self.extra = map(element.Element,extra)
         super(Standard,self).__init__(**kwargs)
 
     def addtopymca(self,setup,cfg):
@@ -77,13 +80,13 @@ def axo(name,elements,arealdensity,windowthickness,filmthickness):
         totalarealdensity = sum(arealdensity.values())
         massfractions = {e:arealdensity/totalarealdensity for e,arealdensity in arealdensity.items()}
         
-        layer1 = compoundfromlist.CompoundFromList(massfractions.keys(),massfractions.values(),types.fractionType.weight,w.density,name=name)
+        layer1 = compoundfromlist.CompoundFromList(massfractions.keys(),massfractions.values(),types.fraction.mass,w.density,name=name)
         
         material = layer1
         thickness = windowthickness*1e-7
     else:
-        elements = [compoundfromlist.CompoundFromList([e],[1],types.fractionType.mole,0,name=e) for e in elements]
-        layer1 = mixture.Mixture(elements,arealdensity,types.fractionType.weight,name=name)
+        elements = [compoundfromlist.CompoundFromList([e],[1],types.fraction.mole,0,name=e) for e in elements]
+        layer1 = mixture.Mixture(elements,arealdensity,types.fraction.mass,name=name)
 
         layer2 = compoundfromname.compoundfromname("silicon nitride")
 
@@ -111,10 +114,10 @@ class AXOID21_1(Standard):
 
 
 class AXOID21_2(Standard):
-    aliases = ["RF8-200-S2454"]
+    aliases = ["RF8-200-S2454-17"]
     
     def __init__(self,**kwargs):
-        name = "RF8-200-S2454"
+        name = "RF8-200-S2454-17"
         elements = ["Pb","La","Pd","Mo","Cu","Fe","Ca"]
         arealdensity = [6.3,7.6,2.3,0.7,2.6,4.1,25.1] # ng/mm^2
         windowthickness = 200 # nm
@@ -124,7 +127,7 @@ class AXOID21_2(Standard):
         for k in attenuators:
             kwargs["geometry"].addattenuator(*k)
             
-        super(AXOID21_1,self).__init__(material=material,thickness=thickness,**kwargs)
+        super(AXOID21_2,self).__init__(material=material,thickness=thickness,**kwargs)
 
 
 class AXOID16b_1(Standard):

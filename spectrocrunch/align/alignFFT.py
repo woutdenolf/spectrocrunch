@@ -97,28 +97,6 @@ class alignFFT(align):
 
     def logpolar(self,imgft,scale_estimate=None):
         """Log-polar coordinate transformation of the modulus of the given Fourier transform
-        
-           Cartesian to log-polar
-            R = logb(r)   r=sqrt(x^2+y^2)
-            t = atan(y/x)
-           log-polar to Cartesian
-            x = b^R cos(t)
-            y = b^R sin(t)
-        
-           t: only upper 2 quadrants (lower 2 are a copy because |F(u,v)|=|F(-u,-v)|)
-           t range of log-polar plot: [0,pi] = [0,...,sy-1]*pi/(sy-1)) 
-           R range of log-polar plot: [0,...,sx-1]
-           r range of log-polar plot: b^[0,...,sx-1] 
-         
-           Choose b so that:     b^(sx-1) = rmax
-                             <=> b = 10 ^ (alog10(rmax)/(sx-1))
-
-           
-           r = b^[0,...,sx-1]
-           scale = b^-i
-
-           t = dt*[0,...,sy-1]
-           theta = -dt*i
         """
 
         # Filtered modulus of the ft
@@ -311,97 +289,7 @@ class alignFFT(align):
         return shift
 
     def execute_alignkernel(self,img):
-        """Align image on reference
-
-            Function over domain X' and X
-                       f: X -> Y: Y = f(X) = g(M(X))
-                       g: X' -> Y: Y = g(X') = f(M^(-1)(X'))
-                               
-                       X' -----g(X')-----> Y
-                       |                 /
-                       |               /
-                       |             /
-                      M(X)         /
-                       |        f(X) = g(M(X))
-                       |       /
-                       |     /
-                       |   /
-                       | /
-                       X
-
-            Coordinate transformation (similarity transform):
-                       M: X -> X': X' = M(X) = A.X + X0
-                           A = [[s.cos(theta),-s.sin(theta)],[s.sin(angle),s.cos(angle)]]
-                           x' = x.s.cos(theta) - y.s.sin(theta) + x0
-                           y' = x.s.sin(theta) + y.s.cos(theta) + y0
-                       M^(-1): X' -> X: X = M^(-1)(X') = A^(-1).(X'-X0)
-                       
-                       Linear part:
-                           A = s.Rot(theta)
-                           |A| = s^2
-                           A^T = s.Rot(-theta)
-                           A^(-1) = Rot(-theta)/s
-                           A^(-T) = Rot(theta)/s
-
-                       
-            Integrate function g over its domain:
-                       /int g(X') dX' = /int g(M(X)) |JM(X)| dX        (subsitute X' by X)
-                                      = /int g(M(X)) |A| dX            (Jacobian determinant = determinant of A)
-                                      = /int f(X) |A| dX
-                                      
-            Fourier transformation:
-                       G: U' -> G(U'): G(U') = \int g(X') exp[-2.pi.i.<U',X'>] dX'                                 (<.,.> inner product: U'^T.X')
-                                            = \int g(M(X)) exp[-2.pi.i.<U',M(X)>] |JM(X)| dX                       (substitution X'=M(X))
-                                            = |A| . exp[-2.pi.i.U'^T.X0] . /int f(X) exp[-2.pi.i.U'^T.A.X] dX      (matrix representation of M(X) = A.X + X0)
-                                            = |A| . exp[-2.pi.i.U'^T.X0] . /int f(X) exp[-2.pi.i.U^T.X] dX         (U=A^T.U')
-                                            = |A| . exp[-2.pi.i.U'^T.X0] . F(U)                                    (Fourier transform of f)
-                                            = s^2 . exp[-2.pi.i.<U',X0>] . F(s.Rot(-theta).U')                     (A= 2D scaling + rotation)
-                                            
-                       F: U -> F(U): F(U) = \int f(X) exp[-2.pi.i.<U,X>] dX                                                     (<.,.> inner product: U'^T.X)
-                                         = \int f(M^(-1)(X')) exp[-2.pi.i.<U,M^(-1)(X')>] |JM^(-1)(X')| dX'                     (X = M^(-1)(X'))
-                                         = |A^(-1)| . exp[2.pi.i.U^T.A^(-1).X0] . \int g(X') exp[-2.pi.i.U^T.A^(-1).X'] dX      (matrix representation of M^(-1)(X))
-                                         = 1/|A| . exp[2.pi.i.U^T.A^(-1).X0] . \int g(X') exp[-2.pi.i.U'^T.X'] dX               (U'=A^(-T).U)
-                                         = 1/|A| . exp[2.pi.i.U^T.A^(-1).X0] . G(U')                                            (Fourier transform of g)
-                                         = 1/s^2 . exp[2.pi.i.<Rot(theta).U/s,X0>] . G(Rot(theta).U/s)                          (A= 2D scaling + rotation)
-                                         
-                        As a result we see that:
-                            X' = s   . Rot(theta).X + X0
-                            U' = 1/s . Rot(theta).U
-                        This means that the fourier transform is
-                            1. shift invariant
-                            2. preserves rotation
-                            3. inverses scaling
-            
-            Applied on images:
-                Im2(f,source) ---(scale, rotate,shift)---> Im1(g,dest):
-                 => g(X') = f(M^(-1)(X'))
-                <=> Im1[X'] = Im2[M^(-1)(X')]
-            
-            Pure translation:
-                            g(X') = f(M(-1)(X')) = f(X-X0)
-                        <=> G(U) = exp[2.pi.i.<U,-X0>] . F(U)  (U'=U)
-                               This is called the fourier shift property and often written as
-                               FFT(f(X-X0)) = FFT(f(X)).exp[2.pi.i.<U,-X0>]
-                        <=> R(U) = G(U).F(U)*/(|G|(U).|F|(U)) = exp[2.pi.i.<U,-X0>] 
-                        <=> R(U) = FFT(delta(X-X0))(U)                                  (Fourier transform of the delta function)
-                        <=> IFFT(R(U))(X) = IR(X) = delta(X-X0)                         (Inverse fourier transform)
-                        <=> maximum of |IR|(X) when X=X0                                (X0 is calculated by self.determine_shift)
-                        
-            Transform images so M becomes a pure translation X0:
-                            g(X') = f(M(-1)(X'))
-                        <=> |G|(U') = s^2 |F|(U)
-                                U = s.Rot(-theta).U'
-                                 u = u'.cos(theta).s + v'.sin(theta).s
-                                 v = -u'.sin(theta).s + v'.cos(theta).s
-                               Log-polar transformation:
-                               <=> R = logb(sqrt(u^2+v^2)) = logb(s) + logb(sqrt(u'^2+v'^2)) = R' + logb(s)
-                               <=> tan(t) = v/u = tan(t'-theta) <=> t = t' - theta 
-                       <=> |G|(R',t') = s^2 |F|(R,t)
-                       <=> |G|(R',t') = s^2 |F|(R'+logb(s),t-theta)
-                       
-                       When considering |G| and |F| in log-polar coordinates as new functions
-                       then |F| can be transformed to |G| with a pure translation X0=[-logb(s),theta].
-        """
+        """Align image on reference"""
 
         self.movingft = self.fft_handle_missing(img)
 

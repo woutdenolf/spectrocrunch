@@ -73,24 +73,24 @@ class test_diode(unittest.TestCase):
 
         for model in [True,False]:
             o = diode.SXM_IDET(model=model)
-            o.setgain(ureg.Quantity(10**gain,'V/A'))
+            o.gain = ureg.Quantity(10**gain,'V/A')
 
             o2 = o.op_cpstocurrent()*o.op_currenttocps()
-            self.assertEqual(o2.m,1.)
-            self.assertEqual(o2.b.magnitude,0.)
+            self.assertAlmostEqual(o2.m.magnitude,1.)
+            self.assertAlmostEqual(o2.b.magnitude,0.)
             self.assertEqual(o2.m.units,ureg.dimensionless)
             self.assertEqual(o2.b.units,ureg.ampere)
 
-            for energy in np.arange(3,9):
+            for energy in np.arange(3,7):
                 o2 = o.op_fluxtocurrent(energy)*o.op_currenttoflux(energy)
                 self.assertAlmostEqual(o2.m,1.)
-                self.assertEqual(o2.b.magnitude,0.)
+                self.assertAlmostEqual(o2.b.magnitude,0.)
                 self.assertEqual(o2.m.units,ureg.dimensionless)
                 self.assertEqual(o2.b.units,ureg.ampere)
 
                 o2 = o.op_fluxtocps(energy)*o.op_cpstoflux(energy)
                 self.assertAlmostEqual(o2.m,1.)
-                self.assertEqual(o2.b.magnitude,0.)
+                self.assertAlmostEqual(o2.b.magnitude,0.)
                 self.assertEqual(o2.m.units,ureg.dimensionless)
                 self.assertEqual(o2.b.units,ureg.hertz)
                 
@@ -107,49 +107,62 @@ class test_diode(unittest.TestCase):
 
     def test_noncalibrateddiode(self):
     
-        for caliboption in ["solidangle","thickness","optics"]:
-            o = diode.SXM_IODET1(optics=True)
-            o.thickness = 1e-4
-            o.solidangle = 0.1
-            o.optics.reset_transmission()
+        for simplecalibration in [True,False]:
+            for caliboption in ["solidangle","thickness","optics"]:
+                if simplecalibration:
+                    if caliboption!="optics":
+                        continue
+                        
+                o = diode.SXM_IODET1(optics="kb",simplecalibration=simplecalibration)
+                o.thickness = 1e-4
+                o.geometry.solidangle = 0.1
 
-            cps = np.linspace(1e4,1e5,10)
-            
-            energy = 7.
-            energy2 = 7.2
-            energy3 = 7.1
-            sampleflux = o.cpstoflux(energy,cps)
-            sampleflux2 = o.cpstoflux(energy2,cps)
-            sampleflux3 = o.cpstoflux(energy3,cps)
-
-            if caliboption=="solidangle":
-                # Same counts but the flux is m times higher -> diode yield (solid angle) is m times lower
-                m = 2.
-                sa = o.solidangle
-                o.calibrate(cps,sampleflux*m,energy,caliboption=caliboption)
-                np.testing.assert_allclose(sampleflux*m,o.cpstoflux(energy,cps))
-                np.testing.assert_allclose(o.secondarytarget.geometry.solidangle,sa/m)
-            elif caliboption=="optics":
-                # Same counts but the flux is m times lower -> optics transmission is m times lower
-                m1 = 0.5
-                m2 = 0.25
-                m3 = (m1+m2)/2.
-
-                o.calibrate(cps,sampleflux*m1,energy,caliboption=caliboption)
-                o.calibrate(cps,sampleflux2*m2,energy2,caliboption=caliboption)
-
-                np.testing.assert_allclose(o.optics.transmission(energy),m1)
-                np.testing.assert_allclose(o.optics.transmission(energy2),m2)
-                np.testing.assert_allclose(o.optics.transmission(energy3),m3)
+                cps = np.linspace(1e4,1e5,10)
                 
-                np.testing.assert_allclose(sampleflux*m1,o.cpstoflux(energy,cps))
-                np.testing.assert_allclose(sampleflux2*m2,o.cpstoflux(energy2,cps))
-                np.testing.assert_allclose(sampleflux3*m3,o.cpstoflux(energy3,cps))
-            elif caliboption=="thickness":
-                m = 2.
-                o.calibrate(cps,sampleflux*m,energy,caliboption=caliboption)
-                np.testing.assert_allclose(sampleflux*m,o.cpstoflux(energy,cps))
+                energy = 7.
+                energy2 = 7.2
+                energy3 = 7.1
+                sampleflux = o.cpstoflux(energy,cps)
+                sampleflux2 = o.cpstoflux(energy2,cps)
+                sampleflux3 = o.cpstoflux(energy3,cps)
+
+                if caliboption=="solidangle":
+                    # Same counts but the flux is * m -> diode yield (solid angle) is / m
+                    m = 2.
+                    sa = o.geometry.solidangle
+                    o.calibrate(cps,sampleflux*m,energy,caliboption=caliboption)
+                    np.testing.assert_allclose(sampleflux*m,o.cpstoflux(energy,cps))
+                    np.testing.assert_allclose(o.geometry.solidangle,sa/m)
+                elif caliboption=="optics":
+                    # Same counts but the flux is * m -> optics transmission is / m
+                    m1 = 0.5
+                    m2 = 0.25
+                    m3 = (m1+m2)/2.
+
+                    o.calibrate(cps,sampleflux*m1,energy,caliboption=caliboption)
+                    o.calibrate(cps,sampleflux2*m2,energy2,caliboption=caliboption)
+                    
+                    np.testing.assert_allclose(sampleflux*m1,o.cpstoflux(energy,cps))
+                    np.testing.assert_allclose(sampleflux2*m2,o.cpstoflux(energy2,cps))
+                    
+                    if simplecalibration:
+                        #TODO: should this be the case?
+                        #np.testing.assert_allclose(cps,o.fluxtocps(energy3,sampleflux3*m3))
+                        pass
+                    else:
+                        np.testing.assert_allclose(sampleflux3*m3,o.cpstoflux(energy3,cps))
+                        
+                    if not simplecalibration:
+                        np.testing.assert_allclose(o.optics.transmission(energy),m1)
+                        np.testing.assert_allclose(o.optics.transmission(energy2),m2)
+                        np.testing.assert_allclose(o.optics.transmission(energy3),m3)
+
+                elif caliboption=="thickness":
+                    m = 2.
+                    o.calibrate(cps,sampleflux*m,energy,caliboption=caliboption)
+                    np.testing.assert_allclose(sampleflux*m,o.cpstoflux(energy,cps))
             
+               
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()

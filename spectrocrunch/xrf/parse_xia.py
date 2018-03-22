@@ -42,9 +42,9 @@ def parse_xia_esrf(datadir,scanname,scannumber,outdir,outname,exclude_detectors=
             xianum = detector number or "S1" for sum
 
     Args:
-        datadir(str): directory of the xia files
-        scanname(str): radix of the xia files
-        scannumber(int): scan number of the xia files
+        datadir(list(str)): directory of the xia files
+        scanname(list(str)): radix of the xia files
+        scannumber(list(int)): scan number of the xia files
         outdir(str): directory for the corrected/summed xia files if any
         outname(str): radix for the corrected/summed xia files if any
         exclude_detectors(Optional(list[int])): detector numbers to be excluded
@@ -55,8 +55,20 @@ def parse_xia_esrf(datadir,scanname,scannumber,outdir,outname,exclude_detectors=
     """
 
     # Raw data
-    filemask = os.path.join(datadir,"%s_xia*_%04d_0000_*.edf"%(scanname,scannumber))
-    files_raw = sorted(glob(filemask))
+    if not isinstance(datadir,list):
+        datadir = [datadir]
+    if not isinstance(scanname,list):
+        scanname = [scanname]
+    if not isinstance(scannumber,list):
+        scannumber = [scannumber]
+    if not isinstance(scannumber,list):
+        scannumber = [scannumber] 
+    
+    files_raw = []
+    for ddir,sname,snum in zip(datadir,scanname,scannumber):
+        filemask = os.path.join(ddir,"%s_xia*_%04d_0000_*.edf"%(sname,snum))
+        files_raw.extend(glob(filemask))
+    files_raw = sorted(files_raw)
     
     # Check files
     xiafiles = XiaCorrect.parseFiles(files_raw,log_cb=log_dummy)
@@ -103,11 +115,14 @@ def parse_xia_esrf(datadir,scanname,scannumber,outdir,outname,exclude_detectors=
                                 log_cb=None)
 
         # Output files
-        if add:
-            filemask = os.path.join(outdir,"%s_%s_xiaS1_%04d_0000_*.edf"%(scanname,outname,scannumber))
-        else:
-            filemask = os.path.join(outdir,"%s_%s_xia[0-9]*_%04d_0000_*.edf"%(scanname,outname,scannumber))
-        files_out = sorted(glob(filemask))
+        files_out = []
+        for ddir,sname,snum in zip(datadir,scanname,scannumber):
+            if add:
+                filemask = os.path.join(outdir,"%s_%s_xiaS1_%04d_0000_*.edf"%(ddir,sname,snum))
+            else:
+                filemask = os.path.join(outdir,"%s_%s_xia[0-9]*_%04d_0000_*.edf"%(ddir,sname,snum))
+            files_out.extend(glob(filemask))
+        files_out = sorted(files_out)
     else:
         files_out = sorted([file.get() for detfiles in xiafiles for file in detfiles if not file.isStat()])
 

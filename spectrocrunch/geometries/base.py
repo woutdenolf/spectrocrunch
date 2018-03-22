@@ -23,15 +23,25 @@
 # THE SOFTWARE.
 
 import numpy as np
+from ..common import units
+from ..common import instance
+from ..math import noisepropagation
 
 class Base(object):
 
     def __init__(self,detector=None,source=None):
         self.detector = detector
         self.source = source
-        
-        self.detector.geometry = self
-        self.source.geometry = self
+
+    @property
+    def detector(self):
+        return self._detector
+    
+    @detector.setter
+    def detector(self,value):
+        self._detector = value
+        if self._detector is not None:
+            self._detector.geometry = self
     
     def __getattr__(self,attr):
         try:
@@ -40,7 +50,7 @@ class Base(object):
             try:
                 return getattr(self.source,attr)
             except AttributeError:
-                raise AttributeError("'{}' object has no attribute '{}'".format(self.__class__.__name__,subject))
+                raise AttributeError("'{}' object has no attribute '{}'".format(self.__class__.__name__,attr))
                 
     def __str__(self):
         return "{}\n{}".format(self.source,self.detector)
@@ -56,16 +66,19 @@ class Base(object):
         self.detector.loadfrompymca(setup,cfg)
         self.source.loadfrompymca(setup,cfg)
         
+        
 class FlatSample(Base):
 
-    def __init__(self,anglein=None,angleout=None,**kwargs):
+    def __init__(self,anglein=None,angleout=None,azimuth=None,**kwargs):
         """
         Args:
             anglein(num): angle (deg) between primary beam and sample surface
             angleout(num): angle (deg) between detector and sample surface
+            azimuth(num): angle (deg) between the source-detector plane and the polarization plane
         """
         self.anglein = anglein # deg
         self.angleout = angleout # deg
+        self.azimuth = azimuth # deg
         
         super(FlatSample,self).__init__(**kwargs)
 
@@ -87,6 +100,9 @@ class FlatSample(Base):
     def scatteringangle(self):
         return self.anglein + self.angleout
     
+    def xrayspectrumkwargs(self):
+        return {"polar":self.scatteringangle,"azimuth":self.azimuth}
+        
     def __str__(self):
         return "{}\nGeometry:\n In = {} deg\n Out = {} deg ({})".format(\
                         super(FlatSample,self).__str__(),\
@@ -98,37 +114,64 @@ class FlatSample(Base):
         super(FlatSample,self).addtofisx(setup,cfg)
 
 
-class Point(FlatSample):
+class SolidAngle(FlatSample):
+
+    def __init__(self,solidangle=None,**kwargs):
+        self.solidangle = solidangle # srad
+        super(SolidAngle,self).__init__(**kwargs)
+
+    def __str__(self):
+        if self.solidangle is None:
+            return super(SolidAngle,self).__str__()
+        else:
+            return "{}\n Solid angle = 4*pi*{} srad".format(super(SolidAngle,self).__str__(),self.solidangle/(4*np.pi))
+        
+        
+class Centric(FlatSample):
 
     def __init__(self,azimuth=None,distance=None,**kwargs):
         """
         Args:
-            azimuth(num): angle (deg) between the source-detector plane and the polarization plane
             distance(num): distance (cm) to target
         """
-        
-        self.azimuth = azimuth
-        self._distance = distance
-        super(Point,self).__init__(**kwargs)
+        self.distance = distance
+        super(Centric,self).__init__(**kwargs)
 
     @property
-    def distance(self):
+    def distance_rv(self):
         return self._distance
+    
+    @property
+    def distance(self):
+        return noisepropagation.E(self.distance_rv)
         
-    def xrayspectrumkwargs(self):
-        return {"polar":self.scatteringangle,"azimuth":self.azimuth}
+    @distance.setter
+    def distance(self,value):
+        if value is None:
+            self._distance = None
+        else:
+            self._distance = units.Quantity(distance,"cm")
+       
+    @property
+    def solidangle(self):
+        return self.detector.solidangle_calc(activearea=self.detector.activearea,distance=self.distance)
+        
+    @solidangle.setter
+    def solidangle(self,value):
+        self.distance = self.detector.solidangle_calc(activearea=self.detector.activearea,solidangle=value)
 
     def __str__(self):
         if self.distance is None:
-            return super(Point,self).__str__()
+            return super(Centric,self).__str__()
         else:
-            return "{}\n Distance = {} cm".format(super(Point,self).__str__(),self.distance)
+            return "{}\n Distance = {:~}\n Solid angle = 4*pi*{} srad".format(super(Centric,self).__str__(),self.distance,self.solidangle/(4*np.pi))
         
     def addtopymca(self,setup,cfg): 
-        super(Point,self).addtopymca(setup,cfg)
-        cfg["concentrations"]["distance"] = self.distance
+        super(Centric,self).addtopymca(setup,cfg)
+        cfg["concentrations"]["distance"] = self.distance.to("cm").magnitude
 
     def loadfrompymca(self,setup,cfg): 
-        super(Point,self).loadfrompymca(setup,cfg)
+        super(Centric,self).loadfrompymca(setup,cfg)
         self.distance = cfg["concentrations"]["distance"]
-        
+
+

@@ -25,12 +25,8 @@
 from ..common.classfactory import with_metaclass
 from . import base
 
-import numpy as np
+class DiodeGeometry(with_metaclass(base.SolidAngle)):
+    pass
 
-class Geometry(with_metaclass(base.Point)):
-
-    def __init__(self,**kwargs):
-        super(Geometry,self).__init__(**kwargs)
-
-factory = Geometry.factory
+factory = DiodeGeometry.factory
 

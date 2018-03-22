@@ -32,7 +32,7 @@ sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from spectrocrunch.materials.compoundfromformula import compoundfromformula
 
 from spectrocrunch.materials.mixture import mixture
-from spectrocrunch.materials.types import fractionType
+from spectrocrunch.materials.types import fraction
 
 import scipy.integrate as integrate
 import scipy.optimize as optimize
@@ -45,11 +45,11 @@ def test1():
     compound3 = compoundfromformula("Co2O3",0,name="Co2O3")
     compound4 = compoundfromformula("Fe2O3",0,name="Fe2O3")
 
-    m = mixture([compound1,compound2,compound3,compound4],[1,1,1,1],fractionType.weight)
+    m = mixture([compound1,compound2,compound3,compound4],[1,1,1,1],fraction.mass)
 
-    print(compound4.weightfractions())
+    print(compound4.massfractions())
     print("")
-    elements = m.elemental_weightfractions()
+    elements = m.elemental_massfractions()
     print("")
     for e in elements:
         print(e,e.MM,elements[e])
@@ -99,7 +99,7 @@ class capillary_refine2:
 def test2():
     compound1 = compoundfromformula("C18H30O2",0.9291,name="linseedoil")
     compound2 = compoundfromformula("Pb3C2O8H2",6.8,name="hydrocerussite")
-    m = mixture([compound1,compound2],[0.5,0.5],fractionType.volume)
+    m = mixture([compound1,compound2],[0.5,0.5],fraction.volume)
     mu = m.mass_att_coeff(35.)
 
     # 60% transmission

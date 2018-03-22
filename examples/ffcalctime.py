@@ -29,7 +29,6 @@ sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from spectrocrunch.materials.compoundfromformula import compoundfromformula
 from spectrocrunch.materials.compoundfromname import compoundfromname
 from spectrocrunch.materials.mixture import mixture
-from spectrocrunch.materials.types import fractionType
 from spectrocrunch.simulation import calcnoise
 from spectrocrunch.simulation import materials
 from spectrocrunch.fullfield import create_hdf5_imagestacks as ff

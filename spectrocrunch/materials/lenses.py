@@ -23,10 +23,11 @@
 # THE SOFTWARE.
 
 from ..simulation.classfactory import with_metaclass
-from ..simulation import noisepropagation
-import numpy as np
+from ..math import noisepropagation
+from ..common import instance
+from .visirlib import Material
 
-from visirlib import Material
+import numpy as np
 
 class Lens(with_metaclass()):
     """
@@ -103,7 +104,7 @@ class Lens(with_metaclass()):
         
         lightyield = self.lightyield(nrefrac)
         
-        if noisepropagation.israndomvariable(N):
+        if instance.israndomvariable(N):
             if forward:
                 proc1 = noisepropagation.bernouilli(probsuccess)
                 proc2 = noisepropagation.poisson(lightyield)

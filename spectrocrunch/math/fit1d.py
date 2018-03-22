@@ -54,44 +54,196 @@ def xyremovenan(x,y):
     b = np.logical_and(~np.isnan(x),~np.isnan(y))
     x[b],y[b]
 
-def lstsq_cov(A,b,x):
-    resid = b - np.dot(A, x)
-    return np.linalg.inv(np.dot(A.T, A)) * np.var(resid, ddof=len(x))
+def cor_from_cov(cov):
+    D = np.diag(1/np.sqrt(np.diag(cov)))
+    return D.dot(cov.dot(D))
+    
+def lstsq_cov(A,vare=None,cove=None):
+    # A.x = b + e
+    # E(e) = 0
+    #
+    # x = A^(-1).(b+e)
+    # COVx = A^(-1).COVe.A^(-T)
+    # COVx = (A^T.COVe^(-1).A)^(-1)
+    
+    #try:
+    if cove is None:
+        return np.linalg.inv(np.dot(A.T, A/vare.reshape((vare.size,1))))
+    else:
+        iA = np.linalg.inv(A)
+        return invA.dot(COVe.dot(invA.T))
+    #except np.linalg.linalg.LinAlgError:
+    #    _,n = A.shape
+    #    return np.ones((n,n))
+    
+def lstsq_cov_est(A,b,x):
+    # A.x = b + e
+    # E(e) = 0
+    #
+    # x = A^(-1).(b+e)
+    # COVx = A^(-1).COVe.A^(-T)
+    # COVx = (A^T.COVe^(-1).A)^(-1)
+    #
+    # COVe diagonal (with VARe on the diagonal)
+    # VAR(e) ≃ VAR(A.x-b)
+    
+    vare = np.var(np.dot(A, x)-b, ddof=x.size)
+    return np.linalg.inv(np.dot(A.T, A)) * vare
 
-def lstsq_std(A,b,x):
-    return np.sqrt(np.diag(lstsq_cov(A,b,x)))
+def lstsq_std(A,b=None,x=None,vare=None):
+    """Estimated error of solution to linear system
+    
+    .. math::
+    
+        A.x = b + e
         
-def lstsq(A,b,errors=False):
-    # A.x = b
-    x = np.linalg.lstsq(A, b)[0]
+        E(e) = 0
+    
+    Args:
+        A(array): (m x n)
+        b(array): (m)
+        x(array): (n)
+        vare(array): variance on e (m)
+        
+    Returns:
+        stdx(array): errors (n)
+    """
+    if vare is None:
+        return np.sqrt(np.diag(lstsq_cov_est(A,b,x)))
+    else:
+        return np.sqrt(np.diag(lstsq_cov(A,vare)))
 
+def lstsq_std_indep(A,b=None,x=None,vare=None):
+    """Estimated error of solution to linear system
+    
+    .. math::
+    
+        A.x = b + e
+        
+        E(e) = 0
+    
+    Assume we know x are independent random variables then
+    there variances are found by solving another linear system
+    
+    .. math::
+        (A*A).VARx = VARe
+    
+    Args:
+        A(array): (m x n)
+        b(array): (m)
+        x(array): (n)
+        vare(array): variance on e (m)
+        
+    Returns:
+        stdx(array): sqrt(VARX) (n)
+    """
+    if vare is None:
+        vare = np.var(np.dot(A, x)-b, ddof=x.size)
+        vare = np.full(vare,x.size)
+    return np.sqrt(lstsq(A*A,vare))
+
+def lstsq(A,b,errors=False,vare=None):
+    """Solve the following linear system
+    
+    .. math::
+    
+        A.x = b + e
+        
+        E(e) = 0
+    
+    Args:
+        A(array): (m x n)
+        b(array): (m)
+        errors(Optional(bool)): return solution with estimated error
+        vare(array): variance on e (m)
+        
+    Returns:
+        x(array): solution (n)
+        stdx(array): optional errors (n)
+    """
+    x = np.linalg.lstsq(A, b, rcond=-1)[0]
     if errors:
-        return x,lstsq_std(A,b,x)
+        return x,lstsq_std(A,b=b,x=x,vare=vare)
     else:
         return x
 
-def lstsq_nonnegative(A,b,errors=False):
-    # A.x = b  x>=0
+def lstsq_nonnegative(A,b,errors=False,vare=None):
+    """Solve the following linear system
+    
+    .. math::
+    
+        A.x = b + e \quad x>=0
+        
+        E(e) = 0
+    
+    Args:
+        A(array): (m x n)
+        b(array): (m)
+        errors(Optional(bool)): return solution with estimated error
+        vare(array): variance on e (m)
+        
+    Returns:
+        x(array): solution (n)
+        stdx(array): optional errors (n)
+    """
     x = scipy.optimize.nnls(A, b)[0]
     if errors:
-        return x,lstsq_std(A,b,x)
+        return x,lstsq_std(A,b=b,x=x,vare=vare)
     else:
         return x
         
-def lstsq_bound(A,b,lb,ub,errors=False):
-    # A.x = b  x>=0
+def lstsq_bound(A,b,lb,ub,errors=False,vare=None):
+    """Solve the following linear system
+    
+    .. math::
+    
+        A.x = b + e \quad lb<=x<=ub
+        
+        E(e) = 0
+    
+    Args:
+        A(array): (m x n)
+        b(array): (m)
+        lb(num): lower bound
+        ub(num): upper bound
+        errors(Optional(bool)): return solution with estimated error
+        vare(array): variance on e (m)
+        
+    Returns:
+        x(array): solution (n)
+        stdx(array): optional errors (n)
+    """
     x = scipy.optimize.lsq_linear(A, b, bounds=(lb,ub)).x
     if errors:
-        return x,lstsq_std(A,b,x)
+        return x,lstsq_std(A,b=b,x=x,vare=vare)
     else:
         return x
         
-def linfit(x,y,errors=False):
-    # A.x = b
-    A = np.vstack([x, np.ones(len(x))]).T
-    return lstsq(A,y,errors=errors) # slope,intercept
+def linfit(x,y,errors=False,vare=None):
+    """Linear fit
     
-def linfit2(x,y,errors=False):
+    .. math::
+    
+        y = m.x + b + e
+        
+        E(e) = 0
+    
+    Args:
+        x(array): (m)
+        y(array): (m)
+        errors(Optional(bool)): return solution with estimated error
+        vare(array): variance on e (m)
+        
+    Returns:
+        sol(array): solution (m,b)
+        stdsol(array): optional errors (2-tuple)
+    """
+    A = np.vstack([x, np.ones(len(x))]).T
+    return lstsq(A,y,errors=errors,vare=vare) # slope,intercept
+
+def linfit2(x,y,errors=False,vare=None):
+    if vare is not None:
+        raise NotImplementedError("Use linfit instead")
     n = len(x)
     Sxy = (x*y).sum()
     Sxx = (x*x).sum()
@@ -112,24 +264,41 @@ def linfit2(x,y,errors=False):
     else:
         return [m,b]
 
-def nanlinfit(x,y,errors=False):
+def nanlinfit(x,y,errors=False,vare=None):
     x,y = xyremovenan(x,y)
-    return linfit(x,y,errors=errors)
+    return linfit(x,y,errors=errors,vare=vare)
 
-def nanlinfit2(x,y,errors=False):
+def nanlinfit2(x,y,errors=False,vare=None):
     x,y = xyremovenan(x,y)
-    return linfit2(x,y,errors=errors)
+    return linfit2(x,y,errors=errors,vare=vare)
 
-def linfit_zerointercept(x,y,errors=False):
-    # A.x = b
+def linfit_zerointercept(x,y,errors=False,vare=None):
+    """Linear fit with zero intercept
+    
+    .. math::
+    
+        y = m.x + e
+        
+        E(e) = 0
+    
+    Args:
+        x(array): (m)
+        y(array): (m)
+        errors(Optional(bool)): return solution with estimated error
+        vare(array): variance on e (m)
+        
+    Returns:
+        m(array): solution
+        stdm(array): optional error
+    """
     A = np.vstack([x]).T
     if errors:
-        m,mstd = lstsq(A,y,errors=True)
+        m,mstd = lstsq(A,y,errors=True,vare=vare)
         return m[0],mstd[0]
     else:
         return lstsq(A,y)[0]
     
-def linfit_zerointercept2(x,y,errors=False):
+def linfit_zerointercept2(x,y,errors=False,vare=None):
     Sxy = (x*y).sum()
     Sxx = float((x*x).sum())
     m = Sxy/Sxx
@@ -139,4 +308,4 @@ def linfit_zerointercept2(x,y,errors=False):
         mstd = np.sqrt( (Syy+m*m*Sxx-2*m*Sxy) / ((n-1.)*Sxx) ) # Not sure
         return m,mstd
     return m
-    
+

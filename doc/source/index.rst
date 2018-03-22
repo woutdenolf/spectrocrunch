@@ -2,17 +2,20 @@
 spectrocrunch |release|
 =======================
 
-The spectrocrunch aims and combining different python libraries for spectrocopic imaging (XRF/XAS).
+The spectrocrunch library aims at combining different python libraries for spectroscopic imaging (XRF/XAS).
 
 .. toctree::
    :hidden:
 
-    tutorials/index
-    modules/index
-    changelog
+   tutorials/index
+   modules
+   changelog
 
-:doc:`modules/index`
-    Documentation of the packages included in *spectrocrunch*
+:doc:`tutorials/index`
+    Some examples on how to use the library
+    
+:doc:`modules`
+    API documentation of the packages included in *spectrocrunch*
 
 :doc:`changelog`
     List of changes between releases

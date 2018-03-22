@@ -55,7 +55,8 @@ def execute(file_in,stacks_in,axes_in,copygroups,bsamefile,default,\
     info["expression"] = expression
 
     # Normalize
-    stacks_out, axes_out = math.calc_hdf5_imagestacks(file_in,file_out,axes_in,expression,innames,innames,overwrite=True,info=info,copygroups=copygroups,stackdim=stackdim,extension=extension)
+    stacks_out, axes_out = math.calc_hdf5_imagestacks(file_in,file_out,axes_in,expression,innames,innames,overwrite=True,\
+                                                    info=info,copygroups=copygroups,stackdim=stackdim,extension=extension)
 
     # Copy unnormalized stacks when new file
     if copyskipped:

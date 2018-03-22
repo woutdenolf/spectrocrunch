@@ -132,7 +132,7 @@ def density_from_volumefrac(vfrac,rho):
     """
     return((vfrac*rho).sum())
 
-def density_from_weightfrac(wfrac,rho):
+def density_from_massfrac(wfrac,rho):
     """
     Args:
         wfrac(np.array): weight fraction of each compound

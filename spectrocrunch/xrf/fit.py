@@ -134,8 +134,6 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines={},quant={}):
             cfg["attenuators"]["Matrix"][2] = density
             cfg["attenuators"]["Matrix"][3] = density*0 # thickness in cm
 
-       
-
     # Split M-lines
     # /usr/local/lib/python2.7/dist-packages/PyMca5/PyMcaPhysics/xrf/Elements.py
     #
@@ -400,6 +398,9 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
         fast(Optional(bool)): fast fitting (linear)
         quant(Optional(dict)): 
+    Returns:
+        files(list(str)): files produced by pymca
+        labels(list(str)): corresponding HDF5 labels
     """
 
     if not os.path.exists(outdir):
@@ -429,6 +430,10 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
         filename = lambda x: os.path.join(outdir,"{}_{}.edf".format(outname,x))
         out = collections.OrderedDict()
         for i,name in enumerate(names):
+            m = parse.match(name)
+            if not m:
+                continue
+
             m = parse.match(name).groupdict()
             Z,line = m["Z"],m["line"]
             
@@ -443,7 +448,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
             # Error on peak area
             if buncertainties:
                 label = "s({}-{})".format(Z,line)
-                f = filename("s({}_{})".format(Z,line))
+                f = filename("s{}_{}".format(Z,line))
                 edf.saveedf(f,\
                             result['uncertainties'][i],\
                             {'Title': label},overwrite=True)
@@ -452,7 +457,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
             # Mass fraction
             if bconcentrations and Z.lower()!="scatter":
                 label = "w({}-{})".format(Z,line)
-                f = filename("C({}_{})".format(Z,line))
+                f = filename("w{}_{}".format(Z,line))
                 edf.saveedf(f,\
                             result['concentrations'][i],\
                             {'Title': label},overwrite=True)
@@ -461,15 +466,14 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
         labels = out.keys()
         files = out.values()
     else:
-        # Parallelize this:
+        # TODO: parallelize this
         b = McaAdvancedFitBatch.McaAdvancedFitBatch(cfgfile,filelist=filelist,outputdir=outdir,fitfiles=0)
         b.processList()
 
-        #TODO: process filenames like in fast mode
         filemask = os.path.join(outdir,"IMAGES","*.edf")
         files = sorted(glob.glob(filemask))
         files = [f for f in files if "chisq" not in f]
-        labels = ["_".join(os.path.splitext(os.path.basename(f))[0].split("_")[-2:]) for f in files]
+        labels = ["-".join(os.path.splitext(os.path.basename(f))[0].split("_")[-2:]) for f in files]
     
     return files,labels
 

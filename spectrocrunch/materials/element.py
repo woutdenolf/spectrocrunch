@@ -88,7 +88,8 @@ def elementSymbol(symb):
         name = symb.name
     else:
         raise ValueError("Unknown element symbol or number")
-    return name  
+    return name
+
 
 class Element(hashable.Hashable):
     """Interface to chemical elements
@@ -159,9 +160,19 @@ class Element(hashable.Hashable):
     def unmarkabsorber(self):
         self.shells = []
 
+    @property
     def isabsorber(self):
-        return len(self.shells)!=0
+        return bool(self.shells)
 
+    def markinfo(self):
+        if self.isabsorber:
+            yield "{} ionized shells:".format(self.name)
+            for shell in self.shells:
+                for s in shell.markinfo():
+                    yield " {}".format(s)
+        else:
+            yield "{} (no ionized shells)".format(self.name)
+            
     @property
     def density(self):
         return xraylib.ElementDensity(self.Z)
@@ -169,7 +180,7 @@ class Element(hashable.Hashable):
     def molarmass(self):
         return self.MM
         
-    def weightfractions(self):
+    def massfractions(self):
         return dict([(self,1.)])
 
     def molefractions(self,total=True):
@@ -180,40 +191,23 @@ class Element(hashable.Hashable):
         return 1
 
     @property
+    def elements(self):
+        return [self]
+
+    @property
     def ncompounds(self):
         return 1
         
-    def _get_fdmnes_energyrange(self,Eabs,edgeenergy,decimals=6):
-        """Calculate energies based on boundaries and step sizes:
-            energyrange = [E0,step0,E1,step1,E2] (eV, relative to the edge)
-           Eabs in keV
-        """
-
-        E = (Eabs - edgeenergy)*1000 # absolute (keV) to relative (eV)
-
-        dE = np.around(E[1:]-E[0:-1],decimals=decimals-3)
-        ind = np.argwhere(dE[1:]-dE[0:-1])
-        nblocks = len(ind)+1
-
-        energyrange=np.empty(2*nblocks+1,dtype=E.dtype)
-        energyrange[0] = E[0]
-        energyrange[-1] = E[-1]
-
-        if nblocks==1:
-            energyrange[1] = dE[0]
-        else:
-            inddest = np.arange(1,2*nblocks-2,2)
-            energyrange[inddest] = dE[ind]
-            energyrange[inddest+1] = E[ind+1]
-            energyrange[-2] = dE[ind[-1]+1]
-
-        # enlarge the fdmnes range a bit
-        add = 5 # eV
-        energyrange[0] -= np.ceil(add/energyrange[1])*energyrange[1]
-        energyrange[-1] += np.ceil(add/energyrange[-2])*energyrange[-2]
-
-        return energyrange
-
+    def _xraylib_method(self,method,E):
+        method = getattr(xraylib,method)
+        E,func = instance.asarrayf(E)
+        ret = np.vectorize(lambda en: method(self.Z,np.float64(en)))(E)
+        return E,ret,func
+    
+    def _xraylib_method_full(self,method,E):
+        _,ret,func = self._xraylib_method(method,E)
+        return func(ret)
+        
     def mass_att_coeff(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Mass attenuation coefficient (cm^2/g, E in keV). Use for transmission XAS.
 
@@ -227,13 +221,9 @@ class Element(hashable.Hashable):
             num or np.array
         """
         
-        E,func = instance.asarrayf(E)
-        cs = np.empty(len(E),dtype=np.float64)
-
         # Total
-        for i,en in enumerate(E):
-            cs[i] = xraylib.CS_Total_Kissel(self.Z,np.float64(en))
-
+        E,cs,func = self._xraylib_method("CS_Total_Kissel",E)
+        
         # Replace part by simulation
         cs = self._replace_partial_mass_abs_coeff(cs,E,environ=environ,decimals=decimals,refresh=refresh)
 
@@ -251,11 +241,10 @@ class Element(hashable.Hashable):
         Returns:
             num or np.array
         """
-        E,func = instance.asarrayf(E)
-
+        
         # Total
-        cs = np.vectorize(lambda en:xraylib.CS_Photo_Total(self.Z,np.float64(en)))(E)
-
+        E,cs,func = self._xraylib_method("CS_Photo_Total",E)
+        
         # Replace part by simulation
         cs = self._replace_partial_mass_abs_coeff(cs,E,environ=environ,decimals=decimals,refresh=refresh)
 
@@ -293,7 +282,7 @@ class Element(hashable.Hashable):
         """
         E,func = instance.asarrayf(E)
 
-        if not self.isabsorber():
+        if not self.isabsorber:
             return func(np.zeros(len(E),dtype=np.float64))
 
         if environ is None:
@@ -321,7 +310,7 @@ class Element(hashable.Hashable):
         """
         E,func = instance.asarrayf(E)
 
-        if not self.isabsorber():
+        if not self.isabsorber:
             return func(np.zeros(len(E),dtype=np.float64))
 
         if environ is None:
@@ -352,7 +341,7 @@ class Element(hashable.Hashable):
         """
         
         # No fluorescence when not an absorber
-        if not self.isabsorber():
+        if not self.isabsorber:
             return {}
 
         # Get the shell ionization cross section
@@ -386,13 +375,7 @@ class Element(hashable.Hashable):
         spectrum.type = spectrum.TYPES.crosssection
         
         return spectrum
-
-    def _xraylib_method(self,method,E):
-        method = getattr(xraylib,method)
-        E,func = instance.asarrayf(E)
-        ret = np.vectorize(lambda en: method(self.Z,np.float64(en)))(E)
-        return func(ret)
-        
+ 
     def scattering_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Scattering cross section (cm^2/g, E in keV).
 
@@ -406,7 +389,7 @@ class Element(hashable.Hashable):
             num or np.array
         """
 
-        return self._xraylib_method("CS_Rayl",E)+self._xraylib_method("CS_Compt",E)
+        return self._xraylib_method_full("CS_Rayl",E)+self._xraylib_method_full("CS_Compt",E)
 
     def rayleigh_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Rayleigh cross section (cm^2/g, E in keV).
@@ -420,7 +403,7 @@ class Element(hashable.Hashable):
         Returns:
             num or np.array
         """
-        return self._xraylib_method("CS_Rayl",E)
+        return self._xraylib_method_full("CS_Rayl",E)
 
     def compton_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Compton cross section (cm^2/g, E in keV).
@@ -434,7 +417,17 @@ class Element(hashable.Hashable):
         Returns:
             num or np.array
         """
-        return self._xraylib_method("CS_Compt",E)
+        return self._xraylib_method_full("CS_Compt",E)
+
+    @property
+    def scatfact_to_cs_constant(self):
+        """ muR(cm²/g) = NA(atom/mol)/MM(g/mol) . x(cm²/atom)
+            x(cm²/atom) = int_phi[int_theta [ f²(e/atom).thomson(cm²/e/srad) . sin(theta) dtheta] dphi]
+            thomson(cm²/e/srad) = r_e²(cm²/e).K(theta,phi)(1/srad)
+            
+            m(cm^2/g/e) = NA(atom/mol)/MM(g/mol).r_e²(cm²/e)
+        """
+        return (ureg.re**2*ureg.avogadro_number/ureg.Quantity(self.MM,'g/mol')).to("cm^2/g").magnitude
 
     def scatfact_classic_re(self,E,theta=None,environ=None,decimals=6,refresh=False,**kwargs):
         """Real part of atomic form factor
@@ -454,7 +447,7 @@ class Element(hashable.Hashable):
         else:
             #q = Q/4.pi
             q = np.sin(theta/2)/ureg.Quantity(E,'keV').to("angstrom","spectroscopy").magnitude
-            return self._xraylib_method("FF_Rayl",q)
+            return self._xraylib_method_full("FF_Rayl",q)
             
     def scatfact_re(self,E,theta=None,environ=None,decimals=6,refresh=False,**kwargs):
         """Real part of atomic form factor
@@ -469,7 +462,7 @@ class Element(hashable.Hashable):
         Returns:
             num or np.array
         """
-        return self.scatfact_classic_re(E,theta=theta,environ=environ,decimals=decimals,refresh=refresh) + self._xraylib_method("Fi",E)
+        return self.scatfact_classic_re(E,theta=theta,environ=environ,decimals=decimals,refresh=refresh) + self._xraylib_method_full("Fi",E)
     
     def scatfact_im(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Imaginary part of atomic form factor
@@ -483,7 +476,7 @@ class Element(hashable.Hashable):
         Returns:
             num or np.array
         """
-        return self._xraylib_method("Fii",E)
+        return self._xraylib_method_full("Fii",E)
     
     def _get_multiplicity(self,struct):
         scat = struct.scatterers()
@@ -494,7 +487,7 @@ class Element(hashable.Hashable):
         return ret
 
     def _CS_Photo_Partial_DB(self,E):
-        """Get the partial photoionization cross section from xraylib (E in keV).
+        """Get the partial photoionization cross section for the selected shells from xraylib (E in keV).
 
         Args:
             E(array): energy (keV)
@@ -509,7 +502,7 @@ class Element(hashable.Hashable):
         return cs
 
     def _CS_Photo_Partial_SIM(self,E,environ,decimals=6,refresh=False,fluo=True):
-        """Calculate the partial photoionization cross section with fdmnes (E in keV).
+        """Calculate the partial photoionization cross section for the selected shells from fdmnes (E in keV).
 
         Args:
             E(array): energy (keV)
@@ -545,7 +538,7 @@ class Element(hashable.Hashable):
 
             # Select edge
             sim.P.Edge = shell.name
-            filebase = os.path.splitext(os.path.basename(environ.ciffile))[0]+"_"+self.name+"_"+sim.P.Edge
+            filebase = "_".join((os.path.splitext(os.path.basename(environ.ciffile))[0],self.name,sim.P.Edge))
 
             # Relative energy range in eV
             Range = self._get_fdmnes_energyrange(E,shell.edgeenergy(self.Z),decimals=decimals)
@@ -585,10 +578,10 @@ class Element(hashable.Hashable):
             # Get data
             data = sim.get_XANES(conv = True)
 
-            # Convert data to absorbance
+            # Convert data to absorbance as a function of energy in keV
             data[:,0] /= 1000. # ev -> keV
             data[:,0] += shell.edgeenergy(self.Z) # rel -> abs
-            data[:,1] *= xraylib.AVOGNUM*1E6/self.MM # Absorption cross section (Mbarn) -> mass absorption coefficient (cm^2/g)
+            data[:,1] *= xraylib.AVOGNUM*1E6/self.MM # Absorption cross section (Mbarn/atom) -> mass absorption coefficient (cm^2/g)
 
             # Element multiplicity in the unit cell
             if "nmult" in config:
@@ -650,6 +643,37 @@ class Element(hashable.Hashable):
 
         return ret
 
+    def _get_fdmnes_energyrange(self,Eabs,edgeenergy,decimals=6):
+        """Calculate energies based on boundaries and step sizes:
+            energyrange = [E0,step0,E1,step1,E2] (eV, relative to the edge)
+           Eabs in keV
+        """
+
+        E = (Eabs - edgeenergy)*1000 # absolute (keV) to relative (eV)
+
+        dE = np.around(E[1:]-E[0:-1],decimals=decimals-3)
+        ind = np.argwhere(dE[1:]-dE[0:-1])
+        nblocks = len(ind)+1
+
+        energyrange=np.empty(2*nblocks+1,dtype=E.dtype)
+        energyrange[0] = E[0]
+        energyrange[-1] = E[-1]
+
+        if nblocks==1:
+            energyrange[1] = dE[0]
+        else:
+            inddest = np.arange(1,2*nblocks-2,2)
+            energyrange[inddest] = dE[ind]
+            energyrange[inddest+1] = E[ind+1]
+            energyrange[-2] = dE[ind[-1]+1]
+
+        # enlarge the fdmnes range a bit
+        add = 5 # eV
+        energyrange[0] -= np.ceil(add/energyrange[1])*energyrange[1]
+        energyrange[-1] += np.ceil(add/energyrange[-2])*energyrange[-2]
+
+        return energyrange
+        
     def _get_absolute_energyrange(self,energyrange,defaultinc=1):
         """Convert relative energy range (eV) to absolute energy range (keV)
         """

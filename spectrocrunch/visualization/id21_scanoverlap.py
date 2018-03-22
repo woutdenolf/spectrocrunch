@@ -28,6 +28,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import interpolate
 from ..math.common import logscale
+import warnings
 
 def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fliphor=False,color='#ffffff',defaultorigin=False,printpos=False,outname=None):
     """
@@ -169,7 +170,11 @@ def plot(hdf5filename,grps,specfilename,specnumbers,offsamy,offsamz,transpose=Fa
     dim2off = 0.
     dim2name = "samy"
     dim2mult = 1
-    ocoord = oh5["coordinates"]
+    try:
+        ocoord = oh5["stackinfo"]
+    except KeyError:
+        warnings.warn("\"coordinates\" is deprecated and should be replaced by \"stackinfo\"", DeprecationWarning) 
+        ocoord = oh5["coordinates"]
     for f in ocoord:
         if f == "samz":
             dim1off = ocoord[f].value*1000

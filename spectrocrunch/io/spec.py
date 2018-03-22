@@ -26,7 +26,7 @@ from PyMca5.PyMcaCore import SpecFileDataSource
 import re
 import numpy as np
 from collections import OrderedDict
-from ..common.instance import isarray
+from ..common import instance
 from .. import ureg
 import logging
 
@@ -441,6 +441,35 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         SpecFileDataSource.SpecFileDataSource.__init__(self,filename)
         self.parser = cmd_parser()
 
+    def _parse_labels(self,labels):
+        if instance.isstring(labels):
+            return labels.lower()
+        else:
+            return [self._parse_labels(label) for label in labels]
+        
+    def _get_scan(self,scannumber):
+        try:
+            return self.getDataObject("{:d}.1".format(scannumber))
+        except:
+            msg = "Failed to retrieve scan number {} from {}".format(scannumber,self.sourceName)
+            raise KeyError(msg)
+
+    def _get_scan_info(self,scannumber):
+        try:
+            return self.getKeyInfo("{:d}.1".format(scannumber))
+        except:
+            msg = "Failed to retrieve scan number {} from {}".format(scannumber,self.sourceName)
+            raise KeyError(msg)
+
+    def _data_from_scan(self,scan,labels):
+        lst = self._parse_labels(scan.info["LabelNames"])
+        labels = self._parse_labels(labels)
+        ind = [lst.index(label) for label in labels]
+        if ind:
+            return scan.data[:,ind]
+        else:
+            return None
+        
     def getdata(self, scannumber, labelnames):
         """Get counters + info on saved data
 
@@ -450,17 +479,10 @@ class spec(SpecFileDataSource.SpecFileDataSource):
 
         Returns:
             (np.array, dict): counters (nCounter x npts), info on collected data
-
-        Raises:
-            KeyError: scan number doesn't exist
-            TypeError: unknown scan type
-            ValueError: no data corresponding to the labelnames
         """
 
-        # Get data object
-        scan = self.getDataObject("{:d}.1".format(scannumber))
+        scan = self._get_scan(scannumber)
 
-        # Extract xia data names
         info = {"DIRECTORY":"", "RADIX":"", "ZAP SCAN NUMBER":"", "ZAP IMAGE NUMBER":""}
         for s in scan.info["Header"]:
             if s.startswith("#C "):
@@ -470,19 +492,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
                     if tmp[0] in info:
                         info[tmp[0]] = tmp[1]
 
-        # Extract data
-        ind = []
-        labels = scan.info["LabelNames"]
-        for i in range(len(labelnames)):
-            try:
-                j = labels.index(labelnames[i])
-                ind.append(j)
-            except:
-                pass
-        if len(ind)>0:
-            data = scan.data[:,ind]
-        else:
-            data = None
+        data = self._data_from_scan(scan,labelnames)
 
         return data,info
         
@@ -495,54 +505,35 @@ class spec(SpecFileDataSource.SpecFileDataSource):
 
         Returns:
             np.array: counters (nCounter x npts)
-
-        Raises:
-            KeyError: scan number doesn't exist
-            TypeError: unknown scan type
-            ValueError: no data corresponding to the labelnames
         """
+        scan = self._get_scan(scannumber)
+        return self._data_from_scan(scan,labelnames)
 
-        # Get data object
-        try:
-            scan = self.getDataObject("{:d}.1".format(scannumber))
-        except TypeError:
-            raise TypeError("Error loading scan number {}".format(scannumber))
-        
-        # Extract data
-        ind = []
-        labels = scan.info["LabelNames"]
-        for i in range(len(labelnames)):
-            try:
-                j = labels.index(labelnames[i])
-                ind.append(j)
-            except:
-                raise RuntimeError("Label not in list: {}".format(labels))
-        if len(ind)>0:
-            data = scan.data[:,ind]
+    def haslabels(self,scannumber,labels):
+        scan = self._get_scan(scannumber)
+        lst = self._parse_labels(scan.info["LabelNames"])
+        labels = self._parse_labels(labels)
+        if instance.isstring(labels):
+            return labels in lst
         else:
-            data = None
-
-        return data
-
-    def haslabel(self,scannumber,label):
-        try:
-            scan = self.getDataObject("{:d}.1".format(scannumber))
-        except TypeError:
-            raise TypeError("Error loading scan number {}".format(scannumber))
-        return label in scan.info["LabelNames"]
-
+            return [label in lst for label in labels]
+        
     def getmotorvalues(self,scannumber,motors):
         """Get start positions for the specified motors
         """
-        info = self.getKeyInfo("{:d}.1".format(scannumber))
-        names = info["MotorNames"]
+        info = self._get_scan_info(scannumber)
+        motors = self._parse_labels(motors)
+        names = self._parse_labels(info["MotorNames"])
         values = info["MotorValues"]
-        return [values[names.index(mot)] for mot in motors]
+        if instance.isstring(motors):
+            return values[names.index(motors)]
+        else:
+            return [values[names.index(mot)] for mot in motors]
 
     def getxialocation(self,scannumber):
         """Get info on saved data
         """
-        info = self.getKeyInfo("{:d}.1".format(scannumber))
+        info = self._get_scan_info(scannumber)
 
         ret = {"DIRECTORY":"", "RADIX":"", "ZAP SCAN NUMBER":"", "ZAP IMAGE NUMBER":""}
         for s in info["Header"]:
@@ -555,14 +546,15 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         return ret
 
     def scancommand(self,scannumber):
-        info = self.getKeyInfo("{:d}.1".format(scannumber))
+        info = self._get_scan_info(scannumber)
         return self.parser.parse(info["Command"])
 
     def getdimensions(self,scannumber,motors):
         """Get scan dimensions for the specified motors
         """
-        info = self.getKeyInfo("{:d}.1".format(scannumber))
-        names = info["MotorNames"]
+        info = self._get_scan_info(scannumber)
+        motors = self._parse_labels(motors)
+        names = self._parse_labels(info["MotorNames"])
         values = info["MotorValues"]
         cmd = info["Command"]
 
@@ -628,7 +620,8 @@ class spec(SpecFileDataSource.SpecFileDataSource):
                 if motors is None:
                     add["motors"] = []
                 else:
-                    names = info["MotorNames"]
+                    motors = self._parse_labels(motors)
+                    names = self._parse_labels(info["MotorNames"])
                     values = info["MotorValues"]
                     add["motors"] = [values[names.index(mot)] if mot in names else np.nan for mot in motors]
 
