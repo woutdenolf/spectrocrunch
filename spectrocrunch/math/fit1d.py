@@ -161,7 +161,7 @@ def lstsq(A,b,errors=False,vare=None):
         x(array): solution (n)
         stdx(array): optional errors (n)
     """
-    x = np.linalg.lstsq(A, b)[0]
+    x = np.linalg.lstsq(A, b, rcond=-1)[0]
     if errors:
         return x,lstsq_std(A,b=b,x=x,vare=vare)
     else:
@@ -224,7 +224,7 @@ def linfit(x,y,errors=False,vare=None):
     
     .. math::
     
-        y + e = m.x + b
+        y = m.x + b + e
         
         E(e) = 0
     
@@ -277,7 +277,7 @@ def linfit_zerointercept(x,y,errors=False,vare=None):
     
     .. math::
     
-        y + e = m.x
+        y = m.x + e
         
         E(e) = 0
     
