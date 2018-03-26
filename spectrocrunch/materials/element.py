@@ -44,7 +44,6 @@ from ..common import hashable
 from ..common import instance
 from . import xrayspectrum
 
-
 def elementParse(symb):
     if isinstance(symb,str):
         if symb.isdigit():
@@ -382,14 +381,11 @@ class Element(hashable.Hashable):
         
         return spectrum
  
-    def scattering_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
+    def scattering_cross_section(self,E,**kwargs):
         """Scattering cross section (cm^2/g, E in keV).
 
         Args:
             E(num or array-like): energy (keV)
-            environ(dict): chemical environment of this element
-            decimals(Optional(num)): precision of energy in keV
-            refresh(Optional(bool)): force re-simulation if used
 
         Returns:
             num or np.array
@@ -397,53 +393,34 @@ class Element(hashable.Hashable):
 
         return self._xraylib_method_full("CS_Rayl",E)+self._xraylib_method_full("CS_Compt",E)
 
-    def rayleigh_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
+    def rayleigh_cross_section(self,E,**kwargs):
         """Rayleigh cross section (cm^2/g, E in keV).
 
         Args:
             E(num or array-like): energy (keV)
-            environ(dict): chemical environment of this element
-            decimals(Optional(num)): precision of energy in keV
-            refresh(Optional(bool)): force re-simulation if used
 
         Returns:
             num or np.array
         """
         return self._xraylib_method_full("CS_Rayl",E)
 
-    def compton_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
+    def compton_cross_section(self,E,**kwargs):
         """Compton cross section (cm^2/g, E in keV).
 
         Args:
             E(num or array-like): energy (keV)
-            environ(dict): chemical environment of this element
-            decimals(Optional(num)): precision of energy in keV
-            refresh(Optional(bool)): force re-simulation if used
 
         Returns:
             num or np.array
         """
         return self._xraylib_method_full("CS_Compt",E)
 
-    @property
-    def scatfact_to_cs_constant(self):
-        """ muR(cm²/g) = NA(atom/mol)/MM(g/mol) . x(cm²/atom)
-            x(cm²/atom) = int_phi[int_theta [ f²(e/atom).thomson(cm²/e/srad) . sin(theta) dtheta] dphi]
-            thomson(cm²/e/srad) = r_e²(cm²/e).K(theta,phi)(1/srad)
-            
-            m(cm^2/g/e) = NA(atom/mol)/MM(g/mol).r_e²(cm²/e)
-        """
-        return (ureg.re**2*ureg.avogadro_number/ureg.Quantity(self.MM,'g/mol')).to("cm^2/g").magnitude
-
-    def scatfact_classic_re(self,E,theta=None,environ=None,decimals=6,refresh=False,**kwargs):
+    def scatfact_classic_re(self,E,theta=None,**kwargs):
         """Real part of atomic form factor
 
         Args:
             E(num or array-like): energy (keV)
             theta(Optional(num or array-like)): scattering angle (rad)
-            environ(dict): chemical environment of this element
-            decimals(Optional(num)): precision of energy in keV
-            refresh(Optional(bool)): force re-simulation if used
 
         Returns:
             num or np.array
@@ -455,34 +432,47 @@ class Element(hashable.Hashable):
             q = np.sin(theta/2)/ureg.Quantity(E,'keV').to("angstrom","spectroscopy").magnitude
             return self._xraylib_method_full("FF_Rayl",q)
             
-    def scatfact_re(self,E,theta=None,environ=None,decimals=6,refresh=False,**kwargs):
+    def scatfact_re(self,E,theta=None,**kwargs):
         """Real part of atomic form factor
 
         Args:
             E(num or array-like): energy (keV)
             theta(Optional(num or array-like)): scattering angle (degrees)
-            environ(dict): chemical environment of this element
-            decimals(Optional(num)): precision of energy in keV
-            refresh(Optional(bool)): force re-simulation if used
 
         Returns:
             num or np.array
         """
-        return self.scatfact_classic_re(E,theta=theta,environ=environ,decimals=decimals,refresh=refresh) + self._xraylib_method_full("Fi",E)
+        return self.scatfact_classic_re(E,theta=theta) + self._xraylib_method_full("Fi",E)
     
-    def scatfact_im(self,E,environ=None,decimals=6,refresh=False,**kwargs):
+    def scatfact_im(self,E,**kwargs):
         """Imaginary part of atomic form factor
 
         Args:
             E(num or array-like): energy (keV)
-            environ(dict): chemical environment of this element
-            decimals(Optional(num)): precision of energy in keV
-            refresh(Optional(bool)): force re-simulation if used
 
         Returns:
             num or np.array
         """
         return self._xraylib_method_full("Fii",E)
+
+    def diff_rayleigh_cross_section(self,E,source):
+        """Differential Rayleigh cross section (cm^2/g/srad, E in keV).
+
+        Args:
+            E(num or array-like): energy (keV)
+
+        Returns:
+            callable: (theta,phi)
+        """
+        # muR(cm²/g) = NA(atom/mol)/MM(g/mol) . x(cm²/atom)
+        # x(cm²/atom) = int_phi[int_theta [ f²(e/atom).thomson(cm²/e/srad) . sin(theta) dtheta] dphi]
+        # thomson(cm²/e/srad) = r_e²(cm²/e).K(theta,phi)(1/srad)
+        # mudiffR(cm²/g/srad) = r_e²(cm²/e).NA(atom/mol)/MM(g/mol).K(theta,phi)(1/srad).f²(e/atom)
+
+        c = (ureg.re**2*ureg.avogadro_number/ureg.Quantity(self.MM,'g/mol')).to("cm^2/g").magnitude
+        wl = ureg.Quantity(E,'keV').to("angstrom","spectroscopy").magnitude
+        K = source.K
+        return lambda theta,phi: c*K(theta,phi)*self._xraylib_method_full("FF_Rayl",np.sin(theta/2.)/wl)**2
     
     def _get_multiplicity(self,struct):
         scat = struct.scatterers()

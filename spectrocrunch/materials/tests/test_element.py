@@ -28,6 +28,7 @@ from .. import element
 from .. import xrayspectrum
 from ... import xraylib
 from ... import ureg
+from ...sources import xray as xraysources
 
 import numpy as np
 from scipy import integrate
@@ -215,32 +216,28 @@ class test_element(unittest.TestCase):
         #
         # muR(energy) = re^2 . NA/MM . int_0^2pi[int_0^pi [(1+cos(theta)^2)/2 . f(energy,theta)^2  . sin(theta) . dtheta] . dphi]
         
-        energy = np.linspace(4,30,2)
-        fim2 = e.scatfact_im(energy)**2
-        
-        def integrand1(theta,energy,a):
-            return (1+np.cos(theta)**2)/2.*np.sin(theta)*(e.scatfact_re(energy,theta=theta)**2+a)
-            
-        def integrand2(theta,energy):
-            return (1+np.cos(theta)**2)/2.*np.sin(theta)*e.scatfact_classic_re(energy,theta=theta)**2
-        
-        fac = 2*np.pi*e.scatfact_to_cs_constant
-        
-        #cs1 = [fac*integrate.quad(integrand1, 0, np.pi, args = (energy[i],fim2[i]))[0]  for i in range(len(energy))]
-        
-        cs2 = [fac*integrate.quad(integrand2, 0, np.pi, args = (E))[0]  for E in energy]
-        
-        cs3 = e.rayleigh_cross_section(energy)
+        sources = [xraysources.factory("Source",polarization="none"),\
+                    xraysources.factory("Source",polarization="linear"),\
+                    xraysources.factory("Source",polarization="elliptical",Plinear=0.95,delta=90)]
+        for source in sources:
+            def integrand(energy):
+                diffcs = e.diff_rayleigh_cross_section(energy,source)
+                return lambda phi,theta: diffcs(theta,phi)*np.sin(theta)
 
-        np.testing.assert_allclose(cs2,cs3,rtol=1e-1)
-        
-        #import matplotlib.pyplot as plt
-        #plt.plot(energy,cs1,label='Int Full')
-        #plt.plot(energy,cs2,label='Int Classic')
-        #plt.plot(energy,cs3,label='Tab')
-        #plt.legend()
-        #plt.show()
-    
+            energy = np.linspace(4,30,2)
+            cs = e.rayleigh_cross_section(energy)
+
+            #import matplotlib.pyplot as plt
+            #f = e.diff_rayleigh_cross_section(15,source)
+            #theta = np.linspace(0,np.pi,20)
+            #phi = np.linspace(0,2*np.pi,50)
+            #theta,phi = np.meshgrid(theta,phi)
+            #plt.imshow(f(theta,phi))
+            #plt.show()
+
+            diffcsint = [integrate.dblquad(integrand(E), 0, np.pi, lambda x:0, lambda x:2*np.pi)[0]  for E in energy]
+            np.testing.assert_allclose(cs,diffcsint,rtol=2e-2)
+
     def test_formfact(self):
         e = element.Element("Fe")
         

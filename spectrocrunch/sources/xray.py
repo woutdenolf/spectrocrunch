@@ -25,15 +25,17 @@
 from ..common.classfactory import with_metaclass
 from ..common.Enum import Enum
 
+import numpy as np
+import matplotlib.pyplot as plt
 
 class Source(with_metaclass(object)):
 
     POLARIZATION = Enum(['none','linear','elliptical'])
 
-    def __init__(self,polarization=None,Plinear=None,delta=None):
+    def __init__(self,polarization="none",Plinear=None,delta=None):
         """
         Args:
-            polarization(): 
+            polarization(str): 
             Plinear(num): linear degree of polarization of the source
             delta(num): component phase retardation in deg (0 -> linear polarization, else elliptical) 
         """
@@ -45,9 +47,10 @@ class Source(with_metaclass(object)):
             self.delta = 90
         elif self.polarization == self.POLARIZATION.linear:
             self.Plinear = 1
-            
-        self.Plinear = float(Plinear)
-        self.delta = float(delta)
+            self.delta = 90
+        else:
+            self.Plinear = float(Plinear)
+            self.delta = float(delta)
 
     def __str__(self):
         return "Source:\n Linear degree of polarization = {} \n Phase retardation = {} deg".format(self.Plinear,self.delta)
@@ -57,24 +60,33 @@ class Source(with_metaclass(object)):
     
     def loadfrompymca(self,setup,cfg):
         pass
-            
+    
+    @property
     def K(self):
         if self.polarization == self.POLARIZATION.none:
-            func = lambda theta,phi: (1+np.cos(theta)**2.)/2.
+            return lambda theta,phi: (1+np.cos(theta)**2.)/2.
         elif self.polarization == self.POLARIZATION.linear:
-            func = lambda theta,phi: (1+np.cos(theta)**2.-np.cos(2*phi)*np.sin(theta)**2.)/2.
+            return lambda theta,phi: (1+np.cos(theta)**2.-np.cos(2*phi)*np.sin(theta)**2.)/2.
         elif self.polarization == self.POLARIZATION.elliptical:
-            func = lambda theta,phi: (1+np.cos(theta)**2.-(self.Plinear*np.cos(2*phi)-np.sqrt(1-self.Plinear**2.)*np.sin(2*phi)*self.cosdelta*np.sin(theta)**2.))/2.
+            return lambda theta,phi: (1+np.cos(theta)**2.-(self.Plinear*np.cos(2*phi)-np.sqrt(1-self.Plinear**2.)*np.sin(2*phi)*self.cosdelta)*np.sin(theta)**2.)/2.
             
-        return func
+        raise RuntimeError("Unknown polarization: {}".format(self.polarization))
 
     @property
+    def cosbetasq(self):
+        return (1+self.Plinear)/2.
+    
+    @property
+    def sinbetasq(self):
+        return (1-self.Plinear)/2.
+          
+    @property
     def cosbeta(self):
-        return np.sqrt((1+self.Plinear)/2.)
+        return np.sqrt(self.cosbetasq)
 
     @property
     def sinbeta(self):
-        return np.sqrt((1-self.Plinear)/2.)
+        return np.sqrt(self.sinbetasq)
 
     @property
     def sin2beta(self):
@@ -95,16 +107,28 @@ class Source(with_metaclass(object)):
     @property
     def sindelta(self):
         return np.sin(np.radians(self.delta))
-        
-    def plotellipse(self,meanabsphasor):
-        if self.polarization == POLARIZATION.none:
+    
+    def coherency_matrix(self,meanabsphasor=1):
+        c = self.sin2beta/2*np.exp(-1j*self.delta)
+        return np.array([[self.cosbetasq,c],[c.conjugate(),self.sinbetasq]]) * meanabsphasor**2
+    
+    def stokes_parameters(self,meanabsphasor=1):
+        C = self.coherency_matrix(meanabsphasor=meanabsphasor)
+        I = C.trace()
+        Q = C[0,0]-C[1,1]
+        U = C[0,1]+C[1,0].conjugate()
+        V = -1j*U
+        return I,Q,U,V
+
+    def plotellipse(self,meanabsphasor=1):
+        if self.polarization == self.POLARIZATION.none:
             raise RuntimeError("Unpolarized radiation has a random electric field vector")
     
         semimajor = meanabsphasor*np.sqrt((1+np.sqrt(1-(self.sin2beta*self.sindelta)**2))/2.)
         semiminor = meanabsphasor*np.sqrt((1-np.sqrt(1-(self.sin2beta*self.sindelta)**2))/2.)
         chi = np.arctan(self.tan2beta*self.cosdelta)/2.
         
-        p = np.linspace(0, 2*np.pi, len(t))
+        p = np.linspace(0, 2*np.pi, 100)
         x = semimajor * np.cos(p) * np.cos(chi) - semiminor * np.sin(p) * np.sin(chi)
         y = semimajor * np.cos(p) * np.sin(chi) + semiminor * np.sin(p) * np.cos(chi)
         plt.plot(x,y)
@@ -131,8 +155,8 @@ class Source(with_metaclass(object)):
 class Synchrotron(Source):
 
     def __init__(self,**kwargs):
-        #super(Synchrotron,self).__init__(polarization=Source.POLARIZATION.linear)
-        super(Synchrotron,self).__init__(polarization=Source.POLARIZATION.elliptical,Plinear=0.95,delta=90)
+        #super(Synchrotron,self).__init__(polarization="linear")
+        super(Synchrotron,self).__init__(polarization="elliptical",Plinear=0.95,delta=90)
 
 
 class Tube(Source):
