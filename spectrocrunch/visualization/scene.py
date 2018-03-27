@@ -254,7 +254,7 @@ class Scene(Hashable,Geometry2D):
         
     def datatransform(self,arr,dataaxis):
         arr = units.asqarray(arr)
-        return instance.asarray(arr*self.datascale[dataaxis] - self.dataoffset[dataaxis])
+        return arr*self.datascale[dataaxis] - self.dataoffset[dataaxis]
     
     def displaylim(self,lim,dataaxis):
         if self._increasing[dataaxis]:
@@ -850,7 +850,9 @@ class Scatter(Item):
         Scatter._updatedata(self,coordinate0,coordinate1,labels=labels)
 
     def _updatedata(self,coordinate0,coordinate1,labels=None):
-        self._coordinate = [coordinate0,coordinate1]
+        self._coordinate = [instance.asarray(coordinate0),instance.asarray(coordinate1)]
+        #self._coordinate = [units.asqarray(coordinate0),units.asqarray(coordinate1)]
+        #self._coordinate = [coordinate0,coordinate1]
         if labels is None:
             self.labels = []
         else:

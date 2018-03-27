@@ -71,16 +71,16 @@ class PointCoordinates(Coordinates):
             p1 = sum(self.motorpositions(x,motname) for motname,x in zip(self.instrument.imagemotors,positions) if self.instrument.imageaxes[1] in motname)
 
             # Append positions and labels
-            coord0.append(p0)
-            coord1.append(p1)
+            coord0.extend(instance.asarray(p0).tolist())
+            coord1.extend(instance.asarray(p1).tolist())
             lbls.extend(labels)
 
         if not coord0:
             raise RuntimeError("No coordinates found")
+
+        self._coordinates0 = instance.asarray(coord0)
+        self._coordinates1 = instance.asarray(coord1)
         
-        # There is not extend for pint.Quantity
-        self._coordinates0 = intance.asarray(coord0)
-        self._coordinates1 = intance.asarray(coord1)
         self.labels = lbls
 
     @property
