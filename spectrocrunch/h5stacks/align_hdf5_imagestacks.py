@@ -32,7 +32,8 @@ from ..io import nexus
 
 import h5py
 
-def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refdataset,refimageindex=None,overwrite=False,info=None,copygroups=None,crop=False,roi=None,plot=True):
+def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refdataset,\
+            refimageindex=None,overwrite=False,info=None,copygroups=None,crop=False,roi=None,plot=True):
     """
     Args:
         filein (str)

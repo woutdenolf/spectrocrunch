@@ -24,11 +24,12 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as pltcolors
 
 from . import ternary_diagram
 from . import chromaticity_triangle
 
-def colorbar_rgb(fig=None,vmin=[0,0,0],vmax=[1,1,1],names=['red','green','blue'],rect=[0.1, 0.1, 0.8, 0.8],grid=True):
+def triangle(fig=None,vmin=[0,0,0],vmax=[1,1,1],names=['R','G','B'],rect=[0.1, 0.1, 0.8, 0.8],grid=True):
 
     names = ["None" if name is None else name for name in names]
 
@@ -41,17 +42,40 @@ def colorbar_rgb(fig=None,vmin=[0,0,0],vmax=[1,1,1],names=['red','green','blue']
     if fig is None:
         fig = plt.figure()
         
-    items = []
-    items.append(chromaticity_triangle.ChromaticityTriangle(fig,rect,ternaryinfo,additive=True))
-    items.append(ternary_diagram.axesLeft(fig,rect,ternaryinfo))
-    items.append(ternary_diagram.axesTop(fig,rect,ternaryinfo))
-    items.append(ternary_diagram.axesRight(fig,rect,ternaryinfo))
+    items = {}
+    items["colorbar"] = chromaticity_triangle.ChromaticityTriangle(fig,rect,ternaryinfo,additive=True)
+    items["colorbar_axleft"] = ternary_diagram.axesLeft(fig,rect,ternaryinfo)
+    items["colorbar_axtop"] = ternary_diagram.axesTop(fig,rect,ternaryinfo)
+    items["colorbar_axright"] = ternary_diagram.axesRight(fig,rect,ternaryinfo)
 
-    for item in items:
+    for item in items.values():
         fig.add_axes(item)
     
     if grid:
-        ternary_diagram.TernaryGrid(items[0],ternaryinfo)
+        ternary_diagram.TernaryGrid(items["colorbar"],ternaryinfo)
 
-    return fig,items
+    return items
+
+def bars(ax=None,vmin=[0,0,0],vmax=[1,1,1],names=['R','G','B'],norms=[None,None,None]):
+    cms = ([(0, 0, 0), (1, 0, 0)],\
+           [(0, 0, 0), (0, 1, 0)],\
+           [(0, 0, 0), (0, 0, 1)])
     
+    pad = 0.05
+    ret = {}
+    
+    for mi,ma,name,norm,cm in zip(vmin,vmax,names,norms,cms):
+        if norm is None:
+            norm = pltcolors.Normalize(vmin=mi,vmax=ma)
+        cm = pltcolors.LinearSegmentedColormap.from_list(name, cm)
+        sm = plt.cm.ScalarMappable(cmap=cm, norm=norm)
+        sm._A = []
+        cb = plt.colorbar(sm,ax=ax,fraction=0.15,pad=pad)
+        label = cb.ax.text(0,1,name,transform=cb.ax.transAxes)
+        ret["colorbar{}".format(name)] = cb
+        ret["colorbar{}_title".format(name)] = label
+        pad += 0.05
+        
+    return ret
+    
+

@@ -684,6 +684,34 @@ class spec(SpecFileDataSource.SpecFileDataSource):
 
         return ret
 
+    def extractxanes(self,scannumbers,labelnames):
+        """Get list of specific ID21 XANES with counters
+        """
+        ret = {}
+
+        for scannumber in scannumbers:
+            k = "{:d}.1".format(scannumber)
+
+            info = self.getKeyInfo(k)
+            if info["Command"].startswith("zapline mono"):
+                result = self.parser.parse(info["Command"])
+                if result['name']!="zapline" or info["Lines"]==0:
+                    continue
+                ret[scannumber] = {"repeats":1, \
+                                    "data":self.getdata2(scannumber, labelnames),\
+                                    "time":result["time"],\
+                                    "labels":["{}.{}".format(s,scannumber) for s in labelnames]}
+            elif info["Command"].startswith("zapenergy SUM"):
+                result = self.parser.parse(info["Command"])
+                if result['name']!="zapenergy" or info["Lines"]==0:
+                    continue
+                ret[scannumber] = {"repeats":int(info["Command"].split(' ')[2]),\
+                                    "data":self.getdata2(scannumber, labelnames),\
+                                    "time":result["time"],\
+                                    "labels":["{}.{}".format(s,scannumber) for s in labelnames]}
+
+        return ret
+        
     def extractxanesginfo(self,keepsum=False,sumingroups=False,keepindividual=False,skip=None,nrmin=None,nrmax=None):
         """Get list of all ID21 XANES, grouping repeats
         """
@@ -727,31 +755,5 @@ class spec(SpecFileDataSource.SpecFileDataSource):
 
         return ret
 
-    def extractxanes(self,scannumbers,labelnames):
-        """Get list of specific ID21 XANES with counters
-        """
-        ret = {}
 
-        for scannumber in scannumbers:
-            k = "{:d}.1".format(scannumber)
-
-            info = self.getKeyInfo(k)
-            if info["Command"].startswith("zapline mono"):
-                result = self.parser.parse(info["Command"])
-                if result['name']!="zapline" or info["Lines"]==0:
-                    continue
-                ret[scannumber] = {"repeats":1, \
-                                    "data":self.getdata2(scannumber, labelnames),\
-                                    "time":result["time"],\
-                                    "labels":["{}.{}".format(s,scannumber) for s in labelnames]}
-            elif info["Command"].startswith("zapenergy SUM"):
-                result = self.parser.parse(info["Command"])
-                if result['name']!="zapenergy" or info["Lines"]==0:
-                    continue
-                ret[scannumber] = {"repeats":int(info["Command"].split(' ')[2]),\
-                                    "data":self.getdata2(scannumber, labelnames),\
-                                    "time":result["time"],\
-                                    "labels":["{}.{}".format(s,scannumber) for s in labelnames]}
-
-        return ret
 

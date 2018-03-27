@@ -78,8 +78,8 @@ class PointCoordinates(Coordinates):
         if not coord0:
             raise RuntimeError("No coordinates found")
 
-        self._coordinates0 = instance.asarray(coord0)
-        self._coordinates1 = instance.asarray(coord1)
+        self._coordinates0 = units.asqarray(coord0)
+        self._coordinates1 = units.asqarray(coord1)
         
         self.labels = lbls
 
@@ -308,7 +308,7 @@ class Nexus(ImageCoordinates):
         return data,label
         
     def iter_interpolate(self):
-        stacks,axes = get_hdf5_imagestacks(self.filename,self.instrument.h5stackgroups)
+        stacks,axes,procinfo = get_hdf5_imagestacks(self.filename,self.instrument.h5stackgroups)
         stackindex = self.stackindex([k["name"] for k in axes])
         
         with nexus.File(self.filename,mode="r") as oh5:
@@ -335,7 +335,7 @@ class Nexus(ImageCoordinates):
         return axesnames.index(stackindex[0])
 
     def setmotorinfo(self):
-        with nexus.File(self.filename) as oh5:
+        with nexus.File(self.filename,mode="r") as oh5:
             # Get motor info from hdf5
             try:
                 ocoord = oh5["stackinfo"]
@@ -360,7 +360,7 @@ class XanesSpec(PointCoordinates):
     def __init__(self,filenames,specnumbers,labels=None,**kwargs):
         """
         Args:
-            filename(str|list(str)): list of edf file names
+            filenames(str|list(str)): list of spec file names
             specnumbers(list|list(list)): empty list of numbers => all xanes spectra
             labels(Optional(list|list(list))): uses the spec numbers by default
         """

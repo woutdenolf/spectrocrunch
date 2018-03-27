@@ -22,20 +22,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from collections import OrderedDict
+import logging
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as pltcolors
-
 import numpy as np
-import logging
 
 from ..common import listtools
 from ..common import instance
 from ..common import units
 from ..common.hashable import Hashable
-from collections import OrderedDict
 from .. import ureg
-from .colorbar_rgb import colorbar_rgb
+from . import colorbar_rgb
 
 logger = logging.getLogger(__name__)
 
@@ -48,14 +47,14 @@ def ColorNorm(name,*args):
     except AttributeError:
         return name # already a normalizer
         
-    if name=="lognorm":
+    if name=="log":
         norm = lambda **kwargs: pltcolors.LogNorm(**kwargs)
-    elif name=="powernorm":
+    elif name=="power":
         norm = lambda **kwargs: pltcolors.PowerNorm(*args,**kwargs)
-    elif name=="symlognorm":
+    elif name=="symlog":
         norm = lambda **kwargs: pltcolors.SymLogNorm(*args,**kwargs)
     else:
-        norm = pltcolors.Normalize
+        norm = lambda **kwargs: pltcolors.Normalize(*args,**kwargs)
     return norm
     
     
@@ -451,7 +450,7 @@ class Item(Hashable,Geometry2D):
         
         for name in olditems:
             if name in newitems:
-                if newitems[name] != olditems[name]:
+                if newitems[name] != olditems[name]: # TODO: use "is not"?
                     olditems[name].remove()
             else:
                 olditems[name].remove()
@@ -638,6 +637,7 @@ class Image(Item):
                   "vmin":None,\
                   "vmax":None,\
                   "cnorm":None,\
+                  "cnormargs":(),\
                   "legend":True,\
                   "fontsize":12,\
                   "fontweight":500,\
@@ -739,6 +739,7 @@ class Image(Item):
             
         image = self.datadisplay
         
+        # clip = True -> neglect colormap's over/under/masked colors
         if image.ndim==3:
             nchannels = image.shape[-1]
             if not instance.isarray(vmin):
@@ -747,13 +748,13 @@ class Image(Item):
                 vmax = [vmax]*nchannels
             normcb = []
             for i in range(nchannels):
-                norm = ColorNorm(settings["cnorm"])(vmin=vmin[i],vmax=vmax[i],clip=True)
+                norm = ColorNorm(settings["cnorm"],*settings["cnormargs"])(vmin=vmin[i],vmax=vmax[i],clip=True)
                 image[...,i] = norm(image[...,i]).data
                 normcb.append(norm)
             norm = None
         else:
             nchannels = 1
-            norm = ColorNorm(settings["cnorm"])(vmin=vmin,vmax=vmax)
+            norm = ColorNorm(settings["cnorm"],*settings["cnormargs"])(vmin=vmin,vmax=vmax,clip=True)
         
         # Coordinates and borders
         extent = list(scene.xmagnitude(self.datalimx))+list(scene.ymagnitude(self.datalimy))
@@ -801,11 +802,14 @@ class Image(Item):
         settings["color"] = newitems["border"].get_color()
         
         # Colorbar
+        labels = self.labels
         if settings["colorbar"]:
             # TODO: update existing color bar?
             if norm is None:
-                # Opens in new window
-                colorbar_rgb(vmin=vmin,vmax=vmax,names=self.labels)
+                # Triangle: cannot handle normcb which is not linear
+                #colorbar_rgb.triangle(vmin=vmin,vmax=vmax,names=self.labels)
+                newitems.update(colorbar_rgb.bars(vmin=vmin,vmax=vmax,names=labels,norms=normcb,ax=scene.ax))
+                labels = []
             else:
                 newitems["colorbar"] = plt.colorbar(newitems["image"])
  
@@ -823,7 +827,7 @@ class Image(Item):
             colors = colors[0:nchannels]
 
         i = -1
-        for label,color in zip(self.labels,colors):
+        for label,color in zip(labels,colors):
             if label is None or color is None:
                 continue
             else:
