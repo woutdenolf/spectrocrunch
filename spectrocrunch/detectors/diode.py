@@ -1056,7 +1056,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         op.m /= Fref
         op.b /= Fref
         if referencetime is not None:
-            tref = units.Quantity(tref,"s")
+            tref = units.Quantity(referencetime,"s")
             op.m *= t/tref
             op.b *= t/tref
         else:
@@ -1311,12 +1311,18 @@ class SXM_IDET(CalibratedPNdiode):
         kwargs["model"] = kwargs.get("model",False)
 
         ird = np.loadtxt(resource_filename('id21/ird.dat'))
-        energy = ird[:-4,0] # keV
-        responseratio = ird[:-4,1]
+        
+        npop = kwargs.pop("npop",None)
+        if npop is None:
+            npop = 4
+        j = ird.shape[0]-npop
+        energy = ird[:j,0] # keV
+        responseratio = ird[:j,1]
         
         energyadd = 8.4
-        responseratio = np.append(responseratio,3.22)
-        energy = np.append(energy,energyadd)
+        if energy[-1]<energyadd:
+            responseratio = np.append(responseratio,3.22)
+            energy = np.append(energy,energyadd)
         
         absdiode = SXM_PTB(model=True)
         response = responseratio*absdiode.spectral_responsivity(energy)
@@ -1406,7 +1412,6 @@ class SXM_IODET2(NonCalibratedPNdiode):
         
         kwargs["attenuators"] = {}
         kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":0.1}
-        kwargs["attenuators"] = attenuators
         kwargs["ehole"] = constants.eholepair_si()
         
         window = compoundfromname.compoundfromname("silicon nitride")
