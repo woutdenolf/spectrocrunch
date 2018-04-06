@@ -67,7 +67,7 @@ class LinearMotor(object):
         else:
             raise RuntimeError("Either distance, detector position or zero-distance should be unknown")
         
-    def __call__(self,detectorposition=None,distance=None):
+    def __call__(self,detectorposition=None,distance=None,rv=False):
         """Convert detector position to distance and vice versa
 
         Args:
@@ -77,12 +77,17 @@ class LinearMotor(object):
         Returns:
             num or dict: distance or kwargs for this function to get the distance
         """
+        if rv:
+            zerodistance = self.zerodistance_rv
+        else:
+            zerodistance = self.zerodistance_rv
+            
         if detectorposition is None:
             if distance is not None:
-                detectorposition = self._distancecalc(distance=distance,zerodistance=self.zerodistance)
+                detectorposition = self._distancecalc(distance=distance,zerodistance=zerodistance)
             return {"detectorposition":detectorposition}
         else:
-            return self._distancecalc(detectorposition=detectorposition,zerodistance=self.zerodistance)
+            return self._distancecalc(detectorposition=detectorposition,zerodistance=zerodistance)
             
     def calibrate_manually(self,distance):
         """Calibrate geometry based on one (distance,position) pair
@@ -92,7 +97,7 @@ class LinearMotor(object):
                             detectorposition=self.geometry.detectorposition.to("cm").magnitude)
 
     def calibrate_fit(self,calibrc=None,solidanglecalib=None,\
-                fit=True,fixedactivearea=True,plot=False,\
+                fit=True,fixedactivearea=True,plot=False,rate=None,\
                 xlabel="Motor position",ylabel="Normalized Fluorescence"):
         """Calibrate geometry based in intensity vs. linear motor position (i.e. derive active area and zerodistance)
         """
@@ -102,7 +107,7 @@ class LinearMotor(object):
         detectorposition = detectorpositionorg
         signal = np.asarray(calibrc["signal"])
         varsignal = np.asarray(calibrc["var"])
-        
+
         dmagnitude = lambda x: x.to("cm").magnitude
         amagnitude = lambda x: x.to("cm^2").magnitude
         dquant = lambda x: units.Quantity(x,"cm")
@@ -114,7 +119,8 @@ class LinearMotor(object):
             zerodistance = noisepropagation.E(self.zerodistance)
 
             distance = noisepropagation.E(self(detectorposition=detectorposition))
-            rate = np.mean(signal/self.geometry.solidangle_calc(activearea=activearea,distance=distance))
+            if rate is None:
+                rate = np.mean(signal/self.geometry.solidangle_calc(activearea=activearea,distance=distance))
 
             if fit:
                 if fixedactivearea:
@@ -147,8 +153,8 @@ class LinearMotor(object):
                 zerodistance = noisepropagation.E(self.zerodistance)
                 activearea = activeareafunc(zerodistance)
                 distance = noisepropagation.E(self(detectorposition=detectorposition))
-            rate = np.mean(signal/self.geometry.solidangle_calc(activearea=activearea,distance=distance))
-            
+            if rate is None:
+                rate = np.mean(signal/self.geometry.solidangle_calc(activearea=activearea,distance=distance))
             if fit:
                 p0 = [rate,dmagnitude(zerodistance)]
                 constraints = [[silxfit.CFREE,0,0],[czerodistance,0,0]]
@@ -218,13 +224,14 @@ class LinearMotor(object):
                     txt.append("R($d_0$,$A$) = {}".format(cor_matrix[1,2]))
                 else:
                     txt.append("R($c$,$d_0$) = {}".format(cor_matrix[0,1]))
-                
-            off = 0.7
-            for s in txt:
-                plt.figtext(0.6,off,s)
-                off -= 0.05
             
-            ax = plt.gcf().gca()
+            ax = plt.gca()
+            
+            off = 0.6
+            for s in txt:
+                ax.text(0.6,off,s,transform=ax.transAxes)
+                off -= 0.05
+
             ax.set_xlabel("{} ({})".format(xlabel,positionunits))
             ax.set_ylabel(ylabel)
             plt.legend(loc='best')
@@ -251,7 +258,7 @@ class XRFGeometry(with_metaclass(base.Centric)):
         if distancefunc is not None:
             distancefunc.geometry = self
         self.distancefunc = distancefunc
-
+    
     @property
     def distance_rv(self):
         """Sample-detector distance in cm
@@ -259,8 +266,8 @@ class XRFGeometry(with_metaclass(base.Centric)):
         if self.distancefunc is None:
             return super(XRFGeometry,self).distance
         else:
-            return self.distancefunc(**self.distanceargs)
-    
+            return self.distancefunc(rv=True,**self.distanceargs)
+            
     @property
     def distance(self):
         return noisepropagation.E(self.distance_rv)
@@ -273,7 +280,7 @@ class XRFGeometry(with_metaclass(base.Centric)):
             if distance is not None:
                 distance = units.Quantity(distance,"cm")
             self.distanceargs.update(self.distancefunc(distance=distance))
-    
+
     @property
     def calibrcfile(self):
         filename = self._calibrcfile
@@ -291,7 +298,7 @@ class XRFGeometry(with_metaclass(base.Centric)):
             calibdata = json.load(f)
         return calibdata
     
-    def set_calibrc(self,calibrc):
+    def _set_calibrc(self,calibrc):
         filename = self.calibrcfile
         with open(filename,'w') as f:
             json.dump(calibrc,f,indent=2)
@@ -316,10 +323,14 @@ class LinearXRFGeometry(XRFGeometry):
         super(LinearXRFGeometry,self).__init__(distancefunc=distancefunc,**kwargs)
         self.positionunits = positionunits
         self.detectorposition = detectorposition
-     
+    
+    @property
+    def detectorposition_rv(self):
+        return self.distanceargs["detectorposition"]
+         
     @property
     def detectorposition(self):
-        return self.distanceargs["detectorposition"]
+        return noisepropagation.E(self.detectorposition_rv)
         
     @detectorposition.setter
     def detectorposition(self,value):
@@ -331,6 +342,10 @@ class LinearXRFGeometry(XRFGeometry):
     @property
     def zerodistance(self):
         return self.distancefunc.zerodistance
+    
+    @property
+    def zerodistance_rv(self):
+        return self.distancefunc.zerodistance_rv
     
     @zerodistance.setter
     def zerodistance(self,value):

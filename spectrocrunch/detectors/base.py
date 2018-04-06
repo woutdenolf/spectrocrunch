@@ -238,7 +238,7 @@ class CentricCone(SolidState):
     @classmethod
     def solidangle_calc(cls,activearea=None,distance=None,solidangle=None):
         # Cone with source on-axis:
-        #  solidangle = 2.pi(1-cos(theta)) where theta the opening angle
+        #  solidangle = 2.pi.(1-cos(theta)) where theta the opening angle
         #  cos(theta) = d/sqrt(r^2+d^2) where d the source-detector and r the radius of the active area (assume disk)
         if solidangle is None:
             d2 = distance**2.

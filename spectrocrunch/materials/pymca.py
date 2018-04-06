@@ -50,21 +50,13 @@ class PymcaHandle(object):
 
     def __init__(self,sample=None,emin=None,emax=None,\
                 energy=None,weights=None,scatter=None,\
-                flux=1e9,time=0.1,escape=1,ninteractions=1,\
-                linear=0,continuum=0):
+                flux=1e9,time=0.1,escape=True,ninteractions=1,\
+                linear=False,continuum=True):
         self.sample = sample
  
-        self.energy = units.umagnitude(energy,"keV")
+        self.set_source(energy=energy,weights=weights,scatter=scatter)
         self.emin = emin
         self.emax = emax
-        if weights is None:
-            self.weights = np.ones_like(self.energy)
-        else:
-            self.weights = weights
-        if scatter is None:
-            self.scatter = np.ones_like(self.energy)
-        else:
-            self.scatter = scatter
         
         self.linear = linear
         self.escape = escape
@@ -81,6 +73,27 @@ class PymcaHandle(object):
         s = zip(instance.asarray(self.energy),instance.asarray(self.weights),instance.asarray(self.scatter))
         s = '\n '.join("{} keV: {} % (Scatter: {})".format(k,v*100,sc) for k,v,sc in s)
         return "Flux = {} ph/s\nTime = {} s\nSource lines:\n {}\n{}\n{}".format(self.flux,self.time,s,self.sample,self.sample.geometry)
+    
+    def set_source(self,energy=None,weights=None,scatter=None):
+        if energy is None:
+            return
+            
+        self.energy = units.umagnitude(energy,"keV")
+        
+        if weights is None:
+            self.weights = np.ones_like(self.energy)
+        else:
+            self.weights = weights
+            
+        if scatter is None:
+            self.scatter = np.ones_like(self.energy)
+        elif isinstance(scatter,bool):
+            if scatter:
+                self.scatter = np.ones_like(self.energy)
+            else:
+                self.scatter = np.zeros_like(self.energy)
+        else:
+            self.scatter = scatter
     
     @property
     def flux(self):
@@ -284,7 +297,7 @@ class PymcaHandle(object):
         if True:
             out["rates"] = {}
             safrac = addinfo["SolidAngle"]
-            #assert(self.sample.geometry.detector.solidangle/(4*np.pi)==addinfo["SolidAngle"])
+            #assert(self.sample.geometry.solidangle/(4*np.pi)==addinfo["SolidAngle"])
             #assert(self.flux*self.time==addinfo["I0"])
             for group in out["massfractions"]:
                 element,shell = group.split("-")

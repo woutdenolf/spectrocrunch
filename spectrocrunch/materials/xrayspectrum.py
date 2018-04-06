@@ -899,8 +899,10 @@ class Spectrum(dict):
         arrbackground = np.concatenate(arrbackground)
         arrsignal = arrtotal-arrbackground
         A = np.stack([arrsignal/signal,arrbackground/background],axis=-1)
+        esignal,_ = fit1d.lstsq_std(A,vare=arrtotal)
+        ESRdep = esignal/signal
         esignal,_ = fit1d.lstsq_std_indep(A,vare=arrtotal)
-        ESR = esignal/signal
+        ESRindep = esignal/signal
         cov = fit1d.lstsq_cov(A,vare=arrtotal)
         cor = fit1d.cor_from_cov(cov)
         cor = abs(cor[0,1])
@@ -908,9 +910,9 @@ class Spectrum(dict):
         if plot:
             plt.ylabel(ylabel)
             plt.xlabel("Energy (keV)")
-            plt.title("SNR = {:.02f}, ESR = {:.02f}%, COR = {:.02f}".format(SNR,ESR*100,cor))
+            plt.title("SNR = {:.02f}, ESR = {:.02f}% (dep), ESR = {:.02f}% (indep), COR = {:.02f}".format(SNR,ESRdep*100,ESRindep*100,cor))
         
-        return {"SNR":SNR,"ESR":ESR,"SB-correlation":cor}
+        return {"SNR":SNR,"ESR (dependent)":ESRdep,"ESR (independent)":ESRindep,"SB-correlation":cor}
 
     def linespectra(self,sort=True,**kwargs):
         """X-ray spectrum decomposed in individual lines

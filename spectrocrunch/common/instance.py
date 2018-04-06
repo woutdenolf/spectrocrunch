@@ -75,7 +75,7 @@ def isquantity(x):
 def israndomvariable(x):
     # do not use asscalar!!!
     if isarray(x):
-        return all(israndomvariable(z) for z in x)
+        return any(israndomvariable(z) for z in x)
     else:
         return isinstance(x,(uncertainties.core.Variable,uncertainties.core.AffineScalarFunc))
 

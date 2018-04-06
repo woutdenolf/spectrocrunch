@@ -834,14 +834,10 @@ class Multilayer(with_metaclass(cache.Cache)):
     @staticmethod
     def _parse_weights(weights,nsource):
         if weights is None:
-            if nsource==1:
-                weights = 1.
-            else:
-                weights = np.ones(nsource,dtype=float)/nsource
+            weights = np.ones(nsource,dtype=float)/nsource
         else:
-            weights,func = instance.asarrayf(weights)
-            weights = func(weights/weights.sum(dtype=float))
-
+            weights = instance.asarray(weights)
+            weights = weights/weights.sum(dtype=float)
         return weights
 
     def _rates_fisx(self,energy0,weights,ninteractions,emin=0,emax=None):
