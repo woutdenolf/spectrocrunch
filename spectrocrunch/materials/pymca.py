@@ -50,7 +50,8 @@ class PymcaHandle(object):
 
     def __init__(self,sample=None,emin=None,emax=None,\
                 energy=None,weights=None,scatter=None,\
-                flux=1e9,time=0.1,escape=1,ninteractions=1,linear=0):
+                flux=1e9,time=0.1,escape=1,ninteractions=1,\
+                linear=0,continuum=0):
         self.sample = sample
  
         self.energy = units.umagnitude(energy,"keV")
@@ -67,6 +68,7 @@ class PymcaHandle(object):
         
         self.linear = linear
         self.escape = escape
+        self.continuum = continuum
         self.ninteractions = ninteractions
         self.flux = flux
         self.time = time
@@ -158,7 +160,7 @@ class PymcaHandle(object):
         bmodelbkg = self.sample.geometry.detector.bstail or \
                     self.sample.geometry.detector.bltail or \
                     self.sample.geometry.detector.bstep
-        cfg["fit"]["stripflag"] = int(not bmodelbkg)
+        cfg["fit"]["stripflag"] = int(not bmodelbkg and self.continuum)
         cfg["fit"]["stripalgorithm"] = 1
         cfg["fit"]["snipwidth"] = 100
     
@@ -435,8 +437,8 @@ class PymcaHandle(object):
     
         return groups2
 
-    def mca(self,histogram=True,decomposed=0,energy=False,full=False):
-        spectrum = self.xrayspectrum()
+    def mca(self,histogram=True,decomposed=0,energy=False,full=False,**kwargs):
+        spectrum = self.xrayspectrum(**kwargs)
         if decomposed==0:
             x,y,ylabel = spectrum.sumspectrum(fluxtime=self.I0,histogram=histogram)
         elif decomposed==1:

@@ -253,18 +253,19 @@ class QXRFGeometry(with_metaclass(object)):
         params = dict(paramsin)
         
         # Get data
-        if "specnr" in params:
-            base = params.pop("base")
-            sample = params.pop("sample")
-            dataset = params.pop("dataset")
-            specnr = params.pop("specnr")
-
+        base = params.pop("base",None)
+        sample = params.pop("sample",None)
+        dataset = params.pop("dataset",None)
+        specnr = params.pop("specnr",None)
+        
+        if specnr is None:
+            # Data in the params
+            data,staticdata = self._parse_default(params)
+        else:
             sampledataset = "{}_{}".format(sample,dataset)
             specfile = os.path.join(base,sample,sampledataset,"{}.dat".format(sampledataset))
             data,staticdata = self._parse_spec(specfile,specnr)
-        else:
-            data,staticdata = self._parse_default(params)
-        
+
         # 
         resetdevices = params.pop("resetdevices",False)
         params2 = self._validate_data(data,staticdata,resetdevices=resetdevices)
@@ -281,9 +282,11 @@ class QXRFGeometry(with_metaclass(object)):
         self._set_diode_gain(gaindiodeIt,params2.get("gaindiodeIt",None),"diodeIt")
 
         # Calibrate
-        dark = params.pop("dark")
+        dark = params.pop("dark") 
         if dark:
-            if nofit or fixdark:
+            params.pop("fluxmin")
+            params.pop("fluxmax")
+            if not(nofit or fixdark):
                 self.diodeI0.darkfromcps(data["I0"],**params)
                 self.diodeIt.darkfromcps(data["It"],**params)
             if plot:
@@ -389,7 +392,7 @@ class QXRFGeometry(with_metaclass(object)):
         # Fill in missing exposure time
         if "time" not in data:
             data["time"] = self.defaultexpotime
-        data["time"] = data["time"].to("s") 
+        data["time"] = data["time"].to("s")
         
         # Check units of energy
         if "energy" in data:
@@ -430,11 +433,11 @@ class QXRFGeometry(with_metaclass(object)):
             opticsname = self.instrument.optics(staticdata)
         except KeyError:
             opticsname = None
-                
+
         self._check_device("optics",xrayoptics.clsfactory,opticsname,resetdevice=resetdevices)
         self._check_device("diodeI0",diodes.clsfactory,diodeI0name,resetdevice=resetdevices)
         self._check_device("diodeIt",diodes.clsfactory,diodeItname,resetdevice=resetdevices)
-
+        
         # Set gains
         ret = {}
         if "I0" in data and "flux0" in data and "energy" in data:
@@ -457,8 +460,8 @@ class QXRFGeometry(with_metaclass(object)):
         ax.plot(response,'o',label='spec',color=color)
         ax.axhline(y=deviceinstance.fluxtocps(5,0).magnitude,label='calc',color=color)
         ax.set_xlabel("points")
-        ax.set_ylabel("{} ({~})".format(name,response.units))
-        ax.set_title("{:~.0e}".format(d.gain))
+        ax.set_ylabel("{} ({:~})".format(name,response.units))
+        ax.set_title("{:~.0e}".format(deviceinstance.gain))
         ax.legend(loc="best")
 
     def _plot_diode_flux(self,attr,energy,response,ax,color=None):
@@ -477,8 +480,7 @@ class QXRFGeometry(with_metaclass(object)):
         
         return lines[0].get_color()
         
-        
-    def _show_flux_calib(self,data,fluxmin=0,fluxmax=np.inf,fitinfo={},caliboption="optics"):
+    def _show_flux_calib(self,data,fluxmin=0,fluxmax=np.inf,fitinfo={}):
         f, (ax1, ax2) = plt.subplots(1, 2)
         
         energy = data["energy"].to("keV").magnitude

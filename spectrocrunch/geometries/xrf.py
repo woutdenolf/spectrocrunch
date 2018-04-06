@@ -209,15 +209,15 @@ class LinearMotor(object):
             if fit:
                 txt.append("$\chi^2_{{red}}$ = {}".format(info["reduced_chisq"]))
             txt.append("$c$ = {:f}".format(rate))
-            txt.append("$x_0$ = {:~}".format(self.zerodistance_rv.to("mm")))
+            txt.append("$d_0$ = {:~}".format(self.zerodistance_rv.to("mm")))
             txt.append("$A$ = {:~}".format(self.geometry.activearea_rv.to("mm^2")))
             if fit:
                 if solidanglecalib is None:
-                    txt.append("R($c$,$x_0$) = {}".format(cor_matrix[0,1]))
+                    txt.append("R($c$,$d_0$) = {}".format(cor_matrix[0,1]))
                     txt.append("R($c$,$A$) = {}".format(cor_matrix[0,2]))
-                    txt.append("R($x_0$,$A$) = {}".format(cor_matrix[1,2]))
+                    txt.append("R($d_0$,$A$) = {}".format(cor_matrix[1,2]))
                 else:
-                    txt.append("R($c$,$x_0$) = {}".format(cor_matrix[0,1]))
+                    txt.append("R($c$,$d_0$) = {}".format(cor_matrix[0,1]))
                 
             off = 0.7
             for s in txt:
@@ -228,73 +228,6 @@ class LinearMotor(object):
             ax.set_xlabel("{} ({})".format(xlabel,positionunits))
             ax.set_ylabel(ylabel)
             plt.legend(loc='best')
-        
-    def calibrate_fit_testcorrelation2(self,signal,rate=None,zerodistance=None,detectorposition=None):
-
-        # Fit function
-        def func(x,rate,zerodistance,activearea):
-            distance = x+zerodistance
-            sa = self.geometry.solidangle_calc(activearea=activearea,distance=distance)
-            return rate*sa
-
-        constraints = [[silxfit.CFIXED,0,0],[silxfit.CFREE,0,0],[silxfit.CFIXED,0,0]]
-        
-        n = 100
-        img = np.zeros((n,n))
-        vzerodistance = np.linspace(zerodistance-1,zerodistance+1,n)
-        m = 0.9
-        vrate = np.linspace(rate*m,rate/m,n)
-
-        for i,zerodistancei in enumerate(vzerodistance):
-            for j,ratej in enumerate(vrate):
-                obs = func(detectorposition,ratej,zerodistancei,self.geometry.activearea)
-                img[i,j] = np.sum((obs-signal)**2/signal)
-
-        cax = plt.imshow(img, origin='lower', cmap=plt.cm.jet, interpolation='none', extent=[vrate[0],vrate[-1],vzerodistance[0],vzerodistance[-1]])
-        ax = plt.gcf().gca()
-        ax.set_ylabel("$x_0$ (cm)")
-        ax.set_xlabel("$c_x$ (sr$^{-1}$)")
-        ax.set_aspect(abs(vrate[-1]-vrate[0])/abs(vzerodistance[-1]-vzerodistance[0]))
-        ax.axvline(x=rate)
-        ax.axhline(y=zerodistance)
-        cbar = plt.colorbar(cax,label="$\chi^2$")
-        ax = plt.gcf().gca()
-        
-    def calibrate_fit_testcorrelation(self,signal,rate=None,zerodistance=None,detectorposition=None):
-
-        # Fit function
-        def func(x,rate,zerodistance,activearea):
-            distance = x+zerodistance
-            sa = self.geometry.solidangle_calc(activearea=activearea,distance=distance)
-            return rate*sa
-
-        constraints = [[silxfit.CFIXED,0,0],[silxfit.CFREE,0,0],[silxfit.CFIXED,0,0]]
-        
-        n = 50
-        y = np.zeros(n)
-        y2 = np.zeros(n)
-        x = np.linspace(self.geometry.activearea-0.01,self.geometry.activearea+0.01,n)
-        for i,activearea in enumerate(x):
-            p0 = [rate,self.zerodistance+np.random.uniform(-1,1),activearea]
-            p, cov_matrix, info = silxfit.leastsq(func, detectorposition, signal, p0,\
-                                              constraints=constraints, full_output=True)
-            y[i] = info["reduced_chisq"]
-            y2[i] = p[1]
-            
-        p = plt.plot(x*100,y)
-        ax = plt.gcf().gca()
-        color = p[-1].get_color()
-        ax.axvline(x=self.geometry.activearea*100,linestyle='dashed',color=color)
-        ax.set_xlabel("Active area ($mm^2$)")
-        ax.set_ylabel("Reduced-$\chi^2$",color=color)
-        ax.tick_params(axis='y', labelcolor=color)
-        
-        color = next(ax._get_lines.prop_cycler)['color']
-        ax2 = ax.twinx()
-        ax2.plot(x*100,y2*10,color=color)
-        ax2.axhline(y=zerodistance*10,linestyle='dashed',color=color)
-        ax2.set_ylabel("$x_0$ (mm)",color=color)
-        ax2.tick_params(axis='y', labelcolor=color)
 
 
 class XRFGeometry(with_metaclass(base.Centric)):

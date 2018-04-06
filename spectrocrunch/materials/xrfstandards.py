@@ -104,7 +104,7 @@ class AXOID21_1(Standard):
         elements = ["Pb","La","Pd","Mo","Cu","Fe","Ca"]
         arealdensity = [7.7,9,1.9,0.9,2.4,4,11.4] # ng/mm^2
         windowthickness = 200 # nm
-        filmthickness = None # nm
+        filmthickness = kwargs.pop("filmthickness",None) # nm
         material,thickness,attenuators = axo(name,elements,arealdensity,windowthickness,filmthickness)
 
         for k in attenuators:
@@ -121,7 +121,7 @@ class AXOID21_2(Standard):
         elements = ["Pb","La","Pd","Mo","Cu","Fe","Ca"]
         arealdensity = [6.3,7.6,2.3,0.7,2.6,4.1,25.1] # ng/mm^2
         windowthickness = 200 # nm
-        filmthickness = None # nm
+        filmthickness = kwargs.pop("filmthickness",None) # nm
         material,thickness,attenuators = axo(name,elements,arealdensity,windowthickness,filmthickness)
         
         for k in attenuators:
@@ -138,7 +138,7 @@ class AXOID16b_1(Standard):
         elements = ["Pb","La","Pd","Mo","Cu","Fe","Ca"]
         arealdensity = [5.9,10.3,1.2,.7,2.4,3.9,20.3] # ng/mm^2
         windowthickness = 200 # nm
-        filmthickness = None # nm
+        filmthickness = kwargs.pop("filmthickness",None) # nm
         material,thickness,attenuators = axo(name,elements,arealdensity,windowthickness,filmthickness)
         
         for k in attenuators:
