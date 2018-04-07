@@ -284,8 +284,8 @@ class QXRFGeometry(with_metaclass(object)):
         # Calibrate
         dark = params.pop("dark") 
         if dark:
-            params.pop("fluxmin")
-            params.pop("fluxmax")
+            params.pop("fluxmin",None)
+            params.pop("fluxmax",None)
             if not(nofit or fixdark):
                 self.diodeI0.darkfromcps(data["I0"],**params)
                 self.diodeIt.darkfromcps(data["It"],**params)
