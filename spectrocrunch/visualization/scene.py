@@ -340,6 +340,10 @@ class Scene(Hashable,Geometry2D):
             if attr in settings:
                 settings[attr] = value
     
+    def set_settings(self,settings):
+        for item,_settings in self._items.items():
+            _settings.update(settings)
+    
     @property
     def wsize_pixels(self):
         pts = self.ax.get_window_extent().get_points()

@@ -94,7 +94,7 @@ class test_scene(unittest.TestCase):
         # Shift image, axes offset, different normalization and update scene 1
         o1.lim[0] = s1.q0([9,9+n0-1])
         
-        s1.set_setting("cnorm",scene.ColorNorm("PowerNorm",0.1))
+        s1.set_settings({"cnorm":"power","cnormargs":(0.1,)})
         s1.updateview()
         
         #plt.pause(0.01)
