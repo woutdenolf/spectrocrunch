@@ -186,6 +186,12 @@ class Element(hashable.Hashable):
     def molefractions(self,total=True):
         return dict([(self,1.)])
     
+    def elemental_molefractions(self,**kwargs):
+        return self.molefractions(**kwargs)
+        
+    def elemental_massfractions(self):
+        return self.massfractions()
+        
     @property
     def nelements(self):
         return 1

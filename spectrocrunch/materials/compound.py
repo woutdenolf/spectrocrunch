@@ -206,6 +206,12 @@ class Compound(Hashable,stoichiometrybase.StoichiometryBase):
         wfrac = stoichiometry.frac_mole_to_weight(np.asarray(nfrac.values()),MM)
         return dict(zip(nfrac.keys(),wfrac))
 
+    def elemental_molefractions(self,**kwargs):
+        return self.molefractions(**kwargs)
+        
+    def elemental_massfractions(self):
+        return self.massfractions()
+
     def fractions(self,fractype):
         if fractype == types.fraction.mole:
             return self.molefractions()
@@ -221,14 +227,6 @@ class Compound(Hashable,stoichiometrybase.StoichiometryBase):
     @property
     def ncompounds(self):
         return 1
-        
-    def arealdensity(self):
-        """Areal density in ng/mm^2
-        """
-        # arealdensity (ng/mm^2) = w * density(g/cm^3) * 2e-5 (cm) * 1e-2 (cm^2/mm^2) * 1e9 (ng/g)
-        w = self.massfractions()
-        arealdensity = np.asarray(w.values())*(self.density*200)
-        return dict(zip(w.keys(),arealdensity))
         
     def markabsorber(self,symb=None,shells=None,fluolines=None,energybounds=None):
         """

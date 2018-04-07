@@ -88,6 +88,11 @@ class Layer(object):
     def fisxgroups(self,emin=0,emax=np.inf):
         return self.material.fisxgroups(emin=emin,emax=emax)
     
+    def arealdensity(self):
+        wfrac = self.material.elemental_massfractions()
+        m = self.density*self.thickness
+        return dict(zip(wfrac.keys(),np.array(wfrac.values())*m))
+    
     
 class Multilayer(with_metaclass(cache.Cache)):
     """
@@ -158,19 +163,17 @@ class Multilayer(with_metaclass(cache.Cache)):
     def xraythickness(self):
         return np.vectorize(lambda layer:layer.xraythickness)(self)
     
-    def massfractions(self):
-        ret = {}
+    def arealdensity(self):
+        ret = collections.Counter()
         for layer in self:
-            wfrac = layer.massfractions()
-            m = layer.density*layer.thickness
-            for el,w in wfrac:
-                if el not in ret:
-                    ret[el] = 0.
-                else:
-                    ret[el] += m*w
+            ret.update(layer.arealdensity())
+        return dict(ret)
+        
+    def massfractions(self):
+        ret = self.arealdensity()
         s = sum(ret.values())
-        return {el:w/s for el,w in ret}
-    
+        return {el:w/s for el,w in ret.items()}
+  
     def mass_att_coeff(self,energy):
         """Total mass attenuation coefficient
         

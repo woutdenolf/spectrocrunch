@@ -29,8 +29,9 @@ from . import element
 from . import multilayer
 from . import types
 from . import pymca
-
 from ..common.classfactory import with_metaclass
+
+import numpy as np
 
 class Standard(with_metaclass(multilayer.Multilayer)):
     
@@ -47,104 +48,123 @@ class Standard(with_metaclass(multilayer.Multilayer)):
             self.addtopymca_shells(setup,cfg,self.extra)
 
 
-def axo(name,elements,arealdensity,windowthickness,filmthickness):
-    """
-    Args:
-        name(str): name of standard
-        elements(list(str)): element symbols
-        arealdensity(list(num)): ng/mm^2
-        windowthickness(num): substrate thickness (nm)
-        filmthickness(num|None): deposited film thickness (nm)
-        
-    Returns:
-        material(list(spectrocrunch.materials.compound|mixture)): layer composition
-        thickness(list(num)): layer thickness in cm
-        attenuators(list(list)): beam attenuators (before and after sample)
-    """
-
-    # When the filmthickness is not known exactly, there is no other
-    # option than assume all elements are in the substrate. In this case
-    # we would want to switch off absorption corrections.
+class ThinFilmStandard(Standard):
     
-    ultralene = compoundfromname.compoundfromname("ultralene")
-    
-    attenuators = [["SampleCover",ultralene,4e-4],\
-                   ["BeamFilter0",ultralene,4e-4]]
-    
-    if filmthickness is None:
-        arealdensity = dict(zip(elements,arealdensity))
-        
-        w = compoundfromname.compoundfromname("silicon nitride")
-        arealdensity.update(w.arealdensity())
-        
-        totalarealdensity = sum(arealdensity.values())
-        massfractions = {e:arealdensity/totalarealdensity for e,arealdensity in arealdensity.items()}
-        
-        layer1 = compoundfromlist.CompoundFromList(massfractions.keys(),massfractions.values(),types.fraction.mass,w.density,name=name)
-        
-        material = layer1
-        thickness = windowthickness*1e-7
-    else:
-        elements = [compoundfromlist.CompoundFromList([e],[1],types.fraction.mole,0,name=e) for e in elements]
-        layer1 = mixture.Mixture(elements,arealdensity,types.fraction.mass,name=name)
+    def __init__(self,arealdensity,substrate,substratethickness,name=None,filmthickness=None,**kwargs):
+        arealdensity_film = dict(zip(map(element.Element,arealdensity.keys()),arealdensity.values()))
 
-        layer2 = compoundfromname.compoundfromname("silicon nitride")
-
-        material = [layer1,layer2]
-        thickness = [filmthickness*1e-7,windowthickness*1e-7]
+        if filmthickness is None:
+            wfrac_substrate = substrate.elemental_massfractions()
+            
+            elfilm = set(arealdensity_film.keys())
+            elsubstrate = set(wfrac_substrate.keys())
+            if elfilm & elsubstrate:
+                raise RuntimeError("Film and substrate cannot contain the same elements")
+                
+            kwargs["material"] = substrate
+            kwargs["thickness"] = substratethickness
+            if "extra" not in kwargs:
+                kwargs["extra"] = [] 
+            kwargs["extra"].extend(elfilm)
+            
+            self._arealdensities = arealdensity_film
+            m = substrate.density*substratethickness
+            self._arealdensities.update(dict(zip(wfrac_substrate.keys(),np.array(wfrac_substrate.values())*m)))
+        else:
+            ad = np.array(arealdensity_film.values())
+            sad = ad.sum()
+            density = sad/filmthickness
+            massfractions = ad/sad
+            film = compoundfromlist.CompoundFromList(arealdensity_film.keys(),massfractions,\
+                                                     types.fraction.mass,density=density,name=name)
+            kwargs["material"] = [film,substrate]
+            kwargs["thickness"] = [filmthickness,substratethickness]
         
-    return material,thickness,attenuators
+            self._arealdensities = None
+        
+        super(ThinFilmStandard,self).__init__(**kwargs)
+        
+    def arealdensity(self):
+        if self._arealdensities is None:
+            return super(ThinFilmStandard,self).arealdensity()
+        else:
+            return self._arealdensities
 
 
-class AXOID21_1(Standard):
+class AXOID21_1(ThinFilmStandard):
     aliases = ["RF7-200-S2371-03"]
     
     def __init__(self,**kwargs):
         name = "RF7-200-S2371-03"
-        elements = ["Pb","La","Pd","Mo","Cu","Fe","Ca"]
-        arealdensity = [7.7,9,1.9,0.9,2.4,4,11.4] # ng/mm^2
-        windowthickness = 200 # nm
-        filmthickness = kwargs.pop("filmthickness",None) # nm
-        material,thickness,attenuators = axo(name,elements,arealdensity,windowthickness,filmthickness)
-
+        
+        # ng/mm^2 -> g/cm^2
+        arealdensity = {"Pb": 7.7e-7,\
+                        "La": 9.0e-7,\
+                        "Pd": 1.9e-7,\
+                        "Mo": 0.9e-7,\
+                        "Cu": 2.4e-7,\
+                        "Fe": 4.0e-7,\
+                        "Ca":11.4e-7}
+        filmthickness = kwargs.pop("filmthickness",None) # cm
+        substrate = compoundfromname.compoundfromname("silicon nitride")
+        substratethickness = 200e-7 # cm
+        
+        ultralene = compoundfromname.compoundfromname("ultralene")
+        attenuators = [["SampleCover",ultralene,4e-4],\
+                       ["BeamFilter0",ultralene,4e-4]]
         for k in attenuators:
             kwargs["geometry"].addattenuator(*k)
 
-        super(AXOID21_1,self).__init__(material=material,thickness=thickness,**kwargs)
+        super(AXOID21_1,self).__init__(arealdensity,substrate,substratethickness,name=name,filmthickness=filmthickness,**kwargs)
 
 
-class AXOID21_2(Standard):
+class AXOID21_2(ThinFilmStandard):
     aliases = ["RF8-200-S2454-17"]
     
     def __init__(self,**kwargs):
         name = "RF8-200-S2454-17"
-        elements = ["Pb","La","Pd","Mo","Cu","Fe","Ca"]
-        arealdensity = [6.3,7.6,2.3,0.7,2.6,4.1,25.1] # ng/mm^2
-        windowthickness = 200 # nm
-        filmthickness = kwargs.pop("filmthickness",None) # nm
-        material,thickness,attenuators = axo(name,elements,arealdensity,windowthickness,filmthickness)
+
+        # ng/mm^2 -> g/cm^2
+        arealdensity = {"Pb": 6.3e-7,\
+                        "La": 7.6e-7,\
+                        "Pd": 2.3e-7,\
+                        "Mo": 0.7e-7,\
+                        "Cu": 2.6e-7,\
+                        "Fe": 4.1e-7,\
+                        "Ca":25.1e-7}
+        filmthickness = kwargs.pop("filmthickness",None) # cm
+        substrate = compoundfromname.compoundfromname("silicon nitride")
+        substratethickness = 200e-7 # cm
         
+        ultralene = compoundfromname.compoundfromname("ultralene")
+        attenuators = [["SampleCover",ultralene,4e-4],\
+                       ["BeamFilter0",ultralene,4e-4]]
         for k in attenuators:
             kwargs["geometry"].addattenuator(*k)
-            
-        super(AXOID21_2,self).__init__(material=material,thickness=thickness,**kwargs)
 
-
-class AXOID16b_1(Standard):
+        super(AXOID21_2,self).__init__(arealdensity,substrate,substratethickness,name=name,filmthickness=filmthickness,**kwargs)
+        
+        
+class AXOID16b_1(ThinFilmStandard):
     aliases = ["RF8-200-S2453"]
     
     def __init__(self,**kwargs):
         name = "RF8-200-S2453"
-        elements = ["Pb","La","Pd","Mo","Cu","Fe","Ca"]
-        arealdensity = [5.9,10.3,1.2,.7,2.4,3.9,20.3] # ng/mm^2
-        windowthickness = 200 # nm
-        filmthickness = kwargs.pop("filmthickness",None) # nm
-        material,thickness,attenuators = axo(name,elements,arealdensity,windowthickness,filmthickness)
+
+        # ng/mm^2 -> g/cm^2
+        arealdensity = {"Pb": 5.9e-7,\
+                        "La": 10.3e-7,\
+                        "Pd": 1.2e-7,\
+                        "Mo": 0.7e-7,\
+                        "Cu": 2.4e-7,\
+                        "Fe": 3.9e-7,\
+                        "Ca":20.3e-7}
+        filmthickness = kwargs.pop("filmthickness",None) # cm
+        substrate = compoundfromname.compoundfromname("silicon nitride")
+        substratethickness = 200e-7 # cm
+
+        super(AXOID16b_1,self).__init__(arealdensity,substrate,substratethickness,name=name,filmthickness=filmthickness,**kwargs)
         
-        for k in attenuators:
-            kwargs["geometry"].addattenuator(*k)
-            
-        super(AXOID16b_1,self).__init__(material=material,thickness=thickness,**kwargs)
 
 factory = Standard.factory
 
