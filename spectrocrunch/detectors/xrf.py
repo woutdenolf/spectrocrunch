@@ -142,7 +142,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
     def wpeak(wstail,wltail,wstep):
         s = wstail+wltail+wstep
         if s<-0.0001 or s>1.0001:
-            raise RuntimeError("Tail and step fractions must be <= 1")
+            raise RuntimeError("Sum of step and tail fractions must be between 0 and 1 ({})".format(s))
         return min(max(1-s,0),1)
     
     @property
@@ -156,9 +156,6 @@ class XRFDetector(with_metaclass(base.CentricCone)):
     @fractions.setter
     def fractions(self,value):
         wstail,wltail,wstep = value
-        s = wstail+wltail+wstep
-        if s<-0.0001 or s>1.0001:
-            raise RuntimeError("Tail and step fractions must be <= 1")
         self._stailfraction = wstail
         self._ltailfraction = wltail
         self._stepfraction = wstep
@@ -529,7 +526,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         #
         #   => stepheight_ratio = wstep/wpeak*gnorm/snorm
         if onlyheight:
-            if bpeak:
+            if bstep:
                 ys = step_H/2.
             else:
                 ys = np.zeros_like(u)
@@ -658,7 +655,7 @@ class sn3102(XRFDetector):
         attenuators = kwargs.get("attenuators",{})
         attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4} # cm
         attenuators["WindowDetector"] = {"material":moxtek,"thickness":380e-4} # AP3.3 Moxtek
-        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
+        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":500e-4}
         kwargs["attenuators"] = attenuators
         
         kwargs["activearea"] = units.Quantity(80.,"mm^2")
