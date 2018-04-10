@@ -169,7 +169,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             ret.update(layer.arealdensity())
         return dict(ret)
         
-    def massfractions(self):
+    def elemental_massfractions(self):
         ret = self.arealdensity()
         s = sum(ret.values())
         return {el:w/s for el,w in ret.items()}
@@ -792,13 +792,16 @@ class Multilayer(with_metaclass(cache.Cache)):
         
         return result
 
-    def _dict_to_spectrum(self,gen,emin=0,emax=None):
+    def _dict_to_spectrum(self,gen,emin=0,emax=None,scattering=True):
+        if not scattering:
+            gen = {k:v for k,v in gen.items() if isinstance(k,xrayspectrum.FluoZLine)}
+            
         if emax is None:
             allenergies = list(listtools.flatten(line.energy(**self.geometry.xrayspectrumkwargs()) for line in gen))  
             emax = max(allenergies)
             
         spectrum = xrayspectrum.Spectrum()
-        spectrum.update(gen)
+        spectrum.update(gen) 
         spectrum.xlim = [emin,emax]
         spectrum.density = None
         spectrum.title = str(self)
@@ -952,7 +955,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             # Apply filter attenuation (source and detection) + detector efficiency
             self._interactions_applyefficiency(gen,withdetectorattenuation=withdetectorattenuation)
 
-        spectrum = self._dict_to_spectrum(gen,emin=emin,emax=emax)
+        spectrum = self._dict_to_spectrum(gen,emin=emin,emax=emax,scattering=scattering)
 
         if method!="fisx":
             spectrum.apply_weights(weights)
