@@ -105,7 +105,7 @@ class XiaNameParser():
             if throw:
                 raise RuntimeError("{} does not have the proper XIA name format".format(filename))
             else:
-                logger.warning("Skipping {} (does not have the proper XIA name format)".format(f))
+                logger.warning("Skipping {} (does not have the proper XIA name format)".format(filename))
                 return XiaName(radix=None,mapnum=None,linenum=None,label=None,baselabel=None,detector=None)
 
 xianameparser = XiaNameParser()
