@@ -151,7 +151,10 @@ class Centric(FlatSample):
             self._distance = None
         else:
             self._distance = units.Quantity(distance,"cm")
-       
+    
+    def calibrate_distance_manually(self):
+        self.distance = distance
+    
     @property
     def solidangle(self):
         return self.detector.solidangle_calc(activearea=self.detector.activearea,distance=self.distance)
@@ -172,6 +175,7 @@ class Centric(FlatSample):
 
     def loadfrompymca(self,setup,cfg): 
         super(Centric,self).loadfrompymca(setup,cfg)
-        self.distance = cfg["concentrations"]["distance"]
+        self.calibrate_distance_manually(cfg["concentrations"]["distance"])
+         
 
 

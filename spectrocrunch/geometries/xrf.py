@@ -313,6 +313,12 @@ class XRFGeometry(with_metaclass(base.Centric)):
         if self.distancefunc is not None:
             self.distancefunc.calibrate_manually(distance)
 
+    def calibrate_distance_manually(self,distance):
+        if self.distancefunc is None:
+            super(XRFGeometry,self).calibrate_distance_manually(distance)
+        else:
+            self.distancefunc.calibrate_manually(distance)
+            
 
 class LinearXRFGeometry(XRFGeometry):
 

@@ -295,7 +295,7 @@ class PymcaHandle(object):
         #   grouprate = solidangle/(4.pi).sum_i[massfrac_i.grouprate_i]   (i loops over the layers)
         
         if True:
-            out["rates"] = {}
+            out["rates"] = {} # Ifluo / (Flux.time)
             safrac = addinfo["SolidAngle"]
             #assert(self.sample.geometry.solidangle/(4*np.pi)==addinfo["SolidAngle"])
             #assert(self.flux*self.time==addinfo["I0"])

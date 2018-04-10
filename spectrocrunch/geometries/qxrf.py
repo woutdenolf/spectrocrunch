@@ -257,7 +257,7 @@ class QXRFGeometry(with_metaclass(object)):
         sample = params.pop("sample",None)
         dataset = params.pop("dataset",None)
         specnr = params.pop("specnr",None)
-        
+
         if specnr is None:
             # Data in the params
             data,staticdata = self._parse_default(params)

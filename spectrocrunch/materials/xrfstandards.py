@@ -92,7 +92,7 @@ class ThinFilmStandard(Standard):
 
 
 class AXOID21_1(ThinFilmStandard):
-    aliases = ["RF7-200-S2371-03"]
+    aliases = ["RF7-200-S2371-03","id21_room"]
     
     def __init__(self,**kwargs):
         name = "RF7-200-S2371-03"
@@ -119,7 +119,7 @@ class AXOID21_1(ThinFilmStandard):
 
 
 class AXOID21_2(ThinFilmStandard):
-    aliases = ["RF8-200-S2454-17"]
+    aliases = ["RF8-200-S2454-17","id21_cryo"]
     
     def __init__(self,**kwargs):
         name = "RF8-200-S2454-17"
