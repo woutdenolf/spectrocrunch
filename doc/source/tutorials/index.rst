@@ -7,3 +7,7 @@ Tutorials
     materials
     diodes
     xrfquant
+    detectionlimits
+    xrfdetectionlimits
+    polarization
+    

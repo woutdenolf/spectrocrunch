@@ -216,26 +216,31 @@ class test_element(unittest.TestCase):
         #
         # muR(energy) = re^2 . NA/MM . int_0^2pi[int_0^pi [(1+cos(theta)^2)/2 . f(energy,theta)^2  . sin(theta) . dtheta] . dphi]
         
-        sources = [xraysources.factory("Source",polarization="none"),\
-                    xraysources.factory("Source",polarization="linear"),\
-                    xraysources.factory("Source",polarization="elliptical",Plinear=0.95,delta=90)]
+        sources = [xraysources.factory("Synchrotron"),\
+                    xraysources.factory("Tube")]
         for source in sources:
             def integrand(energy):
                 diffcs = e.diff_rayleigh_cross_section(energy,source)
-                return lambda phi,theta: diffcs(theta,phi)*np.sin(theta)
+                return lambda azimuth,polar: diffcs(azimuth,polar)*np.sin(polar)
 
             energy = np.linspace(4,30,2)
             cs = e.rayleigh_cross_section(energy)
 
             #import matplotlib.pyplot as plt
+            #azimuth = np.linspace(0,2*np.pi,100)
+            #polar = np.linspace(0,np.pi,50)
+            #extent = np.degrees(np.array([azimuth[0],azimuth[-1],polar[0],polar[-1]]))
+            #azimuth,polar = np.meshgrid(azimuth,polar)
             #f = e.diff_rayleigh_cross_section(15,source)
-            #theta = np.linspace(0,np.pi,20)
-            #phi = np.linspace(0,2*np.pi,50)
-            #theta,phi = np.meshgrid(theta,phi)
-            #plt.imshow(f(theta,phi))
+            #plt.imshow(f(azimuth,polar),extent=extent,origin="lower")
+            #plt.xlabel("Azimuth")
+            #plt.ylabel("Polar")
+            #plt.colorbar()
             #plt.show()
 
-            diffcsint = [integrate.dblquad(integrand(E), 0, np.pi, lambda x:0, lambda x:2*np.pi)[0]  for E in energy]
+            polar = 0,np.pi
+            azimuth = lambda polar:0, lambda polar:2*np.pi
+            diffcsint = [integrate.dblquad(integrand(E), polar[0], polar[1], azimuth[0], azimuth[1])[0] for E in energy]
             np.testing.assert_allclose(cs,diffcsint,rtol=2e-2)
 
     def test_formfact(self):
