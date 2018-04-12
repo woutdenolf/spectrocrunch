@@ -467,9 +467,9 @@ class Element(hashable.Hashable):
         # muR(cm²/g) = NA(atom/mol)/MM(g/mol) . x(cm²/atom)
         # x(cm²/atom) = int_phi[int_theta [ f²(e/atom).thomson(cm²/e/srad) . sin(theta) dtheta] dphi]
         # thomson(cm²/e/srad) = r_e²(cm²/e).K_thomson(azimuth,polar)(1/srad)
-        # mudiffR(cm²/g/srad) = r_e²(cm²/e).NA(atom/mol)/MM(g/mol).K(azimuth,polar)(1/srad).f²(e/atom)
+        # mudiffR(cm²/g/srad) = r_e²(cm²/e).NA(atom/mol)/MM(g/mol).K_thomson(azimuth,polar)(1/srad).f²(e/atom)
 
-        c = (ureg.re**2*ureg.avogadro_number/ureg.Quantity(self.MM,'g/mol')).to("cm^2/g").magnitude
+        c = (ureg.classical_electron_radius**2*ureg.avogadro_number/ureg.Quantity(self.MM,'g/mol')).to("cm^2/g").magnitude
         wl = ureg.Quantity(E,'keV').to("angstrom","spectroscopy").magnitude
         K = source.thomson_K
         return lambda azimuth,polar: c*K(azimuth,polar)*self._xraylib_method_full("FF_Rayl",np.sin(polar/2.)/wl)**2
@@ -486,9 +486,9 @@ class Element(hashable.Hashable):
         # muC(cm²/g) = NA(atom/mol)/MM(g/mol) . x(cm²/atom)
         # x(cm²/atom) = int_phi[int_theta [ S(e/atom).KN(cm²/e/srad) . sin(theta) dtheta] dphi]
         # KN(cm²/e/srad) = r_e²(cm²/e).K_compton(azimuth,polar)(1/srad)
-        # mudiffC(cm²/g/srad) = r_e²(cm²/e).NA(atom/mol)/MM(g/mol).K_compton(azimuth,polar)(1/srad).f²(e/atom)
+        # mudiffC(cm²/g/srad) = r_e²(cm²/e).NA(atom/mol)/MM(g/mol).K_compton(azimuth,polar)(1/srad).S(e/atom)
 
-        c = (ureg.re**2*ureg.avogadro_number/ureg.Quantity(self.MM,'g/mol')).to("cm^2/g").magnitude
+        c = (ureg.classical_electron_radius**2*ureg.avogadro_number/ureg.Quantity(self.MM,'g/mol')).to("cm^2/g").magnitude
         wl = ureg.Quantity(E,'keV').to("angstrom","spectroscopy").magnitude
         K = source.compton_K
         return lambda theta,phi: c*K(theta,phi)*self._xraylib_method_full("SF_Compt",np.sin(theta/2.)/wl)

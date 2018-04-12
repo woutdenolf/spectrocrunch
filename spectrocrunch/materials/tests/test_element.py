@@ -226,18 +226,6 @@ class test_element(unittest.TestCase):
             energy = np.linspace(4,30,2)
             cs = e.rayleigh_cross_section(energy)
 
-            #import matplotlib.pyplot as plt
-            #azimuth = np.linspace(0,2*np.pi,100)
-            #polar = np.linspace(0,np.pi,50)
-            #extent = np.degrees(np.array([azimuth[0],azimuth[-1],polar[0],polar[-1]]))
-            #azimuth,polar = np.meshgrid(azimuth,polar)
-            #f = e.diff_rayleigh_cross_section(15,source)
-            #plt.imshow(f(azimuth,polar),extent=extent,origin="lower")
-            #plt.xlabel("Azimuth")
-            #plt.ylabel("Polar")
-            #plt.colorbar()
-            #plt.show()
-
             polar = 0,np.pi
             azimuth = lambda polar:0, lambda polar:2*np.pi
             diffcsint = [integrate.dblquad(integrand(E), polar[0], polar[1], azimuth[0], azimuth[1])[0] for E in energy]
@@ -249,7 +237,7 @@ class test_element(unittest.TestCase):
         energy = 30
         wavelength = ureg.Quantity(energy,'keV').to("cm","spectroscopy")
         f2 = e.scatfact_im(energy)
-        m = -(2*ureg.re*wavelength*ureg.avogadro_number/ureg.Quantity(e.MM,'g/mol')).to("cm^2/g").magnitude
+        m = -(2*ureg.classical_electron_radius*wavelength*ureg.avogadro_number/ureg.Quantity(e.MM,'g/mol')).to("cm^2/g").magnitude
         np.testing.assert_allclose(m*f2,e.mass_abs_coeff(energy),rtol=1e-6)
         
         f1 = e.scatfact_re(energy)

@@ -400,7 +400,7 @@ class Compound(Hashable,stoichiometrybase.StoichiometryBase):
         delta = sum(e_wfrac[e]*e.scatfact_re(E,**kwargs)/e.MM for e in e_wfrac)
         delta = ureg.Quantity(delta,'mol/g') *\
               ureg.Quantity(E,'keV').to("cm","spectroscopy")**2 *\
-              (ureg.re*ureg.avogadro_number*ureg.Quantity(density,'g/cm^3')/(2*np.pi))
+              (ureg.classical_electron_radius*ureg.avogadro_number*ureg.Quantity(density,'g/cm^3')/(2*np.pi))
         
         return delta.to("dimensionless").magnitude
     
@@ -411,7 +411,7 @@ class Compound(Hashable,stoichiometrybase.StoichiometryBase):
         beta = -sum(e_wfrac[e]*e.scatfact_im(E,**kwargs)/e.MM for e in e_wfrac)
         beta = ureg.Quantity(beta,'mol/g') *\
               ureg.Quantity(E,'keV').to("cm","spectroscopy")**2 *\
-              (ureg.re*ureg.avogadro_number*ureg.Quantity(density,'g/cm^3')/(2*np.pi))
+              (ureg.classical_electron_radius*ureg.avogadro_number*ureg.Quantity(density,'g/cm^3')/(2*np.pi))
         return beta.to("dimensionless").magnitude
 
     def get_energy(self,energyrange,defaultinc=1):
