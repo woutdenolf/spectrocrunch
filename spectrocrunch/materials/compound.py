@@ -373,10 +373,10 @@ class Compound(Hashable,stoichiometrybase.StoichiometryBase):
 
         return spectrum
     
-    def refractive_index_re(self,E,**kwargs):
+    def refractive_index_real(self,E,**kwargs):
         return 1-self.refractive_index_delta(E)
         
-    def refractive_index_im(self,E,**kwargs):
+    def refractive_index_imag(self,E,**kwargs):
         return -self.refractive_index_beta(E)
         
     def refractive_index_delta(self,E,fine=False,decomposed=False,**kwargs):
@@ -397,7 +397,7 @@ class Compound(Hashable,stoichiometrybase.StoichiometryBase):
     def refractive_index_delta_calc(E,e_wfrac,density,**kwargs):
         """n = 1-delta-i.beta
         """
-        delta = sum(e_wfrac[e]*e.scatfact_re(E,**kwargs)/e.MM for e in e_wfrac)
+        delta = sum(e_wfrac[e]*e.scatfact_real(E,**kwargs)/e.MM for e in e_wfrac)
         delta = ureg.Quantity(delta,'mol/g') *\
               ureg.Quantity(E,'keV').to("cm","spectroscopy")**2 *\
               (ureg.classical_electron_radius*ureg.avogadro_number*ureg.Quantity(density,'g/cm^3')/(2*np.pi))
@@ -408,7 +408,7 @@ class Compound(Hashable,stoichiometrybase.StoichiometryBase):
     def refractive_index_beta_calc(E,e_wfrac,density,**kwargs):
         """n = 1-delta-i.beta
         """
-        beta = -sum(e_wfrac[e]*e.scatfact_im(E,**kwargs)/e.MM for e in e_wfrac)
+        beta = -sum(e_wfrac[e]*e.scatfact_imag(E,**kwargs)/e.MM for e in e_wfrac)
         beta = ureg.Quantity(beta,'mol/g') *\
               ureg.Quantity(E,'keV').to("cm","spectroscopy")**2 *\
               (ureg.classical_electron_radius*ureg.avogadro_number*ureg.Quantity(density,'g/cm^3')/(2*np.pi))

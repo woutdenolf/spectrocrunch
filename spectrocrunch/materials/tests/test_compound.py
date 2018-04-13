@@ -166,8 +166,8 @@ class test_compound(unittest.TestCase):
         n_im1c = density*4.15179082788e-4*(np.asarray([xraylib.Fii(Z, e) for e in energy]))/xraylib.AtomicWeight(Z)/energy**2;
 
         # Spectrocrunch
-        n_re2 = c.refractive_index_re(energy)
-        n_im2 = c.refractive_index_im(energy)
+        n_re2 = c.refractive_index_real(energy)
+        n_im2 = c.refractive_index_imag(energy)
 
         np.testing.assert_allclose(n_re2,n_re0)
         np.testing.assert_allclose(n_im2,n_im1c,rtol=1e-6)
