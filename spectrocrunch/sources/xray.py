@@ -42,6 +42,9 @@ class Source(with_metaclass(object)):
     def thomson_K(self):
         return self.stokes.thomson_K
     
+    def compton_K(self,energy):
+        return self.stokes.compton_K(energy)
+        
     def addtopymca(self,setup,cfg):
         pass
     

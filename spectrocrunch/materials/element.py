@@ -415,7 +415,7 @@ class Element(hashable.Hashable):
         """
         return self._xraylib_method_full("CS_Compt",E)
 
-    def scatfact_classic_re(self,E,theta=None,**kwargs):
+    def scatfact_classic_real(self,E,theta=None,**kwargs):
         """Real part of atomic form factor
 
         Args:
@@ -432,7 +432,7 @@ class Element(hashable.Hashable):
             q = np.sin(theta/2)/ureg.Quantity(E,'keV').to("angstrom","spectroscopy").magnitude
             return self._xraylib_method_full("FF_Rayl",q)
             
-    def scatfact_re(self,E,theta=None,**kwargs):
+    def scatfact_real(self,E,theta=None,**kwargs):
         """Real part of atomic form factor
 
         Args:
@@ -442,9 +442,9 @@ class Element(hashable.Hashable):
         Returns:
             num or np.array
         """
-        return self.scatfact_classic_re(E,theta=theta) + self._xraylib_method_full("Fi",E)
+        return self.scatfact_classic_real(E,theta=theta) + self._xraylib_method_full("Fi",E)
     
-    def scatfact_im(self,E,**kwargs):
+    def scatfact_imag(self,E,**kwargs):
         """Imaginary part of atomic form factor
 
         Args:
@@ -490,8 +490,8 @@ class Element(hashable.Hashable):
 
         c = (ureg.classical_electron_radius**2*ureg.avogadro_number/ureg.Quantity(self.MM,'g/mol')).to("cm^2/g").magnitude
         wl = ureg.Quantity(E,'keV').to("angstrom","spectroscopy").magnitude
-        K = source.compton_K
-        return lambda theta,phi: c*K(theta,phi)*self._xraylib_method_full("SF_Compt",np.sin(theta/2.)/wl)
+        K = source.compton_K(E)
+        return lambda azimuth,polar: c*K(azimuth,polar)*self._xraylib_method_full("SF_Compt",np.sin(polar/2.)/wl)
 
     def _get_multiplicity(self,struct):
         scat = struct.scatterers()

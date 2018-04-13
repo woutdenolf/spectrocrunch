@@ -39,14 +39,16 @@ import matplotlib.animation as animation
 logger = logging.getLogger(__name__)
 
 def jonesnormsq_to_intensity(x):
-    """Convert from 
+    """Convert from squared Jones vector norm (V^2/m^2) to intensity (W/m^2)
     """
     return (units.Quantity(x/2.,"V^2/m^2")*(ureg.vacuum_permittivity*ureg.speed_of_light)).to("W/m^2").magnitude
 
 def intensity_to_jonesnormsq(x):
+    """Convert from intensity (W/m^2) to squared Jones vector norm (V^2/m^2)
+    """
     return (units.Quantity(x*2.,"W/m^2")/(ureg.vacuum_permittivity*ureg.speed_of_light)).to("V^2/m^2").magnitude
 
-def TransfoMatrixRotation(angle):
+def JonesMatrixRotation(angle):
     """Coordinate transformation matrix
     
     Args:
@@ -59,32 +61,9 @@ def TransfoMatrixRotation(angle):
     cosph = np.cos(ph)
     sinph = np.sin(ph)
     return np.array([[cosph,-sinph],[sinph,cosph]])
-        
-def JonesMatrixThomson(angle):
-    """Jones matrix for Thomson scattering (assume azimuth=90)
-    
-    Args:
-        angle(num): scattering angle (degree)
-    
-    Returns:
-        array: Coordinate transformation (2x2)
-    """
-    return np.array([[1,0],[0,np.cos(np.radians(angle))]])
-
-def ThomsonRotation(azimuth):
-    """Reference frame rotation in which JonesMatrixThomson holds
-    
-    Args:
-        azimuth(num): scattering azimuth (degree)
-    
-    Returns:
-        angle: rotation of the axes in degrees
-    """
-    # First component axis perpendicular to the scattering plane
-    return azimuth-90
 
 def MuellerMatrixRotation(angle):
-    """Mueller matrix for rotation (equivalent with TransfoMatrixRotation)
+    """Mueller matrix for rotation (equivalent with JonesMatrixRotation)
     
     Args:
         angle(num): vector rotation (degree)
@@ -95,10 +74,45 @@ def MuellerMatrixRotation(angle):
     ph = np.radians(2*angle)
     cosph = np.cos(ph)
     sinph = np.sin(ph)
-    return np.array([[1,0,0,0],[0,cosph,-sinph,0],[0,sinph,cosph,0],[0,0,0,1]])
+    return np.array([[1,0,0,0],[0,cosph,-sinph,0],[0,sinph,cosph,0],[0,0,0,1]])    
+    
+def JonesMatrixThomson(polar):
+    """Jones matrix for Thomson scattering (assume azimuth=90)
+    
+    Args:
+        polar(num): scattering angle (degree)
+    
+    Returns:
+        array: Coordinate transformation (2x2)
+    """
+    return np.array([[1,0],[0,np.cos(np.radians(polar))]])
 
+def ThomsonRotationAngle(azimuth):
+    """Reference frame rotation so that JonesMatrixThomson holds
+    
+    Args:
+        azimuth(num): scattering azimuth (degree)
+    
+    Returns:
+        angle: rotation of the axes in degrees
+    """
+    # First component axis perpendicular to the scattering plane
+    return azimuth-90
+
+def ComptonRotationAngle(azimuth):
+    """Reference frame rotation so that MuellerMatrixCompton holds
+    
+    Args:
+        azimuth(num): scattering azimuth (degree)
+    
+    Returns:
+        angle: rotation of the axes in degrees
+    """
+    # First component axis perpendicular to the scattering plane
+    return azimuth-90
+    
 def MuellerMatrixThomson(azimuth,polar):
-    """Mueller matrix for rotation
+    """Mueller matrix for Thomson scattering
     
     Args:
         azimuth(num): scattering azimuth (degree)
@@ -113,8 +127,7 @@ def MuellerMatrixThomson(azimuth,polar):
     a = (1+cossq_polar)/2.
     b = 1-a # = sinsq_polar/2
     
-    #ph = -np.radians(2*ThomsonRotation(azimuth))
-    ph = np.pi-2*np.radians(azimuth)
+    ph = -np.radians(2*ThomsonRotationAngle(azimuth))
     cosph = np.cos(ph)
     sinph = np.sin(ph)
     
@@ -122,8 +135,40 @@ def MuellerMatrixThomson(azimuth,polar):
                      [b,a*cosph,-a*sinph,0],\
                      [0,costh*sinph,costh*cosph,0],\
                      [0,0,0,costh]])
+
+def kev_to_mc2(x):
+    return ureg.Quantity(x,"keV").to("m_e*c^2").magnitude
+
+def MuellerMatrixCompton(azimuth,polar,energy):
+    """Mueller matrix for Compton scattering
     
+    Args:
+        azimuth(num): scattering azimuth (degree)
+        polar(num): scattering angle (degree)
+        energy(num): incident photon energy (keV)
+
+    Returns:
+        array: Mueller matrix (4x4)
+    """
+    # Same incident and scattered reference frame as MuellerMatrixThomson
+    costh = np.cos(np.radians(polar))
+    cossq_polar = costh**2
+    a = (1+cossq_polar)/2.
+    b = 1-a # = sinsq_polar/2
+
+    ph = -np.radians(2*ComptonRotationAngle(azimuth))
+    cosph = np.cos(ph)
+    sinph = np.sin(ph)
     
+    k = kev_to_mc2(energy)
+    ksc = k/(1+k*(1-costh))
+    c = (k-ksc)*(1-costh)/2.
+
+    return np.array([[a+c,b*cosph,-b*sinph,0],\
+                     [b,a*cosph,-a*sinph,0],\
+                     [0,costh*sinph,costh*cosph,0],\
+                     [0,0,0,costh*(1+c)]])*(ksc**2/k**2)
+
 class Jones(object):
     """Parameterization of second order statistics of a transverse wave when fully polarized
     """
@@ -406,7 +451,7 @@ class Jones(object):
         Returns:
             Jones
         """
-        R = TransfoMatrixRotation(-angle)
+        R = JonesMatrixRotation(-angle)
         return self.__class__(*R.dot(self.V))
 
     def thomson_scattering(self,azimuth,polar):
@@ -419,7 +464,8 @@ class Jones(object):
         Returns:
             Stokes
         """
-        J = self.rotate(ThomsonRotation(azimuth))
+        # We could do C' = (M.R).C.(M.R)^H but then we loose the phase
+        J = self.rotate(ThomsonRotationAngle(azimuth))
         Mth = JonesMatrixThomson(polar)
         C = Mth.dot(J.coherency_matrix).dot(Mth.T.conjugate())
         return self.from_coherency_matrix(C,phase0=J.phase0)
@@ -430,7 +476,7 @@ class Stokes(object):
     """
     
     # Convention: propagation in the direction of e_2
-    pauli422 = np.asarray([[[1,0],[0,1]],\
+    pauli422 = np.array([[[1,0],[0,1]],\
                          [[1,0],[0,-1]],\
                          [[0,1],[1,0]],\
                          [[0,-1j],[1j,0]]])
@@ -658,11 +704,11 @@ class Stokes(object):
         return self.__class__(*M.dot(self.S))
 
     def thomson_scattering(self,azimuth,polar):
-        """Stokes parameters after Thomson scattering in the reference frame
+        """Stokes parameters after Thomson scattering
         
         Args:
-            azimuth(num): scattering direction in radian
-            polar(num): scattering direction in radian
+            azimuth(num): scattering direction in degrees
+            polar(num): scattering direction in degrees
             
         Returns:
             Stokes
@@ -672,31 +718,51 @@ class Stokes(object):
         return self.__class__(*M.dot(self.S))
         
         #Equivalent
-        #M1 = MuellerMatrixRotation(-ThomsonRotation(azimuth)) # rotate so that azimuth = 90 deg
+        #M1 = MuellerMatrixRotation(-ThomsonRotationAngle(azimuth)) # rotate so that azimuth = 90 deg
         #M2 = self.jones_to_mueller(JonesMatrixThomson(polar)).real
+        #return self.__class__(*M2.dot(M1).dot(self.S))
+
+    def compton_scattering(self,azimuth,polar,energy):
+        """Stokes parameters after Compton scattering
+        
+        Args:
+            azimuth(num): scattering direction in degrees
+            polar(num): scattering direction in degrees
+            energy(num): incident photon energy in keV
+            
+        Returns:
+            Stokes
+        """
+        
+        M = MuellerMatrixCompton(azimuth,polar,energy)
+        return self.__class__(*M.dot(self.S))
+        
+        #Equivalent
+        #M1 = MuellerMatrixRotation(-ComptonRotation(azimuth)) # rotate so that azimuth = 90 deg
+        #M2 = self.jones_to_mueller(JonesMatrixCompton(polar)).real
         #return self.__class__(*M2.dot(M1).dot(self.S))
 
     @property
     def thomson_K(self):
         """Directional dependent part of the Thomson scattering intensity (angles in radians)
         """
-        
-        b = np.tan(2*np.radians(self.polangle))
-        P = self.hdolp
-        
-        if P==0:
+        if self.S[1]==0 and self.S[2]==0:
             def K(azimuth,polar):
                 return (1+np.cos(polar)**2)/2.
         else:
+            S10 = self.S[1]/self.S[0]
+            S20 = self.S[2]/self.S[0]
             def K(azimuth,polar):
                 a = (1+np.cos(polar)**2)/2.
                 ph = 2*azimuth
                 cosph = np.cos(ph)
                 sinph = np.sin(ph)
-                return a - (1-a)*P*(cosph + b*sinph)
+                return a - (1-a)*(S10*cosph + S20*sinph)
             
         #Equivalent
-        #ph = -np.radians(2*ThomsonRotation(azimuth))
+        #b = np.tan(2*np.radians(self.polangle))
+        #P = self.hdolp
+        #ph = -np.radians(2*ThomsonRotationAngle(azimuth))
         #cosph = np.cos(ph)
         #sinph = np.sin(ph)
         #K = a + (1-a)*P*(cosph - b*sinph)
@@ -705,17 +771,60 @@ class Stokes(object):
         
         return K
 
+    def compton_K(self,energy):
+        """Directional dependent part of the Compton scattering intensity (angles in radians)
+        """
+        k = kev_to_mc2(energy)
+
+        if self.S[1]==0 and self.S[2]==0:
+            def K(azimuth,polar):
+                costh = np.cos(polar)
+                a = (1+costh**2)/2.
+                ph = 2*azimuth
+                cosph = np.cos(ph)
+                sinph = np.sin(ph)
+                ksc = k/(1+k*(1-costh))
+                c = (k-ksc)*(1-costh)/2.
+                return ksc**2/k**2 * (a + c)
+        else:
+            S10 = self.S[1]/self.S[0]
+            S20 = self.S[2]/self.S[0]
+            def K(azimuth,polar):
+                costh = np.cos(polar)
+                a = (1+costh**2)/2.
+                ph = 2*azimuth
+                cosph = np.cos(ph)
+                sinph = np.sin(ph)
+                ksc = k/(1+k*(1-costh))
+                c = (k-ksc)*(1-costh)/2.
+
+                return ksc**2/k**2 * (a + c - (1-a)*(S10*cosph + S20*sinph))
+                
+        return K
+        
     def thomson_intensity(self,azimuth,polar):
         """
         Args:
-            azimuth(num): scattering direction in radian
-            polar(num): scattering direction in radian
+            azimuth(num): scattering direction in degrees
+            polar(num): scattering direction in degrees
             
         Returns:
             num
         """
         return self.intensity * self.thomson_K(np.radians(azimuth),np.radians(polar))
 
+    def compton_intensity(self,azimuth,polar,energy):
+        """
+        Args:
+            azimuth(num): scattering direction in degrees
+            polar(num): scattering direction in degrees
+            energy(num): incident photon energy in keV
+            
+        Returns:
+            num
+        """
+        return self.intensity * self.compton_K(energy)(np.radians(azimuth),np.radians(polar))
+        
     def plot_efield(self,**kwargs):
         self.to_jones().plot_efield(**kwargs)
 

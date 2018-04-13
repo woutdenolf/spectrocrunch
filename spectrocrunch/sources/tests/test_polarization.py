@@ -138,8 +138,8 @@ class test_polarization(unittest.TestCase):
             
             self._equal_params(S2.to_params(),J2.to_stokes().to_params())
             
-            R = polarization.TransfoMatrixRotation(-azimuth)
-            Ri = polarization.TransfoMatrixRotation(azimuth)
+            R = polarization.JonesMatrixRotation(-azimuth)
+            Ri = polarization.JonesMatrixRotation(azimuth)
             
             np.testing.assert_allclose(R.dot(J1.coherency_matrix).dot(Ri),J2.coherency_matrix)
             np.testing.assert_allclose(R.dot(S1.coherency_matrix).dot(Ri),S2.coherency_matrix)
@@ -156,9 +156,9 @@ class test_polarization(unittest.TestCase):
 
             self._equal_params(S2.to_params(),J2.to_stokes().to_params())
             
-            angle = polarization.ThomsonRotation(azimuth) # change-of-frame
-            R = polarization.TransfoMatrixRotation(-angle)
-            Ri = polarization.TransfoMatrixRotation(angle)
+            angle = polarization.ThomsonRotationAngle(azimuth) # change-of-frame
+            R = polarization.JonesMatrixRotation(-angle)
+            Ri = polarization.JonesMatrixRotation(angle)
             Mth = polarization.JonesMatrixThomson(polar)
             Mthi = Mth
 
@@ -170,6 +170,18 @@ class test_polarization(unittest.TestCase):
             thomsonsc = integrate.dblquad(integrand, 0, np.pi, lambda x:0, lambda x:2*np.pi)[0]/S1.intensity
             np.testing.assert_allclose(thomsonsc,8*np.pi/3)
 
+    def test_compton(self):
+        for S1 in self._gen_stokes():
+            
+            azimuth = np.random.uniform(low=0,high=2*np.pi)
+            polar = np.random.uniform(low=0,high=np.pi)
+            energy = np.random.uniform(low=5.,high=20.)
+            
+            S2 = S1.compton_scattering(azimuth,polar,energy)
+            
+            np.testing.assert_allclose(S2.intensity,S1.compton_intensity(azimuth,polar,energy))
+            
+            
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
@@ -179,6 +191,7 @@ def test_suite_all():
     testSuite.addTest(test_polarization("test_intensity"))
     testSuite.addTest(test_polarization("test_rotate"))
     testSuite.addTest(test_polarization("test_thomson"))
+    testSuite.addTest(test_polarization("test_compton"))
     return testSuite
     
 if __name__ == '__main__':
