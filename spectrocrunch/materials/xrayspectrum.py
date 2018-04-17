@@ -510,17 +510,18 @@ class ComptonLine(ScatteringLine):
     def energy(self,polar=None,**kwargs):
         """
         Args:
-            polar(num): deg
+            polar(num): radians
         """
         if polar==0 or polar is None:
             return self.energysource
-        delta = ureg.Quantity(1-np.cos(np.radians(polar)),"1/(m_e*c^2)").to("1/keV","spectroscopy").magnitude
+        delta = ureg.Quantity(1-np.cos(polar),"1/(m_e*c^2)").to("1/keV","spectroscopy").magnitude
         return self.energysource/(1+self.energysource*delta) 
         
 
 class Spectrum(dict):
 
-    TYPES = Enum(['crosssection','rate'])
+    TYPES = Enum(['diffcrosssection','crosssection','rate'])
+    # diffcrosssection: cm^2/g/srad
     # crosssection: cm^2/g
     # rate: dimensionless
 
@@ -536,7 +537,7 @@ class Spectrum(dict):
     @property
     def geomkwargs(self):
         if self.geometry is None:
-            geomkwargs = {"polar":90}
+            geomkwargs = {"polar":np.pi/2,"azimuth":0}
         else:
             geomkwargs = self.geometry.xrayspectrumkwargs()
         return geomkwargs
@@ -585,6 +586,18 @@ class Spectrum(dict):
                 units = "cm$^2$/g"
                 if phsource:
                     units = "{}.phsource".format(units)
+        elif self.type==self.TYPES.diffcrosssection:
+            if convert:
+                if phsource:
+                    label = "Intensity"
+                else:
+                    label = "Probability"
+                units = "1/cm/srad"
+            else:
+                label = "Differential cross-section"
+                units = "cm$^2$/g/srad"
+                if phsource:
+                    units = "{}.phsource".format(units)
         else:
             if phsource:
                 label = "Intensity"
@@ -598,21 +611,27 @@ class Spectrum(dict):
         return "{} {}".format(label,units)
                     
     def conversionfactor(self,convert=True):
-        if self.type==self.TYPES.crosssection and convert:
+        if not convert:
+            return 1
+        
+        if self.type==self.TYPES.crosssection:
             return self.density/(4*np.pi) # cm^2/g -> 1/cm/srad
+        elif self.type==self.TYPES.diffcrosssection:
+            return self.density # cm^2/g/srad -> 1/cm/srad
         else:
             return 1
     
     def items(self):
+        geomkwargs = self.geomkwargs
         for k,v in super(Spectrum,self).items():
+            if callable(v):
+                v = v(**geomkwargs)
             if k.valid and np.sum(v)>0:
                 yield k,v
 
-    def items_sorted(self,sort=False,**geomkwargs):
+    def items_sorted(self,sort=False):
         if sort:
-            _geomkwargs = self.geomkwargs
-            _geomkwargs.update(geomkwargs)
-            sortkey = lambda x: np.max(instance.asarray(x[0].energy(**geomkwargs)))
+            sortkey = lambda x: np.max(instance.asarray(x[0].energy(**self.geomkwargs)))
             return sorted(self.items(),key=sortkey)
         else:
             return self.items()
@@ -787,8 +806,7 @@ class Spectrum(dict):
         return multiplier,ylabel
     
     def __str__(self):
-        geomkwargs = self.geomkwargs
-        lines = "\n ".join(["{} {}".format(line,v) for line,v in self.lines(sort=True,**geomkwargs)])
+        lines = "\n ".join(["{} {}".format(line,v) for line,v in self.lines(sort=True)])
         return "{}\n Line   {}\n {}".format(self.title,self.ylabel(convert=True),lines)
     
     @property
@@ -952,7 +970,7 @@ class Spectrum(dict):
         profiles = profiles.sum(axis=-1)
         return energies,profiles,ylabel
         
-    def plot(self,convert=False,fluxtime=None,mark=True,log=False,decompose=True,\
+    def plot(self,convert=True,fluxtime=None,mark=True,log=False,decompose=True,\
                  histogram=False,backfunc=None,voigt=False,forcelines=False,legend=True,\
                  sumlabel="sum",title=""):
         """X-ray spectrum or cross-section lines

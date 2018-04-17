@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from . import stoichiometrybase
+from . import multielementbase
 from . import element
 from . import interaction
 from . import types
@@ -30,13 +30,11 @@ from . import stoichiometry
 from ..common.hashable import Hashable
 from ..common import listtools
 from ..common import instance
-from .. import ureg
-from . import xrayspectrum
 
 import numpy as np
 import fisx
 
-class Compound(Hashable,stoichiometrybase.StoichiometryBase):
+class Compound(Hashable,multielementbase.MultiElementBase):
     """Interface to a compound
     """
 
@@ -266,14 +264,6 @@ class Compound(Hashable,stoichiometrybase.StoichiometryBase):
         for e in self._elements:
             for s in e.markinfo():
                 yield " {}".format(s)
-    
-    @staticmethod
-    def _cs_scattering(method):
-        return method=="scattering_cross_section" or method=="compton_cross_section" or method=="rayleigh_cross_section"
-
-    @staticmethod
-    def _cs_dict(method):
-        return method=="fluorescence_cross_section_lines"
         
     def _crosssection(self,method,E,fine=False,decomposed=False,**kwargs):
         """Calculate compound cross-sections
@@ -309,75 +299,9 @@ class Compound(Hashable,stoichiometrybase.StoichiometryBase):
                         else:
                             ret[k] = w*v
             else:
-                ret = np.zeros_like(E,dtype=float)
-                for e in e_wfrac:
-                    ret += e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
+                ret = sum(e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs) for e in e_wfrac)
 
         return ret
-
-    def mass_att_coeff(self,E,fine=False,decomposed=False,**kwargs):
-        """Mass attenuation coefficient (cm^2/g, E in keV). Use for transmission XAS.
-        """
-        return self._crosssection("mass_att_coeff",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def mass_abs_coeff(self,E,fine=False,decomposed=False,**kwargs):
-        """Mass absorption coefficient (cm^2/g, E in keV)
-        """
-        return self._crosssection("mass_abs_coeff",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def partial_mass_abs_coeff(self,E,fine=False,decomposed=False,**kwargs):
-        """Mass absorption coefficient for the selected shells and lines (cm^2/g, E in keV).
-        """
-        return self._crosssection("partial_mass_abs_coeff",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def scattering_cross_section(self,E,fine=False,decomposed=False,**kwargs):
-        """Scattering cross section (cm^2/g, E in keV).
-        """
-        return self._crosssection("scattering_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def compton_cross_section(self,E,fine=False,decomposed=False,**kwargs):
-        """Compton cross section (cm^2/g, E in keV).
-        """
-        return self._crosssection("compton_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def rayleigh_cross_section(self,E,fine=False,decomposed=False,**kwargs):
-        """Rayleigh cross section (cm^2/g, E in keV).
-        """
-        return self._crosssection("rayleigh_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def fluorescence_cross_section(self,E,fine=False,decomposed=False,**kwargs):
-        """XRF cross section (cm^2/g, E in keV). Use for fluorescence XAS.
-        """
-        return self._crosssection("fluorescence_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def fluorescence_cross_section_lines(self,E,fine=False,decomposed=False,**kwargs):
-        """XRF cross section (cm^2/g, E in keV). Use for XRF.
-        """
-        return self._crosssection("fluorescence_cross_section_lines",E,fine=fine,decomposed=decomposed,**kwargs)
-    
-    def xrayspectrum(self,E,weights=None,emin=0,emax=None):
-        E = instance.asarray(E)
-        if emax is None:
-            emax = E[-1]
-        self.markabsorber(energybounds=[emin,emax])
-
-        spectrum = xrayspectrum.Spectrum()
-        spectrum.density = self.density
-        spectrum.update(self.fluorescence_cross_section_lines(E,decomposed=False))
-        spectrum[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E,decomposed=False)
-        spectrum[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E,decomposed=False)
-        spectrum.apply_weights(weights)
-        spectrum.xlim = [emin,emax]
-        spectrum.title = str(self)
-        spectrum.type = spectrum.TYPES.crosssection
-
-        return spectrum
-    
-    def refractive_index_real(self,E,**kwargs):
-        return 1-self.refractive_index_delta(E)
-        
-    def refractive_index_imag(self,E,**kwargs):
-        return -self.refractive_index_beta(E)
         
     def refractive_index_delta(self,E,fine=False,decomposed=False,**kwargs):
         if hasattr(self,'structure') and fine:
@@ -392,27 +316,6 @@ class Compound(Hashable,stoichiometrybase.StoichiometryBase):
         else:
             environ = None
         return self.refractive_index_beta_calc(E,self.massfractions(),self.density,environ=environ,**kwargs)
-        
-    @staticmethod
-    def refractive_index_delta_calc(E,e_wfrac,density,**kwargs):
-        """n = 1-delta-i.beta
-        """
-        delta = sum(e_wfrac[e]*e.scatfact_real(E,**kwargs)/e.MM for e in e_wfrac)
-        delta = ureg.Quantity(delta,'mol/g') *\
-              ureg.Quantity(E,'keV').to("cm","spectroscopy")**2 *\
-              (ureg.classical_electron_radius*ureg.avogadro_number*ureg.Quantity(density,'g/cm^3')/(2*np.pi))
-        
-        return delta.to("dimensionless").magnitude
-    
-    @staticmethod
-    def refractive_index_beta_calc(E,e_wfrac,density,**kwargs):
-        """n = 1-delta-i.beta
-        """
-        beta = -sum(e_wfrac[e]*e.scatfact_imag(E,**kwargs)/e.MM for e in e_wfrac)
-        beta = ureg.Quantity(beta,'mol/g') *\
-              ureg.Quantity(E,'keV').to("cm","spectroscopy")**2 *\
-              (ureg.classical_electron_radius*ureg.avogadro_number*ureg.Quantity(density,'g/cm^3')/(2*np.pi))
-        return beta.to("dimensionless").magnitude
 
     def get_energy(self,energyrange,defaultinc=1):
         """Get absolute energies (keV) from a relative energy range (eV)
@@ -425,10 +328,6 @@ class Compound(Hashable,stoichiometrybase.StoichiometryBase):
             if ret is not None:
                 return ret
         return None
-
-    @property
-    def pymcaname(self):
-        return self.name
 
     def topymca(self,defaultthickness=1e-4):
         r = self.massfractions()
@@ -444,8 +343,4 @@ class Compound(Hashable,stoichiometrybase.StoichiometryBase):
         o = fisx.Material(self.pymcaname, self.density, 1e-10)
         o.setCompositionFromLists(['{}1'.format(e) for e in r],r.values())
         return o
-        
-    def fisxgroups(self,emin=0,emax=np.inf):
-        self.markabsorber(energybounds=[emin,emax])
-        return {el:el.shells for el in self._elements}
         

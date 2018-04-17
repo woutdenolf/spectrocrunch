@@ -747,12 +747,12 @@ class Stokes(object):
         """Directional dependent part of the Thomson scattering intensity (angles in radians)
         """
         if self.S[1]==0 and self.S[2]==0:
-            def K(azimuth,polar):
+            def K(azimuth=None,polar=None):
                 return (1+np.cos(polar)**2)/2.
         else:
             S10 = self.S[1]/self.S[0]
             S20 = self.S[2]/self.S[0]
-            def K(azimuth,polar):
+            def K(azimuth=None,polar=None):
                 a = (1+np.cos(polar)**2)/2.
                 ph = 2*azimuth
                 cosph = np.cos(ph)
@@ -777,7 +777,7 @@ class Stokes(object):
         k = kev_to_mc2(energy)
 
         if self.S[1]==0 and self.S[2]==0:
-            def K(azimuth,polar):
+            def K(azimuth=None,polar=None):
                 costh = np.cos(polar)
                 a = (1+costh**2)/2.
                 ph = 2*azimuth
@@ -789,7 +789,7 @@ class Stokes(object):
         else:
             S10 = self.S[1]/self.S[0]
             S20 = self.S[2]/self.S[0]
-            def K(azimuth,polar):
+            def K(azimuth=None,polar=None):
                 costh = np.cos(polar)
                 a = (1+costh**2)/2.
                 ph = 2*azimuth

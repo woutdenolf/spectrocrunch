@@ -25,17 +25,15 @@
 import numpy as np
 import re
 
-from . import stoichiometrybase
-from . import compound
+from . import multielementbase
 from . import compoundfromformula
 from . import compoundfromlist
 from . import element
 from . import types
 from . import stoichiometry
-from . import xrayspectrum
 from ..common import instance
 
-class Mixture(stoichiometrybase.StoichiometryBase):
+class Mixture(multielementbase.MultiElementBase):
 
     def __init__(self,compounds,frac,fractype,name=None):
         """
@@ -241,14 +239,6 @@ class Mixture(stoichiometrybase.StoichiometryBase):
                 else:
                     ret[e] = c_wfrac[c]*e_wfrac[e]
         return ret
-
-    @staticmethod
-    def _cs_scattering(method):
-        return method=="scattering_cross_section" or method=="compton_cross_section" or method=="rayleigh_cross_section"
-    
-    @staticmethod
-    def _cs_dict(method):
-        return method=="fluorescence_cross_section_lines"
         
     def _crosssection(self,method,E,fine=False,decomposed=False,**kwargs):
         """Calculate compound cross-sections
@@ -304,8 +294,7 @@ class Mixture(stoichiometrybase.StoichiometryBase):
                             else:
                                 ret[k] = w*v
             else:
-                ret = E*0.
-                
+                ret = None
                 for c in c_wfrac:
                     if self._cs_scattering(method) and not c.isscatterer:
                         continue
@@ -316,80 +305,19 @@ class Mixture(stoichiometrybase.StoichiometryBase):
                         environ = None
 
                     e_wfrac = c.massfractions()
-                    for e in c.elements:
-                        ret += c_wfrac[c]*e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
-        
+                    eret = sum(c_wfrac[c]*e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs) for e in c.elements)
+                    if ret is None:
+                        ret = eret
+                    else:
+                        ret += eret
+                        
         return ret
 
-    def mass_att_coeff(self,E,fine=False,decomposed=False,**kwargs):
-        """Mass attenuation coefficient (cm^2/g, E in keV). Use for transmission XAS.
-        """
-        return self._crosssection("mass_att_coeff",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def mass_abs_coeff(self,E,fine=False,decomposed=False,**kwargs):
-        """Mass absorption coefficient (cm^2/g, E in keV).
-        """
-        return self._crosssection("mass_abs_coeff",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def partial_mass_abs_coeff(self,E,fine=False,decomposed=False,**kwargs):
-        """Mass absorption coefficient for the selected shells and lines (cm^2/g, E in keV).
-        """
-        return self._crosssection("partial_mass_abs_coeff",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def scattering_cross_section(self,E,fine=False,decomposed=False,**kwargs):
-        """Scattering cross section (cm^2/g, E in keV).
-        """
-        return self._crosssection("scattering_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def compton_cross_section(self,E,fine=False,decomposed=False,**kwargs):
-        """Compton cross section (cm^2/g, E in keV).
-        """
-        return self._crosssection("compton_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def rayleigh_cross_section(self,E,fine=False,decomposed=False,**kwargs):
-        """Rayleigh cross section (cm^2/g, E in keV).
-        """
-        return self._crosssection("rayleigh_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def fluorescence_cross_section(self,E,fine=False,decomposed=False,**kwargs):
-        """XRF cross section (cm^2/g, E in keV). Use for fluorescence XAS.
-        """
-        return self._crosssection("fluorescence_cross_section",E,fine=fine,decomposed=decomposed,**kwargs)
-
-    def fluorescence_cross_section_lines(self,E,fine=False,decomposed=False,**kwargs):
-        """XRF cross section (cm^2/g, E in keV).  Use for XRF.
-        """
-        return self._crosssection("fluorescence_cross_section_lines",E,fine=fine,decomposed=decomposed,**kwargs)
-    
-    def xrayspectrum(self,E,weights=None,emin=0,emax=None):
-        E = instance.asarray(E)
-        if emax is None:
-            emax = E[-1]
-        self.markabsorber(energybounds=[emin,emax])
-        
-        spectrum = xrayspectrum.Spectrum()
-        spectrum.density = self.density
-        spectrum.update(self.fluorescence_cross_section_lines(E,decomposed=False))
-        spectrum[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E,decomposed=False)
-        spectrum[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E,decomposed=False)
-        spectrum.apply_weights(weights)
-        spectrum.xlim = [emin,emax]
-        spectrum.title = str(self)
-        spectrum.type = spectrum.TYPES.crosssection
-
-        return spectrum
-    
-    def refractive_index_re(self,E,**kwargs):
-        return 1-self.refractive_index_delta(E)
-        
-    def refractive_index_im(self,E,**kwargs):
-        return -self.refractive_index_beta(E)
-        
     def refractive_index_delta(self,E,fine=False,decomposed=False,**kwargs):
-        return compound.Compound.refractive_index_delta_calc(E,self.elemental_massfractions(),self.density,environ=None,**kwargs)
+        return self.refractive_index_delta_calc(E,self.elemental_massfractions(),self.density,environ=None,**kwargs)
     
     def refractive_index_beta(self,E,fine=False,decomposed=False,**kwargs):
-        return compound.Compound.refractive_index_beta_calc(E,self.elemental_massfractions(),self.density,environ=None,**kwargs)
+        return self.refractive_index_beta_calc(E,self.elemental_massfractions(),self.density,environ=None,**kwargs)
 
     def markinfo(self):
         yield "{}".format(self.name)
@@ -436,10 +364,6 @@ class Mixture(stoichiometrybase.StoichiometryBase):
                 return ret
         return None
 
-    @property
-    def pymcaname(self):
-        return self.name
-
     def topymca(self,defaultthickness=1e-4):
         return self.tocompound(self.pymcaname).topymca(defaultthickness=defaultthickness)
     
@@ -472,8 +396,4 @@ class Mixture(stoichiometrybase.StoichiometryBase):
             compounds = [compoundfromformula.CompoundFromFormula(c,dic["Density"]) for c in lst]
             wfrac = dic["CompoundFraction"]
             return cls(compounds,wfrac,types.fraction.mass,name=dic["Comment"])
-
-    def fisxgroups(self,emin=0,emax=np.inf):
-        self.markabsorber(energybounds=[emin,emax])
-        return {el:el.shells for el in self.elements}
 

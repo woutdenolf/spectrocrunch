@@ -911,7 +911,9 @@ class Multilayer(with_metaclass(cache.Cache)):
             gen[k] = gen[k]*eff
             
     @cache.withcache("layerinfo")
-    def xrayspectrum(self, energy0, emin=0, emax=None, method="analytical", ninteractions=1, weights=None, scattering=True, withdetectorattenuation=True):
+    def xrayspectrum(self, energy0, emin=0, emax=None, method="analytical", \
+                    ninteractions=1, weights=None, scattering=True, \
+                    withdetectorattenuation=True):
     
         if method=="fisx":
             if scattering:

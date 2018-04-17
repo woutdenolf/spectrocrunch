@@ -60,7 +60,7 @@ class Synchrotron(Source):
         if "dop" not in polparams:
             polparams["dop"] = 0.7# degree of polarization (in [0,1])
         if "dolp" not in polparams:
-            polparams["dolp"] = 0.9*polparams["dop"]# degree of linear polarization (in [0,dop])
+            polparams["dolp"] = 0.95*polparams["dop"]# degree of linear polarization (in [0,dop])
         if "polangle" not in polparams:
             polparams["polangle"] = 0 # angle of polarization ellipse with respect to the horizontal direction (in [-90,90])
         if "handedness" not in polparams:
