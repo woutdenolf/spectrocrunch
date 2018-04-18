@@ -933,7 +933,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         if method=="fisx":
             gen = self._rates_fisx(energy0,weights,ninteractions,emin=emin,emax=emax)
         else:
-            geomkwargs=self.geometry.xrayspectrumkwargs()
+            geomkwargs = self.geometry.xrayspectrumkwargs()
             with self.cachectx("interactioninfo",energy0,emin=emin,emax=emax,\
                                 ninteractions=ninteractions,\
                                 geomkwargs=geomkwargs):

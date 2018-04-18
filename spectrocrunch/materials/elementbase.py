@@ -53,6 +53,7 @@ class ElementBase(object):
         spectrum.density = self.density
         spectrum.xlim = [emin,emax]
         spectrum.title = str(self)
+        spectrum.geomkwargs = kwargs
         
         return spectrum
         

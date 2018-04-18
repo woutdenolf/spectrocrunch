@@ -74,7 +74,7 @@ class QXRFGeometry(with_metaclass(object)):
         if self.diodeI0 is None:
             diodeI0 = None
         else:
-            diodeI0 = self.diodeI0.geometry
+            diodeI0 = self.diodeI0
             if hasattr(diodeI0,"geometry"):
                 diodeI0 = diodeI0.geometry
         

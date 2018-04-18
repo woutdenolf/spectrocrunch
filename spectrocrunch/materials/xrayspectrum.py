@@ -514,8 +514,8 @@ class ComptonLine(ScatteringLine):
         """
         if polar==0 or polar is None:
             return self.energysource
-        delta = ureg.Quantity(1-np.cos(polar),"1/(m_e*c^2)").to("1/keV","spectroscopy").magnitude
-        return self.energysource/(1+self.energysource*delta) 
+        m = ureg.Quantity(1-np.cos(polar),"1/(m_e*c^2)").to("1/keV","spectroscopy").magnitude
+        return self.energysource/(1+self.energysource*m) 
         
 
 class Spectrum(dict):
@@ -533,15 +533,24 @@ class Spectrum(dict):
         self.xlabel = "Energy (keV)"
         self.type = None
         self.geometry = None
+        self.geomkwargs = {}
 
     @property
     def geomkwargs(self):
         if self.geometry is None:
-            geomkwargs = {"polar":np.pi/2,"azimuth":0}
+            geomkwargs = self._geomkwargs
         else:
             geomkwargs = self.geometry.xrayspectrumkwargs()
         return geomkwargs
     
+    @geomkwargs.setter
+    def geomkwargs(self,value):
+        keys = ["polar","azimuth"]
+        if not hasattr(self,"_geomkwargs"):
+            self._geomkwargs = {}
+        for k in keys:
+            self._geomkwargs[k] = value.get(k,None)
+
     @property
     def mcagain(self):
         if self.geometry is None:
@@ -970,7 +979,7 @@ class Spectrum(dict):
         profiles = profiles.sum(axis=-1)
         return energies,profiles,ylabel
         
-    def plot(self,convert=True,fluxtime=None,mark=True,log=False,decompose=True,\
+    def plot(self,convert=False,fluxtime=None,mark=True,log=False,decompose=True,\
                  histogram=False,backfunc=None,voigt=False,forcelines=False,legend=True,\
                  sumlabel="sum",title=""):
         """X-ray spectrum or cross-section lines

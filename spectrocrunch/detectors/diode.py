@@ -527,8 +527,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             spectrum = self.secondarytarget.xrayspectrum(energy,weights=weights,withdetectorattenuation=False) 
 
             # Extract energies and rates (ph/phsource)
-            kwargs = self.geometry.xrayspectrumkwargs()
-            energy,Y = zip(*list(spectrum.spectrum(**kwargs)))
+            energy,Y = zip(*list(spectrum.spectrum()))
             
             energy = np.asarray(energy)
             nE2 = len(energy)
