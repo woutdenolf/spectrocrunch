@@ -516,7 +516,18 @@ class ComptonLine(ScatteringLine):
             return self.energysource
         m = ureg.Quantity(1-np.cos(polar),"1/(m_e*c^2)").to("1/keV","spectroscopy").magnitude
         return self.energysource/(1+self.energysource*m) 
-        
+    
+    def scatteringangle(self,energy):
+        """
+        Args:
+            energy(num): scattering energy in keV
+            
+        Returns:
+            polar(num): radians
+        """
+        m = ureg.Quantity(1./energy-1./self.energysource,"1/keV").to("1/(m_e*c^2)","spectroscopy").magnitude
+        return np.arccos(np.clip(1-m,-1,1))
+
 
 class Spectrum(dict):
 
@@ -587,21 +598,23 @@ class Spectrum(dict):
             if convert:
                 if phsource:
                     label = "Intensity"
+                    units = "ph/cm/srad"
                 else:
                     label = "Probability"
-                units = "1/cm/srad"
+                    units = "1/cm/srad"
             else:
                 label = "Cross-section"
                 units = "cm$^2$/g"
                 if phsource:
-                    units = "{}.phsource".format(units)
+                    units = "{}.ph".format(units)
         elif self.type==self.TYPES.diffcrosssection:
             if convert:
                 if phsource:
                     label = "Intensity"
+                    units = "ph/cm/srad"
                 else:
                     label = "Probability"
-                units = "1/cm/srad"
+                    units = "1/cm/srad"
             else:
                 label = "Differential cross-section"
                 units = "cm$^2$/g/srad"

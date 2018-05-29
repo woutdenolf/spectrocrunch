@@ -60,7 +60,12 @@ def exportedf(h5name,**kwargs):
     
     instrument = getinstrument(kwargs)
 
-    path = os.path.join(os.path.dirname(h5name),"results")
+    path = os.path.basename(h5name)
+    n = 0
+    while len(path)!=n:
+        n = len(path)
+        path = os.path.splitext(path)[0]
+    path = os.path.join(os.path.dirname(h5name),"{}_results".format(path))
     
     # not necessary but clean in case of reruns
     if os.path.isdir(path):

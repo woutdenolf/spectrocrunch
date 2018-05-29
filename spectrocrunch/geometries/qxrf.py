@@ -223,13 +223,38 @@ class QXRFGeometry(with_metaclass(object)):
         """
         if expotime is None:
             expotime = self.defaultexpotime
+        else:
+            expotime = units.Quantity(expotime,"s")
+            
         if reference is None:
             reference = self.reference
+        else:
+            reference = units.Quantity(reference,"dimensionless")
+            
         if referencetime is None:
             referencetime = self.referencetime
+        else:
+            referencetime = units.Quantity(referencetime,"s")
             
         ret = self.diodeI0.xrfnormop(energy,expotime,reference,referencetime=referencetime,weights=weights)
         return ret+(units.umagnitude(expotime,"s"),)
+    
+    def quantinfo(self,*args,**kwargs):
+        """
+        Args:
+            see xrfnormop
+        
+        Returns:
+            op(linop): raw diode conversion operator
+            info(dict): pymca quantification info (flux and geometry)
+        """
+        quant = {}
+        quant["activearea"] = self.xrfgeometry.detector.activearea
+        quant["anglein"] = self.xrfgeometry.anglein
+        quant["angleout"] = self.xrfgeometry.angleout
+        quant["distance"] = self.getxrfdistance()
+        xrfnormop,quant["flux"],quant["time"],expotime = self.xrfnormop(*args,**kwargs)
+        return xrfnormop,quant
         
     def I0op(self,energy,expotime=None,weights=None):
         if expotime is None:

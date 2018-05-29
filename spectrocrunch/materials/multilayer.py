@@ -732,11 +732,13 @@ class Multilayer(with_metaclass(cache.Cache)):
         emax = setup.emax
         emin = setup.emin
         
+        if "peaks" not in cfg:
+            cfg["peaks"] = {}
         for e in elements:
             shells = e.pymcashellfactory(emin=emin,emax=emax)
             if shells:
                 cfg["peaks"][str(e)] = shells
-
+                
     def addtopymca(self,setup,cfg):
         if self.nlayers==1:
             name = setup.addtopymca_material(cfg,self[0],defaultthickness=self[0].thickness)
@@ -748,7 +750,7 @@ class Multilayer(with_metaclass(cache.Cache)):
                 self.addtopymca_shells(setup,cfg,layer.elements)
             self.addtopymca_matrix(setup,cfg,'MULTILAYER')
         self.geometry.addtopymca(setup,cfg)
-    
+        
     def loadfrompymca(self,setup,cfg):
         self.geometry.loadfrompymca(setup,cfg)
         name,density,thickness = self.loadfrompymca_matrix(setup,cfg)

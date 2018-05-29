@@ -109,7 +109,7 @@ class Element(hashable.Hashable,elementbase.ElementBase):
 
         # Information for calculating partial cross-sections
         self.shells = []
-        
+    
     def _cmpkey(self):
         """For comparing and sorting
         """
