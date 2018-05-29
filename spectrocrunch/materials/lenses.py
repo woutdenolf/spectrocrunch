@@ -57,13 +57,21 @@ class Lens(with_metaclass()):
         ratios = visspectrum.ratios
         return np.sum(ratios * np.exp(-linatt*self.thickness))
     
-    def lightyield(self,nrefrac):
+    def lightyield(self,nrefrac,source="point"):
         #air = visirlib.Material("other","air","Ciddor")
         #nmedium = np.mean(air.refractive_index(visspectrum.energies))
         nmedium = 1 # vacuum
-        return ( np.tan(np.arcsin(self.NA/nmedium))*self.magnification/(2*(self.magnification+1.)*nrefrac) )**2
+
+        if source=="point":
+            k = np.tan(np.arcsin(self.NA/nmedium)) # == 1/(2.F#)
+            return k**2*self.magnification**2/(2*(self.magnification+1.))**2
+        elif source=="lambertian":
+            k = np.tan(np.arcsin(self.NA/nmedium)) # == 1/(2.F#)
+            return self.magnification**2/(((self.magnification+1.)/k)**2+self.magnification**2)
+        else:
+            return self.NA**2/4.
         
-    def propagate(self,N,visspectrum,nrefrac=None,forward=True):
+    def propagate(self,N,visspectrum,nrefrac=None,source="point",forward=True):
         """Error propagation of a number of photons.
                
         Args:
@@ -81,8 +89,10 @@ class Lens(with_metaclass()):
         # Transmission of visible light
         #
         # http://onlinelibrary.wiley.com/doi/10.1118/1.598055/pdf
-        # Non-Lambertian:
-        # coupling efficiency = T.(M / (4.F#.(1+M).nscint))^2
+        # Point source:
+        #   coupling efficiency = T.(M / (4.F#.(1+M).nscint))^2
+        # Lambertian source:
+        #   coupling efficiency = T.(M^2 / (4.F#^2.(1+M)^2 + M^2))
         #
         #   1/So + 1/Si = 1/f
         #   F# = f/d
@@ -102,7 +112,7 @@ class Lens(with_metaclass()):
         
         N,probsuccess = self.propagate_broadcast(N,probsuccess)
         
-        lightyield = self.lightyield(nrefrac)
+        lightyield = self.lightyield(nrefrac,source=source)
         
         if instance.israndomvariable(N):
             if forward:
@@ -124,21 +134,21 @@ class Lens(with_metaclass()):
 
 class mitutoyoid21_10x(Lens):
     """
-    Mitutoyo M Plan Apo 20x 0.42 f = 200 mm
+    Mitutoyo M Plan Apo HR 10x 0.42 f = 200 mm
     """
     aliases = ["Mitutoyo ID21 10x"]
 
     def __init__(self):
-        super(mitutoyoid21_10x, self).__init__(magnification=10, NA=0.42, thickness=7.5, material=Material("glass","BK7","SCHOTT"))
+        super(mitutoyoid21_10x, self).__init__(magnification=10, NA=0.42, thickness=8., material=Material("glass","BK7","SCHOTT"))
 
 class mitutoyoid21_20x(Lens):
     """
-    Mitutoyo M Plan Apo HR 10x 0.42 f = 200 mm
+    Mitutoyo M Plan Apo 20x 0.42 f = 200 mm
     """
     aliases = ["Mitutoyo ID21 20x"]
 
     def __init__(self):
-        super(mitutoyoid21_20x, self).__init__(magnification=20, NA=0.42, thickness=8., material=Material("glass","BK7","SCHOTT"))
+        super(mitutoyoid21_20x, self).__init__(magnification=20, NA=0.42, thickness=7.5, material=Material("glass","BK7","SCHOTT"))
 
 classes = Lens.clsregistry
 aliases = Lens.aliasregistry
