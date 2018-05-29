@@ -146,5 +146,9 @@ class XanesSpec(Text):
                 sheet = self.output.get("sheet","Sheet1")
                 df = pd.DataFrame(self.interpolate(),index=self.labels)
                 df.to_excel(writer,sheet)
-                
+                worksheet = writer.sheets[sheet]
+                worksheet.set_column(0, len(df.columns)+1, 25)
+                worksheet.freeze_panes(1, 1)
+        
+
 

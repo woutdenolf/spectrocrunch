@@ -74,9 +74,5 @@ def ChromaticityTriangle(fig,rect,ternaryinfo,debug=False,additive=True):
     ax.tripcolor(triangles, z, shading='gouraud', cmap=colormap.RGBcolormap(),\
                         norm=pltcolors.Normalize(vmin=0.,vmax=2.**24-1))
 
-    if debug:
-        ax.triplot(triangles, 'bo-', lw=1, color=(1,0,0))
-        ternary_diagram.TernaryPoint(ax,ternaryinfo,ternary_diagram.TernaryCoordinates(left=0.2,right=0.6,top=0.2))
-
     return ax
     

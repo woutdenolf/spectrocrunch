@@ -33,6 +33,7 @@ from ..common import listtools
 from ..common import instance
 from ..common import units
 from ..common.hashable import Hashable
+from ..math.common import floatformat
 from .. import ureg
 from . import colorbar_rgb
 
@@ -56,7 +57,9 @@ def ColorNorm(name,*args):
     else:
         norm = lambda **kwargs: pltcolors.Normalize(*args,**kwargs)
     return norm
-    
+
+def ColorNormLinear(name):
+    return name!="log" and name!="power" and name!="symlog"
     
 class Geometry2D(object):
     
@@ -643,11 +646,12 @@ class Image(Item):
                   "cnorm":None,\
                   "cnormargs":(),\
                   "legend":True,\
-                  "fontsize":12,\
+                  "fontsize":matplotlib.rcParams['font.size'],\
                   "fontweight":500,\
                   "legendposition":"RT",\
                   "channels":None,\
-                  "colorbar":False}
+                  "colorbar":False,\
+                  "compositions":{}}
         
     def datarange(self,dataaxis,border=False):
         lim = self.scene.datatransform(self.lim[dataaxis],dataaxis)
@@ -714,11 +718,22 @@ class Image(Item):
         return x+xchar*ox,y+ychar*oy,xchar*dx,ychar*dy,horizontalalignment,verticalalignment
 
     def bordercoord(self):
-        x = sorted(self.datalimy)
+        x = sorted(self.datalimx)
         y = sorted(self.datalimy)
         x = [x[0],x[1],x[1],x[0],x[0]]
         y = [y[0],y[0],y[1],y[1],y[0]]
         return x,y
+
+    @classmethod
+    def compositioncolor(cls,name,v,vmin,vmax):
+        color = [0,0,0]
+        v2 = [0,0,0]
+        for i,(c,mi,ma) in enumerate(zip(v,vmin,vmax)):
+            v2[i] = c
+            if mi is not None and ma is not None:
+                color[i] = max(min((c-mi)/(ma-mi),1),0)
+                v2[i] = color[i]*(ma-mi) + mi
+        return name,v2,color
 
     def updateview(self):
         scene = self.scene
@@ -769,7 +784,12 @@ class Image(Item):
         
         # Legend
         xlabel,ylabel,dx,dy,horizontalalignment,verticalalignment = self.labelxy
-
+        
+        compositions = []
+        if nchannels>1:
+            for name,comp in settings["compositions"].items():
+                compositions.append(self.compositioncolor(name,comp,vmin,vmax))
+        
         # Create/update objects
         items = self.sceneitems
         newitems = OrderedDict()
@@ -810,10 +830,19 @@ class Image(Item):
         if settings["colorbar"]:
             # TODO: update existing color bar?
             if norm is None:
-                # Triangle: cannot handle normcb which is not linear
-                #colorbar_rgb.triangle(vmin=vmin,vmax=vmax,names=self.labels)
-                newitems.update(colorbar_rgb.bars(vmin=vmin,vmax=vmax,names=labels,norms=normcb,ax=scene.ax))
-                labels = []
+                ## Triangle: cannot handle normcb which is not linear
+                #if settings["colorbar"]==2 and ColorNormLinear(settings["cnorm"]):
+                #    #This assumes sum is 1 so not useful here
+                #    colorbar_rgb.triangle(vmin=vmin,vmax=vmax,names=self.labels,compositions = compositions)
+                #else:
+                #    newitems.update(colorbar_rgb.bars(vmin=vmin,vmax=vmax,names=labels,norms=normcb,ax=scene.ax))
+                #    labels = []
+        
+                for i,(name,mi,ma) in enumerate(zip(labels,vmin,vmax)):
+                    if name is not None:
+                        fmt = floatformat(ma,2)
+                        fmt = "{{}} [{{{}}},{{{}}}]".format(fmt,fmt)
+                        labels[i] = fmt.format(name,mi,ma)
             else:
                 newitems["colorbar"] = plt.colorbar(newitems["image"])
  
@@ -829,6 +858,11 @@ class Image(Item):
             if nchannels>3:
                 colors.extend([None]*(nchannels-3))
             colors = colors[0:nchannels]
+        
+        for name,value,color in compositions:
+            if name not in labels:
+                labels.append(name)
+                colors.append(color)
 
         i = -1
         for label,color in zip(labels,colors):
@@ -882,7 +916,7 @@ class Scatter(Item):
         return {"color":None,"marker":"+","linestyle":"","linewidth":2,\
                 "fill":False,"alpha":None,"closed":False,"labels":True,\
                 "horizontalalignment":"left","verticalalignment":"bottom",\
-                "fontsize":12,"labeloffset":0.1,"fontweight":500}
+                "fontsize":matplotlib.rcParams['font.size'],"labeloffset":0.1,"fontweight":500}
 
     def updateview(self):
         scene = self.scene

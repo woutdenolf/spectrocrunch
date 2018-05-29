@@ -72,4 +72,17 @@ class LambdaColormap(pltcolors.Colormap):
 
 def RGBcolormap():
     return LambdaColormap("RGB",NormalizedToRGB,N=2**24-1)
-    
+
+def Linearcolormap(name,a,b,alpha=None):
+    a = pltcolors.to_rgba(a,alpha=alpha)
+    b = pltcolors.to_rgba(b,alpha=alpha)
+    cdict = {'red':  [(0.0,a[0],a[0]),
+                      (1.0,b[0],b[0])],
+             'green':[(0.0,a[1],a[1]),
+                      (1.0,b[1],b[1])],
+             'blue': [(0.0,a[2],a[2]),
+                      (1.0,b[2],b[2])],
+             'alpha':[(0.0,a[3],a[3]),
+                      (1.0,b[3],b[3])]}
+    return pltcolors.ListedColormap(name,cdict)
+

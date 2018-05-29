@@ -110,13 +110,14 @@ class ImageCoordinates(Coordinates):
         
         # Scan offsets
         for mot in self.instrument.compensationmotors[motdim0]:
-            off,func = instance.asarrayf(offsets[mot])
+            off,func = instance.asarrayf(offsets[mot][0])
             if not instance.isnumber(off[0]):
                 off = off.astype(float)
             off = func(off)
             axis0values = axis0values+self.motorpositions(off,mot)
+            
         for mot in self.instrument.compensationmotors[motdim1]:
-            off,func = instance.asarrayf(offsets[mot])
+            off,func = instance.asarrayf(offsets[mot][0])
             if not instance.isnumber(off[0]):
                 off = off.astype(float)
             off = func(off)
@@ -350,7 +351,7 @@ class Nexus(ImageCoordinates):
                 raise RuntimeError("Expected exactly two scanning dimensions: {}".format(axesnames))
             axes = listtools.listadvanced_bool(axes,b)
             axesnames = listtools.listadvanced_bool(axesnames,b)
-            
+
             # Store coordinates
             self.setcoordinates(axes[0][:],axes[1][:],axesnames[0],axesnames[1],ocoord)
         
