@@ -385,13 +385,13 @@ class PymcaHandle(PymcaBaseHandle):
         cfg["fit"]["snipwidth"] = 100
     
     def addtopymca_other(self,cfg):
-        cfg["fit"]["escapeflag"] = self.escape
-        cfg["fit"]["linearfitflag"] = self.linear
+        cfg["fit"]["escapeflag"] = int(self.escape)
+        cfg["fit"]["linearfitflag"] = int(self.linear)
         cfg["concentrations"]["usemultilayersecondary"] = self.ninteractions-1
     
     def loadfrompymca_other(self,cfg):
-        self.escape = cfg["fit"]["escapeflag"]
-        self.linear = cfg["fit"]["linearfitflag"]
+        self.escape = bool(cfg["fit"]["escapeflag"])
+        self.linear = bool(cfg["fit"]["linearfitflag"])
         self.ninteractions = cfg["concentrations"]["usemultilayersecondary"]+1
         
     def addtopymca_material(self,cfg,material,defaultthickness=1e-4):
