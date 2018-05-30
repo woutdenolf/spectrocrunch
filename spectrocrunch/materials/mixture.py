@@ -35,7 +35,7 @@ from ..common import instance
 
 class Mixture(multielementbase.MultiElementBase):
 
-    def __init__(self,compounds,frac,fractype,name=None):
+    def __init__(self,compounds,frac,fractype=None,name=None):
         """
         Args:
             compounds(list[obj]): list of compound objects

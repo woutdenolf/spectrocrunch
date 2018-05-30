@@ -391,10 +391,10 @@ class Multilayer(with_metaclass(cache.Cache)):
             #  column -> interaction
             #  index -> [layer,source]
             probs = [None]*_nlayers
-            probs[1:-1] = [pd.DataFrame.from_items(layer.xrayspectrum(energy,emin=emin,emax=emax).probabilities) for layer in self]
+            probs[1:-1] = [pd.DataFrame.from_dict(dict(layer.xrayspectrum(energy,emin=emin,emax=emax).probabilities)) for layer in self]
             probs[0] = pd.DataFrame(index=range(nenergy))
             probs[-1] = probs[0]
-            probs = pd.concat(probs)
+            probs = pd.concat(probs,sort=True)
             probs.fillna(0., inplace=True)
             probs.index = pd.MultiIndex.from_product([np.arange(_nlayers), range(nenergy)],names=["layer","source"])
 
