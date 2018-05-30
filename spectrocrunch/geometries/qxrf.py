@@ -176,8 +176,10 @@ class QXRFGeometry(with_metaclass(object)):
                 self.diodeI0.secondarytarget.geometry.source = self.source
             self.diodeI0.simplecalibration = self.simplecalibration
         if self.xrfgeometry is not None:
-            self.xrfgeometry.detector = self.xrfdetector
-            self.xrfgeometry.source = self.source
+            if self.xrfdetector is not None:
+                self.xrfgeometry.detector = self.xrfdetector
+            if self.source is not None:
+                self.xrfgeometry.source = self.source
 
     def setxrfposition(self,value):
         self.xrfgeometry.detectorposition = value
@@ -259,7 +261,7 @@ class QXRFGeometry(with_metaclass(object)):
     def I0op(self,energy,expotime=None,weights=None):
         if expotime is None:
             expotime = self.defaultexpotime
-        op = self.diodeI0.fluxop(energy,expotime)
+        op = self.diodeI0.fluxop(energy,expotime,weights=weights)
         return op,expotime
 
     def Itop(self,energy,expotime=None,weights=None):

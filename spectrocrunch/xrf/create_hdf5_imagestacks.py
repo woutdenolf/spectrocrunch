@@ -310,7 +310,7 @@ def createimagestacks(config,qxrfgeometry=None):
                         stacks[name]["calc_fluxt"] = [""]*nstack
                         stacks[name]["calc_transmission"] = [""]*nstack
                     stacks[name]["calc_fluxt"][imageindex] = {"args":[(name,config["transmissioncounter"])],"func":op}
-                    stacks[name]["calc_transmission"][imageindex] = {"args":[(name,"calc_flux0"),(name,"calc_fluxt")],"func":lambda a,b: -np.log(a/b.astype(np.float32))}
+                    stacks[name]["calc_transmission"][imageindex] = {"args":[(name,"calc_fluxt"),(name,"calc_flux0")],"func":lambda a,b: -np.log(a/b.astype(np.float32))}
                     
     # Fit data and add elemental maps
     if fit:
@@ -434,7 +434,7 @@ def exportgroups(f,stacks,axes,stackdim,imgdim,stackshape,proc):
                         else:
                             data = dset[...,iscan]
                         args.append(data)
-                    
+
                     data = datainfo["func"](*args)
                 else:
                     if isinstance(datainfo,dict):

@@ -182,7 +182,9 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines=None,quant=None,fast=False):
     if fast:
         if cfg["fit"]["linearfitflag"]==0:
             cfg["fit"]["linearfitflag"] = 1
-            
+        
+        if "strategyflag" not in cfg["fit"]:
+            cfg["fit"]["strategyflag"] = 0
         if cfg["fit"]["strategyflag"]:
             cfg["fit"]["strategyflag"] = 0
 
