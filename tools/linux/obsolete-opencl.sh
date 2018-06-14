@@ -9,9 +9,9 @@ source $SCRIPT_ROOT/funcs.sh
 initEnv
 
 # ============Install AMD SDK============
-export AMDAPPSDKROOT=$SPECTROCRUNCHOPT/AMDAPPSDK
-AMDAPPSDKROOTSTR=$SPECTROCRUNCHOPTSTR/AMDAPPSDK
-if [[ $INSTALL_SYSTEMWIDE == true ]]; then    
+export AMDAPPSDKROOT=$(project_opt)/AMDAPPSDK
+AMDAPPSDKROOTSTR=$(project_optstr)/AMDAPPSDK
+if [[ $(install_systemwide) == true ]]; then    
     export OPENCL_VENDOR_PATH=/etc/OpenCL/vendors
     OPENCL_VENDOR_PATHSTR="/etc/OpenCL/vendors"
 else
@@ -41,7 +41,7 @@ if [[ $NOTDRY == true ]]; then
 
     # Register the ICD
     mkdir -p $OPENCL_VENDOR_PATH
-    if [ "$OS_ARCH" == "64" ]; then
+    if [[ $(os_arch) == 64 ]]; then
         if [ ! -f $OPENCL_VENDOR_PATH/amdocl64.icd ]; then
             echo libamdocl64.so > $OPENCL_VENDOR_PATH/amdocl64.icd
         fi
@@ -52,20 +52,20 @@ if [[ $NOTDRY == true ]]; then
     fi
 
     # Environment variables
-    addProfile $SPECTROCRUNCHRC "# Installed AMD SDK: $AMDAPPSDKROOTSTR"
-    addProfile $SPECTROCRUNCHRC "export AMDAPPSDKROOT=$AMDAPPSDKROOTSTR"
-    addProfile $SPECTROCRUNCHRC "export OPENCL_VENDOR_PATH=$OPENCL_VENDOR_PATHSTR"
-    if [ "$OS_ARCH" == "64" ]; then
+    addProfile $(project_resource) "# Installed AMD SDK: $AMDAPPSDKROOTSTR"
+    addProfile $(project_resource) "export AMDAPPSDKROOT=$AMDAPPSDKROOTSTR"
+    addProfile $(project_resource) "export OPENCL_VENDOR_PATH=$OPENCL_VENDOR_PATHSTR"
+    if [[ $(os_arch) == 64 ]]; then
         addLibPath $AMDAPPSDKROOT/lib/x86_64
-        addLibPathProfile $SPECTROCRUNCHRC "\$AMDAPPSDKROOT/lib/x86_64"
+        addLibPathProfile $(project_resource) "\$AMDAPPSDKROOT/lib/x86_64"
     else
         addLibPath $AMDAPPSDKROOT/lib/x86
-        addLibPathProfile $SPECTROCRUNCHRC "\$AMDAPPSDKROOT/lib/x86"
+        addLibPathProfile $(project_resource) "\$AMDAPPSDKROOT/lib/x86"
     fi
     addInclPath $AMDAPPSDKROOT/include
 
     # Show info
-    if [ "$OS_ARCH" == "64" ]; then
+    if [[ $(os_arch) == 64 ]]; then
         chmod +x $AMDAPPSDKROOT/bin/x86_64/clinfo
         $AMDAPPSDKROOT/bin/x86_64/clinfo
     else

@@ -49,11 +49,11 @@ if [[ $TIMELEFT == true && ! -f ITK/build/Makefile ]]; then
                       -DITK_WRAP_rgb_unsigned_short:BOOL=ON
                       -DITK_WRAP_PYTHON:BOOL=OFF
                       -DINSTALL_WRAP_ITK_COMPATIBILITY:BOOL=OFF"
-        if [[ $SYSTEM_PRIVILIGES == true ]]; then
+        if [[ $(system_privileges) == true ]]; then
             cmake $CMAKE_PARAMS ../ITK
         else
-            mkdir -p $SPECTROCRUNCHLOCAL
-            cmake -DCMAKE_INSTALL_PREFIX:PATH="$SPECTROCRUNCHLOCAL" $CMAKE_PARAMS ../ITK
+            mkdir -p $(project_prefix)
+            cmake -DCMAKE_INSTALL_PREFIX:PATH="$(project_prefix)" $CMAKE_PARAMS ../ITK
         fi
     fi
 
@@ -82,12 +82,12 @@ if [[ $TIMELEFT == true ]]; then
     if [[ $NOTDRY == true ]]; then
         mmakeinstall
 
-        addProfile $SPECTROCRUNCHRC "# Installed ITK: $SPECTROCRUNCHLOCALSTR"
-        addLibPath $SPECTROCRUNCHLOCAL/lib
-        addLibPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/lib"
+        addProfile $(project_resource) "# Installed ITK: $(project_prefixstr)"
+        addLibPath $(project_prefix)/lib
+        addLibPathProfile $(project_resource) "$(project_prefixstr)/lib"
 
         # Variable needed by simpleelastix:
-        ITK_DIR=$SPECTROCRUNCHLOCAL/lib/cmake
+        ITK_DIR=$(project_prefix)/lib/cmake
         ITK_DIR=$ITK_DIR/$(find $ITK_DIR -maxdepth 1 -type d -name 'ITK-*' -printf %f -quit)
         cprint "ITK directory: $ITK_DIR"
     fi

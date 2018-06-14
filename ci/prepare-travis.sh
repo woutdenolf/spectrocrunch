@@ -4,34 +4,34 @@
 # 
 
 # Download pre-build libraries
-PYTHONV=`python -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)";`
+PYTHONV=`python -c "import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)"`
 
-cd $BUILD_FOLDER
+cd ${BUILD_FOLDER}
 
 if [ ! -d ${PYTHONV} ]; then
     FILE=spectrocrunch.travis.python${PYTHONV}.tgz
-    LINK1=https://transfer.sh/12avMO/$FILE
-    LINK2=http://ftp.esrf.fr/tmp/$FILE
+    LINK1=https://transfer.sh/12avMO/${FILE}
+    LINK2=http://ftp.esrf.fr/tmp/${FILE}
 
     # Download to cache folder
-    cd $CACHED_FOLDER
+    cd ${CACHED_FOLDER}
     ls -all
-    if [ ! -f $FILE ]; then
+    if [ ! -f ${FILE} ]; then
         echo "Download pre-build libraries ..."
         wget ${LINK1}
         ls -all
-        if [ ! -f $FILE ]; then
+        if [ ! -f ${FILE} ]; then
             wget ${LINK2}
         fi
     fi
 
     # Unpack in build folder
-    if [ -f $FILE ]; then
+    if [ -f ${FILE} ]; then
         echo "Unpack pre-build libraries ..."
-        tar -xzf $FILE -C $BUILD_FOLDER
+        tar -xzf ${FILE} -C ${BUILD_FOLDER}
     fi
     
-    cd $BUILD_FOLDER
+    cd ${BUILD_FOLDER}
 fi
 
 # List pre-build libraries   

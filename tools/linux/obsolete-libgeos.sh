@@ -31,12 +31,10 @@ if [ ! -f libgeos/build/lib/libgeos.so ]; then
 
     cprint "Configure libgeos ..."
     if [[ $NOTDRY == true ]]; then
-        if [[ $INSTALL_SYSTEMWIDE == true ]]; then
-            cmake ../geos
-        else
-            mkdir -p $SPECTROCRUNCHLOCAL
-            cmake -DCMAKE_INSTALL_PREFIX:PATH="$SPECTROCRUNCHLOCAL" ../geos
-        fi
+        PREFIX=$(project_prefix)
+        PREFIXSTR=$(project_prefix)
+        mkdir -p ${PREFIX}
+        cmake -DCMAKE_INSTALL_PREFIX:PATH="${PREFIX}" ../geos
     fi
 
     cprint "Build libgeos ..."
@@ -52,9 +50,9 @@ cprint "Install libgeos ..."
 if [[ $NOTDRY == true ]]; then
     mmakeinstall
 
-    addProfile $SPECTROCRUNCHRC "# Installed libgeos: $SPECTROCRUNCHLOCALSTR"
-    addLibPath $SPECTROCRUNCHLOCAL/lib
-    addLibPathProfile $SPECTROCRUNCHRC "$SPECTROCRUNCHLOCALSTR/lib"
+    addProfile $(project_resource) "# Installed libgeos: ${PREFIXSTR}"
+    addLibPath ${PREFIX}/lib
+    addLibPathProfile $(project_resource) "${PREFIXSTR}/lib"
 fi
 
 BUILDSTEP=$(( $BUILDSTEP+1 ))

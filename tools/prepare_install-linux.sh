@@ -1,17 +1,16 @@
 #!/bin/bash
 # 
-# This script will install all spectrocrunch Python 2 and 3 dependencies.
+# This script will install all system and python dependencies.
 # 
 
 # ============Usage============
 show_help()
 {
   echo "
-        Usage: prepare_installation  [-v version] [-y] [-t] [-d]
+        Usage: prepare_installation  [-v version] [-y] [-d]
 
         -v version      Python version to be used (2, 3, 2.7, 3.5, ...).
         -y              Answer yes to everything.
-        -t              Time limited build.
         -d              Dry run.
         -u              Install for user only.
 
@@ -21,179 +20,124 @@ show_help()
        "
 }
 
-# ============Initialize environment============
-SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SCRIPT_ROOT/funcs.sh
-resetEnv
-
-# ============Adapt environment based on script arguments============
+# ============Parse script arguments============
+GLOBAL_SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+GLOBAL_WD=$(pwd)
 OPTIND=0
-while getopts "v:uythd" opt; do
+ARG_SYSTEMWIDE=true
+ARG_DRY=false
+ARG_FORCECHOICE=false
+ARG_PYTHONV=""
+while getopts "v:uyhd" opt; do
   case $opt in
     h)
       show_help
-      cd $RESTORE_WD
-      return $RETURNCODE_ARG
+      return 0
       ;;
     y)
-      FORCECHOICE="y"
-      ;;
-    t)
-      TIMELIMITED=true
+      ARG_FORCECHOICE=true
       ;;
     u)
-      INSTALL_SYSTEMWIDE=false
+      ARG_SYSTEMWIDE=false
       ;;
     d)
-      NOTDRY=false
+      ARG_DRY=true
+      ;;
+    v)
+      ARG_PYTHONV=${OPTARG}
       ;;
     \?)
-      echo "Invalid option: -$OPTARG. Use -h flag for help." >&2
-      cd $RESTORE_WD
-      return $RETURNCODE_ARG
+      echo "Invalid option: -${OPTARG}. Use -h flag for help." >&2
+      return 1
       ;;
   esac
 done
-initEnv
 
-# ============Initialize Python============
-initPython
-Retval=$?
-if [ $Retval -ne 0 ]; then
-    cd $RESTORE_WD
-    return $Retval
+# ============Initialize environment============
+source $GLOBAL_SCRIPT_ROOT/linux/funcs-python.sh
+if [[ $(dryrun reset ${ARG_DRY}) == true ]]; then
+    cprint "This is a dry run."
 fi
+$(install_systemwide reset ${ARG_SYSTEMWIDE})
 
-mkdir -p ${PYTHONV}
-cd ${PYTHONV}
-INSTALL_WD=$(pwd)
+# ============Ask for confirmation to proceed============
+require_python ${ARG_PYTHONV}
+require_pip
 
-# ============Initialize Pip============
-initPip
-Retval=$?
-if [ $Retval -ne 0 ]; then
-    cd $RESTORE_WD
-    return $Retval
-fi
+python_info 
+pip_info
+cprint "Root priviliges: $(system_privileges)"
+cprint "System wide installation: $(install_systemwide)"
+cprint "Prefix for dependencies: $(project_prefix)"
+cprint "Opt directory: $(project_opt)"
 
-# ============Show information and ask to proceed============
-# /usr/lib/python2.7/dist-packages: system-wide, installed with package manager
-# /usr/local/lib/python2.7/dist-packages: system-wide, installed with pip
-#
-# /usr/lib/python2.7/site-packages:
-# /usr/local/lib/python2.7/site-packages:
-#
-# /usr/lib/python2.7:
-# /usr/lib/pymodules/python2.7:
-#
-# ~/.local/lib/python2.7/site-packages: user-only, installed with pip --user
-#
-# <virtualenv_name>/lib/python2.7/site-packages: virtual environment, installed with pip
-
-cprint "Python version: $PYTHONFULLV"
-cprint "Python location: $PYTHON_EXECUTABLE"
-cprint "Python include: $PYTHON_INCLUDE_DIR"
-cprint "Python library: $PYTHON_LIBRARY"
-cprint "Pip:$($PIPBIN --version| awk '{$1= ""; print $0}')"
-cprint "Root priviliges: $SYSTEM_PRIVILIGES"
-cprint "System wide installation: $INSTALL_SYSTEMWIDE"
-cprint "Prefix for dependencies: $SPECTROCRUNCHLOCAL"
-cprint "Opt directory: $SPECTROCRUNCHOPT"
-
-if [[ -z $FORCECHOICE ]]; then
-    read -p "Approximately 12GB of data will added to \"$(pwd)\". Continue (Y/n)?" CHOICE
+if [[ ${ARG_FORCECHOICE} == false ]]; then
+    read -p "Continue (Y/n)?" ARG_CHOICE
 else
-    CHOICE=$FORCECHOICE
+    ARG_CHOICE=${ARG_FORCECHOICE}
 fi
-case "$CHOICE" in 
+case "${ARG_CHOICE}" in 
   y|Y ) ;;
   n|N ) 
-        cd $RESTORE_WD
-        return $RETURNCODE_CANCEL;;
+        return 1;;
   * ) ;;
 esac
 
-# ============Install basics============
-cprint "Install basics ..."
-if [[ $NOTDRY == true && $SYSTEM_PRIVILIGES == true ]]; then
-    mexec "apt-get -y install make build-essential cmake checkinstall curl wget git"
+# ============Install pypi libraries============
+mkdir -p $(python_full_version)
+cd $(python_full_version)
+
+if [[ $(dryrun) == false ]]; then
+    pip_upgrade numpy # silx
+
+    #source $GLOBAL_SCRIPT_ROOT/linux/funcs-opencl.sh
+    #require_opencl
+    #mapt-get "ocl-icd-libopencl1 opencl-headers libffi-dev" # pyopencl
+    #mapt-get  # pyopencl
+    #pip_upgrade mako # pyopencl
+
+    #require_pyqt4 # pymca
+    #mapt-get "libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev" # pymca
+    #pip_upgrade --egg pymca #TODO: wait for pymca to get fixed
+
+    #mapt-get "libhdf5-serial-dev libhdf5-dev" # h5py
+
+    #mapt-get libgeos-dev # shapely
+
+    pip_upgrade -r $GLOBAL_SCRIPT_ROOT/../requirements.txt
+
+    #mapt-get pandoc # nbsphinx
+    #pip_upgrade -r $GLOBAL_SCRIPT_ROOT/../requirements-dev.txt
 fi
 
-BUILDSTEP=$(( $BUILDSTEP+1 ))
-BUILDSTEPS=$(( $BUILDSTEPS+1 ))
+# ============Install non-pypi libraries============
+source $GLOBAL_SCRIPT_ROOT/linux/funcs-xraylib.sh
+require_xraylib
 
-# ============Install system dependencies============
-cprint "Install python module dependencies ..."
-if [[ $SYSTEM_PRIVILIGES == true ]]; then
-    if [[ $NOTDRY == true ]]; then
-        mexec "apt-get -y install $PYTHONBINAPT-qt4" # pymca
-        #mexec "apt-get -y install libgeos-dev" # shapely
-        #mexec "apt-get -y install ocl-icd-opencl-dev opencl-headers" # pyopencl
-        mexec "apt-get -y install libffi-dev" # pyopencl
-        mexec "apt-get -y install libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev" # pymca
-        mexec "apt-get -y install pandoc" # nbsphinx
-    fi
-    BUILDSTEP=$(( $BUILDSTEP+1 ))
-    BUILDSTEPS=$(( $BUILDSTEPS+1 ))
-fi
+source $GLOBAL_SCRIPT_ROOT/linux/funcs-pytmm.sh
+require_pytmm
 
-source $SCRIPT_ROOT/install-opencl.sh # pyopencl
-cd $INSTALL_WD
+source $GLOBAL_SCRIPT_ROOT/linux/funcs-fdmnes.sh
+require_fdmnes
 
-source $SCRIPT_ROOT/install-libgeos.sh # shapely
-cd $INSTALL_WD
-
-# ============Install modules============
-cprint "Install python modules available on pypi..."
-if [[ $NOTDRY == true ]]; then
-    $PIPBIN install --upgrade setuptools
-    $PIPBIN install --upgrade wheel
-    $PIPBIN install --upgrade numpy # silx
-    $PIPBIN install --upgrade mako # pyopencl
-
-    $PIPBIN install --upgrade -r $SCRIPT_ROOT/../requirements.txt
-    #$PIPBIN install --upgrade --egg pymca #TODO: wait for pymca to get fixed
-    $PIPBIN install --upgrade -r $SCRIPT_ROOT/../requirements-dev.txt
-fi
-
-BUILDSTEP=$(( $BUILDSTEP+1 ))
-BUILDSTEPS=$(( $BUILDSTEPS+1 ))
-
-# ============Custom installation============
-cprint "Install python modules not available on pypi..."
-source $SCRIPT_ROOT/install-xraylib.sh
-cd $INSTALL_WD
-
-source $SCRIPT_ROOT/install-pytmm.sh
-cd $INSTALL_WD
-
-source $SCRIPT_ROOT/install-fdmnes.sh
-cd $INSTALL_WD
-
-source $SCRIPT_ROOT/install-simpleelastix.sh
-cd $INSTALL_WD
+source $GLOBAL_SCRIPT_ROOT/linux/funcs-simpleelastix.sh
+require_simpleelastix
 
 # ============Cleanup============
 cprint "Cleaning up ..."
-cd $RESTORE_WD
 
-if [[ $NOTDRY == true ]]; then
-    if [[ $SYSTEM_PRIVILIGES == true ]]; then
-        mexec "apt-get -y autoremove"
+if [[ $(dryrun) == false ]]; then
+    if [[ $(system_privileges) == true ]]; then
+        mapt-get "autoremove"
     else
-        cprint "Variables have been added to $SPECTROCRUNCHRC."
+        cprint "Variables have been added to $(project_resource)."
     fi
 
-    if [[ $TIMELEFT == true ]]; then
-        cprint "All done ($BUILDSTEP/$BUILDSTEPS)! You should now be able to install spectrocrunch."
-    else
-        cprint "Not everything has been build due to time restrictions. Run the script again ($BUILDSTEP/$BUILDSTEPS)."
-    fi
+    cprint "All done! You should now be able to install $(project_name)."
 else
-    cprint "Dry build $BUILDSTEP/$BUILDSTEPS."
+    cprint "This was a dryrun, so it didn't install anything."
 fi
 
-ELAPSED_TIME=$(($SECONDS - $START_TIME))
-cprint "Total execution time = $(( $ELAPSED_TIME/60 )) min"
-
+timer
+cd ${GLOBAL_WD}
 
