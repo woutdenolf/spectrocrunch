@@ -273,7 +273,6 @@ class QXRFGeometry(with_metaclass(object)):
         # Optional parameters
         gaindiodeI0 = params.pop("gaindiodeI0",None)
         gaindiodeIt = params.pop("gaindiodeIt",None)
-        fixdark = params.pop("fixdark",False)
         nofit = params.pop("nofit",False)
         plot = params.pop("plot",False)
         
@@ -284,6 +283,7 @@ class QXRFGeometry(with_metaclass(object)):
         # Calibrate
         dark = params.pop("dark") 
         if dark:
+            fixdark = params.pop("fixdark",False)
             params.pop("fluxmin",None)
             params.pop("fluxmax",None)
             if not(nofit or fixdark):
