@@ -378,7 +378,7 @@ class Item(Hashable,Geometry2D):
         
         if scene is not None:
             self.register(scene)
-        
+
         Item.updatedata(self,**kwargs)
 
     def _stringrepr(self):
@@ -748,7 +748,7 @@ class Image(Item):
         else:
             aspectcorrect = settings["aspectcorrect"]
         alpha = settings["alpha"]
-        
+
         # Create intensity-scaled image
         vmin,vmax = scene.vminmax
         if settings["vmin"] is not None:

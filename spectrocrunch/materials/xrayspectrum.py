@@ -25,7 +25,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import numbers
-import re
 import collections
 import scipy.integrate
 
@@ -45,7 +44,7 @@ from ..math import fit1d
 #
 # CS_FluorLine_Kissel_no_Cascade(S,X) = FluorYield(S)*RadRate(SX)*PS_pure_kissel
 # PS_full_cascade_kissel = CS_Photo_Partial(S) + CosKron(...)
-# ... -> use PS_pure_kissel,FluorYield,RadRate of lower shells
+# ... -> use PS_pure_kissel,FluorYield,RadRate of lower shells 
 
 
 class FluoLine(hashable.Hashable):
@@ -260,6 +259,7 @@ class FluoLine(hashable.Hashable):
         # Kissel with cascade and Coster–Kronig transitions:
         return xraylib.CS_FluorLine_Kissel_Cascade(Z, self.code, E)
         
+        
 class Shell(hashable.Hashable):
 
     @staticmethod
@@ -295,6 +295,8 @@ class Shell(hashable.Hashable):
             return cls.all_shells()
         else:
             Z = energybounds[0]
+            if not instance.isinteger(Z):
+                Z = xraylib.SymbolToAtomicNumber(Z)
             valid = lambda energy: energy >= energybounds[1] and energy <= energybounds[2]
             shells = cls.all_shells()
             shells = [s for s in shells if valid(s.edgeenergy(Z))]
@@ -302,30 +304,60 @@ class Shell(hashable.Hashable):
                 s._fluolines = FluoLine.factory(shells=[s],energybounds=energybounds)
             shells = [s for s in shells if s._fluolines]
             return shells
-            
+    
+    @classmethod
+    def expand(cls,shell):
+        if isinstance(shell,Shell):
+            return shell
+    
+        if shell[1:]:
+            if shell[1:].isdigit():
+                return shell
+            else:
+                return shell[0]
+        else:
+            shell = shell[0].upper()
+            n = ord(shell)-ord('K')+1
+            if n==1:
+                return shell
+            else:
+                return ["{}{}".format(shell,i) for i in range(1,2*n)]
+
+    @classmethod
+    def expandall(cls,shells):
+        if not instance.isarray(shells):
+            shells = [shells]
+        return sorted(set(listtools.flatten(cls.expand(s) for s in shells)))
+
+    @classmethod
+    def expandselection(cls,shells,selection):
+        for shell in selection:
+            shells = [s for s in shells if not s!=shell]
+            shells += cls.expand(shell)
+        return sorted(shells)
+        
+    @classmethod
+    def shrink(cls,shells):
+        shellgrps = set(str(s)[0].upper() for s in shells)
+        for shell in shellgrps:
+            subshells = cls.expand(shell)
+            if all(s in shells for s in subshells):
+                shells = [s for s in shells if not str(s).startswith(shell)]
+                shells.append(shell)
+        return sorted(shells)
+
     @classmethod
     def pymcafactory(cls,energybounds=None,splitL=False):
         shells = cls.factory(energybounds=energybounds)
-        shells = [str(s) for s in shells]
-        
-        # Group L shells when all present
-        if "L1" in shells and "L2" in shells and "L3" in shells:
-            shells = [s for s in shells if not s.startswith("L")]
-            shells.append("L")
-        
-        # Group M shells
-        if any(s.startswith("M") for s in shells):
-            shells = [s for s in shells if not s.startswith("M")]
-            shells.append("M")
+        shells = cls.shrink([str(s) for s in shells])
 
         # Only K,L and M
         lst = ["K","L","M"]
         shells = [s for s in shells if s[0] in lst]
 
         # Split L when present
-        if splitL and "L" in shells:
-            shells = [s for s in shells if not s!="L"]
-            shells += ["L1","L2","L3"]
+        if splitL:
+            shells = cls.expandselection(shells,["L"])
 
         return shells
 
@@ -403,6 +435,30 @@ class Shell(hashable.Hashable):
         return xraylib.EdgeEnergy(Z,self.code)
 
 
+class FluoZGroup(hashable.Hashable):
+
+    def __init__(self,element,group):
+        self.element = element
+        self.group = group
+        
+        self.element.markabsorber(shells=group)
+        
+    def _sortkey(self):
+        """For sorting
+        """
+        return max(s.edgeenergy(self.element.Z) for s in self.element.shells)
+
+    def _cmpkey(self):
+        """For comparing and sorting
+        """
+        return self._stringrepr()
+
+    def _stringrepr(self):
+        """Unique representation of an instance
+        """
+        return "{}-{}".format(self.element,self.group)
+        
+
 class FluoZLine(hashable.Hashable):
 
     def __init__(self,element,line):
@@ -422,8 +478,13 @@ class FluoZLine(hashable.Hashable):
         #Journal of Physical and Chemical Reference Data 8, 329 (1979); https://doi.org/10.1063/1.555595
         return self.line.shell.atomiclevelwidth(self.element.Z) + self.line.shellsource.atomiclevelwidth(self.element.Z)
 
+    def _sortkey(self):
+        """For sorting
+        """
+        return self.energy()
+        
     def _cmpkey(self):
-        """For comparing and sorting
+        """For comparing
         """
         return self._stringrepr()
 
@@ -450,6 +511,7 @@ class FluoZLine(hashable.Hashable):
     def valid(self):
         return self.energy()>0
 
+
 class ScatteringLine(hashable.Hashable):
 
     def __init__(self,energysource):
@@ -458,6 +520,14 @@ class ScatteringLine(hashable.Hashable):
     @property
     def linewidth(self):
         return 0 # TODO: depends on many things
+    
+    def _sortkey(self):
+        """For sorting
+        """
+        en = self.energy(polar=1e-3)
+        if instance.isiterable(en):
+            en = max(en)
+        return en
         
     def _cmpkey(self):
         """For comparing and sorting
@@ -486,7 +556,8 @@ class ScatteringLine(hashable.Hashable):
     @property
     def valid(self):
         return True
-        
+
+
 class RayleighLine(ScatteringLine):
 
     def __init__(self,energysource):

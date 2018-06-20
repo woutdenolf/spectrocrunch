@@ -65,6 +65,7 @@ import tempfile
 #  
 #  Molar mass of a compound
 #  MM = M/n = total(mi)/total(mi/MMi) = total(wi)/total(wi/MMi) = 1/total(wi/MMi)
+#
 
 def frac_mole_to_weight(nfrac,MM):
     """

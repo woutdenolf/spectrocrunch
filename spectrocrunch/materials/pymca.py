@@ -150,7 +150,7 @@ class PymcaBaseHandle(object):
                                             elementsfrommatrix=originalconcentrations,
                                             fluorates = self.mcafit._fluoRates,
                                             addinfo=True)
-    
+ 
     def concentrationsfromfitresult(self,digestedresult,out=None):
         # Mass fractions:
         #
@@ -171,12 +171,12 @@ class PymcaBaseHandle(object):
             out = {}
         
         conresult,addinfo = self.processfitresult(digestedresult,originalconcentrations=False)
-        
-        out["massfractions"] = {k.replace(' ','-'):v for k,v in conresult["mass fraction"].items()}
+
+        out["massfractions"] = {element.Element.fluozgroup(k):v for k,v in conresult["mass fraction"].items()}
         
         if "layerlist" in conresult:
             nlayers = len(conresult["layerlist"])
-            out["lmassfractions"] = [{k.replace(' ','-'):v for k,v in conresult[k]["mass fraction"].items()} for k in conresult["layerlist"]]
+            out["lmassfractions"] = [{element.Element.fluozgroup(k):v for k,v in conresult[k]["mass fraction"].items()} for k in conresult["layerlist"]]
         else:
             nlayers = 1
             
@@ -192,19 +192,19 @@ class PymcaBaseHandle(object):
             #assert(self.sample.geometry.solidangle/(4*np.pi)==addinfo["SolidAngle"])
             #assert(self.flux*self.time==addinfo["I0"])
             for group in out["massfractions"]:
-                element,shell = group.split("-")
+                ele = str(group.element)
                 grouprate = 0.
                 for i in range(1,nlayers+1):
-                    if element in self.mcafit._fluoRates[i]:
-                        massfrac_l = self.mcafit._fluoRates[i][element]["mass fraction"]
-                        grouprate_l = self.mcafit._fluoRates[i][element]["rates"]["{} xrays".format(shell)]
+                    if ele in self.mcafit._fluoRates[i]:
+                        massfrac_l = self.mcafit._fluoRates[i][ele]["mass fraction"]
+                        grouprate_l = self.mcafit._fluoRates[i][ele]["rates"]["{} xrays".format(shell)]
                         grouprate += massfrac_l*grouprate_l
                 grouprate *= safrac
                 out["rates"][group] = grouprate
 
-        out["fitareas"] = {k.replace(' ','-'):v for k,v in conresult["fitarea"].items()}
+        out["fitareas"] = {element.Element.fluozgroup(k):v for k,v in conresult["fitarea"].items()}
         
-        out["fitrates"] = {k:v/addinfo["I0"] for k,v in out["fitareas"].items()}
+        out["fitrates"] = {element.Element.fluozgroup(k):v/addinfo["I0"] for k,v in out["fitareas"].items()}
         
         return out
     
@@ -216,7 +216,7 @@ class PymcaBaseHandle(object):
             # TODO: set rates of elements not in matrix to zero
             out["rates"] = {}
             for group in out["area"]:
-                out["rates"][group.replace(' ','-')] = conresult['area'][group]/addinfo["I0"]
+                out["rates"][element.fluozgroup(group)] = conresult['area'][group]/addinfo["I0"]
         
         # Matrix spectrum
         nparams = len(digestedresult['parameters'])

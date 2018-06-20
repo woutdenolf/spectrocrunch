@@ -483,7 +483,8 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
                 label = basename(name)[nbase:]
                 if label.endswith("mass_fraction"):
                     label = "w"+label[:-14]
-                elif label=="chisq":
+                label = label.replace("_","-")
+                if label=="chisq":
                     label = "calc_chisq"
                 labels.append(label)
                 files.append(name)

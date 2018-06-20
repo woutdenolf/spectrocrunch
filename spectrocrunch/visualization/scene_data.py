@@ -297,7 +297,7 @@ class Nexus(ImageCoordinates):
             try:
                 data,axes,axesnames = nexus.parse_NXdata(oh5[group["path"]])
             except KeyError:
-                raise KeyError("{} not in {}".format(group["path"],filename))
+                raise KeyError("{} not in {}".format(group["path"],self.filename))
             stackindex = self.stackindex(axesnames)
             if stackindex==0:
                 data = data[group["ind"],...]

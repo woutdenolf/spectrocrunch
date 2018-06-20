@@ -46,4 +46,5 @@ fi
 export DISPLAY=:99.0
 sh -e /etc/init.d/xvfb start
 
+sudo -E add-apt-repository universe
 
