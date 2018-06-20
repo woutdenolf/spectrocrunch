@@ -22,7 +22,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import re
 from . import compoundfromformula
+from . import element
 
 db = {}
 db["oxide"] = {'H':{1: ('H2O',0.997)},
@@ -100,22 +102,76 @@ db["sulfide"] = {'Fe':{1: ('Fe2S',4.7), 2: ('FeS',4.84)},
 # http://www.endmemo.com/chem/common/chloride.php
 
 
-def compoundfromtype(el,ot=None,typ="oxide"):
-    if typ not in db:
-        raise RuntimeError("Type {} does not exist (valid types: {})".format(typ,db.keys()))
-    if el not in db[typ]:
-        raise RuntimeError("A compound with element {} of type {} does not exist".format(el,typ))
-    cmpds = db[typ][el]
-    
-    if ot is None:
-        if len(cmpds)==1:
-            cmpd = cmpds.values()[0]
-        else:
-            raise RuntimeError("Select one of the available {} oxidations states: {}".format(el,cmpds.keys()))
-    elif ot in cmpds:
-        cmpd = cmpds[ot]
-    else:
-        raise RuntimeError("Oxidation state {} does not exist for {} {}".format(ot,el,typ))
+class CompoundFromElement(compoundfromformula.CompoundFromFormula):
+
+    def __init__(self,el,oxidationstate=None,typ="oxide",defaultoxidationstate="max"):
+        if typ not in db:
+            raise RuntimeError("Type {} does not exist (valid types: {})".format(typ,db.keys()))
+        if el not in db[typ]:
+            raise RuntimeError("A compound with element {} of type {} does not exist".format(el,typ))
+        cmpds = db[typ][el]
         
-    return compoundfromformula.CompoundFromFormula(cmpd[0],density=cmpd[1])
+        if oxidationstate is None:
+            if len(cmpds)==1:
+                cmpd = cmpds.values()[0]
+            else:
+                if defaultoxidationstate=="max":
+                    func = max
+                elif defaultoxidationstate=="min":
+                    func = min
+                else:
+                    raise RuntimeError("Select one of the available {} oxidations states: {}".format(el,cmpds.keys()))
+                oxidationstate = func(cmpds.keys())
+                cmpd = cmpds[oxidationstate]
+        elif oxidationstate in cmpds:
+            cmpd = cmpds[oxidationstate]
+        else:
+            raise RuntimeError("Oxidation state {} does not exist for {} {}".format(oxidationstate,el,typ))
+        
+        formula,density = cmpd
+        super(CompoundFromElement,self).__init__(formula,density=density)
+        
+        self.oxidationstate = oxidationstate
+        
+        parse = re.compile("^(?P<Z>[A-Z][a-z]?)(?P<a>\d?)(?P<X>[A-Z][a-z]?)(?P<b>\d?)$")
+        self.formula = parse.match(formula).groupdict()
+  
+        self.formula["Z"] = element.Element(self.formula["Z"])
+        self.formula["X"] = element.Element(self.formula["X"])
+        for k in ['a','b']:
+            if self.formula[k]:
+                self.formula[k] = float(self.formula[k])
+            else:
+                self.formula[k] = 1.
+    
+    def _massfraction_conv(self):
+        # Element Z is present only as C = ZaXb (X is typically oxigen)
+        # wi = ni.MMi / sum_j(nj.MMj)
+        # wCi/wZi = nCi.MMCi/(nZi.MMZi)
+        # wCi = MMCi/MMZi . nCi/nZi . wZi
+        #     = MMCi/(aZi.MMZi)  .wZi
+        MMC = self.molarmass()
+        MMZ = element.Element(self.formula["Z"]).molarmass()
+        aZ = float(self.formula["a"])
+        return MMC/(aZ*MMZ)
+    
+    def massfraction_element_to_compound(self,wfrac):
+        return wfrac*self._massfraction_conv()
+
+    def massfraction_compound_to_element(self,wfrac):
+        return wfrac/self._massfraction_conv()
+        
+
+class Oxide(CompoundFromElement):
+
+    def __init__(self,*args,**kwargs):
+        kwargs["typ"] = "oxide"
+        super(Oxide,self).__init__(*args,**kwargs)
+
+
+class Sulfide(CompoundFromElement):
+
+    def __init__(self,*args,**kwargs):
+        kwargs["typ"] = "sulfide"
+        super(Oxide,self).__init__(*args,**kwargs)
 

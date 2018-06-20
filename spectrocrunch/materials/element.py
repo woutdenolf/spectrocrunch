@@ -27,6 +27,7 @@ import tempfile
 import time
 import json
 import numbers
+import re
 
 from . import elementbase
 from .. import xraylib
@@ -46,14 +47,14 @@ import fdmnes
 import fisx
 
 def elementParse(symb):
-    if isinstance(symb,str):
+    if instance.isstring(symb):
         if symb.isdigit():
             Z = int(symb)
             name = xraylib.AtomicNumberToSymbol(Z)
         else:
-            Z = xraylib.SymbolToAtomicNumber(symb.title())
+            Z = xraylib.SymbolToAtomicNumber(str(symb))
             name = symb
-    elif isinstance(symb,numbers.Integral):
+    elif instance.isinteger(symb):
         Z = symb
         name = xraylib.AtomicNumberToSymbol(Z)
     elif isinstance(symb,Element):
@@ -63,12 +64,12 @@ def elementParse(symb):
     return Z,name  
 
 def elementZ(symb):
-    if isinstance(symb,str):
+    if instance.isstring(symb):
         if symb.isdigit():
             Z = int(symb)
         else:
-            Z = xraylib.SymbolToAtomicNumber(symb.title())
-    elif isinstance(symb,numbers.Integral):
+            Z = xraylib.SymbolToAtomicNumber(symb)
+    elif instance.isinteger:
         Z = symb
     elif isinstance(symb,Element):
         Z = symb.Z
@@ -77,12 +78,12 @@ def elementZ(symb):
     return Z
 
 def elementSymbol(symb):
-    if isinstance(symb,str):
+    if instance.string(symb):
         if symb.isdigit():
             name = xraylib.AtomicNumberToSymbol(int(symb))
         else:
             name = symb
-    elif isinstance(symb,numbers.Integral):
+    elif instance.isinteger:
         name = xraylib.AtomicNumberToSymbol(symb)
     elif isinstance(symb,Element):
         name = symb.name
@@ -151,6 +152,7 @@ class Element(hashable.Hashable,elementbase.ElementBase):
             if shells is None:
                 self.shells = xrayspectrum.Shell.all_shells(fluolines=fluolines)
             else:
+                shells = xrayspectrum.Shell.expandall(shells)
                 f = lambda shell: shell if isinstance(shell,xrayspectrum.Shell) else xrayspectrum.Shell(shell,fluolines=fluolines)
                 if instance.isiterable(shells):
                     self.shells = [f(shell) for shell in shells]
@@ -738,3 +740,8 @@ class Element(hashable.Hashable,elementbase.ElementBase):
         o.setCompositionFromLists([self.pymcaname],[1.])
         return o
 
+    @classmethod
+    def fluozgroup(cls,symb):
+        ele,group = re.split('[-_ ]+',symb)
+        return xrayspectrum.FluoZGroup(cls(ele),group)
+        
