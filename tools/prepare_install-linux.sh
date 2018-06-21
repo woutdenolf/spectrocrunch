@@ -7,12 +7,13 @@
 show_help()
 {
   echo "
-        Usage: prepare_installation  [-v version] [-y] [-d]
+        Usage: prepare_installation  [-v version] [-y] [-d] [-x]
 
         -v version      Python version to be used (2, 3, 2.7, 3.5, ...).
         -y              Answer yes to everything.
         -d              Dry run.
         -u              Install for user only.
+        -x              Dev install.
 
         For Example: ./prepare_installation -v 3 -d
 
@@ -28,7 +29,8 @@ ARG_SYSTEMWIDE=true
 ARG_DRY=false
 ARG_FORCECHOICE=false
 ARG_PYTHONV=""
-while getopts "v:uyhd" opt; do
+ARG_DEV=false
+while getopts "v:uyhdx" opt; do
   case $opt in
     h)
       show_help
@@ -43,6 +45,9 @@ while getopts "v:uyhd" opt; do
     d)
       ARG_DRY=true
       ;;
+    x)
+      ARG_DEV=true
+      ;;
     v)
       ARG_PYTHONV=${OPTARG}
       ;;
@@ -55,14 +60,17 @@ done
 
 # ============Initialize environment============
 source $GLOBAL_SCRIPT_ROOT/linux/funcs-python.sh
-if [[ $(dryrun reset ${ARG_DRY}) == true ]]; then
+dryrun reset ${ARG_DRY}
+if [[ $(dryrun) == true ]]; then
     cprint "This is a dry run."
 fi
-$(install_systemwide reset ${ARG_SYSTEMWIDE})
+install_systemwide reset ${ARG_SYSTEMWIDE}
 
 # ============Ask for confirmation to proceed============
-require_python ${ARG_PYTHONV}
-require_pip
+if [[ $(dryrun) == false ]]; then
+    require_python ${ARG_PYTHONV}
+    require_pip
+fi
 
 python_info 
 pip_info
@@ -83,45 +91,62 @@ case "${ARG_CHOICE}" in
   * ) ;;
 esac
 
-# ============Install pypi libraries============
+# ============Install pypi libraries and their system dependencies============
 mkdir -p $(python_full_version)
 cd $(python_full_version)
 
 if [[ $(dryrun) == false ]]; then
+    cprintstart
+    cprint "Installing system requirements ..."
+
     pip_upgrade numpy # silx
+
+    mapt-get libhdf5-serial-dev libhdf5-dev # h5py
+
+    mapt-get $(python_bin)-pyopencl # pyopencl (especially for the drivers)
+    mapt-get ocl-icd-libopencl1 opencl-headers # pyopencl (silx)
+
+    mapt-get libgl1-mesa-dev # pyopengl (pymca)
+
+    #mapt-get ocl-icd-libopencl1 opencl-headers libffi-dev # pyopencl
 
     #source $GLOBAL_SCRIPT_ROOT/linux/funcs-opencl.sh
     #require_opencl
-    #mapt-get "ocl-icd-libopencl1 opencl-headers libffi-dev" # pyopencl
+    
     #mapt-get  # pyopencl
     #pip_upgrade mako # pyopencl
 
     #require_pyqt4 # pymca
-    #mapt-get "libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev" # pymca
+    #mapt-get libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev # pymca
     #pip_upgrade --egg pymca #TODO: wait for pymca to get fixed
-
-    #mapt-get "libhdf5-serial-dev libhdf5-dev" # h5py
 
     #mapt-get libgeos-dev # shapely
 
+    cprintstart
+    cprint "Installing pypi requirements ..."
+
     pip_upgrade -r $GLOBAL_SCRIPT_ROOT/../requirements.txt
 
-    #mapt-get pandoc # nbsphinx
-    #pip_upgrade -r $GLOBAL_SCRIPT_ROOT/../requirements-dev.txt
+    if [[ ${ARG_DEV} == true ]]; then
+        cprintstart
+        cprint "Installing pypi requirements (dev) ..."
+        mapt-get pandoc # nbsphinx
+        pip_upgrade -r $GLOBAL_SCRIPT_ROOT/../requirements-dev.txt
+    fi
 fi
 
-# ============Install non-pypi libraries============
-source $GLOBAL_SCRIPT_ROOT/linux/funcs-xraylib.sh
-require_xraylib
+# ============Install non-pypi libraries and their system dependencies============
+#source $GLOBAL_SCRIPT_ROOT/linux/funcs-xraylib.sh
+#require_xraylib
 
-source $GLOBAL_SCRIPT_ROOT/linux/funcs-pytmm.sh
-require_pytmm
+#source $GLOBAL_SCRIPT_ROOT/linux/funcs-pytmm.sh
+#require_pytmm
 
-source $GLOBAL_SCRIPT_ROOT/linux/funcs-fdmnes.sh
-require_fdmnes
+#source $GLOBAL_SCRIPT_ROOT/linux/funcs-fdmnes.sh
+#require_fdmnes
 
-source $GLOBAL_SCRIPT_ROOT/linux/funcs-simpleelastix.sh
-require_simpleelastix
+#source $GLOBAL_SCRIPT_ROOT/linux/funcs-simpleelastix.sh
+#require_simpleelastix
 
 # ============Cleanup============
 cprint "Cleaning up ..."

@@ -4,7 +4,7 @@
 # 
 
 SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SCRIPT_ROOT/funcs.sh
+source ${SCRIPT_ROOT}/funcs.sh
 
 
 function cmake_url()
@@ -58,7 +58,7 @@ function cmake_install_fromsource()
         if [[ $(dryrun) == false ]]; then
             cmake_build_dependencies
 
-            mkdir -p ${prefix}
+            mexec mkdir -p ${prefix}
             ./configure --prefix=${prefix}
         fi
 
@@ -70,7 +70,7 @@ function cmake_install_fromsource()
 
     cprint "Install cmake in ${prefix} ..."
     if [[ $(dryrun) == false ]]; then
-        mmakeinstall
+        mmakeinstall cmake-${version}
 
         # Add path just for this session
         addBinPath ${prefix}/bin
@@ -97,7 +97,7 @@ function require_cmake()
 
     # Try system installation
     if [[ $(cmdexists cmake) == false ]]; then
-        mapt-get "install cmake"
+        mapt-get cmake
     fi
 
     # Check version

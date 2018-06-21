@@ -37,4 +37,12 @@ function strreplace()
 }
 
 
+function randomstring {
+    if [ $# -eq 1 ]; then
+        nstring=$1
+    else
+        nstring=32
+    fi
+    echo $(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w $nstring | head -n 1)
+}
 

@@ -30,6 +30,7 @@ function swig_download()
 function swig_build_dependencies()
 {
     require_build_essentials
+    mapt-get "install libpcre3-dev"
 }
 
 
@@ -58,7 +59,7 @@ function swig_install_fromsource()
         if [[ $(dryrun) == false ]]; then
             swig_build_dependencies
 
-            mkdir -p ${prefix}
+            mexec mkdir -p ${prefix}
             ./configure --prefix=${prefix}
         fi
 
@@ -70,7 +71,7 @@ function swig_install_fromsource()
 
     cprint "Install swig in ${prefix} ..."
     if [[ $(dryrun) == false ]]; then
-        mmakeinstall
+        mmakeinstall swig-${version}
 
         # Add path just for this session
         addBinPath ${prefix}/bin

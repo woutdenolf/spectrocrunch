@@ -60,7 +60,7 @@ function simpleelastix_install_fromsource()
                           #-DITK_DIR:PATH=${ITK_DIR}
 
             simpleelastix_build_dependencies
-            mkdir -p ${prefix}
+            mexec mkdir -p ${prefix}
             cmake -DCMAKE_INSTALL_PREFIX:PATH="${prefix}" $CMAKE_PARAMS ../SimpleElastix/SuperBuild
         fi
         
@@ -83,7 +83,6 @@ function simpleelastix_install_fromsource()
 
     cd ${restorewd}
 }
-
 
 
 function require_simpleelastix()

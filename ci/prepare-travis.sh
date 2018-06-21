@@ -1,6 +1,6 @@
 #!/bin/bash
 # 
-# This script will install all spectrocrunch Python 2 and 3 dependencies for CI.
+# This script will install pre-builds on Travis.
 # 
 
 # Download pre-build libraries

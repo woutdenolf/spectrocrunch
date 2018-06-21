@@ -38,8 +38,8 @@ function pytmm_install_fromsource()
         local pytmmdir=$(python_get "import PyTMM,os; print(os.path.dirname(PyTMM.__file__));")
         
         echo "Copy database to ${pytmmdir}/visirlib ..."
-        cp -R database ${pytmmdir}/visirlib
-        ls ${pytmmdir}/visirlib
+        mexec cp -R database ${pytmmdir}/visirlib
+        mexec ls ${pytmmdir}/visirlib
     fi
 
     cd ${restorewd}

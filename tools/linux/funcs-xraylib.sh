@@ -57,7 +57,7 @@ function xraylib_install_fromsource()
         if [[ $(dryrun) == false ]]; then
             xraylib_build_dependencies
 
-            mkdir -p ${prefix}
+            mexec mkdir -p ${prefix}
             autoreconf -i
             ./configure --prefix="${prefix}" \
                         --enable-python \
@@ -82,7 +82,7 @@ function xraylib_install_fromsource()
 
     cprint "Install xraylib in ${prefix} ..."
     if [[ $(dryrun) == false ]]; then
-        mmakeinstall
+        mmakeinstall xraylib-${version}
 
         addProfile $(project_resource) "# Installed xraylib: ${prefixstr}"
         addBinPath ${prefix}/bin

@@ -42,22 +42,22 @@ function fdmnes_install_fromsource()
     if [[ $(dryrun) == false ]]; then
         fdmnes_build_dependencies
 
-        mkdir -p ${prefix}
+        mexec mkdir -p ${prefix}
 
         local prefix_src=${prefix}/src
         local prefixstr_src=${prefixstr}/src
         if [[ -d /sware/exp/fdmnes ]]; then
             # Link to ESRF sware
             if [ ! -d ${prefix_src} ]; then
-                ln -s /sware/exp/fdmnes ${prefix_src}
+                mexec ln -s /sware/exp/fdmnes ${prefix_src}
             fi
         else
             unzip -o ${fdmneszipname} -d ${prefix}
-            mv ${prefix}/fdmnes ${prefix}/src
+            mexec mv ${prefix}/fdmnes ${prefix}/src
         fi
         
         if [[ ! -f ${prefix}/fdmnes ]]; then
-            ln -s src/fdmnes_linux64 ${prefix}/fdmnes
+            mexec ln -s src/fdmnes_linux64 ${prefix}/fdmnes
         fi
 
         # Environment

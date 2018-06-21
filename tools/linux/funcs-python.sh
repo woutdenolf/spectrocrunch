@@ -1,10 +1,10 @@
 #!/bin/bash
 # 
-# This script will install Python
+# Functions related to Python.
 # 
 
 SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SCRIPT_ROOT/funcs.sh
+source ${SCRIPT_ROOT}/funcs.sh
 
 
 function python_get()
@@ -61,7 +61,10 @@ function python_pkg()
 function python_bin()
 {
     if [[ -z ${PYTHONVREQUEST} ]]; then
-        if [[ $(cmdexists python) == true ]]; then
+        if [[ $(cmdexists python3) == true ]]; then
+            echo "python3"
+            return
+        elif [[ $(cmdexists python) == true ]]; then
             echo "python"
             return
         else
@@ -97,8 +100,9 @@ function python_hasmodule()
 
 function python_info()
 {
-    cprint "Python version: $(python_version)"
+    cprint "Python version: $(python_full_version)"
     cprint "Python location: $(python_full_bin)"
+    cprint "Python package directory: $(python_pkg)"
     cprint "Python include: $(python_include)"
     cprint "Python library: $(python_lib)"
 }
@@ -146,22 +150,46 @@ function pip_bin()
 }
 
 
+function python_virtualenv_active()
+{
+    if [[ "$VIRTUAL_ENV" != "" ]]; then
+        echo true
+    else
+        echo false
+    fi
+}
+
+
+function python_virtualenv_deactivate()
+{
+    if [[ $(python_virtualenv_active) == true ]]; then
+        deactivate
+    fi
+}
+
+
 function pip_install()
 {
-    if [[ $(install_systemwide) == true ]]; then
+    if [[ $(install_systemwide) == true || $(python_virtualenv_active) == true ]]; then
         $(pip_bin) install $@
     else
         $(pip_bin) install $@ --user
+        addProfile $(project_resource) "# Local pip installation: $(project_prefixstr)"
+        addBinPath $(project_prefix)/bin
+        addBinPathProfile $(project_resource) "$(project_prefixstr)/bin"
     fi
 }
 
 
 function pip_upgrade()
 {
-    if [[ $(install_systemwide) == true ]]; then
+    if [[ $(install_systemwide) == true || $(python_virtualenv_active) == true ]]; then
         $(pip_bin) install --upgrade $@
     else
         $(pip_bin) install --upgrade --user $@
+        addProfile $(project_resource) "# Local pip installation: $(project_prefixstr)"
+        addBinPath $(project_prefix)/bin
+        addBinPathProfile $(project_resource) "$(project_prefixstr)/bin"
     fi
 }
 
@@ -169,7 +197,7 @@ function pip_upgrade()
 function python_build_dependencies()
 {
     require_build_essentials
-    mapt-get "install libbz2-dev libsqlite3-dev libreadline-dev zlib1g-dev libncurses5-dev libssl-dev libgdbm-dev libssl-dev openssl tk-dev"
+    mapt-get libsqlite3-dev libreadline-dev libncurses5-dev libssl-dev libgdbm-dev tk-dev libffi-dev
 }
 
 
@@ -231,13 +259,14 @@ function python_install_fromsource()
         if [[ $(dryrun) == false ]]; then
             python_build_dependencies
 
-            mkdir -p ${prefix}
+            mexec mkdir -p ${prefix}
             ./configure --prefix=${prefix} \
+                        --with-ensurepip=install \
                         --enable-shared \
-                        --enable-optimizations \
-                        --with-ensurepip=install
-                        LDFLAGS=-Wl,-rpath=${prefix}/lib \
-                        
+                        LDFLAGS=-Wl,-rpath=${prefix}/lib
+            # --enable-shared (produce shared libraries and headers): needed by xraylib
+            # LDFLAGS=-Wl,-rpath=${prefix}/lib (linker argument "-rpath ${prefix}/lib"): put shared libraries in a customn location (avoid conflict with system python)
+            # --enable-optimizations (profile guided optimizations): gives "profiling ... .gcda:Cannot open" warning on "import distutils"
         fi
 
         cprint "Build python ..."
@@ -248,7 +277,7 @@ function python_install_fromsource()
 
     cprint "Install python in ${prefix} ..."
     if [[ $(dryrun) == false ]]; then
-        mmakeinstall
+        mmakeinstall python-${version}
 
         addProfile $(project_resource) "# Installed python: ${prefixstr}"
         addBinPath ${prefix}/bin
@@ -266,16 +295,20 @@ function require_python()
     if [[ ! -z ${1} ]]; then
         PYTHONVREQUEST=${1}
     fi
-    cprint "Verify python ${PYTHONVREQUEST} ..."
+    if [[ -z ${PYTHONVREQUEST} ]]; then
+        cprint "Verify python (no specific version requested) ..."
+    else
+        cprint "Verify python ${PYTHONVREQUEST} ..."
+    fi
 
     # Try system installation
     if [[ $(cmdexists $(python_bin)) == false ]]; then
-        mapt-get "install $(python_bin)"
+        mapt-get $(python_bin)
     fi
 
     # Check version
-    if [[ $(require_new_version_strict $(python_version) ${PYTHONVREQUEST}) == false ]]; then
-        cprint "python version $(python_version) will be used"
+    if [[ $(require_new_version_strict $(python_full_version) ${PYTHONVREQUEST}) == false ]]; then
+        cprint "Python version $(python_full_version) will be used"
         return
     fi
 
@@ -283,14 +316,15 @@ function require_python()
     python_install_fromsource
 
     # Check version
-    if [[ $(require_new_version_strict $(python_version) ${PYTHONVREQUEST}) == false ]]; then
-        cprint "python version $(python_version) will be used"
+    if [[ $(require_new_version_strict $(python_full_version) ${PYTHONVREQUEST}) == false ]]; then
+        cprint "Python version $(python_full_version) will be used"
     else
         if [[ $(cmdexists python) == false ]]; then
-            cerror "python is not installed"
+            cerror "Python is not installed"
         else
-            cerror "python version $(python_version) will be used but ${PYTHONVREQUEST} is required"
+            cerror "Python version $(python_full_version) will be used but ${PYTHONVREQUEST} is required"
         fi
+        return 1
     fi
 }
 
@@ -306,9 +340,9 @@ function require_pip()
             fi
         else
             if [[ $(python_bin) == "python3" ]];then
-                mapt-get "install python3-pip"
+                mapt-get python3-pip
             else
-                mapt-get "install python-pip"
+                mapt-get python-pip
             fi
         fi
     fi
@@ -321,19 +355,19 @@ function require_pip()
 
 function require_pythondev()
 {
-    mapt-get "install $(python_bin)-dev"
+    mapt-get $(python_bin)-dev
 }
 
 
 function require_pyqt4()
 {
-    mapt-get "install $(python_bin)-qt4"
+    mapt-get $(python_bin)-qt4
 }
 
 
 function require_pyqt5()
 {
-    mapt-get "install $(python_bin)-qt5"
+    mapt-get $(python_bin)-qt5
 }
 
 

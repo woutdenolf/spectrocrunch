@@ -35,7 +35,7 @@ install:
   - cd $BUILD_FOLDER
   - |
     if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then
-        . $TRAVIS_BUILD_DIR/tools/prepare_install-linux.sh -y -u
+        . $TRAVIS_BUILD_DIR/tools/prepare_install-linux.sh -y -u -x
     fi
 
   # Package directory  

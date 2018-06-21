@@ -75,7 +75,7 @@ function system_privileges()
 
 # ============install_systemwide============
 # Description: check for user or system installation
-# Usage: [[ $(install_systemwide) ]]
+# Usage: [[ $(install_systemwide) == true ]]
 #        install_systemwide reset true
 function install_systemwide()
 {
@@ -85,6 +85,12 @@ function install_systemwide()
         else
             INSTALL_SYSTEMWIDE=${2}
         fi
+        return 
+    fi
+
+    if [[ $(system_privileges) == false ]]; then
+        echo false
+        return
     fi
 
     echo ${INSTALL_SYSTEMWIDE}
@@ -93,7 +99,7 @@ function install_systemwide()
 
 # ============dryrun============
 # Description: check whether we are doing a dry run
-# Usage: [[ $(dryrun) ]]
+# Usage: [[ $(dryrun) == true ]]
 #        dryrun reset true
 function dryrun()
 {
@@ -103,6 +109,7 @@ function dryrun()
         else
             DRYRUN=${2}
         fi
+        return
     fi
 
     echo ${DRYRUN}
@@ -110,41 +117,58 @@ function dryrun()
 
 
 # ============mexec============
-# Description: Execute with sudo if priviliged user
+# Description: Execute with root priviliged fro system wide installation
 # Usage: mexec command
 function mexec()
 {
-    if [[ $(system_privileges) == true ]]; then
+    if [[ $(install_systemwide) == true ]]; then
         sudo -E $@
     else
-        eval $@
+        $@
     fi
 }
 
 
 # ============mmakeinstall============
 # Description: Execute make install
-# Usage: mmakeinstall
+# Usage: mmakeinstall pkgname-version
 function mmakeinstall()
 {
-    if [[ $(system_privileges) == true && $(install_systemwide) == true ]]; then
-        sudo -E checkinstall -y
+    if [[ $(install_systemwide) == true ]]; then
+        local name=${1}
+        if [[ -z ${name} ]];then
+            name=$(randomstring 6)
+        fi
+        sudo -E checkinstall -y --pkgname "${name}-checkinstall"
     else
-        make install -s
+        make install -s $@
     fi
 }
 
 
 # ============mapt-get============
-# Description: Apt-get without prompt
+# Description: Apt-get without prompt (ignores system wide setting)
 # Usage: mapt-get command
 function mapt-get()
 {
+    local pkgmgr=""
+    if [[ $(cmdexists "apt-get") == true ]]; then
+        pkgmgr="apt-get -y --force-yes install"
+    elif [[ $(cmdexists "dnf") == true ]]; then
+        pkgmgr="dnf -y install"
+    elif [[ $(cmdexists "yum") == true ]]; then
+        pkgmgr="apt-get -y install"
+    elif [[ $(cmdexists "pkg") == true ]]; then
+        pkgmgr="pkg -y install"
+    else
+        pkgmgr="apt-get -y --force-yes install"
+    fi
+
     require_web_access
     if [[ $(system_privileges) == true ]]; then
-        sudo -E apt-get -y --force-yes $@
+        sudo -E ${pkgmgr} "$@"
     else
-        echo "Skip apt-get $@ (no system priviliges)"
+        echo "Skip ${pkgmgr} $@ (no system priviliges)"
     fi
 }
 
@@ -246,7 +270,7 @@ function addProfile()
 	addFile "$@"
 
     if [[ $? != 0 ]]; then
-        if [[ $(install_systemwide) ]]; then
+        if [[ $(install_systemwide) == true ]]; then
             addFile "/etc/bash.bashrc" "[ -r ${1} ] && source \"${1}\""
         else
             addFile "$HOME/.bashrc" "[ -r ${1} ] && source \"${1}\""
@@ -316,15 +340,19 @@ function addLibPathProfile()
 }
 
 
-# ============project_resource============
+# ============project_folder============
+# Description: Project folder
+function project_folder()
+{
+    echo "$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../.. && pwd )"
+}
+
+
+# ============project_name============
 # Description: Project name
 function project_name()
 {
-    if [[ -z ${PROJECT} ]]; then
-        PROJECT="project"
-    fi
-
-    echo ${PROJECT}
+    basename $(project_folder)
 }
 
 
@@ -400,6 +428,7 @@ function timer()
 {
     if [[ -z ${START_TIME} || "$1" == "reset" ]]; then
         START_TIME=$SECONDS
+        return
     fi
 
     local ELAPSED_TIME=$((${SECONDS} - ${START_TIME}))
