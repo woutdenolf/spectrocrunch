@@ -389,12 +389,12 @@ class Item(Hashable,Geometry2D):
         if scene is not None:
             self.register(scene)
 
-        Item.updatedata(self,**kwargs)
+        Item._updatedata(self,**kwargs)
 
     def _stringrepr(self):
         return "{} {}".format(type(self).__name__,id(self))
-        
-    def updatedata(self,axis0name="Dim0",axis1name="Dim1",**settings):
+    
+    def _updatedata(self,axis0name="Dim0",axis1name="Dim1",**settings):
         self.axis0name = axis0name
         self.axis1name = axis1name
         try:
@@ -402,7 +402,10 @@ class Item(Hashable,Geometry2D):
                 self.set_settings(settings)
         except RuntimeError:
             logger.warning("Item settings are not applied (provide a scene)")
-            
+    
+    def updatedata(self,**kwargs):
+        Item._updatedata(self,**kwargs)
+    
     def register(self,scene):
         scene.register(self)
     
@@ -511,9 +514,9 @@ class Image(Item):
     
         self.lim = [lim0,lim1]
 
-    def updatedata(self,data,lim0=None,lim1=None,labels=None,**kwargs):
-        self._updatedata(data,lim0=lim0,lim1=lim1,labels=labels)
-        super(Image,self).updatedata(**kwargs)
+    def updatedata(self,data,lim0=None,lim1=None,labels=None,**settings):
+        Image._updatedata(self,data,lim0=lim0,lim1=lim1,labels=labels)
+        super(Image,self).updatedata(**settings)
 
     @property
     def data(self):
@@ -661,7 +664,8 @@ class Image(Item):
                   "legendposition":"RT",\
                   "channels":None,\
                   "colorbar":False,\
-                  "compositions":{}}
+                  "compositions":{},\
+                  "title":None}
         
     def datarange(self,dataaxis,border=False):
         lim = self.scene.datatransform(self.lim[dataaxis],dataaxis)
@@ -787,7 +791,6 @@ class Image(Item):
         
         # Coordinates and borders
         extent = list(scene.xmagnitude(self.datalimx))+list(scene.ymagnitude(self.datalimy))
-
         x,y = self.bordercoord()
         x = scene.xmagnitude(x)
         y = scene.ymagnitude(y)
@@ -822,7 +825,7 @@ class Image(Item):
                         alpha = alpha,\
                         aspect = aspectcorrect)
         newitems["image"].set_visible(settings["image"])
-            
+        
         # Border
         if "border" in items:
             newitems["border"] = items["border"]
@@ -856,11 +859,6 @@ class Image(Item):
             else:
                 newitems["colorbar"] = plt.colorbar(newitems["image"])
  
-        # Legend
-        kwargs = {k:settings[k] for k in ["color","alpha"]}
-        kwargs["horizontalalignment"] = horizontalalignment
-        kwargs["verticalalignment"] = verticalalignment
-
         if nchannels==1:
             colors = [kwargs["color"]]
         else:
@@ -868,13 +866,27 @@ class Image(Item):
             if nchannels>3:
                 colors.extend([None]*(nchannels-3))
             colors = colors[0:nchannels]
-        
+
         for name,value,color in compositions:
             if name not in labels:
                 labels.append(name)
                 colors.append(color)
 
-        i = -1
+        # Legend
+        off = -1
+        off = self.addlegend(scene,settings,items,newitems,[settings["title"]],[settings["color"]],off=off)
+        off = self.addlegend(scene,settings,items,newitems,labels,colors,off=off,visible=settings["legend"])
+        
+        self.refreshscene(newitems)
+
+    def addlegend(self,scene,settings,items,newitems,labels,colors,off=-1,visible=True):
+        xlabel,ylabel,dx,dy,horizontalalignment,verticalalignment = self.labelxy
+        
+        kwargs = {k:settings[k] for k in ["color","alpha"]}
+        kwargs["horizontalalignment"] = horizontalalignment
+        kwargs["verticalalignment"] = verticalalignment
+
+        i = off
         for label,color in zip(labels,colors):
             if label is None or color is None:
                 continue
@@ -890,11 +902,10 @@ class Image(Item):
                 plt.setp(newitems[name], **kwargs)
             else:
                 newitems[name] = scene.ax.text(xlabel+i*dx,ylabel+i*dy,label,**kwargs)
-            newitems[name].set_visible(settings["legend"])
+            newitems[name].set_visible(visible)
+            
+        return i
         
-        self.refreshscene(newitems)
-            
-            
 class Scatter(Item):
 
     def __init__(self,coordinate0,coordinate1,labels=None,**kwargs):
@@ -910,9 +921,9 @@ class Scatter(Item):
         else:
             self.labels = labels
 
-    def updatedata(self,coordinate0,coordinate1,labels=None,**kwargs):
-        self._updatedata(coordinate0,coordinate1,labels=labels)
-        super(Image,self).updatedata(**kwargs)
+    def updatedata(self,coordinate0,coordinate1,labels=None,**settings):
+        Image._updatedata(self,coordinate0,coordinate1,labels=labels)
+        super(Scatter,self).updatedata(**settings)
 
     def datarange(self,dataaxis):
         ran = self.scene.datatransform(self._coordinate[dataaxis],dataaxis)

@@ -31,24 +31,23 @@ import pandas as pd
 
 class Image(scene.Image):
 
-    def updatedata(self):
+    def updatedata(self,**params):
+
         data,channels,labels = self.datahandle.displaydata(index=self.index)
 
-        params = {}
         params["channels"] = channels
         params["labels"] = labels
         params["axis0name"] = self.datahandle.axis0name
         params["axis1name"] = self.datahandle.axis1name
         params["lim0"] = self.datahandle.axis0values[[0,-1]]
         params["lim1"] = self.datahandle.axis1values[[0,-1]]
-        
+
         super(Image,self).updatedata(data,**params)
 
 
 class Text(scene.Text):
 
-    def updatedata(self):
-        params = {}
+    def updatedata(self,**params):
         params["labels"] = self.datahandle.labels
         params["axis0name"] = self.datahandle.axis0name
         params["axis1name"] = self.datahandle.axis1name

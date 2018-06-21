@@ -250,7 +250,7 @@ class ZapRoiMap(ImageCoordinates):
         o = spec.cmd_parser()
         f = edf.edfimage(self.filenames[0])
         header = f.header
-        cmd = header[self.instrument.edfheaderkeys["speccommand"]]
+        cmd = header[self.instrument.edfheaderkeys["speclabel"]]
         result = o.parsezapimage(cmd)
 
         # Extract axes

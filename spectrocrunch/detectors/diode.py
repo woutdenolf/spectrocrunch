@@ -1333,7 +1333,7 @@ class SXM_IDET(CalibratedPNdiode):
         super(SXM_IDET,self).__init__(\
                         gain=ureg.Quantity(1e5,"volt/ampere"),\
                         gainrounder=GainRounder(base=10),\
-                        darkcurrent=ureg.Quantity(1.08e-10,"ampere"),\
+                        darkcurrent=ureg.Quantity(0,"ampere"),\
                         energy=energy,response=response,fitresponse=False,\
                         beforesample=False,oscillator=vtof,**kwargs)
                         
