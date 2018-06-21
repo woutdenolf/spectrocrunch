@@ -30,8 +30,6 @@ import operator
 
 from ..common import units
 
-# TODO: do this in sympy
-
 
 class Operator(object):
     """An operator with an operator on the right

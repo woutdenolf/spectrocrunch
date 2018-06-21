@@ -33,6 +33,7 @@ from ..common import listtools
 from ..common import instance
 from ..common import units
 from ..common.hashable import Hashable
+from ..math.common import floatformat
 from .. import ureg
 from . import colorbar_rgb
 
@@ -56,7 +57,9 @@ def ColorNorm(name,*args):
     else:
         norm = lambda **kwargs: pltcolors.Normalize(*args,**kwargs)
     return norm
-    
+
+def ColorNormLinear(name):
+    return name!="log" and name!="power" and name!="symlog"
     
 class Geometry2D(object):
     
@@ -321,15 +324,25 @@ class Scene(Hashable,Geometry2D):
         vmin = None
         vmax = None
         
-        single = lambda v: (np.nanmin(v[0]),np.nanmax(v[1]))
-        
-        tmp = [single(item.vminmax) for item in self if hasattr(item,'vminmax')]
-        
+        tmp = [item.vminmax for item in self if hasattr(item,'vminmax')]
         if len(tmp)==0:
             return None,None
-        else:
-            vmin,vmax = zip(*tmp)
-            return min(vmin),max(vmax)
+
+        vmin,vmax = zip(*tmp)
+        vmin = [listtools.aslist(v) for v in vmin]
+        vmax = [listtools.aslist(v) for v in vmax]
+        n = max(len(v) for v in vmin)
+        
+        def reshape(v):
+            if len(v)!=n:
+                v.extend([np.nan]*(n-len(v))) 
+            return v
+            
+        vmin = np.array([reshape(v) for v in vmin])
+        vmax = np.array([reshape(v) for v in vmax])
+        vmin = np.nanmin(vmin,axis=0)
+        vmax = np.nanmax(vmax,axis=0)
+        return vmin,vmax
     
     def scale(self,vmin=None,vmax=None):
         self.set_setting("vmin",vmin)
@@ -375,13 +388,13 @@ class Item(Hashable,Geometry2D):
         
         if scene is not None:
             self.register(scene)
-        
-        Item.updatedata(self,**kwargs)
+
+        Item._updatedata(self,**kwargs)
 
     def _stringrepr(self):
         return "{} {}".format(type(self).__name__,id(self))
-        
-    def updatedata(self,axis0name="Dim0",axis1name="Dim1",**settings):
+    
+    def _updatedata(self,axis0name="Dim0",axis1name="Dim1",**settings):
         self.axis0name = axis0name
         self.axis1name = axis1name
         try:
@@ -389,7 +402,10 @@ class Item(Hashable,Geometry2D):
                 self.set_settings(settings)
         except RuntimeError:
             logger.warning("Item settings are not applied (provide a scene)")
-            
+    
+    def updatedata(self,**kwargs):
+        Item._updatedata(self,**kwargs)
+    
     def register(self,scene):
         scene.register(self)
     
@@ -498,9 +514,9 @@ class Image(Item):
     
         self.lim = [lim0,lim1]
 
-    def updatedata(self,data,lim0=None,lim1=None,labels=None,**kwargs):
-        self._updatedata(data,lim0=lim0,lim1=lim1,labels=labels)
-        super(Image,self).updatedata(**kwargs)
+    def updatedata(self,data,lim0=None,lim1=None,labels=None,**settings):
+        Image._updatedata(self,data,lim0=lim0,lim1=lim1,labels=labels)
+        super(Image,self).updatedata(**settings)
 
     @property
     def data(self):
@@ -643,11 +659,13 @@ class Image(Item):
                   "cnorm":None,\
                   "cnormargs":(),\
                   "legend":True,\
-                  "fontsize":12,\
+                  "fontsize":matplotlib.rcParams['font.size'],\
                   "fontweight":500,\
                   "legendposition":"RT",\
                   "channels":None,\
-                  "colorbar":False}
+                  "colorbar":False,\
+                  "compositions":{},\
+                  "title":None}
         
     def datarange(self,dataaxis,border=False):
         lim = self.scene.datatransform(self.lim[dataaxis],dataaxis)
@@ -714,11 +732,22 @@ class Image(Item):
         return x+xchar*ox,y+ychar*oy,xchar*dx,ychar*dy,horizontalalignment,verticalalignment
 
     def bordercoord(self):
-        x = sorted(self.datalimy)
+        x = sorted(self.datalimx)
         y = sorted(self.datalimy)
         x = [x[0],x[1],x[1],x[0],x[0]]
         y = [y[0],y[0],y[1],y[1],y[0]]
         return x,y
+
+    @classmethod
+    def compositioncolor(cls,name,v,vmin,vmax):
+        color = [0,0,0]
+        v2 = [0,0,0]
+        for i,(c,mi,ma) in enumerate(zip(v,vmin,vmax)):
+            v2[i] = c
+            if mi is not None and ma is not None:
+                color[i] = max(min((c-mi)/(ma-mi),1),0)
+                v2[i] = color[i]*(ma-mi) + mi
+        return name,v2,color
 
     def updateview(self):
         scene = self.scene
@@ -733,14 +762,13 @@ class Image(Item):
         else:
             aspectcorrect = settings["aspectcorrect"]
         alpha = settings["alpha"]
-        
+
         # Create intensity-scaled image
         vmin,vmax = scene.vminmax
         if settings["vmin"] is not None:
             vmin = settings["vmin"]   
         if settings["vmax"] is not None:
             vmax = settings["vmax"]
-            
         image = self.datadisplay
         
         # clip = True -> neglect colormap's over/under/masked colors
@@ -751,6 +779,7 @@ class Image(Item):
             if not instance.isarray(vmax):
                 vmax = [vmax]*nchannels
             normcb = []
+            
             for i in range(nchannels):
                 norm = ColorNorm(settings["cnorm"],*settings["cnormargs"])(vmin=vmin[i],vmax=vmax[i],clip=True)
                 image[...,i] = norm(image[...,i]).data
@@ -762,14 +791,18 @@ class Image(Item):
         
         # Coordinates and borders
         extent = list(scene.xmagnitude(self.datalimx))+list(scene.ymagnitude(self.datalimy))
-
         x,y = self.bordercoord()
         x = scene.xmagnitude(x)
         y = scene.ymagnitude(y)
         
         # Legend
         xlabel,ylabel,dx,dy,horizontalalignment,verticalalignment = self.labelxy
-
+        
+        compositions = []
+        if nchannels>1:
+            for name,comp in settings["compositions"].items():
+                compositions.append(self.compositioncolor(name,comp,vmin,vmax))
+        
         # Create/update objects
         items = self.sceneitems
         newitems = OrderedDict()
@@ -792,7 +825,7 @@ class Image(Item):
                         alpha = alpha,\
                         aspect = aspectcorrect)
         newitems["image"].set_visible(settings["image"])
-            
+        
         # Border
         if "border" in items:
             newitems["border"] = items["border"]
@@ -810,18 +843,22 @@ class Image(Item):
         if settings["colorbar"]:
             # TODO: update existing color bar?
             if norm is None:
-                # Triangle: cannot handle normcb which is not linear
-                #colorbar_rgb.triangle(vmin=vmin,vmax=vmax,names=self.labels)
-                newitems.update(colorbar_rgb.bars(vmin=vmin,vmax=vmax,names=labels,norms=normcb,ax=scene.ax))
-                labels = []
+                ## Triangle: cannot handle normcb which is not linear
+                #if settings["colorbar"]==2 and ColorNormLinear(settings["cnorm"]):
+                #    #This assumes sum is 1 so not useful here
+                #    colorbar_rgb.triangle(vmin=vmin,vmax=vmax,names=self.labels,compositions = compositions)
+                #else:
+                #    newitems.update(colorbar_rgb.bars(vmin=vmin,vmax=vmax,names=labels,norms=normcb,ax=scene.ax))
+                #    labels = []
+        
+                for i,(name,mi,ma) in enumerate(zip(labels,vmin,vmax)):
+                    if name is not None:
+                        fmt = floatformat(ma,3)
+                        fmt = "{{}} [{{{}}},{{{}}}]".format(fmt,fmt)
+                        labels[i] = fmt.format(name,mi,ma)
             else:
                 newitems["colorbar"] = plt.colorbar(newitems["image"])
  
-        # Legend
-        kwargs = {k:settings[k] for k in ["color","alpha"]}
-        kwargs["horizontalalignment"] = horizontalalignment
-        kwargs["verticalalignment"] = verticalalignment
-
         if nchannels==1:
             colors = [kwargs["color"]]
         else:
@@ -830,7 +867,26 @@ class Image(Item):
                 colors.extend([None]*(nchannels-3))
             colors = colors[0:nchannels]
 
-        i = -1
+        for name,value,color in compositions:
+            if name not in labels:
+                labels.append(name)
+                colors.append(color)
+
+        # Legend
+        off = -1
+        off = self.addlegend(scene,settings,items,newitems,[settings["title"]],[settings["color"]],off=off)
+        off = self.addlegend(scene,settings,items,newitems,labels,colors,off=off,visible=settings["legend"])
+        
+        self.refreshscene(newitems)
+
+    def addlegend(self,scene,settings,items,newitems,labels,colors,off=-1,visible=True):
+        xlabel,ylabel,dx,dy,horizontalalignment,verticalalignment = self.labelxy
+        
+        kwargs = {k:settings[k] for k in ["color","alpha"]}
+        kwargs["horizontalalignment"] = horizontalalignment
+        kwargs["verticalalignment"] = verticalalignment
+
+        i = off
         for label,color in zip(labels,colors):
             if label is None or color is None:
                 continue
@@ -846,11 +902,10 @@ class Image(Item):
                 plt.setp(newitems[name], **kwargs)
             else:
                 newitems[name] = scene.ax.text(xlabel+i*dx,ylabel+i*dy,label,**kwargs)
-            newitems[name].set_visible(settings["legend"])
+            newitems[name].set_visible(visible)
+            
+        return i
         
-        self.refreshscene(newitems)
-            
-            
 class Scatter(Item):
 
     def __init__(self,coordinate0,coordinate1,labels=None,**kwargs):
@@ -866,9 +921,9 @@ class Scatter(Item):
         else:
             self.labels = labels
 
-    def updatedata(self,coordinate0,coordinate1,labels=None,**kwargs):
-        self._updatedata(coordinate0,coordinate1,labels=labels)
-        super(Image,self).updatedata(**kwargs)
+    def updatedata(self,coordinate0,coordinate1,labels=None,**settings):
+        Image._updatedata(self,coordinate0,coordinate1,labels=labels)
+        super(Scatter,self).updatedata(**settings)
 
     def datarange(self,dataaxis):
         ran = self.scene.datatransform(self._coordinate[dataaxis],dataaxis)
@@ -882,7 +937,7 @@ class Scatter(Item):
         return {"color":None,"marker":"+","linestyle":"","linewidth":2,\
                 "fill":False,"alpha":None,"closed":False,"labels":True,\
                 "horizontalalignment":"left","verticalalignment":"bottom",\
-                "fontsize":12,"labeloffset":0.1,"fontweight":500}
+                "fontsize":matplotlib.rcParams['font.size'],"labeloffset":0.1,"fontweight":500}
 
     def updateview(self):
         scene = self.scene

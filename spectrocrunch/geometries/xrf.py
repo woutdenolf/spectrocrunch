@@ -372,7 +372,7 @@ class sxm120(LinearXRFGeometry):
         # detector position in mm
 
         kwargs["anglein"] = kwargs.get("anglein",62)
-        kwargs["angleout"] = kwargs.get("angleout",49)
+        kwargs["angleout"] = kwargs.get("angleout",58)#49
         kwargs["azimuth"] = kwargs.get("azimuth",0)
 
         kwargs["positionunits"] = kwargs.get("positionunits","mm")

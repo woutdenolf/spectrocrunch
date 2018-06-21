@@ -35,10 +35,7 @@ logging.basicConfig()
 ##### Initialize pint #####
 import pint
 ureg = pint.UnitRegistry()
-
-import scipy.constants
-r = scipy.constants.physical_constants["classical electron radius"]
-ureg.re = ureg.Quantity(r[0],r[1])
+ureg.define('classical_electron_radius = e^2/(4*pi*m_e*epsilon_0*c^2) = r_e')
 
 ##### Initialize xraylib #####
 import xraylib

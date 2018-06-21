@@ -47,6 +47,11 @@ class test_fluoxas(unittest.TestCase):
     def setUp(self):
         self.dir = TempDirectory()
         self.cfgfile = os.path.join(self.dir.path,"mca.cfg")
+        xrf_setup.pymcahandle.addtopymca(fresh=True)
+        xrf_setup.pymcahandle.flux = 1
+        xrf_setup.pymcahandle.time = 1
+        xrf_setup.pymcahandle.linear = True
+        xrf_setup.pymcahandle.escape = False
         xrf_setup.pymcahandle.savepymca(self.cfgfile)
 
     def tearDown(self):
@@ -75,9 +80,9 @@ class test_fluoxas(unittest.TestCase):
 
     def qxrfgeometry(self):
         energy = self.pymcagetenergy()
-        
-        monitor = qxrf.factory("QXRFGeometry",instrument="id21",diodeI0="iodet1",diodeIt="idet",\
-                                optics="KB",xrfdetector="leia",xrfgeometry="sxm120",simplecalibration=True)
+
+        monitor = qxrf.factory("QXRFGeometry",instrument="id21",diodeI0="iodet1",diodeIt="idet",
+                                optics="KB",xrfgeometry=xrf_setup.pymcahandle.sample.geometry,simplecalibration=True)
         monitor.setreferenceflux(1e9)
         monitor.setdefaulttime(0.1)
         
@@ -97,11 +102,18 @@ class test_fluoxas(unittest.TestCase):
         return monitor
     
     def gendata(self):
+        qxrfgeometry = self.qxrfgeometry()
+        refflux = qxrfgeometry.reference.to("hertz").magnitude
+        expotime = qxrfgeometry.defaultexpotime.to("seconds").magnitude
+        
         # Generate spectra
-        spec =  xrf_setup.pymcahandle.mca()+1
-        spec = np.stack([spec,spec*2,spec*3],axis=1)
+        #  flux*time = 1
+        #  solidangle = sa*1,sa*2,sa*3
+        spec = xrf_setup.pymcahandle.mca()
+        spec = np.stack([spec*1,spec*2,spec*3],axis=1)
         nchan,ndet = spec.shape
         
+        # SIXES map with hotspot
         nmaps,nlines,nspec = 3,7,6
         data = np.ones((nmaps,nlines,nspec))
         off = max(min(nlines,nspec)-nmaps,0)//2
@@ -112,22 +124,19 @@ class test_fluoxas(unittest.TestCase):
 
         # Generate counter headers
         energy = self.pymcagetenergy()
-        energy = np.linspace(energy,energy+0.001,nmaps)
-        ctrheaders = np.vectorize(lambda e:{"DCM_Energy":e},otypes=[object])(energy)
+        energy = np.full(nmaps,energy)
+        ctrheaders = np.vectorize(lambda e:{"DCM_Energy":e,"time":expotime},otypes=[object])(energy)
         
         # Init counters
         ctrs = {}
 
-        # Apply flux
-        qxrfgeometry = self.qxrfgeometry()
-        refflux = qxrfgeometry.reference.to("hertz").magnitude
+        # Apply flux and time
         flux = np.linspace(refflux,refflux*0.5,nmaps*nlines*nspec).reshape((nmaps,nlines,nspec))
-        data *= flux[...,np.newaxis,np.newaxis]
+        data *= flux[...,np.newaxis,np.newaxis]*expotime
         
         ctrs["arr_iodet"] = np.ones((nmaps,nlines,nspec))
         ctrs["arr_idet"] = np.ones((nmaps,nlines,nspec))
         ctrs["arr_fdet"] = np.ones((nmaps,nlines,nspec))
-        expotime = qxrfgeometry.defaultexpotime.to("seconds").magnitude
         for i,en in enumerate(energy):
             ctrs["arr_iodet"][i,...] = qxrfgeometry.diodeI0.fluxtocps(en,flux[i,...])*expotime
             ctrs["arr_idet"][i,...] = qxrfgeometry.diodeIt.fluxtocps(en,flux[i,...])*expotime
@@ -135,7 +144,11 @@ class test_fluoxas(unittest.TestCase):
             op,fref,tref,traw = qxrfgeometry.xrfnormop(en)
             self.assertEqual(fref,refflux)
             np.testing.assert_allclose(ctrs["arr_fdet"][i,...],op(ctrs["arr_iodet"][i,...]))
-
+            op,_ = qxrfgeometry.I0op(en,expotime=expotime)
+            np.testing.assert_allclose(flux[i,...],op(ctrs["arr_iodet"][i,...]))
+            op,_ = qxrfgeometry.Itop(en,expotime=expotime)
+            np.testing.assert_allclose(flux[i,...],op(ctrs["arr_idet"][i,...]))
+            
         # Deadtime corrected counters
         a = nchan/2
         b = a+100
@@ -202,11 +215,11 @@ class test_fluoxas(unittest.TestCase):
 
         # Process with different settings
         for alignmethod in [None,"max"]:
-            for cfgfileuse in [None,self.cfgfile]:
+            for cfgfileuse in [self.cfgfile,None]:
                 if cfgfileuse is None and alignmethod is not None:
                     continue
-                for include_detectors in [[2],[0,2]]:
-                    for addbeforefit in [False,True]:
+                for include_detectors in [[0,2],[2]]:
+                    for addbeforefit in [True,False]:
                         addbeforefit_onspectra = addbeforefit and len(include_detectors)>1
                         for quant in [True,False]:
                             if quant:
@@ -215,7 +228,7 @@ class test_fluoxas(unittest.TestCase):
                             else:
                                 geom = None
                                 prealignnormcounter = "arr_fdet"
-                            for dtcor in [False,True]:
+                            for dtcor in [True,False]:
                                 dtcor_onspectra = dtcor and (len(include_detectors)>1 or quant)
                                 for stackdim in [2,1,0]:
                                     with self.env_destpath():
@@ -350,14 +363,14 @@ class test_fluoxas(unittest.TestCase):
                                                                 #    ind = np.unravel_index(np.argmax(np.abs(r[i,...]-v)), r.shape[1:])
                                                                 #    r[i,ind[0],ind[1]]= np.nan
                                                                 
-                                                                #try:
-                                                                np.testing.assert_allclose(np.nanmin(r),np.nanmax(r),rtol=1e-1)
-                                                                #except Exception as e:
-                                                                #    print h5file
-                                                                #    print grp
-                                                                #    for i in range(nmaps):
-                                                                #        print r[i,...]
-                                                                #    raise e
+                                                                try:
+                                                                    np.testing.assert_allclose(np.nanmin(r),np.nanmax(r),rtol=1e-3)
+                                                                except Exception as e:
+                                                                    print h5file
+                                                                    print grp
+                                                                    for i in range(nmaps):
+                                                                        print r[i,...]
+                                                                    raise e
                                             # Finished one condition set
                                 
 def test_suite_all():

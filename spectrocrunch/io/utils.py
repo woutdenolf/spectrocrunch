@@ -22,45 +22,24 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from . import types
-from ..common import instance 
+import os
+import shutil
+import tempfile
 
-import numpy as np
+class temporary_copy(object):
+    
+    def __init__(self,filename,ext=".tmp"):
+        self.filename = filename
+        self.tmpfilename = None
+        self.ext = ext
 
-class StoichiometryBase(object):
-    # TODO: refactor most of Mixture and Compound
-        
-    def setfraction(self,parts,values,fractype):
-        if instance.isstring(parts):
-            parts = [parts]
-        values = instance.asarray(values)
-    
-        for p in parts:
-            if p not in self.parts:
-                raise RuntimeError("{} not in {}".format(p,self))
-    
-        # rebalance others
-        w = self.fractions(fractype)
-        w2 = dict(w)
-        for p in parts:
-            w2.pop(p)
-        
-        # update others
-        if w2:
-            v2 = np.asarray(w2.values())
-            v2 *= (1-values.sum())/v2.sum()
-            w.update((k,v) for k,v in zip(w2.keys(),v2))
-        
-        # update fractions
-        w.update(zip(parts,values))
-        self.change_fractions(w,fractype)
-    
-    def setmassfraction(self,comp,value):
-        self.setfraction(comp,value,types.fraction.mass)
+    def __enter__(self):
+        temp_dir = tempfile.gettempdir()
+        temp_name = next(tempfile._get_candidate_names())
+        self.tmpfilename = os.path.join(temp_dir,temp_name+self.ext)
+        shutil.copy2(self.filename, self.tmpfilename)
+        return self.tmpfilename
 
-    def setmolefraction(self,comp,value):
-        self.setfraction(comp,value,types.fraction.mole)
-        
-    def setvolumefraction(self,comp,value):
-        self.setfraction(comp,value,types.fraction.volume)
-        
+    def __exit__(self,exc_type, exc_val, exc_tb):
+        os.remove(self.tmpfilename)
+        self.tmpfilename = None

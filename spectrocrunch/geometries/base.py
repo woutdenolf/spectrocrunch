@@ -69,7 +69,7 @@ class Base(object):
         
 class FlatSample(Base):
 
-    def __init__(self,anglein=None,angleout=None,azimuth=None,**kwargs):
+    def __init__(self,anglein=None,angleout=None,azimuth=0.,**kwargs):
         """
         Args:
             anglein(num): angle (deg) between primary beam and sample surface
@@ -101,12 +101,14 @@ class FlatSample(Base):
         return self.anglein + self.angleout
     
     def xrayspectrumkwargs(self):
-        return {"polar":self.scatteringangle,"azimuth":self.azimuth}
+        return {"polar":np.radians(self.scatteringangle),"azimuth":np.radians(self.azimuth)}
         
     def __str__(self):
-        return "{}\nGeometry:\n In = {} deg\n Out = {} deg ({})".format(\
+        return "{}\nGeometry:\n In = {} deg\n Out = {} deg ({})\n Azimuth = {} deg".format(\
                         super(FlatSample,self).__str__(),\
-                        self.anglein,self.angleout,"reflection" if self.reflection else "transmission")
+                        self.anglein,self.angleout,\
+                        "reflection" if self.reflection else "transmission",\
+                        self.azimuth)
 
     def addtofisx(self,setup,cfg):
         # When self.angleout<0: works only for a single layer

@@ -155,7 +155,7 @@ class test_mixture(unittest.TestCase):
         np.testing.assert_allclose(beta*m,c.mass_abs_coeff(energy),rtol=1e-2)
         
         delta = c.refractive_index_delta(energy)
-        m = (2*np.pi/(ureg.re*wavelength**2*ureg.avogadro_number/ureg.Quantity(c.molarmasseff(),"g/mol")*c.Zeff)).to("g/cm^3").magnitude
+        m = (2*np.pi/(ureg.classical_electron_radius*wavelength**2*ureg.avogadro_number/ureg.Quantity(c.molarmasseff(),"g/mol")*c.Zeff)).to("g/cm^3").magnitude
         np.testing.assert_allclose(delta*m,c.density,rtol=1e-2)
         
 def test_suite_all():

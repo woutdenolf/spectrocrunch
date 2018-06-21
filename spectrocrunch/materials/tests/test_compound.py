@@ -166,8 +166,8 @@ class test_compound(unittest.TestCase):
         n_im1c = density*4.15179082788e-4*(np.asarray([xraylib.Fii(Z, e) for e in energy]))/xraylib.AtomicWeight(Z)/energy**2;
 
         # Spectrocrunch
-        n_re2 = c.refractive_index_re(energy)
-        n_im2 = c.refractive_index_im(energy)
+        n_re2 = c.refractive_index_real(energy)
+        n_im2 = c.refractive_index_imag(energy)
 
         np.testing.assert_allclose(n_re2,n_re0)
         np.testing.assert_allclose(n_im2,n_im1c,rtol=1e-6)
@@ -183,7 +183,7 @@ class test_compound(unittest.TestCase):
         np.testing.assert_allclose(beta*m,c.mass_abs_coeff(energy),rtol=1e-2)
         
         delta = c.refractive_index_delta(energy)
-        m = (2*np.pi/(ureg.re*wavelength**2*ureg.avogadro_number/ureg.Quantity(c.molarmasseff(),"g/mol")*c.Zeff)).to("g/cm^3").magnitude
+        m = (2*np.pi/(ureg.classical_electron_radius*wavelength**2*ureg.avogadro_number/ureg.Quantity(c.molarmasseff(),"g/mol")*c.Zeff)).to("g/cm^3").magnitude
         np.testing.assert_allclose(delta*m,c.density,rtol=1e-2)
         
         

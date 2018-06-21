@@ -140,6 +140,12 @@ def length(x):
     except TypeError:
         return 1
 
+def aslist(x):
+    try:
+        return list(x)
+    except:
+        return [x]
+
 def filterfalse(predicate, iterable):
     # filterfalse(lambda x: x%2, range(10)) --> 0 2 4 6 8
     if predicate is None:

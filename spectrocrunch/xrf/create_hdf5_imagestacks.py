@@ -28,6 +28,7 @@ import logging
 import re
 import shutil
 import os
+import collections
 
 from ..io import xiaedf
 from ..io import edf
@@ -224,7 +225,7 @@ def createimagestacks(config,qxrfgeometry=None):
             
             # Prepare list of files
             if binit:
-                stacks[name] = {}
+                stacks[name] = collections.OrderedDict()
                 for ctr in v1:
                     stacks[name][ctr] = [""]*nstack
             for ctr,f in v1.items():
@@ -302,13 +303,15 @@ def createimagestacks(config,qxrfgeometry=None):
                     op,_ = qxrfgeometry.I0op(energy,expotime=time)
                     if "calc_flux0" not in stacks[name]:
                         stacks[name]["calc_flux0"] = [""]*nstack
-                    stacks[name]["calc_flux0"][imageindex] = {"args":[config["fluxcounter"]],"groups":[name],"func":op}
+                    stacks[name]["calc_flux0"][imageindex] = {"args":[(name,config["fluxcounter"])],"func":op}
                 if "transmissioncounter" in config:
                     op,_ = qxrfgeometry.Itop(energy,expotime=time)
                     if "calc_fluxt" not in stacks[name]:
                         stacks[name]["calc_fluxt"] = [""]*nstack
-                    stacks[name]["calc_fluxt"][imageindex] = {"args":[config["transmissioncounter"]],"groups":[name],"func":op}
-    
+                        stacks[name]["calc_transmission"] = [""]*nstack
+                    stacks[name]["calc_fluxt"][imageindex] = {"args":[(name,config["transmissioncounter"])],"func":op}
+                    stacks[name]["calc_transmission"][imageindex] = {"args":[(name,"calc_fluxt"),(name,"calc_flux0")],"func":lambda a,b: -np.log(a/b.astype(np.float32))}
+                    
     # Fit data and add elemental maps
     if fit:
         logger.info("Fit XRF spectra ...")
@@ -421,7 +424,7 @@ def exportgroups(f,stacks,axes,stackdim,imgdim,stackshape,proc):
                     datainfo = stacks[k1][k2][iscan]
 
                     args = []
-                    for k1b,k2b in zip(datainfo["groups"],datainfo["args"]):
+                    for k1b,k2b in datainfo["args"]:
                         grp2 = f[k1b]
                         dset = grp2[k2b][grp2[k2b].attrs["signal"]]
                         if stackdim == 0:
@@ -431,7 +434,7 @@ def exportgroups(f,stacks,axes,stackdim,imgdim,stackshape,proc):
                         else:
                             data = dset[...,iscan]
                         args.append(data)
-                    
+
                     data = datainfo["func"](*args)
                 else:
                     if isinstance(datainfo,dict):

@@ -29,7 +29,8 @@ import matplotlib.colors as pltcolors
 from . import ternary_diagram
 from . import chromaticity_triangle
 
-def triangle(fig=None,vmin=[0,0,0],vmax=[1,1,1],names=['R','G','B'],rect=[0.1, 0.1, 0.8, 0.8],grid=True):
+
+def triangle(fig=None,vmin=[0,0,0],vmax=[1,1,1],names=['R','G','B'],rect=[0.1, 0.1, 0.8, 0.8],grid=True,compositions=None):
 
     names = ["None" if name is None else name for name in names]
 
@@ -54,6 +55,11 @@ def triangle(fig=None,vmin=[0,0,0],vmax=[1,1,1],names=['R','G','B'],rect=[0.1, 0
     if grid:
         ternary_diagram.TernaryGrid(items["colorbar"],ternaryinfo)
 
+    if compositions:
+        names, compositions, colors =  zip(*compositions)
+        right,top,left = zip(*compositions)
+        ternary_diagram.TernaryLegend(items["colorbar"],ternaryinfo,np.array(left),np.array(right),np.array(top),names,colors)
+
     return items
 
 def bars(ax=None,vmin=[0,0,0],vmax=[1,1,1],names=['R','G','B'],norms=[None,None,None]):
@@ -71,7 +77,7 @@ def bars(ax=None,vmin=[0,0,0],vmax=[1,1,1],names=['R','G','B'],norms=[None,None,
         sm = plt.cm.ScalarMappable(cmap=cm, norm=norm)
         sm._A = []
         cb = plt.colorbar(sm,ax=ax,fraction=0.15,pad=pad)
-        label = cb.ax.text(0,1,name,transform=cb.ax.transAxes)
+        label = cb.ax.text(0,1.05,name,transform=cb.ax.transAxes)
         ret["colorbar{}".format(name)] = cb
         ret["colorbar{}_title".format(name)] = label
         pad += 0.05

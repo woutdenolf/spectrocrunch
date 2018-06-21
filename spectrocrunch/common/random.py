@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,21 +22,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import numpy as np
+import string
+import random
 
-from math import log10,floor
-
-def logscale(img):
-    ret = -np.log(img/np.nanmax(img))
-    ret /= np.nanmax(ret)
-    return 1-ret
-
-def round_sig(x, sig):
-    return round(x, sig-int(floor(log10(abs(x))))-1)
-
-def floatformat(x, sig):
-    n = max(sig-int(floor(log10(abs(x))))-1,0)
-    y = "{}".format(x).split('.')
-    if len(y)==2:
-        n = min(n,len(y[-1]))
-    return ":.0{:d}f".format(n)
+def randomstring(size=6, chars=string.ascii_letters + string.digits):
+    return ''.join(random.choice(chars) for _ in range(size))
+    

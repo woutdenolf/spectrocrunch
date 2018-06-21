@@ -391,10 +391,10 @@ class Multilayer(with_metaclass(cache.Cache)):
             #  column -> interaction
             #  index -> [layer,source]
             probs = [None]*_nlayers
-            probs[1:-1] = [pd.DataFrame.from_items(layer.xrayspectrum(energy,emin=emin,emax=emax).probabilities) for layer in self]
+            probs[1:-1] = [pd.DataFrame.from_dict(dict(layer.xrayspectrum(energy,emin=emin,emax=emax).probabilities)) for layer in self]
             probs[0] = pd.DataFrame(index=range(nenergy))
             probs[-1] = probs[0]
-            probs = pd.concat(probs)
+            probs = pd.concat(probs,sort=True)
             probs.fillna(0., inplace=True)
             probs.index = pd.MultiIndex.from_product([np.arange(_nlayers), range(nenergy)],names=["layer","source"])
 
@@ -732,11 +732,13 @@ class Multilayer(with_metaclass(cache.Cache)):
         emax = setup.emax
         emin = setup.emin
         
+        if "peaks" not in cfg:
+            cfg["peaks"] = {}
         for e in elements:
             shells = e.pymcashellfactory(emin=emin,emax=emax)
             if shells:
                 cfg["peaks"][str(e)] = shells
-
+                
     def addtopymca(self,setup,cfg):
         if self.nlayers==1:
             name = setup.addtopymca_material(cfg,self[0],defaultthickness=self[0].thickness)
@@ -748,7 +750,7 @@ class Multilayer(with_metaclass(cache.Cache)):
                 self.addtopymca_shells(setup,cfg,layer.elements)
             self.addtopymca_matrix(setup,cfg,'MULTILAYER')
         self.geometry.addtopymca(setup,cfg)
-    
+        
     def loadfrompymca(self,setup,cfg):
         self.geometry.loadfrompymca(setup,cfg)
         name,density,thickness = self.loadfrompymca_matrix(setup,cfg)
@@ -911,7 +913,9 @@ class Multilayer(with_metaclass(cache.Cache)):
             gen[k] = gen[k]*eff
             
     @cache.withcache("layerinfo")
-    def xrayspectrum(self, energy0, emin=0, emax=None, method="analytical", ninteractions=1, weights=None, scattering=True, withdetectorattenuation=True):
+    def xrayspectrum(self, energy0, emin=0, emax=None, method="analytical", \
+                    ninteractions=1, weights=None, scattering=True, \
+                    withdetectorattenuation=True):
     
         if method=="fisx":
             if scattering:
@@ -931,7 +935,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         if method=="fisx":
             gen = self._rates_fisx(energy0,weights,ninteractions,emin=emin,emax=emax)
         else:
-            geomkwargs=self.geometry.xrayspectrumkwargs()
+            geomkwargs = self.geometry.xrayspectrumkwargs()
             with self.cachectx("interactioninfo",energy0,emin=emin,emax=emax,\
                                 ninteractions=ninteractions,\
                                 geomkwargs=geomkwargs):

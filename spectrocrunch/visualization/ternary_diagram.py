@@ -26,6 +26,7 @@ import numpy as np
 import collections
 import matplotlib.colors as pltcolors
 import matplotlib.transforms as plttransforms
+import matplotlib.patches as pltpatches
 import mpl_toolkits.axisartist as plta
 import mpl_toolkits.axisartist.grid_helper_curvelinear as pltahelper
 
@@ -188,6 +189,20 @@ def axesRight(fig,rect,ternaryinfo,grid=False,debug=False):
 
     return ax
 
+def NormTernary(p,ternaryinfo):
+    clip = lambda x: np.clip(x,0,1)
+    
+    mi,ma = ternaryinfo.top.min,ternaryinfo.top.max
+    top = clip((p.top-mi)/(ma-mi))
+    
+    mi,ma = ternaryinfo.left.min,ternaryinfo.left.max
+    left = clip((p.left-mi)/(ma-mi))
+    
+    mi,ma = ternaryinfo.right.min,ternaryinfo.right.max
+    right = clip((p.right-mi)/(ma-mi))
+    
+    return TernaryCoordinates(left=left,right=right,top=top)
+
 def TernaryToCartesian(p):
     H = np.sqrt(3)/2
     tot = p.left+p.right+p.top
@@ -205,16 +220,16 @@ def TernaryPoint(ax,ternaryinfo,point):
 
     x0,y0 = TernaryToCartesian(point)
 
-    x1,y1 = TernaryToCartesian(point._replace(left=1-point.right,top=0))
+    x1,y1 = TernaryToCartesian(point._replace(left=point.left+point.top,top=0))
     ax.plot([x0,x1],[y0,y1],color=ternaryinfo.right.color)
     
-    x1,y1 = TernaryToCartesian(point._replace(top=1-point.right,right=0))
+    x1,y1 = TernaryToCartesian(point._replace(top=point.top+point.right,right=0))
     ax.plot([x0,x1],[y0,y1],color=ternaryinfo.left.color)
     
-    x1,y1 = TernaryToCartesian(point._replace(right=1-point.top,left=0))
+    x1,y1 = TernaryToCartesian(point._replace(right=point.right+point.left,left=0))
     ax.plot([x0,x1],[y0,y1],color=ternaryinfo.top.color)
 
-    ax.plot([x0],[y0],marker='o',markersize=10)
+    ax.plot([x0],[y0],marker='o',markersize=10,color="#000000")
 
 def TernaryGrid(ax,ternaryinfo,n=5):
     
@@ -249,4 +264,18 @@ def TernaryGrid(ax,ternaryinfo,n=5):
     x,y = TernaryToCartesian(pts)
     for xi,yi in zip(x,y):
         ax.plot(xi,yi,color=ternaryinfo.top.color)
-        
+
+def TernaryLegend(ax,ternaryinfo,left,right,top,names,colors):
+    pts = TernaryCoordinates(left=left,right=right,top=top)
+    pts = NormTernary(pts,ternaryinfo)
+    
+    if False:
+        x,y = TernaryToCartesian(pts)
+        for xi,yi,name,c in zip(x,y,names,colors):
+            ax.plot(x,y,'o',color="#000000")
+    else:
+        TernaryPoint(ax,ternaryinfo,pts)
+    
+    patches = [pltpatches.Patch(color=color, label=label) for label,color in zip(names,colors)]
+    ax.legend(patches, names, loc="upper right", frameon=False)
+
