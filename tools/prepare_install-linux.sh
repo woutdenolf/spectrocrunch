@@ -90,6 +90,7 @@ case "${ARG_CHOICE}" in
         return 1;;
   * ) ;;
 esac
+timer reset
 
 # ============Install pypi libraries and their system dependencies============
 mkdir -p $(python_full_version)
@@ -103,18 +104,15 @@ if [[ $(dryrun) == false ]]; then
 
     mapt-get libhdf5-serial-dev libhdf5-dev # h5py
 
-    mapt-get $(python_bin)-pyopencl # pyopencl (especially for the drivers)
-    mapt-get ocl-icd-libopencl1 opencl-headers # pyopencl (silx)
+    mapt-get $(python_bin)-pyopencl # pyopencl (for the opencl drivers as dependencies)
+    mapt-get ocl-icd-libopencl1 opencl-headers libffi-dev # pyopencl (silx)
 
-    mapt-get libgl1-mesa-dev # pyopengl (pymca)
+    mapt-get libgl1-mesa-dev libglu1-mesa-dev # pyopengl (pymca)
 
-    #mapt-get ocl-icd-libopencl1 opencl-headers libffi-dev # pyopencl
+    require_pyqt5 # pymca
 
     #source $GLOBAL_SCRIPT_ROOT/linux/funcs-opencl.sh
     #require_opencl
-    
-    #mapt-get  # pyopencl
-    #pip_upgrade mako # pyopencl
 
     #require_pyqt4 # pymca
     #mapt-get libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev # pymca
@@ -136,17 +134,17 @@ if [[ $(dryrun) == false ]]; then
 fi
 
 # ============Install non-pypi libraries and their system dependencies============
-#source $GLOBAL_SCRIPT_ROOT/linux/funcs-xraylib.sh
-#require_xraylib
+source $GLOBAL_SCRIPT_ROOT/linux/funcs-xraylib.sh
+require_xraylib
 
-#source $GLOBAL_SCRIPT_ROOT/linux/funcs-pytmm.sh
-#require_pytmm
+source $GLOBAL_SCRIPT_ROOT/linux/funcs-pytmm.sh
+require_pytmm
 
 #source $GLOBAL_SCRIPT_ROOT/linux/funcs-fdmnes.sh
 #require_fdmnes
 
-#source $GLOBAL_SCRIPT_ROOT/linux/funcs-simpleelastix.sh
-#require_simpleelastix
+source $GLOBAL_SCRIPT_ROOT/linux/funcs-simpleelastix.sh
+require_simpleelastix
 
 # ============Cleanup============
 cprint "Cleaning up ..."

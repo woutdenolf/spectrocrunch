@@ -30,7 +30,7 @@ function swig_download()
 function swig_build_dependencies()
 {
     require_build_essentials
-    mapt-get "install libpcre3-dev"
+    mapt-get libpcre3-dev
 }
 
 
@@ -98,7 +98,7 @@ function require_swig()
 
     # Try system installation
     if [[ $(cmdexists swig) == false ]]; then
-        mapt-get "install swig"
+        mapt-get swig
     fi
 
     # Check version

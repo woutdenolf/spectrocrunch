@@ -250,10 +250,11 @@ function addFile()
 {
 	local FILE="${1}"
 	local LINE="${2}"
+
 	grep "${LINE}" "${FILE}" > /dev/null 2>&1
-	Retval=$?
-	if [ $Retval -ne 0 ]; then
-		echo "${LINE}" >> "${FILE}"
+	local Retval=$?
+	if [[ $Retval != 0 ]]; then
+        echo ${LINE} | mexec tee --append ${FILE}
         grep "${LINE}" "${FILE}" > /dev/null 2>&1
 	    Retval=$?
 	fi
@@ -264,79 +265,79 @@ function addFile()
 
 # ============addProfile============
 # Description: Add a line to your environment file (e.g. .bashrc)
-# Usage: addProfile line filename
+# Usage: addProfile filename line
 function addProfile()
 {
-	addFile "$@"
+	addFile ${1} "${2}"
 
-    if [[ $? != 0 ]]; then
+    if [[ $? == 0 ]]; then
         if [[ $(install_systemwide) == true ]]; then
             addFile "/etc/bash.bashrc" "[ -r ${1} ] && source \"${1}\""
         else
-            addFile "$HOME/.bashrc" "[ -r ${1} ] && source \"${1}\""
+            addFile "${HOME}/.bashrc" "[ -r ${1} ] && source \"${1}\""
         fi
     fi
 
-    Retval=$?
+    local Retval=$?
 	return $Retval
 }
 
 
 # ============addBinPath============
-# Description: Add path to $PATH
+# Description: Add path to ${PATH}
 function addBinPath()
 {
-	if [[ ":$PATH:" != *":${1}:"* ]]; then
-        export PATH=${1}:$PATH
+	if [[ ":${PATH}:" != *":${1}:"* ]]; then
+        export PATH=${1}:${PATH}
     fi
 }
 
 
 # ============addInclPath============
-# Description: Add path to $CPATH
+# Description: Add path to ${CPATH}
 function addInclPath()
 {
-	if [[ ":$CPATH:" != *":${1}:"* ]]; then
-        export CPATH=${1}:$CPATH
+	if [[ ":${CPATH}:" != *":${1}:"* ]]; then
+        export CPATH=${1}:${CPATH}
     fi
 }
 
 
 # ============addLibPath============
-# Description: Add path to $LD_LIBRARY_PATH
+# Description: Add path to ${LD_LIBRARY_PATH}
 function addLibPath()
 {
-	if [[ ":$LD_LIBRARY_PATH,:" != *":${1}:"* ]]; then
-        export LD_LIBRARY_PATH=${1}:$LD_LIBRARY_PATH
+	if [[ ":${LD_LIBRARY_PATH},:" != *":${1}:"* ]]; then
+        export LD_LIBRARY_PATH=${1}:${LD_LIBRARY_PATH}
     fi
-	if [[ ":$LIBRARY_PATH,:" != *":${1}:"* ]]; then
-        export LIBRARY_PATH=${1}:$LIBRARY_PATH
+	if [[ ":${LIBRARY_PATH},:" != *":${1}:"* ]]; then
+        export LIBRARY_PATH=${1}:${LIBRARY_PATH}
     fi
 }
 
 
 # ============addBinPathProfile============
-# Description: Add path to $PATH premanently
+# Description: Add path to ${PATH} premanently
 function addBinPathProfile()
 {
-    addProfile ${1} "export PATH=${2}:\$PATH"
+    addProfile ${1} "export PATH=${2}:\${PATH}"
 }
 
 
 # ============addInclPathProfile============
-# Description: Add path to $CPATH premanently
+# Description: Add path to ${CPATH} premanently
 function addInclPathProfile()
 {
-    addProfile ${1} "export CPATH=${2}:\$CPATH"
+    addProfile ${1} "export CPATH=${2}:\${CPATH}"
 }
 
 
 # ============addLibPathProfile============
-# Description: Add path to $LD_LIBRARY_PATH premanently
+# Description: Add path to ${LD_LIBRARY_PATH} premanently
 function addLibPathProfile()
 {
-    addProfile ${1} "export LD_LIBRARY_PATH=${2}:\$LD_LIBRARY_PATH"
-    addProfile ${1} "export LIBRARY_PATH=${2}:\$LIBRARY_PATH"
+    addProfile ${1} "export LD_LIBRARY_PATH=${2}:\${LD_LIBRARY_PATH}"
+    addProfile ${1} "export LIBRARY_PATH=${2}:\${LIBRARY_PATH}"
 }
 
 
@@ -427,12 +428,14 @@ function project_opt()
 function timer()
 {
     if [[ -z ${START_TIME} || "$1" == "reset" ]]; then
-        START_TIME=$SECONDS
+        START_TIME=${SECONDS}
         return
     fi
 
-    local ELAPSED_TIME=$((${SECONDS} - ${START_TIME}))
-    cprint "Total execution time = $(( $ELAPSED_TIME/60 )) min"
+    local elapsedtot=$((${SECONDS} - ${START_TIME}))
+    local elapsedmin=$(( ${elapsedtot}/60 ))
+    local elapsedsec=$(( ${elapsedtot}-60*${elapsedmin} ))
+    cprint "Total execution time = ${elapsedmin} min ${elapsedsec} sec"
 }
 
 

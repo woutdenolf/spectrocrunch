@@ -88,7 +88,11 @@ function python_full_bin()
 
 function python_hasmodule()
 {
+    local restorewd=$(pwd)
+    cd /
     local ret=$(python_get "import sys;sys.stderr=sys.stdout;import ${1}")
+    cd ${restorewd}
+
     ret=$(echo ${ret}|wc -m)
     if [[ ${ret} == 1 ]]; then
         echo true
@@ -308,7 +312,7 @@ function require_python()
 
     # Check version
     if [[ $(require_new_version_strict $(python_full_version) ${PYTHONVREQUEST}) == false ]]; then
-        cprint "Python version $(python_full_version) will be used"
+        cprint "Python version $(python_full_version) is used"
         return
     fi
 
@@ -317,12 +321,12 @@ function require_python()
 
     # Check version
     if [[ $(require_new_version_strict $(python_full_version) ${PYTHONVREQUEST}) == false ]]; then
-        cprint "Python version $(python_full_version) will be used"
+        cprint "Python version $(python_full_version) is used"
     else
         if [[ $(cmdexists python) == false ]]; then
             cerror "Python is not installed"
         else
-            cerror "Python version $(python_full_version) will be used but ${PYTHONVREQUEST} is required"
+            cerror "Python version $(python_full_version) is used but ${PYTHONVREQUEST} is required"
         fi
         return 1
     fi
@@ -361,13 +365,14 @@ function require_pythondev()
 
 function require_pyqt4()
 {
-    mapt-get $(python_bin)-qt4
+    mapt-get $(python_bin)-pyqt4
 }
 
 
 function require_pyqt5()
 {
-    mapt-get $(python_bin)-qt5
+    mapt-get $(python_bin)-pyqt5
+    pip_upgrade pyqt5
 }
 
 

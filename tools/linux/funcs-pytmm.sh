@@ -54,7 +54,7 @@ function require_pytmm()
     # Check
     require_python
 
-    if [[ $(python_hasmodule "PyTMM") == true ]]; then
+    if [[ $(python_hasmodule PyTMM) == true ]]; then
         cprint "Python module \"PyTMM\" is installed"
         cprintend
         return
@@ -63,7 +63,7 @@ function require_pytmm()
     # Install from source
     pytmm_install_fromsource
 
-    if [[ $(python_hasmodule "PyTMM") == true ]]; then
+    if [[ $(python_hasmodule PyTMM) == true ]]; then
         cprint "Python module \"PyTMM\" is installed"
     else
         cprint "Python module \"PyTMM\" is NOT installed"

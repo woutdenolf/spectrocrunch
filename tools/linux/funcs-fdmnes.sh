@@ -26,7 +26,7 @@ function fdmnes_install_fromsource()
         require_web_essentials
         local fdmneslink=$(wget -O - -q http://neel.cnrs.fr/spip.php?article3137 | grep  -o 'http://neel.cnrs.fr/IMG/zip/[^"]*')
         local fdmneszipname=$(basename ${fdmneslink})
-        
+
         if [ ! -f ${fdmneszipname} ]; then
             cprint "Download fdmnes ..."
 
@@ -46,17 +46,21 @@ function fdmnes_install_fromsource()
 
         local prefix_src=${prefix}/src
         local prefixstr_src=${prefixstr}/src
-        if [[ -d /sware/exp/fdmnes ]]; then
-            # Link to ESRF sware
-            if [ ! -d ${prefix_src} ]; then
-                mexec ln -s /sware/exp/fdmnes ${prefix_src}
-            fi
-        else
-            unzip -o ${fdmneszipname} -d ${prefix}
-            mexec mv ${prefix}/fdmnes ${prefix}/src
-        fi
-        
+
         if [[ ! -f ${prefix}/fdmnes ]]; then
+            # Binary source directory
+            if [[ -d /sware/exp/fdmnes ]]; then
+                # Link to ESRF sware source
+                if [ ! -d ${prefix_src} ]; then
+                    mexec ln -s /sware/exp/fdmnes ${prefix_src}
+                fi
+            else
+                # Unzip
+                unzip -o ${fdmneszipname} -d ${prefix}
+                mexec mv ${prefix}/fdmnes ${prefix_src}
+            fi
+
+            # Link to the binary that will be used
             mexec ln -s src/fdmnes_linux64 ${prefix}/fdmnes
         fi
 
@@ -78,8 +82,17 @@ function fdmnes_install_fromsource()
     if [[ $(dryrun) == false ]]; then
         cd pyFDMNES
 
+        pwd
         echo "[global]" > setup.cfg
+        echo "; enter here the path to the fdmnes executable:" >> setup.cfg
         echo "fdmnes_path=${prefix}/fdmnes" >> setup.cfg
+        echo "" >> setup.cfg
+        echo "[install]" >> setup.cfg
+        if [[ $(install_systemwide) == true ]]; then
+            echo "user=0" >> setup.cfg
+        else
+            echo "user=1" >> setup.cfg
+        fi
 
         $(python_bin) setup.py build -f
         $(python_bin) setup.py install
@@ -98,7 +111,7 @@ function require_fdmnes()
     require_python
 
     # Check
-    if [[ $(python_hasmodule "fdmnes") == true ]]; then
+    if [[ $(python_hasmodule fdmnes) == true ]]; then
         cprint "Python module \"fdmnes\" is installed"
         cprintend
         return
@@ -108,7 +121,7 @@ function require_fdmnes()
     fdmnes_install_fromsource
 
     # Check
-    if [[ $(python_hasmodule "fdmnes") == true ]]; then
+    if [[ $(python_hasmodule fdmnes) == true ]]; then
         cprint "Python module \"fdmnes\" is installed"
     else
         cprint "Python module \"fdmnes\" is NOT installed"

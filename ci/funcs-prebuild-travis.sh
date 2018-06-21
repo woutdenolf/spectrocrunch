@@ -86,7 +86,7 @@ function travis_install_dependencies()
     if [[ $(dryrun) == true ]]; then
         . $(project_folder)/tools/prepare_install-linux.sh -v ${pythonv} -u -d -x
     else
-        . $(project_folder)/tools/prepare_install-linux.sh -v ${pythonv} -u -x
+        . $(project_folder)/tools/prepare_install-linux.sh -v ${pythonv} -u -y -x
     fi
 
     local ret=$?

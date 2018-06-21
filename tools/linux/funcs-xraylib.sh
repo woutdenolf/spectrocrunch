@@ -104,7 +104,7 @@ function require_xraylib()
     require_python
 
     # Check
-    if [[ $(python_hasmodule "xraylib") == true ]]; then
+    if [[ $(python_hasmodule xraylib) == true ]]; then
         cprint "Python module \"xraylib\" is installed"
         cprintend
         return
@@ -114,7 +114,7 @@ function require_xraylib()
     xraylib_install_fromsource
 
     # Check
-    if [[ $(python_hasmodule "xraylib") == true ]]; then
+    if [[ $(python_hasmodule xraylib) == true ]]; then
         cprint "Python module \"xraylib\" is installed"
     else
         cprint "Python module \"xraylib\" is NOT installed"
