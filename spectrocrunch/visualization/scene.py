@@ -324,15 +324,25 @@ class Scene(Hashable,Geometry2D):
         vmin = None
         vmax = None
         
-        single = lambda v: (np.nanmin(v[0]),np.nanmax(v[1]))
-        
-        tmp = [single(item.vminmax) for item in self if hasattr(item,'vminmax')]
-        
+        tmp = [item.vminmax for item in self if hasattr(item,'vminmax')]
         if len(tmp)==0:
             return None,None
-        else:
-            vmin,vmax = zip(*tmp)
-            return min(vmin),max(vmax)
+
+        vmin,vmax = zip(*tmp)
+        vmin = [listtools.aslist(v) for v in vmin]
+        vmax = [listtools.aslist(v) for v in vmax]
+        n = max(len(v) for v in vmin)
+        
+        def reshape(v):
+            if len(v)!=n:
+                v.extend([np.nan]*(n-len(v))) 
+            return v
+            
+        vmin = np.array([reshape(v) for v in vmin])
+        vmax = np.array([reshape(v) for v in vmax])
+        vmin = np.nanmin(vmin,axis=0)
+        vmax = np.nanmax(vmax,axis=0)
+        return vmin,vmax
     
     def scale(self,vmin=None,vmax=None):
         self.set_setting("vmin",vmin)
@@ -755,7 +765,6 @@ class Image(Item):
             vmin = settings["vmin"]   
         if settings["vmax"] is not None:
             vmax = settings["vmax"]
-            
         image = self.datadisplay
         
         # clip = True -> neglect colormap's over/under/masked colors
@@ -766,6 +775,7 @@ class Image(Item):
             if not instance.isarray(vmax):
                 vmax = [vmax]*nchannels
             normcb = []
+            
             for i in range(nchannels):
                 norm = ColorNorm(settings["cnorm"],*settings["cnormargs"])(vmin=vmin[i],vmax=vmax[i],clip=True)
                 image[...,i] = norm(image[...,i]).data
@@ -840,7 +850,7 @@ class Image(Item):
         
                 for i,(name,mi,ma) in enumerate(zip(labels,vmin,vmax)):
                     if name is not None:
-                        fmt = floatformat(ma,2)
+                        fmt = floatformat(ma,3)
                         fmt = "{{}} [{{{}}},{{{}}}]".format(fmt,fmt)
                         labels[i] = fmt.format(name,mi,ma)
             else:

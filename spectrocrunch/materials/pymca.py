@@ -191,20 +191,21 @@ class PymcaBaseHandle(object):
             safrac = addinfo["SolidAngle"]
             #assert(self.sample.geometry.solidangle/(4*np.pi)==addinfo["SolidAngle"])
             #assert(self.flux*self.time==addinfo["I0"])
-            for group in out["massfractions"]:
-                ele = str(group.element)
+            for zgroup in out["massfractions"]:
+                ele = str(zgroup.element)
+                group = str(zgroup.group)
                 grouprate = 0.
                 for i in range(1,nlayers+1):
                     if ele in self.mcafit._fluoRates[i]:
                         massfrac_l = self.mcafit._fluoRates[i][ele]["mass fraction"]
-                        grouprate_l = self.mcafit._fluoRates[i][ele]["rates"]["{} xrays".format(shell)]
+                        grouprate_l = self.mcafit._fluoRates[i][ele]["rates"]["{} xrays".format(group)]
                         grouprate += massfrac_l*grouprate_l
                 grouprate *= safrac
-                out["rates"][group] = grouprate
+                out["rates"][zgroup] = grouprate
 
         out["fitareas"] = {element.Element.fluozgroup(k):v for k,v in conresult["fitarea"].items()}
         
-        out["fitrates"] = {element.Element.fluozgroup(k):v/addinfo["I0"] for k,v in out["fitareas"].items()}
+        out["fitrates"] = {k:v/addinfo["I0"] for k,v in out["fitareas"].items()}
         
         return out
     

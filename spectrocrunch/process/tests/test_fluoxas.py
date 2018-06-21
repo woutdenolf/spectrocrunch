@@ -40,7 +40,7 @@ from ...materials.tests import xrf_setup
 
 import logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+#logger.setLevel(logging.DEBUG)
 
 class test_fluoxas(unittest.TestCase):
 

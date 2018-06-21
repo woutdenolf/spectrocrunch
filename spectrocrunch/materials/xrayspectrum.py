@@ -309,7 +309,8 @@ class Shell(hashable.Hashable):
     def expand(cls,shell):
         if isinstance(shell,Shell):
             return shell
-    
+        if instance.isnumber(shell):
+            return shell
         if shell[1:]:
             if shell[1:].isdigit():
                 return shell
