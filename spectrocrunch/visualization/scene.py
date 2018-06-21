@@ -376,7 +376,6 @@ class Item(Hashable,Geometry2D):
         if scene is not None:
             self.register(scene)
 
-        print kwargs
         Item._updatedata(self,**kwargs)
 
     def _stringrepr(self):
