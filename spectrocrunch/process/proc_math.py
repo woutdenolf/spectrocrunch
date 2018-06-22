@@ -37,7 +37,8 @@ def execute(file_in,stacks_in,axes_in,copygroups,bsamefile,default,\
     innames = proc_common.selectnotgroups(stacks_in,skipnames)
     if len(innames)==0:
         raise ValueError("No other stacks found than these: "+str.join(", ",skipnames))
-
+    logger.info("Normalized datasets: {}".format(innames))
+    
     # Output file
     if bsamefile:
         file_out = file_in
@@ -53,6 +54,7 @@ def execute(file_in,stacks_in,axes_in,copygroups,bsamefile,default,\
     # Processing info
     info = {}
     info["expression"] = expression
+    info["datasets"] = ";".join(innames)
 
     # Normalize
     stacks_out, axes_out = math.calc_hdf5_imagestacks(file_in,file_out,axes_in,expression,innames,innames,overwrite=True,\

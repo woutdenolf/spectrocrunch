@@ -266,7 +266,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
     # Normalization
     dtcor = procinfo[-1]["dtneeded"]
     if dtcor or prealignnormcounter is not None:
-        skip = instrument.counters(include=["xrfroi"])
+        skip = instrument.counters(include=["counters"])
 
         # Create normalization expression
         if dtcor:

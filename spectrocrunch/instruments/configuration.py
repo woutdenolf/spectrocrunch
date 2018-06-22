@@ -119,12 +119,6 @@ class ESRF_ID21_SXM(InstrumentInfo):
     def __init__(self,**info):
         info["imagemotors"] = info.get("imagemotors",["samy","sampy","samz","sampz"])
         info["imageaxes"] = info.get("imageaxes",("z","y"))
-        info["units"] = info.get("units",\
-                                    {"samy":ureg.millimeter,\
-                                    "samz":ureg.millimeter,\
-                                    "samx":ureg.millimeter,\
-                                    "sampy":ureg.micrometer,\
-                                    "sampz":ureg.micrometer})
         info["compensationmotors"] = info.get("compensationmotors",\
                                     {"samy":["sampy"],\
                                     "samz":["sampz"],\
@@ -145,7 +139,8 @@ class ESRF_ID21_SXM(InstrumentInfo):
                                     "xrfocr":"xmap_ocr",\
                                     "encoders":["arr_samy","arr_samz"],\
                                     "xrfroi":["xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c"],\
-                                    "calc":["arr_absorp1","arr_absorp2","arr_absorp3"]})
+                                    "calc":["arr_absorp1","arr_absorp2","arr_absorp3"],\
+                                    "counters":["arr_","xmap_"]})
         
         info["diodeI0"] = info.get("diodeI0",\
                                   {"istopz":lambda x:"iodet2" if abs(x+20)<abs(x+1.3) else "",\
@@ -176,13 +171,19 @@ class ESRF_ID21_SXM(InstrumentInfo):
                                            "time":"seconds",\
                                            "fluxt":"photons"}
                                          )
-                                         
+        
+        info["units"] = info.get("units",{})                           
         info["units"]["time"] = info["units"].get("time",ureg.seconds)
         info["units"]["energy"] = info["units"].get("energy",ureg.Unit("keV"))
         info["units"]["I0"] = info["units"].get("I0",ureg.dimensionless)
         info["units"]["It"] = info["units"].get("It",ureg.dimensionless)
         info["units"]["fluxt"] = info["units"].get("fluxt",ureg.dimensionless)
-        
+        info["units"]["samy"] = info["units"].get("samy",ureg.millimeter)
+        info["units"]["samz"] = info["units"].get("samz",ureg.millimeter)
+        info["units"]["samx"] = info["units"].get("samx",ureg.millimeter)
+        info["units"]["sampz"] = info["units"].get("sampz",ureg.micrometer)
+        info["units"]["sampy"] = info["units"].get("sampy",ureg.micrometer)
+                                    
         super(ESRF_ID21_SXM,self).__init__(**info)
                 
 
@@ -207,7 +208,9 @@ class ESRF_ID21_MICRODIFF(InstrumentInfo):
         info["counterdict"] = info.get("counterdict",\
                                     {"I0":"zap_iodet",\
                                     "It":"zap_idet",\
-                                    "XRF":["xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c","xmap_icr","xmap_ocr"]})
+                                    "xrficr":"xmap_icr",\
+                                    "xrfocr":"xmap_ocr",\
+                                    "xrfroi":["xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c"]})
                                     
         super(ESRF_ID21_MICRODIFF,self).__init__(**info)
 

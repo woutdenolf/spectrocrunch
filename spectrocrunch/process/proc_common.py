@@ -33,7 +33,11 @@ def hdf5base(file_in):
 def isgroup(hdf5path,name):
     """Check whether the name corresponds with the hdf5 path
     """
-    return hdf5path.split(".")[0].endswith(name)
+    ret = hdf5path.split(".")[0].endswith(name)
+    
+    group = hdf5path.split("/")[-1]
+    group = group.split(".")[0]
+    return group.startswith(name)
 
 def selectgroups(hdf5paths,names,sort=False):
     """Select hdf5 paths which correspond to the names
