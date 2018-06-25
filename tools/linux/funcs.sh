@@ -4,8 +4,8 @@
 # 
 
 SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SCRIPT_ROOT/funcs-string.sh
-source $SCRIPT_ROOT/funcs-essentials.sh
+source ${SCRIPT_ROOT}/funcs-string.sh
+source ${SCRIPT_ROOT}/funcs-essentials.sh
 
 # ============fullpath============
 # Description: expand path
@@ -141,7 +141,7 @@ function mmakeinstall()
         fi
         sudo -E checkinstall -y --pkgname "${name}-checkinstall"
     else
-        make install -s $@
+        make install -s
     fi
 }
 
@@ -191,7 +191,7 @@ function require_new_version()
         return
     fi
 
-    dpkg --compare-versions ${currentv} "le" ${requiredv}
+    dpkg --compare-versions ${currentv} "lt" ${requiredv}
     if [[ $? == 0 ]]; then
         echo true # current < required
     else
@@ -240,6 +240,40 @@ function require_new_version_strict()
     else
         echo true # current != required
     fi
+}
+
+
+# ============get_local_version============
+# Description: 
+# Usage: version=$(get_local_version requiredversion)
+function get_local_version()
+{
+    local requiredv=${1}
+
+    for dirname in $(ls -d */ | sort -V); do
+        local version=$(echo ${dirname} | grep -E -o "[0-9\.]+[0-9]")
+        if [[ $(require_new_version ${version} ${requiredv}) == false ]]; then
+            echo ${version}
+            return
+        fi
+    done
+}
+
+
+# ============get_local_version_strict============
+# Description: 
+# Usage: version=$(get_local_version_strict requiredversion)
+function get_local_version_strict()
+{
+    local requiredv=${1}
+
+    for dirname in $(ls -d */ | sort -V); do
+        local version=$(echo ${dirname} | grep -E -o "[0-9\.]+[0-9]")
+        if [[ $(require_new_version_strict ${version} ${requiredv}) == false ]]; then
+            echo ${version}
+            return
+        fi
+    done
 }
 
 
@@ -448,6 +482,22 @@ function cmdexists()
     else
         echo true
     fi
+}
+
+
+# ============cmd_path============
+# Description: 
+function cmd_path()
+{
+    echo $(which ${1} | grep -E -o ".+/")
+}
+
+
+# ============cmd_full_bin============
+# Description: 
+function cmd_full_bin()
+{
+    echo $(type ${1}  | awk -v N=$3 '{print $3}')
 }
 
 

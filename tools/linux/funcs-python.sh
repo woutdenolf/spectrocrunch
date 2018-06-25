@@ -61,10 +61,8 @@ function python_pkg()
 function python_bin()
 {
     if [[ -z ${PYTHONVREQUEST} ]]; then
-        if [[ $(cmdexists python3) == true ]]; then
-            echo "python3"
-            return
-        elif [[ $(cmdexists python) == true ]]; then
+        if [[ $(cmdexists python) == true ]]; then
+            # Don't try python3 here because of virtual envs
             echo "python"
             return
         else
@@ -185,6 +183,13 @@ function pip_install()
 }
 
 
+
+function pip_uninstall()
+{
+    $(pip_bin) uninstall --yes $@
+}
+
+
 function pip_upgrade()
 {
     if [[ $(install_systemwide) == true || $(python_virtualenv_active) == true ]]; then
@@ -240,14 +245,16 @@ function python_install_fromsource()
 {
     local restorewd=$(pwd)
 
-    require_web_essentials
-    require_web_access
-
     cprint "Download python ..."
     mkdir -p python
     cd python
 
-    local version=$(python_latest)
+    local version=$(get_local_version_strict ${1})
+    if [[ -z ${version} ]]; then
+        require_web_essentials
+        local version=$(python_latest)
+    fi
+
     local sourcedir=Python-${version}
     if [[ $(dryrun) == false && ! -d ${sourcedir} ]]; then
         python_download ${version}
@@ -317,7 +324,7 @@ function require_python()
     fi
 
     # Install from source
-    python_install_fromsource
+    python_install_fromsource ${PYTHONVREQUEST}
 
     # Check version
     if [[ $(require_new_version_strict $(python_full_version) ${PYTHONVREQUEST}) == false ]]; then
@@ -372,7 +379,7 @@ function require_pyqt4()
 function require_pyqt5()
 {
     mapt-get $(python_bin)-pyqt5
-    pip_upgrade pyqt5
+    pip_install pyqt5
 }
 
 

@@ -18,12 +18,6 @@ function require_web_essentials()
 }
 
 
-function require_pcre()
-{
-    mapt-get libpcre3 libpcre3-dev
-}
-
-
 function require_web_access()
 {
     if [[ "$(dnsdomainname)" == "esrf.fr" ]]; then

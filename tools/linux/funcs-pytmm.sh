@@ -4,8 +4,15 @@
 # 
 
 SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SCRIPT_ROOT/funcs.sh
-source $SCRIPT_ROOT/funcs-python.sh
+source ${SCRIPT_ROOT}/funcs.sh
+source ${SCRIPT_ROOT}/funcs-python.sh
+
+
+function pytmm_build_dependencies()
+{
+    mapt-get install libyaml-dev
+    pip_install pyyaml
+}
 
 
 function pytmm_install_fromsource()
@@ -17,7 +24,7 @@ function pytmm_install_fromsource()
     cd PyTMM
 
     if [[ $(dryrun) == false ]]; then
-        requires_web_access
+        require_web_access
         if [[ ! -d db ]]; then
             git clone https://github.com/polyanskiy/refractiveindex.info-database db
         fi
@@ -30,13 +37,11 @@ function pytmm_install_fromsource()
     if [[ $(dryrun) == false ]]; then
         cd PyTMM
 
-        $(python_bin) setup.py build -f
-        $(python_bin) setup.py install
-        
-        cd ../db
+        pytmm_build_dependencies
+        pip_install .
 
+        cd ../db
         local pytmmdir=$(python_get "import PyTMM,os; print(os.path.dirname(PyTMM.__file__));")
-        
         echo "Copy database to ${pytmmdir}/visirlib ..."
         mexec cp -R database ${pytmmdir}/visirlib
         mexec ls ${pytmmdir}/visirlib

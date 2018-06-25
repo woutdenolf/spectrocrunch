@@ -105,29 +105,6 @@ class DisabledCommand(Command):
         raise RuntimeError(self._MSG)
 
 
-####################
-## "test" command ## 
-####################
-class TestAllPackages(Command):
-    description = 'Run all unit tests'
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):    
-        errno = subprocess.call([sys.executable,'-m','spectrocrunch.tests.test_all'])
-        if errno != 0:
-            print("Tests did not pass !!!")
-            raise SystemExit(errno)
-        else:
-            print("All Tests passed.")
-cmdclass['test'] = TestAllPackages
-
-
 #######################
 ## "version" command ## 
 #######################
@@ -153,8 +130,7 @@ class BuildWithVersion(build_py):
     """
     Enhanced build_py which copies version.py to <PROJECT>._version.py
     """
-    description = 'Build with version info'
-    user_options = []
+    description = 'build with version info'
     
     def find_package_modules(self, package, package_dir):
         modules = build_py.find_package_modules(self, package, package_dir)
@@ -170,35 +146,20 @@ cmdclass['build_py'] = BuildWithVersion
 #########################
 if sphinx is not None:
     class BuildDocCommand(BuildDoc):
-        description = 'Build documentation'
-        user_options = []
         
         def run(self):
-            ## # make sure the python path is pointing to the newly built
-            ## # code so that the documentation is built on this and not a
-            ## # previously installed version
-
+            #Make sure the python path is pointing to the newly built
+            #code so that the documentation is built on this and not a
+            #previously installed version
             build = self.get_finalized_command('build')
             sys.path.insert(0, os.path.abspath(build.build_lib))
 
-##             ## # Copy .ui files to the path:
-##             dst = os.path.join(
-##                 os.path.abspath(build.build_lib), "silx", "gui")
-##             if not os.path.isdir(dst):
-##                 os.makedirs(dst)
-##             for i in os.listdir("gui"):
-##                 if i.endswith(".ui"):
-##                     src = os.path.join("gui", i)
-##                     idst = os.path.join(dst, i)
-##                     if not os.path.exists(idst):
-##                         shutil.copy(src, idst)
-
-            ## # Build the Users Guide in HTML and TeX format
             for builder in ['html', 'latex']:
                 self.builder = builder
                 self.builder_target_dir = os.path.join(self.build_dir, builder)
                 self.mkpath(self.builder_target_dir)
                 BuildDoc.run(self)
+
             sys.path.pop(0)
 else:
     class BuildDocCommand(DisabledCommand):
@@ -247,7 +208,7 @@ class NameCommand(Command):
     def finalize_options(self):
         pass
     def run(self):
-        print PROJECT
+        print(PROJECT)
 
 cmdclass['name'] = NameCommand
 
@@ -278,13 +239,13 @@ classifiers = [get_devstatus(),
 ##################
 ## Requirements ## 
 ##################
-install_requires = ["numpy", "future", "scipy", "h5py", "fabio", "silx",\
+install_requires = ["setuptools","numpy", "future", "scipy", "h5py", "fabio", "silx",\
                     "pyparsing", "PyMca5", "shapely", "matplotlib",\
                     "uncertainties", "pint", "pandas"]
 extras_require = {"physics":["xraylib", "cctbx", "fdmnes","PyTMM"],\
                   "elastix":["SimpleITK"]\
                   }
-setup_requires = ["testfixtures"]
+setup_requires = ["setuptools","testfixtures"]
 
 
 ###################
@@ -304,5 +265,6 @@ setup(name=PROJECT,
       packages=find_packages(),
       package_data={'spectrocrunch.resources': ['*/*.*']},
       license="MIT",
-      cmdclass=cmdclass
+      cmdclass=cmdclass,
+      test_suite="{}.tests.test_all".format(PROJECT)
       )

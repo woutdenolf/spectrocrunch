@@ -92,61 +92,23 @@ case "${ARG_CHOICE}" in
 esac
 timer reset
 
-# ============Install pypi libraries and their system dependencies============
-mkdir -p $(python_full_version)
-cd $(python_full_version)
+# ============Install dependencies============
+source $GLOBAL_SCRIPT_ROOT/linux/funcs-dependencies.sh
 
-if [[ $(dryrun) == false ]]; then
-    cprintstart
-    cprint "Installing system requirements ..."
+mkdir -p dep_$(python_full_version)
+cd dep_$(python_full_version)
 
-    pip_upgrade numpy # silx
+install_system_dependencies
+install_pypi_dependencies
+install_nopypi_dependencies
 
-    mapt-get libhdf5-serial-dev libhdf5-dev # h5py
-
-    mapt-get $(python_bin)-pyopencl # pyopencl (for the opencl drivers as dependencies)
-    mapt-get ocl-icd-libopencl1 opencl-headers libffi-dev # pyopencl (silx)
-
-    mapt-get libgl1-mesa-dev libglu1-mesa-dev # pyopengl (pymca)
-
-    require_pyqt5 # pymca
-
-    #source $GLOBAL_SCRIPT_ROOT/linux/funcs-opencl.sh
-    #require_opencl
-
-    #require_pyqt4 # pymca
-    #mapt-get libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev # pymca
-    #pip_upgrade --egg pymca #TODO: wait for pymca to get fixed
-
-    #mapt-get libgeos-dev # shapely
-
-    cprintstart
-    cprint "Installing pypi requirements ..."
-
-    pip_upgrade -r $GLOBAL_SCRIPT_ROOT/../requirements.txt
-
-    if [[ ${ARG_DEV} == true ]]; then
-        cprintstart
-        cprint "Installing pypi requirements (dev) ..."
-        mapt-get pandoc # nbsphinx
-        pip_upgrade -r $GLOBAL_SCRIPT_ROOT/../requirements-dev.txt
-    fi
+if [[ ${ARG_DEV} == true ]]; then
+    install_system_dependencies_dev
+    install_pypi_dependencies_dev
 fi
 
-# ============Install non-pypi libraries and their system dependencies============
-source $GLOBAL_SCRIPT_ROOT/linux/funcs-xraylib.sh
-require_xraylib
-
-source $GLOBAL_SCRIPT_ROOT/linux/funcs-pytmm.sh
-require_pytmm
-
-#source $GLOBAL_SCRIPT_ROOT/linux/funcs-fdmnes.sh
-#require_fdmnes
-
-source $GLOBAL_SCRIPT_ROOT/linux/funcs-simpleelastix.sh
-require_simpleelastix
-
 # ============Cleanup============
+cprintstart
 cprint "Cleaning up ..."
 
 if [[ $(dryrun) == false ]]; then

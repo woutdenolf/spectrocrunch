@@ -4,7 +4,7 @@
 # 
 
 SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SCRIPT_ROOT/funcs.sh
+source ${SCRIPT_ROOT}/funcs.sh
 
 
 function swig_url()
@@ -30,7 +30,8 @@ function swig_download()
 function swig_build_dependencies()
 {
     require_build_essentials
-    mapt-get libpcre3-dev
+    require_web_essentials
+    mapt-get libpcre3 libpcre3-dev
 }
 
 
@@ -42,8 +43,12 @@ function swig_install_fromsource()
     mkdir -p swig
     cd swig
 
-    require_web_essentials
-    local version=$(swig_latest)
+    local version=$(get_local_version ${1})
+    if [[ -z ${version} ]]; then
+        require_web_essentials
+        local version=$(swig_latest)
+    fi
+
     local sourcedir=swig-${version}
     if [[ $(dryrun) == false && ! -d ${sourcedir} ]]; then
         swig_download ${sourcedir}
@@ -75,6 +80,9 @@ function swig_install_fromsource()
 
         # Add path just for this session
         addBinPath ${prefix}/bin
+        #addProfile $(project_resource) "# Installed swig: ${prefixstr}"
+        #addBinPath ${prefix}/bin
+        #addBinPathProfile $(project_resource) "${prefixstr}/bin"
     fi
 
     cd ${restorewd}
@@ -94,7 +102,7 @@ function require_swig()
 {
     cprintstart
     cprint "Verify swig ${1} ..."
-    hash -d swig
+    hash -d swig # swig2/swig3 conflicts
 
     # Try system installation
     if [[ $(cmdexists swig) == false ]]; then
@@ -109,7 +117,7 @@ function require_swig()
     fi
 
     # Install from source
-    swig_install_fromsource
+    swig_install_fromsource ${1}
 
     # Check version
     if [[ $(require_new_version $(swig_version) ${1}) == false ]]; then

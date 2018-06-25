@@ -59,14 +59,22 @@ if [[ $? != 0 ]]; then
     return 1
 fi
 
-travis_install_dependencies ${ARG_PYTHONV}
+#travis_install_dependencies ${ARG_PYTHONV}
 if [[ $? != 0 ]]; then
     travis_cleanup_python
     return 1
 fi
 
-#travis_build_project
-#travis_test_project
-#travis_cleanup_python
+# ============Build============
+travis_build_project
+
+# ============Test============
+travis_test_project
+
+# ============Pack============
 #travis_pack_prebuild
+
+# ============Cleanup============
+#travis_cleanup_python
+
 

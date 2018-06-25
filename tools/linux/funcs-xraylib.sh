@@ -4,16 +4,21 @@
 # 
 
 SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SCRIPT_ROOT/funcs.sh
-source $SCRIPT_ROOT/funcs-swig.sh
-source $SCRIPT_ROOT/funcs-python.sh
+source ${SCRIPT_ROOT}/funcs.sh
+source ${SCRIPT_ROOT}/funcs-swig.sh
+source ${SCRIPT_ROOT}/funcs-python.sh
 
 
 function xraylib_build_dependencies()
 {
+    local tmp=$(pwd)
+    cd ${1}
+
     require_build_essentials
-    require_swig
     require_pythondev
+    require_swig
+
+    cd ${tmp}
 }
 
 
@@ -39,8 +44,12 @@ function xraylib_install_fromsource()
     mkdir -p xraylib
     cd xraylib
 
-    require_web_essentials
-    local version=$(xraylib_latest)
+    local version=$(get_local_version)
+    if [[ -z ${version} ]]; then
+        require_web_essentials
+        local version=$(xraylib_latest)
+    fi
+
     local sourcedir=xraylib-${version}
     if [[ $(dryrun) == false && ! -d ${sourcedir} ]]; then
         xraylib_download ${sourcedir}
@@ -55,7 +64,7 @@ function xraylib_install_fromsource()
 
         cprint "Configure xraylib for ${prefix} ..."
         if [[ $(dryrun) == false ]]; then
-            xraylib_build_dependencies
+            xraylib_build_dependencies ${restorewd}
 
             mexec mkdir -p ${prefix}
             autoreconf -i

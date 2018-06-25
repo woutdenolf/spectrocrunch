@@ -37,6 +37,14 @@ function travis_pybuild_folder()
 }
 
 
+function travis_depbuild_folder()
+{
+    local pybuild_folder=$(travis_prebuild_folder)/dep_$(python_full_version)
+    mkdir -p ${pybuild_folder}
+    echo "${pybuild_folder}"
+}
+
+
 function travis_venv()
 {
     echo $(travis_build_folder)/virtualenv/python$(python_full_version)
@@ -98,14 +106,19 @@ function travis_install_dependencies()
 function travis_build_project()
 {
     local restorewd=$(pwd)
-    cd $(travis_pybuild_folder)
+    cd $(project_folder)
+
+    cprintstart
+    cprint "Build project ..."
 
     if [[ $(dryrun) == false ]]; then
-        $(python_bin) $(project_folder)/setup.py build
+        $(python_bin) setup.py build_py --build-lib=$(travis_pybuild_folder)/build/lib -f
 
-        $(python_bin) $(project_folder)/setup.py build_doc
+        $(python_bin) setup.py build_doc --build-dir=$(travis_pybuild_folder)/build/doc
 
-        $(python_bin) $(project_folder)/setup.py sdist bdist_wheel
+        $(python_bin) setup.py sdist --dist-dir=$(travis_pybuild_folder)/dist
+
+        $(python_bin) setup.py bdist_wheel --dist-dir=$(travis_pybuild_folder)/dist
     fi
 
     cd ${restorewd}
@@ -117,10 +130,18 @@ function travis_test_project()
     local restorewd=$(pwd)
     cd $(travis_build_folder)
 
+    cprintstart
+    cprint "Install/test $(project_name) ..."
+
     if [[ $(dryrun) == false ]]; then
-        pip_install --pre --no-index --find-links=$(project_folder)/dist/ $(project_name)
+        cprint "Uninstall $(project_name) ..."
+        pip_uninstall $(project_name)
+
+        cprint "Install $(project_name) ..."
+        pip_install --pre --no-index --no-cache --find-links=$(travis_pybuild_folder)/dist/ $(project_name)
+
+        cprint "Test $(project_name) ..."
         $(python_bin) -m $(project_name).tests.test_all
-        deactivate
     fi
 
     cd ${restorewd}
@@ -138,14 +159,17 @@ function travis_cleanup_python()
 function travis_pack_prebuild()
 {
     local restorewd=$(pwd)
-    cd $(travis_build_folder)
+    cd $(travis_depbuild_folder)
+
+    local filename=$(travis_prebuild_folder)/$(project_name).travis.python$(python_version).tgz
+    cprintstart
+    cprint "Pack ${filename} ..."
 
     if [[ $(dryrun) == false ]]; then
-        local filename=$(project_name).travis.python$(python_version).tgz
-        #tar -czvf ${file} simpleelastix
+        tar -czf ${filename} *
 
         #require_web_essentials
-        #local link=$(curl --upload-file ./${file} https://transfer.sh/${file})
+        #local link=$(curl --upload-file ./${filename} https://transfer.sh/${filename})
         #echo "Link for download: ${link}"
     fi
 

@@ -4,8 +4,8 @@
 # 
 
 SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SCRIPT_ROOT/funcs.sh
-source $SCRIPT_ROOT/funcs-python.sh
+source ${SCRIPT_ROOT}/funcs.sh
+source ${SCRIPT_ROOT}/funcs-python.sh
 
 
 function fdmnes_build_dependencies()
@@ -62,6 +62,7 @@ function fdmnes_install_fromsource()
 
             # Link to the binary that will be used
             mexec ln -s src/fdmnes_linux64 ${prefix}/fdmnes
+            mexec chmod 775 ${prefix}/fdmnes
         fi
 
         # Environment
@@ -82,20 +83,14 @@ function fdmnes_install_fromsource()
     if [[ $(dryrun) == false ]]; then
         cd pyFDMNES
 
-        pwd
         echo "[global]" > setup.cfg
         echo "; enter here the path to the fdmnes executable:" >> setup.cfg
+        #echo "fdmnes_path=$(readlink -m ${prefix}/fdmnes)" >> setup.cfg
         echo "fdmnes_path=${prefix}/fdmnes" >> setup.cfg
-        echo "" >> setup.cfg
-        echo "[install]" >> setup.cfg
-        if [[ $(install_systemwide) == true ]]; then
-            echo "user=0" >> setup.cfg
-        else
-            echo "user=1" >> setup.cfg
-        fi
 
-        $(python_bin) setup.py build -f
-        $(python_bin) setup.py install
+        #$(python_bin) setup.py build -f
+        #$(python_bin) setup.py install
+        pip_install .
     fi
 
     cd ${restorewd}

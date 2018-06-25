@@ -4,14 +4,22 @@
 # 
 
 SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $SCRIPT_ROOT/funcs.sh
-source $SCRIPT_ROOT/funcs-cmake.sh
-source $SCRIPT_ROOT/funcs-swig.sh
+source ${SCRIPT_ROOT}/funcs.sh
+source ${SCRIPT_ROOT}/funcs-cmake.sh
+source ${SCRIPT_ROOT}/funcs-swig.sh
+source ${SCRIPT_ROOT}/funcs-python.sh
 
 function simpleelastix_build_dependencies()
 {
+    local tmp=$(pwd)
+    cd ${1}
+
+    mapt-get lua5.1 liblua5.1-dev
+    pip_install virtualenv
     require_cmake 3
     require_swig 3
+
+    cd ${tmp}
 }
 
 
@@ -23,7 +31,7 @@ function simpleelastix_install_fromsource()
     mkdir -p simpleelastix
     cd simpleelastix
     if [[ $(dryrun) == false && ! -d SimpleElastix ]]; then
-        requires_web_access
+        require_web_access
         git clone https://github.com/kaspermarstal/SimpleElastix SimpleElastix
     fi
     mkdir -p build
@@ -36,34 +44,30 @@ function simpleelastix_install_fromsource()
 
         cprint "Configure SimpleElastix ..."
         if [[ $(dryrun) == false ]]; then
+            simpleelastix_build_dependencies ${restorewd}
+
             # http://simpleelastix.readthedocs.io/GettingStarted.html#manually-building-on-linux
-            #
-            # TODO:  
             CMAKE_PARAMS="-DBUILD_EXAMPLES:BOOL=OFF \
                           -DBUILD_SHARED_LIBS:BOOL=OFF \
                           -DBUILD_TESTING:BOOL=OFF \
-                          -DSIMPLEITK_USE_SYSTEM_SWIG:BOOL=ON \
-                          -DSIMPLEITK_USE_SYSTEM_LUA:BOOL=OFF \
-                          -DUSE_SYSTEM_VIRTUALENV:BOOL=OFF \
-                          -DUSE_SYSTEM_ELASTIX:BOOL=OFF \
-                          -DUSE_SYSTEM_ITK:BOOL=OFF \
+                          -DSimpleITK_USE_SYSTEM_SWIG:BOOL=ON \
+                          -DSimpleITK_USE_SYSTEM_LUA:BOOL=ON \
+                          -DSimpleITK_USE_SYSTEM_VIRTUALENV:BOOL=ON \
+                          -DSimpleITK_USE_SYSTEM_ELASTIX:BOOL=OFF \
+                          -DSimpleITK_USE_SYSTEM_ITK:BOOL=OFF \
                           -DPYTHON_EXECUTABLE:FILEPATH=$(python_bin) \
                           -DPYTHON_INCLUDE_DIR:PATH=$(python_include) \
                           -DPYTHON_LIBRARY:FILEPATH=$(python_lib) \
-                          -DWRAP_CSHARP:BOOL=OFF \
-                          -DWRAP_JAVA:BOOL=OFF \
-                          -DWRAP_LUA:BOOL=OFF \
+                          -DWRAP_DEFAULT:BOOL=OFF \
                           -DWRAP_PYTHON:BOOL=ON \
-                          -DWRAP_R:BOOL=OFF \
-                          -DWRAP_RUBY:BOOL=OFF \
-                          -DWRAP_TCL:BOOL=OFF"
-                          #-DITK_DIR:PATH=${ITK_DIR}
+                          -DSWIG_DIR:PATH=$(cmd_path swig) \
+                          -DSWIG_EXECUTABLE:FILEPATH=$(cmd_full_bin swig)"
 
-            simpleelastix_build_dependencies
             mexec mkdir -p ${prefix}
+            cmake -LAH -DCMAKE_INSTALL_PREFIX:PATH="${prefix}" $CMAKE_PARAMS ../SimpleElastix/SuperBuild
             cmake -DCMAKE_INSTALL_PREFIX:PATH="${prefix}" $CMAKE_PARAMS ../SimpleElastix/SuperBuild
         fi
-        
+
         cprint "Build SimpleElastix ..."
         if [[ $(dryrun) == false ]]; then
             OMP_NUM_THREADS=2

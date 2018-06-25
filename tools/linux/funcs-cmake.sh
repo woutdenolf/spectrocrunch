@@ -41,8 +41,12 @@ function cmake_install_fromsource()
     mkdir -p cmake
     cd cmake
 
-    require_web_essentials
-    local version=$(cmake_latest)
+    local version=$(get_local_version ${1})
+    if [[ -z ${version} ]]; then
+        require_web_essentials
+        local version=$(cmake_latest)
+    fi
+
     local sourcedir=cmake-${version}
     if [[ $(dryrun) == false && ! -d ${sourcedir} ]]; then
         cmake_download ${sourcedir}
@@ -74,6 +78,10 @@ function cmake_install_fromsource()
 
         # Add path just for this session
         addBinPath ${prefix}/bin
+        #addProfile $(project_resource) "# Installed cmake: ${prefixstr}"
+        #addBinPath ${prefix}/bin
+        #addBinPathProfile $(project_resource) "${prefixstr}/bin"
+
     fi
 
     cd ${restorewd}
@@ -108,7 +116,7 @@ function require_cmake()
     fi
 
     # Install from source
-    cmake_install_fromsource
+    cmake_install_fromsource ${1}
 
     # Check version
     if [[ $(require_new_version $(cmake_version) ${1}) == false ]]; then
