@@ -114,7 +114,7 @@ class test_classfactory(unittest.TestCase):
         self.assertEqual((o.arg0,o.arg1,o.arg2,o.arg12a,o.kw0,o.kw1,o.kw2,o.kw12a),("0","1","2","a","k0","k1","k2","k12a"))
         self.assertEqual(class12a,o.__class__)
         
-def test_suite_all():
+def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
 
@@ -124,7 +124,7 @@ def test_suite_all():
 if __name__ == '__main__':
     import sys
 
-    mysuite = test_suite_all()
+    mysuite = test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

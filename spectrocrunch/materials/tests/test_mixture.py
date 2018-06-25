@@ -158,7 +158,7 @@ class test_mixture(unittest.TestCase):
         m = (2*np.pi/(ureg.classical_electron_radius*wavelength**2*ureg.avogadro_number/ureg.Quantity(c.molarmasseff(),"g/mol")*c.Zeff)).to("g/cm^3").magnitude
         np.testing.assert_allclose(delta*m,c.density,rtol=1e-2)
         
-def test_suite_all():
+def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_mixture("test_molefractions"))
@@ -171,7 +171,7 @@ def test_suite_all():
 if __name__ == '__main__':
     import sys
 
-    mysuite = test_suite_all()
+    mysuite = test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

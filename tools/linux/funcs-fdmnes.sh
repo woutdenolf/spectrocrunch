@@ -88,8 +88,6 @@ function fdmnes_install_fromsource()
         #echo "fdmnes_path=$(readlink -m ${prefix}/fdmnes)" >> setup.cfg
         echo "fdmnes_path=${prefix}/fdmnes" >> setup.cfg
 
-        #$(python_bin) setup.py build -f
-        #$(python_bin) setup.py install
         pip_install .
     fi
 

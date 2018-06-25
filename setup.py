@@ -266,5 +266,5 @@ setup(name=PROJECT,
       package_data={'spectrocrunch.resources': ['*/*.*']},
       license="MIT",
       cmdclass=cmdclass,
-      test_suite="{}.tests.test_all".format(PROJECT)
+      test_suite="{}.tests.test_all.test_suite".format(PROJECT)
       )

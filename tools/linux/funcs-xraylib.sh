@@ -17,6 +17,7 @@ function xraylib_build_dependencies()
     require_build_essentials
     require_pythondev
     require_swig
+    pip_install cython
 
     cd ${tmp}
 }

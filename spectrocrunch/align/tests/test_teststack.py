@@ -65,7 +65,7 @@ class test_teststack(unittest.TestCase):
         plt.imshow(img,origin='lower',interpolation='nearest')
         plt.pause(0.1)
 
-def test_suite_all():
+def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_teststack("test_data"))
@@ -74,7 +74,7 @@ def test_suite_all():
 if __name__ == '__main__':
     import sys
 
-    mysuite = test_suite_all()
+    mysuite = test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

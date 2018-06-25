@@ -23,6 +23,8 @@ function install_system_dependencies()
 
         pip_install numpy # silx
 
+        pip_install cython # xraylib
+
         mapt-get libhdf5-serial-dev libhdf5-dev # h5py
 
         require_pyopencl # silx

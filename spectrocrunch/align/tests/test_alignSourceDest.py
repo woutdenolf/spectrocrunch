@@ -197,7 +197,7 @@ class test_alignSource(unittest.TestCase):
         self.assertEqual(len(listofstacks[0].shape),3)
         self.assertTrue(all(s.shape==listofstacks[0].shape for s in listofstacks))
 
-def test_suite_all():
+def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_alignSource("test_teststack"))
@@ -207,7 +207,7 @@ def test_suite_all():
 if __name__ == '__main__':
     import sys
 
-    mysuite = test_suite_all()
+    mysuite = test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)
