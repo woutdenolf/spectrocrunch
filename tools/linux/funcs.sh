@@ -317,6 +317,14 @@ function addProfile()
 }
 
 
+# ============addVar============
+# Description: Add variable
+function addVar()
+{
+	export ${1}=${2}
+}
+
+
 # ============addBinPath============
 # Description: Add path to ${PATH}
 function addBinPath()
@@ -347,6 +355,13 @@ function addLibPath()
 	if [[ ":${LIBRARY_PATH},:" != *":${1}:"* ]]; then
         export LIBRARY_PATH=${1}:${LIBRARY_PATH}
     fi
+}
+
+# ============addVarProfile============
+# Description: Add variable premanently
+function addVarProfile()
+{
+    addProfile ${1} "export ${2}=${3}"
 }
 
 
@@ -457,6 +472,22 @@ function project_opt()
 }
 
 
+# ============project_userbasestr============
+# Description:
+function project_userbasestr()
+{
+    echo "\${HOME}/.local"
+}
+
+
+# ============project_userbase============
+# Description: see project_opt
+function project_userbase()
+{
+    fullpath $(project_userbasestr)
+}
+
+
 # ============timer============
 # Description: 
 function timer()
@@ -510,5 +541,16 @@ function os_arch()
 		osarch=$(uname -m | sed 's/x86_//;s/i[3-6]86/32/')
 	fi
     echo osarch
+}
+
+
+# ============install_info============
+# Description: 
+function install_info()
+{
+    cprint "Root priviliges: $(system_privileges)"
+    cprint "System wide installation: $(install_systemwide)"
+    cprint "Prefix for dependencies: $(project_prefix)"
+    cprint "Opt directory: $(project_opt)"
 }
 

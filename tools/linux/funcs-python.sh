@@ -176,15 +176,66 @@ function python_virtualenv_deactivate()
 }
 
 
+function addProfilePythonUserBase()
+{
+    # Root under which packages/scripts are installed when no
+    # permissions to the default package/script directory.
+    # When virtualenv is active: ignores PYTHONUSERBASE
+    local prefix=$(project_userbase)/python/$(python_full_version)
+    local prefixstr=$(project_userbasestr)/python/$(python_full_version)
+    addProfile $(project_resource) "# Python user base: ${prefixstr}"
+    addVar "PYTHONUSERBASE" ${prefix}
+    addVarProfile $(project_resource) "PYTHONUSERBASE" ${prefixstr}
+    addBinPath ${prefix}/bin
+    addBinPathProfile $(project_resource) ${prefixstr}/bin
+    addLibPath ${prefix}/lib
+    addLibPathProfile $(project_resource) ${prefixstr}/lib
+}
+
+
 function pip_install()
 {
+    addProfilePythonUserBase
     if [[ $(install_systemwide) == true || $(python_virtualenv_active) == true ]]; then
         $(pip_bin) install $@
     else
         $(pip_bin) install $@ --user
-        addProfile $(project_resource) "# Local pip installation: $(project_prefixstr)"
-        addBinPath $(project_prefix)/bin
-        addBinPathProfile $(project_resource) "$(project_prefixstr)/bin"
+    fi
+}
+
+
+function pip_upgrade()
+{
+    addProfilePythonUserBase
+    if [[ $(install_systemwide) == true || $(python_virtualenv_active) == true ]]; then
+        $(pip_bin) install --upgrade $@
+    else
+        $(pip_bin) install --upgrade $@ --user
+    fi
+}
+
+
+function pip_ensure()
+{
+    addProfilePythonUserBase
+    if [[ $(python_hasmodule pip) == false ]]; then
+        if [[ $(python_hasmodule ensurepip) == true ]]; then
+            if [[ $(python_virtualenv_active) == true ]]; then
+                if [[ $(install_systemwide) == true ]]; then
+                    $(python_bin) -m ensurepip
+                else
+                    $(python_bin) -m ensurepip --user
+                fi
+            else
+                if [[ $(install_systemwide) == true ]]; then
+                    $(python_bin) -m ensurepip
+                else
+                    $(python_bin) -m ensurepip --user
+                fi
+            fi
+        else
+            mapt-get install $(python_apt)-pip
+        fi
     fi
 }
 
@@ -193,19 +244,6 @@ function pip_install()
 function pip_uninstall()
 {
     $(pip_bin) uninstall --yes $@
-}
-
-
-function pip_upgrade()
-{
-    if [[ $(install_systemwide) == true || $(python_virtualenv_active) == true ]]; then
-        $(pip_bin) install --upgrade $@
-    else
-        $(pip_bin) install --upgrade --user $@
-        addProfile $(project_resource) "# Local pip installation: $(project_prefixstr)"
-        addBinPath $(project_prefix)/bin
-        addBinPathProfile $(project_resource) "$(project_prefixstr)/bin"
-    fi
 }
 
 
@@ -349,22 +387,7 @@ function require_python()
 
 function require_pip()
 {
-    if [[ $(python_hasmodule "pip") == false ]]; then
-        if [[ $(python_hasmodule "ensurepip") == true ]]; then
-            if [[ $(install_systemwide) == true ]]; then
-                $(python_bin) -m ensurepip
-            else
-                $(python_bin) -m ensurepip --user
-            fi
-        else
-            if [[ $(python_bin) == "python3" ]];then
-                mapt-get install python3-pip
-            else
-                mapt-get install python-pip
-            fi
-        fi
-    fi
-
+    pip_ensure
     pip_upgrade pip
     pip_upgrade setuptools
     pip_upgrade wheel
