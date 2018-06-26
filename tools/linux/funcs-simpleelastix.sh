@@ -14,7 +14,7 @@ function simpleelastix_build_dependencies()
     local tmp=$(pwd)
     cd ${1}
 
-    mapt-get lua5.1 liblua5.1-dev
+    mapt-get install lua5.1 liblua5.1-dev
     pip_install virtualenv
     require_cmake 3
     require_swig 3

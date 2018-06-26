@@ -56,6 +56,7 @@ function xraylib_install_fromsource()
         xraylib_download ${sourcedir}
         mkdir -p ${sourcedir}
         tar -xzf ${sourcedir}.tar.gz -C ${sourcedir} --strip-components=1
+        rm -f ${sourcedir}.tar.gz
     fi
     cd ${sourcedir}
 

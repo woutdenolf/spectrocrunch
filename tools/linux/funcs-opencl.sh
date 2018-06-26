@@ -7,16 +7,23 @@ SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source ${SCRIPT_ROOT}/funcs.sh
 source ${SCRIPT_ROOT}/funcs-python.sh
 
+
+function intel_name()
+{
+    echo "opencl_runtime_16.1.2_x64_rh_6.4.0.37"
+}
+
+
 function intel_url()
 {
     # https://software.intel.com/en-us/articles/opencl-drivers#latest_CPU_runtime
-    echo "http://registrationcenter-download.intel.com/akdlm/irc_nas/12556/opencl_runtime_16.1.2_x64_rh_6.4.0.37.tgz"
+    echo "http://registrationcenter-download.intel.com/akdlm/irc_nas/12556/$(intel_name).tgz"
 }
 
 
 function intel_build_dependencies()
 {
-    mapt-get cpio
+    mapt-get install cpio
 }
 
 
@@ -28,20 +35,21 @@ function intel_install_opencldrivers()
     mkdir -p opencl
     cd opencl
 
-    local PACKAGE_NAME=opencl_runtime_16.1.2_x64_rh_6.4.0.37
-    if [[ $(dryrun) == false  && ! -d${PACKAGE_NAME} ]]; then
+    local PACKAGE_NAME=$(intel_name)
+    if [[ $(dryrun) == false && ! -d ${PACKAGE_NAME} ]]; then
         require_web_access
-        wget -q $(intel_url) -O opencl_runtime.tgz
-        tar -xzf opencl_runtime.tgz
+        wget $(intel_url) -O ${PACKAGE_NAME}.tar.gz
+        mkdir -p ${PACKAGE_NAME}
+        tar -xzf ${PACKAGE_NAME}.tar.gz -C ${PACKAGE_NAME} --strip-components=1
+        rm -f ${PACKAGE_NAME}.tar.gz
     fi
-
-    cd ${PACKAGE_NAME}
 
     local prefix=$(project_opt)/opencl
     local prefixstr=$(project_optstr)/opencl
 
     cprint "Install OpenCL runtime ..."
     if [[ $(dryrun) == false ]]; then
+        cd ${PACKAGE_NAME}
         intel_build_dependencies
 
         sed 's/decline/accept/g' -i silent.cfg
@@ -69,18 +77,24 @@ function pyopencl_test()
 function pyopencl_install()
 {
     if [[ $(dryrun) == false ]]; then
-        mapt-get $(python_bin)-pyopencl
+        mapt-get install $(python_apt)-mako
+        mapt-get install $(python_apt)-pyopencl
         if [[ $(pyopencl_test) == true ]]; then
             return
         fi
 
-        pip_install pyopencl
-        if [[ $(pyopencl_test) == true ]]; then
-            return
-        fi
+        # ICD = “installable client driver”
+        # ocl-icd-libopencl1: ICD loader
+        # ocl-icd-opencl-dev: ICD loader dev
+        # opencl-headers: C/C++ headers for OpenCL API
+        # libffi-dev: 
+        # mako: templating language for python
 
-        mapt-get ocl-icd-libopencl1 opencl-headers ocl-icd-opencl-dev libffi-dev
+        mapt-get install ocl-icd-opencl-dev ocl-icd-libopencl1 opencl-headers libffi-dev
         intel_install_opencldrivers
+
+        pip_install mako
+        pip_install pyopencl
     fi
 }
 

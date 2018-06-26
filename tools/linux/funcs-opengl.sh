@@ -10,7 +10,7 @@ source ${SCRIPT_ROOT}/funcs-python.sh
 
 function pyopengl_install()
 {
-    mapt-get libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev # pymca
+    mapt-get install libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev # pymca
     pip_install pyopengl
 }
 

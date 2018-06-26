@@ -3,17 +3,17 @@
 
 function require_build_essentials()
 {
-    mapt-get make build-essential
-    mapt-get make checkinstall
-    mapt-get make autoconf libtool
-    mapt-get make libbz2-dev zlib1g-dev
-    mapt-get make openssl
+    mapt-get install make build-essential
+    mapt-get install make checkinstall
+    mapt-get install make autoconf libtool
+    mapt-get install make libbz2-dev zlib1g-dev
+    mapt-get install make openssl
 }
 
 
 function require_web_essentials()
 {
-    mapt-get wget curl
+    mapt-get install wget curl
     require_web_access
 }
 

@@ -78,6 +78,12 @@ function python_bin()
 }
 
 
+function python_apt()
+{
+    strreplace $(python_bin) "python2" "python"
+}
+
+
 function python_full_bin()
 {
     which $(python_bin)
@@ -206,7 +212,7 @@ function pip_upgrade()
 function python_build_dependencies()
 {
     require_build_essentials
-    mapt-get libsqlite3-dev libreadline-dev libncurses5-dev libssl-dev libgdbm-dev tk-dev libffi-dev
+    mapt-get install libsqlite3-dev libreadline-dev libncurses5-dev libssl-dev libgdbm-dev tk-dev libffi-dev
 }
 
 
@@ -259,6 +265,7 @@ function python_install_fromsource()
     if [[ $(dryrun) == false && ! -d ${sourcedir} ]]; then
         python_download ${version}
         tar -xzf ${sourcedir}.tgz
+        rm -f ${sourcedir}.tgz
     fi
     cd ${sourcedir}
 
@@ -314,7 +321,7 @@ function require_python()
 
     # Try system installation
     if [[ $(cmdexists $(python_bin)) == false ]]; then
-        mapt-get $(python_bin)
+        mapt-get install $(python_apt)
     fi
 
     # Check version
@@ -351,9 +358,9 @@ function require_pip()
             fi
         else
             if [[ $(python_bin) == "python3" ]];then
-                mapt-get python3-pip
+                mapt-get install python3-pip
             else
-                mapt-get python-pip
+                mapt-get install python-pip
             fi
         fi
     fi
@@ -366,19 +373,19 @@ function require_pip()
 
 function require_pythondev()
 {
-    mapt-get $(python_bin)-dev
+    mapt-get install $(python_apt)-dev
 }
 
 
 function require_pyqt4()
 {
-    mapt-get $(python_bin)-pyqt4
+    mapt-get install $(python_apt)-pyqt4
 }
 
 
 function require_pyqt5()
 {
-    mapt-get $(python_bin)-pyqt5
+    mapt-get install $(python_apt)-pyqt5
     pip_install pyqt5
 }
 

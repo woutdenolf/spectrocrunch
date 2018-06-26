@@ -31,7 +31,7 @@ function swig_build_dependencies()
 {
     require_build_essentials
     require_web_essentials
-    mapt-get libpcre3 libpcre3-dev
+    mapt-get install libpcre3 libpcre3-dev
 }
 
 
@@ -54,6 +54,7 @@ function swig_install_fromsource()
         swig_download ${sourcedir}
         mkdir -p ${sourcedir}
         tar -xzf ${sourcedir}.tar.gz -C ${sourcedir} --strip-components=1
+        rm -f ${sourcedir}.tar.gz
     fi
     cd ${sourcedir}
 
@@ -106,7 +107,7 @@ function require_swig()
 
     # Try system installation
     if [[ $(cmdexists swig) == false ]]; then
-        mapt-get swig
+        mapt-get install swig
     fi
 
     # Check version

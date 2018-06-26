@@ -166,6 +166,7 @@ function travis_pack_prebuild()
     cprint "Pack ${filename} ..."
 
     if [[ $(dryrun) == false ]]; then
+        rm -f ${filename}
         tar -czf ${filename} *
 
         #require_web_essentials

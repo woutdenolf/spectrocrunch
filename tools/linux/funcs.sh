@@ -148,20 +148,20 @@ function mmakeinstall()
 
 # ============mapt-get============
 # Description: Apt-get without prompt (ignores system wide setting)
-# Usage: mapt-get command
+# Usage: mapt-get install ...
 function mapt-get()
 {
     local pkgmgr=""
     if [[ $(cmdexists "apt-get") == true ]]; then
-        pkgmgr="apt-get -y --force-yes install"
+        pkgmgr="apt-get -y --force-yes"
     elif [[ $(cmdexists "dnf") == true ]]; then
-        pkgmgr="dnf -y install"
+        pkgmgr="dnf -y"
     elif [[ $(cmdexists "yum") == true ]]; then
-        pkgmgr="apt-get -y install"
+        pkgmgr="apt-get -y"
     elif [[ $(cmdexists "pkg") == true ]]; then
-        pkgmgr="pkg -y install"
+        pkgmgr="pkg -y"
     else
-        pkgmgr="apt-get -y --force-yes install"
+        pkgmgr="apt-get -y --force-yes"
     fi
 
     require_web_access

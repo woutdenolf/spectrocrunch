@@ -25,7 +25,7 @@ function install_system_dependencies()
 
         pip_install cython # xraylib
 
-        mapt-get libhdf5-serial-dev libhdf5-dev # h5py
+        mapt-get install libhdf5-serial-dev libhdf5-dev # h5py
 
         require_pyopencl # silx
 
@@ -33,10 +33,7 @@ function install_system_dependencies()
 
         require_pyqt # pymca
 
-        #mapt-get libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev # pymca
-        #pip_install --egg pymca #TODO: wait for pymca to get fixed
-
-        #mapt-get libgeos-dev # shapely
+        #mapt-get install libgeos-dev # shapely
     fi
 }
 
@@ -49,7 +46,7 @@ function install_system_dependencies_dev()
     if [[ $(dryrun) == false ]]; then
         require_web_access
 
-        mapt-get pandoc # nbsphinx
+        mapt-get install pandoc # nbsphinx
     fi
 }
 

@@ -52,6 +52,7 @@ function cmake_install_fromsource()
         cmake_download ${sourcedir}
         mkdir -p ${sourcedir}
         tar -xzf ${sourcedir}.tar.gz -C ${sourcedir} --strip-components=1
+        rm -f ${sourcedir}.tar.gz
     fi
     cd ${sourcedir}
 
@@ -105,7 +106,7 @@ function require_cmake()
 
     # Try system installation
     if [[ $(cmdexists cmake) == false ]]; then
-        mapt-get cmake
+        mapt-get install cmake
     fi
 
     # Check version

@@ -113,7 +113,7 @@ cprint "Cleaning up ..."
 
 if [[ $(dryrun) == false ]]; then
     if [[ $(system_privileges) == true ]]; then
-        mapt-get "autoremove"
+        mapt-get autoremove
     else
         cprint "Variables have been added to $(project_resource)."
     fi
