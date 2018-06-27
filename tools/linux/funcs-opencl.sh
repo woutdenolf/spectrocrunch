@@ -38,7 +38,7 @@ function intel_install_opencldrivers()
     local PACKAGE_NAME=$(intel_name)
     if [[ $(dryrun) == false && ! -d ${PACKAGE_NAME} ]]; then
         require_web_access
-        wget $(intel_url) -O ${PACKAGE_NAME}.tar.gz
+        curl -L $(intel_url) --output ${PACKAGE_NAME}.tar.gz
         mkdir -p ${PACKAGE_NAME}
         tar -xzf ${PACKAGE_NAME}.tar.gz -C ${PACKAGE_NAME} --strip-components=1
         rm -f ${PACKAGE_NAME}.tar.gz
