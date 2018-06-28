@@ -75,7 +75,9 @@ function cmake_install_fromsource()
 
     cprint "Install cmake in ${prefix} ..."
     if [[ $(dryrun) == false ]]; then
-        mmakeinstall cmake-${version}
+        if [[ ! -f ${prefix}/bin/cmake ]]; then
+            mmakeinstall cmake-${version}
+        fi
 
         # Add path just for this session
         addBinPath ${prefix}/bin

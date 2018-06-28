@@ -333,7 +333,9 @@ function python_install_fromsource()
 
     cprint "Install python in ${prefix} ..."
     if [[ $(dryrun) == false ]]; then
-        mmakeinstall python-${version}
+        if [[ ! -f ${prefix}/bin/python ]]; then
+            mmakeinstall python-${version}
+        fi
 
         addProfile $(project_resource) "# Installed python: ${prefixstr}"
         addBinPath ${prefix}/bin

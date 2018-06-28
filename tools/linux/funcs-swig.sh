@@ -77,7 +77,9 @@ function swig_install_fromsource()
 
     cprint "Install swig in ${prefix} ..."
     if [[ $(dryrun) == false ]]; then
-        mmakeinstall swig-${version}
+        if [[ ! -f ${prefix}/bin/swig ]]; then
+            mmakeinstall swig-${version}
+        fi
 
         # Add path just for this session
         addBinPath ${prefix}/bin
