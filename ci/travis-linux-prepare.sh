@@ -11,7 +11,7 @@ sudo -E apt-get update
 PYTHONV=`python -c "import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)"`
 
 cd ${BUILD_FOLDER}
-DEP_FOLDER=dep_{PYTHONV}
+DEP_FOLDER=dep_${PYTHONV}
 
 if [[ ! -d ${DEP_FOLDER} ]]; then
     FILE=spectrocrunch.travis.python${PYTHONV}.tgz
