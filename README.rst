@@ -9,7 +9,7 @@ Install dependencies:
 .. code-block:: bash
 
     git clone https://github.com/woutdenolf/spectrocrunch
-    . spectrocrunch/tools/prepare_install-linux.sh [-u]
+    . spectrocrunch/tools/linux-install-deps.sh [-u]
 
 Install from PyPi:
 

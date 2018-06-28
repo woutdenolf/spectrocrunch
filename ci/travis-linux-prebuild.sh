@@ -57,7 +57,7 @@ function main()
 
     # ============Initialize environment============
     local GLOBAL_SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    source ${GLOBAL_SCRIPT_ROOT}/funcs-prebuild-travis.sh
+    source ${GLOBAL_SCRIPT_ROOT}/funcs-travis-linux-prebuild.sh
     dryrun reset ${ARG_DRY}
 
     travis_init_python ${ARG_PYTHONV}

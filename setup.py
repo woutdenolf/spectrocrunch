@@ -181,14 +181,14 @@ class CleanCommand(Command):
         pass
     def run(self):
         shutil.rmtree("./build",True)
-        shutil.rmtree("./dict",True)
+        shutil.rmtree("./dist",True)
         
-        patterns = ['*.egg-info','*.tgz']
+        patterns = ['*.egg-info']
         for pattern in patterns:
-            for f in glob.glob(pattern):
-                os.remove(f)
+            for dirname in glob.glob(pattern):
+                shutil.rmtree(dirname,True)
                 
-        patterns = ['*.pyc']
+        patterns = ['*.pyc','*~']
         for root, dirnames, filenames in os.walk('.'):
             for pattern in patterns:
                 for filename in fnmatch.filter(filenames, pattern):

@@ -7,13 +7,13 @@
 PYTHONV=`python -c "import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)"`
 
 cd ${BUILD_FOLDER}
+DEP_FOLDER=${BUILD_FOLDER}/dep_{PYTHONV}
 
-if [ ! -d ${PYTHONV} ]; then
+if [ ! -d ${DEP_FOLDER} ]; then
     FILE=spectrocrunch.travis.python${PYTHONV}.tgz
-    LINK1=https://transfer.sh/12avMO/${FILE}
-    LINK2=http://ftp.esrf.fr/tmp/${FILE}
-    MARKER=${BUILD_FOLDER}/dep_{PYTHONV}
-        
+    LINK1=http://ftp.esrf.fr/tmp/${FILE}
+    LINK2=https://transfer.sh/12avMO/${FILE}
+    
     # Download to cache folder
     cd ${CACHED_FOLDER}
     ls -all
@@ -37,9 +37,9 @@ if [ ! -d ${PYTHONV} ]; then
 fi
 
 # List pre-build libraries   
-if [ -d ${PYTHONV} ]; then
+if [ -d ${DEP_FOLDER} ]; then
     echo "Pre-build libraries:"
-    ls ${PYTHONV}
+    ls ${DEP_FOLDER}
 else
     echo "No pre-build libraries"
 fi
@@ -48,5 +48,8 @@ fi
 export DISPLAY=:99.0
 sh -e /etc/init.d/xvfb start
 
+# Add package repositories
 sudo -E add-apt-repository universe
+sudo -E apt-get update
+
 
