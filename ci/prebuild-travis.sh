@@ -60,12 +60,12 @@ function main()
     source ${GLOBAL_SCRIPT_ROOT}/funcs-prebuild-travis.sh
     dryrun reset ${ARG_DRY}
 
-    # ============Install============
     travis_init_python ${ARG_PYTHONV}
     if [[ $? != 0 ]]; then
         return 1
     fi
 
+    # ============Dependencies============
     travis_install_dependencies ${ARG_PYTHONV}
     if [[ $? != 0 ]]; then
         travis_cleanup_python

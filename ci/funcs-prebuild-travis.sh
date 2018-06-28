@@ -63,7 +63,7 @@ function travis_init_python()
     fi
 
     if [[ $(dryrun) == false ]]; then
-        # Install python version
+        # Require python version
         install_systemwide reset true
         python_virtualenv_deactivate
         require_python ${pythonv}
@@ -72,10 +72,12 @@ function travis_init_python()
             return 1
         fi
 
-        # Activate virtual environment
+        # Require pip
         install_systemwide reset false
         require_pip
         pip_install virtualenv
+
+        # Activate virtual environment
         virtualenv $(travis_venv)
         source $(travis_venv)/bin/activate
     fi
@@ -159,15 +161,15 @@ function travis_cleanup_python()
 function travis_pack_prebuild()
 {
     local restorewd=$(pwd)
-    cd $(travis_depbuild_folder)
+    cd $(travis_prebuild_folder)
 
-    local filename=$(travis_prebuild_folder)/$(project_name).travis.python$(python_version).tgz
+    local filename=$(project_name).travis.python$(python_full_version).tgz
     cprintstart
     cprint "Pack ${filename} ..."
 
     if [[ $(dryrun) == false ]]; then
         rm -f ${filename}
-        tar -czf ${filename} *
+        tar -czf ${filename} $(basename $(travis_depbuild_folder))
 
         #require_web_essentials
         #local link=$(curl --upload-file ./${filename} https://transfer.sh/${filename})

@@ -12,12 +12,12 @@ if [ ! -d ${PYTHONV} ]; then
     FILE=spectrocrunch.travis.python${PYTHONV}.tgz
     LINK1=https://transfer.sh/12avMO/${FILE}
     LINK2=http://ftp.esrf.fr/tmp/${FILE}
-    MARKER=${BUILD_FOLDER}/${FILE}.done
-
+    MARKER=${BUILD_FOLDER}/dep_{PYTHONV}
+        
     # Download to cache folder
     cd ${CACHED_FOLDER}
     ls -all
-    if [ ! -f ${MARKER} ]; then
+    if [ ! -d ${MARKER} ]; then
         echo "Download pre-build libraries ..."
         wget ${LINK1}
         ls -all
@@ -29,7 +29,6 @@ if [ ! -d ${PYTHONV} ]; then
         if [ -f ${FILE} ]; then
             echo "Unpack pre-build libraries ..."
             tar -xzf ${FILE} -C ${BUILD_FOLDER}
-            touch ${MARKER}
             rm -f ${FILE}
         fi
     fi

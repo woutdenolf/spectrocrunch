@@ -29,7 +29,9 @@ function pytmm_install_fromsource()
             git clone https://github.com/polyanskiy/refractiveindex.info-database db
         fi
         if [[ ! -d PyTMM ]]; then
-            git clone https://github.com/kitchenknif/PyTMM PyTMM
+            #git clone https://github.com/kitchenknif/PyTMM PyTMM
+            # TODO: until pull request accepted
+            git clone https://github.com/woutdenolf/PyTMM PyTMM
         fi
     fi
 
