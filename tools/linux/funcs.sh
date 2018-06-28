@@ -153,7 +153,7 @@ function mapt-get()
 {
     local pkgmgr=""
     if [[ $(cmdexists "apt-get") == true ]]; then
-        pkgmgr="apt-get -y --force-yes"
+        pkgmgr="apt-get -y --allow-unauthenticated"
     elif [[ $(cmdexists "dnf") == true ]]; then
         pkgmgr="dnf -y"
     elif [[ $(cmdexists "yum") == true ]]; then
@@ -161,7 +161,7 @@ function mapt-get()
     elif [[ $(cmdexists "pkg") == true ]]; then
         pkgmgr="pkg -y"
     else
-        pkgmgr="apt-get -y --force-yes"
+        pkgmgr="apt-get -y --allow-unauthenticated"
     fi
 
     require_web_access

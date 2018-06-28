@@ -21,17 +21,9 @@ function travis_cached_folder()
 }
 
 
-function travis_prebuild_folder()
-{
-    local prebuild_folder=$(travis_cached_folder)/build_$(python_full_version)
-    mkdir -p ${prebuild_folder}
-    echo "${prebuild_folder}"
-}
-
-
 function travis_pybuild_folder()
 {
-    local pybuild_folder=$(travis_prebuild_folder)/$(project_name)
+    local pybuild_folder=$(travis_cached_folder)/$(project_name)_$(python_full_version)
     mkdir -p ${pybuild_folder}
     echo "${pybuild_folder}"
 }
@@ -39,7 +31,7 @@ function travis_pybuild_folder()
 
 function travis_depbuild_folder()
 {
-    local pybuild_folder=$(travis_prebuild_folder)/dep_$(python_full_version)
+    local pybuild_folder=$(travis_cached_folder)/dep_$(python_full_version)
     mkdir -p ${pybuild_folder}
     echo "${pybuild_folder}"
 }
@@ -89,7 +81,7 @@ function travis_init_python()
 function travis_install_dependencies()
 {
     local restorewd=$(pwd)
-    cd $(travis_prebuild_folder)
+    cd $(travis_cached_folder)
 
     local pythonv=${1}
 
@@ -161,7 +153,7 @@ function travis_cleanup_python()
 function travis_pack_prebuild()
 {
     local restorewd=$(pwd)
-    cd $(travis_prebuild_folder)
+    cd $(travis_cached_folder)
 
     local filename=$(project_name).travis.python$(python_full_version).tgz
     cprintstart

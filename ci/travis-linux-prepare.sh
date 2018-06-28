@@ -3,10 +3,6 @@
 # This script will install pre-builds on Travis.
 # 
 
-# Add package repositories
-sudo -E add-apt-repository universe
-sudo -E apt-get update
-
 # Download pre-build libraries
 PYTHONV=`python -c "import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)"`
 
@@ -52,6 +48,8 @@ fi
 export DISPLAY=:99.0
 sh -e /etc/init.d/xvfb start
 
-
-
+# Add package repositories
+sudo -E add-apt-repository universe
+sudo -E apt-key update
+sudo -E apt-get update
 
