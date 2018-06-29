@@ -89,11 +89,11 @@ logger = logging.getLogger(__name__)
 # For multiple source lines (i) and multiple secondary lines (j):
 #   Iis(ph/s) = I0(ph/s).wi.Tis
 #   Is(ph/s) = sum_i[Iis] = I0(ph/s) . sum_i [wi.Tis]
-#   Iij(ph/s) = I0(ph/s).Yij = Is(ph/s).Yij/sum_i[wi.Tis]
+#   Iij(ph/s) = I0(ph/s).wi.Yij = Is(ph/s).wi.Yij/sum_i[wi.Tis]
 #
 #   I(A) = SUM_ij [Iij(ph/s).Ej(eV/ph).1(e).(1-Tj)/Ehole(eV)] + D(A)
 #        = SUM_ij [Iij(ph/s).Cj] + D(A)
-#        = Is(ph/s) . SUM_i [SUM_j[Yij.Cj]] / SUM_k [wk.Tks] + D(A)
+#        = Is(ph/s) . SUM_i [SUM_j[wi.Yij.Cj]] / SUM_k [wk.Tks] + D(A)
 #        = Is(ph/s) . Cs + D(A)
 #       
 #   wi: source line fraction
@@ -225,10 +225,12 @@ class PNdiode(with_metaclass(base.SolidState)):
                     beforesample=None,**kwargs):
         """
         Args:
-            Rout(num): V/A (default) or A
+            gain(num): V/A (default) or A
+            gainrounder(callable): discrete gain settings
             darkcurrent(num): C/s
             oscillator(Oscillator): 
             secondarytarget(multilayer): optional secondary target
+            simplecalibration(bool): simplify
         """
         
         self.oscillator = oscillator
@@ -256,11 +258,29 @@ class PNdiode(with_metaclass(base.SolidState)):
         return self._optics
         
     @optics.setter
-    def optics(self,value):
-        if instance.isstring(value):
-            value = xrayoptics.factory(value)
-        self._optics = value
+    def optics(self,optics):
+        if optics:
+            if not instance.isarray(optics):
+                optics = [optics]
+                
+            def proc(dev):
+                if instance.isstring(dev):
+                    return xrayoptics.factory(dev)
+                else:
+                    return dev
+                    
+            optics = [proc(dev) for dev in optics]
+        else:
+            optics = [] 
+        self._optics = optics
 
+    @property
+    def caliboptic(self):
+        for dev in self.optics:
+            if dev.haslut():
+                return dev
+        raise RuntimeError("No optics with calibratable transmission")
+        
     @property
     def simplecalibration(self):
         return self._simplecalibration and not self._lut_chargepersamplephoton.isempty()
@@ -345,22 +365,26 @@ class PNdiode(with_metaclass(base.SolidState)):
             fmt = "PN-diode:\n{}\n"\
                   "Ammeter:\n Gain = {:~e}\n "\
                   "Dark current = {:~}\n"\
-                  "Electrons/sample photon:\n {}\n"\
+                  "LUT (e-/sample photon):\n {}\n"\
                   "Voltage-to-Frequency:\n {}"
             s = '\n '.join("{} keV: {:~}".format(k,v.to("e")) for k,v in self._lut_chargepersamplephoton.table())
             return fmt.format(super(PNdiode,self).__str__(),\
                     self.gain,self.darkcurrent.to("e/s"),s,self.oscillator)    
         else:
+            optics = "\n".join([str(dev) for dev in self.optics])
+            if optics:
+                optics += "\n"
+                
             fmt = "PN-diode:\n{}\n"\
                   "Ammeter:\n Gain = {:~e}\n "\
                   "Dark current = {:~}\n"\
                   "Secondary target:\n {}\n"\
-                  "Optics:\n {}\n"\
+                  "{}"\
                   "Before sample: {}\n"\
                   "Voltage-to-Frequency:\n {}"
             return fmt.format(super(PNdiode,self).__str__(),\
                     self.gain,self.darkcurrent.to("e/s"),self.secondarytarget,\
-                    self.optics,self.beforesample,self.oscillator) 
+                    optics,self.beforesample,self.oscillator) 
                     
     def _diode_absorbance(self,energy,thickness):
         # list self.absorbance but with customn thickness
@@ -472,15 +496,13 @@ class PNdiode(with_metaclass(base.SolidState)):
         Returns:
             
         """
-        if self.optics is None:
-            T = np.ones_like(energy)
-        else:
-            T = self.optics.transmission(energy)
-
+        T = np.ones_like(energy)
+        for dev in self.optics:
+            T = T*dev.transmission(energy)
         return T
         
     def _source_transmission(self,energy):
-        """Transmission between sample and point-before-detection
+        """Transmission between sample and point-before-detection (i.e. before source filter)
 
         Args:
             energy(array): keV
@@ -488,24 +510,34 @@ class PNdiode(with_metaclass(base.SolidState)):
         Returns:
             array: 
         """
-        # Transmission of optics and filters-before-diode
-        T = self._transmission_optics(energy)*\
-            self.filter_transmission(energy,source=True)
-
-        # Transmission of detection when before sample
+        
+        # Before sample:
+        #  Direct detection  : point-before-detection - filter(source) - filter(det) - diode - optics - sample
+        #  Indirect detection: point-before-detection - filter(source) - target - optics - sample
+        #
+        # After sample:
+        #  Direct detection  : sample - optics - point-before-detection
+        #  Indirect detection: sample - optics - point-before-detection
+        
+        T = self._transmission_optics(energy)
+        
         if self.beforesample:
+            T = T*self.filter_transmission(energy,source=True)
+
             if self.secondarytarget is None:
-                # diode itself in the beam
+                # Direct detection
                 T = T*self.transmission(energy)\
                      *self.filter_transmission(energy,source=False)
             else:
-                # secondary target in the beam
+                # Indirect detection
                 T = T*self.secondarytarget.transmission(energy)
 
         return T
     
     def _detection_rates(self,energy,weights):
-        """Rate of line j due to line i (including source line weights and solid angle but not diode attenuation)
+        """Rate of line j at point-before-diode (i.e. without diode attenuation)
+           due to
+           rate of line i at point-before-detection (i.e. before source filter)
         
         Args:
             energy(array): source energies in keV (dims: nE)
@@ -519,21 +551,25 @@ class PNdiode(with_metaclass(base.SolidState)):
         
         if self.secondarytarget is None:
             # Directly detect the source spectrum
-            Y = weights[np.newaxis,:]
+            wY = weights*\
+                 self.filter_transmission(energy,source=True)*\
+                 self.filter_transmission(energy,source=False)
+            wY = wY[np.newaxis,:]
         else:
             nE = len(energy)
             
             # Spectrum generated from the target
+            # As for detector efficiency: include source and detector filters but not detector attenuation
             spectrum = self.secondarytarget.xrayspectrum(energy,weights=weights,withdetectorattenuation=False) 
 
             # Extract energies and rates (ph/phsource)
-            energy,Y = zip(*list(spectrum.spectrum()))
+            energy,wY = zip(*list(spectrum.spectrum()))
             
             energy = np.asarray(energy)
             nE2 = len(energy)
-            Y = np.asarray(Y).reshape((nE,nE2))
+            wY = np.asarray(wY).reshape((nE,nE2))
 
-        return energy,Y
+        return energy,wY
     
     def _parse_source(self,energy,weights=None):
         energy = instance.asarray(energy)
@@ -559,15 +595,17 @@ class PNdiode(with_metaclass(base.SolidState)):
         energy,weights = self._parse_source(energy,weights=weights)
         
         if self.simplecalibration:
+            # I(A)  = Is(ph/s) . Cs(C) + D(A)
+            # Cs(C) = SUM_i [wi.LUTj]
             return np.sum(instance.asarray(self._lut_chargepersamplephoton(energy))*weights)
         else:
             # Transmission, rates and charge-per-diode-photon
             Ts = self._source_transmission(energy) # nE
-            energy2,Yij = self._detection_rates(energy,weights) # nE2, nE x nE2
+            energy2,wiYij = self._detection_rates(energy,weights) # nE2, nE x nE2
             Cj = self._chargeperdiodephoton(energy2) # nE2
 
             # I(A)  = Is(ph/s) . Cs(C) + D(A)
-            # Cs(C) = SUM_i [SUM_j[Yij.Cj]] / SUM_k [wk.Tks]
+            # Cs(C) = SUM_i [SUM_j[wi.Yij.Cj]] / SUM_k [wk.Tks]
             #
             # wi: source line fraction
             # Cj (C/ph): charge per photon hitting the diode
@@ -575,7 +613,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             # Yij: rate of line j due to line i (including solid angle but not diode attenuation)
 
             # Sum over source lines: 
-            return np.sum(Yij*Cj[np.newaxis,:])/np.sum(weights*Ts)
+            return np.sum(wiYij*Cj[np.newaxis,:])/np.sum(weights*Ts)
     
     def _calibrate_chargepersamplephoton(self,energy,Cscalib,weights=None,caliboption="optics",bound=False):
         """
@@ -592,14 +630,14 @@ class PNdiode(with_metaclass(base.SolidState)):
         
         # I(A) = Is(ph/s).Cs + D(A)
         if self._simplecalibration:
-            # Cs = SUM_i [SUM_j[Yij.Cj]] / SUM_k [wk.Tks]
-            #    = SUM_i [w_i . Csi]
+            # Cs = SUM_i [SUM_j[wi.Yij.Cj]] / SUM_k [wk.Tks]
+            #    = SUM_i [wi . Csi]
             energy,weights = self._parse_source(energy,weights=weights)
             self._lut_chargepersamplephoton.add(energy,Cscalib/weights)
             Cscalc = self._chargepersamplephoton(energy,weights=weights)
         else:
-            # Propagate cor to one of the component of Cs:
-            #  Cs = SUM_i [SUM_j[Yij.Cj]] / SUM_k [wk.Tks]
+            # Propagate correction to one of the components of Cs:
+            #  Cs = SUM_i [SUM_j[wi.Yij.Cj]] / SUM_k [wk.Tks]
             #  Cj = (1-Tj).Cj_inf
             #  Cj_inf = Ej(eV/ph).1(e)/Ehole(eV)
             #  Yij = solidangle . ...
@@ -615,7 +653,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             if caliboption=="solidangle":
                 Cs = self._chargepersamplephoton(energy,weights=weights)
                 
-                # Yij' = Yij*Cs'/Cs
+                # solidangle' = solidangle*Cs'/Cs
                 sa = self.geometry.solidangle * units.magnitude(Cscalib/Cs,"dimensionless")
                 if sa<=0 or sa>(2*np.pi):
                     logger.warning("Diode solid angle of 4*pi*{} srad is not valid but will be accepted anyway".format(sa/(4*np.pi)))
@@ -623,39 +661,17 @@ class PNdiode(with_metaclass(base.SolidState)):
                 self.geometry.solidangle = sa
                 Cscalc = self._chargepersamplephoton(energy,weights=weights)
      
-            else:
-                # TODO: some configurations have an analytical solution
+            else: # No analytical solution (in general): diode thickness or optics transmission
                 
                 # Fluorescence does not change (expensive to calculate)
                 energy,weights = self._parse_source(energy,weights=weights)
-                energy2,Yij = self._detection_rates(energy,weights) # nE2, nE x nE2
+                energy2,wiYij = self._detection_rates(energy,weights) # nE2, nE x nE2
                 
                 # Solve: Cscalib-Cs(x) = 0
-                if caliboption=="thickness":
-                    # x = diode thickness
-                    xorg = self.thickness
-                    if bound:
-                        attenuationmax = 0.999
-                        # use energy instead of energy2 because we need the maximal thickness
-                        thicknessmax = -np.log(1-attenuationmax)/(self.material.mass_att_coeff(energy)*self.material.density)
-                        x0 = (0.,np.max(thicknessmax))
-                    else:
-                        x0 = xorg
-                    Cs = self._calibrate_thickness
-                    
-                else:
-                    # x = transmission
-                    xorg = self.optics.transmission(energy)
-                    if len(energy)>1:
-                        bound = False
-                    if bound:
-                        x0 = (0.,1.)
-                    else:
-                        x0 = xorg
-                    Cs = self._calibrate_optics
+                Cs,xorg,x0 = self._calibrate_init(energy,caliboption=caliboption,bound=bound)
 
                 # Solve: 1/Cscalib - 1/Cs(x) = 0  (inverse because Cs are small values)
-                func = lambda x: (1./Cscalib-1./Cs(x,energy,weights,energy2,Yij)).to("1/coulomb").magnitude
+                func = lambda x: (1./Cscalib-1./Cs(x,energy,weights,energy2,wiYij)).to("1/coulomb").magnitude
 
                 if bound:
                     x,info = scipy.optimize.bisect(func,x0[0],x0[-1], full_output=True, disp=False)
@@ -666,38 +682,69 @@ class PNdiode(with_metaclass(base.SolidState)):
                     if ier!=1:
                         x = np.nan
                         
-                # Check solution
-                if np.isnan(x):
-                    logger.error("Diode calibration not succesfull")
-                    x = xorg
-
-                if caliboption=="thickness":
-                    x = instance.asscalar(x)
-                    if x<=0:
-                        logger.warning("Diode thickness of {} um is not valid but will be accepted anyway".format(x*1e-4))
-                    
-                    self.thickness = x
-                else:
-                    if x<0 or x>1:
-                        logger.warning("Transmission of {} % is not valid but will be accepted anyway".format(x*100))
-                    
-                    self.optics.set_transmission(energy,x)
+                x = self._calibrate_apply(energy,x,xorg,caliboption=caliboption)
                 
-                Cscalc = Cs(x,energy,weights,energy2,Yij)
+                Cscalc = Cs(x,energy,weights,energy2,wiYij)
    
         return Cscalc,Cscalib
-             
-    def _calibrate_thickness(self,x,energy,weights,energy2,Yij):
+
+    def _calibrate_init(self,energy,caliboption="optics",bound=False):
+        if caliboption=="thickness":
+            # Unknown x = diode thickness
+            xorg = self.thickness
+            if bound:
+                attenuationmax = 0.999
+                # use energy instead of energy2 because we need the maximal thickness
+                thicknessmax = -np.log(1-attenuationmax)/(self.material.mass_att_coeff(energy)*self.material.density)
+                x0 = (0.,np.max(thicknessmax))
+            else:
+                x0 = xorg
+            Cs = self._calibrate_thickness
+        elif caliboption=="optics":
+            # Unknown x = transmission
+            xorg = self.caliboptic.transmission(energy)
+            if len(energy)>1:
+                bound = False
+            if bound:
+                x0 = (0.,1.)
+            else:
+                x0 = xorg
+            Cs = self._calibrate_optics
+        else:
+            raise RuntimeError('caliboption must be "optics" or "thickness"')
+            
+        return Cs,xorg,x0
+
+    def _calibrate_apply(self,energy,x,xorg,caliboption="optics"):
+        if np.isnan(x):
+            logger.error("Diode calibration not succesfull")
+            x = xorg
+
+        if caliboption=="thickness":
+            x = instance.asscalar(x)
+            if x<=0:
+                logger.warning("Diode thickness of {} um is not valid but will be accepted anyway".format(x*1e-4))
+            self.thickness = x
+        elif caliboption=="optics":
+            if x<0 or x>1:
+                logger.warning("Transmission of {} % is not valid but will be accepted anyway".format(x*100))
+            self.caliboptic.set_transmission(energy,x)
+        else:
+            raise RuntimeError('caliboption must be "optics" or "thickness"')
+            
+        return x
+        
+    def _calibrate_thickness(self,x,energy,weights,energy2,wiYij):
         self.thickness = instance.asscalar(x)
         Ts = self._source_transmission(energy) # nE
         Cj = self._chargeperdiodephoton(energy2) # nE2
-        return np.sum(Yij*Cj[np.newaxis,:])/np.sum(weights*Ts)
+        return np.sum(wiYij*Cj[np.newaxis,:])/np.sum(weights*Ts)
         
-    def _calibrate_optics(self,x,energy,weights,energy2,Yij):
-        self.optics.set_transmission(energy,x)
+    def _calibrate_optics(self,x,energy,weights,energy2,wiYij):
+        self.caliboptic.set_transmission(energy,x)
         Ts = self._source_transmission(energy) # nE
         Cj = self._chargeperdiodephoton(energy2) # nE2
-        return np.sum(Yij*Cj[np.newaxis,:])/np.sum(weights*Ts)
+        return np.sum(wiYij*Cj[np.newaxis,:])/np.sum(weights*Ts)
 
     def samplelineweights(self,energy,weights):
         """Source weights after transmission
@@ -1429,7 +1476,8 @@ class SXM_IODET2(NonCalibratedPNdiode):
                             beforesample=True,\
                             **kwargs)
                             
-                            
+
+
 class XRD_IDET(NonCalibratedPNdiode):
     aliases = ["pico1"]
     
@@ -1441,10 +1489,90 @@ class XRD_IDET(NonCalibratedPNdiode):
 
         super(XRD_IDET,self).__init__(\
                                 gain = ureg.Quantity(2.1e-6,"ampere"),\
-                                gainrounder=GainRounder(base=10,m=2.1),\
+                                gainrounder = GainRounder(base=10,m=2.1),\
                                 darkcurrent = ureg.Quantity(0,"ampere"),beforesample=False,\
                                 **kwargs)
+                                
+   
+class ID16B_IT(NonCalibratedPNdiode):
+    aliases = ["id16b_It"]
+    
+    def __init__(self,**kwargs):
+    
+        kwargs["attenuators"] = {}
+        kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":500e-4}
+        kwargs["ehole"] = constants.eholepair_si()
 
+        vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
+                        F0=ureg.Quantity(32,"Hz"),\
+                        Vmax=ureg.Quantity(5,"volt"))
+                        
+        super(ID16B_IT,self).__init__(\
+                        gain=ureg.Quantity(1e5,"volt/ampere"),\
+                        gainrounder=GainRounder(base=10),\
+                        darkcurrent=ureg.Quantity(0,"ampere"),\
+                        beforesample=False,oscillator=vtof,**kwargs)
+                        
+
+class ID16B_I0(NonCalibratedPNdiode):
+    aliases = ["id16b_I0"]
+    
+    def __init__(self,**kwargs):
+    
+        kwargs["attenuators"] = {}
+        kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":500e-4}
+        kwargs["ehole"] = constants.eholepair_si()
+
+        vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
+                        F0=ureg.Quantity(32,"Hz"),\
+                        Vmax=ureg.Quantity(5,"volt"))
+                        
+        super(ID16B_IT,self).__init__(\
+                        gain=ureg.Quantity(1e5,"volt/ampere"),\
+                        gainrounder=GainRounder(base=10),\
+                        darkcurrent=ureg.Quantity(0,"ampere"),\
+                        beforesample=True,oscillator=vtof,**kwargs)
+                        
+
+class ID16B_IC(NonCalibratedPNdiode):
+    aliases = ["id16b_IC"]
+
+    def __init__(self,**kwargs):
+    
+        kwargs2 = {}
+        kwargs2["anglein"] = kwargs.pop("anglein",90)
+        kwargs2["angleout"] = kwargs.pop("angleout",70)
+        kwargs2["azimuth"] = kwargs.pop("azimuth",0)
+        kwargs2["solidangle"] = kwargs.pop("solidangle",4*np.pi*0.4)
+        if "source" in kwargs:
+            kwargs2["source"] = kwargs.pop("source")
+        else:
+            kwargs2["source"] = "synchrotron"
+        if instance.isstring(kwargs2["source"]):
+            kwargs2["source"] = xraysources.factory(kwargs2["source"])
+        kwargs2["detector"] = self
+        geometry = diodegeometries.factory("DiodeGeometry",**kwargs2)
+        
+        kwargs["attenuators"] = {}
+        kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":500e-4}
+        kwargs["ehole"] = constants.eholepair_si()
+        
+        window = compoundfromname.compoundfromname("silicon nitride") # TODO: mirror material
+        secondarytarget = multilayer.Multilayer(material=[window],thickness=[500e-7],geometry=geometry)
+        
+        vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
+                            F0=ureg.Quantity(32,"Hz"),\
+                            Vmax=ureg.Quantity(5,"volt"))
+                        
+        super(SXM_IODET2,self).__init__(\
+                            gain=ureg.Quantity(1e5,"volt/ampere"),\
+                            gainrounder=GainRounder(base=10),\
+                            darkcurrent=ureg.Quantity(0,"ampere"),\
+                            oscillator=vtof,\
+                            secondarytarget=secondarytarget,\
+                            beforesample=True,\
+                            **kwargs)
+                            
 
 factory = PNdiode.factory
 clsfactory = PNdiode.clsfactory

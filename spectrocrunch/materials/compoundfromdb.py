@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,38 +22,20 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common import lut
+from . import compoundfromname
+from . import compoundfromnist
+from . import compoundfromformula
 
-class Optics(object):
+import collections
+import itertools
 
-    def __init__(self):
-        self.lut = lut.LUT(default=1)
-    
-    def __str__(self):
-        name = type(self).__name__
-        s = '\n '.join("{} keV: {} %".format(k,v*100) for k,v in self.lut.table())
-        if s:
-            return "{}:\n transmission:\n {}".format(name,s)
-        else:
-            return "{}:\n transmission: 100%".format(name)
-    
-    def reset_transmission(self):
-        if self.haslut():
-            self.lut.clear(1)
-      
-    def transmission(self,energy):
-        self.checklut()
-        return self.lut(energy)
-    
-    def set_transmission(self,energy,transmission):
-        self.checklut()
-        self.lut.add(energy,transmission)
+db = collections.OrderedDict([("name",compoundfromname),("nist",compoundfromnist),("formula",compoundfromformula)])
 
-    def haslut(self):
-        return hasattr(self,"lut")
-    
-    def checklut(self):
-        if not self.haslut():
-            raise RuntimeError("{} has no transmission lookup table.".format(type(self).__name__))
-            
-            
+registry = itertools.chain(compoundfromname.registry,compoundfromnist.registry)
+
+def factory(name):
+    for dbname,mod in db.items():
+        match = mod.search(name)
+        if match:
+            return mod.factory(match)
+    return None

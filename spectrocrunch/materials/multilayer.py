@@ -38,17 +38,23 @@ from ..simulation.classfactory import with_metaclass
 from ..math import noisepropagation
 from . import pymca
 from . import element
+from ..materials import compoundfromdb
 
 class Layer(object):
 
     def __init__(self,material=None,thickness=None,fixed=False,ml=None):
         """
         Args:
-            material(list(spectrocrunch.materials.compound|mixture)): material composition
+            material(compound|mixture|str): material composition
             thickness(num): thickness in cm
             fixed(bool): thickness and composition are fixed
             ml(Multilayer): part of this ensemble
         """
+        if instance.isstring(material):
+            ret = compoundfromdb.factory(material)
+            if ret is None:
+                raise RuntimeError("Invalid material {}".format(material))
+            material = ret
         self.material = material
         self.thickness = thickness
         self.fixed = fixed
@@ -115,6 +121,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             material = [material]
         if not instance.isarray(thickness):
             thickness = [thickness]
+            
         self.layers = [Layer(material=mat,thickness=t,ml=self) for mat,t in zip(material,thickness)]
         
         super(Multilayer,self).__init__(force=True)

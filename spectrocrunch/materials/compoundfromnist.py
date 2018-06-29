@@ -24,6 +24,7 @@
 
 from . import compound
 from . import types
+from ..common import instance
 
 import xraylib
 
@@ -45,8 +46,21 @@ class CompoundFromNist(compound.Compound):
 
 registry = xraylib.GetCompoundDataNISTList()
 
+def factory(name):
+    return CompoundFromNist(name)
+
 def search(name):
     name = name.lower()
-    return [k for k in registry if name in k.lower()]
+    ret = [k for k in registry if name in k.lower()]
+    if len(ret)>1:
+        ret2 = [k for k in registry if name == k.lower()]
+        if ret2:
+            ret  = ret2
+    if ret:
+        return ret[0]
+    else:
+        return None
 
-
+def compoundfromnist(name):
+    return factory(name)
+    
