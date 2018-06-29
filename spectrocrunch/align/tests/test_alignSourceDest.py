@@ -28,7 +28,7 @@ from ..alignDest import alignDest
 from ..types import transformationType
 
 from testfixtures import TempDirectory
-from .teststack import teststack
+from . import helper_teststack
 import numpy as np
 import os
 import h5py
@@ -44,7 +44,7 @@ class test_alignSource(unittest.TestCase):
 
     def test_sourcedest(self):
         # Get test data
-        listofstacks,offsets,stackdim = teststack(transformationType.translation)
+        listofstacks,offsets,stackdim = helper_teststack.data(transformationType.translation)
         nstacks = len(listofstacks)
 
         form = "stack%%0%dd"%int(np.floor(np.log10(nstacks))+1)
@@ -191,7 +191,7 @@ class test_alignSource(unittest.TestCase):
                 np.testing.assert_array_equal(listofstacks_readonly[i]*0,h5datasets4[i])
 
     def test_teststack(self):
-        listofstacks,offsets,stackdim = teststack(transformationType.translation)
+        listofstacks,offsets,stackdim = helper_teststack.data(transformationType.translation)
         self.assertIsInstance(listofstacks,list)
         self.assertIsInstance(listofstacks[0],np.ndarray)
         self.assertEqual(len(listofstacks[0].shape),3)

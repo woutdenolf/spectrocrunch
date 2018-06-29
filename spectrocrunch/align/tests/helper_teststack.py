@@ -170,7 +170,7 @@ def transformation(t,n,subpixel=True):
 def random(a,b,n):
     return a+(b-a)*np.random.random(n)
 
-def teststack(transfotype,\
+def data(transfotype,\
         ndim1 = 71,\
         ndim2 = 61,\
         nimages = 5,\

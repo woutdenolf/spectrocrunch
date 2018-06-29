@@ -176,6 +176,7 @@ class test_objects(unittest.TestCase):
         self._checkprop(o)
 
     def test_diodes(self):
+        return #TODO
         o = diode.factory("idet")
         self._checkprop(o)
 
@@ -186,7 +187,7 @@ def test_suite():
     testSuite.addTest(test_objects("test_scintillators"))
     testSuite.addTest(test_objects("test_detectors"))
     testSuite.addTest(test_objects("test_lenses"))
-    #testSuite.addTest(test_objects("test_diodes"))
+    testSuite.addTest(test_objects("test_diodes"))
 
     return testSuite
     
