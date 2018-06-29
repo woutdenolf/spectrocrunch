@@ -29,6 +29,7 @@ if [[ ! -d ${DEP_FOLDER} ]]; then
         if [[ -f ${FILE} ]]; then
             echo "Unpack pre-build libraries ..."
             tar -xzf ${FILE} -C ${BUILD_FOLDER}
+            sudo -E chown -R $(id -un):$(id -gn) ${BUILD_FOLDER}
             rm -f ${FILE}
         fi
     fi
@@ -39,7 +40,7 @@ fi
 # List pre-build libraries   
 if [[ -d ${DEP_FOLDER} ]]; then
     echo "Pre-build libraries:"
-    ls ${DEP_FOLDER}
+    ls -all ${DEP_FOLDER}/*
 else
     echo "No pre-build libraries"
 fi
