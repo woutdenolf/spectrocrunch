@@ -17,7 +17,6 @@ if [[ ! -d ${DEP_FOLDER} ]]; then
     if [[ ! -d ${DEP_FOLDER} ]]; then
         echo "Download pre-build libraries ..."
         wget ${LINK1}
-        ls -all
         if [[ ! -f ${FILE} ]]; then
             wget ${LINK2}
         fi
@@ -30,18 +29,17 @@ if [[ ! -d ${DEP_FOLDER} ]]; then
             sudo -E chown -R $(id -un):$(id -gn) ${DEP_FOLDER}
         fi
     fi
-
-    cd ${BUILD_FOLDER}
 fi
 
 # List pre-build libraries  
 if [[ -d ${DEP_FOLDER} ]]; then
     echo "Pre-build libraries:"
-    
     pwd
     ls ${DEP_FOLDER}/*
 else
     echo "No pre-build libraries"
+    pwd
+    ls -all
 fi
 
 # Display when needed
