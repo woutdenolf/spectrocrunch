@@ -29,7 +29,13 @@ Test:
 
 .. code-block:: bash
 
+    # Minimal:
     python -m spectrocrunch.tests.test_all
+    
+    # With options:
+    python -m unittest -v spectrocrunch.tests.test_all.test_suite
+    pytest --pyargs spectrocrunch
+    nose2 -v spectrocrunch
 
 Documentation:
 
