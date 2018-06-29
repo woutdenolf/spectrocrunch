@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,45 +22,20 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from . import compound
-from . import types
-from ..common import instance
+from . import compoundfromname
+from . import compoundfromnist
+from . import compoundfromformula
 
-import xraylib
+import collections
+import itertools
 
-class CompoundFromNist(compound.Compound):
-    """Interface to a compound defined by a list of elements
-    """
+db = collections.OrderedDict([("name",compoundfromname),("nist",compoundfromnist),("formula",compoundfromformula)])
 
-    def __init__(self,nistname,name=None):
-        """
-        Args:
-            nistname(str): NIST name
-            name(Optional[str]): compound name
-        """
-
-        data = xraylib.GetCompoundDataNISTByName(nistname)
-        if name is None:
-            name = data["name"]
-        super(CompoundFromNist,self).__init__(data["Elements"],data["massFractions"],types.fraction.mass,data["density"],name=name)
-
-registry = xraylib.GetCompoundDataNISTList()
+registry = itertools.chain(compoundfromname.registry,compoundfromnist.registry)
 
 def factory(name):
-    return CompoundFromNist(name)
-
-def search(name):
-    name = name.lower()
-    ret = [k for k in registry if name in k.lower()]
-    if len(ret)>1:
-        ret2 = [k for k in registry if name == k.lower()]
-        if ret2:
-            ret  = ret2
-    if ret:
-        return ret[0]
-    else:
-        return None
-
-def compoundfromnist(name):
-    return factory(name)
-    
+    for dbname,mod in db.items():
+        match = mod.search(name)
+        if match:
+            return mod.factory(match)
+    return None

@@ -24,6 +24,7 @@
 
 from . import compound
 from . import types
+from ..common import instance
 import pyparsing as pp
 
 class FormulaParser(object):
@@ -69,6 +70,7 @@ class FormulaParser(object):
         self.parseresult(result,1.)
         return self.elements.keys(),self.elements.values()
 
+
 class CompoundFromFormula(compound.Compound):
     """Interface to a compound defined by a chemical formula
     """
@@ -83,8 +85,26 @@ class CompoundFromFormula(compound.Compound):
 
         p = FormulaParser()
         elements, mults = p.eval(formula)
+        if not elements:
+            raise ValueError("Chemical formula {} is not valid".format(formula))
         if name is None:
             name = formula
         super(CompoundFromFormula,self).__init__(elements,mults,types.fraction.mole,density,name=name)
 
 
+def factory(name):
+    bsingle = instance.isstring(name)
+    if bsingle:
+        name = [name]
+    try:
+        ret = [CompoundFromFormula(s) for s in name]
+        if bsingle:
+            return ret[0]
+        else:
+            return ret
+    except:
+        return None
+
+def search(name):
+    return name
+    

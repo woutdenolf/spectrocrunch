@@ -27,6 +27,7 @@ from . import compoundfromlist
 from . import compoundfromformula
 from . import mixture
 from . import types
+from ..common import instance
 import xraylib
 
 compounddb = {}
@@ -175,14 +176,29 @@ compounddb["ecoli dry"] = compoundfromlist.CompoundFromList(['C','O','N','H','P'
 compounddb["ecoli"] = mixture.Mixture([compounddb["water"],compounddb["ecoli dry"]],\
                                     [0.7,0.3],types.fraction.mole).tocompound("ecoli")
 
+data = xraylib.GetCompoundDataNISTByName("Air, Dry (near sea level)")
+compounddb["air dry"] = compound.Compound(data["Elements"],data["massFractions"],types.fraction.mass,data["density"],name="air dry")
+compounddb["air"] = compounddb["air dry"]
+
 registry = compounddb.keys()
 
+def factory(name):
+    return compounddb[name]
+    
 def search(name):
     name = name.lower()
-    return [k for k in registry if name in k.lower()]
-
+    ret = [k for k in registry if name in k.lower()]
+    if len(ret)>1:
+        ret2 = [k for k in registry if name == k.lower()]
+        if ret2:
+            ret  = ret2
+    if ret:
+        return ret[0]
+    else:
+        return None
+            
 def compoundfromname(name):
-    return compounddb[name]
+    return factory(name)
 
 
 
