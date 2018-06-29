@@ -25,7 +25,7 @@ if [[ ! -d ${DEP_FOLDER} ]]; then
         # Unpack in build folder
         if [[ -f ${FILE} ]]; then
             echo "Unpack pre-build libraries ..."
-            tar -xzf ${FILE} -C ${BUILD_FOLDER}
+            tar -xzf ${FILE}
             rm -f ${FILE}
             sudo -E chown -R $(id -un):$(id -gn) ${DEP_FOLDER}
         fi
