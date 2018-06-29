@@ -6,7 +6,6 @@
 # Download pre-build libraries
 PYTHONV=`python -c "import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)"`
 
-cd ${BUILD_FOLDER}
 DEP_FOLDER=dep_${PYTHONV}
 
 if [[ ! -d ${DEP_FOLDER} ]]; then
@@ -15,8 +14,6 @@ if [[ ! -d ${DEP_FOLDER} ]]; then
     LINK2=https://transfer.sh/12avMO/${FILE}
     
     # Download to cache folder
-    cd ${CACHED_FOLDER}
-    ls -all
     if [[ ! -d ${DEP_FOLDER} ]]; then
         echo "Download pre-build libraries ..."
         wget ${LINK1}
@@ -29,18 +26,20 @@ if [[ ! -d ${DEP_FOLDER} ]]; then
         if [[ -f ${FILE} ]]; then
             echo "Unpack pre-build libraries ..."
             tar -xzf ${FILE} -C ${BUILD_FOLDER}
-            sudo -E chown -R $(id -un):$(id -gn) ${BUILD_FOLDER}
             rm -f ${FILE}
+            sudo -E chown -R $(id -un):$(id -gn) ${DEP_FOLDER}
         fi
     fi
 
     cd ${BUILD_FOLDER}
 fi
 
-# List pre-build libraries   
+# List pre-build libraries  
 if [[ -d ${DEP_FOLDER} ]]; then
     echo "Pre-build libraries:"
-    ls -all ${DEP_FOLDER}/*
+    
+    pwd
+    ls ${DEP_FOLDER}/*
 else
     echo "No pre-build libraries"
 fi
