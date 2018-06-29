@@ -24,6 +24,9 @@
 
 from . import base
 from ..common.classfactory import with_metaclass
+from ..materials import multilayer
+from ..geometries.base import FlatSample
+from ..common import instance
 
 class XrayOptics(with_metaclass(base.Optics)):
     pass
@@ -34,6 +37,20 @@ class KB(XrayOptics):
 class ZonePlate(XrayOptics):
     aliases = ["zp"]
 
+class Filter(XrayOptics):
+    aliases = ["filter"]
+    
+    def __init__(self,material=None,thickness=None):
+        geom = FlatSample(anglein=90)
+        self.multilayer = multilayer.Multilayer(material=material,thickness=thickness,geometry=geom)
+
+    def __str__(self):
+        return "Filter {}".format(str(self.multilayer))
+        
+    def transmission(self,energy):
+        return self.multilayer.transmission(energy)
+        
+        
 factory = XrayOptics.factory
 clsfactory = XrayOptics.clsfactory
 

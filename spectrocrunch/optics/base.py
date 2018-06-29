@@ -30,18 +30,30 @@ class Optics(object):
         self.lut = lut.LUT(default=1)
     
     def __str__(self):
+        name = type(self).__name__
         s = '\n '.join("{} keV: {} %".format(k,v*100) for k,v in self.lut.table())
         if s:
-            return "transmission:\n {}".format(s)
+            return "{}:\n transmission:\n {}".format(name,s)
         else:
-            return "transmission: 100%"
+            return "{}:\n transmission: 100%".format(name)
     
     def reset_transmission(self):
-        self.lut.clear(1)
+        if self.haslut():
+            self.lut.clear(1)
       
     def transmission(self,energy):
+        self.checklut()
         return self.lut(energy)
     
     def set_transmission(self,energy,transmission):
+        self.checklut()
         self.lut.add(energy,transmission)
 
+    def haslut(self):
+        return hasattr(self,"lut")
+    
+    def checklut(self):
+        if not self.haslut():
+            raise RuntimeError("{} has no transmission lookup table.".format(type(self).__name__))
+            
+            
