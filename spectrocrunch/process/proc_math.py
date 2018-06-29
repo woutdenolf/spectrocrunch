@@ -36,7 +36,8 @@ def execute(file_in,stacks_in,axes_in,copygroups,bsamefile,default,\
     # Stacks to normalize
     innames = proc_common.selectnotgroups(stacks_in,skipnames)
     if len(innames)==0:
-        raise ValueError("No other stacks found than these: "+str.join(", ",skipnames))
+        logger.warning("No other stacks found than these: "+str.join(", ",skipnames))
+        return file_in, stacks_in, axes_in
     logger.info("Normalized datasets: {}".format(innames))
     
     # Output file

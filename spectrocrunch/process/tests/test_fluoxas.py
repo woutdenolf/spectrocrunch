@@ -243,6 +243,7 @@ class test_fluoxas(unittest.TestCase):
                                             logger.debug("skippre = {}".format(skippre))
                                             logger.debug("quant = {}".format(quant))
                                             logger.debug("stackdim = {}".format(stackdim))
+                                            logger.debug("cfgfileuse = {}".format(cfgfileuse))
                                             
                                             process(sourcepath,self.destpath.path,radix,scannumbers,cfgfileuse,\
                                                     alignmethod=alignmethod,alignreference=alignreference,\
@@ -299,7 +300,7 @@ class test_fluoxas(unittest.TestCase):
                                             h5file = "{}.h5".format(radix)
                                             expected.append(h5file)
                                             expected.append("{}.json".format(radix))
-                                            if prealignnormcounter is not None:
+                                            if prealignnormcounter is not None and cfgfileuse is not None:
                                                 h5file = "{}.norm.h5".format(radix)
                                                 expected.append(h5file)
                                             if alignmethod is not None and alignreference is not None:
