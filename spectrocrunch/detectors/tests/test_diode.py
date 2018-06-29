@@ -23,18 +23,19 @@
 # THE SOFTWARE.
 
 import unittest
+import numpy as np
+from scipy import interpolate
+from scipy import constants
+import random
 
 from .. import diode
-
 from ...resources import resource_filename
-
-from scipy import interpolate
-
-from scipy import constants
-
 from ... import ureg
+from ...optics import xray as xrayoptics
 
-import numpy as np
+import logging
+logger = logging.getLogger(__name__)
+#logger.setLevel(logging.DEBUG)
 
 class test_diode(unittest.TestCase):                
 
@@ -106,14 +107,19 @@ class test_diode(unittest.TestCase):
                     np.testing.assert_allclose(flux1,flux2,rtol=0.03) # 3% difference with spec
 
     def test_noncalibrateddiode(self):
-    
         for simplecalibration in [True,False]:
             for caliboption in ["solidangle","thickness","optics"]:
                 if simplecalibration:
                     if caliboption!="optics":
                         continue
-                        
-                o = diode.SXM_IODET1(optics="kb",simplecalibration=simplecalibration)
+
+                if bool(random.getrandbits(1)):
+                    airpath = xrayoptics.Filter(material="air",thickness=1)
+                    optics = [airpath,"kb"]
+                else:
+                    optics = "kb"
+                
+                o = diode.SXM_IODET1(optics=optics,simplecalibration=simplecalibration)
                 o.thickness = 1e-4
                 o.geometry.solidangle = 0.1
 
@@ -153,22 +159,23 @@ class test_diode(unittest.TestCase):
                         np.testing.assert_allclose(sampleflux3*m3,o.cpstoflux(energy3,cps))
                         
                     if not simplecalibration:
-                        np.testing.assert_allclose(o.optics.transmission(energy),m1)
-                        np.testing.assert_allclose(o.optics.transmission(energy2),m2)
-                        np.testing.assert_allclose(o.optics.transmission(energy3),m3)
+                        np.testing.assert_allclose(o.caliboptic.transmission(energy),m1)
+                        np.testing.assert_allclose(o.caliboptic.transmission(energy2),m2)
+                        np.testing.assert_allclose(o.caliboptic.transmission(energy3),m3)
 
                 elif caliboption=="thickness":
                     m = 2.
                     o.calibrate(cps,sampleflux*m,energy,caliboption=caliboption)
                     np.testing.assert_allclose(sampleflux*m,o.cpstoflux(energy,cps))
             
-               
+                #logger.debug(o)
+        
+                
 def test_suite_all():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_diode("test_calibrateddiode"))
     testSuite.addTest(test_diode("test_noncalibrateddiode"))
-    
     return testSuite
     
 if __name__ == '__main__':

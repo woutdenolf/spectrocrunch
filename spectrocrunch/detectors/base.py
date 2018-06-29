@@ -55,9 +55,9 @@ class Material(object):
             s1 = "Beam filters: None"
             
         if s2:
-            s2 = "Attenuators:\n {}".format(s2)
+            s2 = "Detector filters:\n {}".format(s2)
         else:
-            s2 = "Attenuators: None"
+            s2 = "Detector filters: None"
         
         if self.hasmaterial:
             s3 = " Material = {} ({} cm)".format(self.material,self.thickness)

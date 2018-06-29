@@ -131,7 +131,7 @@ class SolidAngle(FlatSample):
         
 class Centric(FlatSample):
 
-    def __init__(self,azimuth=None,distance=None,**kwargs):
+    def __init__(self,distance=None,**kwargs):
         """
         Args:
             distance(num): distance (cm) to target
