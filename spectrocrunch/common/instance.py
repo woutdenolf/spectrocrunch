@@ -22,6 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import ast
 import collections
 import numbers
 import numpy as np
@@ -123,3 +124,17 @@ def asarray(x):
 def aslist(x):
     return asarray(x).tolist()
 
+def asnumber(x):
+    if isnumber(x):
+        return x
+    x = ast.literal_eval(x)
+    if isnumber(x):
+        return x
+    else:
+        try:
+            return float(x)
+        except:
+            return np.nan
+                
+            
+            

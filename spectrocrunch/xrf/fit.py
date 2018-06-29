@@ -61,66 +61,64 @@ def AdaptPyMcaConfigFile(filename,*args,**kwargs):
     AdaptPyMcaConfig(cfg,*args,**kwargs)
     cfg.write(filename)
 
-def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines=None,quant=None,fast=False):
-    """
-    Args:
-        cfg(ConfigDict): pymca configuration
-        energy(float): primary beam energy in keV
-        addhigh(Optional(num)): add high primary energy with very low weight
-        mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
-        quant(Optional(dict)): 
-    """
+def AdaptPyMcaConfig_energy(cfg,energy,addhigh):
+    if not np.isfinite(energy):
+        return
 
-    if not np.isnan(energy):
-        # Adapt the cfg
+    nenergies = 1+addhigh
         
-        tmp = cfg["fit"]["energyweight"]
-        if instance.isarray(tmp):
-            ftype = type(tmp[0])
-        else:
-            ftype = type(tmp)
-
-        tmp = cfg["fit"]["energyflag"]
-        if instance.isarray(tmp):
-            itype = type(tmp[0])
-        else:
-            itype = type(tmp)
+    ind = instance.asarray(cfg["fit"]["energyflag"]).astype(bool)
+    n = len(ind)
+            
+    def extract(name,default=np.nan):
+        arr = instance.asarray([instance.asnumber(v) for v in cfg["fit"][name]])
         
-        n = 1+addhigh
+        # Select based on energyflag
+        narr = len(arr)
+        if narr<n:
+            arr = np.append(arr,[default]*(n-narr))
+        arr = arr[0:n][ind]
+        
+        # At least nenergies
+        narr = len(arr)
+        if narr<nenergies:
+            arr = np.append(arr,[default]*(nenergies-narr))
+        return arr
+        
+    cfg_energy = extract("energy",default=np.nan)
+    cfg_energyweight = extract("energyweight",default=np.nan)
+    cfg_energyflag = extract("energyflag",default=1)
 
-        # Adapt energy
-        sourcelines = [None]*n
-        sourcelines[0] = ftype(energy)
-        if addhigh:
-            sourcelines[1] = ftype(10*energy)
-        cfg["fit"]["energy"] = sourcelines
+    cfg_energy = cfg_energy/cfg_energy[0]*energy
+    cfg_energyweight = cfg_energyweight/cfg_energyweight[0]
+    
+    for i in range(nenergies):
+        if not np.isfinite(cfg_energy[i]):
+            if i==0:
+                cfg_energy[i] = energy
+            else:
+                cfg_energy[i] = 10*energy
+        if not np.isfinite(cfg_energyweight[i]):
+            if i==0:
+                cfg_energyweight[i] = 1
+            else:
+                cfg_energyweight[i] = 1e-10
 
-        sourcelines = [ftype(0)]*n
-        if addhigh:
-            sourcelines[0] = ftype(1e100)
-            sourcelines[1] = ftype(1e-5)
-        else:
-            sourcelines[0] = ftype(1)
-        cfg["fit"]["energyweight"] = sourcelines
+    cfg["fit"]["energy"] = cfg_energy.tolist()
+    cfg["fit"]["energyweight"] = cfg_energy.tolist()
+    cfg["fit"]["energyflag"] = cfg_energyflag.tolist()
+    cfg["fit"]["energyscatter"] = cfg_energyflag.tolist()
+    
+    # Dummy matrix (apparently needed for multi-energy)
+    if (cfg["attenuators"]["Matrix"][0]==0 and nenergies>1):
+        cfg["materials"]["Dummy"] = {'Comment': 'Dummy', 'CompoundFraction': [1], 'CompoundList': ['H1'], 'Density': 1.0, 'Thickness': 0.0}
+        cfg["attenuators"]["Matrix"][0] = 1
+        cfg["attenuators"]["Matrix"][1] = "Dummy"
+        cfg["attenuators"]["Matrix"][2] = 1.0
+        cfg["attenuators"]["Matrix"][3] = 0. # thickness in cm
 
-        sourcelines = [itype(0)]*n
-        sourcelines[0] = itype(1)
-        if addhigh:
-            sourcelines[1] = itype(1)
-        cfg["fit"]["energyflag"] = sourcelines
-
-        sourcelines = [itype(0)]*n
-        sourcelines[0] = itype(1)
-        cfg["fit"]["energyscatter"] = sourcelines
-
-        # Dummy matrix (aparently needed for multi-energy)
-        if (cfg["attenuators"]["Matrix"][0]==0 and addhigh):
-            density = cfg["materials"]["Air"]["Density"]
-            cfg["attenuators"]["Matrix"][0] = 1
-            cfg["attenuators"]["Matrix"][1] = "Air"
-            cfg["attenuators"]["Matrix"][2] = density
-            cfg["attenuators"]["Matrix"][3] = density*0 # thickness in cm
-
+def AdaptPyMcaConfig_mlines(cfg):
+        
     # Split M-lines
     # /usr/local/lib/python2.7/dist-packages/PyMca5/PyMcaPhysics/xrf/Elements.py
     #
@@ -153,42 +151,41 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines=None,quant=None,fast=False):
     #                 MShell.ElementM5ShellRates]
     #ElementXrays      = ['K xrays', 'Ka xrays', 'Kb xrays', 'L xrays','L1 xrays','L2 xrays','L3 xrays','M xrays','M1 xrays','M2 xrays','M3 xrays','M4 xrays','M5 xrays']
 
-    if mlines:
-        if "M5 xrays" not in ClassMcaTheory.Elements.ElementXrays:
-            msg = "XRF fit: PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting."
-            logger.error(msg)
-            raise ImportError(msg)
-        for el in mlines:
-            if el in cfg["peaks"]:
-                if "M" in cfg["peaks"][el]:
-                    cfg["peaks"][el] = [group for group in cfg["peaks"][el] if group != "M"] + mlines[el]
+    if "M5 xrays" not in ClassMcaTheory.Elements.ElementXrays:
+        msg = "XRF fit: PyMca5.PyMcaPhysics.xrf.Elements is not patched to supported M-line group splitting."
+        logger.error(msg)
+        raise ImportError(msg)
+    for el in mlines:
+        if el in cfg["peaks"]:
+            if "M" in cfg["peaks"][el]:
+                cfg["peaks"][el] = [group for group in cfg["peaks"][el] if group != "M"] + mlines[el]
 
-    if quant:
-        if "flux" in quant:
-            cfg["concentrations"]["flux"] = quant["flux"]
-        if "time" in quant:
-            cfg["concentrations"]["time"] = quant["time"]
-        if "area" in quant:
-            cfg["concentrations"]["area"] = quant["area"]
-        if "distance" in quant:
-            cfg["concentrations"]["distance"] = quant["distance"]
-        if "anglein" in quant:
-            cfg["attenuators"]["Matrix"][4] = quant["anglein"]
-        if "angleout" in quant:
-            cfg["attenuators"]["Matrix"][5] = quant["angleout"]
-        if "anglein" in quant or "angleout" in quant:
-            cfg["attenuators"]["Matrix"][7] = cfg["attenuators"]["Matrix"][4]+cfg["attenuators"]["Matrix"][5]
+def AdaptPyMcaConfig_quant(cfg,quant):
+    if "flux" in quant:
+        cfg["concentrations"]["flux"] = quant["flux"]
+    if "time" in quant:
+        cfg["concentrations"]["time"] = quant["time"]
+    if "area" in quant:
+        cfg["concentrations"]["area"] = quant["area"]
+    if "distance" in quant:
+        cfg["concentrations"]["distance"] = quant["distance"]
+    if "anglein" in quant:
+        cfg["attenuators"]["Matrix"][4] = quant["anglein"]
+    if "angleout" in quant:
+        cfg["attenuators"]["Matrix"][5] = quant["angleout"]
+    if "anglein" in quant or "angleout" in quant:
+        cfg["attenuators"]["Matrix"][7] = cfg["attenuators"]["Matrix"][4]+cfg["attenuators"]["Matrix"][5]
 
-    if fast:
-        if cfg["fit"]["linearfitflag"]==0:
-            cfg["fit"]["linearfitflag"] = 1
-        
-        if "strategyflag" not in cfg["fit"]:
-            cfg["fit"]["strategyflag"] = 0
-        if cfg["fit"]["strategyflag"]:
-            cfg["fit"]["strategyflag"] = 0
+def AdaptPyMcaConfig_fast(cfg):
+    if cfg["fit"]["linearfitflag"]==0:
+        cfg["fit"]["linearfitflag"] = 1
+    
+    if "strategyflag" not in cfg["fit"]:
+        cfg["fit"]["strategyflag"] = 0
+    if cfg["fit"]["strategyflag"]:
+        cfg["fit"]["strategyflag"] = 0
 
-    # Show info
+def AdaptPyMcaConfig_modinfo(cfg,quant):
     _energy = instance.asarray(cfg["fit"]["energy"])
     _weights = instance.asarray(cfg["fit"]["energyweight"])
     _weights = _weights/_weights.sum()*100
@@ -201,11 +198,36 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines=None,quant=None,fast=False):
                        cfg["concentrations"]["distance"],\
                        cfg["attenuators"]["Matrix"][4],\
                        cfg["attenuators"]["Matrix"][5])
+    
+    if cfg["attenuators"]["Matrix"][0]==0:
+        info += "\n Matrix = None"
+    else:
+        info += "\n Matrix = {}".format(cfg["attenuators"]["Matrix"][1])
     info += "\n Linear = {}".format("YES" if cfg["fit"]["linearfitflag"] else "NO")
     info += "\n Strategy = {}".format("ON" if cfg["fit"]["strategyflag"] else "OFF")
     
     logger.info("XRF fit configuration adapted:\n {}".format(info))
+    
+def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines=None,quant=None,fast=False):
+    """
+    Args:
+        cfg(ConfigDict): pymca configuration
+        energy(float): primary beam energy in keV
+        addhigh(Optional(num)): add high primary energy with very low weight
+        mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
+        quant(Optional(dict)): 
+    """
 
+    AdaptPyMcaConfig_energy(cfg,energy,addhigh)
+    if mlines:
+        AdaptPyMcaConfig_mlines(cfg)
+    if quant:
+        AdaptPyMcaConfig_quant(cfg,quant)
+    if fast:
+        AdaptPyMcaConfig_fast(cfg)
+
+    AdaptPyMcaConfig_modinfo(cfg,quant)
+    
 
 def PerformRoi(filelist,rois,norm=None):
     """ROI XRF spectra in batch with changing primary beam energy.
