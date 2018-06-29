@@ -71,7 +71,10 @@ def AdaptPyMcaConfig_energy(cfg,energy,addhigh):
     n = len(ind)
             
     def extract(name,default=np.nan):
-        arr = instance.asarray([instance.asnumber(v) for v in cfg["fit"][name]])
+        arr = cfg["fit"][name]
+        if instance.isarray(arr):
+            arr = [instance.asnumber(v) for v in arr]
+        arr = instance.asarray(arr)
         
         # Select based on energyflag
         narr = len(arr)
