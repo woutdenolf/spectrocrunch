@@ -65,10 +65,9 @@ def AdaptPyMcaConfig_energy(cfg,energy,addhigh):
     if not np.isfinite(energy):
         return
 
-    nenergies = 1+addhigh
-        
     ind = instance.asarray(cfg["fit"]["energyflag"]).astype(bool)
     n = len(ind)
+    nenergies = ind.sum()+addhigh
             
     def extract(name,default=np.nan):
         arr = cfg["fit"][name]
@@ -91,7 +90,8 @@ def AdaptPyMcaConfig_energy(cfg,energy,addhigh):
     cfg_energy = extract("energy",default=np.nan)
     cfg_energyweight = extract("energyweight",default=np.nan)
     cfg_energyflag = extract("energyflag",default=1)
-
+    cfg_energyscatter = extract("energyscatter",default=0)
+    
     cfg_energy = cfg_energy/cfg_energy[0]*energy
     cfg_energyweight = cfg_energyweight/cfg_energyweight[0]
     
@@ -107,10 +107,16 @@ def AdaptPyMcaConfig_energy(cfg,energy,addhigh):
             else:
                 cfg_energyweight[i] = 1e-10
 
-    cfg["fit"]["energy"] = cfg_energy.tolist()
-    cfg["fit"]["energyweight"] = cfg_energy.tolist()
-    cfg["fit"]["energyflag"] = cfg_energyflag.tolist()
-    cfg["fit"]["energyscatter"] = cfg_energyflag.tolist()
+    def reset(arr,default=0):
+        arr = arr.tolist()
+        if len(arr)<n:
+            arr += [default]*(n-len(arr))
+        return arr
+        
+    cfg["fit"]["energy"] = reset(cfg_energy,default=None)
+    cfg["fit"]["energyweight"] = reset(cfg_energyweight)
+    cfg["fit"]["energyflag"] = reset(cfg_energyflag)
+    cfg["fit"]["energyscatter"] = reset(cfg_energyscatter)
     
     # Dummy matrix (apparently needed for multi-energy)
     if (cfg["attenuators"]["Matrix"][0]==0 and nenergies>1):
@@ -188,11 +194,16 @@ def AdaptPyMcaConfig_fast(cfg):
     if cfg["fit"]["strategyflag"]:
         cfg["fit"]["strategyflag"] = 0
 
+    cfg['fit']['fitweight'] = 0 # fastfitting with individual weights -> bug in pymca????
+    
 def AdaptPyMcaConfig_modinfo(cfg,quant):
-    _energy = instance.asarray(cfg["fit"]["energy"])
-    _weights = instance.asarray(cfg["fit"]["energyweight"])
+    ind = instance.asarray(cfg["fit"]["energyflag"]).astype(bool)
+    _energy = instance.asarray(cfg["fit"]["energy"])[ind]
+    _weights = instance.asarray(cfg["fit"]["energyweight"])[ind]
     _weights = _weights/_weights.sum()*100
-    info = "\n ".join(["{} keV({:.2f}%)".format(en,w) for en,w in zip(_energy,_weights)])
+    _scatter = instance.asarray(cfg["fit"]["energyscatter"])[ind]
+    
+    info = "\n ".join(["{} keV (Rate = {:.2f}%, Scatter {})".format(en,w,"ON" if scat else "OFF") for en,w,scat in zip(_energy,_weights,_scatter)])
     if quant:
         info += "\n flux = {:e} s^(-1)\n time = {} s\n active area = {} cm^2\n sample-detector distance = {} cm\n angle IN = {} deg\n angle OUT = {} deg".\
                 format(cfg["concentrations"]["flux"],\
@@ -207,6 +218,7 @@ def AdaptPyMcaConfig_modinfo(cfg,quant):
     else:
         info += "\n Matrix = {}".format(cfg["attenuators"]["Matrix"][1])
     info += "\n Linear = {}".format("YES" if cfg["fit"]["linearfitflag"] else "NO")
+    info += "\n Error propagation = {}".format("Poisson" if cfg['fit']['fitweight'] else "OFF")
     info += "\n Strategy = {}".format("ON" if cfg["fit"]["strategyflag"] else "OFF")
     
     logger.info("XRF fit configuration adapted:\n {}".format(info))
