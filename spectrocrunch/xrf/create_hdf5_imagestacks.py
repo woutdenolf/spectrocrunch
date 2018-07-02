@@ -35,6 +35,7 @@ from ..io import edf
 from ..io import spec
 from ..io import nexus
 from ..xrf.fit import PerformBatchFit
+from ..common import units
 
 logger = logging.getLogger(__name__)
 
@@ -74,8 +75,8 @@ def getscanparameters(config,header):
     if result["name"]=="zapimage":
         sfast = {"name":result["motfast"],"data":spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])} 
         sslow = {"name":result["motslow"],"data":spec.ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])} 
-        if "time" is result:
-            time = result["time"]
+        if "time" in result:
+            time = units.umagnitude(result["time"],units="s")
         else:
             time = np.nan
     else:
