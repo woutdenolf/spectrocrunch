@@ -29,10 +29,13 @@ Test:
 
 .. code-block:: bash
 
-    # Minimal:
+    # Test source:
+    python setup.py test
+    
+    # Test installation:
     python -m spectrocrunch.tests.test_all
     
-    # With options:
+    # Test with options:
     python -m unittest -v spectrocrunch.tests.test_all.test_suite
     pytest --pyargs spectrocrunch
     nose2 -v spectrocrunch

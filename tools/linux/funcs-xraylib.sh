@@ -83,6 +83,7 @@ function xraylib_install_fromsource()
                         --disable-fortran2003 \
                         PYTHON="$(python_bin)" \
                         PYTHON_VERSION="$(python_version)"
+            $(pip_bin) freeze | grep numpy > requirements.txt
         fi
 
         cprint "Build xraylib ..."
@@ -93,6 +94,7 @@ function xraylib_install_fromsource()
 
     cprint "Install xraylib in ${prefix} ..."
     if [[ $(dryrun) == false ]]; then
+        pip_install -r requirements.txt
         mmakeinstall xraylib-${version}
 
         addProfile $(project_resource) "# Installed xraylib: ${prefixstr}"

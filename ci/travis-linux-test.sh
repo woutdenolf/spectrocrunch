@@ -12,7 +12,7 @@ show_help()
 
         -v version      Python version to be used (2, 3, 2.7, 3.5, ...).
         -d              Dry run.
-        -p              With pre-build.
+        -p              Try downloading a pre-build.
 
         For Example: ./travis-linux -v 3 -d -p
 
@@ -85,8 +85,6 @@ function main()
             return 1
         fi
     fi
-
-    return 1
 
     # ============Dependencies============
     travis_install_dependencies ${ARG_PYTHONV}

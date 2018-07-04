@@ -199,7 +199,7 @@ function pip_install()
     if [[ $(install_systemwide) == true || $(python_virtualenv_active) == true ]]; then
         $(pip_bin) install $@
     else
-        $(pip_bin) install $@ --user
+        $(pip_bin) install --user $@ 
     fi
 }
 
@@ -210,7 +210,7 @@ function pip_upgrade()
     if [[ $(install_systemwide) == true || $(python_virtualenv_active) == true ]]; then
         $(pip_bin) install --upgrade $@
     else
-        $(pip_bin) install --upgrade $@ --user
+        $(pip_bin) install --upgrade --user $@ 
     fi
 }
 
