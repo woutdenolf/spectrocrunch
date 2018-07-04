@@ -7,6 +7,16 @@ GLOBAL_SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source ${GLOBAL_SCRIPT_ROOT}/../tools/linux/funcs.sh
 source ${GLOBAL_SCRIPT_ROOT}/../tools/linux/funcs-python.sh
 
+function travis_check_platform()
+{
+    local platform=$(lsb_release -c | awk '{print $2}')
+    if [[ ${platform} == ${1} ]]; then
+        echo true
+    else
+        echo false
+    fi
+}
+
 function travis_build_folder()
 {
     echo "/home/travis"
@@ -94,6 +104,19 @@ function travis_install_dependencies()
     local ret=$?
     cd ${restorewd}
     return ${ret}
+}
+
+
+function travis_prepare()
+{
+    local restorewd=$(pwd)
+    cd $(travis_cached_folder)
+
+    if [[ $(dryrun) == false ]]; then
+        source $(project_folder)/ci/travis-linux-prepare.sh
+    fi
+
+    cd ${restorewd}
 }
 
 

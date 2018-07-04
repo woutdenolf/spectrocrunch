@@ -7,7 +7,7 @@
 show_help()
 {
   echo "
-        Usage: prepare_install-linux  [-v version] [-y] [-d] [-x]
+        Usage: linux-install-deps  [-v version] [-y] [-d] [-x]
 
         -v version      Python version to be used (2, 3, 2.7, 3.5, ...).
         -y              Answer yes to everything.
@@ -15,7 +15,7 @@ show_help()
         -u              Install for user only.
         -x              Dev install.
 
-        For Example: ./prepare_installation -v 3 -d
+        For Example: ./linux-install-deps.sh -v 3 -d
 
         -h              Help
        "

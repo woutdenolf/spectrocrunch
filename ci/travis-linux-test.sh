@@ -8,12 +8,13 @@
 show_help()
 {
   echo "
-        Usage: prebuild_travis  -v version [-d]
+        Usage: travis-linux  -v version [-d] [-p]
 
         -v version      Python version to be used (2, 3, 2.7, 3.5, ...).
         -d              Dry run.
+        -p              With pre-build.
 
-        For Example: ./prebuild_travis -v 3 -d
+        For Example: ./travis-linux -v 3 -d -p
 
         -h              Help
        "
@@ -24,7 +25,8 @@ OPTIND=0
 ARG_DRY=false
 ARG_PYTHONV=""
 ARG_RET=-1
-while getopts "v:hd" opt; do
+ARG_PREBUILD=false
+while getopts "v:hdp" opt; do
   case $opt in
     h)
       show_help
@@ -32,6 +34,9 @@ while getopts "v:hd" opt; do
       ;;
     d)
       ARG_DRY=true
+      ;;
+    p)
+      ARG_PREBUILD=true
       ;;
     v)
       ARG_PYTHONV=${OPTARG}
@@ -58,12 +63,30 @@ function main()
     # ============Initialize environment============
     local GLOBAL_SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
     source ${GLOBAL_SCRIPT_ROOT}/funcs-travis-linux-prebuild.sh
+
     dryrun reset ${ARG_DRY}
+
+    if [[ $(travis_check_platform "trusty") == false ]]; then
+        echo "Run on the same platfrom as Travis"
+        travis_cleanup_python
+        return 1
+    fi
 
     travis_init_python ${ARG_PYTHONV}
     if [[ $? != 0 ]]; then
+        travis_cleanup_python
         return 1
     fi
+
+    if [[ ${ARG_PREBUILD} == false ]]; then
+        travis_prepare
+        if [[ $? != 0 ]]; then
+            travis_cleanup_python
+            return 1
+        fi
+    fi
+
+    return 1
 
     # ============Dependencies============
     travis_install_dependencies ${ARG_PYTHONV}
