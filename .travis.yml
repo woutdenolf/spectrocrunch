@@ -54,5 +54,5 @@ install:
 script:
   # Test the installed package
   - cd $HOME
-  - "python -m ${PROJECTNAME}.tests.test_all.test_suite"
+  - "python -m ${PROJECTNAME}.tests.test_all"
 
