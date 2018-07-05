@@ -48,7 +48,6 @@ function travis_download_prebuild()
 function main()
 {
     travis_download_prebuild
-    return 1
 
     # Display when needed
     export DISPLAY=:99.0
