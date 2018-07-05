@@ -117,6 +117,11 @@ compounddb["lead chromate"] = compoundfromformula.CompoundFromFormula("PbCrO4",6
 compounddb["copper acetate"] = compoundfromformula.CompoundFromFormula("Cu(CH3CO2)2", 1.882,name="copper acetate")
 compounddb["verdigris"] = compoundfromformula.CompoundFromFormula("Cu2(CH3CO2)4(H2O)2", 1.882,name="verdigris")
 compounddb["paris green"] = compoundfromformula.CompoundFromFormula("Cu2(CH3CO2)4(H2O)2", 1.1,name="paris green")
+compounddb["malachite"] = compoundfromformula.CompoundFromFormula("Cu2CO3(OH)2", 4.03,name="malachite")
+compounddb["cuprorivaite"] = compoundfromformula.CompoundFromFormula("CaCuSi4O10", 3.1,name="cuprorivaite")
+compounddb["tenorite"] = compoundfromformula.CompoundFromFormula("CuO", 6.45,name="tenorite")
+compounddb["dioptase"] = compoundfromformula.CompoundFromFormula("CuSiO2(OH)2", 3.3,name="dioptase")
+compounddb["atacamite"] = compoundfromformula.CompoundFromFormula("Cu2Cl(OH)3", 3.756,name="atacamite")
 
 # polymers:
 compounddb["pmma"] = compoundfromformula.CompoundFromFormula("C5O2H8",1.18,name="pmma")

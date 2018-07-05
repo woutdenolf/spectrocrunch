@@ -27,22 +27,24 @@ from . import test_fit2d
 from . import test_fit1d
 from . import test_ft
 from . import test_ops
+from . import test_lazy
 from . import test_noisepropagation
 
-def test_suite_all():
+def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_fit2d.test_suite_all())
-    testSuite.addTest(test_fit1d.test_suite_all())
-    testSuite.addTest(test_ft.test_suite_all())
-    testSuite.addTest(test_ops.test_suite_all())
-    testSuite.addTest(test_noisepropagation.test_suite_all())
+    testSuite.addTest(test_fit2d.test_suite())
+    testSuite.addTest(test_fit1d.test_suite())
+    testSuite.addTest(test_ft.test_suite())
+    testSuite.addTest(test_ops.test_suite())
+    testSuite.addTest(test_lazy.test_suite())
+    testSuite.addTest(test_noisepropagation.test_suite())
     return testSuite
     
 if __name__ == '__main__':
     import sys
 
-    mysuite = test_suite_all()
+    mysuite = test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

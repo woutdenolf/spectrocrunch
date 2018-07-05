@@ -527,8 +527,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             spectrum = self.secondarytarget.xrayspectrum(energy,weights=weights,withdetectorattenuation=False) 
 
             # Extract energies and rates (ph/phsource)
-            kwargs = self.geometry.xrayspectrumkwargs()
-            energy,Y = zip(*list(spectrum.spectrum(**kwargs)))
+            energy,Y = zip(*list(spectrum.spectrum()))
             
             energy = np.asarray(energy)
             nE2 = len(energy)
@@ -1146,7 +1145,8 @@ class PNdiode(with_metaclass(base.SolidState)):
         if nframe is None:
             ValueError("Number of frames not specified.")
 
-        # TODO: 
+        # TODO:
+        Nout = None 
         
         return Nout # units: DU
 
@@ -1334,7 +1334,7 @@ class SXM_IDET(CalibratedPNdiode):
         super(SXM_IDET,self).__init__(\
                         gain=ureg.Quantity(1e5,"volt/ampere"),\
                         gainrounder=GainRounder(base=10),\
-                        darkcurrent=ureg.Quantity(1.08e-10,"ampere"),\
+                        darkcurrent=ureg.Quantity(0,"ampere"),\
                         energy=energy,response=response,fitresponse=False,\
                         beforesample=False,oscillator=vtof,**kwargs)
                         

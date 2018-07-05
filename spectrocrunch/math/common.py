@@ -34,3 +34,9 @@ def logscale(img):
 def round_sig(x, sig):
     return round(x, sig-int(floor(log10(abs(x))))-1)
 
+def floatformat(x, sig):
+    n = max(sig-int(floor(log10(abs(x))))-1,0)
+    y = "{}".format(x).split('.')
+    if len(y)==2:
+        n = min(n,len(y[-1]))
+    return ":.0{:d}f".format(n)

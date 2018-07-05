@@ -25,13 +25,13 @@
 import os, sys
 sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-#from spectrocrunch.align.tests.test_teststack import test_suite_all
+#from spectrocrunch.align.tests.test_teststack import test_suite
 #import unittest
 
 import re
 
 if __name__ == '__main__':
-#    mysuite = test_suite_all()
+#    mysuite = test_suite()
 #    runner = unittest.TextTestRunner()
 #    if not runner.run(mysuite).wasSuccessful():
 #        sys.exit(1)

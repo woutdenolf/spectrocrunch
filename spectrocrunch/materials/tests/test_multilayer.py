@@ -292,7 +292,7 @@ class test_multilayer(unittest.TestCase):
                 self.assertSpectrumEqual(spectrum2,spectrum3,rtol=1e-02,compfisx=True) # 1% deviation
             
     
-def test_suite_all():
+def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_multilayer("test_expi"))
@@ -307,7 +307,7 @@ def test_suite_all():
 if __name__ == '__main__':
     import sys
 
-    mysuite = test_suite_all()
+    mysuite = test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

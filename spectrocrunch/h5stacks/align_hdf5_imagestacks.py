@@ -75,7 +75,13 @@ def align_hdf5_imagestacks(filein,stacks,axes,stackdim,fileout,alignmethod,refda
     if len(reference)==0:
         raise ValueError("Reference dataset \"{}\" doesn't exist.".format(refdataset))
     elif len(reference)!=1:
-        raise ValueError("Reference dataset \"{}\" name not specific enough (matches: {})".format(refdataset,reference))
+        # e.g. reference = Fe-K
+        #      stacks = ['/detectorsum/wFe-K', '/detectorsum/Fe-K', ...]
+        reference2 = [s for s in stacks if s.split('/')[-1]==refdataset]
+        if len(reference2)==1:
+            reference = reference2
+        else:
+            raise ValueError("Reference dataset \"{}\" name not specific enough (matches: {})".format(refdataset,reference))
     reference = stacks.index(reference[0])
 
     # Open source and destination

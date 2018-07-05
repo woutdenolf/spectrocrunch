@@ -74,7 +74,7 @@ class QXRFGeometry(with_metaclass(object)):
         if self.diodeI0 is None:
             diodeI0 = None
         else:
-            diodeI0 = self.diodeI0.geometry
+            diodeI0 = self.diodeI0
             if hasattr(diodeI0,"geometry"):
                 diodeI0 = diodeI0.geometry
         
@@ -176,8 +176,10 @@ class QXRFGeometry(with_metaclass(object)):
                 self.diodeI0.secondarytarget.geometry.source = self.source
             self.diodeI0.simplecalibration = self.simplecalibration
         if self.xrfgeometry is not None:
-            self.xrfgeometry.detector = self.xrfdetector
-            self.xrfgeometry.source = self.source
+            if self.xrfdetector is not None:
+                self.xrfgeometry.detector = self.xrfdetector
+            if self.source is not None:
+                self.xrfgeometry.source = self.source
 
     def setxrfposition(self,value):
         self.xrfgeometry.detectorposition = value
@@ -223,18 +225,43 @@ class QXRFGeometry(with_metaclass(object)):
         """
         if expotime is None:
             expotime = self.defaultexpotime
+        else:
+            expotime = units.Quantity(expotime,"s")
+            
         if reference is None:
             reference = self.reference
+        else:
+            reference = units.Quantity(reference,"dimensionless")
+            
         if referencetime is None:
             referencetime = self.referencetime
+        else:
+            referencetime = units.Quantity(referencetime,"s")
             
         ret = self.diodeI0.xrfnormop(energy,expotime,reference,referencetime=referencetime,weights=weights)
         return ret+(units.umagnitude(expotime,"s"),)
+    
+    def quantinfo(self,*args,**kwargs):
+        """
+        Args:
+            see xrfnormop
+        
+        Returns:
+            op(linop): raw diode conversion operator
+            info(dict): pymca quantification info (flux and geometry)
+        """
+        quant = {}
+        quant["activearea"] = self.xrfgeometry.detector.activearea
+        quant["anglein"] = self.xrfgeometry.anglein
+        quant["angleout"] = self.xrfgeometry.angleout
+        quant["distance"] = self.getxrfdistance()
+        xrfnormop,quant["flux"],quant["time"],expotime = self.xrfnormop(*args,**kwargs)
+        return xrfnormop,quant
         
     def I0op(self,energy,expotime=None,weights=None):
         if expotime is None:
             expotime = self.defaultexpotime
-        op = self.diodeI0.fluxop(energy,expotime)
+        op = self.diodeI0.fluxop(energy,expotime,weights=weights)
         return op,expotime
 
     def Itop(self,energy,expotime=None,weights=None):
@@ -273,7 +300,6 @@ class QXRFGeometry(with_metaclass(object)):
         # Optional parameters
         gaindiodeI0 = params.pop("gaindiodeI0",None)
         gaindiodeIt = params.pop("gaindiodeIt",None)
-        fixdark = params.pop("fixdark",False)
         nofit = params.pop("nofit",False)
         plot = params.pop("plot",False)
         
@@ -284,6 +310,7 @@ class QXRFGeometry(with_metaclass(object)):
         # Calibrate
         dark = params.pop("dark") 
         if dark:
+            fixdark = params.pop("fixdark",False)
             params.pop("fluxmin",None)
             params.pop("fluxmax",None)
             if not(nofit or fixdark):

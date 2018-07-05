@@ -10,7 +10,6 @@ notifications:
 env:
   global:
   - CACHED_FOLDER=$HOME/cached
-  - BUILD_FOLDER=$HOME
 
 matrix:
   include:
@@ -24,28 +23,26 @@ cache:
 
 before_install:
   - mkdir -p $CACHED_FOLDER
-  - mkdir -p $BUILD_FOLDER
+  - cd $CACHED_FOLDER
   - |
     if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then
-        . $TRAVIS_BUILD_DIR/ci/prepare-travis.sh
+        source $TRAVIS_BUILD_DIR/ci/travis-linux-prepare.sh
     fi
 
 install:
   # Install general build dependencies
-  - cd $BUILD_FOLDER
+  - cd $CACHED_FOLDER
   - |
     if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then
-        . $TRAVIS_BUILD_DIR/tools/prepare_install-linux.sh -y -u
+        source $TRAVIS_BUILD_DIR/tools/linux-install-deps.sh -y -u -x
     fi
-
-  # Package directory  
-  - cd $TRAVIS_BUILD_DIR
 
   # Print Python info
   - "python $TRAVIS_BUILD_DIR/ci/info_platform.py"
   - "pip list"
 
   # Build package
+  - cd $TRAVIS_BUILD_DIR
   - "python setup.py build"
   - "python setup.py sdist bdist_wheel"
   - "python setup.py build_doc"

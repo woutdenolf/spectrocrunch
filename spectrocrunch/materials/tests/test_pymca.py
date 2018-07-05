@@ -93,9 +93,9 @@ class test_pymca(unittest.TestCase):
         safrac = h.sample.geometry.solidangle/(4*np.pi)
 
         for group in fitresult["fitareas"]:
-            element,shell = group.split("-")
+            element,linegroup = group.element,group.group
 
-            grouprate_avg = h.mcafit._fluoRates[0][element]["rates"]["{} xrays".format(shell)]
+            grouprate_avg = h.mcafit._fluoRates[0][element]["rates"]["{} xrays".format(linegroup)]
             grouprate_avg *= safrac
             massfrac_avg = h.mcafit._fluoRates[0][element]["mass fraction"]
 
@@ -107,7 +107,7 @@ class test_pymca(unittest.TestCase):
                 i = j+1
                 if element in h.mcafit._fluoRates[i]:
                     massfrac_l = h.mcafit._fluoRates[i][element]["mass fraction"]
-                    grouprate_l = h.mcafit._fluoRates[i][element]["rates"]["{} xrays".format(shell)]
+                    grouprate_l = h.mcafit._fluoRates[i][element]["rates"]["{} xrays".format(linegroup)]
                     grouprate += massfrac_l*grouprate_l
                     grouprate_avg2 += grouprate_l
                     #massfrac_avg2 = max(massfrac_avg2,massfrac_l)
@@ -131,7 +131,7 @@ class test_pymca(unittest.TestCase):
             for j in range(h.sample.nlayers):
                 i = j+1
                 if element in h.mcafit._fluoRates[i]:
-                    grouprate_l = h.mcafit._fluoRates[i][element]["rates"]["{} xrays".format(shell)]
+                    grouprate_l = h.mcafit._fluoRates[i][element]["rates"]["{} xrays".format(linegroup)]
                     grouprate = grouprate_l*safrac
                     np.testing.assert_allclose(fitresult["lmassfractions"][j][group],fitresult["fitareas"][group]/(h.I0*grouprate))
 
@@ -194,18 +194,18 @@ class test_pymca(unittest.TestCase):
         #plt.show()
 
         
-def test_suite_all():
+def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    #testSuite.addTest(test_pymca("test_loadcfg"))
-    #testSuite.addTest(test_pymca("test_rates"))
+    testSuite.addTest(test_pymca("test_loadcfg"))
+    testSuite.addTest(test_pymca("test_rates"))
     testSuite.addTest(test_pymca("test_spectrum"))
     return testSuite
     
 if __name__ == '__main__':
     import sys
 
-    mysuite = test_suite_all()
+    mysuite = test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

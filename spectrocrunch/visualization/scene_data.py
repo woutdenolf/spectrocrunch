@@ -110,13 +110,14 @@ class ImageCoordinates(Coordinates):
         
         # Scan offsets
         for mot in self.instrument.compensationmotors[motdim0]:
-            off,func = instance.asarrayf(offsets[mot])
+            off,func = instance.asarrayf(offsets[mot][0])
             if not instance.isnumber(off[0]):
                 off = off.astype(float)
             off = func(off)
             axis0values = axis0values+self.motorpositions(off,mot)
+            
         for mot in self.instrument.compensationmotors[motdim1]:
-            off,func = instance.asarrayf(offsets[mot])
+            off,func = instance.asarrayf(offsets[mot][0])
             if not instance.isnumber(off[0]):
                 off = off.astype(float)
             off = func(off)
@@ -249,7 +250,7 @@ class ZapRoiMap(ImageCoordinates):
         o = spec.cmd_parser()
         f = edf.edfimage(self.filenames[0])
         header = f.header
-        cmd = header[self.instrument.edfheaderkeys["speccommand"]]
+        cmd = header[self.instrument.edfheaderkeys["speclabel"]]
         result = o.parsezapimage(cmd)
 
         # Extract axes
@@ -296,7 +297,7 @@ class Nexus(ImageCoordinates):
             try:
                 data,axes,axesnames = nexus.parse_NXdata(oh5[group["path"]])
             except KeyError:
-                raise KeyError("{} not in {}".format(group["path"],filename))
+                raise KeyError("{} not in {}".format(group["path"],self.filename))
             stackindex = self.stackindex(axesnames)
             if stackindex==0:
                 data = data[group["ind"],...]
@@ -350,7 +351,7 @@ class Nexus(ImageCoordinates):
                 raise RuntimeError("Expected exactly two scanning dimensions: {}".format(axesnames))
             axes = listtools.listadvanced_bool(axes,b)
             axesnames = listtools.listadvanced_bool(axesnames,b)
-            
+
             # Store coordinates
             self.setcoordinates(axes[0][:],axes[1][:],axesnames[0],axesnames[1],ocoord)
         

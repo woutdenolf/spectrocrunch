@@ -22,38 +22,39 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import numpy as np
 import os
 import tempfile
 import time
-from scipy import interpolate
 import json
 import numbers
+import re
 
-try:
-    import iotbx.cif
-except:
-    pass
-
-import fdmnes
-import fisx
-
+from . import elementbase
 from .. import xraylib
 from .. import ureg
 from ..common import hashable
 from ..common import instance
+from ..math import lazy
 from . import xrayspectrum
 
+import numpy as np
+from scipy import interpolate
+try:
+    import iotbx.cif
+except:
+    pass
+import fdmnes
+import fisx
 
 def elementParse(symb):
-    if isinstance(symb,str):
+    if instance.isstring(symb):
         if symb.isdigit():
             Z = int(symb)
             name = xraylib.AtomicNumberToSymbol(Z)
         else:
-            Z = xraylib.SymbolToAtomicNumber(symb.title())
+            Z = xraylib.SymbolToAtomicNumber(str(symb))
             name = symb
-    elif isinstance(symb,numbers.Integral):
+    elif instance.isinteger(symb):
         Z = symb
         name = xraylib.AtomicNumberToSymbol(Z)
     elif isinstance(symb,Element):
@@ -63,12 +64,12 @@ def elementParse(symb):
     return Z,name  
 
 def elementZ(symb):
-    if isinstance(symb,str):
+    if instance.isstring(symb):
         if symb.isdigit():
             Z = int(symb)
         else:
-            Z = xraylib.SymbolToAtomicNumber(symb.title())
-    elif isinstance(symb,numbers.Integral):
+            Z = xraylib.SymbolToAtomicNumber(symb)
+    elif instance.isinteger:
         Z = symb
     elif isinstance(symb,Element):
         Z = symb.Z
@@ -77,12 +78,12 @@ def elementZ(symb):
     return Z
 
 def elementSymbol(symb):
-    if isinstance(symb,str):
+    if instance.string(symb):
         if symb.isdigit():
             name = xraylib.AtomicNumberToSymbol(int(symb))
         else:
             name = symb
-    elif isinstance(symb,numbers.Integral):
+    elif instance.isinteger:
         name = xraylib.AtomicNumberToSymbol(symb)
     elif isinstance(symb,Element):
         name = symb.name
@@ -91,7 +92,7 @@ def elementSymbol(symb):
     return name
 
 
-class Element(hashable.Hashable):
+class Element(hashable.Hashable,elementbase.ElementBase):
     """Interface to chemical elements
     """
 
@@ -109,7 +110,7 @@ class Element(hashable.Hashable):
 
         # Information for calculating partial cross-sections
         self.shells = []
-        
+    
     def _cmpkey(self):
         """For comparing and sorting
         """
@@ -151,6 +152,7 @@ class Element(hashable.Hashable):
             if shells is None:
                 self.shells = xrayspectrum.Shell.all_shells(fluolines=fluolines)
             else:
+                shells = xrayspectrum.Shell.expandall(shells)
                 f = lambda shell: shell if isinstance(shell,xrayspectrum.Shell) else xrayspectrum.Shell(shell,fluolines=fluolines)
                 if instance.isiterable(shells):
                     self.shells = [f(shell) for shell in shells]
@@ -331,7 +333,7 @@ class Element(hashable.Hashable):
             cs = sum([shellcs*shell.partial_fluoyield(self.Z) for shell,shellcs in cs.items()])
             return func(cs)
 
-    def fluorescence_cross_section_lines(self,E,environ=None,decimals=6,refresh=False,decomposed=True,**kwargs):
+    def fluorescence_cross_section_lines(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """XRF cross sections per line (cm^2/g, E in keV). Use for XRF.
 
         Args:
@@ -339,7 +341,6 @@ class Element(hashable.Hashable):
             environ(dict): chemical environment of this element
             decimals(Optional(num)): precision of energy in keV
             refresh(Optional(bool)): force re-simulation if used
-            decomposed(Optional(bool)): per line or per shell
 
         Returns:
             dict: {S:tau(E,S)*fluoyield(S)*sum_{L}[radrate(S,L)]}
@@ -352,98 +353,60 @@ class Element(hashable.Hashable):
 
         # Get the shell ionization cross section
         cs = self.fluorescence_cross_section(E,environ=environ,decimals=decimals,refresh=refresh,decomposed=True)
-            
-        if decomposed:
-            # Multiply by fluorescence yield for each line
-            cs = {xrayspectrum.FluoZLine(self,line):shellcs*fluoyield\
-                       for shell,shellcs in cs.items()\
-                       for line,fluoyield in shell.partial_fluoyield(self.Z,decomposed=True).items()}
+
+        cs = {xrayspectrum.FluoZLine(self,line):shellcs*fluoyield\
+                   for shell,shellcs in cs.items()\
+                   for line,fluoyield in shell.partial_fluoyield(self.Z,decomposed=True).items()}
                        #if line.energy(self.Z)>0
-        else:
-            cs = {shell:shellcs*shell.partial_fluoyield(self.Z,decomposed=False)\
-                        for shell,shellcs in cs.items()}
+
         return cs
 
-    def xrayspectrum(self,E,weights=None,emin=0,emax=None):
-        E = instance.asarray(E)
-        if emax is None:
-            emax = E[-1]
-        self.markabsorber(energybounds=[emin,emax])
-
-        spectrum = xrayspectrum.Spectrum()
-        spectrum.density = self.density
-        spectrum.update(self.fluorescence_cross_section_lines(E,decomposed=True))
-        spectrum[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E)
-        spectrum[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E)
-        spectrum.apply_weights(weights)
-        spectrum.xlim = [emin,emax]
-        spectrum.title = str(self)
-        spectrum.type = spectrum.TYPES.crosssection
-        
-        return spectrum
+    def diff_fluorescence_cross_section(self,E,**kwargs):
+        """Differential XRF cross sections per line (cm^2/g/srad, E in keV). Use for XRF.
+        """
+        cs = self.fluorescence_cross_section_lines(E,**kwargs)
+        m = 4*np.pi
+        return {k:v/m for k,v in cs.items()}
  
-    def scattering_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
+    def scattering_cross_section(self,E,**kwargs):
         """Scattering cross section (cm^2/g, E in keV).
 
         Args:
             E(num or array-like): energy (keV)
-            environ(dict): chemical environment of this element
-            decimals(Optional(num)): precision of energy in keV
-            refresh(Optional(bool)): force re-simulation if used
 
         Returns:
             num or np.array
         """
-
         return self._xraylib_method_full("CS_Rayl",E)+self._xraylib_method_full("CS_Compt",E)
 
-    def rayleigh_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
+    def rayleigh_cross_section(self,E,**kwargs):
         """Rayleigh cross section (cm^2/g, E in keV).
 
         Args:
             E(num or array-like): energy (keV)
-            environ(dict): chemical environment of this element
-            decimals(Optional(num)): precision of energy in keV
-            refresh(Optional(bool)): force re-simulation if used
 
         Returns:
             num or np.array
         """
         return self._xraylib_method_full("CS_Rayl",E)
 
-    def compton_cross_section(self,E,environ=None,decimals=6,refresh=False,**kwargs):
+    def compton_cross_section(self,E,**kwargs):
         """Compton cross section (cm^2/g, E in keV).
 
         Args:
             E(num or array-like): energy (keV)
-            environ(dict): chemical environment of this element
-            decimals(Optional(num)): precision of energy in keV
-            refresh(Optional(bool)): force re-simulation if used
 
         Returns:
             num or np.array
         """
         return self._xraylib_method_full("CS_Compt",E)
 
-    @property
-    def scatfact_to_cs_constant(self):
-        """ muR(cm²/g) = NA(atom/mol)/MM(g/mol) . x(cm²/atom)
-            x(cm²/atom) = int_phi[int_theta [ f²(e/atom).thomson(cm²/e/srad) . sin(theta) dtheta] dphi]
-            thomson(cm²/e/srad) = r_e²(cm²/e).K(theta,phi)(1/srad)
-            
-            m(cm^2/g/e) = NA(atom/mol)/MM(g/mol).r_e²(cm²/e)
-        """
-        return (ureg.re**2*ureg.avogadro_number/ureg.Quantity(self.MM,'g/mol')).to("cm^2/g").magnitude
-
-    def scatfact_classic_re(self,E,theta=None,environ=None,decimals=6,refresh=False,**kwargs):
+    def scatfact_classic_real(self,E,theta=None,**kwargs):
         """Real part of atomic form factor
 
         Args:
             E(num or array-like): energy (keV)
             theta(Optional(num or array-like)): scattering angle (rad)
-            environ(dict): chemical environment of this element
-            decimals(Optional(num)): precision of energy in keV
-            refresh(Optional(bool)): force re-simulation if used
 
         Returns:
             num or np.array
@@ -455,35 +418,72 @@ class Element(hashable.Hashable):
             q = np.sin(theta/2)/ureg.Quantity(E,'keV').to("angstrom","spectroscopy").magnitude
             return self._xraylib_method_full("FF_Rayl",q)
             
-    def scatfact_re(self,E,theta=None,environ=None,decimals=6,refresh=False,**kwargs):
+    def scatfact_real(self,E,theta=None,**kwargs):
         """Real part of atomic form factor
 
         Args:
             E(num or array-like): energy (keV)
             theta(Optional(num or array-like)): scattering angle (degrees)
-            environ(dict): chemical environment of this element
-            decimals(Optional(num)): precision of energy in keV
-            refresh(Optional(bool)): force re-simulation if used
 
         Returns:
             num or np.array
         """
-        return self.scatfact_classic_re(E,theta=theta,environ=environ,decimals=decimals,refresh=refresh) + self._xraylib_method_full("Fi",E)
+        return self.scatfact_classic_real(E,theta=theta) + self._xraylib_method_full("Fi",E)
     
-    def scatfact_im(self,E,environ=None,decimals=6,refresh=False,**kwargs):
+    def scatfact_imag(self,E,**kwargs):
         """Imaginary part of atomic form factor
 
         Args:
             E(num or array-like): energy (keV)
-            environ(dict): chemical environment of this element
-            decimals(Optional(num)): precision of energy in keV
-            refresh(Optional(bool)): force re-simulation if used
 
         Returns:
             num or np.array
         """
         return self._xraylib_method_full("Fii",E)
+
+    def diff_rayleigh_cross_section(self,E,source=None,**kwargs):
+        """Differential Rayleigh cross section (cm^2/g/srad, E in keV).
+
+        Args:
+            E(num or array-like): energy (keV)
+            source(Source): X-ray source
+
+        Returns:
+            callable: (azimuth,polar)
+        """
+        # muR(cm²/g) = NA(atom/mol)/MM(g/mol) . x(cm²/atom)
+        # x(cm²/atom) = int_phi[int_theta [ f²(e/atom).thomson(cm²/e/srad) . sin(theta) dtheta] dphi]
+        # thomson(cm²/e/srad) = r_e²(cm²/e).K_thomson(azimuth,polar)(1/srad)
+        # mudiffR(cm²/g/srad) = r_e²(cm²/e).NA(atom/mol)/MM(g/mol).K_thomson(azimuth,polar)(1/srad).f²(e/atom)
+
+        c = (ureg.classical_electron_radius**2*ureg.avogadro_number/ureg.Quantity(self.MM,'g/mol')).to("cm^2/g").magnitude
+        wl = ureg.Quantity(E,'keV').to("angstrom","spectroscopy").magnitude
+        K = source.thomson_K
+        func = lambda azimuth,polar: c*K(azimuth,polar)*self._xraylib_method_full("FF_Rayl",np.sin(polar/2.)/wl)**2
+        return lazy.Function(func,name="diff_el(phi,theta)")
     
+    def diff_compton_cross_section(self,E,source=None,**kwargs):
+        """Differential Compton cross section (cm^2/g/srad, E in keV).
+
+        Args:
+            E(num or array-like): energy (keV)
+            source(Source): X-ray source
+            decomposed(Optional(bool)): not used
+
+        Returns:
+            callable: (theta,phi)
+        """
+        # muC(cm²/g) = NA(atom/mol)/MM(g/mol) . x(cm²/atom)
+        # x(cm²/atom) = int_phi[int_theta [ S(e/atom).KN(cm²/e/srad) . sin(theta) dtheta] dphi]
+        # KN(cm²/e/srad) = r_e²(cm²/e).K_compton(azimuth,polar)(1/srad)
+        # mudiffC(cm²/g/srad) = r_e²(cm²/e).NA(atom/mol)/MM(g/mol).K_compton(azimuth,polar)(1/srad).S(e/atom)
+
+        c = (ureg.classical_electron_radius**2*ureg.avogadro_number/ureg.Quantity(self.MM,'g/mol')).to("cm^2/g").magnitude
+        wl = ureg.Quantity(E,'keV').to("angstrom","spectroscopy").magnitude
+        K = source.compton_K(E)
+        func = lambda azimuth,polar: c*K(azimuth,polar)*self._xraylib_method_full("SF_Compt",np.sin(polar/2.)/wl)
+        return lazy.Function(func,name="diff_inel(phi,theta)")
+        
     def _get_multiplicity(self,struct):
         scat = struct.scatterers()
         ret = 0.
@@ -587,7 +587,7 @@ class Element(hashable.Hashable):
             # Convert data to absorbance as a function of energy in keV
             data[:,0] /= 1000. # ev -> keV
             data[:,0] += shell.edgeenergy(self.Z) # rel -> abs
-            data[:,1] *= xraylib.AVOGNUM*1E6/self.MM # Absorption cross section (Mbarn/atom) -> mass absorption coefficient (cm^2/g)
+            data[:,1] *= xraylib.AVOGNUM*1E6/self.MM # Mbarn/atom -> cm^2/g
 
             # Element multiplicity in the unit cell
             if "nmult" in config:
@@ -740,9 +740,8 @@ class Element(hashable.Hashable):
         o.setCompositionFromLists([self.pymcaname],[1.])
         return o
 
-    def fisxgroups(self,emin=0,emax=np.inf):
-        self.markabsorber(energybounds=[emin,emax])
-        el = str(self)
-        return {self:self.shells}
-        
+    @classmethod
+    def fluozgroup(cls,symb):
+        ele,group = re.split('[-_ ]+',symb)
+        return xrayspectrum.FluoZGroup(cls(ele),group)
         

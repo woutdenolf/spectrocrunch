@@ -204,12 +204,12 @@ class test_indexing(unittest.TestCase):
 
     def test_extract_newaxis(self):
         a = np.arange(10*20*30*40).reshape((10,20,30,40))
-        self.test_extract_newaxis_help(a,[0,5])
+        self.execute_test_extract_newaxis(a,[0,5])
 
         a = np.ones((1,1,1,1))
-        self.test_extract_newaxis_help(a,[0])
+        self.execute_test_extract_newaxis(a,[0])
 
-    def test_extract_newaxis_help(self,a,rrange):
+    def execute_test_extract_newaxis(self,a,rrange):
         ndim = a.ndim
         for nsingleton in range(ndim):
             for nlist in range(ndim-nsingleton):
@@ -227,10 +227,10 @@ class test_indexing(unittest.TestCase):
 
     def test_slicedstack(self):
         args = [[(20,30,40),i*1000] for i in range(10)]
-        self.test_slicedstack_help(self._slicegen,args,[0,5])
+        self.execute_test_slicedstack(self._slicegen,args,[0,5])
         
         args = [[(1,1,1),i*1000] for i in range(1)]
-        self.test_slicedstack_help(self._slicegen,args,[0])
+        self.execute_test_slicedstack(self._slicegen,args,[0])
 
         args = [[(20,30,40),i*1000] for i in range(10)]
         special = [(([0], slice(None, None, None), slice(None, None, None), [-1]),-1),\
@@ -246,7 +246,7 @@ class test_indexing(unittest.TestCase):
             data2 = indexing.slicedstack(self._slicegen,args,index,ndim,shapefull=shapefull,axis=axis)
             np.testing.assert_array_equal(data[index],data2)
 
-    def test_slicedstack_help(self,generator,args,rrange):
+    def execute_test_slicedstack(self,generator,args,rrange):
         ndim = 4
         for nsingleton in range(ndim):
             for nlist in range(ndim-nsingleton):
@@ -264,12 +264,12 @@ class test_indexing(unittest.TestCase):
 
     def test_shape_afterindexing(self):
         a = np.arange(10*20*30*40).reshape((10,20,30,40))
-        self.test_shape_afterindexing_help(a,[0,5])
+        self.try_shape_afterindexing(a,[0,5])
 
         a = np.ones((1,1,1,1))
-        self.test_shape_afterindexing_help(a,[0])
+        self.try_shape_afterindexing(a,[0])
 
-    def test_shape_afterindexing_help(self,a,rrange):
+    def try_shape_afterindexing(self,a,rrange):
         s1 = list(a.shape) # original shape
         ndim = a.ndim
         for nsingleton in range(ndim):
@@ -346,7 +346,7 @@ class test_indexing(unittest.TestCase):
 
                                         np.testing.assert_array_equal(b,d)
 
-def test_suite_all():
+def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_indexing("test_list"))
@@ -365,7 +365,7 @@ def test_suite_all():
 if __name__ == '__main__':
     import sys
 
-    mysuite = test_suite_all()
+    mysuite = test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)
