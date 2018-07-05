@@ -17,6 +17,7 @@ matrix:
       os: linux
 
 cache:
+  timeout: 1000
   directories:
   - $HOME/.cache/pip
   - $CACHED_FOLDER
