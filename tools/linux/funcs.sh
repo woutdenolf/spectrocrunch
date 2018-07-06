@@ -406,15 +406,51 @@ function project_name()
 }
 
 
+# ============project_echoresourcedir============
+# Description:
+function project_echoresourcedir()
+{
+    if [[ -z ${PROJECT_RESOURCE_DIR} ]]; then
+        if [[ $(install_systemwide) == true ]]; then
+            echo "/etc"
+        else
+            echo "${HOME}/"
+        fi
+    else
+        echo ${PROJECT_RESOURCE_DIR} 
+    fi
+}
+
+
 # ============project_resource============
 # Description: Project resource file
 function project_resource()
 {
     if [[ $(install_systemwide) == true ]]; then
-        echo "/etc/$(project_name).bashrc"
+        echo "$(project_echoresourcedir)/$(project_name).bashrc"
     else
-        echo "${HOME}/.$(project_name)rc"
+        echo "$(project_echoresourcedir)/.$(project_name)rc"
     fi
+}
+
+
+# ============project_echoprefix============
+# Description:
+function project_echoprefix()
+{
+    if [[ -z ${PROJECT_PREFIX} ]]; then
+        echo ${1}
+    else
+        echo ${PROJECT_PREFIX}
+    fi
+}
+
+
+# ============project_userbasestr============
+# Description:
+function project_userbasestr()
+{
+    project_echoprefix '${HOME}/.local'
 }
 
 
@@ -423,9 +459,21 @@ function project_resource()
 function project_prefixstr()
 {
     if [[ $(install_systemwide) == true ]]; then
-        echo "/usr/local"
+        project_echoprefix "/usr/local"
     else
-        echo "\${HOME}/.local"
+        project_userbasestr
+    fi
+}
+
+
+# ============project_optstr============
+# Description: 
+function project_optstr()
+{
+    if [[ $(install_systemwide) == true ]]; then
+        project_echoprefix "/opt"
+    else
+        project_prefixstr
     fi
 }
 
@@ -438,18 +486,6 @@ function project_prefixstr()
 function project_prefix()
 {
     fullpath $(project_prefixstr)
-}
-
-
-# ============project_optstr============
-# Description: 
-function project_optstr()
-{
-    if [[ $(install_systemwide) == true ]]; then
-        echo "/opt"
-    else
-        project_prefixstr
-    fi
 }
 
 
@@ -469,14 +505,6 @@ function project_optstr()
 function project_opt()
 {
     fullpath $(project_optstr)
-}
-
-
-# ============project_userbasestr============
-# Description:
-function project_userbasestr()
-{
-    echo "\${HOME}/.local"
 }
 
 
@@ -552,5 +580,6 @@ function install_info()
     cprint "System wide installation: $(install_systemwide)"
     cprint "Prefix for dependencies: $(project_prefix)"
     cprint "Opt directory: $(project_opt)"
+    cprint "Resource file: $(project_resource)"
 }
 

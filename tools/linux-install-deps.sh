@@ -18,6 +18,11 @@ show_help()
         For Example: ./linux-install-deps.sh -v 3 -d
 
         -h              Help
+        
+       Environment variables(optional):
+       
+        PROJECT_PREFIX: directory to install dependencies
+        PROJECT_RESOURCE_DIR: directory of the project resource file
        "
 }
 

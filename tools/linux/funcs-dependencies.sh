@@ -50,6 +50,13 @@ function install_system_dependencies_dev()
     fi
 }
 
+function install_nopypi_dependencies()
+{
+    require_simpleelastix
+    require_xraylib
+    require_pytmm
+    require_fdmnes
+}
 
 function install_pypi_dependencies()
 {
@@ -71,14 +78,4 @@ function install_pypi_dependencies_dev()
         pip_install -r $(project_folder)/requirements-dev.txt
     fi
 }
-
-
-function install_nopypi_dependencies()
-{
-    require_simpleelastix
-    require_xraylib
-    require_pytmm
-    require_fdmnes
-}
-
 
