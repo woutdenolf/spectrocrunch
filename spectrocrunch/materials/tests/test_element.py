@@ -232,7 +232,7 @@ class test_element(unittest.TestCase):
         wavelength = ureg.Quantity(energy,'keV').to("cm","spectroscopy")
         f2 = e.scatfact_imag(energy)
         m = -(2*ureg.classical_electron_radius*wavelength*ureg.avogadro_number/ureg.Quantity(e.MM,'g/mol')).to("cm^2/g").magnitude
-        np.testing.assert_allclose(m*f2,e.mass_abs_coeff(energy),rtol=1e-6)
+        np.testing.assert_allclose(m*f2,e.mass_abs_coeff(energy),rtol=1e-3)
         
         f1 = e.scatfact_real(energy)
         np.testing.assert_allclose(f1,e.Z,rtol=1e-2)
@@ -241,7 +241,7 @@ class test_element(unittest.TestCase):
         theta = np.radians(45)
         np.testing.assert_allclose(xraylib.FF_Rayl(e.Z,xraylib.MomentTransf(energy,theta)),e.scatfact_classic_real(energy,theta=theta),rtol=1e-5)
     
-def test_suite_all():
+def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_element("test_fluoline"))
@@ -252,11 +252,11 @@ def test_suite_all():
     testSuite.addTest(test_element("test_diffcs_inelastic"))
     testSuite.addTest(test_element("test_formfact"))
     return testSuite
-    
+
 if __name__ == '__main__':
     import sys
 
-    mysuite = test_suite_all()
+    mysuite = test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

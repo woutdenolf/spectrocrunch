@@ -1192,7 +1192,8 @@ class PNdiode(with_metaclass(base.SolidState)):
         if nframe is None:
             ValueError("Number of frames not specified.")
 
-        # TODO: 
+        # TODO:
+        Nout = None 
         
         return Nout # units: DU
 

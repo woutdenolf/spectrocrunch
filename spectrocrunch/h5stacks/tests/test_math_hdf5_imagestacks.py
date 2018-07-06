@@ -93,7 +93,7 @@ class test_math_hdf5_imagestacks(unittest.TestCase):
                 np.testing.assert_almost_equal(calc,expect)
                 
 
-def test_suite_all():
+def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_math_hdf5_imagestacks("test_expression"))
@@ -102,7 +102,7 @@ def test_suite_all():
 if __name__ == '__main__':
     import sys
 
-    mysuite = test_suite_all()
+    mysuite = test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

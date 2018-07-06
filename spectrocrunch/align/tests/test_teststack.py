@@ -25,7 +25,7 @@
 import unittest
 
 from ..types import transformationType
-from .teststack import teststack
+from . import helper_teststack
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -42,7 +42,7 @@ class test_teststack(unittest.TestCase):
     
             for vector in lst:
                 for transposed in lst:
-                    listofstacks,COFrelative,stackdim = teststack(t,vector=vector,transposed=transposed)
+                    listofstacks,COFrelative,stackdim = helper_teststack.data(t,vector=vector,transposed=transposed)
                     self.assertIsInstance(listofstacks,list)
                     self.assertIsInstance(listofstacks[0],np.ndarray)
                     self.assertEqual(len(listofstacks[0].shape),3)
@@ -65,7 +65,7 @@ class test_teststack(unittest.TestCase):
         plt.imshow(img,origin='lower',interpolation='nearest')
         plt.pause(0.1)
 
-def test_suite_all():
+def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_teststack("test_data"))
@@ -74,7 +74,7 @@ def test_suite_all():
 if __name__ == '__main__':
     import sys
 
-    mysuite = test_suite_all()
+    mysuite = test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)
