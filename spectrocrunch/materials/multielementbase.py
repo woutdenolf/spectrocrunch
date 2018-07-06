@@ -188,3 +188,19 @@ class MultiElementBase(elementbase.ElementBase):
 
         return coeff,cs
 
+    @classmethod
+    def csdict_parse_elements(cls,dictin,dictout=None,w=1):
+        if dictout is None:
+            dictout = {}
+            
+        for k,v in dictin.items():
+            if isinstance(v["cs"],dict):
+                cls.csdict_parse_elements(v["cs"],w=v["w"],dictout=dictout)
+            else:
+                if k in dictout:
+                    dictout[k] += w*v["w"]*v["cs"]
+                else:
+                    dictout[k] = w*v["w"]*v["cs"]
+                    
+        return dictout
+

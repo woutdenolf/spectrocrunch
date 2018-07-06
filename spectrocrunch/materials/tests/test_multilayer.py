@@ -30,7 +30,6 @@ from .. import compoundfromname
 from .. import mixture
 from .. import element
 from .. import types
-from .. import utils
 from .. import xrayspectrum
 from ...geometries import xrf as xrfgeometries
 from ...detectors import xrf as xrfdetectors
@@ -98,21 +97,6 @@ class test_multilayer(unittest.TestCase):
                                                 thickness=[1e-4],\
                                                 detector = detector)
         return o
-    
-    def test_transmission(self):
-        o,thickness = self._multilayer1()
-        
-        energy = np.linspace(7,8,5)
-
-        T1 = o.transmission(energy)
-        T2 = o.transmission(energy,decomposed=True)
-        
-        T3 = np.ones_like(energy)
-        for mat in T2:
-            for cs in utils.elemental_crosssections(mat["cs"]).values():
-                T3 *= np.exp(-mat["density"]*mat["thickness"]*cs)
-
-        np.testing.assert_allclose(T1,T3)
         
     def test_attenuationinfo(self):
         src = xraysources.factory("synchrotron")
@@ -297,7 +281,6 @@ def test_suite():
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_multilayer("test_expi"))
     testSuite.addTest(test_multilayer("test_attenuationinfo"))
-    testSuite.addTest(test_multilayer("test_transmission"))
     testSuite.addTest(test_multilayer("test_primary_simple"))
     testSuite.addTest(test_multilayer("test_primary_complex"))
     
