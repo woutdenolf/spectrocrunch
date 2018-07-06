@@ -1048,7 +1048,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         except pinterrors.DimensionalityError:
             try:
                 return self.currenttoflux(energy,response.to("A"),weights=weights)
-            except:
+            except pinterrors.DimensionalityError:
                 return self.voltagetoflux(energy,response.to("V"),weights=weights)
     
     def xrfnormop(self,energy,expotime,reference,referencetime=None,weights=None):

@@ -70,6 +70,9 @@ def isscalar(x):
 def isiterable(x):
     return isinstance(x, collections.Iterable)
 
+def iscallable(x):
+    return isinstance(x, collections.Callable)
+    
 def isquantity(x):
     return isinstance(x, ureg.Quantity)
     

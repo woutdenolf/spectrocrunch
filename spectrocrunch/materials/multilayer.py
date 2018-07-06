@@ -74,14 +74,9 @@ class Layer(object):
     def xraythickness(self,value):
         self.thickness = value*self.ml.geometry.cosnormin
     
-    def absorbance(self,energy,fine=False,decomposed=False):
-        if decomposed:
-            return {"cs":self.material.mass_att_coeff(energy,fine=fine,decomposed=decomposed),\
-                    "thickness":self.xraythickness,\
-                    "density":self.density}
-        else:
-            return self.material.mass_att_coeff(energy,fine=fine,decomposed=decomposed)*\
-                    (self.xraythickness*self.density)
+    def absorbance(self,energy,**kwargs):
+        kwargs.pop("decomposed",None)
+        return self.material.mass_att_coeff(energy,**kwargs)*(self.xraythickness*self.density)
 
     def absorbanceout(self,energy):
         return self.material.mass_att_coeff(energy)*\
@@ -205,9 +200,9 @@ class Multilayer(with_metaclass(cache.Cache)):
     
     def absorbance(self,energy,fine=False,decomposed=False):
         if decomposed:
-            return [layer.absorbance(energy,fine=fine,decomposed=decomposed) for layer in self]
+            return [layer.absorbance(energy,fine=fine) for layer in self]
         else:
-            return np.sum([layer.absorbance(energy,fine=fine,decomposed=decomposed) for layer in self],axis=0)
+            return np.sum([layer.absorbance(energy,fine=fine) for layer in self],axis=0)
    
     def absorbanceout(self,energy):
         return np.sum([layer.absorbanceout(energy) for layer in self],axis=0)
@@ -238,14 +233,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             for i in ind:
                 self[i].fixed = False
 
-    def refinethickness(self,energy,absorbance,constant=False,constraint=True):
-        y = absorbance
-
-        A = [layer.density*layer.mass_att_coeff(energy) for layer in self.freeiter()]
-        
-        for layer in self.fixediter():
-            y = y-layer.density*layer.xraythickness*layer.mass_att_coeff(energy)
-        
+    def _refine_linear(self,A,y,constant=False,constraint=True):
         if constant:
             A.append(np.ones_like(energy))
             A = np.vstack(A).T
@@ -254,19 +242,64 @@ class Multilayer(with_metaclass(cache.Cache)):
                 lb = np.zeros(len(A),dtype=float)
                 lb[-1] = -np.inf
                 ub = np.inf
-                thickness = fit1d.lstsq_bound(A,y,lb,ub)
+                params = fit1d.lstsq_bound(A,y,lb,ub)
             else:
-                thickness = fit1d.lstsq(A,y)
-            thickness = thickness[:-1]
+                params = fit1d.lstsq(A,y)
+            params = params[:-1]
         else:
             A = np.vstack(A).T
             if constraint:
-                thickness = fit1d.lstsq_nonnegative(A,y)
+                params = fit1d.lstsq_nonnegative(A,y)
             else:
-                thickness = fit1d.lstsq(A,y)
+                params = fit1d.lstsq(A,y)
                 
-        for t,layer in zip(thickness,self.freeiter()):
-            layer.xraythickness = t
+        return params
+        
+    def _refinerhod(self,energy,absorbance,refinedattr,fixedattr,**kwargs):
+        y = absorbance
+        for layer in self.fixediter():
+            y = y-layer.absorbance(energy)
+            
+        A = [layer.mass_att_coeff(energy) for layer in self.freeiter()]
+
+        params = self._refine_linear(A,y,**kwargs)
+                
+        for param,layer in zip(params,self.freeiter()):
+            setattr(layer,refinedattr,param/getattr(layer,fixedattr))
+
+    def refinecomposition(self,energy,absorbance,fixthickness=True,**kwargs):
+        y = absorbance
+        for layer in self.fixediter():
+            y = y-layer.absorbance(energy)
+        
+        A = []
+        for layer in self.freeiter():
+            mu = layer.mass_att_coeff(energy,decomposed=True)
+            w,cs = layer.csdict_parse(mu)
+            A.extend(cs)
+
+        params = self._refine_linear(A,y,**kwargs)
+
+        for layer in self.freeiter():
+            n = layer.nparts
+            w = params[0:n]
+            params = params[n:]
+            
+            s = w.sum()
+            w = w/s
+            w = dict(zip(layer.parts.keys(),w))
+            layer.change_fractions(w,"mass")
+            
+            if fixthickness:
+                layer.density = s/layer.xraythickness
+            else:
+                layer.xraythickness = s/layer.density
+
+    def refinethickness(self,energy,absorbance,**kwargs):
+        self._refinerhod(energy,absorbance,"thickness","density",**kwargs)
+
+    def refinedensity(self,energy,absorbance,**kwargs):
+        self._refinerhod(energy,absorbance,"density","thickness",**kwargs)
 
     def _cache_layerinfo(self):
         t = np.empty(self.nlayers+1)

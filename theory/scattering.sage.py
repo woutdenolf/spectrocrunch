@@ -89,7 +89,6 @@ def compton():
     It_scatu1 = It_scatu1.substitute(Esc=E/(_sage_const_1 +E*(_sage_const_1 -cos(theta)))).simplify_full().simplify_trig()
     It_scatu2 = It_scatu2.substitute(Esc=E/(_sage_const_1 +E*(_sage_const_1 -cos(theta)))).simplify_full().simplify_trig()
     print bool(It_scatu1==It_scatu2)
-    print It_scatu1
     
     It_scatu1 = It_scat.substitute(S1=S0).substitute(S2=_sage_const_0 )
     It_scatu2 = Esc**_sage_const_2 /E**_sage_const_2 *S0*(E/Esc+Esc/E-_sage_const_2 *sin(theta)**_sage_const_2 *cos(phi)**_sage_const_2 )/_sage_const_2 

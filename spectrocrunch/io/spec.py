@@ -463,6 +463,8 @@ class spec(SpecFileDataSource.SpecFileDataSource):
 
     def _data_from_scan(self,scan,labels):
         lst = self._parse_labels(scan.info["LabelNames"])
+        if not labels:
+            return scan.data
         labels = self._parse_labels(labels)
         ind = [lst.index(label) for label in labels]
         if ind:

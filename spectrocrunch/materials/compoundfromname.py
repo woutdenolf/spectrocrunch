@@ -126,19 +126,32 @@ compounddb["atacamite"] = compoundfromformula.CompoundFromFormula("Cu2Cl(OH)3", 
 
 # polymers:
 compounddb["pmma"] = compoundfromformula.CompoundFromFormula("C5O2H8",1.18,name="pmma")
-compounddb["pp"] = compoundfromformula.CompoundFromFormula("C3H6",0.86,name="pp")
 compounddb["pe"] = compoundfromformula.CompoundFromFormula("C2H4",0.95,name="pe")
-compounddb["pet"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="pet")
 compounddb["pan"] = compoundfromformula.CompoundFromFormula("C3H3N",1.184,name="pan")
 compounddb["pva"] = compoundfromformula.CompoundFromFormula("C3H3N",1.19,name="pva")
 
-# tapes/foils:
+compounddb["pp"] = compoundfromformula.CompoundFromFormula("C3H6",0.86,name="pp")
+compounddb["specx pp"] = compoundfromformula.CompoundFromFormula("C3H6",1.1289633445,name="pp")
+
 data = xraylib.GetCompoundDataNISTByName("Kapton Polyimide Film")
 compounddb["kapton"] = compound.Compound(data["Elements"],data["massFractions"],types.fraction.mass,data["density"],name="kapton")
-compounddb["ultralene"] = compound.Compound(data["Elements"],data["massFractions"],types.fraction.mass,data["density"],name="ultralene") # same as kapton
+compounddb["specx kapton"] = compound.Compound(data["Elements"],data["massFractions"],types.fraction.mass,1.35297609903,name="kapton")
+
+compounddb["pet"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="pet")
 compounddb["mylar"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="mylar") # same as pet
-#compounddb["ultralene"] = compoundfromformula.CompoundFromFormula("C10H8O4",1.38,name="ultralene") # same as pet
-compounddb["moxtek ap3.3"] = compoundfromlist.CompoundFromList(['B', 'C', 'N', 'O', 'Al'],[ 0.08045198,  0.42355695,  0.10410167,  0.29599301,  0.09589638],types.fraction.mass,0.00207473119551,name="moxtek ap3.3")
+compounddb["specx mylar"] = compoundfromformula.CompoundFromFormula("C10H8O4",0.933152791636 ,name="mylar")
+
+compounddb["pc"] = compoundfromformula.CompoundFromFormula("C15H16O2",1.2,name="pc")
+compounddb["specx pc"] = compoundfromformula.CompoundFromFormula("C15H16O2",0.485864569962,name="pc")
+compounddb["ultralene"] = compoundfromformula.CompoundFromFormula("C15H16O2",0.452164634083,name="ultralene")
+compounddb["specx ultralene"] = compoundfromformula.CompoundFromFormula("C15H16O2",0.452164634083,name="ultralene")
+
+compounddb["moxtek ap3.3"] = compoundfromlist.CompoundFromList(['B', 'C', 'N', 'O', 'Al'],
+                                [0.13336917388076333, 0.5117702789499711, 0.11331306454114157, 0.20186742974474034, 0.039680052883383735],
+                                types.fraction.mole,0.757636153465,name="moxtek ap3.3")
+compounddb["moxtek ap3.7"] = compoundfromlist.CompoundFromList(['B', 'C', 'N', 'O', 'Al'],
+                                [0.14109395570244615, 0.3969446446586894, 0.20446566594853216, 0.195183216894773, 0.06231251679555934],
+                                types.fraction.mole,1.23845839755,name="moxtek ap3.7")
 
 # tape (adhesive on plastic)
 compounddb["sulfur-free tape"] = mixture.Mixture([compounddb["pva"],compounddb["pe"]],\

@@ -29,8 +29,13 @@ from .. import ureg
 
 import numpy as np
 
+
 class MultiElementBase(elementbase.ElementBase):
     # TODO: refactor most of Mixture and Compound
+    
+    @property
+    def nparts(self):
+        return len(self.parts)
         
     def setfraction(self,parts,values,fractype):
         if instance.isstring(parts):
@@ -168,4 +173,18 @@ class MultiElementBase(elementbase.ElementBase):
     @property
     def pymcaname(self):
         return self.name
+
+    @classmethod
+    def csdict_collapse(cls,csdict):
+        if isinstance(csdict,dict):
+            return sum(w*cls.csdict_collapse(cs) for w,cs in zip(csdict['w'],csdict['cs']))
+        else:
+            return csdict
+            
+    @classmethod
+    def csdict_parse(cls,csdict):
+        coeff = np.array([c['w'] for c in csdict.values()])
+        cs = [cls.csdict_collapse(c['cs']) for c in csdict.values()]
+
+        return coeff,cs
 

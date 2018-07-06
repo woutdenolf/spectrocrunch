@@ -23,8 +23,9 @@
 # THE SOFTWARE.
 
 import numpy as np
-
-from math import log10,floor
+import math
+import fractions
+import functools
 
 def logscale(img):
     ret = -np.log(img/np.nanmax(img))
@@ -32,11 +33,20 @@ def logscale(img):
     return 1-ret
 
 def round_sig(x, sig):
-    return round(x, sig-int(floor(log10(abs(x))))-1)
+    return round(x, sig-int(math.floor(math.log10(abs(x))))-1)
 
 def floatformat(x, sig):
-    n = max(sig-int(floor(log10(abs(x))))-1,0)
+    n = max(sig-int(math.floor(math.log10(abs(x))))-1,0)
     y = "{}".format(x).split('.')
     if len(y)==2:
         n = min(n,len(y[-1]))
     return ":.0{:d}f".format(n)
+
+def roundlist(x,max_denominator=1000000):
+    x = [fractions.Fraction(a).limit_denominator(max_denominator=max_denominator) for a in x]
+    denoms = [a.denominator for a in x]
+    m = functools.reduce(lambda a,b: a*b//fractions.gcd(a,b), denoms)
+    return np.array([int(a*m) for a in x])
+
+
+

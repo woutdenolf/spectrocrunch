@@ -63,7 +63,7 @@ def JonesMatrixRotation(angle):
     return np.array([[cosph,-sinph],[sinph,cosph]])
 
 def MuellerMatrixRotation(angle):
-    """Mueller matrix for rotation (equivalent with JonesMatrixRotation)
+    """Mueller matrix for rotation (equivalent of JonesMatrixRotation)
     
     Args:
         angle(num): vector rotation (degree)
@@ -136,6 +136,7 @@ def MuellerMatrixThomson(azimuth,polar):
                      [0,costh*sinph,costh*cosph,0],\
                      [0,0,0,costh]])
 
+                     
 def kev_to_mc2(x):
     return ureg.Quantity(x,"keV").to("m_e*c^2").magnitude
 
@@ -455,11 +456,11 @@ class Jones(object):
         return self.__class__(*R.dot(self.V))
 
     def thomson_scattering(self,azimuth,polar):
-        """Thomson scattering
+        """Thomson scattering (incident wave along the Z-axis)
         
         Args:
-            azimuth(num): scattering direction in spherical coordinates
-            polar(num): scattering direction in spherical coordinates
+            azimuth(num): scattering direction in spherical coordinates (deg)
+            polar(num): scattering direction in spherical coordinates (deg)
             
         Returns:
             Stokes
@@ -475,7 +476,7 @@ class Stokes(object):
     """Parameterization of second order statistics of a transverse wave when partially polarized
     """
     
-    # Convention: propagation in the direction of e_2
+    # Convention: propagation in the direction of e_2 (Z-axis)
     pauli422 = np.array([[[1,0],[0,1]],\
                          [[1,0],[0,-1]],\
                          [[0,1],[1,0]],\
@@ -704,11 +705,11 @@ class Stokes(object):
         return self.__class__(*M.dot(self.S))
 
     def thomson_scattering(self,azimuth,polar):
-        """Stokes parameters after Thomson scattering
+        """Thomson scattering (incident wave along the Z-axis)
         
         Args:
-            azimuth(num): scattering direction in degrees
-            polar(num): scattering direction in degrees
+            azimuth(num): scattering direction in spherical coordinates (deg)
+            polar(num): scattering direction in spherical coordinates (deg)
             
         Returns:
             Stokes
@@ -723,11 +724,11 @@ class Stokes(object):
         #return self.__class__(*M2.dot(M1).dot(self.S))
 
     def compton_scattering(self,azimuth,polar,energy):
-        """Stokes parameters after Compton scattering
+        """Compton scattering (incident wave along the Z-axis)
         
         Args:
-            azimuth(num): scattering direction in degrees
-            polar(num): scattering direction in degrees
+            azimuth(num): scattering direction in spherical coordinates (deg)
+            polar(num): scattering direction in spherical coordinates (deg)
             energy(num): incident photon energy in keV
             
         Returns:
@@ -805,8 +806,8 @@ class Stokes(object):
     def thomson_intensity(self,azimuth,polar):
         """
         Args:
-            azimuth(num): scattering direction in degrees
-            polar(num): scattering direction in degrees
+            azimuth(num): scattering direction in spherical coordinates (deg)
+            polar(num): scattering direction in spherical coordinates (deg)
             
         Returns:
             num
@@ -816,8 +817,8 @@ class Stokes(object):
     def compton_intensity(self,azimuth,polar,energy):
         """
         Args:
-            azimuth(num): scattering direction in degrees
-            polar(num): scattering direction in degrees
+            azimuth(num): scattering direction in spherical coordinates (deg)
+            polar(num): scattering direction in spherical coordinates (deg)
             energy(num): incident photon energy in keV
             
         Returns:
