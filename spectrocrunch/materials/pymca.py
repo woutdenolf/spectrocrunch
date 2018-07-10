@@ -261,6 +261,19 @@ class PymcaHandle(PymcaBaseHandle):
                 energy=None,weights=None,scatter=None,\
                 flux=1e9,time=0.1,escape=True,ninteractions=1,\
                 linear=False,continuum=True):
+        
+        if sample is None:
+            from . import multilayer
+            from ..geometries import xrf as xrfgeometries
+            from ..sources import xray as xraysources
+            from ..detectors import xrf as xrfdetectors
+
+            source = xraysources.factory("synchrotron")
+            detector = xrfdetectors.factory("XRFDetector",ehole=3.8)
+            geometry = xrfgeometries.factory("LinearXRFGeometry",detector=detector,source=source,\
+                                        zerodistance=0,detectorposition=0,positionunits="mm")
+            sample = multilayer.Multilayer(geometry=geometry)
+        
         self.sample = sample
  
         self.set_source(energy=energy,weights=weights,scatter=scatter)
@@ -369,10 +382,10 @@ class PymcaHandle(PymcaBaseHandle):
         ind = np.asarray(cfg["fit"]["energyflag"],dtype=bool).tolist()
     
         self.energy = instance.asarray(cfg["fit"]["energy"])
-        self.energy = self.energy[ind]
-        self.weights = instance.asarray(cfg["fit"]["energyweight"])
+        self.energy = self.energy[ind].astype(float)
+        self.weights = np.asarray(cfg["fit"]["energyweight"],dtype=int)
         self.weights = self.weights[ind]
-        self.scatter = instance.asarray(cfg["fit"]["energyscatter"])
+        self.scatter = np.asarray(cfg["fit"]["energyscatter"],dtype=int)
         self.scatter = self.scatter[ind]
         self.flux = cfg["concentrations"]["flux"]
         self.time = cfg["concentrations"]["time"]

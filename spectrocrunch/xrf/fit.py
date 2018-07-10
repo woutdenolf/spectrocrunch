@@ -66,7 +66,7 @@ def AdaptPyMcaConfig_energy(cfg,energy,addhigh):
         return
 
     ind = instance.asarray(cfg["fit"]["energyflag"]).astype(bool)
-    n = len(ind)
+    norg = len(ind)
     nenergies = ind.sum()+addhigh
             
     def extract(name,default=np.nan):
@@ -77,9 +77,9 @@ def AdaptPyMcaConfig_energy(cfg,energy,addhigh):
         
         # Select based on energyflag
         narr = len(arr)
-        if narr<n:
-            arr = np.append(arr,[default]*(n-narr))
-        arr = arr[0:n][ind]
+        if narr<norg:
+            arr = np.append(arr,[default]*(norg-narr))
+        arr = arr[0:norg][ind]
         
         # At least nenergies
         narr = len(arr)
@@ -109,10 +109,10 @@ def AdaptPyMcaConfig_energy(cfg,energy,addhigh):
 
     def reset(arr,default=0):
         arr = arr.tolist()
-        if len(arr)<n:
-            arr += [default]*(n-len(arr))
+        if len(arr)<norg:
+            arr += [default]*(norg-len(arr))
         return arr
-        
+
     cfg["fit"]["energy"] = reset(cfg_energy,default=None)
     cfg["fit"]["energyweight"] = reset(cfg_energyweight)
     cfg["fit"]["energyflag"] = reset(cfg_energyflag)
