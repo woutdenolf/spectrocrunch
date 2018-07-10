@@ -130,7 +130,10 @@ def aslist(x):
 def asnumber(x):
     if isnumber(x):
         return x
-    x = ast.literal_eval(x)
+    try:
+        x = ast.literal_eval(x)
+    except:
+        pass
     if isnumber(x):
         return x
     else:
