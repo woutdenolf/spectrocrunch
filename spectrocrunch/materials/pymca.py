@@ -403,7 +403,7 @@ class PymcaHandle(PymcaBaseHandle):
     
     def loadfrompymca_material(self,cfg,matname,density):
         if matname in cfg["materials"]:
-            material = mixture.Mixture.frompymca(cfg["materials"][matname])
+            material = mixture.Mixture.frompymca(matname,cfg["materials"])
         else:
             pattern = "^(?P<element>[A-Z][a-z]?)1$"
             m = re.match(pattern,matname)

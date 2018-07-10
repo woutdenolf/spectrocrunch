@@ -371,12 +371,13 @@ class Mixture(multielementbase.MultiElementBase):
         return self.tocompound(self.pymcaname).tofisx()
         
     @classmethod
-    def frompymca(cls,dic):
+    def frompymca(cls,name,materials):
         # dic will always be a compound or mixture with a name, not a chemical formula
         
         # Assume all individual compounds have the density of the mixture
         purelement = "^(?P<element>[A-Z][a-z]?)1$"
 
+        dic = materials[name]
         if instance.isstring(dic["CompoundList"]):
             lst = [dic["CompoundList"]]
         else:
@@ -393,7 +394,13 @@ class Mixture(multielementbase.MultiElementBase):
         if all(elements):
             return compoundfromlist.CompoundFromList(elements,dic["CompoundFraction"],types.fraction.mass,dic["Density"],name=dic["Comment"])
         else:
-            compounds = [compoundfromformula.CompoundFromFormula(c,dic["Density"]) for c in lst]
+            compounds = []
+            for c in lst:
+                if c in materials:
+                    compound = cls.frompymca(c,materials).tocompound(c)
+                else:
+                    compound = compoundfromformula.CompoundFromFormula(c,dic["Density"])
+                compounds.append(compound)
             wfrac = dic["CompoundFraction"]
             return cls(compounds,wfrac,types.fraction.mass,name=dic["Comment"])
 
