@@ -27,6 +27,8 @@ import logging
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as pltcolors
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+
 import numpy as np
 
 from ..common import listtools
@@ -34,6 +36,7 @@ from ..common import instance
 from ..common import units
 from ..common.hashable import Hashable
 from ..math.common import floatformat
+from ..math.common import round_sig
 from .. import ureg
 from . import colorbar_rgb
 
@@ -111,6 +114,19 @@ class Scene(Hashable,Geometry2D):
         self.dataoffset = [ureg.Quantity(0,unit0),ureg.Quantity(0,unit1)]
         self.datascale = [1,1]
     
+    @classmethod
+    def _str_unit(cls,unit):
+        if unit==ureg.dimensionless:
+            return ""
+        unit = "{:~}".format(unit)
+        if unit=="um":
+            unit="$\mu$m"
+        return unit
+            
+    @property
+    def strunits(self):
+        return [self._str_unit(unit) for unit in self.units]
+        
     def _stringrepr(self):
         return "{}".format(id(self))
         
@@ -151,6 +167,14 @@ class Scene(Hashable,Geometry2D):
     @yunit.setter
     def yunit(self,value):
         self.units[self.dataaxisy] = ureg.Unit(value)
+    
+    @property
+    def strxunit(self):
+        return self.strunits[self.dataaxisx]
+    
+    @property
+    def stryunit(self):
+        return self.strunits[self.dataaxisx]
         
     @property
     def xlabel(self):
@@ -159,19 +183,25 @@ class Scene(Hashable,Geometry2D):
     @property
     def ylabel(self):
         return self._label(self.dataaxisy)
-        
+  
     def _label(self,dataaxis):
-        unit = self.units[dataaxis]
-        if unit == ureg.dimensionless:
-            return self.axlabels[dataaxis]
-        else:
-            unit = "{:~}".format(unit)
-            if unit=="um":
-                unit="$\mu$m"
+        unit = self.strunits[dataaxis]
+        if unit:
             return "{} ({})".format(self.axlabels[dataaxis],unit)
+        else:
+            return self.axlabels[dataaxis]
 
     def setaxes(self,ax):
         self.ax = ax
+        
+        # TODO: wsize is already set when callback is called, but asize is not (and we need asize)
+        func = lambda event: self.updateview()
+        #def func(event):
+        #    print self.wsize_pixels
+        #    print self.asize_pixels
+        #    self.updateview()
+        
+        self.ax.figure.canvas.mpl_connect('resize_event', func)
     
     def showaxes(self):
         self.ax.set_axis_on()
@@ -359,21 +389,26 @@ class Scene(Hashable,Geometry2D):
     
     @property
     def wsize_pixels(self):
-        pts = self.ax.get_window_extent().get_points()
-        x1,x2 = pts[:,0]
-        y1,y2 = pts[:,1]
-        return x2-x1+1,y2-y1+1
+        bbox = self.ax.figure.get_window_extent().transformed(self.ax.figure.dpi_scale_trans.inverted())
+        width, height = bbox.width * self.ax.figure.dpi, bbox.height * self.ax.figure.dpi
+        return width, height
 
     @property
-    def wsize_data(self):
+    def asize_pixels(self):
+        bbox = self.ax.get_window_extent().transformed(self.ax.figure.dpi_scale_trans.inverted())
+        width, height = bbox.width * self.ax.figure.dpi, bbox.height * self.ax.figure.dpi
+        return width, height
+
+    @property
+    def asize_data(self):
         x1,x2 = self.xmagnitude(self.displaylimx)
         y1,y2 = self.ymagnitude(self.displaylimy)
         return x2-x1,y2-y1
     
     def fontsize_data(self,pt):
-        xp,yp = self.wsize_pixels
-        xd,yd = self.wsize_data
-        return pt*xd/xp,pt*yd/yp
+        xp,yp = self.asize_pixels
+        xd,yd = self.asize_data
+        return pt*xd/float(xp),pt*yd/float(yp)
            
            
 class Item(Hashable,Geometry2D):
@@ -659,9 +694,15 @@ class Image(Item):
                   "cnorm":None,\
                   "cnormargs":(),\
                   "legend":True,\
+                  "legendposition":"RT",\
+                  "legendspacing":2.,\
+                  "scalebar":False,\
+                  "scalebar_position":"lower right",\
+                  "scalebar_ratio":1/6.,\
+                  "scalebar_fraction":0.1,\
+                  "scalebar_pad":0.1,\
                   "fontsize":matplotlib.rcParams['font.size'],\
                   "fontweight":500,\
-                  "legendposition":"RT",\
                   "channels":None,\
                   "colorbar":False,\
                   "compositions":{},\
@@ -718,12 +759,12 @@ class Image(Item):
             y = 0
             verticalalignment = "bottom"
             oy = 0
-            dy = 1.5
+            dy = settings["legendspacing"]
         else:
             y = 1
             verticalalignment = "top"
             oy = 0
-            dy = -1.5
+            dy = -settings["legendspacing"]
 
         x = scene.xmagnitude(o.displaylimx[x])
         y = scene.ymagnitude(o.displaylimy[y])
@@ -877,6 +918,11 @@ class Image(Item):
         off = self.addlegend(scene,settings,items,newitems,[settings["title"]],[settings["color"]],off=off)
         off = self.addlegend(scene,settings,items,newitems,labels,colors,off=off,visible=settings["legend"])
         
+        # Scalebar
+        self.addscalebar(scene,items,newitems,position=settings["scalebar_position"],
+                                    visible=settings["scalebar"],ratio=settings["scalebar_ratio"],
+                                    xfrac=settings["scalebar_fraction"],pad=settings["scalebar_pad"])
+        
         self.refreshscene(newitems)
 
     def addlegend(self,scene,settings,items,newitems,labels,colors,off=-1,visible=True):
@@ -905,6 +951,37 @@ class Image(Item):
             newitems[name].set_visible(visible)
             
         return i
+    
+    def addscalebar(self,scene,items,newitems,position="lower right",visible=True,ratio=8.,xfrac=0.1,pad=0.1):
+        if not visible:
+            return
+            
+        name = "scalebar"
+        
+        xsize = scene.xmagnitude(self.datalimx)
+        xsize = round_sig((xsize[1]-xsize[0])*xfrac,1)
+
+        ysize = scene.ymagnitude(self.datalimy)
+        ysize = (ysize[1]-ysize[0])*(ratio*xfrac)
+
+        unit = scene.strxunit
+        if unit:
+            label = "{} {}".format(xsize,unit)
+        else:
+            label = str(xsize)
+            
+        scalebar = AnchoredSizeBar(scene.ax.transData,
+                           xsize,label,position, 
+                           pad=pad,
+                           color='white',
+                           fill_bar=True,
+                           frameon=False,
+                           size_vertical=ysize)
+                           
+        newitems[name] = scalebar
+        newitems[name].set_visible(visible)
+        
+        scene.ax.add_artist(scalebar)
         
 class Scatter(Item):
 
@@ -937,7 +1014,8 @@ class Scatter(Item):
         return {"color":None,"marker":"+","linestyle":"","linewidth":2,\
                 "fill":False,"alpha":None,"closed":False,"labels":True,\
                 "horizontalalignment":"left","verticalalignment":"bottom",\
-                "fontsize":matplotlib.rcParams['font.size'],"labeloffset":0.1,"fontweight":500}
+                "fontsize":matplotlib.rcParams['font.size'],"labeloffset":0.1,\
+                "fontweight":500}
 
     def updateview(self):
         scene = self.scene
