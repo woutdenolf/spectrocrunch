@@ -135,6 +135,7 @@ class LinearMotor(object):
                     distance = self._distancecalc(detectorposition=dquant(x),zerodistance=dquant(zerodistance))
                     sa = self.geometry.solidangle_calc(activearea=aquant(activearea),distance=distance)
                     return rate*sa
+
         else:
             # Fixed relationship between active area and zero-distance
             detectorpositioncalib = self.geometry.detectorposition
@@ -169,7 +170,7 @@ class LinearMotor(object):
             # Fit
             p, cov_matrix, info = silxfit.leastsq(fitfunc, dmagnitude(detectorposition), signal, p0,\
                                               constraints=constraints, sigma=np.sqrt(varsignal), full_output=True)
-            
+
             # Error and correlations:
             # H ~= J^T.J (hessian is approximated using the jacobian)
             # cov = (H)^(-1) ~= hessian
@@ -306,6 +307,8 @@ class XRFGeometry(with_metaclass(base.Centric)):
     def calibrate(self,**kwargs):
         if self.distancefunc is not None:
             if "calibrc" not in kwargs:
+                kwargs["calibrc"] = self.get_calibrc()
+            elif not kwargs["calibrc"]:
                 kwargs["calibrc"] = self.get_calibrc()
             return self.distancefunc.calibrate_fit(**kwargs)
 
