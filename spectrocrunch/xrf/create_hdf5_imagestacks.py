@@ -100,6 +100,17 @@ def detectorname(detector):
         name = "counters"
     return name
 
+def transfunc(fluxt,flux0):
+    fluxt = np.clip(fluxt,0,None)
+    flux0 = np.clip(flux0,0,None)
+    fluxt,flux0 = np.minimum(fluxt,flux0),np.maximum(fluxt,flux0)
+    ind = fluxt==0
+    fluxt[ind] = flux0[ind]
+    ind = flux0==0
+    fluxt[ind] = 1
+    flux0[ind] = 1
+    return -np.log(fluxt/flux0)
+                        
 def createimagestacks(config,qxrfgeometry=None):
     """Get image stacks (counters, ROI's, fitted maps)
 
@@ -296,7 +307,7 @@ def createimagestacks(config,qxrfgeometry=None):
     # I0/It stacks
     if fluxnorm:
         energy = stackaxes[stackdim]["data"][imageindex]
-        if not np.isnan(energy) and ("fluxcounter" in config or "transmissioncounter" in config):
+        if not np.isnan(energy) and ("fluxcounter" in config or "transmissioncounter" in config):        
             for imageindex in range(nstack):
                 name = detectorname(None)
                 time = stackinfo["refexpotime"][imageindex]
@@ -311,7 +322,7 @@ def createimagestacks(config,qxrfgeometry=None):
                         stacks[name]["calc_fluxt"] = [""]*nstack
                         stacks[name]["calc_transmission"] = [""]*nstack
                     stacks[name]["calc_fluxt"][imageindex] = {"args":[(name,config["transmissioncounter"])],"func":op}
-                    stacks[name]["calc_transmission"][imageindex] = {"args":[(name,"calc_fluxt"),(name,"calc_flux0")],"func":lambda a,b: -np.log(a/b.astype(np.float32))}
+                    stacks[name]["calc_transmission"][imageindex] = {"args":[(name,"calc_fluxt"),(name,"calc_flux0")],"func":transfunc}
                     
     # Fit data and add elemental maps
     if fit:
