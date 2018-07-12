@@ -173,12 +173,17 @@ class PymcaBaseHandle(object):
         conresult,addinfo = self.processfitresult(digestedresult,originalconcentrations=False)
 
         out["massfractions"] = {element.Element.fluozgroup(k):v for k,v in conresult["mass fraction"].items()}
-        
+
         if "layerlist" in conresult:
             nlayers = len(conresult["layerlist"])
-            out["lmassfractions"] = [{element.Element.fluozgroup(k):v for k,v in conresult[k]["mass fraction"].items()} for k in conresult["layerlist"]]
+            if nlayers>0:
+                out["lmassfractions"] = [{element.Element.fluozgroup(k):v for k,v in conresult[k]["mass fraction"].items()} for k in conresult["layerlist"]]
+            else:
+                nlayers = 1
+                out["lmassfractions"] = []
         else:
             nlayers = 1
+            out["lmassfractions"] = []
             
         if len(out["lmassfractions"])==0:
             out["lmassfractions"] = [out["massfractions"]]
