@@ -24,6 +24,7 @@ cache:
 
 before_install:
   - mkdir -p $CACHED_FOLDER
+  - export
   - cd $CACHED_FOLDER
   - |
     if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then
