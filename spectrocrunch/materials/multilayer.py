@@ -234,8 +234,13 @@ class Multilayer(with_metaclass(cache.Cache)):
                 self[i].fixed = False
 
     def _refine_linear(self,A,y,constant=False,constraint=True):
+        y = instance.asarray(y)
+        
+        if y.size==1 and len(A)==1:
+            return y/A[0]
+
         if constant:
-            A.append(np.ones_like(energy))
+            A.append(np.ones_like(y))
             A = np.vstack(A).T
             
             if constraint:
@@ -263,7 +268,6 @@ class Multilayer(with_metaclass(cache.Cache)):
         A = [layer.mass_att_coeff(energy) for layer in self.freeiter()]
 
         params = self._refine_linear(A,y,**kwargs)
-                
         for param,layer in zip(params,self.freeiter()):
             setattr(layer,refinedattr,param/getattr(layer,fixedattr))
 
@@ -296,10 +300,10 @@ class Multilayer(with_metaclass(cache.Cache)):
                 layer.xraythickness = s/layer.density
 
     def refinethickness(self,energy,absorbance,**kwargs):
-        self._refinerhod(energy,absorbance,"thickness","density",**kwargs)
+        self._refinerhod(energy,absorbance,"xraythickness","density",**kwargs)
 
     def refinedensity(self,energy,absorbance,**kwargs):
-        self._refinerhod(energy,absorbance,"density","thickness",**kwargs)
+        self._refinerhod(energy,absorbance,"density","xraythickness",**kwargs)
 
     def _cache_layerinfo(self):
         t = np.empty(self.nlayers+1)
@@ -769,7 +773,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             return None
             
     def addtopymca_shells(self,setup,cfg,elements):
-        emax = setup.emax
+        emax = setup.emax_strict
         emin = setup.emin
         
         if "peaks" not in cfg:
