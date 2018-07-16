@@ -332,6 +332,10 @@ class Shell(hashable.Hashable):
 
     @classmethod
     def expandselection(cls,shells,selection):
+        if not instance.isarray(shells):
+            shells = [shells]
+        if not instance.isarray(selection):
+            selection = [selection]
         for shell in selection:
             shells = [s for s in shells if not s!=shell]
             shells += cls.expand(shell)
@@ -348,7 +352,7 @@ class Shell(hashable.Hashable):
         return sorted(shells)
 
     @classmethod
-    def pymcafactory(cls,energybounds=None,splitL=False):
+    def pymcafactory(cls,energybounds=None,split=None,allowsplitM=False):
         shells = cls.factory(energybounds=energybounds)
         shells = cls.shrink([str(s) for s in shells])
 
@@ -356,9 +360,11 @@ class Shell(hashable.Hashable):
         lst = ["K","L","M"]
         shells = [s for s in shells if s[0] in lst]
 
-        # Split L when present
-        if splitL:
-            shells = cls.expandselection(shells,["L"])
+        # Split
+        if split:
+            shells = cls.expandselection(shells,split)
+        if not allowsplitM:
+            shells = [s for s in shells if s[0]!="M" or s=="M"]
 
         return shells
 
