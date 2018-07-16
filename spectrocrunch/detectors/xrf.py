@@ -653,7 +653,7 @@ class sn3102(XRFDetector):
         moxtek = compoundfromname.compoundfromname("moxtek ap3.3")
         
         attenuators = kwargs.get("attenuators",{})
-        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4} # cm
+        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4.064e-4} # cm
         attenuators["WindowDetector"] = {"material":moxtek,"thickness":380e-4} # AP3.3 Moxtek
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":500e-4}
         kwargs["attenuators"] = attenuators
@@ -677,7 +677,7 @@ class Leia(XRFDetector):
         ultralene = compoundfromname.compoundfromname("ultralene")
         
         attenuators = kwargs.get("attenuators",{})
-        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4} #cm
+        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4.064e-4} #cm
         attenuators["WindowDetector"] = {"material":element.Element('Be'),"thickness":25e-4}
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
         kwargs["attenuators"] = attenuators
@@ -701,7 +701,7 @@ class BB8(XRFDetector):
         ultralene = compoundfromname.compoundfromname("ultralene")
         
         attenuators = kwargs.get("attenuators",{})
-        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4} #cm
+        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4.064e-4} #cm
         attenuators["WindowDetector"] = {"material":element.Element('Be'),"thickness":12.5e-4}
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
         kwargs["attenuators"] = attenuators
@@ -725,7 +725,7 @@ class DR40(XRFDetector):
         ultralene = compoundfromname.compoundfromname("ultralene")
         
         attenuators = kwargs.get("attenuators",{})
-        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4e-4} #cm
+        attenuators["FoilDetector"] = {"material":ultralene,"thickness":4.064e-4} #cm
         attenuators["WindowDetector"] = {"material":element.Element('Be'),"thickness":25e-4}
         attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
         kwargs["attenuators"] = attenuators

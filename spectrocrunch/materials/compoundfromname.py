@@ -143,8 +143,8 @@ compounddb["specx mylar"] = compoundfromformula.CompoundFromFormula("C10H8O4",0.
 
 compounddb["pc"] = compoundfromformula.CompoundFromFormula("C15H16O2",1.2,name="pc")
 compounddb["specx pc"] = compoundfromformula.CompoundFromFormula("C15H16O2",0.485864569962,name="pc")
-compounddb["ultralene"] = compoundfromformula.CompoundFromFormula("C15H16O2",0.452164634083,name="ultralene")
 compounddb["specx ultralene"] = compoundfromformula.CompoundFromFormula("C15H16O2",0.452164634083,name="ultralene")
+compounddb["ultralene"] = compounddb["specx ultralene"]
 
 compounddb["moxtek ap3.3"] = compoundfromlist.CompoundFromList(['B', 'C', 'N', 'O', 'Al'],
                                 [0.13336917388076333, 0.5117702789499711, 0.11331306454114157, 0.20186742974474034, 0.039680052883383735],
