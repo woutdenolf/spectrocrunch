@@ -264,7 +264,7 @@ class PymcaHandle(PymcaBaseHandle):
 
     def __init__(self,sample=None,emin=None,emax=None,\
                 energy=None,weights=None,scatter=None,\
-                flux=1e9,time=0.1,escape=True,ninteractions=1,\
+                flux=1e9,time=0.1,escape=True,pileup=False,ninteractions=1,\
                 linear=False,continuum=True):
         
         if sample is None:
@@ -287,6 +287,7 @@ class PymcaHandle(PymcaBaseHandle):
         
         self.linear = linear
         self.escape = escape
+        self.pileup = pileup
         self.continuum = continuum
         self.ninteractions = ninteractions
         self.flux = flux
@@ -340,6 +341,10 @@ class PymcaHandle(PymcaBaseHandle):
     def I0(self):
         return self.flux*self.time
     
+    @property
+    def emax_strict(self):
+        return np.max(self.energy)
+        
     @property
     def emax(self):
         if self._emax is None:
@@ -396,20 +401,25 @@ class PymcaHandle(PymcaBaseHandle):
         self.time = cfg["concentrations"]["time"]
 
     def addtopymca_background(self,cfg):
-        bmodelbkg = self.sample.geometry.detector.bstail or \
-                    self.sample.geometry.detector.bltail or \
-                    self.sample.geometry.detector.bstep
-        cfg["fit"]["stripflag"] = int(not bmodelbkg and self.continuum)
+        #bmodelbkg = self.sample.geometry.detector.bstail or \
+        #            self.sample.geometry.detector.bltail or \
+        #            self.sample.geometry.detector.bstep
+        cfg["fit"]["stripflag"] = int(self.continuum)
         cfg["fit"]["stripalgorithm"] = 1
         cfg["fit"]["snipwidth"] = 100
     
+    def loadfrompymca_background(self,cfg):
+        self.continuum = bool(cfg["fit"]["stripflag"])
+    
     def addtopymca_other(self,cfg):
         cfg["fit"]["escapeflag"] = int(self.escape)
+        cfg["fit"]["sumflag"] = int(self.pileup)
         cfg["fit"]["linearfitflag"] = int(self.linear)
         cfg["concentrations"]["usemultilayersecondary"] = self.ninteractions-1
     
     def loadfrompymca_other(self,cfg):
         self.escape = bool(cfg["fit"]["escapeflag"])
+        self.pileup = bool(cfg["fit"]["sumflag"])
         self.linear = bool(cfg["fit"]["linearfitflag"])
         self.ninteractions = cfg["concentrations"]["usemultilayersecondary"]+1
         
@@ -437,6 +447,7 @@ class PymcaHandle(PymcaBaseHandle):
         
         config = self.mcafit.getConfiguration()
         self.loadfrompymca_beam(config)
+        self.loadfrompymca_background(config)
         self.loadfrompymca_other(config)
         self.sample.loadfrompymca(self,config)
     
