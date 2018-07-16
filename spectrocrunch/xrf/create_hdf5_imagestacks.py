@@ -101,15 +101,8 @@ def detectorname(detector):
     return name
 
 def transfunc(fluxt,flux0):
-    fluxt = np.clip(fluxt,0,None)
-    flux0 = np.clip(flux0,0,None)
-    fluxt,flux0 = np.minimum(fluxt,flux0),np.maximum(fluxt,flux0)
-    ind = fluxt==0
-    fluxt[ind] = flux0[ind]
-    ind = flux0==0
-    fluxt[ind] = 1
-    flux0[ind] = 1
-    return -np.log(fluxt/flux0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        return -np.log(np.clip(np.divide(fluxt,flux0),0,1))
                         
 def createimagestacks(config,qxrfgeometry=None):
     """Get image stacks (counters, ROI's, fitted maps)
