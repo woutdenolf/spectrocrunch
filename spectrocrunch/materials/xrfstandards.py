@@ -35,17 +35,17 @@ import numpy as np
 
 class Standard(with_metaclass(multilayer.Multilayer)):
     
-    def __init__(self,extra=None,**kwargs):
-        if extra is None:
-            self.extra = None
+    def __init__(self,extraelements=None,**kwargs):
+        if extraelements is None:
+            self.extraelements = None
         else:
-            self.extra = map(element.Element,extra)
+            self.extraelements = [element.Element(el) for el in extraelements]
         super(Standard,self).__init__(**kwargs)
 
     def addtopymca(self,setup,cfg):
         super(Standard,self).addtopymca(setup,cfg)
-        if self.extra is not None:
-            self.addtopymca_shells(setup,cfg,self.extra)
+        if self.extraelements is not None:
+            self.addtopymca_shells(setup,cfg,self.extraelements)
 
 
 class ThinFilmStandard(Standard):
@@ -63,9 +63,9 @@ class ThinFilmStandard(Standard):
                 
             kwargs["material"] = substrate
             kwargs["thickness"] = substratethickness
-            if "extra" not in kwargs:
-                kwargs["extra"] = [] 
-            kwargs["extra"].extend(elfilm)
+            if "extraelements" not in kwargs:
+                kwargs["extraelements"] = [] 
+            kwargs["extraelements"].extend(elfilm)
             
             self._arealdensities = arealdensity_film
             m = substrate.density*substratethickness
@@ -91,6 +91,10 @@ class ThinFilmStandard(Standard):
             return self._arealdensities
 
 
+class InfThickStandard(Standard):
+    pass
+
+
 class AXOID21_1(ThinFilmStandard):
     aliases = ["RF7-200-S2371-03","id21_room"]
     
@@ -110,8 +114,8 @@ class AXOID21_1(ThinFilmStandard):
         substratethickness = 200e-7 # cm
         
         ultralene = compoundfromname.compoundfromname("ultralene")
-        attenuators = [["SampleCover",ultralene,4e-4],\
-                       ["BeamFilter0",ultralene,4e-4]]
+        attenuators = [["SampleCover",ultralene,4.064e-4],\
+                       ["BeamFilter0",ultralene,4.064e-4]]
         for k in attenuators:
             kwargs["geometry"].addattenuator(*k)
 
@@ -137,8 +141,8 @@ class AXOID21_2(ThinFilmStandard):
         substratethickness = 200e-7 # cm
         
         ultralene = compoundfromname.compoundfromname("ultralene")
-        attenuators = [["SampleCover",ultralene,4e-4],\
-                       ["BeamFilter0",ultralene,4e-4]]
+        attenuators = [["SampleCover",ultralene,4.064e-4],\
+                       ["BeamFilter0",ultralene,4.064e-4]]
         for k in attenuators:
             kwargs["geometry"].addattenuator(*k)
 
@@ -165,6 +169,35 @@ class AXOID16b_1(ThinFilmStandard):
 
         super(AXOID16b_1,self).__init__(arealdensity,substrate,substratethickness,name=name,filmthickness=filmthickness,**kwargs)
         
+        
+class NIST612(Standard):
 
+    def __init__(self,**kwargs):
+        major = {compoundfromname.compoundfromname("silica"):0.72,
+                 compoundfromname.compoundfromname("sodium oxide"):0.14,
+                 compoundfromname.compoundfromname("lime"):0.12,
+                 compoundfromname.compoundfromname("corundum"):0.02}
+        
+        glass = mixture.Mixture(major.keys(),major.values(),types.fraction.mass,name="glass").tocompound()
+        
+           
+        certified = {"Sb":34.9,"As":37.4,"Ba":38.6,"Cd":29.9,"Cr":35.0,"Fe":51.,"Pb":38.57,"Mn":37.7,
+                     "Ni":38.8,"Rb":31.4,"Se":16.1,"Ag":22.0,"Sr":78.4,"Th":37.79,"U":37.38}
+        
+        reference = {"Co":35.5,"Cu":37.7,"Ta":15.7,"Ti":50.1}
+        
+        info = {"B":32.,"Ce":39.,"Dy":35.,"Er":39.,"Eu":36.,"Gd":39.,"Au":5.,"La":36.,"Li":40.,"Nd":36.,
+                     "K":64.,"Sm":39.,"Yb":42.}
+
+        elements = certified.keys()+reference.keys()+info.keys()
+        fractions = certified.values()+reference.values()+info.values()
+        glass.addelements(elements,np.array(fractions)/1e6,types.fraction.mass)
+
+        if "extraelements" not in kwargs:
+            kwargs["extraelements"] = [] 
+        #kwargs["extraelements"].extend(reference.keys()+info.keys())
+
+        super(NIST612,self).__init__(material=glass,thickness=300e-4,**kwargs)
+        
 factory = Standard.factory
 
