@@ -135,7 +135,9 @@ class Mixture(multielementbase.MultiElementBase):
             
         self._compose_compounds(compounds,nfrac)
 
-    def tocompound(self,name):
+    def tocompound(self,name=None):
+        if not name:
+            name = self.name
         tmp = self.elemental_molefractions()
         return compoundfromlist.CompoundFromList(tmp.keys(),tmp.values(),types.fraction.mole,self.density,name=name)
 

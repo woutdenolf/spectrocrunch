@@ -97,7 +97,7 @@ class Compound(Hashable,multielementbase.MultiElementBase):
             else:
                 self._elements[e] = float(n)
 
-    def addelement(self,el,frac,fractype,density=None):
+    def addelements(self,elements,fractions,fractype,density=None):
         """Add an element to the compound
 
         Args:
@@ -107,21 +107,27 @@ class Compound(Hashable,multielementbase.MultiElementBase):
             density(Optional(num)): new compound density in g/cm^3
         """
 
+        if fractype == types.fraction.volume:
+            raise ValueError("Cannot create a compound from elemental volume fractions")
+            
+        if not instance.isarray(elements):
+            elements = [elements]
+        if not instance.isarray(fractions):
+            fractions = [fractions]
+            
         if fractype == types.fraction.mole:
             nfrac = np.asarray(self.molefractions().values())
             if nfrac.sum()==1:
-                nfrac = stoichiometry.add_frac(nfrac,frac)
+                nfrac = stoichiometry.add_frac(nfrac,fractions)
             else:
-                nfrac = np.append(nfrac,frac)
+                nfrac = np.append(nfrac,fractions)
 
-            elements = self._elements.keys()+[element.Element(el)]
-        elif fractype == types.fraction.volume:
-            raise ValueError("Cannot create a compound from elemental volume fractions")
+            elements = self._elements.keys()+[element.Element(el) for el in elements]
         else:
             wfrac = np.asarray(self.massfractions().values())
-            wfrac = stoichiometry.add_frac(wfrac,frac)
+            wfrac = stoichiometry.add_frac(wfrac,fractions)
 
-            elements = self._elements.keys()+[element.Element(el)]
+            elements = self._elements.keys()+[element.Element(el) for el in elements]
             MM = np.asarray([e.MM for e in elements])
             nfrac = stoichiometry.frac_weight_to_mole(wfrac,MM) # normalized
 

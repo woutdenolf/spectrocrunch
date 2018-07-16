@@ -94,15 +94,15 @@ class test_compound(unittest.TestCase):
         for i in range(len(elements)):
             self.assertEqual(elements2[elements[i]],a[i])
 
-    def test_addelement(self):
+    def test_addelements(self):
         c1 = compoundraw.Compound(["Fe","O"],[2,3],types.fraction.mole,density=1)
         c2 = compoundraw.Compound(["Fe"],[2],types.fraction.mole,density=1)
-        c2.addelement("O",3,types.fraction.mole)
+        c2.addelements("O",3,types.fraction.mole)
         self.assertEqual(c1.elements,c2.elements)
 
         c1 = compoundraw.Compound(["Fe","O"],[2,3],types.fraction.mass,density=1)
         c2 = compoundraw.Compound(["Fe"],[2],types.fraction.mass,density=1)
-        c2.addelement("O",3/5.,types.fraction.mass)
+        c2.addelements("O",3/5.,types.fraction.mass)
         n1 = c1.molefractions()
         n2 = c2.molefractions()
         self.assertEqual(sorted(n1.keys()),sorted(n2.keys()))
@@ -194,7 +194,7 @@ def test_suite():
     testSuite.addTest(test_compound("test_formula"))
     testSuite.addTest(test_compound("test_list"))
     testSuite.addTest(test_compound("test_cif"))
-    testSuite.addTest(test_compound("test_addelement"))
+    testSuite.addTest(test_compound("test_addelements"))
     testSuite.addTest(test_compound("test_vacuum"))
     testSuite.addTest(test_compound("test_name"))
     testSuite.addTest(test_compound("test_refractiveindex"))
