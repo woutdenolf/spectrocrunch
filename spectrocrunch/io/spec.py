@@ -22,13 +22,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from PyMca5.PyMcaCore import SpecFileDataSource
 import re
 import numpy as np
 from collections import OrderedDict
+import os
+import logging
+
 from ..common import instance
 from .. import ureg
-import logging
+from .xiaedf import XiaNameParser
+
+from PyMca5.PyMcaCore import SpecFileDataSource
 
 logger = logging.getLogger(__name__)
 
@@ -471,8 +475,31 @@ class spec(SpecFileDataSource.SpecFileDataSource):
             return scan.data[:,ind]
         else:
             return None
-        
-    def getdata(self, scannumber, labelnames):
+    
+    def labels(self,scannumber):
+        return self._get_scan(scannumber).info["LabelNames"]
+
+    @classmethod
+    def _getxialoc(cls,header):
+        loc = {"DIRECTORY":"", "RADIX":"", "ZAP SCAN NUMBER":"", "ZAP IMAGE NUMBER":""}
+        for s in header:
+            if s.startswith("#C "):
+                tmp = s[2:].split(":")
+                if len(tmp)==2:
+                    tmp = [s.strip() for s in tmp]
+                    if tmp[0] in loc:
+                        loc[tmp[0]] = tmp[1]
+            if s.startswith("#@XIAFILE "):
+                filename = s[10:]
+                loc["DIRECTORY"] = os.path.dirname(filename)
+                filename = os.path.basename(filename).replace("X","0")
+                o = XiaNameParser().parse(filename)
+                loc["RADIX"] = o.radix
+                loc["ZAP SCAN NUMBER"] = o.mapnum
+                loc["ZAP IMAGE NUMBER"] = 0
+        return loc
+
+    def getdata(self, scannumber, labelnames=None):
         """Get counters + info on saved data
 
         Args:
@@ -482,23 +509,12 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         Returns:
             (np.array, dict): counters (nCounter x npts), info on collected data
         """
-
         scan = self._get_scan(scannumber)
-
-        info = {"DIRECTORY":"", "RADIX":"", "ZAP SCAN NUMBER":"", "ZAP IMAGE NUMBER":""}
-        for s in scan.info["Header"]:
-            if s.startswith("#C "):
-                tmp = s[2:].split(":")
-                if len(tmp)==2:
-                    tmp = [s.strip() for s in tmp]
-                    if tmp[0] in info:
-                        info[tmp[0]] = tmp[1]
-
+        info = self._getxialoc(scan.info["Header"])
         data = self._data_from_scan(scan,labelnames)
-
         return data,info
         
-    def getdata2(self, scannumber, labelnames):
+    def getdata2(self, scannumber, labelnames=None):
         """Get counters
 
         Args:
@@ -536,15 +552,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         """Get info on saved data
         """
         info = self._get_scan_info(scannumber)
-
-        ret = {"DIRECTORY":"", "RADIX":"", "ZAP SCAN NUMBER":"", "ZAP IMAGE NUMBER":""}
-        for s in info["Header"]:
-            if s.startswith("#C "):
-                tmp = s[2:].split(":")
-                if len(tmp)==2:
-                    tmp = [s.strip() for s in tmp]
-                    if tmp[0] in ret:
-                        ret[tmp[0]] = tmp[1]
+        ret = self._getxialoc(info["Header"])
         return ret
 
     def scancommand(self,scannumber):

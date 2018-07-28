@@ -23,6 +23,7 @@
 # THE SOFTWARE.
 
 import time
+from .spec import spec
 
 def array2SpecMca(data):
     """ Write a python array into a Spec array.
@@ -54,5 +55,9 @@ def save(mca,filename,mode="w",zero=0,gain=1):
         ffile.write("#@CALIB %.7g %.7g %.7g\n" % (zero,gain,0))
         ffile.write(array2SpecMca(mca))
         ffile.write("\n")
-        
+
+def read(filename):
+    f = spec(filename)
+    return f.getdata2(1,[])
+
         
