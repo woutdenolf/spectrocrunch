@@ -895,6 +895,7 @@ class Image(Item):
                 for i,(name,mi,ma) in enumerate(zip(labels,vmin,vmax)):
                     if name is not None:
                         fmt = floatformat(ma,3)
+                        fmt = ":.2E"
                         fmt = "{{}} [{{{}}},{{{}}}]".format(fmt,fmt)
                         labels[i] = fmt.format(name,mi,ma)
             else:
@@ -959,10 +960,12 @@ class Image(Item):
         name = "scalebar"
         
         xsize = scene.xmagnitude(self.datalimx)
-        xsize = round_sig((xsize[1]-xsize[0])*xfrac,1)
+        xsize = round_sig(abs(xsize[1]-xsize[0])*xfrac,1)
+        if xsize==int(xsize):
+            xsize = int(xsize)
 
         ysize = scene.ymagnitude(self.datalimy)
-        ysize = (ysize[1]-ysize[0])*(ratio*xfrac)
+        ysize = abs(ysize[1]-ysize[0])*(ratio*xfrac)
 
         unit = scene.strxunit
         if unit:
