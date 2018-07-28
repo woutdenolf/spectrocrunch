@@ -828,6 +828,10 @@ class Image(Item):
             norm = None
         else:
             nchannels = 1
+            if instance.isarray(vmin):
+                vmin = vmin[0]
+            if instance.isarray(vmax):
+                vmax = vmax[0]
             norm = ColorNorm(settings["cnorm"],*settings["cnormargs"])(vmin=vmin,vmax=vmax,clip=True)
         
         # Coordinates and borders

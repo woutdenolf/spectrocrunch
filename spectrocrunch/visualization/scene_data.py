@@ -110,16 +110,14 @@ class ImageCoordinates(Coordinates):
         
         # Scan offsets
         for mot in self.instrument.compensationmotors[motdim0]:
-            off,func = instance.asarrayf(offsets[mot][0])
-            if not instance.isnumber(off[0]):
-                off = off.astype(float)
+            off,func = instance.asarrayf(offsets[mot])
+            off = off.flatten().astype(float)
             off = func(off)
             axis0values = axis0values+self.motorpositions(off,mot)
-            
+             
         for mot in self.instrument.compensationmotors[motdim1]:
-            off,func = instance.asarrayf(offsets[mot][0])
-            if not instance.isnumber(off[0]):
-                off = off.astype(float)
+            off,func = instance.asarrayf(offsets[mot])
+            off = off.flatten().astype(float)
             off = func(off)
             axis1values = axis1values+self.motorpositions(off,mot)
         

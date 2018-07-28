@@ -8,13 +8,13 @@
 show_help()
 {
   echo "
-        Usage: travis-linux  -v version [-d] [-p]
+        Usage: travis-linux-test  -v version [-d] [-p]
 
         -v version      Python version to be used (2, 3, 2.7, 3.5, ...).
         -d              Dry run.
         -p              Try downloading a pre-build.
 
-        For Example: ./travis-linux -v 3 -d -p
+        For Example: ./travis-linux-test -v 3 -d -p
 
         -h              Help
        "

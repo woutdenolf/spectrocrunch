@@ -152,7 +152,7 @@ def createimagestacks(config,qxrfgeometry=None):
     xiastackraw.skipdetectors(config["exclude_detectors"])
     xiastackraw.keepdetectors(config["include_detectors"])
     nstack, nrow, ncol, nchan, ndet = xiastackraw.dshape
-    
+
     # Counter directory relative to the XIA files
     xiastackraw.counter_reldir(config["counter_reldir"])
     
