@@ -13,16 +13,36 @@ function swig_url()
 }
 
 
+function swig_all_versions()
+{
+    curl -ksL $(swig_url) | grep -E -o "title=\"swig-[0-9\.]+" | grep -E -o "[0-9\.]+[0-9]" | sort --version-sort
+}
+
+
 function swig_latest()
 {
-    curl -sL $(swig_url) | grep -E -o "swig-[0-9\.]+" | head -1 | grep -E -o "[0-9\.]+[0-9]"
+    if [[ -z ${1} ]];then
+        swig_all_version | tail -1
+        return
+    fi
+    
+    local _version
+    for i in $(swig_all_versions); do
+        _version=${i}
+        if [[ $(require_new_version ${_version} ${1}) == false ]]; then
+            echo ${_version}
+            return
+        fi
+    done
+
+    echo ${_version}
 }
 
 
 function swig_download()
 {
     if [[ ! -f ${1}.tar.gz ]]; then
-        curl -L $(swig_url)/${1}/${1}.tar.gz --output ${1}.tar.gz
+        curl -kL $(swig_url)/${1}/${1}.tar.gz --output ${1}.tar.gz
     fi
 }
 
@@ -46,7 +66,7 @@ function swig_install_fromsource()
     local version=$(get_local_version ${1})
     if [[ -z ${version} ]]; then
         require_web_essentials
-        local version=$(swig_latest)
+        version=$(swig_latest ${1})
     fi
 
     local sourcedir=swig-${version}
@@ -100,6 +120,7 @@ function swig_version()
         swig -version | head -2 | tail -1 | awk '{print $3}'
     fi
 }
+
 
 function require_swig()
 {

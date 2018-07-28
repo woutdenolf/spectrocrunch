@@ -1,6 +1,7 @@
-numpy
 future
+numpy>=1.12
 scipy
+pandas>=0.23
 h5py
 silx
 fabio
@@ -13,5 +14,4 @@ pint
 Mako
 pyopencl==2015.1; python_version < '3.6'
 pyopencl==2018.1; python_version >= '3.6'
-pandas
 pymca

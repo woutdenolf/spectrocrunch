@@ -116,6 +116,30 @@ function dryrun()
 }
 
 
+# ============modify_bashrc============
+# Description: allow bashrc modification
+# Usage: [[ $(modify_bashrc) == true ]]
+#        modify_bashrc reset true
+function modify_bashrc()
+{
+    if [[ $(dryrun) == true ]]; then
+        echo false
+        return
+    fi    
+    
+    if [[ -z ${MODBASHRC} || "$1" == "reset" ]]; then
+        if [[ -z ${2} ]]; then
+            MODBASHRC=true
+        else
+            MODBASHRC=${2}
+        fi
+        return
+    fi
+
+    echo ${MODBASHRC}
+}
+
+
 # ============mexec============
 # Description: Execute with root priviliged fro system wide installation
 # Usage: mexec command
@@ -304,7 +328,7 @@ function addProfile()
 {
 	addFile ${1} "${2}"
 
-    if [[ $? == 0 ]]; then
+    if [[ $? == 0 && $(modify_bashrc) == true ]]; then
         if [[ $(install_systemwide) == true ]]; then
             addFile "/etc/bash.bashrc" "[ -r ${1} ] && source \"${1}\""
         else
@@ -568,7 +592,7 @@ function os_arch()
 	if [ $? -ne 0 ]; then
 		osarch=$(uname -m | sed 's/x86_//;s/i[3-6]86/32/')
 	fi
-    echo osarch
+    echo ${osarch}
 }
 
 

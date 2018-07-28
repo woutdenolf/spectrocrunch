@@ -14,6 +14,7 @@ show_help()
         -d              Dry run.
         -u              Install for user only.
         -x              Dev install.
+        -t              Do not modify bashrc.
 
         For Example: ./linux-install-deps.sh -v 3 -d
 
@@ -30,6 +31,7 @@ show_help()
 OPTIND=0
 ARG_SYSTEMWIDE=true
 ARG_DRY=false
+ARG_BASHRC=false
 ARG_FORCECHOICE=false
 ARG_PYTHONV=""
 ARG_DEV=false
@@ -48,6 +50,9 @@ while getopts "v:uyhdx" opt; do
       ;;
     d)
       ARG_DRY=true
+      ;;
+    y)
+      ARG_BASHRC=true
       ;;
     x)
       ARG_DEV=true
@@ -73,6 +78,7 @@ function main()
     local GLOBAL_SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
     source $GLOBAL_SCRIPT_ROOT/linux/funcs-python.sh
     dryrun reset ${ARG_DRY}
+    modify_bashrc reset ${ARG_BASHRC}
     if [[ $(dryrun) == true ]]; then
         cprint "This is a dry run."
     fi
@@ -105,8 +111,8 @@ function main()
     # ============Install dependencies============
     source $GLOBAL_SCRIPT_ROOT/linux/funcs-dependencies.sh
 
-    mkdir -p dep_$(python_full_version)
-    cd dep_$(python_full_version)
+    mkdir -p $(python_depdir)
+    cd $(python_depdir)
 
     install_system_dependencies
     install_pypi_dependencies
