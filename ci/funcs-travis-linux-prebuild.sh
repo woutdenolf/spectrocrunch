@@ -41,7 +41,7 @@ function travis_pybuild_folder()
 
 function travis_depbuild_folder()
 {
-    local pybuild_folder=$(travis_cached_folder)/dep_$(python_full_version)
+    local pybuild_folder=$(travis_cached_folder)/$(python_depdir)
     mkdir -p ${pybuild_folder}
     echo "${pybuild_folder}"
 }

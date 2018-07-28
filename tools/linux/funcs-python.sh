@@ -39,6 +39,12 @@ function python_full_version()
 }
 
 
+function python_depdir()
+{
+    echo dep_$(python_full_version)
+}
+
+
 function python_include()
 {
     python_get "import distutils.sysconfig; print(distutils.sysconfig.get_python_inc());"
@@ -296,7 +302,7 @@ function python_install_fromsource()
     local version=$(get_local_version_strict ${1})
     if [[ -z ${version} ]]; then
         require_web_essentials
-        local version=$(python_latest)
+        version=$(python_latest)
     fi
 
     local sourcedir=Python-${version}

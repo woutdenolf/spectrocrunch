@@ -13,11 +13,21 @@ function intel_name()
     echo "opencl_runtime_16.1.2_x64_rh_6.4.0.37"
 }
 
+function amd_name()
+{
+    echo "AMD-APP-SDKInstaller-v3.0.130.136-GA-linux64"
+}
+
 
 function intel_url()
 {
     # https://software.intel.com/en-us/articles/opencl-drivers#latest_CPU_runtime
     echo "http://registrationcenter-download.intel.com/akdlm/irc_nas/12556/$(intel_name).tgz"
+}
+
+function amd_url()
+{
+    echo "http://debian.nullivex.com/amd/$(amd_name).tar.bz2"
 }
 
 
@@ -31,7 +41,7 @@ function intel_install_opencldrivers()
 {
     local restorewd=$(pwd)
 
-    cprint "Download OpenCL runtime ..."
+    cprint "Download Intel OpenCL runtime ..."
     mkdir -p opencl
     cd opencl
 
@@ -47,7 +57,7 @@ function intel_install_opencldrivers()
     local prefix=$(project_opt)/opencl
     local prefixstr=$(project_optstr)/opencl
 
-    cprint "Install OpenCL runtime ..."
+    cprint "Install Intel OpenCL runtime ..."
     if [[ $(dryrun) == false ]]; then
         cd ${PACKAGE_NAME}
         intel_build_dependencies
@@ -57,11 +67,86 @@ function intel_install_opencldrivers()
         sed "s/=\/opt/=${repl}/g" -i silent.cfg
         sed 's/DEFAULTS/ALL/g' -i silent.cfg
 
-        (sudo -E ./install.sh -s silent.cfg) # in subshell to capture the exit statements
-
-        addProfile $(project_resource) "# Installed xraylib: ${prefixstr}"
+        # in subshell to capture the exit statements
+        if [[ $(system_privileges) == true ]]; then
+            (sudo -E ./install.sh -s silent.cfg) 
+        else
+            (./install.sh -s silent.cfg) # this will not work
+        fi
+        
+        addProfile $(project_resource) "# Installed Intel OpenCL runtime: ${prefixstr}"
         addLibPath ${prefix}/lib
         addLibPathProfile $(project_resource) "${prefixstr}/intel/opencl/lib64"
+    fi
+
+    cd ${restorewd}
+}
+
+
+function amd_install_opencldrivers()
+{
+    local restorewd=$(pwd)
+
+    cprint "Download AMD OpenCL SDK ..."
+    mkdir -p opencl
+    cd opencl
+
+    local PACKAGE_NAME=$(amd_name)
+    if [[ $(dryrun) == false && ! -d ${PACKAGE_NAME} ]]; then
+        require_web_access
+        curl -L $(amd_url) --output ${PACKAGE_NAME}.tar.bz2
+        mkdir -p ${PACKAGE_NAME}
+        tar -xjf ${PACKAGE_NAME}.tar.bz2 -C ${PACKAGE_NAME}
+        rm -f ${PACKAGE_NAME}.tar.bz2
+    fi
+
+    local prefix=$(project_opt)/opencl/AMDAPPSDK
+    local prefixstr=$(project_optstr)/opencl/AMDAPPSDK
+
+    cprint "Install AMD OpenCL SDK ..."
+    if [[ $(dryrun) == false ]]; then
+        cd ${PACKAGE_NAME}
+        
+        # Install in opt
+        mkdir -p ${prefix}
+        sh AMD-APP-SDK*.sh --tar -xf -C ${prefix}
+
+        # Register the ICD
+        local OPENCL_VENDOR_PATHSTR
+        export OPENCL_VENDOR_PATH=${prefix}/etc/OpenCL/vendors
+        OPENCL_VENDOR_PATHSTR="${prefixstr}/etc/OpenCL/vendors"
+        mkdir -p ${OPENCL_VENDOR_PATH}
+        if [[ $(os_arch) == 64 ]]; then
+            if [ ! -f ${OPENCL_VENDOR_PATH}/amdocl64.icd ]; then
+                echo libamdocl64.so > ${OPENCL_VENDOR_PATH}/amdocl64.icd
+            fi
+        else
+            if [ ! -f ${OPENCL_VENDOR_PATH}/amdocl32.icd ]; then
+                echo libamdocl32.so > ${OPENCL_VENDOR_PATH}/amdocl32.icd
+            fi
+        fi
+
+        # Environment variables
+        addProfile $(project_resource) "# Installed AMD SDK: ${prefixstr}"
+        addProfile $(project_resource) "export OPENCL_VENDOR_PATH=${OPENCL_VENDOR_PATHSTR}"
+        if [[ $(os_arch) == 64 ]]; then
+            addLibPath ${prefix}/lib/x86_64
+            addLibPathProfile $(project_resource) "${prefixstr}/lib/x86_64"
+        else
+            addLibPath ${prefix}/lib/x86
+            addLibPathProfile $(project_resource) "${prefixstr}/lib/x86"
+        fi
+        addInclPath ${prefix}/include
+
+        # Show info
+        if [[ $(os_arch) == 64 ]]; then
+            chmod +x ${prefix}/bin/x86_64/clinfo
+            ${prefix}/bin/x86_64/clinfo
+        else
+            chmod +x ${prefix}/bin/x86/clinfo
+            ${prefix}/bin/x86/clinfo
+        fi
+
     fi
 
     cd ${restorewd}
@@ -91,10 +176,16 @@ function pyopencl_install()
         # mako: templating language for python
 
         mapt-get install ocl-icd-opencl-dev ocl-icd-libopencl1 opencl-headers libffi-dev
+        
         intel_install_opencldrivers
-
         pip_install mako
         pip_install pyopencl
+        
+        if [[ $(pyopencl_test) == false ]]; then
+            amd_install_opencldrivers
+            pip_install mako
+            pip_install pyopencl
+        fi
     fi
 }
 

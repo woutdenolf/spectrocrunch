@@ -16,7 +16,7 @@ function xraylib_build_dependencies()
 
     require_build_essentials
     require_pythondev
-    require_swig
+    require_swig 3
     pip_install cython
 
     cd ${tmp}
@@ -48,7 +48,7 @@ function xraylib_install_fromsource()
     local version=$(get_local_version)
     if [[ -z ${version} ]]; then
         require_web_essentials
-        local version=$(xraylib_latest)
+        version=$(xraylib_latest)
     fi
 
     local sourcedir=xraylib-${version}

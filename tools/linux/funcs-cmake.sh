@@ -9,20 +9,66 @@ source ${SCRIPT_ROOT}/funcs.sh
 
 function cmake_url()
 {
-    echo "https://cmake.org/files/LatestRelease/"
+    echo "https://cmake.org/files"
+}
+
+
+function cmake_all_versions()
+{
+    curl -sL $(cmake_url) | grep -E -o ">v[0-9\.]+[0-9]" | grep -E -o "[0-9\.]+[0-9]" | sort --version-sort
+}
+
+
+function cmake_all_subversions()
+{
+    curl -sL $(cmake_url)/v${1} | grep -E -o ">cmake-[0-9\.]+.tar.gz<" | grep -E -o "[0-9\.]+[0-9]" | sort --version-sort
+}
+
+
+function cmake_extractmainv()
+{
+    echo ${1} | grep -E -o "[0-9]+(\.[0-9]+)?" | head -1
 }
 
 
 function cmake_latest()
 {
-    curl -sL $(cmake_url) | grep -E -o "cmake-[0-9\.]+[0-9]" | tail -1 | grep -E -o "[0-9\.]+[0-9]"
+    local rversion=${1}
+    local mversion=$(cmake_extractmainv ${1})
+    
+    local lst
+    if [[ -z ${rversion} ]];then
+        lst=("LatestRelease")
+    else
+        lst=$(cmake_all_versions)
+    fi
+    
+    local lst2
+    for i in ${lst}; do
+        if [[ $(require_new_version ${i} ${mversion}) == false ]]; then
+            if [[ ${mversion} == ${rversion} ]];then
+                lst2=($(cmake_all_subversions ${i} | tail -1))
+            else
+                lst2=$(cmake_all_subversions ${i})
+            fi
+            for j in ${lst2}; do
+                if [[ $(require_new_version ${j} ${rversion}) == false ]]; then
+                    echo ${j}
+                    return
+                fi
+            done
+        fi
+    done
+
+    cmake_all_subversions lst[-1] | tail -1
 }
 
 
 function cmake_download()
 {
+    local mversion=$(cmake_extractmainv ${1})
     if [[ ! -f ${1}.tar.gz ]]; then
-        curl -L $(cmake_url)/${1}.tar.gz --output ${1}.tar.gz
+        curl -L $(cmake_url)/v${mversion}/${1}.tar.gz --output ${1}.tar.gz
     fi
 }
 
@@ -44,7 +90,7 @@ function cmake_install_fromsource()
     local version=$(get_local_version ${1})
     if [[ -z ${version} ]]; then
         require_web_essentials
-        local version=$(cmake_latest)
+        version=$(cmake_latest ${1})
     fi
 
     local sourcedir=cmake-${version}
@@ -64,7 +110,7 @@ function cmake_install_fromsource()
             cmake_build_dependencies
 
             mexec mkdir -p ${prefix}
-            ./configure --prefix=${prefix}
+            ./configure --prefix=${prefix} -- -DCMAKE_USE_OPENSSL:BOOL=ON
         fi
 
         cprint "Build cmake ..."
