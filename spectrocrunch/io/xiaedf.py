@@ -1134,6 +1134,22 @@ class xiadata(object):
                 # Get normalizer
                 cor = self._getindexednormalizer(index)
 
+                # Fix non-matching shape (map cancelled)
+                s1 = data.shape
+                s2 = cor.shape
+                if s1!=s2:
+                    s3 = list(s1)
+                    s4 = list(s2)
+                    ind = [slice(None)]*len(s1)
+                    for i,(a,b) in enumerate(zip(s1[:-2],s2[:-2])):
+                        # Dimension 1 is broadcasted
+                        if a!=b and a>1 and b>1:
+                            s3[i] = min(a,b)
+                            s4[i] = s3[i]
+                            ind[i] = slice(0,s3[i])
+                    data = data[ind].reshape(s3)
+                    cor = cor[ind].reshape(s4)
+                
                 # Apply normalization
                 data = data / cor.astype(self.CORTYPE)
                 #self._dbgmsg(data.shape)

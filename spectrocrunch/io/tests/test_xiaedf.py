@@ -40,6 +40,7 @@ from ...common.tests import genindexing
 
 import logging
 logger = logging.getLogger(__name__)
+#logger.setLevel(logging.DEBUG)
 
 class test_xiaedf(unittest.TestCase):
 
@@ -185,7 +186,8 @@ class test_xiaedf(unittest.TestCase):
                         for together in [False,True]:
                             
                             for index in indices:
-                                #index = (slice(None), slice(None), 0)
+                                #index = (-10, Ellipsis, slice(8, -3, 2), [True, True, False, False])
+
                                 if dsum:
                                     index = indexing.replace(index,ndim,[-1],[slice(None)])
 
@@ -252,7 +254,7 @@ class test_xiaedf(unittest.TestCase):
                                     # Check counters
                                     if check:
                                         np.testing.assert_array_equal(lcounters,lcounters2)
-
+                                
         # Test slicing vs. skip detector
         xiaobject.onlyicrocr(False)
         xiaobject.dtcor(False)
