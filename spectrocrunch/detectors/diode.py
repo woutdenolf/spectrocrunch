@@ -1323,7 +1323,7 @@ class NonCalibratedPNdiode(PNdiode):
 
 
 class SXM_PTB(CalibratedPNdiode):
-    """PTB diode used to calibrate """
+    """PTB diode used to calibrate"""
     
     aliases = ["ptb"]
     
@@ -1346,7 +1346,11 @@ class SXM_PTB(CalibratedPNdiode):
 
 
 class SXM_IDET(CalibratedPNdiode):
-    """Centronic OSD 50-3T"""
+    """Centronic OSD 50-3T
+    Keithley K428 (10V max analog output)
+    NOVA N101VTF voltage-to-frequency converter (Fmax=1e6Hz, F0=0Hz)
+    P201 counter board
+    """
     
     aliases = ["idet"]
     
@@ -1389,7 +1393,7 @@ class SXM_IDET(CalibratedPNdiode):
 class SXM_IODET1(NonCalibratedPNdiode):
     """International Radiation Detectors (IRD), AXUV-PS1-S
     Keithley K428 (10V max analog output)
-    NOVA N101VTF voltage-to-frequency converter (Fmax=1e6, F0=0Hz)
+    NOVA N101VTF voltage-to-frequency converter (Fmax=1e6Hz, F0=0Hz)
     P201 counter board
     """
     aliases = ["iodet1"]
@@ -1435,7 +1439,7 @@ class SXM_IODET1(NonCalibratedPNdiode):
 class SXM_IODET2(NonCalibratedPNdiode):
     """International Radiation Detectors (IRD), AXUV-PS1-S
     Keithley K428 (10V max analog output)
-    NOVA N101VTF voltage-to-frequency converter (Fmax=1e6, Vmax=0Hz)
+    NOVA N101VTF voltage-to-frequency converter (Fmax=1e6Hz, Vmax=0Hz)
     P201 counter board
     """
     
