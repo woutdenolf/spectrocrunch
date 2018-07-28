@@ -31,12 +31,12 @@ show_help()
 OPTIND=0
 ARG_SYSTEMWIDE=true
 ARG_DRY=false
-ARG_BASHRC=false
+ARG_BASHRC=true
 ARG_FORCECHOICE=false
 ARG_PYTHONV=""
 ARG_DEV=false
 ARG_RET=-1
-while getopts "v:uyhdx" opt; do
+while getopts "v:uyhdxt" opt; do
   case $opt in
     h)
       show_help
@@ -51,8 +51,8 @@ while getopts "v:uyhdx" opt; do
     d)
       ARG_DRY=true
       ;;
-    y)
-      ARG_BASHRC=true
+    t)
+      ARG_BASHRC=false
       ;;
     x)
       ARG_DEV=true
@@ -143,5 +143,7 @@ function main()
     cd ${GLOBAL_WD}
 }
 
-main
+if [[ ${ARG_RET} == -1 ]]; then
+    main
+fi
 

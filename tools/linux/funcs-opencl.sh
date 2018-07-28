@@ -54,8 +54,8 @@ function intel_install_opencldrivers()
         rm -f ${PACKAGE_NAME}.tar.gz
     fi
 
-    local prefix=$(project_opt)/opencl/INTELRT
-    local prefixstr=$(project_optstr)/opencl/INTELRT
+    local prefix=$(project_opt)/opencl
+    local prefixstr=$(project_optstr)/opencl
 
     cprint "Install Intel OpenCL runtime ..."
     if [[ $(dryrun) == false ]]; then
@@ -67,10 +67,11 @@ function intel_install_opencldrivers()
         sed "s/=\/opt/=${repl}/g" -i silent.cfg
         sed 's/DEFAULTS/ALL/g' -i silent.cfg
 
-        if [[ $(install_systemwide) == true ]]; then
-            (sudo -E ./install.sh -s silent.cfg) # in subshell to capture the exit statements
+        # in subshell to capture the exit statements
+        if [[ $(system_privileges) == true ]]; then
+            (sudo -E ./install.sh -s silent.cfg) 
         else
-            (./install.sh -s silent.cfg)
+            (./install.sh -s silent.cfg) # this will not work
         fi
         
         addProfile $(project_resource) "# Installed Intel OpenCL runtime: ${prefixstr}"

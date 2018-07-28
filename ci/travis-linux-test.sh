@@ -48,12 +48,6 @@ while getopts "v:hdp" opt; do
   esac
 done
 
-if [[ -z ${ARG_PYTHONV} ]]; then
-    show_help
-    ARG_RET=1
-fi
-
-
 function main()
 {
     if [[ ${ARG_RET} != -1 ]]; then
@@ -106,5 +100,12 @@ function main()
     travis_cleanup_python
 }
 
-main
+if [[ ${ARG_RET} == -1 ]]; then
+    if [[ -z ${ARG_PYTHONV} ]]; then
+        show_help
+        ARG_RET=1
+    else
+        main
+    fi
+fi
 
