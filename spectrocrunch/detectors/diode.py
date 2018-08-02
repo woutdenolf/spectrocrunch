@@ -199,7 +199,7 @@ class Oscillator(object):
             None
 
         Returns:
-            callable: slope (cts/s/V), intercept(cts/s)
+            callable: slope (cps/V), intercept(cps)
         """
         return linop.LinearOperator(self.Fmax/self.Vmax,self.F0)
     
@@ -210,7 +210,7 @@ class Oscillator(object):
             None
 
         Returns:
-            callable: slope (V.s/cts), intercept(V)
+            callable: slope (V/cps), intercept(V)
         """
         return self.op_voltagetocps().inverse
         
@@ -221,7 +221,7 @@ class PNdiode(with_metaclass(base.SolidState)):
     #ELCHARGE = ureg.Quantity(1.6e-19,ureg.coulomb) # approx. in spec
 
     def __init__(self, gain=None, gainrounder=None, darkcurrent=None, oscillator=None,\
-                    secondarytarget=None, simplecalibration=False, optics=None,\
+                    secondarytarget=None, simplecalibration=False, optics=None, Vmax=None,\
                     beforesample=None,**kwargs):
         """
         Args:
@@ -246,6 +246,8 @@ class PNdiode(with_metaclass(base.SolidState)):
 
         self._simplecalibration = simplecalibration
         self._lut_chargepersamplephoton = lut.LUT()
+
+        self.Vmax = Vmax
 
         super(PNdiode,self).__init__(**kwargs)
     
@@ -291,12 +293,14 @@ class PNdiode(with_metaclass(base.SolidState)):
     
     @property
     def Vmax(self):
-        # Assume output voltage of ammeter is equal to the input voltage of the oscillator
-        return self.oscillator.Vmax
+        if self._Vmax:
+            return self._Vmax
+        else:
+            return self.oscillator.Vmax
     
     @Vmax.setter
     def Vmax(self,value):
-        self.oscillator.Vmax = value
+        self._Vmax = value
     
     @property
     def Rout(self):
@@ -364,12 +368,13 @@ class PNdiode(with_metaclass(base.SolidState)):
         if self.simplecalibration:
             fmt = "PN-diode:\n{}\n"\
                   "Ammeter:\n Gain = {:~e}\n "\
-                  "Dark current = {:~}\n"\
+                  "Dark current = {:~}\n "\
+                  "Output voltage = {:~}\n"\
                   "LUT (e-/sample photon):\n {}\n"\
                   "Voltage-to-Frequency:\n {}"
             s = '\n '.join("{} keV: {:~}".format(k,v.to("e")) for k,v in self._lut_chargepersamplephoton.table())
             return fmt.format(super(PNdiode,self).__str__(),\
-                    self.gain,self.darkcurrent.to("e/s"),s,self.oscillator)    
+                    self.gain,self.darkcurrent.to("e/s"),self.Vmax,s,self.oscillator)    
         else:
             optics = "\n".join([str(dev) for dev in self.optics])
             if optics:
@@ -377,13 +382,14 @@ class PNdiode(with_metaclass(base.SolidState)):
                 
             fmt = "PN-diode:\n{}\n"\
                   "Ammeter:\n Gain = {:~e}\n "\
-                  "Dark current = {:~}\n"\
+                  "Dark current = {:~}\n "\
+                  "Output voltage = {:~}\n"\
                   "Secondary target:\n {}\n"\
                   "{}"\
                   "Before sample: {}\n"\
                   "Voltage-to-Frequency:\n {}"
             return fmt.format(super(PNdiode,self).__str__(),\
-                    self.gain,self.darkcurrent.to("e/s"),self.secondarytarget,\
+                    self.gain,self.darkcurrent.to("e/s"),self.Vmax,self.secondarytarget,\
                     optics,self.beforesample,self.oscillator) 
                     
     def _diode_absorbance(self,energy,thickness):
@@ -815,7 +821,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             callable: slope (ph/C), intercept(ph/s)
         """
         return self.op_fluxtocurrent(energy,weights=weights).inverse
-    
+
     def op_currenttocps(self):
         """Operator to convert current to counts-per-second
 
@@ -823,7 +829,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             None
 
         Returns:
-            callable: slope (cts/C), intercept(cts/s)
+            callable: slope (cps/C), intercept(cps)
         """
         return self.oscillator.op_voltagetocps()*self.op_currenttovoltage()
         
@@ -834,9 +840,20 @@ class PNdiode(with_metaclass(base.SolidState)):
             None
 
         Returns:
-            callable: slope (C/cts), intercept(C/s)
+            callable: slope (C/cps), intercept(C/s)
         """
         return self.op_voltagetocurrent()*self.oscillator.op_cpstovoltage()
+
+    def op_countstocurrent(self,time):
+        """Operator to convert counts to current
+
+        Args:
+            time: sec
+
+        Returns:
+            callable: slope (C/cts), intercept(C/s)
+        """
+        return self.op_cpstocurrent*self.op_countstocps(time)
 
     def op_voltagetocps(self):
         """Operator to convert voltage to counts-per-second
@@ -845,7 +862,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             None
 
         Returns:
-            callable: slope (cts/s/V), intercept(cts/s)
+            callable: slope (cps/V), intercept(cps)
         """
         return self.oscillator.op_voltagetocps()
 
@@ -856,10 +873,21 @@ class PNdiode(with_metaclass(base.SolidState)):
             None
 
         Returns:
-            callable: slope (V.s/cts), intercept(V)
+            callable: slope (V/cps), intercept(V)
         """
         return self.oscillator.op_cpstovoltage()
-        
+    
+    def op_countstovoltage(self,time):
+        """Operator to convert counts to voltage
+
+        Args:
+            None
+
+        Returns:
+            callable: slope (V/cts), intercept(V)
+        """
+        return self.op_cpstovoltage()*self.op_countstocps(time)
+
     def op_cpstoflux(self,energy,weights=None):
         """Operator to convert counts-per-second to flux
 
@@ -868,7 +896,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             weights(Optional(num|array)): line fractions
 
         Returns:
-            callable: slope (ph/cts), intercept(ph/s)
+            callable: slope (ph/cps), intercept(ph/s)
         """
         return self.op_currenttoflux(energy,weights=weights)*self.op_cpstocurrent()
 
@@ -880,10 +908,26 @@ class PNdiode(with_metaclass(base.SolidState)):
             weights(Optional(num|array)): line fractions
 
         Returns:
-            callable: slope (cts/ph), intercept(cts/s)
+            callable: slope (cps/ph), intercept(cps)
         """
         return self.op_currenttocps()*self.op_fluxtocurrent(energy,weights=weights)
-    
+
+    def op_countstocps(self,time):
+        return linop.LinearOperator(units.Quantity(1./time,"Hz"),units.Quantity(0,"Hz"))
+
+    def op_countstoflux(self,energy,time,weights=None):
+        """Operator to convert counts to flux
+
+        Args:
+            energy(num|array): keV
+            time(num): sec
+            weights(Optional(num|array)): line fractions
+
+        Returns:
+            callable: slope (ph/cts), intercept(ph/s)
+        """
+        return self.op_cpstoflux(energy,weights=weights)*self.op_countstocps(time)
+
     def op_voltagetoflux(self,energy,weights=None):
         """Operator to convert voltage to flux
 
@@ -940,7 +984,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         """
         Args:
             energy(num|array): keV
-            response(num|array): cts/s
+            cps(num|array): cts/s
             weights(Optional(num|array)): line fractions
 
         Returns:
@@ -948,6 +992,20 @@ class PNdiode(with_metaclass(base.SolidState)):
         """
         op = self.op_cpstoflux(energy,weights=weights)
         return op(units.Quantity(cps,"hertz")).to("hertz")
+
+    def countstoflux(self,energy,time,counts,weights=None):
+        """
+        Args:
+            energy(num|array): keV
+            time(num): s
+            cps(num|array): cts/s
+            weights(Optional(num|array)): line fractions
+
+        Returns:
+            num|array: flux (ph/s)
+        """
+        op = self.op_countstoflux(energy,time,weights=weights)
+        return op(units.Quantity(counts,"dimensionless")).to("hertz")
 
     def fluxtocps(self,energy,flux,weights=None):
         """
@@ -983,7 +1041,18 @@ class PNdiode(with_metaclass(base.SolidState)):
         """
         op = self.op_cpstocurrent()
         return op(units.Quantity(cps,"hertz")).to("ampere")
-                
+    
+    def countstocurrent(self,time,counts):
+        """
+        Args:
+            counts(num|array): cts
+
+        Returns:
+            num|array: current (A)
+        """
+        op = self.op_countstocurrent(time)
+        return op(units.Quantity(counts,"dimensionless")).to("ampere")
+      
     def voltagetocps(self,voltage):
         """
         Args:
@@ -1006,6 +1075,28 @@ class PNdiode(with_metaclass(base.SolidState)):
         op = self.op_cpstovoltage()
         return op(units.Quantity(cps,"hertz")).to("volt")
     
+    def countstocps(self,time,counts):
+        """
+        Args:
+            counts(num|array): cts
+
+        Returns:
+            num|array: voltage (cps)
+        """
+        op = self.op_countstocps(time)
+        return op(units.Quantity(counts,"dimensionless")).to("Hz")
+
+    def countstovoltage(self,time,counts):
+        """
+        Args:
+            cps(num|array): cts
+
+        Returns:
+            num|array: voltage (V)
+        """
+        op = self.op_cpstovoltage(time)
+        return op(units.Quantity(counts,"dimensionless")).to("volt")
+
     def voltagetoflux(self,energy,voltage,weights=None):
         """
         Args:
@@ -1032,25 +1123,139 @@ class PNdiode(with_metaclass(base.SolidState)):
         op = self.op_fluxtovoltage(energy,weights=weights)
         return op(units.Quantity(flux,"hertz")).to("volt")
     
-    def responsetoflux(self,energy,response,weights=None):
+    def currenttovoltage(self,current):
         """
         Args:
+            cps(num|array): A
+
+        Returns:
+            num|array: voltage (V)
+        """
+        op = self.op_currenttovoltage()
+        return op(units.Quantity(current,"A")).to("volt")
+
+    def fluxop(self,energy,response,weights=None,time=None):
+        """Operator to convert diode response flux.
+        
+        Args:
             energy(num|array): keV
-            response(num|array): cts/s (default), A or V
+            response(num|array): example of a response
             weights(Optional(num|array)): line fractions
+            time(Optional(num)): sec
+            
+        Returns:
+            op(linop): raw diode conversion operator
+        """
+        
+        if time is None:
+            default = "hertz"
+        else:
+            default = "dimensionless"
+
+        response = units.Quantity(response,default)
+        try:
+            response.to("Hz")
+            return self.op_cpstoflux(energy,weights=weights)
+        except pinterrors.DimensionalityError:
+            try:
+                response.to("dimensionless")
+                if time is None:
+                    raise RuntimeError("Need exposure time to convert counts to flux.")
+                return self.op_countstoflux(energy,time,weights=weights)
+            except pinterrors.DimensionalityError:
+                try:
+                    response.to("A")
+                    return self.op_currenttoflux(energy,weights=weights)
+                except:
+                    response.to("V")
+                    return self.op_voltagetoflux(energy,weights=weights)
+
+    def responsetoflux(self,energy,response,weights=None,time=None):
+        """Convert diode response to flux
+
+        Args:
+            energy(num|array): keV
+            response(num|array): cts (default when time given), cps (default when time not given), A or V
+            weights(Optional(num|array)): line fractions
+            time(Optional(num)): sec
 
         Returns:
             num|array: flux (ph/s)
         """
-        response = units.Quantity(response,"hertz")
+
+        if time is None:
+            default = "hertz"
+        else:
+            default = "dimensionless"
+
+        response = units.Quantity(response,default)
         try:
             return self.cpstoflux(energy,response.to("hertz"),weights=weights)
         except pinterrors.DimensionalityError:
             try:
-                return self.currenttoflux(energy,response.to("A"),weights=weights)
+                tmp = response.to("dimensionless")
+                if time is None:
+                    raise RuntimeError("Need exposure time to convert counts to flux.")
+                return self.countstoflux(energy,time,tmp,weights=weights)
             except pinterrors.DimensionalityError:
-                return self.voltagetoflux(energy,response.to("V"),weights=weights)
-    
+                try:
+                    return self.currenttoflux(energy,response.to("A"),weights=weights)
+                except:
+                    return self.voltagetoflux(energy,response.to("V"),weights=weights)
+
+    def gainfromresponse(self,response_after,response_before,energy=None,weights=None,time=None):
+        """Try to guess the diode gain
+        
+        Args:
+            response_after(num): diode response after gain application (cts, cps)
+            response_before(num): diode response before gain application (A, V, ph/s)
+            energy(Optional(num|array)): keV
+            weights(Optional(num|array)): line fractions
+            time(Optional(num)): sec
+
+        Returns:
+            gain(num): V/A or A
+        """
+
+        # Voltage from the signal on which the gain is already applied
+        if time is None:
+            default = "Hz"
+        else:
+            default = "dimensionless"
+        response_after = units.Quantity(response_after,default)
+        try:
+            V_meas = self.cpstovoltage(response_after.to("Hz"))
+        except pinterrors.DimensionalityError:
+            tmp = response.to("dimensionless")
+            if time is None:
+                raise RuntimeError("Need exposure time to convert counts to flux.")
+            V_meas = self.countstovoltage(time,tmp,weights=weights)
+
+        # Voltage from the signal before the gain is applied
+        response_before = units.Quantity(response_before,"Hz")
+        try:
+            V_calc = self.fluxtovoltage(energy,response_before.to("Hz"),weights=weights)
+        except pinterrors.DimensionalityError:
+            try:
+                V_calc = self.currenttovoltage(response_before.to("A"))
+            except pinterrors.DimensionalityError:
+                V_calc = response_before.to("V")
+
+        if self.gain.units==ureg.Unit("A"):
+            # V_meas: inverse proportional to the real gain
+            # V_calc: inverse proportional to the assumed gain
+            r = units.magnitude(V_calc/V_meas,"dimensionless")
+        else:
+            # V_meas: proportional to the real gain
+            # V_calc: proportional to the assumed gain
+            r = units.magnitude(V_meas/V_calc,"dimensionless")
+
+        r = np.median(r[np.isfinite(r)])
+        if np.isfinite(r and r>0):
+            return self.gainrounder(self.gain*r)
+        else:
+            return None
+
     def xrfnormop(self,energy,expotime,reference,referencetime=None,weights=None):
         """Operator to convert the raw diode signal to a flux normalizing signal.
            Usage: Inorm = I/op(iodet)
@@ -1098,7 +1303,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         else:
             raise RuntimeError("Reference {} should be in photons/sec (flux) or counts (iodet).".format(reference))
             
-        # Convert from counts to counts at reference flux Fref
+        # Convert from counts to counts at reference flux Fref and reference time tref
         op.m /= Fref
         op.b /= Fref
         if referencetime is not None:
@@ -1112,60 +1317,70 @@ class PNdiode(with_metaclass(base.SolidState)):
         op.b = units.magnitude(op.b,"dimensionless")
 
         return op,Fref.to("hertz").magnitude,tref.to("s").magnitude
-    
-    def fluxop(self,energy,expotime,weights=None):
-        """Operator to convert the raw diode signal to a flux.
+
+    def calibratedark(self,darkresponse,time=None):
+        """Dark current from response
         
         Args:
-            energy(num|array): keV
-            expotime(num): sec
-            weights(Optional(num|array)): line fractions
-            
-        Returns:
-            op(linop): raw diode conversion operator
-        """
-        
-        # Convert from counts to photons/sec
-        # op: x-> cpstoflux(x/t)
-        op = self.op_cpstoflux(energy,weights=weights)
-        t = units.Quantity(expotime,"s")
-        op.m /= t
-
-        op.m = units.magnitude(op.m,"hertz")
-        op.b = units.magnitude(op.b,"hertz")
-
-        return op
-
-    def gainfromresponse(self,energy,response,fluxest,weights=None):
-        """Try to guess the diode gain
-        
-        Args:
-            energy(num|array): keV
-            response(num): Hz (default) or A
-            fluxest(num): estimated flux 
-            weights(Optional(num|array)): line fractions
-
-        Returns:
-            gain(num): V/A or A
-        """
-        fluxcalc = self.responsetoflux(energy,response,weights=weights)
-        Vcalc = self.fluxtovoltage(energy,fluxcalc,weights=weights)
-        Vest = self.fluxtovoltage(energy,fluxest,weights=weights)
-        r = units.magnitude(Vcalc/Vest,"dimensionless")
-        r = np.nanmedian(r)
-        return self.gainrounder(self.gain*r)
-
-    def darkfromcps(self,darkcps):
-        """Dark current from cps
-        
-        Args:
-            darkcps(num): measured dark counts per second
+            darkresponse(num|array): measured dark (cts, cps, A)
 
         Returns:
             None
         """
-        self.darkcurrent = self.cpstocurrent(np.nanmedian(darkcps))
-    
+        if time is None:
+            default = "Hz"
+        else:
+            default = "dimensionless"
+
+        func = lambda x: np.clip(np.nanmedian(x.magnitude),0,None)
+
+        darkresponse = units.Quantity(darkresponse,default)
+        try:
+            self.darkcurrent = self.cpstocurrent(func(darkresponse.to("Hz")))
+        except pinterrors.DimensionalityError:
+            try:
+                tmp = darkresponse.to("dimensionless")
+                if time is None:
+                    raise RuntimeError("Need exposure time to convert counts to flux.")
+                self.darkcurrent = self.countstocurrent(time,func(tmp))
+            except pinterrors.DimensionalityError:
+                self.darkcurrent = func(darkresponse.to("A"))
+
+        self.darkcurrent = np.clip(self.darkcurrent.magnitude,0,None)
+
+        logger.info("Calibrated dark current: {:~e}".format(self.darkcurrent.to("e/s")))
+
+    def calibrateF0(self,darkresponse,time=None):
+        """F0 from response
+        
+        Args:
+            darkresponse(num|array): measured dark (cts, cps)
+
+        Returns:
+            None
+        """
+        if time is None:
+            default = "Hz"
+        else:
+            default = "dimensionless"
+
+        func = lambda x: units.Quantity(np.clip(np.nanmedian(x.magnitude),0,None),"Hz")
+
+        darkresponse = units.Quantity(darkresponse,default)
+        try:
+            darkcps_meas = func(darkresponse.to("Hz"))
+        except pinterrors.DimensionalityError:
+            tmp = darkresponse.to("dimensionless")
+            if time is None:
+                raise RuntimeError("Need exposure time to convert counts to flux.")
+            darkcps_meas = func(self.countstocps(time,tmp))
+
+        darkcps_calc = self.currenttocps(self.darkcurrent)
+        self.oscillator.F0 += darkcps_meas-darkcps_calc
+        self.oscillator.F0 = np.clip(self.oscillator.F0.magnitude,0,None)
+
+        logger.info("Calibrated oscillator offset: {:~e}".format(self.oscillator.F0))
+
     def fluxcpsinfo(self,energy,weights=None):
         ret = collections.OrderedDict()
         Cs = self._chargepersamplephoton(energy,weights=weights).to("e")
@@ -1295,6 +1510,9 @@ class NonCalibratedPNdiode(PNdiode):
             y = units.magnitude(current,"ampere")
             y = y[indfit]
             slope,intercept = fit1d.linfit(x,y)
+            if intercept<0:
+                intercept = 0
+                slope = fit1d.linfit_zerointercept(x,y)
             
             # Set dark current:
             self.darkcurrent = intercept
@@ -1348,7 +1566,7 @@ class SXM_PTB(CalibratedPNdiode):
 class SXM_IDET(CalibratedPNdiode):
     """Centronic OSD 50-3T
     Keithley K428 (10V max analog output)
-    NOVA N101VTF voltage-to-frequency converter (Fmax=1e6Hz, F0=0Hz)
+    NOVA N101VTF voltage-to-frequency converter (Fmax=1e6Hz, F0=0Hz, Vmax=10V)
     P201 counter board
     """
     
@@ -1379,7 +1597,7 @@ class SXM_IDET(CalibratedPNdiode):
         response = responseratio*absdiode.spectral_responsivity(energy)
 
         vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
-                        F0=ureg.Quantity(32,"Hz"),\
+                        F0=ureg.Quantity(0,"Hz"),\
                         Vmax=ureg.Quantity(10,"volt"))
                         
         super(SXM_IDET,self).__init__(\
@@ -1393,7 +1611,7 @@ class SXM_IDET(CalibratedPNdiode):
 class SXM_IODET1(NonCalibratedPNdiode):
     """International Radiation Detectors (IRD), AXUV-PS1-S
     Keithley K428 (10V max analog output)
-    NOVA N101VTF voltage-to-frequency converter (Fmax=1e6Hz, F0=0Hz)
+    NOVA N101VTF voltage-to-frequency converter (Fmax=1e6Hz, F0=0Hz, Vmax=10V)
     P201 counter board
     """
     aliases = ["iodet1"]
@@ -1423,7 +1641,7 @@ class SXM_IODET1(NonCalibratedPNdiode):
         secondarytarget = multilayer.Multilayer(material=[coating,window],thickness=[500e-7,500e-7],geometry=geometry)
         
         vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
-                            F0=ureg.Quantity(247,"Hz"),\
+                            F0=ureg.Quantity(0,"Hz"),\
                             Vmax=ureg.Quantity(10,"volt"))
                         
         super(SXM_IODET1,self).__init__(\
@@ -1432,14 +1650,13 @@ class SXM_IODET1(NonCalibratedPNdiode):
                             darkcurrent=ureg.Quantity(0,"ampere"),\
                             oscillator=vtof,\
                             secondarytarget=secondarytarget,\
-                            beforesample=True,\
-                            **kwargs)
+                            beforesample=True,**kwargs)
                             
 
 class SXM_IODET2(NonCalibratedPNdiode):
     """International Radiation Detectors (IRD), AXUV-PS1-S
     Keithley K428 (10V max analog output)
-    NOVA N101VTF voltage-to-frequency converter (Fmax=1e6Hz, Vmax=0Hz)
+    NOVA N101VTF voltage-to-frequency converter (Fmax=1e6Hz, Vmax=0Hz, Vmax=10V)
     P201 counter board
     """
     
@@ -1469,7 +1686,7 @@ class SXM_IODET2(NonCalibratedPNdiode):
         secondarytarget = multilayer.Multilayer(material=[window],thickness=[500e-7],geometry=geometry)
         
         vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
-                            F0=ureg.Quantity(247,"Hz"),\
+                            F0=ureg.Quantity(0,"Hz"),\
                             Vmax=ureg.Quantity(10,"volt"))
                         
         super(SXM_IODET2,self).__init__(\
@@ -1478,8 +1695,7 @@ class SXM_IODET2(NonCalibratedPNdiode):
                             darkcurrent=ureg.Quantity(0,"ampere"),\
                             oscillator=vtof,\
                             secondarytarget=secondarytarget,\
-                            beforesample=True,\
-                            **kwargs)
+                            beforesample=True,**kwargs)
                             
 
 
@@ -1495,31 +1711,46 @@ class XRD_IDET(NonCalibratedPNdiode):
         super(XRD_IDET,self).__init__(\
                                 gain = ureg.Quantity(2.1e-6,"ampere"),\
                                 gainrounder = GainRounder(base=10,m=2.1),\
-                                darkcurrent = ureg.Quantity(0,"ampere"),beforesample=False,\
-                                **kwargs)
+                                darkcurrent = ureg.Quantity(0,"ampere"),\
+                                beforesample=False,**kwargs)
                                 
-   
+
 class ID16B_IT(NonCalibratedPNdiode):
+    """
+    Keithley K428 (2V max analog output)
+    V2F100 voltage-to-frequency converter (Fmax=50e6Hz, F0=?Hz, Vmax=2.5V)
+    P201 counter board
+    """
+
     aliases = ["id16b_It"]
     
     def __init__(self,**kwargs):
     
         kwargs["attenuators"] = {}
+        kwargs["attenuators"]["Atmosphere"] = {"material":compoundfromname.compoundfromname("air"),"thickness":80.}
         kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":500e-4}
         kwargs["ehole"] = constants.eholepair_si()
 
-        vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
-                        F0=ureg.Quantity(32,"Hz"),\
-                        Vmax=ureg.Quantity(5,"volt"))
+        vtof = Oscillator(Fmax=ureg.Quantity(50e6,"Hz"),\
+                        F0=ureg.Quantity(0,"Hz"),\
+                        Vmax=ureg.Quantity(2.5,"volt"))
                         
         super(ID16B_IT,self).__init__(\
-                        gain=ureg.Quantity(1e5,"volt/ampere"),\
-                        gainrounder=GainRounder(base=10),\
+                        gain = ureg.Quantity(2.1e-6,"ampere"),\
+                        gainrounder = GainRounder(base=10,m=2.1),\
                         darkcurrent=ureg.Quantity(0,"ampere"),\
-                        beforesample=False,oscillator=vtof,**kwargs)
+                        oscillator=vtof,\
+                        Vmax=ureg.Quantity(2.1,"volt"),\
+                        beforesample=False,**kwargs)
                         
 
 class ID16B_I0(NonCalibratedPNdiode):
+    """
+    Keithley K428 (2V max analog output)
+    V2F100 voltage-to-frequency converter (Fmax=50e6Hz, F0=?Hz, Vmax=2.5V)
+    P201 counter board
+    """
+
     aliases = ["id16b_I0"]
     
     def __init__(self,**kwargs):
@@ -1528,18 +1759,26 @@ class ID16B_I0(NonCalibratedPNdiode):
         kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":500e-4}
         kwargs["ehole"] = constants.eholepair_si()
 
-        vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
-                        F0=ureg.Quantity(32,"Hz"),\
-                        Vmax=ureg.Quantity(5,"volt"))
+        vtof = Oscillator(Fmax=ureg.Quantity(50e6,"Hz"),\
+                        F0=ureg.Quantity(0,"Hz"),\
+                        Vmax=ureg.Quantity(2.5,"volt"))
                         
         super(ID16B_IT,self).__init__(\
-                        gain=ureg.Quantity(1e5,"volt/ampere"),\
-                        gainrounder=GainRounder(base=10),\
+                        gain = ureg.Quantity(2.1e-6,"ampere"),\
+                        gainrounder = GainRounder(base=10,m=2.1),\
                         darkcurrent=ureg.Quantity(0,"ampere"),\
-                        beforesample=True,oscillator=vtof,**kwargs)
+                        oscillator=vtof,\
+                        Vmax=ureg.Quantity(2.1,"volt"),\
+                        beforesample=True,**kwargs)
                         
 
 class ID16B_IC(NonCalibratedPNdiode):
+    """
+    Keithley K428 (2V max analog output)
+    V2F100 voltage-to-frequency converter (Fmax=50e6Hz, F0=?Hz, Vmax=2.5V)
+    P201 counter board
+    """
+
     aliases = ["id16b_IC"]
 
     def __init__(self,**kwargs):
@@ -1562,21 +1801,21 @@ class ID16B_IC(NonCalibratedPNdiode):
         kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":500e-4}
         kwargs["ehole"] = constants.eholepair_si()
         
-        window = compoundfromname.compoundfromname("silicon nitride") # TODO: mirror material
+        window = compoundfromname.compoundfromname("silicon nitride") # TODO: mirror material + thickness???
         secondarytarget = multilayer.Multilayer(material=[window],thickness=[500e-7],geometry=geometry)
         
-        vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
-                            F0=ureg.Quantity(32,"Hz"),\
-                            Vmax=ureg.Quantity(5,"volt"))
+        vtof = Oscillator(Fmax=ureg.Quantity(50e6,"Hz"),\
+                            F0=ureg.Quantity(0,"Hz"),\
+                            Vmax=ureg.Quantity(2.5,"volt"))
                         
-        super(SXM_IODET2,self).__init__(\
-                            gain=ureg.Quantity(1e5,"volt/ampere"),\
-                            gainrounder=GainRounder(base=10),\
+        super(ID16B_IC,self).__init__(\
+                            gain = ureg.Quantity(2.1e-6,"ampere"),\
+                            gainrounder = GainRounder(base=10,m=2.1),\
                             darkcurrent=ureg.Quantity(0,"ampere"),\
                             oscillator=vtof,\
+                            Vmax=ureg.Quantity(2.1,"volt"),\
                             secondarytarget=secondarytarget,\
-                            beforesample=True,\
-                            **kwargs)
+                            beforesample=True,**kwargs)
                             
 
 factory = PNdiode.factory

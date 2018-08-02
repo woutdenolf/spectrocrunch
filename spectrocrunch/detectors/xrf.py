@@ -740,6 +740,28 @@ class DR40(XRFDetector):
         kwargs["ehole"] = constants.eholepair_si()
         
         super(DR40,self).__init__(**kwargs)
+
+
+class ID16b_Virtual1(XRFDetector):
+
+    def __init__(self,**kwargs):
+
+        attenuators = kwargs.get("attenuators",{})
+        attenuators["WindowDetector"] = {"material":element.Element('Be'),"thickness":50e-4}
+        attenuators["Deadlayer"] = {"material":element.Element('Si'),"thickness":30e-7}
+        attenuators["Detector"] = {"material":element.Element('Si'),"thickness":450e-4}
+        kwargs["attenuators"] = attenuators
         
+        kwargs["activearea"] = units.Quantity(80.,"mm^2")
+        
+        kwargs["mcazero"] = 0. # keV
+        kwargs["mcagain"] = 10e-3 # keV
+        kwargs["mcanoise"] = 0.1 # keV
+        kwargs["mcafano"] = 0.114
+        
+        kwargs["ehole"] = constants.eholepair_si()
+        
+        super(ID16b_Virtual1,self).__init__(**kwargs)
+
 factory = XRFDetector.factory
 

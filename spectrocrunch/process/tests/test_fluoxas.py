@@ -86,16 +86,16 @@ class test_fluoxas(unittest.TestCase):
         monitor.setreferenceflux(1e9)
         monitor.setdefaulttime(0.1)
         
-        info = {"I0":300,"It":30,"time":1,"dark":True,"gaindiodeI0":1e8,"gaindiodeIt":1e7}
+        info = {"I0_counts":300,"It_counts":30,"time":1,"dark":True,"gaindiodeI0":1e8,"gaindiodeIt":1e7}
         monitor.calibrate(**info)
         
-        info["I0"] = 10000
-        info["It"] = 100000
+        info["I0_counts"] = 10000
+        info["It_counts"] = 100000
         info["energy"] = energy-2
         info["dark"] = False
         monitor.calibrate(**info)
         
-        info["I0"] = 5000
+        info["I0_counts"] = 5000
         info["energy"] = energy+2
         monitor.calibrate(**info)
         

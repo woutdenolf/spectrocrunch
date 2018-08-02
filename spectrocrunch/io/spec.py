@@ -548,6 +548,15 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         else:
             return [values[names.index(mot)] for mot in motors]
 
+    def hasmotors(self,scannumber,motors):
+        info = self._get_scan_info(scannumber)
+        motors = self._parse_labels(motors)
+        names = self._parse_labels(info["MotorNames"])
+        if instance.isstring(motors):
+            return motors in names
+        else:
+            return [mot in names for mot in motors]
+
     def getxialocation(self,scannumber):
         """Get info on saved data
         """

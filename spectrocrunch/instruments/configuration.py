@@ -23,6 +23,7 @@
 # THE SOFTWARE.
 
 import collections
+import os
 
 from .. import ureg
 from ..common.classfactory import with_metaclass
@@ -50,7 +51,7 @@ class InstrumentInfo(with_metaclass(object)):
                               "slowlabel":"slow"}
         self.edfheaderkeys.update(info.get("edfheaderkeys",{}))
 
-        self.counterdict = {"I0":"I0","It":"It"}
+        self.counterdict = {"I0_counts":"I0","It_counts":"It"}
         self.counterdict.update(info.get("counterdict",[]))
         self.counter_reldir = info.get("counter_reldir",".")
         self.metadata = info.get("metadata","counters")
@@ -64,6 +65,12 @@ class InstrumentInfo(with_metaclass(object)):
         self.speccounternames = info.get("speccounternames",{})
         
         self.h5stackgroups = info.get("h5stackgroups",["counters","^detector(\d+|sum)$"])
+
+        self.datalocation = info.get("datalocation",{})
+        if "xrf_dynamic" not in self.datalocation:
+            self.datalocation["xrf_dynamic"] = {"subdir":""}
+        if "xrf_static" not in self.datalocation:
+            self.datalocation["xrf_static"] = {"subdir":""}
 
     def counters(self,include=None,exclude=None):
         if include is None:
@@ -95,6 +102,8 @@ class InstrumentInfo(with_metaclass(object)):
             name = f(motordict[k])
             if name:
                 return name
+        if "default" in device:
+            name = device["default"]
         return name
     
     def diodeI0(self,motordict):
@@ -111,6 +120,16 @@ class InstrumentInfo(with_metaclass(object)):
     
     def motornames(self):
         return self._specmotornames.keys()
+
+    def xrfsubdir(self,type="dynamic"):
+        return self.datalocation["xrf_{}".format(type)]["subdir"]
+
+    def xrflocation(self,sample,dataset,type="dynamic"):
+        # root/sample/sample_dataset/xrfsubdir/sample_dataset*.*
+        xrfsubdir = self.xrfsubdir(type=type)
+        radix = "_".join([sample,dataset])
+        subdir = os.path.join(sample,radix,xrfsubdir)
+        return radix,subdir
 
 
 class ESRF_ID21_SXM(InstrumentInfo):
@@ -132,9 +151,9 @@ class ESRF_ID21_SXM(InstrumentInfo):
                                     "energylabel":"DCM_Energy"})
                                     
         info["counterdict"] = info.get("counterdict",\
-                                    {"I0":"arr_iodet",\
-                                    "It":"arr_idet",\
-                                    "If":"arr_fdet",\
+                                    {"I0_counts":"arr_iodet",\
+                                    "It_counts":"arr_idet",\
+                                    "If_counts":"arr_fdet",\
                                     "xrficr":"xmap_icr",\
                                     "xrfocr":"xmap_ocr",\
                                     "encoders":["arr_samy","arr_samz"],\
@@ -165,25 +184,27 @@ class ESRF_ID21_SXM(InstrumentInfo):
                                          )
         
         info["speccounternames"] = info.get("speccounternames",\
-                                          {"I0":"iodet",\
-                                           "It":"idet",\
+                                          {"I0_counts":"iodet",\
+                                           "It_counts":"idet",\
                                            "energy":"energym",\
                                            "time":"seconds",\
-                                           "fluxt":"photons"}
+                                           "It_photons":"photons"}
                                          )
         
         info["units"] = info.get("units",{})                           
         info["units"]["time"] = info["units"].get("time",ureg.seconds)
         info["units"]["energy"] = info["units"].get("energy",ureg.Unit("keV"))
-        info["units"]["I0"] = info["units"].get("I0",ureg.dimensionless)
-        info["units"]["It"] = info["units"].get("It",ureg.dimensionless)
-        info["units"]["fluxt"] = info["units"].get("fluxt",ureg.dimensionless)
+        info["units"]["I0_counts"] = info["units"].get("I0_counts",ureg.dimensionless)
+        info["units"]["It_counts"] = info["units"].get("It_counts",ureg.dimensionless)
+        info["units"]["It_photons"] = info["units"].get("It_photons",ureg.dimensionless)
         info["units"]["samy"] = info["units"].get("samy",ureg.millimeter)
         info["units"]["samz"] = info["units"].get("samz",ureg.millimeter)
         info["units"]["samx"] = info["units"].get("samx",ureg.millimeter)
         info["units"]["sampz"] = info["units"].get("sampz",ureg.micrometer)
         info["units"]["sampy"] = info["units"].get("sampy",ureg.micrometer)
-                                    
+                       
+        info["datalocation"] = info.get("datalocation",{"xrf_dynamic":"zap","xrf_static":"xrf"})
+             
         super(ESRF_ID21_SXM,self).__init__(**info)
                 
 
@@ -206,12 +227,14 @@ class ESRF_ID21_MICRODIFF(InstrumentInfo):
                                     "sampv":["samv"]})
                                     
         info["counterdict"] = info.get("counterdict",\
-                                    {"I0":"zap_iodet",\
-                                    "It":"zap_idet",\
+                                    {"I0_counts":"zap_iodet",\
+                                    "It_counts":"zap_idet",\
                                     "xrficr":"xmap_icr",\
                                     "xrfocr":"xmap_ocr",\
                                     "xrfroi":["xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c"]})
-                                    
+        
+        info["datalocation"] = info.get("datalocation",{"xrf_dynamic":"zap","xrf_static":"xrf","xrd_dynamic":"zap","xrd_static":"xrd"})
+
         super(ESRF_ID21_MICRODIFF,self).__init__(**info)
 
 
@@ -233,12 +256,65 @@ class ESRF_ID16B(InstrumentInfo):
                                     "sampy":["sy"],\
                                     "sampz":["sz"]})
                                     
-        info["counterdict"] = info.get("counterdict",\
-                                    {"I0":"zap_p201_IC",\
-                                    "It":"zap_p201_It"})
-        info["metadata"] = info.get("metadata","xia")
+        info["diodeI0"] = info.get("diodeI0",\
+                                  {"default":"id16b_IC",\
+                                   "unknown":"id16b_I0"},\
+                                  )
+                                    
+        info["edfheaderkeys"] = info.get("edfheaderkeys",\
+                                    {"speclabel":"title",\
+                                    "energylabel":"energy"})
+
+        info["diodeIt"] = info.get("diodeIt",\
+                                  {"default":"id16b_It"}\
+                                  )
+
+        info["optics"] = info.get("optics",\
+                                  {"zpz": "KB"}
+                                 )
         
+        info["counterdict"] = info.get("counterdict",\
+                                    {"I0_counts":"zap_p201_I0",\
+                                    "It_counts":"zap_p201_It",\
+                                    "IC_counts":"zap_p201_IC",\
+                                    "counters":["zap_","xmap_"]})
+
+        info["speccounternames"] = info.get("speccounternames",\
+                                          {"IC_counts":"p201_IC",\
+                                           "I0_counts":"p201_I0",\
+                                           "It_counts":"p201_It",\
+                                           "IC_current":"IC",\
+                                           "I0_current":"I0",\
+                                           "It_current":"It",\
+                                           "energy":"energy",\
+                                           "time":"Seconds",\
+                                           "It_flux":"flux_It"}
+                                         )
+
+        info["units"] = info.get("units",{})                           
+        info["units"]["time"] = info["units"].get("time",ureg.seconds)
+        info["units"]["I0_counts"] = info["units"].get("I0_counts",ureg.dimensionless)
+        info["units"]["It_counts"] = info["units"].get("It_counts",ureg.dimensionless)
+        info["units"]["IC_counts"] = info["units"].get("IC_counts",ureg.dimensionless)
+        info["units"]["energy"] = info["units"].get("energy",ureg.Unit("keV"))
+        info["units"]["It_flux"] = info["units"].get("It_flux",ureg.Unit("Hz"))
+        info["units"]["I0_current"] = info["units"].get("I0_current",ureg.Unit("pA"))
+        info["units"]["It_current"] = info["units"].get("It_current",ureg.Unit("pA"))
+        info["units"]["IC_current"] = info["units"].get("IC_current",ureg.Unit("pA"))
+
+        info["metadata"] = info.get("metadata","xia")
+
         super(ESRF_ID16B,self).__init__(**info)
+
+    def xrflocation(self,sample,dataset,type="dynamic"):
+        # root/sample/xrfsubdir/dataset*.*
+        xrfsubdir = self.xrfsubdir(type=type)
+        if not dataset:
+            dataset = sample
+        radix = dataset
+        subdir = os.path.join(sample,xrfsubdir)
+        return radix,subdir
+
 
         
 factory = InstrumentInfo.factory

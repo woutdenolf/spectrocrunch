@@ -36,6 +36,7 @@ from ..io import spec
 from ..io import nexus
 from ..xrf.fit import PerformBatchFit
 from ..common import units
+from ..common import listtools
 
 logger = logging.getLogger(__name__)
 
@@ -100,10 +101,13 @@ def detectorname(detector):
         name = "counters"
     return name
 
-def transfunc(fluxt,flux0):
+def transmission_func(fluxt,flux0):
     with np.errstate(divide='ignore', invalid='ignore'):
-        return -np.log(np.clip(np.divide(fluxt,flux0),0,1))
-                        
+        return np.divide(fluxt,flux0)
+
+def absorbance_func(transmission):
+    return -np.log(np.clip(transmission,0,1))
+
 def createimagestacks(config,qxrfgeometry=None):
     """Get image stacks (counters, ROI's, fitted maps)
 
@@ -247,6 +251,7 @@ def createimagestacks(config,qxrfgeometry=None):
             stackinfo["activearea"] = np.full(nstack,qxrfgeometry.xrfgeometry.detector.activearea)
             stackinfo["anglein"] = np.full(nstack,qxrfgeometry.xrfgeometry.anglein)
             stackinfo["angleout"] = np.full(nstack,qxrfgeometry.xrfgeometry.angleout)
+            stackinfo["xrfnormop"] = [""]*nstack
             
             for imageindex,xiaimage in enumerate(xiastackraw):
                 energy = stackaxes[stackdim]["data"][imageindex]
@@ -263,6 +268,7 @@ def createimagestacks(config,qxrfgeometry=None):
                     
                     xiaimage.localnorm(config["fluxcounter"],func=xrfnormop)
 
+                    stackinfo["xrfnormop"][imageindex] = str(xrfnormop)
                     pos = stackinfo["sampledetdistance"][imageindex]
                     if not np.isnan(pos):
                         qxrfgeometry.setxrfposition(pos)
@@ -300,7 +306,9 @@ def createimagestacks(config,qxrfgeometry=None):
     # I0/It stacks
     if fluxnorm:
         energy = stackaxes[stackdim]["data"][imageindex]
-        if not np.isnan(energy) and ("fluxcounter" in config or "transmissioncounter" in config):        
+        if not np.isnan(energy) and ("fluxcounter" in config or "transmissioncounter" in config):
+            stackinfo["flux0op"] = [""]*nstack
+            stackinfo["fluxtop"] = [""]*nstack        
             for imageindex in range(nstack):
                 name = detectorname(None)
                 time = stackinfo["refexpotime"][imageindex]
@@ -309,14 +317,18 @@ def createimagestacks(config,qxrfgeometry=None):
                     if "calc_flux0" not in stacks[name]:
                         stacks[name]["calc_flux0"] = [""]*nstack
                     stacks[name]["calc_flux0"][imageindex] = {"args":[(name,config["fluxcounter"])],"func":op}
+                    stackinfo["flux0op"][imageindex] = str(op)
                 if "transmissioncounter" in config:
                     op,_ = qxrfgeometry.Itop(energy,expotime=time)
                     if "calc_fluxt" not in stacks[name]:
                         stacks[name]["calc_fluxt"] = [""]*nstack
                         stacks[name]["calc_transmission"] = [""]*nstack
+                        stacks[name]["calc_absorbance"] = [""]*nstack
                     stacks[name]["calc_fluxt"][imageindex] = {"args":[(name,config["transmissioncounter"])],"func":op}
-                    stacks[name]["calc_transmission"][imageindex] = {"args":[(name,"calc_fluxt"),(name,"calc_flux0")],"func":transfunc}
-                    
+                    stacks[name]["calc_transmission"][imageindex] = {"args":[(name,"calc_fluxt"),(name,"calc_flux0")],"func":transmission_func}
+                    stacks[name]["calc_absorbance"][imageindex] = {"args":[(name,"calc_transmission"),],"func":absorbance_func}
+                    stackinfo["fluxtop"][imageindex] = str(op)
+
     # Fit data and add elemental maps
     if fit:
         logger.info("Fit XRF spectra ...")
@@ -387,7 +399,11 @@ def createimagestacks(config,qxrfgeometry=None):
     ind = np.argsort(stackaxes[stackdim]["data"],kind='mergesort')
     stackaxes[stackdim]["data"] = stackaxes[stackdim]["data"][ind]
     for mot in stackinfo:
-        stackinfo[mot] = stackinfo[mot][ind]
+        try:
+            stackinfo[mot] = stackinfo[mot][ind]
+        except TypeError:
+            stackinfo[mot] = listtools.listadvanced_int(stackinfo[mot],ind)
+
     for k1 in stacks:
         group = stacks[k1]
         for k2 in group:

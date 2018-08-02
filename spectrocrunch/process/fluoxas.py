@@ -124,6 +124,8 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
     qxrfgeometry = kwargs.get("qxrfgeometry",None)
     qxrfgeometryparams = {"quantify":qxrfgeometry is not None}
     counters = kwargs.get("counters",[])
+    fluxid = kwargs.get("fluxid","I0")
+    transmissionid = kwargs.get("transmissionid","It")
 
     if noxia:
         cfgfiles = None
@@ -145,12 +147,18 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
         cfgfiles = [cfgfiles]
 
     if not counters:
-        lst = ["I0","It","If","calc"]
-        if not noxia:
+        #lst = ["I0_counts","It_counts","If_counts","calc"]
+        #if not noxia:
+        #    lst.extend(["xrficr","xrfocr","xrfroi"])
+        #if encodercor:
+        #    lst.extend(["motors"])
+        #counters = instrument.counters(include=lst)
+        lst = []
+        if noxia:
             lst.extend(["xrficr","xrfocr","xrfroi"])
-        if encodercor:
+        if not encodercor:
             lst.extend(["motors"])
-        counters = instrument.counters(include=lst)
+        counters = instrument.counters(exclude=lst)
 
     # Correct for deadtime when a single detector? (ignored when dtcor==False)
     # This exists because for one detector you can apply the deadtime correction
@@ -164,8 +172,8 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
             "scanname": scanname,
             "scannumbers": scannumbers,
             "counters": counters,
-            "fluxcounter": instrument.counterdict["I0"],
-            "transmissioncounter": instrument.counterdict["It"],
+            "fluxcounter": instrument.counterdict[fluxid+"_counts"],
+            "transmissioncounter": instrument.counterdict[transmissionid+"_counts"],
 
             # Meta data
             "metadata": instrument.metadata,

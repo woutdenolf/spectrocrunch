@@ -35,16 +35,16 @@ class test_qxrf(unittest.TestCase):
         geometryinstance = qxrf.factory("QXRFGeometry",diodeI0="iodet1",diodeIt="idet",optics="kb",\
                             xrfdetector="leia",xrfgeometry="sxm120",instrument="sxm",simplecalibration=False)
         
-        info = {"I0":300,"It":30,"time":1,"dark":True,"gaindiodeI0":1e8,"gaindiodeIt":1e7}
+        info = {"I0_counts":300,"It_counts":30,"time":1,"dark":True,"gaindiodeI0":1e8,"gaindiodeIt":1e7}
         geometryinstance.calibrate(**info)
         
-        info["I0"] = 10000
-        info["It"] = 100000
+        info["I0_counts"] = 10000
+        info["It_counts"] = 100000
         info["energy"] = energy-2
         info["dark"] = False
         geometryinstance.calibrate(**info)
         
-        info["I0"] = 5000
+        info["I0_counts"] = 5000
         info["energy"] = energy+2
         geometryinstance.calibrate(**info)
         

@@ -49,7 +49,7 @@ def eholepair_si(T=21):
     
     m = (y[1]-y[0])/(x[1]-x[0])
     b = y[1]-m*x[1]
-    
+
     return (m*T+b).to("eV")
     
     

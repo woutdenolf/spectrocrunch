@@ -49,7 +49,8 @@ class QXRFGeometry(with_metaclass(object)):
     """
     
     def __init__(self,instrument=None,diodeI0=None,diodeIt=None,xrfdetector=None,\
-                xrfgeometry=None,optics=None,source="synchrotron",simplecalibration=True):
+                xrfgeometry=None,optics=None,source="synchrotron",simplecalibration=True,\
+                fluxid="I0",transmissionid="It"):
         
         self.instrument = configuration.factory(instrument)
 
@@ -69,6 +70,8 @@ class QXRFGeometry(with_metaclass(object)):
         self.defaultexpotime = units.Quantity(0.1,"s")
         self.referencetime = None
         self._data = {}
+        self.fluxid = fluxid
+        self.transmissionid = transmissionid
 
     def __str__(self):
         if self.diodeI0 is None:
@@ -205,8 +208,8 @@ class QXRFGeometry(with_metaclass(object)):
     def fluxtocps(self,energy,flux,weights=None):
         return self.diodeI0.fluxtocps(energy,flux,weights=weights).magnitude
   
-    def responsetoflux(self,energy,response,weights=None):
-        return self.diodeI0.responsetoflux(energy,response,weights=weights).magnitude
+    def responsetoflux(self,energy,response,weights=None,time=None):
+        return self.diodeI0.responsetoflux(energy,response,weights=weights,time=time).magnitude
     
     def xrfnormop(self,energy,expotime=None,reference=None,referencetime=None,weights=None):
         """
@@ -261,13 +264,13 @@ class QXRFGeometry(with_metaclass(object)):
     def I0op(self,energy,expotime=None,weights=None):
         if expotime is None:
             expotime = self.defaultexpotime
-        op = self.diodeI0.fluxop(energy,expotime,weights=weights)
+        op = self.diodeI0.fluxop(energy,0,time=expotime,weights=weights)
         return op,expotime
 
     def Itop(self,energy,expotime=None,weights=None):
         if expotime is None:
             expotime = self.defaultexpotime
-        op = self.diodeIt.fluxop(energy,expotime,weights=weights)
+        op = self.diodeIt.fluxop(energy,0,time=expotime,weights=weights)
         return op,expotime
 
     def batchcalibrate(self,params_fixed,params_var):
@@ -275,60 +278,91 @@ class QXRFGeometry(with_metaclass(object)):
             params = dict(params_fixed)
             params.update(k)
             self.calibrate(**params)
-            
-    def calibrate(self,**paramsin):
-        params = dict(paramsin)
-        
+    
+    def _calibrate_prepare(self,params):
         # Get data
         base = params.pop("base",None)
         sample = params.pop("sample",None)
         dataset = params.pop("dataset",None)
         specnr = params.pop("specnr",None)
-
-        if specnr is None:
-            # Data in the params
-            data,staticdata = self._parse_default(params)
-        else:
-            sampledataset = "{}_{}".format(sample,dataset)
-            specfile = os.path.join(base,sample,sampledataset,"{}.dat".format(sampledataset))
-            data,staticdata = self._parse_spec(specfile,specnr)
-
-        # 
-        resetdevices = params.pop("resetdevices",False)
-        params2 = self._validate_data(data,staticdata,resetdevices=resetdevices)
         
-        # Optional parameters
+        if specnr:
+            if sample:
+                sampledataset = "{}_{}".format(sample,dataset)
+                specfile = os.path.join(base,sample,sampledataset,"{}.dat".format(sampledataset))
+            else:
+                specfile = os.path.join(base,dataset)
+
+            # Data in spec file
+            data,staticdata = self._parse_spec(specfile,specnr)
+        else:
+            # Data in params
+            data,staticdata = self._parse_default(params)
+
+        # Prepare devices
+        resetdevices = params.pop("resetdevices",False)
+        params2 = self._validate_data(data,staticdata,resetdevices=resetdevices,dark=params["dark"])
         gaindiodeI0 = params.pop("gaindiodeI0",None)
         gaindiodeIt = params.pop("gaindiodeIt",None)
-        nofit = params.pop("nofit",False)
-        plot = params.pop("plot",False)
-        
-        # Set diode gains
         self._set_diode_gain(gaindiodeI0,params2.get("gaindiodeI0",None),"diodeI0")
         self._set_diode_gain(gaindiodeIt,params2.get("gaindiodeIt",None),"diodeIt")
 
+        return data
+
+    def _calibrate_dark(self,params,data):
+        docalibrate = params.pop("calibrate",True)
+        fixdark = params.pop("fixdark",False)
+        params.pop("fluxmin",None)
+        params.pop("fluxmax",None)
+        if docalibrate and not fixdark:
+           for k,attr in zip(self._calibrate_fields_id(),["diodeI0","diodeIt"]):
+                deviceinstance = getattr(self,attr)
+                kcurrent = "{}_current".format(k)
+                kcps = "{}_cps".format(k)
+                if kcurrent in data and kcps in data and False:
+                    deviceinstance.calibratedark(data[kcurrent])
+                    deviceinstance.calibrateF0(data[kcps])
+                elif kcps in data:
+                    deviceinstance.calibratedark(data[kcps])
+
+    def _calibrate_gain(self,params,data):
+        fitinfo = {}
+
+        docalibrate = params.pop("calibrate",True)
+        if docalibrate:
+            energy = data["energy"].to("keV").magnitude
+            for name in ["current","cps"]:
+                I0,It = self._calibrate_fields_name(name)
+                if It in data and I0 in data:
+                    flux = self.diodeIt.responsetoflux(energy,data[It])
+                    fitinfo = self.diodeI0.calibrate(data[I0],flux,energy,**params)
+                break
+
+        return fitinfo
+
+    def calibrate(self,**paramsin):
+        # Get data and prepare devices
+        params = dict(paramsin)
+        data = self._calibrate_prepare(params)
+
         # Calibrate
-        dark = params.pop("dark") 
-        if dark:
-            fixdark = params.pop("fixdark",False)
-            params.pop("fluxmin",None)
-            params.pop("fluxmax",None)
-            if not(nofit or fixdark):
-                self.diodeI0.darkfromcps(data["I0"],**params)
-                self.diodeIt.darkfromcps(data["It"],**params)
+        dark = params.pop("dark",False)
+        plot = params.pop("plot",False)
+        oscillator = params.pop("oscillator",False)
+        if oscillator:
             if plot:
-                self._show_dark_calib(data)
+                self._show_oscillator_calib(data)
         else:
-            if nofit:
-                fitinfo = {}
+            if dark:
+                self._calibrate_dark(params,data)
+                if plot:
+                    self._show_dark_calib(data)
             else:
-                energy = data["energy"].to("keV").magnitude
-                flux = self.diodeIt.responsetoflux(energy,data["It"])
-                fitinfo = self.diodeI0.calibrate(data["I0"],flux,energy,**params)
-            if plot:
-                fluxmin = params.get("fluxmin",0)
-                fluxmax = params.get("fluxmax",np.inf)
-                self._show_flux_calib(data,fluxmin=fluxmin,fluxmax=fluxmax,fitinfo=fitinfo)
+                fitinfo = self._calibrate_gain(params,data)
+                if plot:
+                    fluxmin = params.get("fluxmin",0)
+                    fluxmax = params.get("fluxmax",np.inf)
+                    self._show_flux_calib(data,fluxmin=fluxmin,fluxmax=fluxmax,fitinfo=fitinfo)
         if plot:
             plt.show()
 
@@ -341,14 +375,14 @@ class QXRFGeometry(with_metaclass(object)):
         else:
             if gaindata is not None:
                 gainasked = units.quantity_like(gainasked,gaindata)
-                if gainasked!=gaindata:
+                if not np.isclose(gainasked,gaindata):
                     raise RuntimeError("Data was collected with diode {} gain {}, but {} was expected".format(gaindata,deviceinstance.__class__.__name__,gainasked))
             deviceinstance.gain = gainasked
 
     def _check_device(self,attr,clsfactory,clsnameused,resetdevice=False):
         if clsnameused is None:
             return # usage is not specified
-            
+        
         deviceinstance = getattr(self,attr)
         if clsnameused:
             # Device was used
@@ -372,8 +406,17 @@ class QXRFGeometry(with_metaclass(object)):
                 else:
                     raise RuntimeError("Data was not collected with device {}.".format(deviceinstance.__class__.__name__))
     
+    def _calibrate_fields_id(self):
+        return [self.fluxid,self.transmissionid]
+
+    def _calibrate_fields_name(self,name):
+        return ["{}_{}".format(k,name) for k in self._calibrate_fields_id()]
+
     def _calibrate_fields(self):
-        return ["I0","It","flux0","fluxt","time","energy"]
+        return self._calibrate_fields_name("counts")+\
+               self._calibrate_fields_name("current")+\
+               self._calibrate_fields_name("flux")+\
+               ["time","energy"]
     
     def _parse_spec(self,specfile,specnr):
         fspec = spec.spec(specfile)
@@ -387,12 +430,19 @@ class QXRFGeometry(with_metaclass(object)):
         # Counters
         fields = self._calibrate_fields()
         labels = [self.instrument.speccounternames.get(k,"") for k in fields]
-        available = fspec.haslabels(specnr,labels)
-        labels = [label for label,v in zip(labels,available) if v]
-        ufields = [name for name,v in zip(fields,available) if v]
-        data = fspec.getdata2(specnr,labels).T
-        data = {k:units.Quantity(v,self.instrument.units[k]) for k,v in zip(ufields,data)}
+        ascounter = fspec.haslabels(specnr,labels)
+        asmotor = fspec.hasmotors(specnr,labels)
+
+        labels1 = [label for label,v in zip(labels,ascounter) if v]
+        ufields1 = [name for name,v in zip(fields,ascounter) if v]
+        data = fspec.getdata2(specnr,labels1).T
+        data = {k:units.Quantity(v,self.instrument.units[k]) for k,v in zip(ufields1,data)}
         
+        labels2 = [label for label,v in zip(labels,asmotor) if v]
+        ufields2 = [name for name,v in zip(fields,asmotor) if v]
+        motorvalues = fspec.getmotorvalues(specnr,labels2)
+        
+        data.update({k:units.Quantity(v,self.instrument.units[k]) for k,v in zip(ufields2,motorvalues)})
         return data,staticdata
     
     def _parse_default(self,params):
@@ -405,7 +455,7 @@ class QXRFGeometry(with_metaclass(object)):
                 
         return data,params.pop("motors",{})
         
-    def _validate_data(self,data,staticdata,resetdevices=False):
+    def _validate_data(self,data,staticdata,resetdevices=False,dark=False):
         
         fields = self._calibrate_fields()
         
@@ -415,7 +465,7 @@ class QXRFGeometry(with_metaclass(object)):
                 data[k] = units.Quantity(data[k],self.instrument.units[k])
             elif k in staticdata:
                 data[k] = units.Quantity(staticdata[k],self.instrument.units[k])
-        
+
         # Fill in missing exposure time
         if "time" not in data:
             data["time"] = self.defaultexpotime
@@ -425,30 +475,45 @@ class QXRFGeometry(with_metaclass(object)):
         if "energy" in data:
             data["energy"] = data["energy"].to("keV")
         
-        # Make sure flux is in hertz
-        for k in ["flux0","fluxt"]:
-            if k in data:
-                if data[k].units == ureg.dimensionless:
-                    data[k] = data[k]/data["time"]
-                data[k] = data[k].to("Hz")
-        
-        # Make sure diode response is in Hz(default) or A
-        for k in ["I0","It"]:
-            if k in data:
-                if data[k].units == ureg.dimensionless:
-                    data[k] = data[k]/data["time"]
-                data[k] = units.unitsto(data[k],["Hz","A"])
+        # Diode response: ensure units
+        for k in self._calibrate_fields_id():
+            # counts are not used anywhere, just needed to calculate cps
+            kcounts = "{}_counts".format(k)
+            kphotons = "{}_photons".format(k)
+            kcurrent = "{}_current".format(k)
+            kcps = "{}_cps".format(k)
+            kflux = "{}_flux".format(k)
+
+            if kcounts in data:
+                data[kcounts] = data[kcounts].to("dimensionless")
+                if kcps not in data:
+                    data[kcps] = data[kcounts].to("dimensionless")/data["time"]
+
+            if kcps in data:
+                data[kcps] = data[kcps].to("Hz")
+
+            if kphotons in data:
+                data[kphotons] = data[kphotons].to("dimensionless")
+                if kflux not in data:
+                    data[kflux] = data[kphotons].to("dimensionless")/data["time"]
+
+            if kflux in data:
+                data[kflux] = data[kflux].to("Hz")
+
+            if kcurrent in data:
+                data[kcurrent] = data[kcurrent].to("A")
 
         # Verify, create or replace devices
-        if "I0" in data:
+        I0,It = self._calibrate_fields_name("cps")
+        if I0 in data:
             try:
                 diodeI0name = self.instrument.diodeI0(staticdata)
             except KeyError:
                 diodeI0name = None
         else:
             diodeI0name = ""
-        
-        if "It" in data:
+
+        if It in data:
             try:
                 diodeItname = self.instrument.diodeIt(staticdata)
             except KeyError:
@@ -465,30 +530,36 @@ class QXRFGeometry(with_metaclass(object)):
         self._check_device("diodeI0",diodes.clsfactory,diodeI0name,resetdevice=resetdevices)
         self._check_device("diodeIt",diodes.clsfactory,diodeItname,resetdevice=resetdevices)
         
-        # Set gains
+        # Diode gains from response
         ret = {}
-        if "I0" in data and "flux0" in data and "energy" in data:
-            ret["gaindiodeI0"] = self.diodeI0.gainfromresponse(data["energy"].to("keV").magnitude,data["I0"],data["flux0"])
-
-        gainIt = "It" in data and "fluxt" in data
-        if "It" in data and "fluxt" in data and "energy" in data:
-            ret["gaindiodeIt"] = self.diodeIt.gainfromresponse(data["energy"].to("keV").magnitude,data["It"],data["fluxt"])
+        if "energy" in data and not dark:
+            energy = data["energy"].to("keV").magnitude
+            for k,attr in zip(self._calibrate_fields_id(),["diodeI0","diodeIt"]):
+                kcps = "{}_cps".format(k)
+                if kcps in data:
+                    for name in ["current","flux"]:
+                        j = "{}_{}".format(k,name)
+                        if j in data:
+                            ret["gain"+attr] = getattr(self,attr).gainfromresponse(data[kcps],data[j],energy=energy)
+                            break
 
         return ret
 
     def _show_dark_calib(self,data):
-        f, (ax1, ax2) = plt.subplots(1, 2)
-        self._plot_dark_calib(self.diodeIt,data["It"],"diodeIt",ax1)
-        color = next(ax1._get_lines.prop_cycler)['color']
-        self._plot_dark_calib(self.diodeI0,data["I0"],"diodeI0",ax2,color=color)
+        f, axs = plt.subplots(1, 2)
+        color = None
+        for k,attr,ax in zip(self._calibrate_fields_name("cps"),["diodeI0","diodeIt"],axs):
+            self._plot_dark_calib(attr,data[k],attr,ax,color=color)
+            color = next(ax._get_lines.prop_cycler)['color']
         plt.tight_layout()
 
-    def _plot_dark_calib(self,deviceinstance,response,name,ax,color=None):
+    def _plot_dark_calib(self,deviceattr,response,name,ax,color=None):
+        deviceinstance = getattr(self,deviceattr)
         ax.plot(response,'o',label='spec',color=color)
         ax.axhline(y=deviceinstance.fluxtocps(5,0).magnitude,label='calc',color=color)
         ax.set_xlabel("points")
         ax.set_ylabel("{} ({:~})".format(name,response.units))
-        ax.set_title("{:~.0e}".format(deviceinstance.gain))
+        ax.set_title("{:~.1e}".format(deviceinstance.gain))
         ax.legend(loc="best")
 
     def _plot_diode_flux(self,attr,energy,response,ax,color=None):
@@ -500,9 +571,9 @@ class QXRFGeometry(with_metaclass(object)):
         flux = deviceinstance.responsetoflux(energy,response)
         
         lines = ax.plot(flux,response,label=attr,color=color)
-        ax.set_xlabel("flux (ph/s)")
+        ax.set_xlabel("flux@sample (ph/s)")
         ax.set_ylabel("{} ({:~})".format(attr,response.units))
-        ax.set_title("{:~.0e}".format(deviceinstance.gain))
+        ax.set_title("{:~.1e}".format(deviceinstance.gain))
         ax.legend(loc="best")
         
         return lines[0].get_color()
@@ -510,11 +581,14 @@ class QXRFGeometry(with_metaclass(object)):
     def _show_flux_calib(self,data,fluxmin=0,fluxmax=np.inf,fitinfo={}):
         f, (ax1, ax2) = plt.subplots(1, 2)
         
+        I0,It = self._calibrate_fields_name("cps")
+        _,fluxt = self._calibrate_fields_name("flux")
+
         energy = data["energy"].to("keV").magnitude
-        
-        x = units.asqarray(data["fluxt"])
-        It = units.asqarray(data["It"])
-        ax1.plot(x,It,'o',label='spec')
+        It = units.asqarray(data[It])
+        if fluxt in data:
+            flux = units.asqarray(data[fluxt])
+            ax1.plot(flux,It,'o',label='spec')
         color1 = self._plot_diode_flux('diodeIt',energy,It,ax1)
         color2 = next(ax1._get_lines.prop_cycler)['color']
         
@@ -524,16 +598,16 @@ class QXRFGeometry(with_metaclass(object)):
         text = "\n".join(["{} = {}".format(k,v) for k,v in info.items()])
         ax1.text(xoff,yoff,text,transform = ax1.transAxes,verticalalignment="bottom")
 
-        x = self.diodeIt.responsetoflux(energy,It)
+        flux = self.diodeIt.responsetoflux(energy,It)
         fluxmin = units.Quantity(fluxmin,"hertz").to("hertz")
         fluxmax = units.Quantity(fluxmax,"hertz").to("hertz")
-        I0 = units.asqarray(data["I0"])
-        indfit = (x<fluxmin) | (x>fluxmax)
+        I0 = units.asqarray(data[I0])
+        indfit = (flux<fluxmin) | (flux>fluxmax)
         if any(indfit):
-            ax2.plot(x[indfit],I0[indfit],'o',color="#cccccc")
+            ax2.plot(flux[indfit],I0[indfit],'o',color="#cccccc")
         indfit = np.logical_not(indfit)
         if any(indfit):
-            ax2.plot(x[indfit],I0[indfit],'o',label='diodeIt',color=color1)
+            ax2.plot(flux[indfit],I0[indfit],'o',label='diodeIt',color=color1)
         
         self._plot_diode_flux('diodeI0',energy,I0,ax2,color=color2)
 
@@ -542,6 +616,37 @@ class QXRFGeometry(with_metaclass(object)):
             ax2.text(xoff,yoff,text,transform = ax2.transAxes,verticalalignment="bottom")
             
         plt.tight_layout()
+
+    def _plot_oscillator(self,attr,current,ax,color=None):
+        deviceinstance = getattr(self,attr)
+
+        op = deviceinstance.op_currenttocps()
+        cps = op(current).to("Hz")
+        current = current.to("pA")
+
+        lines = ax.plot(current,cps,label=attr,color=color)
+        ax.set_xlabel("{} ({:~})".format(attr,current.units))
+        ax.set_ylabel("{} ({:~})".format(attr,cps.units))
+        ax.set_title("{:~.1e}, {:~.1e}".format(op.m.to("Hz/pA"),op.b.to("Hz")))
+        ax.legend(loc="best")
+        
+        return lines[0].get_color()
+
+    def _show_oscillator_calib(self,data):
+        f, (ax1, ax2) = plt.subplots(1, 2)
+        
+        I0,It = self._calibrate_fields_name("cps")
+        cur0,curt = self._calibrate_fields_name("current")
+        I0,It = data[I0],data[It]
+        cur0,curt = data[cur0],data[curt]
+
+        lines = ax1.plot(curt.to("pA"),It.to("Hz"),'o',label='spec')
+        color1 = lines[0].get_color()
+        color2 = next(ax1._get_lines.prop_cycler)['color']
+        self._plot_oscillator('diodeIt',curt,ax1,color=color1)
+
+        ax2.plot(cur0.to("pA"),I0.to("Hz"),'o',label='spec',color=color2)
+        self._plot_oscillator('diodeI0',cur0,ax2,color=color2)
 
 
 factory = QXRFGeometry.factory

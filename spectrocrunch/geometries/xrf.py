@@ -27,12 +27,14 @@ from ..common.classfactory import with_metaclass
 from ..resources import resource_filename
 from ..math import noisepropagation
 from ..common import units
+from ..materials import compoundfromname
 
 import numpy as np
 import silx.math.fit as silxfit
 import matplotlib.pyplot as plt
 import os
 import json
+
 
 class LinearMotor(object):
 
@@ -420,6 +422,22 @@ class microdiff(LinearXRFGeometry):
         kwargs["detectorposition"] = kwargs.get("detectorposition",10.)
         
         super(microdiff,self).__init__(**kwargs)
+                        
+
+class ID16b_Virtual1(LinearXRFGeometry):
+
+    def __init__(self,**kwargs):
+
+        kwargs["atmosphere"] = compoundfromname.compoundfromname("air")
+
+        kwargs["anglein"] = kwargs.get("anglein",90)
+        kwargs["angleout"] = kwargs.get("angleout",13)
+        kwargs["azimuth"] = kwargs.get("azimuth",0)
+
+        kwargs["zerodistance"] = units.Quantity(kwargs.get("zerodistance",0.),"mm")
+        kwargs["detectorposition"] = units.Quantity(kwargs.get("detectorposition",20.),"mm")
+        
+        super(ID16b_Virtual1,self).__init__(**kwargs)
                         
 
 factory = XRFGeometry.factory
