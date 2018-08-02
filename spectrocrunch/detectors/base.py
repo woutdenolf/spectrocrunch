@@ -43,7 +43,15 @@ class Material(object):
         self.attenuators = attenuators
 
     def addattenuator(self,name,material,thickness):
-        self.attenuators[name] = {"material":material,"thickness":thickness}
+        self._attenuators[name] = {"material":material,"thickness":thickness}
+
+    @property
+    def attenuators(self):
+        return self._attenuators
+
+    @attenuators.setter
+    def attenuators(self,value):
+        self._attenuators = value
 
     def __str__(self):
         s1 = "\n ".join(["{} = {} cm".format(attinfo["material"],attinfo["thickness"]) for attinfo in self.attbefore()])
@@ -254,7 +262,19 @@ class CentricCone(SolidState):
             return (1-c2)*distance**2*np.pi/c2
         else:
             raise RuntimeError("Either distance, active area or solid angle must be None")
-            
+
+    @Material.attenuators.getter
+    def attenuators(self):
+        try:
+            mat = self.geometry.atmosphere
+            d = self.geometry.distance
+            if mat and d:
+                self.addattenuator("Atmosphere",mat,units.umagnitude(d,"cm"))
+        except AttributeError:
+            pass
+
+        return self._attenuators
+
     def addtofisx(self,setup,cfg):
         super(CentricCone,self).addtofisx(setup,cfg)
         

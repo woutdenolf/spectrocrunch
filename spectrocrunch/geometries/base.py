@@ -29,9 +29,10 @@ from ..math import noisepropagation
 
 class Base(object):
 
-    def __init__(self,detector=None,source=None):
+    def __init__(self,detector=None,source=None,atmosphere=None):
         self.detector = detector
         self.source = source
+        self.atmosphere = atmosphere
 
     @property
     def detector(self):
