@@ -100,7 +100,7 @@ def process(sourcepath,destpath,radix,**kwargs):
     refimageindex = kwargs.get("refimageindex",None)
     roialign = kwargs.get("roialign",None)
     roiresult = kwargs.get("roiresult",None)
-    cropalign = False
+    cropalign = kwargs.get("crop",None)
     plot = kwargs.get("plot",False)
     # ... normalization
     skipnormalization = kwargs.get("skipnormalization",False)

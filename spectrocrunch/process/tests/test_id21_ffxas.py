@@ -97,26 +97,33 @@ class test_ffxas(unittest.TestCase):
                 "n2":n2,\
                 "n":n}
     
-    def align(self,sourcepath,radix,outname,ext,alignmethod,refimageindex,roiraw,roialign,roiresult,crop,stackdim):
+    def align(self,sourcepath,radix,outname,alignmethod,refimageindex,roiraw,roialign,roiresult,crop,stackdim):
+        params = {}
+
         # Raw data
-        rebin = (1,1)
-        skippreprocessing = False
+        params["rebin"] = (1,1)
+        params["skippre"] = False
+        params["stackdim"] = stackdim
 
         # Result
         destpath = os.path.join(sourcepath,"results",outname)
 
         # Normalization
-        skipnormalization = False
+        params["skipnormalization"] = False
 
         # Alignment
-        skipalign = False
-        plot = False
-
+        params["alignmethod"] = alignmethod
+        params["refimageindex"] = refimageindex
+        params["skipalign"] = False
+        params["plot"] = False
+        params["crop"] = crop
+        
+        params["roiraw"] = roiraw
+        params["roialign"] = roialign
+        params["roiresult"] = roiresult
+        
         # Process
-        process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
-            skippre=skippreprocessing,skipnormalization=skipnormalization,skipalign=skipalign,\
-            roiraw=roiraw,roialign=roialign,roiresult=roiresult,\
-            refimageindex=refimageindex,crop=crop,plot=plot,stackdim=stackdim)
+        process(sourcepath,destpath,radix,**params)
     
     def checkresult(self,sourcepath,outname,params):
         destpath = os.path.join(sourcepath,"results",outname)
@@ -190,7 +197,6 @@ class test_ffxas(unittest.TestCase):
         roiraw = None
         roialign = None
         roiresult = None
-        ext = ""
         alignmethod = "max"
         refimageindex = None
         outname = radix
@@ -199,7 +205,7 @@ class test_ffxas(unittest.TestCase):
         for crop in [True,False]:
             for roialign in [None,((3,-3),(4,-4))]:
                 for stackdim in [0,1,2]:
-                    self.align(sourcepath,radix,outname,ext,alignmethod,refimageindex,roiraw,roialign,roiresult,crop,stackdim)
+                    self.align(sourcepath,radix,outname,alignmethod,refimageindex,roiraw,roialign,roiresult,crop,stackdim)
                     params["stackdim"] = stackdim
                     params["crop"] = crop
                     self.checkresult(sourcepath,outname,params)
