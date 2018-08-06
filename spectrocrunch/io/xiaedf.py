@@ -1843,8 +1843,11 @@ class xiaimage(xiacompound):
         if ctr is None:
             return self._ctrfiles
             
-        if instance.isstring(ctr):
+        if not instance.isarray(ctr):
             ctr = [ctr]
+        
+        if any(not instance.isstring(c) for c in ctr):
+            return []
         
         return list(listtools.flatten([f for c in ctr for f in self._ctrfiles if xianameparser.parse(f).baselabel==c]))
         
@@ -1867,12 +1870,19 @@ class xiaimage(xiacompound):
         
     def _getnormdata(self):
         f = self.normfilename()
+
         if f is None:
-            m = np.ones(self.dshape[0:2])
-            logger.warning("No \"{}\" counter for {}".format(self._xiaconfig["norm"]["ctr"],self))
+            m = self._xiaconfig["norm"]["ctr"]
+            try:
+                1/m
+                #if instance.isnumber(m):
+                #    m = np.full(self.dshape[0:2],m)
+            except TypeError:
+                logger.warning("No \"{}\" counter for {} (set normalization counter = 1)".format(m,self))
+                m = 1#np.ones(self.dshape[0:2])
         else:
             m = self._getedfimage(f)
-
+            
         return m
     
     def ctrsearch(self):
