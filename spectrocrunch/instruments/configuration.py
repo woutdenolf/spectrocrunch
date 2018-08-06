@@ -66,12 +66,11 @@ class InstrumentInfo(with_metaclass(object)):
         
         self.h5stackgroups = info.get("h5stackgroups",["counters","^detector(\d+|sum)$"])
 
-        self.datalocation = info.get("datalocation",{})
-        if "xrf_dynamic" not in self.datalocation:
-            self.datalocation["xrf_dynamic"] = {"subdir":""}
-        if "xrf_static" not in self.datalocation:
-            self.datalocation["xrf_static"] = {"subdir":""}
-
+        self.datalocationinfo = info.get("datalocation",{})
+        for k in ["xrf_dynamic","xrf_static","ff_dynamic","ff_static"]:
+            if k not in self.datalocationinfo:
+                self.datalocationinfo[k] = {"subdir":""}
+            
     def counters(self,include=None,exclude=None):
         if include is None:
             lst = self.counterdict.keys()
@@ -122,15 +121,23 @@ class InstrumentInfo(with_metaclass(object)):
         return self._specmotornames.keys()
 
     def xrfsubdir(self,type="dynamic"):
-        return self.datalocation["xrf_{}".format(type)]["subdir"]
+        return self.datalocationinfo["xrf_{}".format(type)]["subdir"]
 
-    def xrflocation(self,sample,dataset,type="dynamic"):
-        # root/sample/sample_dataset/xrfsubdir/sample_dataset*.*
-        xrfsubdir = self.xrfsubdir(type=type)
-        radix = "_".join([sample,dataset])
-        subdir = os.path.join(sample,radix,xrfsubdir)
+    def ffsubdir(self,type="dynamic"):
+        return self.datalocationinfo["ff_{}".format(type)]["subdir"]
+        
+    def xrflocation(self,sample,dataset,**kwargs):
+        return self.datalocation(sample,dataset,self.xrfsubdir(**kwargs))
+
+    def fflocation(self,sample,dataset,**kwargs):
+        return self.datalocation(sample,dataset,self.ffsubdir(**kwargs))
+        
+    def datalocation(self,sample,dataset,subdir):
+        # root/sample/sample_dataset/subdir/sample_dataset*.*
+        radix = "_".join([k for k in [sample,dataset] if k])
+        subdir = os.path.join(sample,radix,subdir)
         return radix,subdir
-
+        
 
 class ESRF_ID21_SXM(InstrumentInfo):
     aliases = ["sxm","id21"]
@@ -203,7 +210,8 @@ class ESRF_ID21_SXM(InstrumentInfo):
         info["units"]["sampz"] = info["units"].get("sampz",ureg.micrometer)
         info["units"]["sampy"] = info["units"].get("sampy",ureg.micrometer)
                        
-        info["datalocation"] = info.get("datalocation",{"xrf_dynamic":"zap","xrf_static":"xrf"})
+        info["datalocation"] = info.get("datalocation",{"xrf_dynamic":{"subdir":"zap"},"xrf_static":{"subdir":"xrf"},
+                                                        "ff_dynamic":{"subdir":"ff"},"ff_static":{"subdir":"ff"}})
              
         super(ESRF_ID21_SXM,self).__init__(**info)
                 
@@ -233,7 +241,8 @@ class ESRF_ID21_MICRODIFF(InstrumentInfo):
                                     "xrfocr":"xmap_ocr",\
                                     "xrfroi":["xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c"]})
         
-        info["datalocation"] = info.get("datalocation",{"xrf_dynamic":"zap","xrf_static":"xrf","xrd_dynamic":"zap","xrd_static":"xrd"})
+        info["datalocation"] = info.get("datalocation",{"xrf_dynamic":{"subdir":"zap"},"xrf_static":{"subdir":"xrf"},
+                                                        "xrd_dynamic":{"subdir":"zap"},"xrd_static":{"subdir":"xrd"}})
 
         super(ESRF_ID21_MICRODIFF,self).__init__(**info)
 
@@ -306,13 +315,12 @@ class ESRF_ID16B(InstrumentInfo):
 
         super(ESRF_ID16B,self).__init__(**info)
 
-    def xrflocation(self,sample,dataset,type="dynamic"):
-        # root/sample/xrfsubdir/dataset*.*
-        xrfsubdir = self.xrfsubdir(type=type)
+    def datalocation(self,sample,dataset,subdir):
+        # root/sample/subdir/dataset*.*
         if not dataset:
             dataset = sample
         radix = dataset
-        subdir = os.path.join(sample,xrfsubdir)
+        subdir = os.path.join(sample,subdir)
         return radix,subdir
 
 
