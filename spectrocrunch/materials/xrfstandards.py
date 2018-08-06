@@ -30,6 +30,7 @@ from . import multilayer
 from . import types
 from . import pymca
 from ..common.classfactory import with_metaclass
+from ..common import instance
 
 import numpy as np
 
@@ -39,6 +40,8 @@ class Standard(with_metaclass(multilayer.Multilayer)):
         if extraelements is None:
             self.extraelements = None
         else:
+            if instance.isstring(extraelements):
+                extraelements = [extraelements]
             self.extraelements = [element.Element(el) for el in extraelements]
         super(Standard,self).__init__(**kwargs)
 

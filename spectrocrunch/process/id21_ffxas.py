@@ -39,7 +39,15 @@ from .proc_crop import execute as execcrop
 from .proc_common import defaultstack
 from .proc_common import flattenstacks
 
-def createconfig_pre(sourcepath,destpath,radix,ext,rebin,roi,stackdim,normalize):
+def createconfig_pre(sourcepath,destpath,radix,**kwargs):
+
+    rebin = kwargs.get("rebin",(1,1))
+    roiraw = kwargs.get("roiraw",None)
+    stackdim = kwargs.get("stackdim",2)
+    skipnormalization = kwargs.get("skipnormalization",False)
+    normalizeonload = kwargs.get("normalizeonload",True)
+    normalize = normalizeonload and not skipnormalization
+    extout = kwargs.get("extout","").replace(".","_")
 
     if not isinstance(sourcepath,list):
         sourcepath = [sourcepath]
@@ -64,44 +72,56 @@ def createconfig_pre(sourcepath,destpath,radix,ext,rebin,roi,stackdim,normalize)
         "darklist" : map(lambda xy: os.path.join(xy[0],xy[1]+"*_dark_*.edf"),zip(sourcepath,radix)),
         "datalist" : map(lambda xy: os.path.join(xy[0],xy[1]+"*_data_*.edf"),zip(sourcepath,radix)),
         "flatlist" : map(lambda xy: os.path.join(xy[0],xy[1]+"*_ref_*.edf"),zip(sourcepath,radix)),
-        "beforeafter" : True,
+        "beforeafter" : True, # split up flat fields in before and after (same number of images)
         "normalize": normalize,
 
         # Output
-        "hdf5output": os.path.join(destpath,radix[0]+ext+".h5"),
-        "roi": roi,
+        "hdf5output": os.path.join(destpath,"{}{}.h5".format(radix[0],extout)),
+        "roi": roiraw,
         "rebin":rebin}
 
     # Create configuration file
     if not os.path.exists(destpath):
         os.makedirs(destpath)
-    jsonfile = os.path.join(destpath,radix[0]+ext+".json")
+    jsonfile = os.path.join(destpath,"{}{}.json".format(radix[0],extout))
     with open(jsonfile,'w') as f:
         json.dump(config,f,indent=2)
 
     return jsonfile,config["hdf5output"]
 
-def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
-        skippre=False,skipnormalization=False,skipalign=False,\
-        roiraw=None,roialign=None,roiresult=None,\
-        refimageindex=None,crop=False,plot=True,\
-        flatbefore=True,flatafter=True,normalizeonload=True,stackdim = 2):
+def process(sourcepath,destpath,radix,**kwargs):
 
+    # Parse parameters
+    # ... stack
+    bsamefile = False
+    stackdim = kwargs.get("stackdim",2)
+    # ... align
+    alignmethod = kwargs.get("alignmethod",None)
+    refimageindex = kwargs.get("refimageindex",None)
+    roialign = kwargs.get("roialign",None)
+    roiresult = kwargs.get("roiresult",None)
+    cropalign = False
+    plot = kwargs.get("plot",False)
+    # ... normalization
+    skipnormalization = kwargs.get("skipnormalization",False)
+    normalizeonload = kwargs.get("normalizeonload",True)
+    flatbefore = kwargs.get("flatbefore",True)
+    flatafter = kwargs.get("flatafter",True)
+    # ... other
+    skippre = kwargs.get("skippre",False)
+    
     logger = logging.getLogger(__name__)
     T0 = timing.taketimestamp()
 
-    bsamefile = False
-    cropalign = crop
-
     # Image stack
     normalize = normalizeonload and not skipnormalization
-    jsonfile, h5file = createconfig_pre(sourcepath,destpath,radix,ext,rebin,roiraw,stackdim,normalize)
+    jsonfile, h5file = createconfig_pre(sourcepath,destpath,radix,**kwargs)
     preprocessingexists = False
     if skippre:
         preprocessingexists = os.path.isfile(h5file)
 
     if preprocessingexists:
-        stacks, axes = getstacks(h5file,["detector0"])
+        stacks, axes, procinfo = getstacks(h5file,["detector0"])
     else:
         logger.info("Creating image stacks ...")
         stacks, axes = makestacks(jsonfile)
@@ -110,6 +130,8 @@ def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
         #assert(axes == axes2)
         #assert(stacks == stacks2)
 
+    h5filelast = h5file
+    
     # Convert stack dictionary to stack list
     stacks = flattenstacks(stacks)
 
@@ -121,9 +143,7 @@ def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
     copygroups = None
 
     # I0 normalization
-    if skipnormalization or normalizeonload:
-        file_normalized, Ifn_stacks,Ifn_axes = h5file,stacks,axes
-    else:
+    if not skipnormalization and not normalizeonload:
         if flatbefore and flatafter:
             if any("flat2" in s for s in stacks):
                 expression = "-ln(2*{}/({flat1}+{flat2}))"
@@ -136,19 +156,24 @@ def process(sourcepath,destpath,radix,ext,rebin,alignmethod,\
         else:
             logger.error("Nothing to normalize with.")
             raise ValueError("Set flatbefore or flatafter to True.")
-        file_normalized, Ifn_stacks,Ifn_axes = normalizefunc(h5file,stacks,axes,copygroups,bsamefile,default,expression,["flat1","flat2"],stackdim=stackdim,copyskipped=False,extension="norm")
-
+        h5file,stacks,axes = normalizefunc(h5file,stacks,axes,copygroups,bsamefile,default,expression,["flat1","flat2"],stackdim=stackdim,copyskipped=False,extension="norm")
+        h5filelast = h5file
+        
     # Alignment
-    if alignmethod is not None and not skipalign:
+    if alignmethod is not None and alignmethod:
         alignreference = "sample"
-        file_aligned, aligned_stacks, aligned_axes = align(file_normalized, Ifn_stacks, Ifn_axes, copygroups, bsamefile, default,\
-            alignmethod, alignreference, refimageindex, cropalign, roialign, plot, stackdim)
-
-        # Crop
-        if roiresult is not None:
-            cropinfo = {"roi":roiresult,"stackdim":stackdim,"reference set":"sample"}
-            execcrop(file_aligned, aligned_stacks, aligned_axes, copygroups, bsamefile, default, cropinfo)
-
+        h5file,stacks,axes = align(h5file,stacks,axes, copygroups, bsamefile, default,\
+                                alignmethod, alignreference, refimageindex, cropalign,\
+                                roialign, plot, stackdim)
+        h5filelast = h5file
+        
+    # Crop
+    if roiresult is not None:
+        cropinfo = {"roi":roiresult,"stackdim":stackdim,"reference set":"sample"}
+        h5file,stacks,axes = execcrop(h5file,stacks,axes, copygroups, bsamefile, default, cropinfo)
+        h5filelast = h5file
+        
     timing.printtimeelapsed(T0,logger)
 
+    return h5filelast
 
