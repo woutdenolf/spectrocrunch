@@ -415,6 +415,7 @@ class QXRFGeometry(with_metaclass(object)):
     def _calibrate_fields(self):
         return self._calibrate_fields_name("counts")+\
                self._calibrate_fields_name("current")+\
+               self._calibrate_fields_name("photons")+\
                self._calibrate_fields_name("flux")+\
                ["time","energy"]
     
