@@ -698,9 +698,10 @@ class Image(Item):
                   "legendspacing":2.,\
                   "scalebar":False,\
                   "scalebar_position":"lower right",\
-                  "scalebar_ratio":1/6.,\
+                  "scalebar_ratio":1/5.,\
                   "scalebar_fraction":0.1,\
                   "scalebar_pad":0.1,\
+                  "scalebar_color":"#ffffff",\
                   "fontsize":matplotlib.rcParams['font.size'],\
                   "fontweight":500,\
                   "channels":None,\
@@ -820,7 +821,7 @@ class Image(Item):
             if not instance.isarray(vmax):
                 vmax = [vmax]*nchannels
             normcb = []
-            
+
             for i in range(nchannels):
                 norm = ColorNorm(settings["cnorm"],*settings["cnormargs"])(vmin=vmin[i],vmax=vmax[i],clip=True)
                 image[...,i] = norm(image[...,i]).data
@@ -898,8 +899,10 @@ class Image(Item):
         
                 for i,(name,mi,ma) in enumerate(zip(labels,vmin,vmax)):
                     if name is not None:
-                        fmt = floatformat(ma,3)
-                        fmt = ":.2E"
+                        if ma>0.01:
+                            fmt = floatformat(ma,3)
+                        else:
+                            fmt = ":.2E"
                         fmt = "{{}} [{{{}}},{{{}}}]".format(fmt,fmt)
                         labels[i] = fmt.format(name,mi,ma)
             else:
@@ -926,7 +929,8 @@ class Image(Item):
         # Scalebar
         self.addscalebar(scene,items,newitems,position=settings["scalebar_position"],
                                     visible=settings["scalebar"],ratio=settings["scalebar_ratio"],
-                                    xfrac=settings["scalebar_fraction"],pad=settings["scalebar_pad"])
+                                    xfrac=settings["scalebar_fraction"],pad=settings["scalebar_pad"],
+                                    color=settings["scalebar_color"])
         
         self.refreshscene(newitems)
 
@@ -957,7 +961,7 @@ class Image(Item):
             
         return i
     
-    def addscalebar(self,scene,items,newitems,position="lower right",visible=True,ratio=8.,xfrac=0.1,pad=0.1):
+    def addscalebar(self,scene,items,newitems,position="lower right",visible=True,ratio=8.,xfrac=0.1,pad=0.1,color="#ffffff"):
         if not visible:
             return
             
@@ -980,7 +984,7 @@ class Image(Item):
         scalebar = AnchoredSizeBar(scene.ax.transData,
                            xsize,label,position, 
                            pad=pad,
-                           color='white',
+                           color=color,
                            fill_bar=True,
                            frameon=False,
                            size_vertical=ysize)
