@@ -86,8 +86,8 @@ def register(cls, regcls, name):
     
     lname = name.lower()
     cls.clsregistry[name] = regcls
-    if lname!=name:
-        cls.aliasregistry[lname] = regcls
+    #if lname!=name:
+    cls.aliasregistry[lname] = regcls
     if hasattr(regcls, "aliases"):
         for alias in regcls.aliases:
             lalias = alias.lower()

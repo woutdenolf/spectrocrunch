@@ -50,7 +50,8 @@ class Filter(XrayOptics):
     def transmission(self,energy):
         return self.multilayer.transmission(energy)
         
-        
+classes = XrayOptics.clsregistry
+aliases = XrayOptics.aliasregistry
 factory = XrayOptics.factory
 clsfactory = XrayOptics.clsfactory
 

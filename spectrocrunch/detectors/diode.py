@@ -1700,7 +1700,7 @@ class SXM_IODET2(NonCalibratedPNdiode):
 
 
 class XRD_IDET(NonCalibratedPNdiode):
-    aliases = ["pico1"]
+    aliases = ["microdiff_pico1"]
     
     def __init__(self,**kwargs):
     
@@ -1817,7 +1817,8 @@ class ID16B_IC(NonCalibratedPNdiode):
                             secondarytarget=secondarytarget,\
                             beforesample=True,**kwargs)
                             
-
+classes = PNdiode.clsregistry
+aliases = PNdiode.aliasregistry
 factory = PNdiode.factory
 clsfactory = PNdiode.clsfactory
 

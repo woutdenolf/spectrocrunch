@@ -439,6 +439,7 @@ class ID16b_Virtual1(LinearXRFGeometry):
         
         super(ID16b_Virtual1,self).__init__(**kwargs)
                         
-
+classes = XRFGeometry.clsregistry
+aliases = XRFGeometry.aliasregistry
 factory = XRFGeometry.factory
 

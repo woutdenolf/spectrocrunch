@@ -763,5 +763,7 @@ class ID16b_Virtual1(XRFDetector):
         
         super(ID16b_Virtual1,self).__init__(**kwargs)
 
+classes = XRFDetector.clsregistry
+aliases = XRFDetector.aliasregistry
 factory = XRFDetector.factory
 

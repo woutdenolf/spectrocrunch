@@ -336,7 +336,7 @@ class QXRFGeometry(with_metaclass(object)):
                 if It in data and I0 in data:
                     flux = self.diodeIt.responsetoflux(energy,data[It])
                     fitinfo = self.diodeI0.calibrate(data[I0],flux,energy,**params)
-                break
+                    break
 
         return fitinfo
 
@@ -397,6 +397,9 @@ class QXRFGeometry(with_metaclass(object)):
                 deviceclass = clsfactory(clsnameused)
                 if not isinstance(deviceinstance,deviceclass):
                     raise RuntimeError("Data was collected with diode {}, while diode {} was expected.".format(deviceclass.__name__,deviceinstance.__class__.__name__))
+        elif clsnameused is None:
+            # No idea whether device was used or not
+            pass
         else:
             # Device was not used
             if deviceinstance is not None:
@@ -506,27 +509,9 @@ class QXRFGeometry(with_metaclass(object)):
 
         # Verify, create or replace devices
         I0,It = self._calibrate_fields_name("cps")
-        if I0 in data:
-            try:
-                diodeI0name = self.instrument.diodeI0(staticdata)
-            except KeyError:
-                diodeI0name = None
-        else:
-            diodeI0name = ""
-
-        if It in data:
-            try:
-                diodeItname = self.instrument.diodeIt(staticdata)
-            except KeyError:
-                diodeItname = None
-        else:
-            diodeItname0name = ""
-        
-        try:
-            opticsname = self.instrument.optics(staticdata)
-        except KeyError:
-            opticsname = None
-
+        diodeI0name = self.instrument.diodeI0(staticdata)
+        diodeItname = self.instrument.diodeIt(staticdata)
+        opticsname = self.instrument.optics(staticdata)
         self._check_device("optics",xrayoptics.clsfactory,opticsname,resetdevice=resetdevices)
         self._check_device("diodeI0",diodes.clsfactory,diodeI0name,resetdevice=resetdevices)
         self._check_device("diodeIt",diodes.clsfactory,diodeItname,resetdevice=resetdevices)
@@ -649,6 +634,31 @@ class QXRFGeometry(with_metaclass(object)):
         ax2.plot(cur0.to("pA"),I0.to("Hz"),'o',label='spec',color=color2)
         self._plot_oscillator('diodeI0',cur0,ax2,color=color2)
 
+    def list_detectors(self):
+        return xrfdetectors.aliases.keys()
 
+    def list_sources(self):
+        return xraysources.aliases.keys()
+        
+    def list_optics(self):
+        return xrayoptics.aliases.keys()
+        
+    def list_geometries(self):
+        return xrfgeometries.aliases.keys()
+        
+    def list_diodes(self):
+        return diodes.aliases.keys()
+    
+    def list_instruments(self):
+        return configuration.aliases.keys()
+
+    def list_devices(self):
+        print("instrument = {}".format(self.list_instruments()))
+        print("xrfgeometry = {}".format(self.list_geometries()))
+        print("xrfdetector = {}".format(self.list_detectors()))
+        print("diodeI0,diodeIt = {}".format(self.list_diodes()))
+        print("source = {}".format(self.list_sources()))
+        print("optics = {}".format(self.list_optics()))
+        
 factory = QXRFGeometry.factory
 

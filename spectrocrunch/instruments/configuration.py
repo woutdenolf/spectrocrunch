@@ -36,9 +36,9 @@ class InstrumentInfo(with_metaclass(object)):
         self.imagemotors = info.get("imagemotors",[])
         self.imageaxes = info.get("imageaxes",("y","x"))
         
-        self.units = collections.defaultdict(lambda x:ureg.dimensionless)
+        self.units = collections.defaultdict(lambda :ureg.dimensionless)
         self.units.update(info.get("units",{}))
-        
+
         self.encoderresolution = info.get("encoderresolution",{})# steps/motor unit
         self.compensationmotors = info.get("compensationmotors",{})
         
@@ -96,11 +96,16 @@ class InstrumentInfo(with_metaclass(object)):
 
     @staticmethod
     def _devicename(device,motordict):
-        name = ""
+        """
+        empty string: no device used
+        None: don't know if/which device is used
+        """
+        name = None
         for k,f in device.items():
-            name = f(motordict[k])
-            if name:
-                return name
+            if k in motordict:
+                name = f(motordict[k])
+                if name:
+                    return name
         if "default" in device:
             name = device["default"]
         return name
@@ -203,7 +208,13 @@ class ESRF_ID21_SXM(InstrumentInfo):
         info["units"]["energy"] = info["units"].get("energy",ureg.Unit("keV"))
         info["units"]["I0_counts"] = info["units"].get("I0_counts",ureg.dimensionless)
         info["units"]["It_counts"] = info["units"].get("It_counts",ureg.dimensionless)
+        info["units"]["I0_cps"] = info["units"].get("I0_cps",ureg.Unit("Hz"))
+        info["units"]["It_cps"] = info["units"].get("It_cps",ureg.Unit("Hz"))
+        info["units"]["I0_current"] = info["units"].get("I0_current",ureg.Unit("Hz"))
+        info["units"]["It_current"] = info["units"].get("It_current",ureg.Unit("Hz"))
         info["units"]["It_photons"] = info["units"].get("It_photons",ureg.dimensionless)
+        info["units"]["It_flux"] = info["units"].get("It_flux",ureg.Unit("Hz"))
+        info["units"]["I0_flux"] = info["units"].get("I0_flux",ureg.Unit("Hz"))
         info["units"]["samy"] = info["units"].get("samy",ureg.millimeter)
         info["units"]["samz"] = info["units"].get("samz",ureg.millimeter)
         info["units"]["samx"] = info["units"].get("samx",ureg.millimeter)
@@ -305,8 +316,12 @@ class ESRF_ID16B(InstrumentInfo):
         info["units"]["I0_counts"] = info["units"].get("I0_counts",ureg.dimensionless)
         info["units"]["It_counts"] = info["units"].get("It_counts",ureg.dimensionless)
         info["units"]["IC_counts"] = info["units"].get("IC_counts",ureg.dimensionless)
+        info["units"]["I0_cps"] = info["units"].get("I0_cps",ureg.Unit("Hz"))
+        info["units"]["It_cps"] = info["units"].get("It_cps",ureg.Unit("Hz"))
+        info["units"]["IC_cps"] = info["units"].get("IC_cps",ureg.Unit("Hz"))
         info["units"]["energy"] = info["units"].get("energy",ureg.Unit("keV"))
         info["units"]["It_flux"] = info["units"].get("It_flux",ureg.Unit("Hz"))
+        info["units"]["I0_flux"] = info["units"].get("I0_flux",ureg.Unit("Hz"))
         info["units"]["I0_current"] = info["units"].get("I0_current",ureg.Unit("pA"))
         info["units"]["It_current"] = info["units"].get("It_current",ureg.Unit("pA"))
         info["units"]["IC_current"] = info["units"].get("IC_current",ureg.Unit("pA"))
@@ -324,6 +339,7 @@ class ESRF_ID16B(InstrumentInfo):
         return radix,subdir
 
 
-        
+classes = InstrumentInfo.clsregistry
+aliases = InstrumentInfo.aliasregistry
 factory = InstrumentInfo.factory
 

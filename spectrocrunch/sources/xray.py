@@ -29,14 +29,14 @@ from . import polarization
 import numpy as np
 import matplotlib.pyplot as plt
 
-class Source(with_metaclass(object)):
+class XraySource(with_metaclass(object)):
 
     def __init__(self,stokes=None):
         self.stokes = stokes
     
     def __str__(self):
         s = str(self.stokes).replace('\n','\n ')
-        return "Source:\n {}".format(s)
+        return "XraySource:\n {}".format(s)
     
     @property
     def thomson_K(self):
@@ -52,7 +52,7 @@ class Source(with_metaclass(object)):
         pass
     
     
-class Synchrotron(Source):
+class Synchrotron(XraySource):
 
     def __init__(self,**polparams):
         if "intensity" not in polparams:
@@ -69,12 +69,14 @@ class Synchrotron(Source):
         super(Synchrotron,self).__init__(stokes=stokes)
 
 
-class Tube(Source):
+class Tube(XraySource):
 
     def __init__(self,intensity=1):
         stokes = polarization.Stokes.from_params(intensity=intensity,dop=0,dolp=0,polangle=0,handedness="left")
         super(Tube,self).__init__(stokes=stokes)
 
 
-factory = Source.factory
+classes = XraySource.clsregistry
+aliases = XraySource.aliasregistry
+factory = XraySource.factory
 
