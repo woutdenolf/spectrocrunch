@@ -28,6 +28,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as pltcolors
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import numpy as np
 
@@ -565,6 +566,11 @@ class Image(Item):
                 data[...,ch] = self._get_data(i)
         if len(channels)==1:
             data = data[...,0]
+        
+        func = self.get_setting("datafunc")
+        if instance.iscallable(func):
+            data = func(data)
+            
         return data
 
     def _get_data(self,index):
@@ -693,6 +699,7 @@ class Image(Item):
                   "vmax":None,\
                   "cnorm":None,\
                   "cnormargs":(),\
+                  "datafunc":None,\
                   "legend":True,\
                   "legendposition":"RT",\
                   "legendspacing":2.,\
@@ -702,10 +709,12 @@ class Image(Item):
                   "scalebar_fraction":0.1,\
                   "scalebar_pad":0.1,\
                   "scalebar_color":"#ffffff",\
+                  "scalebar_size":0.,\
                   "fontsize":matplotlib.rcParams['font.size'],\
                   "fontweight":500,\
                   "channels":None,\
                   "colorbar":False,\
+                  "colorbar_units":False,\
                   "compositions":{},\
                   "title":None}
         
@@ -906,7 +915,9 @@ class Image(Item):
                         fmt = "{{}} [{{{}}},{{{}}}]".format(fmt,fmt)
                         labels[i] = fmt.format(name,mi,ma)
             else:
-                newitems["colorbar"] = plt.colorbar(newitems["image"])
+                divider = make_axes_locatable(scene.ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                newitems["colorbar"] = plt.colorbar(newitems["image"],label=settings["colorbar_units"],cax=cax)
  
         if nchannels==1:
             colors = [kwargs["color"]]
@@ -930,7 +941,7 @@ class Image(Item):
         self.addscalebar(scene,items,newitems,position=settings["scalebar_position"],
                                     visible=settings["scalebar"],ratio=settings["scalebar_ratio"],
                                     xfrac=settings["scalebar_fraction"],pad=settings["scalebar_pad"],
-                                    color=settings["scalebar_color"])
+                                    color=settings["scalebar_color"],size=settings["scalebar_size"])
         
         self.refreshscene(newitems)
 
@@ -961,14 +972,17 @@ class Image(Item):
             
         return i
     
-    def addscalebar(self,scene,items,newitems,position="lower right",visible=True,ratio=8.,xfrac=0.1,pad=0.1,color="#ffffff"):
+    def addscalebar(self,scene,items,newitems,position="lower right",visible=True,ratio=8.,xfrac=0.1,pad=0.1,color="#ffffff",size=0):
         if not visible:
             return
             
         name = "scalebar"
         
-        xsize = scene.xmagnitude(self.datalimx)
-        xsize = round_sig(abs(xsize[1]-xsize[0])*xfrac,1)
+        if size:
+            xsize = units.umagnitude(size,self.scene.xunit)
+        else:
+            xsize = scene.xmagnitude(self.datalimx)
+            xsize = round_sig(abs(xsize[1]-xsize[0])*xfrac,1)
         if xsize==int(xsize):
             xsize = int(xsize)
 
