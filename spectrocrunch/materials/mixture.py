@@ -22,16 +22,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import numpy as np
-import re
-
 from . import multielementbase
-from . import compoundfromformula
 from . import compoundfromlist
 from . import element
 from . import types
 from . import stoichiometry
 from ..common import instance
+
+import re
+import numpy as np
+import fisx
 
 class Mixture(multielementbase.MultiElementBase):
 
@@ -366,43 +366,29 @@ class Mixture(multielementbase.MultiElementBase):
                 return ret
         return None
 
-    def topymca(self,defaultthickness=1e-4):
-        return self.tocompound(self.pymcaname).topymca(defaultthickness=defaultthickness)
-    
-    def tofisx(self):
-        return self.tocompound(self.pymcaname).tofisx()
+    def topymca(self,cfg,defaultthickness=1e-4):
+        r = self.massfractions()
+        massfractions = r.values()
+        names = [mat.topymca(cfg,defaultthickness=defaultthickness) for mat in r]
         
-    @classmethod
-    def frompymca(cls,name,materials):
-        # dic will always be a compound or mixture with a name, not a chemical formula
+        matname = self.pymcaname
+        cfg["materials"][matname] = {'Comment': self.pymcacomment,
+                                    'CompoundFraction': massfractions,
+                                    'Thickness': defaultthickness,
+                                    'Density': self.density,
+                                    'CompoundList': names}
+        return matname
+
+    def tofisx(self,cfg,defaultthickness=1e-4):
+        r = self.massfractions()
+        massfractions = r.values()
+        names = [mat.tofisx(cfg,defaultthickness=defaultthickness) for mat in r]
+
+        matname = self.pymcaname
+        o = fisx.Material(matname, self.density, defaultthickness, self.pymcacomment)
+        o.setCompositionFromLists(names,massfractions)
+        cfg.addMaterial(o,errorOnReplace=False)
         
-        # Assume all individual compounds have the density of the mixture
-        purelement = "^(?P<element>[A-Z][a-z]?)1$"
+        return matname
 
-        dic = materials[name]
-        if instance.isstring(dic["CompoundList"]):
-            lst = [dic["CompoundList"]]
-        else:
-            lst = dic["CompoundList"]
-            
-        n = len(lst)
-        elements = [""]*n
-        for i,c in enumerate(lst):
-            m = re.match(purelement,c)
-            if m:
-                m = m.groupdict()
-                elements[i] = m["element"]
-
-        if all(elements):
-            return compoundfromlist.CompoundFromList(elements,dic["CompoundFraction"],types.fraction.mass,dic["Density"],name=dic["Comment"])
-        else:
-            compounds = []
-            for c in lst:
-                if c in materials:
-                    compound = cls.frompymca(c,materials).tocompound(c)
-                else:
-                    compound = compoundfromformula.CompoundFromFormula(c,dic["Density"])
-                compounds.append(compound)
-            wfrac = dic["CompoundFraction"]
-            return cls(compounds,wfrac,types.fraction.mass,name=dic["Comment"])
 

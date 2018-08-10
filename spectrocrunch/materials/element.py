@@ -723,22 +723,30 @@ class Element(hashable.Hashable,elementbase.ElementBase):
 
         return newrange
 
-    @property
-    def pymcaname(self):
-        return '{}1'.format(self.name)
-
-    def topymca(self,defaultthickness=1e-4):
-        value = {'Comment': self.name,
-                'CompoundFraction': [1.],
-                'Thickness': defaultthickness,
-                'Density': self.density,
-                'CompoundList': [self.pymcaname]}
-        return self.name,value
+    def topymca(self,cfg,defaultthickness=1e-4):
+        r = self.massfractions()
+        massfractions = r.values()
+        names = ['{}1'.format(e) for e in r]
         
-    def tofisx(self):
-        o = fisx.Material(self.name, self.density, 1e-10)
-        o.setCompositionFromLists([self.pymcaname],[1.])
-        return o
+        matname = self.pymcaname
+        cfg["materials"][matname] = {'Comment': self.pymcacomment,
+                                    'CompoundFraction': massfractions,
+                                    'Thickness': defaultthickness,
+                                    'Density': self.density,
+                                    'CompoundList': names}
+        return matname
+    
+    def tofisx(self,cfg,defaultthickness=1e-4):
+        r = self.massfractions()
+        massfractions = r.values()
+        names = ['{}1'.format(e) for e in r]
+        
+        matname = self.pymcaname
+        o = fisx.Material(matname, self.density, defaultthickness, self.pymcacomment)
+        o.setCompositionFromLists(names,massfractions)
+        cfg.addMaterial(o,errorOnReplace=False)
+        
+        return matname
 
     @classmethod
     def fluozgroup(cls,symb):

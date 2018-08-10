@@ -33,6 +33,8 @@ from . import element
 from .. import xraylib
 from . import compoundfromformula
 from . import xrayspectrum
+from . import compoundfromlist
+from . import types
 
 import numpy as np
 import scipy.interpolate
@@ -424,23 +426,40 @@ class PymcaHandle(PymcaBaseHandle):
         self.ninteractions = cfg["concentrations"]["usemultilayersecondary"]+1
         
     def addtopymca_material(self,cfg,material,defaultthickness=1e-4):
-        matname,v = material.topymca(defaultthickness=defaultthickness)
-        if not isinstance(material,element.Element):
-            cfg["materials"][matname] = v
-        return matname
+        return material.topymca(cfg,defaultthickness=defaultthickness)
     
     def loadfrompymca_material(self,cfg,matname,density):
-        if matname in cfg["materials"]:
-            material = mixture.Mixture.frompymca(matname,cfg["materials"])
-        else:
-            pattern = "^(?P<element>[A-Z][a-z]?)1$"
-            m = re.match(pattern,matname)
-            if m:
-                m = m.groupdict()
-                material = element.Element(m["element"])
+        formula = re.compile("^(([A-Z][a-z]?)([0-9]+))+$")
+        purelement = re.compile("^(?P<element>[A-Z][a-z]?)1$")
+
+        # Material name is a formula:
+        name = mixture.Mixture.namefrompymca(matname)
+        mf = formula.match(name)
+        if mf:
+            me = purelement.match(name)
+            if me:
+                return element.Element(me.groupdict()["element"])
             else:
-                material = compoundfromformula.CompoundFromFormula(matname,density)
-        return material
+                return compoundfromformula.CompoundFromFormula(name,density)
+        
+        # Parse material info:
+        dic = cfg["materials"][matname]
+        if not instance.isarray(dic["CompoundList"]):
+            dic["CompoundList"] = [dic["CompoundList"]]
+        if not instance.isarray(dic["CompoundFraction"]):
+            dic["CompoundFraction"] = [dic["CompoundFraction"]]
+        massfractions = np.array(dic["CompoundFraction"])/sum(dic["CompoundFraction"])
+        if not density:
+            density = dic["Density"]
+            
+        # List of materials:
+        lst = [self.loadfrompymca_material(cfg,mat,density) for mat in dic["CompoundList"]]
+        
+        # All elements:
+        if all([isinstance(e,element.Element) for e in lst]):
+            return compoundfromlist.CompoundFromList(lst,massfractions,types.fraction.mass,density,name=name)
+        else:
+            return mixture.Mixture(lst,massfractions,types.fraction.mass,name=name)
         
     def loadfrompymca(self,filename=None,config=None):
         super(PymcaHandle,self).loadfrompymca(filename=filename,config=config)
@@ -608,9 +627,7 @@ class FisxConfig():
         with self.init_ctx():
             detector.addtofisx(setup,self.FISXMATERIALS)
 
-    def addtofisx_material(self,material):
-        if not isinstance(material,element.Element):
-            with self.init_ctx():
-                self.FISXMATERIALS.addMaterial(material.tofisx(),errorOnReplace=False)
-        return material.pymcaname
+    def addtofisx_material(self,material,defaultthickness=1e-4):
+        with self.init_ctx():
+            return material.tofisx(self.FISXMATERIALS,defaultthickness=defaultthickness)
 

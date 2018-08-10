@@ -60,4 +60,22 @@ class ElementBase(object):
     def fisxgroups(self,emin=0,emax=np.inf):
         self.markabsorber(energybounds=[emin,emax])
         return {el:el.shells for el in self.elements}
-        
+    
+    pymcamaterial_prefix = "Material_"
+    pymcacomment_prefix = "From spectrocrunch: "
+    
+    @property
+    def pymcaname(self):
+        return self.pymcamaterial_prefix+self.name
+
+    @property
+    def pymcacomment(self):
+        return self.pymcacomment_prefix+self.name
+    
+    @classmethod
+    def namefrompymca(cls,string):
+        for prefix in [cls.pymcamaterial_prefix,cls.pymcacomment_prefix]:
+            if string.startswith(prefix):
+                return string[len(prefix):]
+        return string
+            

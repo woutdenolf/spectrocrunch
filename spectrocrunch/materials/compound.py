@@ -335,18 +335,28 @@ class Compound(Hashable,multielementbase.MultiElementBase):
                 return ret
         return None
 
-    def topymca(self,defaultthickness=1e-4):
+    def topymca(self,cfg,defaultthickness=1e-4):
         r = self.massfractions()
-        value = {'Comment': self.pymcaname,
-                'CompoundFraction': r.values(),
-                'Thickness': defaultthickness,
-                'Density': self.density,
-                'CompoundList': ['{}1'.format(e) for e in r]}
-        return self.pymcaname,value
+        massfractions = r.values()
+        names = ['{}1'.format(e) for e in r]
+        
+        matname = self.pymcaname
+        cfg["materials"][matname] = {'Comment': self.pymcacomment,
+                                    'CompoundFraction': massfractions,
+                                    'Thickness': defaultthickness,
+                                    'Density': self.density,
+                                    'CompoundList': names}
+        return matname
 
-    def tofisx(self):
+    def tofisx(self,cfg,defaultthickness=1e-4):
         r = self.massfractions()
-        o = fisx.Material(self.pymcaname, self.density, 1e-10)
-        o.setCompositionFromLists(['{}1'.format(e) for e in r],r.values())
-        return o
+        massfractions = r.values()
+        names = ['{}1'.format(e) for e in r]
+        
+        matname = self.pymcaname
+        o = fisx.Material(matname, self.density, defaultthickness, self.pymcacomment)
+        o.setCompositionFromLists(names,massfractions)
+        cfg.addMaterial(o,errorOnReplace=False)
+        
+        return matname
         

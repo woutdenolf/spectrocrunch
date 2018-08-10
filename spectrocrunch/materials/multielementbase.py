@@ -169,10 +169,6 @@ class MultiElementBase(elementbase.ElementBase):
               ureg.Quantity(E,'keV').to("cm","spectroscopy")**2 *\
               (ureg.classical_electron_radius*ureg.avogadro_number*ureg.Quantity(density,'g/cm^3')/(2*np.pi))
         return beta.to("dimensionless").magnitude
-        
-    @property
-    def pymcaname(self):
-        return self.name
 
     @classmethod
     def csdict_collapse(cls,csdict):

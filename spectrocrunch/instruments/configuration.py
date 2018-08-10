@@ -212,6 +212,7 @@ class ESRF_ID21_SXM(InstrumentInfo):
         info["units"]["It_cps"] = info["units"].get("It_cps",ureg.Unit("Hz"))
         info["units"]["I0_current"] = info["units"].get("I0_current",ureg.Unit("Hz"))
         info["units"]["It_current"] = info["units"].get("It_current",ureg.Unit("Hz"))
+        info["units"]["I0_photons"] = info["units"].get("I0_photons",ureg.dimensionless)
         info["units"]["It_photons"] = info["units"].get("It_photons",ureg.dimensionless)
         info["units"]["It_flux"] = info["units"].get("It_flux",ureg.Unit("Hz"))
         info["units"]["I0_flux"] = info["units"].get("I0_flux",ureg.Unit("Hz"))

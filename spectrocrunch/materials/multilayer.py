@@ -102,11 +102,12 @@ class Multilayer(with_metaclass(cache.Cache)):
     
     FISXCFG = pymca.FisxConfig()
 
-    def __init__(self, material=None, thickness=None, geometry=None):
+    def __init__(self, material=None, thickness=None, fixed=False, geometry=None):
         """
         Args:
             material(list(spectrocrunch.materials.compound|mixture)): layer composition
             thickness(list(num)): layer thickness in cm
+            fixed(list(num)): do not change this layer
             geometry(spectrocrunch.geometries.base.Centric): 
         """
         
@@ -116,8 +117,12 @@ class Multilayer(with_metaclass(cache.Cache)):
             material = [material]
         if not instance.isarray(thickness):
             thickness = [thickness]
-            
-        self.layers = [Layer(material=mat,thickness=t,ml=self) for mat,t in zip(material,thickness)]
+        if not instance.isarray(fixed):
+            fixed = [fixed]
+        if len(fixed)!=len(material) and len(fixed)==1:
+            fixed = fixed*len(material)
+        
+        self.layers = [Layer(material=mat,thickness=t,fixed=f,ml=self) for mat,t,f in zip(material,thickness,fixed)]
         
         super(Multilayer,self).__init__(force=True)
     

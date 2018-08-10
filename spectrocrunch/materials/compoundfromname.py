@@ -59,6 +59,9 @@ compounddb["linseed oil"] = mixture.Mixture([compounddb["trilinolenin"],\
 
 # organics:
 compounddb["cellulose"] = compoundfromformula.CompoundFromFormula("C6H10O5",1.5,name="")
+compounddb["hair"] = compoundfromlist.CompoundFromList(['C', 'O', 'N', 'H', 'S'],
+                                [0.45,0.28,0.15,0.067,0.053],
+                                types.fraction.mass,1.33,name="human hair")
 
 # low-Z minerals
 compounddb["diamond"] = compoundfromformula.CompoundFromFormula("C",3.51,name="")
@@ -100,6 +103,12 @@ compounddb["ferric oxalate"] = compoundfromformula.CompoundFromFormula("Fe2(C2O4
 compounddb["ferrous sulfate"] = compoundfromformula.CompoundFromFormula("FeSO4(H2O)7",1.895,name="ferrous sulfate")
 compounddb["ferric sulfate"] = compoundfromformula.CompoundFromFormula("Fe2(SO4)3(H2O)5",1.898,name="ferric sulfate")
 compounddb["ferric chloride"] = compoundfromformula.CompoundFromFormula("FeCl3(H2O)6",1.82,name="ferric chloride")
+
+# Cr minerals
+compounddb["chromia"] = compoundfromformula.CompoundFromFormula("Cr2O3",5.22,name="chromia")
+
+# Ni minerals
+compounddb["bunsenite"] = compoundfromformula.CompoundFromFormula("NiO",6.67,name="bunsenite")
 
 # Mn minerals
 compounddb["manganous oxide"] = compoundfromformula.CompoundFromFormula("MnO",5.745,name="manganous oxide")
