@@ -417,6 +417,7 @@ class QXRFGeometry(with_metaclass(object)):
 
     def _calibrate_fields(self):
         return self._calibrate_fields_name("counts")+\
+               self._calibrate_fields_name("cps")+\
                self._calibrate_fields_name("current")+\
                self._calibrate_fields_name("photons")+\
                self._calibrate_fields_name("flux")+\
@@ -460,7 +461,7 @@ class QXRFGeometry(with_metaclass(object)):
         return data,params.pop("motors",{})
         
     def _validate_data(self,data,staticdata,resetdevices=False,dark=False):
-        
+
         fields = self._calibrate_fields()
         
         # Add units where missing and fill with static data if needed
