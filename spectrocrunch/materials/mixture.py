@@ -29,7 +29,6 @@ from . import types
 from . import stoichiometry
 from ..common import instance
 
-import re
 import numpy as np
 import fisx
 
@@ -383,12 +382,11 @@ class Mixture(multielementbase.MultiElementBase):
         r = self.massfractions()
         massfractions = r.values()
         names = [mat.tofisx(cfg,defaultthickness=defaultthickness) for mat in r]
-
+        
         matname = self.pymcaname
         o = fisx.Material(matname, self.density, defaultthickness, self.pymcacomment)
         o.setCompositionFromLists(names,massfractions)
         cfg.addMaterial(o,errorOnReplace=False)
-        
-        return matname
 
+        return matname
 

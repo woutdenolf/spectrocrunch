@@ -47,7 +47,7 @@ class test_pymca(unittest.TestCase):
 
     def test_loadcfg(self):
         cfgfile = os.path.join(self.dir.path,"mca.cfg")
-        
+
         h1 = pymca.PymcaHandle(energy=self.energy,sample=xrf_setup.sample)
         h1.savepymca(cfgfile)
         
@@ -62,7 +62,12 @@ class test_pymca(unittest.TestCase):
         np.testing.assert_allclose(h1.mca(),h2.mca())
 
     def test_rates(self):
-        h = pymca.PymcaHandle(energy=self.energy,sample=xrf_setup.sample,escape=0)
+        h = pymca.PymcaHandle(energy=self.energy,sample=xrf_setup.sample,escape=0,continuum=False)
+        
+        def addtopymca_custom(self,cfg):
+            cfg["fit"]["continuum"] = 1
+        h.addcustomnpymcamethod(addtopymca_custom)
+        
         y = h.mca()
         y += 1
         
@@ -115,6 +120,7 @@ class test_pymca(unittest.TestCase):
                     npresent += 1
             grouprate *= safrac
             grouprate_avg2 *= safrac
+            # TODO: something wrong with mixtures of different elements (fisx vs Elements)
             if group in grouprates:
                 np.testing.assert_allclose(grouprate,grouprates[group],rtol=1e-2) # 1% error fisx vs. Elements?
             

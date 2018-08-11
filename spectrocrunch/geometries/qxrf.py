@@ -89,19 +89,27 @@ class QXRFGeometry(with_metaclass(object)):
                 diodeIt = diodeIt.geometry
         
         referencetime = self.referencetime
-        if referencetime is not None:
+        if referencetime is None:
+            referencetime = "<data>"
+        else:
             referencetime = "{:~}".format(referencetime)
-
+            
+        try:
+            self.reference.to("Hz")
+            refname = "Normalize to flux"
+        except pinterrors.DimensionalityError:
+            refname = "Normalize to diode counts"
+            
         fmt = "DiodeI0:\n========\n{}\n"\
                "DiodeIt:\n========\n{}\n"\
                "XRF geometry:\n===========\n{}\n"\
                "Flux monitor:\n===========\n"\
-               " Default flux reference:\n {:~e}\n"\
-               " Reference exposure time:\n {}\n"\
-               " Default exposure time:\n {:~}\n"
+               "{}:\n {:~e}\n"\
+               "Normalize to exposure time:\n {}\n"\
+               "Default exposure time:\n {:~}\n"
                
         return fmt.format(diodeI0,diodeIt,self.xrfgeometry,\
-                   self.reference,referencetime,self.defaultexpotime)
+                   refname,self.reference,referencetime,self.defaultexpotime)
     
     @property
     def simplecalibration(self):

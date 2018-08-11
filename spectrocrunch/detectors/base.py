@@ -54,8 +54,8 @@ class Material(object):
         self._attenuators = value
 
     def __str__(self):
-        s1 = "\n ".join(["{} = {} cm".format(attinfo["material"],attinfo["thickness"]) for attinfo in self.attbefore()])
-        s2 = "\n ".join(["{} = {} cm".format(attinfo["material"],attinfo["thickness"]) for attinfo in self.attafter()])
+        s1 = "\n ".join(["{} = {} cm".format(attinfo["material"],attinfo["thickness"]) for attinfo in self.beamfilters()])
+        s2 = "\n ".join(["{} = {} cm".format(attinfo["material"],attinfo["thickness"]) for attinfo in self.detectorfilters()])
 
         if s1:
             s1 = "Beam filters:\n {}".format(s1)
@@ -113,27 +113,27 @@ class Material(object):
             material = setup.loadfrompymca_material(cfg,matname,density)
             self.attenuators[attlabel] = {"material":material,"thickness":thickness}
 
-    def isbefore(self,name):
+    def isbeamfilter(self,name):
         return "BeamFilter" in name
 
-    def isafter(self,name):
-        return "BeamFilter" not in name and name != self.DETMATERIALLABEL
+    def isdetectorfilter(self,name):
+        return not self.isbeamfilter(name) and name != self.DETMATERIALLABEL
 
-    def attbefore(self):
-        return [self.attenuators[att] for att in self.attenuators if self.isbefore(att)]
+    def beamfilters(self):
+        return [self.attenuators[att] for att in self.attenuators if self.isbeamfilter(att)]
         
-    def attafter(self):
-        return [self.attenuators[att] for att in self.attenuators if self.isafter(att)]
+    def detectorfilters(self):
+        return [self.attenuators[att] for att in self.attenuators if self.isdetectorfilter(att)]
 
     def addtofisx(self,setup,cfg):
         for attlabel,attinfo in self.attenuators.items():
             cfg.addtofisx_material(attinfo["material"])
 
-        atts = [[attinfo["material"].pymcaname,attinfo["material"].density,attinfo["thickness"],1.0] for attinfo in self.attbefore()]
+        atts = [[attinfo["material"].pymcaname,attinfo["material"].density,attinfo["thickness"],1.0] for attinfo in self.beamfilters()]
         if atts:
             setup.setBeamFilters(atts)
 
-        atts = [[attinfo["material"].pymcaname,attinfo["material"].density,attinfo["thickness"],1.0] for attinfo in self.attafter()]
+        atts = [[attinfo["material"].pymcaname,attinfo["material"].density,attinfo["thickness"],1.0] for attinfo in self.detectorfilters()]
         if atts:
             setup.setAttenuators(atts)
 
@@ -141,9 +141,9 @@ class Material(object):
         """Absorbance by filters (before or after sample)
         """
         if source:
-            atts = self.attbefore()
+            atts = self.beamfilters()
         else:
-            atts = self.attafter()
+            atts = self.detectorfilters()
         if atts:
             return sum([att["material"].mass_att_coeff(energy)*(att["thickness"]*att["material"].density) for att in atts])
         else:

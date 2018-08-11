@@ -1,6 +1,8 @@
-numpy
 future
+numpy>=1.12
 scipy
+pandas>=0.23
+scikit-image>=0.13
 h5py
 silx
 fabio
@@ -10,8 +12,7 @@ matplotlib
 shapely
 uncertainties
 pint
-mako
-pyopencl==2015.1
-pandas
-#pymca
-
+Mako
+pyopencl==2015.1; python_version < '3.6'
+pyopencl==2018.1; python_version >= '3.6'
+pymca

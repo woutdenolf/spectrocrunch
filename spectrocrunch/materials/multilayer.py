@@ -262,7 +262,7 @@ class Multilayer(with_metaclass(cache.Cache)):
                 params = fit1d.lstsq_nonnegative(A,y)
             else:
                 params = fit1d.lstsq(A,y)
-                
+
         return params
         
     def _refinerhod(self,energy,absorbance,refinedattr,fixedattr,**kwargs):
@@ -271,7 +271,6 @@ class Multilayer(with_metaclass(cache.Cache)):
             y = y-layer.absorbance(energy)
             
         A = [layer.mass_att_coeff(energy) for layer in self.freeiter()]
-
         params = self._refine_linear(A,y,**kwargs)
         for param,layer in zip(params,self.freeiter()):
             setattr(layer,refinedattr,param/getattr(layer,fixedattr))
@@ -303,7 +302,7 @@ class Multilayer(with_metaclass(cache.Cache)):
                 layer.density = s/layer.xraythickness
             else:
                 layer.xraythickness = s/layer.density
-
+                
     def refinethickness(self,energy,absorbance,**kwargs):
         self._refinerhod(energy,absorbance,"xraythickness","density",**kwargs)
 
@@ -739,7 +738,6 @@ class Multilayer(with_metaclass(cache.Cache)):
         return J3
 
     def addtofisx(self,setup,cfg):
-        cfg.init()
         setup.setSample([layer.addtofisx(setup,cfg) for layer in self])
         self.geometry.addtofisx(setup,cfg)
 
@@ -754,10 +752,12 @@ class Multilayer(with_metaclass(cache.Cache)):
             density = v["Density"]
         cfg["attenuators"]["Matrix"] = [1, name, density, thickness, anglein, angleout, 0, scatteringangle]
 
-    def loadfrompymca_matrix(self,setup,cfg):
-        _, name, density, thickness, anglein, angleout, _, scatteringangle = cfg["attenuators"]["Matrix"]
+    def loadfrompymca_matrix(self,setup,cfg,name="Matrix"):
+        _, _name, density, thickness, anglein, angleout, _, scatteringangle = cfg["attenuators"]["Matrix"]
         self.geometry.anglein = anglein
         self.geometry.angleout = angleout
+        if name=="Matrix" or name not in cfg["attenuators"]:
+            name = _name
         return name,density,thickness
     
     def addtopymca_layer(self,setup,cfg,index,layer):
@@ -800,9 +800,9 @@ class Multilayer(with_metaclass(cache.Cache)):
             self.addtopymca_matrix(setup,cfg,'MULTILAYER')
         self.geometry.addtopymca(setup,cfg)
         
-    def loadfrompymca(self,setup,cfg):
+    def loadfrompymca(self,setup,cfg,name="Matrix"):
         self.geometry.loadfrompymca(setup,cfg)
-        name,density,thickness = self.loadfrompymca_matrix(setup,cfg)
+        name,density,thickness = self.loadfrompymca_matrix(setup,cfg,name=name)
         if name=="MULTILAYER":
             layer = tuple()
             index = 0

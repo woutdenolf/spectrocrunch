@@ -22,9 +22,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from __future__ import absolute_import
+
 import contextlib
 import re
 import copy
+from types import MethodType
 
 from ..common import units
 from ..common import instance
@@ -267,8 +270,9 @@ class PymcaHandle(PymcaBaseHandle):
     def __init__(self,sample=None,emin=None,emax=None,\
                 energy=None,weights=None,scatter=None,\
                 flux=1e9,time=0.1,escape=True,pileup=False,ninteractions=1,\
-                linear=False,continuum=True):
+                linear=False,continuum=True,SingleLayerStrategy=None):
         
+        #TODO: do we need this?
         if sample is None:
             from . import multilayer
             from ..geometries import xrf as xrfgeometries
@@ -292,6 +296,7 @@ class PymcaHandle(PymcaBaseHandle):
         self.pileup = pileup
         self.continuum = continuum
         self.ninteractions = ninteractions
+        self.SingleLayerStrategy = SingleLayerStrategy
         self.flux = flux
         self.time = time
         
@@ -419,6 +424,36 @@ class PymcaHandle(PymcaBaseHandle):
         cfg["fit"]["linearfitflag"] = int(self.linear)
         cfg["concentrations"]["usemultilayersecondary"] = self.ninteractions-1
     
+    def addtopymca_custom(self,cfg):
+        pass
+    
+    def addcustomnpymcamethod(self,method):
+        self.addtopymca_custom = MethodType(method,self)
+    
+    def addtopymca_strategy(self,cfg):
+        strategy = "SingleLayerStrategy"
+        dic = getattr(self,strategy)
+        if dic:
+            dic = dict(dic)
+            cfg["fit"]["strategy"] = strategy
+            cfg["fit"]["strategyflag"] = 1
+            if strategy not in cfg:
+                cfg[strategy] = {}
+                cfg[strategy]["layer"] = "Auto"
+                cfg[strategy]["iterations"] = 3
+            func = lambda mat: mat if instance.isstring(mat) else mat.pymcaname
+            cfg[strategy]["completer"] = func(dic.pop("completer","-"))
+            dic2 = {}
+            for el,mat in dic.items():
+                if el in cfg["peaks"]:
+                    k = "{} {}".format(el,sorted(cfg["peaks"][el])[0])
+                    dic2[k] = func(mat)
+            cfg[strategy]["peaks"] = dic2.keys()
+            cfg[strategy]["materials"] = dic2.values()
+            cfg[strategy]["flags"] = [1]*len(dic2)
+        else:
+            cfg["fit"]["strategyflag"] = 0
+        
     def loadfrompymca_other(self,cfg):
         self.escape = bool(cfg["fit"]["escapeflag"])
         self.pileup = bool(cfg["fit"]["sumflag"])
@@ -490,6 +525,8 @@ class PymcaHandle(PymcaBaseHandle):
             self.addtopymca_lstsq(config)
             self.addtopymca_other(config)
             self.sample.addtopymca(self,config)
+            self.addtopymca_strategy(config)
+        self.addtopymca_custom(config)
         
         self.mcafit.configure(config)
 
