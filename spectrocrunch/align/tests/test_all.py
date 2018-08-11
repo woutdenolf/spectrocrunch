@@ -25,6 +25,7 @@
 import unittest
 from . import test_teststack
 from . import test_alignSourceDest
+from . import test_transform
 from . import test_align
 
 def test_suite():
@@ -32,6 +33,7 @@ def test_suite():
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_alignSourceDest.test_suite())
     testSuite.addTest(test_teststack.test_suite())
+    testSuite.addTest(test_transform.test_suite())
     testSuite.addTest(test_align.test_suite())
     return testSuite
     

@@ -118,7 +118,7 @@ class alignSimple(align):
         """Set transformation
         """
         if changed:
-            self._transform.set(transform)
+            self._transform.fromtransform(transform)
 
 class alignMin(alignSimple):
     def __init__(self,*args,**kwargs):

@@ -249,7 +249,7 @@ class align(object):
         return self.cof_in_pretransform_frame(C2).transformimage(img)
 
     def absolute_cofs(self,homography=False):
-        """Change of frame for each raw image
+        """Change-of-frame for each raw image (i.e. maps destination keypoints to reference keypoints)
         """
         if self.source.nimages==0:
             return None
@@ -287,8 +287,8 @@ class align(object):
         if self.pre_align["roi"] is not None:
             self.C1.settranslation([self.pre_align["roi"][1][0],self.pre_align["roi"][0][0]])
             self.C1inv.settranslation([-self.pre_align["roi"][1][0],-self.pre_align["roi"][0][0]])
-        self.C3invC1.set(self.C1)
-        self.C1invC3.set(self.C1inv)
+        self.C3invC1.fromtransform(self.C1)
+        self.C1invC3.fromtransform(self.C1inv)
 
     def calccof_pretransform_to_prealign(self):
         """ raw -> pre-align: C1 (roi)
@@ -296,8 +296,8 @@ class align(object):
             pre-transform -> pre-align: C3^-1.C1
             pre-align -> pre-transform: C1^-1.C3
         """
-        self.C3invC1.set(self.C1)
-        self.C1invC3.set(self.C1inv)
+        self.C3invC1.fromtransform(self.C1)
+        self.C1invC3.fromtransform(self.C1inv)
 
         if self.pre_transform["pad"]:
             C3inv = self.defaulttransform(ttype=transformationType.translation)
@@ -366,9 +366,9 @@ class align(object):
         bchange = pairwise and self.alignonraw and i!=0
 
         if bchange:
-            self.transfos[i].set(self.transfos[i-1].dot(transfo)) # new cof multiplied at the right
+            self.transfos[i].fromtransform(self.transfos[i-1].dot(transfo)) # new cof multiplied at the right
         else:
-            self.transfos[i].set(transfo)
+            self.transfos[i].fromtransform(transfo)
 
         self.update_transformation(i,bchange)
 

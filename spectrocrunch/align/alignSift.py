@@ -24,6 +24,8 @@
 
 
 from .align import align
+from .types import transformationType
+from ..math.fit1d import lstsq
 
 from silx.image import sift
 from silx.opencl import ocl
@@ -32,8 +34,6 @@ import pyopencl
 
 import os
 import numpy as np
-from scipy import stats
-from .types import transformationType
 import logging
 
 class alignSift(align):
@@ -66,8 +66,8 @@ class alignSift(align):
 
         self.newsiftplan()
         self.matchplan = sift.MatchPlan(ctx=self.ctx)
-        self.kp1 = None
-        self.kp2 = None
+        self.kpref = None
+        self.kpmoving = None
         
         # Prepare transformation kernel
         self.workgroupshape = (8, 4)
@@ -151,21 +151,21 @@ class alignSift(align):
         cpy.wait()
 
         # Find keypoints of buffered image
-        self.kp2 = self.siftplan.keypoints(self.buffers["input"])
+        self.kpmoving = self.siftplan.keypoints(self.buffers["input"])
 
         # Find matching reference keypoints
         self._transform.settranslation(np.zeros(2))
-        if self.kp1.size != 0 and self.kp2.size != 0:
-            raw_matching = self.matchplan.match(self.buffers["ref_kp_gpu"], self.kp2, raw_results=True)
+        if self.kpref.size != 0 and self.kpmoving.size != 0:
+            raw_matching = self.matchplan.match(self.buffers["ref_kp_gpu"], self.kpmoving, raw_results=True)
 
             # Extract transformation from matching keypoints
             matching = np.recarray(shape=raw_matching.shape, dtype=self.matchplan.dtype_kp)
             len_match = raw_matching.shape[0]
             if len_match != 0:
-                matching[:, 0] = self.kp1[raw_matching[:, 0]]
-                matching[:, 1] = self.kp2[raw_matching[:, 1]]
-
-                # Transformation from matching keypoints
+                matching[:, 0] = self.kpmoving[raw_matching[:, 1]]
+                matching[:, 1] = self.kpref[raw_matching[:, 0]]
+ 
+                # Map kpmoving to kpref
                 self.transformationFromKp(matching[:, 0].x,matching[:, 0].y,matching[:, 1].x,matching[:, 1].y)
 
                 # Extract transformation matrix
@@ -181,205 +181,12 @@ class alignSift(align):
         self.execute_transformatrix()
         return self.buffers["output"].get()
 
-    def centroid(self,x):
-        #return np.mean(x)
-        #return np.median(x)
-        return stats.trim_mean(x,0.1) # trimmed mean (trim 10% at both sides)
-
-    def solvelinearsystem(self,A,b):
-        ##### Using pseudo-inverse #####
-        # A-1* = (A^T.A)^(-1).A^T
-        try:
-            S = np.dot(A.T, A)
-            sol = np.dot(np.linalg.inv(S), np.dot(A.T, b))
-        except np.linalg.LinAlgError as err:
-            logger = logging.getLogger(__name__)
-            logger.error("Singular matrix in calculating a transformation from SIFT keypoints")
-            sol = None
-            
-        #sol = np.dot(numpy.linalg.pinv(A),b) #slower?
-
-        ##### Using SVD #####
-        #sol = np.linalg.lstsq(A,b)[0] # computing the numpy solution
-
-        ##### Using QR #####
-        #Q,R = np.linalg.qr(A) # qr decomposition of A
-        #Qb = np.dot(Q.T,b) # computing Q^T*b (project b onto the range of A)
-        #sol = np.linalg.solve(R,Qb) # solving R*x = Q^T*b
-
-        # result
-        #MSE = np.linalg.norm(b - np.dot(A,sol))**2/N #Mean Squared Error
-        return sol
-
     def transformationFromKp(self,xsrc,ysrc,xdest,ydest):
         """ Least-squares transformation parameters to map src to dest
 
             Remark: the rigid transformation is the most problematic (cfr. test_sift_mapping)
         """
-        self._transform.setidentity()
-
-        if self.transfotype==transformationType.translation:
-            self._transform.settranslation([self.centroid(xdest-xsrc),self.centroid(ydest-ysrc)])
-
-        elif self.transfotype==transformationType.rigid:
-            # https://igl.ethz.ch/projects/ARAP/svd_rot.pdf
-            #
-            # R.(X-Xcen) = Y-Ycen
-            # R.X + T = Y   and   T = Ycen - R.Xcen
-
-            censrc = np.asarray([self.centroid(xsrc),self.centroid(ysrc)])
-            cendest = np.asarray([self.centroid(xdest),self.centroid(ydest)])
-
-            XT = np.column_stack((xsrc,ysrc)) 
-            YT = np.column_stack((xdest,ydest))
-
-            S = np.dot(np.dot(np.transpose(XT-censrc),np.identity(len(xsrc))),YT-cendest)
-            U, s, V = np.linalg.svd(S, full_matrices=False)
-            C = np.dot(V,np.transpose(U))
-            self._transform.setlinear(C)
-
-            YTnoshift = YT-np.dot(XT,C.T)
-            #self._transform.settranslation(cendest - np.dot(C,censrc))
-            # This seems to be more accurate
-            self._transform.settranslation([self.centroid(YTnoshift[:,0]),self.centroid(YTnoshift[:,1])])
-            
-        elif self.transfotype==transformationType.similarity:
-            # Similarity transformation:
-            #    x' = a.x - b.y + t0
-            #    y' = b.x + a.y + t1
-            #    sol = [a,b,t0,t1]
-            #
-            # xsrc = [x1,x2,...]
-            # ysrc = [y1,y2,...]
-            # xdest = [x1',x2',...]
-            # ydest = [y1',y2',...]
-            #
-            # X = x1 -y1  1  0
-            #     y1  x1  0  1
-            #     x2 -y2  1  0
-            #     y2  x2  0  1
-            #     ...
-            #
-            # Y = x1'
-            #     y1'
-            #     x2'
-            #     y2'
-            #     ...
-
-            N = len(xsrc)
-            
-            X = np.zeros((2 * N, 4))
-            X[::2, 0] = xsrc
-            X[1::2, 0] = ysrc
-            X[::2, 1] = -ysrc
-            X[1::2, 1] = xsrc
-            X[::2, 2] = 1
-            X[1::2, 3] = 1
-
-            Y = np.zeros((2 * N, 1))
-            Y[::2, 0] = xdest
-            Y[1::2, 0] = ydest
-
-            sol = self.solvelinearsystem(X,Y)
-            if sol is not None:
-                self._transform.setlinear([[sol[0],-sol[1]],[sol[1],sol[0]]])
-                self._transform.settranslation(sol[2:].flatten())
-
-        elif self.transfotype==transformationType.affine:
-            # Affine transformation:
-            #    x' = a.x + b.y + t0
-            #    y' = c.x + d.y + t1
-            #    sol = [a,b,t0,c,d,t1]
-            #
-            # xsrc = [x1,x2,...]
-            # ysrc = [y1,y2,...]
-            # xdest = [x1',x2',...]
-            # ydest = [y1',y2',...]
-            #
-            # X = x1 y1  1  0  0  0
-            #      0  0  0 x1 y1  1
-            #     x2 y2  1  0  0  0
-            #      0  0  0 x2 y2  1
-            #     ...
-            #
-            # Y = x1'
-            #     y1'
-            #     x2'
-            #     y2'
-            #     ...
-
-            raise NotImplementedError("Sift doesn't support affine transformations (keypoints not invariant).")
-
-            N = len(xsrc)
-
-            X = np.zeros((2 * N, 6))
-            X[::2, 0] = xsrc
-            X[::2, 1] = ysrc
-            X[::2, 2] = 1
-            X[1::2, 3] = xsrc
-            X[1::2, 4] = ysrc
-            X[1::2, 5] = 1
-            
-            Y = np.zeros((2 * N, 1))
-            Y[::2, 0] = xdest
-            Y[1::2, 0] = ydest
-
-            sol = self.solvelinearsystem(X,Y)
-            if sol is not None:
-                self._transform.setaffine(sol.reshape((2,3)))
-
-        elif self.transfotype==transformationType.homography:
-            # Projective transformation:
-            #    x' = (a.x + b.y + t0)/(px.x+py.y+1)
-            #    y' = (c.x + d.y + t1)/(px.x+py.y+1)
-            #     x' = a.x + b.y + t0 - px.x.x' - py.y.x'
-            #     y' = c.x + d.y + t1 - px.x.y' - py.y.y'
-            #    sol = [a,b,t0,c,d,t1,px,py]
-            #
-            # xsrc = [x1,x2,...]
-            # ysrc = [y1,y2,...]
-            # xdest = [x1',x2',...]
-            # ydest = [y1',y2',...]
-            #
-            # X = x1 y1  1  0  0  0 -x1.x1' -y1.x1' -x1'
-            #      0  0  0 x1 y1  1 -x1.y1' -y1.y1' -y1'
-            #     x2 y2  1  0  0  0 -x2.x2' -y2.x2' -x1'
-            #      0  0  0 x2 y2  1 -x2.y2' -y2.y2' -y1'
-            #     ...
-            #
-            # Y = 0
-            #     0
-            #     0
-            #     0
-            #     ...
-            
-            raise NotImplementedError("Sift doesn't support homographies (keypoints not invariant).")
-            #if self.usekernel:
-            #    raise NotImplementedError("Sift doesn't support this type of transformation.")
-
-            N = len(xsrc)
-
-            X = np.zeros((2 * N, 8))
-            X[::2, 0] = xsrc
-            X[::2, 1] = ysrc
-            X[::2, 2] = 1
-            X[1::2, 3] = xsrc
-            X[1::2, 4] = ysrc
-            X[1::2, 5] = 1
-            X[::2, 6] = -xsrc*xdest
-            X[1::2, 6] = -xsrc*ydest
-            X[::2, 7] = -ysrc*xdest
-            X[1::2, 7] = -ysrc*ydest
-
-            Y = np.zeros((2 * N, 1))
-            Y[::2, 0] = xdest
-            Y[1::2, 0] = ydest
-
-            sol = self.solvelinearsystem(X,Y)
-            if sol is not None:
-                self._transform.sethomography(np.append(sol,1).reshape((3,3))) 
-        else:
-            raise NotImplementedError("Sift doesn't support this type of transformation.")
+        self._transform.fromkeypoints(xsrc,ysrc,xdest,ydest)
 
     def execute_transformatrix(self):
         """Execute transformation kernel
@@ -404,11 +211,11 @@ class alignSift(align):
         
         # Set reference keypoints
         if previous:
-            self.kp1 = self.kp2
+            self.kpref = self.kpmoving
         else:
-            self.kp1 = self.siftplan.keypoints(np.ascontiguousarray(img, self.siftdtype))
+            self.kpref = self.siftplan.keypoints(np.ascontiguousarray(img, self.siftdtype))
 
-        self.buffers["ref_kp_gpu"] = pyopencl.array.to_device(self.matchplan.queue, self.kp1)
+        self.buffers["ref_kp_gpu"] = pyopencl.array.to_device(self.matchplan.queue, self.kpref)
 
     def get_transformation(self):
         """Get transformation from alignment kernel
@@ -419,6 +226,6 @@ class alignSift(align):
         """Set the transformation kernel according to the alignment kernel and adapted transformation
         """
         if bchanged:
-            self._transform.set(transform)
+            self._transform.fromtransform(transform)
             self.updatecofbuffer()
 

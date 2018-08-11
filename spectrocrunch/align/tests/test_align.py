@@ -48,7 +48,7 @@ class test_align(unittest.TestCase):
 
         if transfotype==transformationType.translation and\
             alignclass!=alignSift and alignclass!=alignElastix:
-            lst = [True,False]
+            lst = [False,True]
         else:
             lst = [False]
     
@@ -66,7 +66,8 @@ class test_align(unittest.TestCase):
                 refimageindex = 0#len(inputstack)//2
                     
                 # Prepare alignment
-                o = alignclass(inputstack,None,outputstack,None,None,stackdim=stackdim,overwrite=True,plot=False,transfotype=transfotype)
+                o = alignclass(inputstack,None,outputstack,None,None,stackdim=stackdim,
+                               overwrite=True,plot=False,transfotype=transfotype)
 
                 # Check alignment
                 if vector:
@@ -77,11 +78,10 @@ class test_align(unittest.TestCase):
                 else:
                     roi = ((1,-3),(1,-3))
 
-
                 for i in range(4):
                     pad = (i & 1)==1
                     crop = (i & 2)==2
-
+                    
                     # Fixed reference
                     msg = "Alignment: Pad = {}, Crop = {}, 1D = {}, transposed = {}, type = {}".format(pad,crop,vector,transposed,"fixed")
                     o.align(refdatasetindex,refimageindex=refimageindex,pad = pad,crop = crop,roi=roi)
@@ -96,42 +96,7 @@ class test_align(unittest.TestCase):
                     msg = "Alignment: Pad = {}, Crop = {}, 1D = {}, transposed = {}, type = {}".format(pad,crop,vector,transposed,"pairwise")
                     o.align(refdatasetindex,onraw = False,pad = pad,crop = crop,roi=roi)
                     self.compare_relativecof(o.absolute_cofs(homography=True),cofrel,msg=msg)
-
-    def test_sift_mapping(self):
-        return # TODO: not working
-
-        # Initialize alignSift (not important)
-        inputstack = [np.zeros((2,2,2),dtype=np.float32)]*5
-        outputstack = [np.zeros(1,dtype=np.float32)]*5
-        o = alignSift(inputstack,None,outputstack,None,None,stackdim=2,overwrite=True)
-
-        # Generate points
-        N = 20
-        xsrc = np.random.random(N)*100
-        ysrc = np.random.random(N)*100
-        XT = np.column_stack((xsrc,ysrc,np.ones(N)))
-
-        types = [transformationType.translation, transformationType.rigid, transformationType.similarity]
-        for t in types:
-            M,_ = helper_teststack.transformation(t,2)
-
-            # Transform points
-            YT = np.dot(XT,M.transpose())
-            xdest = YT[:,0]/YT[:,2]
-            ydest = YT[:,1]/YT[:,2]
-
-            # Add noise
-            #xdest += np.random.random(N)-0.5
-            #ydest += np.random.random(N)-0.5
-
-            # Get transformation
-            o.transfotype = t
-            o.transformationFromKp(xsrc,ysrc,xdest,ydest)
-            if t==transformationType.rigid:
-                np.testing.assert_almost_equal(M,o._transform.getnumpyhomography(),decimal=1)
-            else:
-                np.testing.assert_allclose(M,o._transform.getnumpyhomography())
-
+   
     def test_fft_internals(self):
         return # TODO: not working
 
@@ -187,7 +152,8 @@ class test_align(unittest.TestCase):
             self.try_alignment(alignElastix,t)
 
     def test_sift(self):
-        types = [transformationType.translation, transformationType.rigid, transformationType.similarity]
+        types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine]
+        #TODO: the others are not that precise
         types = [transformationType.translation]
         for t in types:
             self.try_alignment(alignSift,t)
@@ -212,7 +178,6 @@ class test_align(unittest.TestCase):
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_align("test_sift_mapping")) # not working for now
     testSuite.addTest(test_align("test_fft_internals")) # not working for now
     testSuite.addTest(test_align("test_min"))
     testSuite.addTest(test_align("test_max"))

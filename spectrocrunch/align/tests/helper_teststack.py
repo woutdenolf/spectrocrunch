@@ -23,7 +23,8 @@
 # THE SOFTWARE.
 
 import numpy as np
-import scipy.ndimage
+#import scipy.ndimage
+from scipy.stats import rv_continuous
 
 from ..types import transformationType
 
@@ -110,11 +111,11 @@ def affine(a,b,c,d,tx,ty):
     Mcoord[0,0:3] = [a,b,tx]
     Mcoord[1,0:3] = [c,d,ty]
     det = np.float(a*d-b*c)
-    Mcof[0,0:3] = [d/det,-b/det,(d*tx-b*ty)/det]
+    Mcof[0,0:3] = [d/det,-b/det,(b*ty-d*tx)/det]
     Mcof[1,0:3] = [-c/det,a/det,(c*tx-a*ty)/det]
     return Mcoord,Mcof
 
-def homography(a,b,c,d,tx,ty,px,py):
+def projective(a,b,c,d,tx,ty,px,py):
     Mcoord = np.identity(3)
     Mcof = np.identity(3)
     Mcoord[0,0:3] = [a,b,tx]
@@ -162,18 +163,48 @@ def transformation(t,n,subpixel=True):
         return similarity(a,b,tx,ty)
     elif t==transformationType.affine:
         return affine(a,b,c,d,tx,ty)
-    elif t==transformationType.homography:
-        return homography(a,b,c,d,tx,ty,px,py)
+    elif t==transformationType.projective:
+        return projective(a,b,c,d,tx,ty,px,py)
     else:
         raise NotImplementedError("This transformation to has not been implemented.")
+
+
+class rvgen(rv_continuous):
+    def _pdf(self, x):
+        H = 1/np.sqrt(2.0 * np.pi)
+        return H*np.exp(-x**2 / 2.)
+        
+        return H*(1-np.exp(-x**2 / 2.))
 
 def random(a,b,n):
     return a+(b-a)*np.random.random(n)
 
+def genpos1d(a,b,npeaks):
+    x = random(a,b,npeaks)
+    dr = (b-a)*0.1
+    xm = (a+b)/2.
+    ind = abs(x-xm)>dr
+    x = x[ind]
+    npeaks = sum(ind)
+    return x,npeaks
+    
+def genpos2d(a,b,c,d,npeaks):
+    x = random(a,b,npeaks)
+    y = random(c,d,npeaks)
+    dr = max(b-a,d-c)*0.1
+    xm = (a+b)/2.
+    ym = (c+d)/2.
+    r = ((x-xm)**2+(y-ym)**2)**0.5
+    ind = r>dr
+    x = x[ind]
+    y = y[ind]
+    npeaks = sum(ind)
+    return x,y,npeaks
+
 def data(transfotype,\
-        ndim1 = 71,\
-        ndim2 = 61,\
-        nimages = 5,\
+        ndim1 = 61,\
+        ndim2 = 57,\
+        nimages = 4,\
         nstacks = 2,\
         ndim = 100,vector=False,transposed=False,\
         realistic = True, subpixel = True):
@@ -188,7 +219,6 @@ def data(transfotype,\
     Mcoord,Mcof = transformation(transfotype,nimages,subpixel=subpixel)
 
     if vector:
-        ndim = 100
 
         # Shape of a subimage
         if transposed:
@@ -227,10 +257,14 @@ def data(transfotype,\
             shape = (1,xmax-xmin+1)
 
         np.random.seed(1)
+        
         if realistic:
-            x0 = random(xmin,xmax,npeaks)
+            x0,npeaks = genpos1d(xmin,xmax,npeaks)
         else:
-            x0 = random(subxmin,subxmax,npeaks)
+            x0,npeaks = genpos1d(subxmin,subxmax,npeaks)
+        ind = (x0>5) | (x0<5)
+        x0 = x0[ind]
+        npeaks = sum(ind)
         sx = random(sx*0.8,sx*1.2,npeaks)
         A = random(1,5,npeaks)
         data = zip(x0,sx,A)
@@ -263,8 +297,6 @@ def data(transfotype,\
         pass
 
     else:
-        ndim1 = 71
-        ndim2 = 61
         
         # Shape of a subimage
         subshape = (ndim1,ndim2)
@@ -308,11 +340,9 @@ def data(transfotype,\
 
         np.random.seed(1)
         if realistic:
-            x0 = random(xmin,xmax,npeaks)
-            y0 = random(ymin,ymax,npeaks)
+            x0,y0,npeaks = genpos2d(xmin,xmax,ymin,ymax,npeaks)
         else:
-            x0 = random(subxmin,subxmax,npeaks)
-            y0 = random(subymin,subymax,npeaks)
+            x0,y0,npeaks = genpos2d(subxmin,subxmax,subymin,subymax,npeaks)
         sx = random(sxy*0.8,sxy*1.2,npeaks)
         sy = random(sxy*0.8,sxy*1.2,npeaks)
         rho = random(0,0.2,npeaks)
@@ -336,10 +366,12 @@ def data(transfotype,\
         if realistic:
             s = subshape
             xv, yv = np.meshgrid(np.arange(subxmin,subxmax+1),np.arange(subymin,subymax+1))
+            ox,oy = subxmin,subymin
         else:
             s = shape
             xv, yv = np.meshgrid(np.arange(xmin,xmax+1),np.arange(ymin,ymax+1))
-
+            ox,oy = xmin,ymin
+            
         ret = np.empty(s+(nimages,),dtype=np.float32)
         xv = xv.reshape((1,s[0]*s[1]))
         yv = yv.reshape((1,s[0]*s[1]))
@@ -352,13 +384,12 @@ def data(transfotype,\
             ret[...,i] = gettransformedimage(xy[0,:],xy[1,:],data).reshape(s)
 
         # Relative change-of-frame in subimage pixel frame
-        if realistic:
-            C = np.identity(3,dtype=Mcof.dtype)
-            Cinv = np.identity(3,dtype=Mcof.dtype)
-            C[0:2,2] = [subxmin,subymin] # image pixel frame to subimage pixel frame
-            Cinv[0:2,2] = -C[0:2,2]
-            Mcof = np.dot(np.dot(Cinv,Mcof),C)
-            Mcoord = np.dot(np.dot(Cinv,Mcoord),C)
+        C = np.identity(3,dtype=Mcof.dtype)
+        Cinv = np.identity(3,dtype=Mcof.dtype)
+        C[0:2,2] = [ox,oy] # image pixel frame to subimage pixel frame
+        Cinv[0:2,2] = -C[0:2,2]
+        Mcof = np.dot(np.dot(Cinv,Mcof),C)
+        Mcoord = np.dot(np.dot(Cinv,Mcoord),C)
 
     return [ret]*nstacks,Mcoord,2 # Mcoord: change-of-frame matrix of the back-transformation
 

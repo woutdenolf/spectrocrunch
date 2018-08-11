@@ -33,7 +33,7 @@ import matplotlib.pyplot as plt
 class test_teststack(unittest.TestCase):
 
     def test_data(self):
-        types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine, transformationType.homography]
+        types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine, transformationType.projective]
         for t in types:
             if t==transformationType.translation:
                 lst = [True,False]

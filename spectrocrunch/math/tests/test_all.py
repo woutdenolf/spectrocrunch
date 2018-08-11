@@ -29,6 +29,7 @@ from . import test_ft
 from . import test_ops
 from . import test_lazy
 from . import test_noisepropagation
+from . import test_distributions
 
 def test_suite():
     """Test suite including all test suites"""
@@ -39,6 +40,7 @@ def test_suite():
     testSuite.addTest(test_ops.test_suite())
     testSuite.addTest(test_lazy.test_suite())
     testSuite.addTest(test_noisepropagation.test_suite())
+    testSuite.addTest(test_distributions.test_suite())
     return testSuite
     
 if __name__ == '__main__':

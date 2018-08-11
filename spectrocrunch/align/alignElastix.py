@@ -166,7 +166,7 @@ class alignElastix(align):
 
                 # cof = C^-1.L^-1.C
 
-                transform.set(L.dot(C).inverse().dot(C))
+                transform.fromtransform(L.dot(C).inverse().dot(C))
 
                 #TODO: not verified!
             else:

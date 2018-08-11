@@ -376,6 +376,6 @@ class alignFFT(align):
         """Set transformation
         """
         if changed:
-            self._transform.set(transform)
+            self._transform.fromtransform(transform)
 
 
