@@ -50,7 +50,7 @@ class test_pymca(unittest.TestCase):
 
         h1 = pymca.PymcaHandle(energy=self.energy,sample=xrf_setup.sample)
         h1.savepymca(cfgfile)
-        
+
         source = xraysources.factory("synchrotron")
         detector = xrfdetectors.factory("XRFDetector",ehole=3.8)
         geometry = xrfgeometries.factory("LinearXRFGeometry",detector=detector,source=source,\
@@ -67,6 +67,13 @@ class test_pymca(unittest.TestCase):
         def addtopymca_custom(self,cfg):
             cfg["fit"]["continuum"] = 1
         h.addcustomnpymcamethod(addtopymca_custom)
+        
+        if False:
+            path = "/data/id21/inhouse/wout/tmp/pymcatst"
+            cfgfile = os.path.join(path,"mca_mixture.cfg")
+            mcafile = os.path.join(path,"spectrum.mca")
+            h.savepymca(cfgfile)
+            h.savemca(mcafile,func=lambda x:x+1)
         
         y = h.mca()
         y += 1
@@ -96,7 +103,8 @@ class test_pymca(unittest.TestCase):
 
         grouprates = h.xraygrouprates(scattering=False,method="fisx")
         safrac = h.sample.geometry.solidangle/(4*np.pi)
-
+        np.testing.assert_allclose(safrac,h._pymcainternals_solidanglefrac())
+        
         for group in fitresult["fitareas"]:
             element,linegroup = group.element,group.group
 

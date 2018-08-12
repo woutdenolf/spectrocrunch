@@ -44,7 +44,7 @@ ca = element.Element("Ca")
 calcite = compoundfromname.compoundfromname("calcite")
 hematite = compoundfromname.compoundfromname("hematite")
 goethite = compoundfromname.compoundfromname("goethite")
-mix = mixture.Mixture([hematite,goethite],[0.5,0.5],types.fraction.mass,name="iron oxides").tocompound()
+mix = mixture.Mixture([hematite,goethite],[0.5,0.5],types.fraction.mass,name="iron oxides").tocompound() #TODO: fix pymca bug
 sample = multilayer.Multilayer([ca,mix,calcite],[2e-5,7e-5,10e-5],geometry=geometry)
 pymcahandle = pymca.PymcaHandle(energy=8.,sample=sample)
 

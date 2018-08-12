@@ -38,6 +38,7 @@ from . import compoundfromformula
 from . import xrayspectrum
 from . import compoundfromlist
 from . import types
+from ..io.mca import save as savemca
 
 import numpy as np
 import scipy.interpolate
@@ -205,10 +206,10 @@ class PymcaBaseHandle(object):
                 ele = str(zgroup.element)
                 group = str(zgroup.group)
                 grouprate = 0.
-                for i in range(1,nlayers+1):
-                    if ele in self.mcafit._fluoRates[i]:
-                        massfrac_l = self.mcafit._fluoRates[i][ele]["mass fraction"]
-                        grouprate_l = self.mcafit._fluoRates[i][ele]["rates"]["{} xrays".format(group)]
+                for layer in range(1,nlayers+1):
+                    if ele in self.mcafit._fluoRates[layer]:
+                        massfrac_l = self.mcafit._fluoRates[layer][ele]["mass fraction"]
+                        grouprate_l = self.mcafit._fluoRates[layer][ele]["rates"]["{} xrays".format(group)]
                         grouprate += massfrac_l*grouprate_l
                 grouprate *= safrac
                 out["rates"][zgroup] = grouprate
@@ -217,8 +218,36 @@ class PymcaBaseHandle(object):
         
         out["fitrates"] = {k:v/addinfo["I0"] for k,v in out["fitareas"].items()}
         
+        #self._print_pymcainternals_rates()
+        
         return out
     
+    def _pymcainternals_solidanglefrac(self):
+        radius2 = self.mcafit.config["concentrations"]['area']/np.pi
+        distance = self.mcafit.config["concentrations"]['distance']
+        return 0.5 * (1.0 - (distance/np.sqrt(distance**2+ radius2)))
+        
+    def _print_pymcainternals_rates(self):
+        safrac = self._pymcainternals_solidanglefrac()
+
+        rowfmt = "{:>6}{:>8}{:>20}{:>10}{:>10}{:>20}"
+        print(rowfmt.format("Layer","Element","MassFrac","Line","Energy","Rate"))
+        for i,layer in enumerate(self.mcafit._fluoRates):
+            if i==0:
+                continue
+            for ele in sorted(layer):
+                lines = []
+                for k,v in layer[ele].items():
+                    if k.endswith("xrays"):
+                        lines.extend(v)
+                for line in lines:
+                    w = layer[ele]["mass fraction"]
+                    rate = layer[ele][line]["rate"]*w*safrac
+                    energy = layer[ele][line]["energy"]
+                    if rate>0:
+                        print(rowfmt.format(i-1,ele,w,line,energy,rate))
+
+
     def spectrafromfitresult(self,digestedresult,out=None):
         conresult,addinfo = self.processfitresult(digestedresult,originalconcentrations=True)
 
@@ -645,7 +674,14 @@ class PymcaHandle(PymcaBaseHandle):
         else:
             return y
 
-
+    def savemca(self,filename,mode="w",func=None):
+        y = self.mca()
+        if instance.iscallable(func):
+            y = func(y)
+        savemca(y,filename,mode=mode,zero=self.sample.geometry.detector.mcazero,
+                                              gain=self.sample.geometry.detector.mcagain)
+        
+    
 class FisxConfig():
     
     FISXMATERIALS = None

@@ -94,7 +94,7 @@ compounddb["magnetite"] = compoundfromformula.CompoundFromFormula("Fe2O3",5.15,n
 compounddb["ferric oxide"] = compoundfromformula.CompoundFromFormula("Fe2O3",5.245,name="ferric oxide")
 compounddb["ferrous oxide"] = compoundfromformula.CompoundFromFormula("FeO",5.745,name="ferrous oxide")
 compounddb["goethite"] = compoundfromformula.CompoundFromFormula("FeOOH",3.8,name="goethite")
-compounddb["vivianite"] = compoundfromformula.CompoundFromFormula("Fe3(PO4)2(H2O)8",2.65,name="")
+compounddb["vivianite"] = compoundfromformula.CompoundFromFormula("Fe3(PO4)2(H2O)8",2.65,name="vivianite")
 compounddb["prussian blue"] = compoundfromformula.CompoundFromFormula("C18Fe7N18",1.83,name="prussian blue")
 compounddb["potassium ferricyanide"] = compoundfromformula.CompoundFromFormula("K3Fe(CN)6",1.89,name="potassium ferricyanide")
 compounddb["potassium ferrocyanide"] = compoundfromformula.CompoundFromFormula("K4Fe(CN)6(H2O)3",1.85,name="potassium ferrocyanide")

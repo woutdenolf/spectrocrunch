@@ -860,33 +860,49 @@ class Multilayer(with_metaclass(cache.Cache)):
         spectrum.geometry = self.geometry
         return spectrum
         
-    def _print_fisx(self,fluo):
-        print("Element   Layers    Peak          Energy       Rate      Secondary      Tertiary      Efficiency")
-        for key in fluo:
-            if str(key)!="Ca K":
-                continue
+    def _print_fisx(self,fluo,details=False):
+        if details:
+            rowfmt = "{:>6}{:>8}{:>20}{:>10}{:>10}{:>20}{:>20}{:>20}{:>20}{:>20}"
+            print(rowfmt.format("Layer","Element","MassFrac","Line","Energy","Rate","Primary","Multiplier(2)","Multiplier(2+3)","Efficiency"))
+        else:
+            rowfmt = "{:>6}{:>8}{:>20}{:>10}{:>10}{:>20}"
+            print(rowfmt.format("Layer","Element","MassFrac","Line","Energy","Rate"))
+            
+        for key in sorted(fluo):
+            ele = key.split(' ')[0]
             for layer in fluo[key]:
-                print("-----Layer {}-----".format(layer))
-                peakList = list(fluo[key][layer].keys())
-                peakList.sort()
-                for peak in peakList:
-                    # energy of the peak
-                    energy = fluo[key][layer][peak]["energy"]
-                    # expected measured rate
-                    rate = fluo[key][layer][peak]["rate"]
+                lines = sorted(list(fluo[key][layer].keys()))
+                for line in lines:
+                    if line.endswith("esc"):
+                        continue
+                    # Mass fraction in this layer
+                    w = fluo[key][layer][line]["massFraction"]
+                    # energy of the line
+                    energy = fluo[key][layer][line]["energy"]
+                    # expected measured rate (everything except flux*time)
+                    rate = fluo[key][layer][line]["rate"]
+                    escaperate = sum(fluo[key][layer][line2]["rate"] for line2 in lines if line2.endswith("esc") and line2.startswith(line))
+                    rate += escaperate
                     # primary photons (no attenuation and no detector considered)
-                    primary = fluo[key][layer][peak]["primary"]
+                    primary = fluo[key][layer][line]["primary"]
                     # secondary photons (no attenuation and no detector considered)
-                    secondary = fluo[key][layer][peak]["secondary"]
+                    secondary = fluo[key][layer][line]["secondary"]
                     # tertiary photons (no attenuation and no detector considered)
-                    tertiary = fluo[key][layer][peak].get("tertiary", 0.0)
-                    efficiency = fluo[key][layer][peak].get("efficiency", 0.0)
+                    tertiary = fluo[key][layer][line].get("tertiary", 0.0)
+                    # attenuation and detector
+                    efficiency = fluo[key][layer][line].get("efficiency", 0.0)
                     # correction due to secondary excitation
                     enhancement2 = (primary + secondary) / primary
+                    # correction due to tertiary excitation
                     enhancement3 = (primary + secondary + tertiary) / primary
-                    print("%s   %s    %.4f     %.3g     %.5g    %.5g    %.5g" % \
-                                       (key, peak + (13 - len(peak)) * " ", energy,
-                                       rate, enhancement2, enhancement3, efficiency))
+                    
+                    if details:
+                        print(rowfmt.format(layer,ele,w,line,energy,rate+escaperate,
+                                            primary,enhancement2,enhancement3,efficiency))
+                    else:
+                        print(rowfmt.format(layer,ele,w,line,energy,rate+escaperate))
+                        
+                    assert(np.isclose(rate,(primary + secondary + tertiary)*efficiency))
     
     @staticmethod
     def _parse_weights(weights,nsource):
@@ -926,15 +942,13 @@ class Multilayer(with_metaclass(cache.Cache)):
 
         # Get fluorescence
         secondary = 2*(ninteractions>1)
+        # 0: none, 1: intralayer, 2: interlayer
         gen = setup.getMultilayerFluorescence(\
                         groups,self.FISXCFG.FISXMATERIALS,\
                         secondary=secondary,useMassFractions=1)
                         
         #self._print_fisx(gen)
         result = self._parse_fisx_result(gen)
-
-        #ind = [str(k).startswith("Ca") for k in result]
-        #print "Ca-K",sum(np.asarray(result.values())[ind])
         
         return result
 
