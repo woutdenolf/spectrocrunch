@@ -27,7 +27,7 @@ import math
 import logging
 import collections
 
-from .. import ureg
+from ..patch.pint import ureg
 from ..math import linop
 from ..math import fit1d
 from ..common import units

@@ -33,7 +33,7 @@ from ..common import units
 from ..common import instance
 from . import mixture
 from . import element
-from .. import xraylib
+from ..patch.xraylib import xraylib
 from . import compoundfromformula
 from . import xrayspectrum
 from . import compoundfromlist

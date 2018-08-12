@@ -30,7 +30,7 @@ from ..common.instance import isarray
 
 db = PyTMM.refractiveIndex.RefractiveIndex(os.path.join(os.path.dirname(PyTMM.__file__),"visirlib"))
 
-from .. import ureg
+from ..patch.pint import ureg
 
 class Material(PyTMM.refractiveIndex.Material):
 

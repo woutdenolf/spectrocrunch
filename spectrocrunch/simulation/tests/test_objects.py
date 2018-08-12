@@ -35,7 +35,7 @@ from ...materials import emspectrum
 from ...math import noisepropagation
 from ...materials.compoundfromname import compoundfromname as compoundname
 from ...common.instance import isarray
-from ... import ureg
+from ...patch.pint import ureg
 
 import numpy as np
 

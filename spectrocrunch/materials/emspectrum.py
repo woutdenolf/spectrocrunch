@@ -27,7 +27,7 @@ from ..common import listtools
 
 from ..common.instance import isarray
 
-from .. import ureg
+from ..patch.pint import ureg
 
 import numpy as np
 

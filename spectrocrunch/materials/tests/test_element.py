@@ -26,8 +26,8 @@ import unittest
 
 from .. import element
 from .. import xrayspectrum
-from ... import xraylib
-from ... import ureg
+from ...patch.xraylib import xraylib
+from ...patch.pint import ureg
 from ...sources import xray as xraysources
 
 import numpy as np

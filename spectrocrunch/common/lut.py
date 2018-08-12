@@ -28,7 +28,7 @@ import numpy as np
 
 from . import instance
 from . import units
-from .. import ureg
+from ..patch.pint import ureg
 
 class LUT(object):
 

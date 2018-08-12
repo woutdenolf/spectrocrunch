@@ -28,7 +28,7 @@ import numbers
 import numpy as np
 from six import string_types
 import uncertainties.core
-from .. import ureg
+from ..patch.pint import ureg
 
 def isstring(x):
     return isinstance(x, string_types)

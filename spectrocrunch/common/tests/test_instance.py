@@ -27,7 +27,7 @@ import itertools
 
 from .. import units
 from .. import instance
-from ...import ureg
+from ...patch.pint import ureg
 from ...math import noisepropagation
 
 import numpy as np

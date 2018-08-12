@@ -25,7 +25,7 @@
 import collections
 import os
 
-from .. import ureg
+from ..patch.pint import ureg
 from ..common.classfactory import with_metaclass
 from ..common import instance
 from ..common import listtools

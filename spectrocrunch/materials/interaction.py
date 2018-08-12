@@ -23,8 +23,8 @@
 # THE SOFTWARE.
 
 
-from .. import xraylib
-from .. import ureg
+from ..patch.xraylib import xraylib
+from ..patch.pint import ureg
 from ..common.hashable import Hashable
 from . import element
 

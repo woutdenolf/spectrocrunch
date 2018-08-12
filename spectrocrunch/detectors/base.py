@@ -25,7 +25,7 @@
 from ..common import instance
 from ..common import units
 from ..math import noisepropagation
-from .. import ureg
+from ..patch.pint import ureg
 
 import numpy as np
 import fisx

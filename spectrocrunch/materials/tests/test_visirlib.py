@@ -25,7 +25,7 @@
 import unittest
 
 from .. import visirlib
-from ... import ureg
+from ...patch.pint import ureg
 
 import numpy as np
 

@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .. import ureg
+from ..patch.pint import ureg
 from . import instance
 from . import persistence
 from . import listtools

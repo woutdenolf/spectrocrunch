@@ -30,7 +30,7 @@ import random
 
 from .. import diode
 from ...resources import resource_filename
-from ... import ureg
+from ...patch.pint import ureg
 from ...optics import xray as xrayoptics
 
 import logging

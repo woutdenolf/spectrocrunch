@@ -25,7 +25,7 @@
 from . import types
 from . import elementbase
 from ..common import instance 
-from .. import ureg
+from ..patch.pint import ureg
 
 import numpy as np
 

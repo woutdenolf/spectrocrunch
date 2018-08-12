@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,13 +22,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-try:
-    from ._version import version as __version__
-except ImportError:
-    import os
-    __version__ = "Local version ({})".format(os.path.dirname(os.path.abspath(__file__)))
+from __future__ import absolute_import
 
-##### Make sure there is always a logger #####
-import logging
-logging.basicConfig()
+import pint
+
+ureg = pint.UnitRegistry()
+ureg.define('classical_electron_radius = e^2/(4*pi*m_e*epsilon_0*c^2) = r_e')
 

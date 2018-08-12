@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .. import scene
-from ... import ureg
+from ...patch.pint import ureg
 
 class test_scene(unittest.TestCase):
 

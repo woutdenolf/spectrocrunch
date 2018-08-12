@@ -35,7 +35,7 @@ from ..common import units
 from ..common import instance
 from ..common.classfactory import with_metaclass
 from ..io import spec
-from .. import ureg
+from ..patch.pint import ureg
 
 import numpy as np
 import matplotlib.pyplot as plt

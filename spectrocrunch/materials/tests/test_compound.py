@@ -30,7 +30,7 @@ from .. import compoundfromlist
 from .. import compoundfromcif
 from .. import compoundfromname
 from .. import types
-from ... import ureg
+from ...patch.pint import ureg
 
 try:
     import iotbx.cif as iotbxcif

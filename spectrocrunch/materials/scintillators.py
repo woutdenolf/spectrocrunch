@@ -24,7 +24,7 @@
 
 import numpy as np
 
-from .. import ureg
+from ..patch.pint import ureg
 from . import compound
 from . import types
 from . import emspectrum

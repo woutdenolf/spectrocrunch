@@ -29,7 +29,7 @@ import os
 import logging
 
 from ..common import instance
-from .. import ureg
+from ..patch.pint import ureg
 from .xiaedf import XiaNameParser
 
 from PyMca5.PyMcaCore import SpecFileDataSource

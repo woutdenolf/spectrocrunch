@@ -30,8 +30,8 @@ import numbers
 import re
 
 from . import elementbase
-from .. import xraylib
-from .. import ureg
+from ..patch.xraylib import xraylib
+from ..patch.pint import ureg
 from ..common import hashable
 from ..common import instance
 from ..math import lazy

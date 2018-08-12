@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -21,14 +21,5 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
-try:
-    from ._version import version as __version__
-except ImportError:
-    import os
-    __version__ = "Local version ({})".format(os.path.dirname(os.path.abspath(__file__)))
-
-##### Make sure there is always a logger #####
-import logging
-logging.basicConfig()
-
+"""Common tools.
+"""

@@ -38,7 +38,7 @@ from ..common import units
 from ..common.hashable import Hashable
 from ..math.common import floatformat
 from ..math.common import round_sig
-from .. import ureg
+from ..patch.pint import ureg
 from . import colorbar_rgb
 
 logger = logging.getLogger(__name__)
