@@ -40,7 +40,7 @@ class temporary_copy(object):
         shutil.copy2(self.filename, self.open_file)
         return self.open_file
 
-    def __exit__(self,,exc_type, exc_val, exc_tb):
+    def __exit__(self,exc_type, exc_val, exc_tb):
         if self.open_file:
             os.remove(self.open_file)
         self.open_file = None

@@ -32,8 +32,9 @@ from ..patch.pint import ureg
 
 class LUT(object):
 
-    def __init__(self,default=None):
+    def __init__(self,default=None,interpolation="linear"):
         self.clear(default=default)
+        self.kind = interpolation
 
     def __str__(self):
         s = '\n '.join("{}: {}".format(k,v) for k,v in self.table())
@@ -77,5 +78,5 @@ class LUT(object):
             self._func = lambda x: y
         else:
             # units get lost
-            self._func = interpolate.interp1d(x,y,bounds_error=False,fill_value=(y[0],y[-1]))
+            self._func = interpolate.interp1d(x,y,bounds_error=False,fill_value=(y[0],y[-1]),kind=self.kind)
 

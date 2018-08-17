@@ -26,8 +26,8 @@ from ..common import lut
 
 class Optics(object):
 
-    def __init__(self):
-        self.lut = lut.LUT(default=1)
+    def __init__(self,default=1,**kwargs):
+        self.lut = lut.LUT(default=default,**kwargs)
     
     def __str__(self):
         name = type(self).__name__
