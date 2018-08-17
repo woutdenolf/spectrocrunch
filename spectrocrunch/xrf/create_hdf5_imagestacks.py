@@ -305,21 +305,21 @@ def createimagestacks(config,qxrfgeometry=None):
     
     # I0/It stacks
     if fluxnorm:
-        energy = stackaxes[stackdim]["data"][imageindex]
-        if not np.isnan(energy) and ("fluxcounter" in config or "transmissioncounter" in config):
+        if "fluxcounter" in config or "transmissioncounter" in config:
             stackinfo["flux0op"] = [""]*nstack
             stackinfo["fluxtop"] = [""]*nstack        
             for imageindex in range(nstack):
+                energy = stackaxes[stackdim]["data"][imageindex] # handle missing energies specifically?
                 name = detectorname(None)
                 time = stackinfo["refexpotime"][imageindex]
                 if "fluxcounter" in config:
-                    op,_ = qxrfgeometry.I0op(energy,expotime=time)
+                    op,_ = qxrfgeometry.I0op(energy,expotime=time,removebeamfilters=False)
                     if "calc_flux0" not in stacks[name]:
                         stacks[name]["calc_flux0"] = [""]*nstack
                     stacks[name]["calc_flux0"][imageindex] = {"args":[(name,config["fluxcounter"])],"func":op}
                     stackinfo["flux0op"][imageindex] = str(op)
                 if "transmissioncounter" in config:
-                    op,_ = qxrfgeometry.Itop(energy,expotime=time)
+                    op,_ = qxrfgeometry.Itop(energy,expotime=time,removebeamfilters=True)
                     if "calc_fluxt" not in stacks[name]:
                         stacks[name]["calc_fluxt"] = [""]*nstack
                         stacks[name]["calc_transmission"] = [""]*nstack
