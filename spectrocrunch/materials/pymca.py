@@ -116,15 +116,15 @@ class PymcaBaseHandle(object):
             self.loadfrompymca(config=self.configfromfitresult(digestedresult))
         
         # Parse result
-        result = {}
+        result = self.miscfromfitresult(digestedresult)
         if concentrations:
             self.concentrationsfromfitresult(digestedresult,out=result)
         if spectra:
             self.spectrafromfitresult(digestedresult,out=result)
-        
+
         return result
         
-    def fitgui(self,ylog=False,legend="data",loadfromfit=True):
+    def fitgui(self,ylog=False,legend="data",loadfromfit=True,concentrations=True,spectra=True):
         if self.app is None:
             self.app = qt.QApplication([])
         w = McaAdvancedFit.McaAdvancedFit()
@@ -143,11 +143,29 @@ class PymcaBaseHandle(object):
         w.refreshWidgets()
         w.show()
         result = self.app.exec_()
-        
-        # Load parameters from fit (if you did "load from fit")
-        if loadfromfit:
-            self.loadfrompymca(config=w.mcafit.getConfiguration())
+
+        # Parse result
+        result = {}
+        try:
+            digestedresult = w.mcafit.digestresult()
+        except AttributeError:
+            digestedresult = None
             
+        if digestedresult:
+            # Load parameters from fit (if you did "load from fit")
+            if loadfromfit:
+                self.loadfrompymca(config=w.mcafit.getConfiguration())
+            self.miscfromfitresult(digestedresult,out=result)
+            if concentrations:
+                self.concentrationsfromfitresult(digestedresult,out=result)
+            if spectra:
+                self.spectrafromfitresult(digestedresult,out=result)
+        else:
+            if concentrations or spectra:
+                result = self.fit(loadfromfit=loadfromfit,concentrations=concentrations,spectra=spectra)
+                
+        return result
+        
     def processfitresult(self,digestedresult,originalconcentrations=False):
         ctoolcfg = self.ctool.configure()
         ctoolcfg.update(digestedresult['config']['concentrations'])
@@ -247,7 +265,12 @@ class PymcaBaseHandle(object):
                     if rate>0:
                         print(rowfmt.format(i-1,ele,w,line,energy,rate))
 
-
+    def miscfromfitresult(self,digestedresult,out=None):
+        if out is None:
+            out = {}
+        out["chisq"] = digestedresult["chisq"]
+        return out
+        
     def spectrafromfitresult(self,digestedresult,out=None):
         conresult,addinfo = self.processfitresult(digestedresult,originalconcentrations=True)
 
