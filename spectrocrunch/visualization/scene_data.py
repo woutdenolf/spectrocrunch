@@ -169,7 +169,7 @@ class ImageCoordinates(Coordinates):
                 iout += 1
             channels[j] = iout
             
-            image,label = self[i]
+            image,label = self[iout]
             
             try:
                 labels[iout] = self.labels[i]
@@ -186,7 +186,7 @@ class ImageCoordinates(Coordinates):
      
         if self.transpose:
             data = np.swapaxes(data,0,1)
-            
+        
         return data,channels,labels
 
     def interpolate(self,p0,p1):
