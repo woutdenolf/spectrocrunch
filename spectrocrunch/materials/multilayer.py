@@ -67,21 +67,33 @@ class Layer(object):
         return "{} um ({})".format(self.thickness*1e4,self.material)
   
     @property
-    def xraythickness(self):
+    def xraythicknessin(self):
         return self.thickness/self.ml.geometry.cosnormin
     
-    @xraythickness.setter
-    def xraythickness(self,value):
+    @xraythicknessin.setter
+    def xraythicknessin(self,value):
         self.thickness = value*self.ml.geometry.cosnormin
     
-    def absorbance(self,energy,**kwargs):
+    @property
+    def xraythicknessout(self):
+        return self.thickness/self.ml.geometry.cosnormout
+    
+    @xraythicknessout.setter
+    def xraythicknessout(self,value):
+        self.thickness = value*self.ml.geometry.cosnormout
+    
+    def absorbance(self,energy,weights=None,out=False,**kwargs):
         kwargs.pop("decomposed",None)
-        return self.material.mass_att_coeff(energy,**kwargs)*(self.xraythickness*self.density)
-
-    def absorbanceout(self,energy):
-        return self.material.mass_att_coeff(energy)*\
-                    (self.thickness/self.ml.cosnormout*self.density)
-
+        if out:
+            thickness = self.xraythicknessout
+        else:
+            thickness = self.xraythicknessin
+        muL = self.material.mass_att_coeff(energy,**kwargs)*(thickness*self.density)
+        if weights is None:
+            return muL
+        else:
+            return self.material.weightedsum(muL,weights=weights)
+        
     def addtofisx(self,setup,cfg):
         name = cfg.addtofisx_material(self.material)
         return [name,self.density,self.thickness]
@@ -167,9 +179,13 @@ class Multilayer(with_metaclass(cache.Cache)):
         return np.vectorize(lambda layer:layer.thickness)(self)
     
     @property
-    def xraythickness(self):
-        return np.vectorize(lambda layer:layer.xraythickness)(self)
+    def xraythicknessin(self):
+        return np.vectorize(lambda layer:layer.xraythicknessin)(self)
     
+    @property
+    def xraythicknessout(self):
+        return np.vectorize(lambda layer:layer.xraythicknessin)(self)
+        
     def arealdensity(self):
         ret = collections.Counter()
         for layer in self:
@@ -202,26 +218,20 @@ class Multilayer(with_metaclass(cache.Cache)):
     def unmarkabsorber(self):
         for layer in self:
             layer.unmarkabsorber()
-    
-    def absorbance(self,energy,fine=False,decomposed=False):
+
+    def absorbance(self,energy,weights=None,out=False,fine=False,decomposed=False):
         if decomposed:
-            return [layer.absorbance(energy,fine=fine) for layer in self]
+            return [layer.absorbance(energy,weights=weights,out=out,fine=fine) for layer in self]
         else:
-            return np.sum([layer.absorbance(energy,fine=fine) for layer in self],axis=0)
-   
-    def absorbanceout(self,energy):
-        return np.sum([layer.absorbanceout(energy) for layer in self],axis=0)
-                     
-    def transmission(self,energy,fine=False,decomposed=False):
-        A = self.absorbance(energy,fine=fine,decomposed=decomposed)
+            return np.sum([layer.absorbance(energy,weights=weights,out=out,fine=fine) for layer in self],axis=0)
+
+    def transmission(self,energy,weights=None,out=False,fine=False,decomposed=False):
+        A = self.absorbance(energy,weights=weights,out=out,fine=fine,decomposed=decomposed)
         if decomposed:
             return A
         else:
             return np.exp(-A)
-
-    def transmissionout(self,energy):
-        return np.exp(-self.absorbanceout(energy))
-        
+    
     def fixlayers(self,ind=None):
         if ind is None:
             for layer in self:
@@ -265,25 +275,30 @@ class Multilayer(with_metaclass(cache.Cache)):
 
         return params
         
-    def _refinerhod(self,energy,absorbance,refinedattr,fixedattr,**kwargs):
+    def _refinerhod(self,energy,absorbance,refinedattr,fixedattr,weights=None,**kwargs):
         y = absorbance
         for layer in self.fixediter():
             y = y-layer.absorbance(energy)
             
         A = [layer.mass_att_coeff(energy) for layer in self.freeiter()]
+        if weights is not None:
+            A = [layer.material.weightedsum(csi,weights=weights) for csi in A]
+                
         params = self._refine_linear(A,y,**kwargs)
         for param,layer in zip(params,self.freeiter()):
             setattr(layer,refinedattr,param/getattr(layer,fixedattr))
 
-    def refinecomposition(self,energy,absorbance,fixthickness=True,**kwargs):
+    def refinecomposition(self,energy,absorbance,weights=None,fixthickness=True,**kwargs):
         y = absorbance
         for layer in self.fixediter():
-            y = y-layer.absorbance(energy)
+            y = y-layer.absorbance(energy,weights=weights)
         
         A = []
         for layer in self.freeiter():
             mu = layer.mass_att_coeff(energy,decomposed=True)
             w,cs = layer.csdict_parse(mu)
+            if weights is not None:
+                cs = [layer.material.weightedsum(csi,weights=weights) for csi in cs]
             A.extend(cs)
 
         params = self._refine_linear(A,y,**kwargs)
@@ -299,15 +314,15 @@ class Multilayer(with_metaclass(cache.Cache)):
             layer.change_fractions(w,"mass")
             
             if fixthickness:
-                layer.density = s/layer.xraythickness
+                layer.density = s/layer.xraythicknessin
             else:
-                layer.xraythickness = s/layer.density
-                
+                layer.xraythicknessin = s/layer.density
+            
     def refinethickness(self,energy,absorbance,**kwargs):
-        self._refinerhod(energy,absorbance,"xraythickness","density",**kwargs)
+        self._refinerhod(energy,absorbance,"xraythicknessin","density",**kwargs)
 
     def refinedensity(self,energy,absorbance,**kwargs):
-        self._refinerhod(energy,absorbance,"density","xraythickness",**kwargs)
+        self._refinerhod(energy,absorbance,"density","xraythicknessin",**kwargs)
 
     def _cache_layerinfo(self):
         t = np.empty(self.nlayers+1)
@@ -752,12 +767,10 @@ class Multilayer(with_metaclass(cache.Cache)):
             density = v["Density"]
         cfg["attenuators"]["Matrix"] = [1, name, density, thickness, anglein, angleout, 0, scatteringangle]
 
-    def loadfrompymca_matrix(self,setup,cfg,name="Matrix"):
-        _, _name, density, thickness, anglein, angleout, _, scatteringangle = cfg["attenuators"]["Matrix"]
+    def loadfrompymca_matrix(self,setup,cfg):
+        _, name, density, thickness, anglein, angleout, _, scatteringangle = cfg["attenuators"]["Matrix"]
         self.geometry.anglein = anglein
         self.geometry.angleout = angleout
-        if name=="Matrix" or name not in cfg["attenuators"]:
-            name = _name
         return name,density,thickness
     
     def addtopymca_layer(self,setup,cfg,index,layer):
@@ -800,9 +813,9 @@ class Multilayer(with_metaclass(cache.Cache)):
             self.addtopymca_matrix(setup,cfg,'MULTILAYER')
         self.geometry.addtopymca(setup,cfg)
         
-    def loadfrompymca(self,setup,cfg,name="Matrix"):
+    def loadfrompymca(self,setup,cfg):
         self.geometry.loadfrompymca(setup,cfg)
-        name,density,thickness = self.loadfrompymca_matrix(setup,cfg,name=name)
+        name,density,thickness = self.loadfrompymca_matrix(setup,cfg)
         if name=="MULTILAYER":
             layer = tuple()
             index = 0
@@ -839,7 +852,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         if not self.geometry.reflection:
             for line in result:
                 energy = line.energy(**self.geometry.xrayspectrumkwargs())
-                result[line] = result[line]*self.transmissionout(energy)
+                result[line] = result[line]*self.transmission(energy,out=True)
         
         return result
 

@@ -117,7 +117,7 @@ class test_multilayer(unittest.TestCase):
                     nenergy = np.asarray(energy).size
                     
                     rho = o.density[:,np.newaxis]
-                    d = o.xraythickness[:,np.newaxis]
+                    d = o.xraythicknessin[:,np.newaxis]
                     mu = o.mass_att_coeff(energy)
                     murhod = mu*rho*d
 
