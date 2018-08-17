@@ -26,6 +26,7 @@ from ..common import instance
 from ..common import units
 from ..math import noisepropagation
 from ..patch.pint import ureg
+from ..materials import element
 
 import numpy as np
 import fisx
@@ -45,6 +46,12 @@ class Material(object):
     def addattenuator(self,name,material,thickness):
         self._attenuators[name] = {"material":material,"thickness":thickness}
 
+    def removeattenuator(self,name):
+        self._attenuators.pop(name,None)
+
+    def removeattenuators(self,name):
+        self._attenuators = {}
+        
     @property
     def attenuators(self):
         return self._attenuators
@@ -93,9 +100,15 @@ class Material(object):
     def addtopymca(self,setup,cfg): 
         for attlabel,attinfo in self.attenuators.items():
             self.addtopymca_attenuator(setup,cfg,attlabel,attinfo["material"],attinfo["thickness"])
-
+        
     def addtopymca_attenuator(self,setup,cfg,attlabel,material,thickness):
         matname = setup.addtopymca_material(cfg,material,defaultthickness=thickness)
+        
+        # Can only handle explicite single elements
+        if attlabel==self.DETMATERIALLABEL:
+            if isinstance(material,element.Element):
+                matname = '{}1'.format(material)
+
         cfg["attenuators"][attlabel] = [1,matname,material.density,thickness,1.0]
 
     def loadfrompymca(self,setup,cfg):
@@ -114,7 +127,7 @@ class Material(object):
             self.attenuators[attlabel] = {"material":material,"thickness":thickness}
 
     def isbeamfilter(self,name):
-        return "BeamFilter" in name
+        return "beamfilter" in name.lower()
 
     def isdetectorfilter(self,name):
         return not self.isbeamfilter(name) and name != self.DETMATERIALLABEL
