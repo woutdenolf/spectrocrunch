@@ -2,6 +2,7 @@ future
 numpy>=1.12
 scipy
 pandas>=0.23
+xlsxwriter
 scikit-image>=0.13
 h5py
 silx

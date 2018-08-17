@@ -30,16 +30,18 @@ class temporary_copy(object):
     
     def __init__(self,filename,ext=".tmp"):
         self.filename = filename
-        self.tmpfilename = None
+        self.open_file = None
         self.ext = ext
 
     def __enter__(self):
         temp_dir = tempfile.gettempdir()
         temp_name = next(tempfile._get_candidate_names())
-        self.tmpfilename = os.path.join(temp_dir,temp_name+self.ext)
-        shutil.copy2(self.filename, self.tmpfilename)
-        return self.tmpfilename
+        self.open_file = os.path.join(temp_dir,temp_name+self.ext)
+        shutil.copy2(self.filename, self.open_file)
+        return self.open_file
 
-    def __exit__(self,exc_type, exc_val, exc_tb):
-        os.remove(self.tmpfilename)
-        self.tmpfilename = None
+    def __exit__(self,,exc_type, exc_val, exc_tb):
+        if self.open_file:
+            os.remove(self.open_file)
+        self.open_file = None
+
