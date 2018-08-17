@@ -27,6 +27,7 @@ import logging
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as pltcolors
+import matplotlib.patches as pltpatches
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -187,10 +188,10 @@ class Scene(Hashable,Geometry2D):
   
     def _label(self,dataaxis):
         unit = self.strunits[dataaxis]
-        if unit:
-            return "{} ({})".format(self.axlabels[dataaxis],unit)
-        else:
-            return self.axlabels[dataaxis]
+        label = self.axlabels[dataaxis]
+        if unit and label:
+            label = "{} ({})".format(label,unit)
+        return label
 
     def setaxes(self,ax):
         self.ax = ax
@@ -714,7 +715,7 @@ class Image(Item):
                   "fontweight":500,\
                   "channels":None,\
                   "colorbar":False,\
-                  "colorbar_units":False,\
+                  "colorbar_units":None,\
                   "compositions":{},\
                   "title":None}
         
@@ -823,8 +824,8 @@ class Image(Item):
         image = self.datadisplay
         
         # clip = True -> neglect colormap's over/under/masked colors
+        nchannels = self.nchannels
         if image.ndim==3:
-            nchannels = image.shape[-1]
             if not instance.isarray(vmin):
                 vmin = [vmin]*nchannels
             if not instance.isarray(vmax):
@@ -837,27 +838,19 @@ class Image(Item):
                 normcb.append(norm)
             norm = None
         else:
-            nchannels = 1
             if instance.isarray(vmin):
                 vmin = vmin[0]
             if instance.isarray(vmax):
                 vmax = vmax[0]
             norm = ColorNorm(settings["cnorm"],*settings["cnormargs"])(vmin=vmin,vmax=vmax,clip=True)
-        
+            normcb = []
+            
         # Coordinates and borders
         extent = list(scene.xmagnitude(self.datalimx))+list(scene.ymagnitude(self.datalimy))
         x,y = self.bordercoord()
         x = scene.xmagnitude(x)
         y = scene.ymagnitude(y)
-        
-        # Legend
-        xlabel,ylabel,dx,dy,horizontalalignment,verticalalignment = self.labelxy
-        
-        compositions = []
-        if nchannels>1:
-            for name,comp in settings["compositions"].items():
-                compositions.append(self.compositioncolor(name,comp,vmin,vmax))
-        
+
         # Create/update objects
         items = self.sceneitems
         newitems = OrderedDict()
@@ -894,48 +887,13 @@ class Image(Item):
         settings["color"] = newitems["border"].get_color()
         
         # Colorbar
-        labels = self.labels
-        if settings["colorbar"]:
-            # TODO: update existing color bar?
-            if norm is None:
-                ## Triangle: cannot handle normcb which is not linear
-                #if settings["colorbar"]==2 and ColorNormLinear(settings["cnorm"]):
-                #    #This assumes sum is 1 so not useful here
-                #    colorbar_rgb.triangle(vmin=vmin,vmax=vmax,names=self.labels,compositions = compositions)
-                #else:
-                #    newitems.update(colorbar_rgb.bars(vmin=vmin,vmax=vmax,names=labels,norms=normcb,ax=scene.ax))
-                #    labels = []
-        
-                for i,(name,mi,ma) in enumerate(zip(labels,vmin,vmax)):
-                    if name is not None:
-                        if ma>0.01:
-                            fmt = floatformat(ma,3)
-                        else:
-                            fmt = ":.2E"
-                        fmt = "{{}} [{{{}}},{{{}}}]".format(fmt,fmt)
-                        labels[i] = fmt.format(name,mi,ma)
-            else:
-                divider = make_axes_locatable(scene.ax)
-                cax = divider.append_axes("right", size="5%", pad=0.05)
-                newitems["colorbar"] = plt.colorbar(newitems["image"],label=settings["colorbar_units"],cax=cax)
- 
-        if nchannels==1:
-            colors = [kwargs["color"]]
-        else:
-            colors = ['r','g','b']
-            if nchannels>3:
-                colors.extend([None]*(nchannels-3))
-            colors = colors[0:nchannels]
+        legend,colors,lvisible = self.addcolorbar(scene,settings,items,newitems,normcb,vmin,vmax,color=kwargs["color"])
 
-        for name,value,color in compositions:
-            if name not in labels:
-                labels.append(name)
-                colors.append(color)
+        # Add composition to legend
+        self.addcomposition(settings,legend,colors,vmin,vmax)
 
         # Legend
-        off = -1
-        off = self.addlegend(scene,settings,items,newitems,[settings["title"]],[settings["color"]],off=off)
-        off = self.addlegend(scene,settings,items,newitems,labels,colors,off=off,visible=settings["legend"])
+        self.addlegend(scene,settings,items,newitems,legend,colors,visible=lvisible)
         
         # Scalebar
         self.addscalebar(scene,items,newitems,position=settings["scalebar_position"],
@@ -945,33 +903,137 @@ class Image(Item):
         
         self.refreshscene(newitems)
 
-    def addlegend(self,scene,settings,items,newitems,labels,colors,off=-1,visible=True):
-        xlabel,ylabel,dx,dy,horizontalalignment,verticalalignment = self.labelxy
-        
-        kwargs = {k:settings[k] for k in ["color","alpha"]}
-        kwargs["horizontalalignment"] = horizontalalignment
-        kwargs["verticalalignment"] = verticalalignment
+    def addcomposition(self,settings,legend,colors,vmin,vmax):
+        compositions = []
+        if self.nchannels>1:
+            for name,comp in settings["compositions"].items():
+                compositions.append(self.compositioncolor(name,comp,vmin,vmax))
+        for name,value,color in compositions:
+            if name not in legend:
+                legend.append(name)
+                colors.append(color)
 
-        i = off
+    def addcolorbar(self,scene,settings,items,newitems,normcb,vmin,vmax,color=None):
+        visible = settings["legend"]
+        
+        legend = self.labels
+        if settings["title"]:
+            legend = [settings["title"]]+legend
+
+        if settings["colorbar"]:
+            # TODO: update existing color bar?
+            if normcb:
+                ## Triangle: cannot handle normcb which is not linear
+                #if settings["colorbar"]==2 and ColorNormLinear(settings["cnorm"]):
+                #    #This assumes sum is 1 so not useful here
+                #    colorbar_rgb.triangle(vmin=vmin,vmax=vmax,names=self.labels,compositions = compositions)
+                #else:
+                #    newitems.update(colorbar_rgb.bars(vmin=vmin,vmax=vmax,names=legend,norms=normcb,ax=scene.ax))
+                #    legend = []
+        
+                for i,(name,mi,ma) in enumerate(zip(legend,vmin,vmax)):
+                    if name is not None:
+                        if ma>0.01:
+                            fmt = floatformat(ma,3)
+                        else:
+                            fmt = ":.2E"
+                        
+                        visible = True
+                        u = settings["colorbar_units"]
+                        if u:
+                            u = " {}".format(u)
+                        else:
+                            u = ""
+                        if settings["legend"]:
+                            fmt = "{{}} [{{{}}},{{{}}}]{}".format(fmt,fmt,u)
+                            legend[i] = fmt.format(name,mi,ma)
+                        else:
+                            fmt = "[{{{}}},{{{}}}]{}".format(fmt,fmt,u)
+                            legend[i] = fmt.format(mi,ma)
+            else:
+                divider = make_axes_locatable(scene.ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                newitems["colorbar"] = plt.colorbar(newitems["image"],label=settings["colorbar_units"],cax=cax)
+
+        nchannels = self.nchannels
+        if nchannels==1:
+            colors = [color]
+        else:
+            colors = ['r','g','b']
+            if nchannels>3:
+                colors.extend([None]*(nchannels-3))
+            colors = colors[0:nchannels]
+        
+        if settings["title"]:
+            colors = [settings["color"]]+colors
+        
+        return legend,colors,visible
+
+    def addlegend(self,scene,settings,items,newitems,labels,colors,visible=True,astext=False,withpatch=False):
+        if not labels:
+            return
+
+        if astext:
+            xlabel,ylabel,dx,dy,horizontalalignment,verticalalignment = self.labelxy
+            kwargs = {k:settings[k] for k in ["color","alpha"]}
+            kwargs["horizontalalignment"] = horizontalalignment
+            kwargs["verticalalignment"] = verticalalignment
+            i = -1
+        else:
+            kwargs = {k:settings[k] for k in ["color"]}
+            patches = []
+            if not withpatch:
+                labels2 = []
+                colors2 = []
+
         for label,color in zip(labels,colors):
             if label is None or color is None:
                 continue
-            else:
-                i += 1
+
             kwargs["color"] = color
-            
-            name = "label{}".format(i)
-            if name in items:
-                newitems[name] = items[name]
-                newitems[name].set_text(label)
-                newitems[name].set_position((xlabel+i*dx,ylabel+i*dy))
-                plt.setp(newitems[name], **kwargs)
+
+            if astext:
+                i += 1
+                
+                name = "label{}".format(i)
+                if name in items:
+                    newitems[name] = items[name]
+                    newitems[name].set_text(label)
+                    newitems[name].set_position((xlabel+i*dx,ylabel+i*dy))
+                    plt.setp(newitems[name], **kwargs)
+                else:
+                    newitems[name] = scene.ax.text(xlabel+i*dx,ylabel+i*dy,label,**kwargs)
+                newitems[name].set_visible(visible)
             else:
-                newitems[name] = scene.ax.text(xlabel+i*dx,ylabel+i*dy,label,**kwargs)
-            newitems[name].set_visible(visible)
-            
-        return i
+                if withpatch:
+                    p = pltpatches.Patch(label=label,**kwargs)
+                else:
+                    labels2.append(label)
+                    colors2.append(color)
+                    p = pltpatches.Rectangle((0,0), 1, 1,fill=False,visible=False,**kwargs)
+                patches.append(p)
+           
+        if not astext and patches:
+            bbox_to_anchor = [1,1]
+            #if "R" in settings["legendposition"]:
+            #    bbox_to_anchor[0] = 1.05
+
+            if withpatch:
+                legend = plt.legend(handles=patches,loc=2,frameon=False,
+                                            borderaxespad=0,
+                                            bbox_to_anchor=bbox_to_anchor)
+            else:
+                legend = plt.legend(handles=patches,labels=labels2,loc=2,frameon=False,
+                                            borderaxespad=0,
+                                            bbox_to_anchor=bbox_to_anchor,
+                                            handlelength=0,handletextpad=0)
+                for text,c in zip(legend.get_texts(),colors2):
+                    plt.setp(text, color = c)
     
+            legend.set_visible(visible)
+    
+            newitems["legend"] = legend
+        
     def addscalebar(self,scene,items,newitems,position="lower right",visible=True,ratio=8.,xfrac=0.1,pad=0.1,color="#ffffff",size=0):
         if not visible:
             return
