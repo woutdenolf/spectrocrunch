@@ -104,7 +104,7 @@ def sort2lists(list1, list2):
     """
     return tuple(list(t) for t in itertools.izip( *sorted(itertools.izip(list1, list2),key=operator.itemgetter(0)) ))
 
-def weightedsum(labels, counts):
+def sumrepeats(labels, counts):
     """
 
     Args:

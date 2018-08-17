@@ -36,6 +36,7 @@ from ..common import instance
 from ..common.classfactory import with_metaclass
 from ..io import spec
 from ..patch.pint import ureg
+from ..math.linop import LinearOperator
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -269,16 +270,45 @@ class QXRFGeometry(with_metaclass(object)):
         xrfnormop,quant["flux"],quant["time"],expotime = self.xrfnormop(*args,**kwargs)
         return xrfnormop,quant
         
-    def I0op(self,energy,expotime=None,weights=None):
+    def I0op(self,energy,expotime=None,weights=None,removebeamfilters=False):
+        """Calculate the flux before the sample from the transmission diode response
+        
+        Args:
+            energy(num|array): keV
+            expotime(Optional(num)): sec
+            weights(Optional(num|array)): source lines ratio's
+            removebeamfilters(Optional(bool)): remove beam filter transmission
+        """
         if expotime is None:
             expotime = self.defaultexpotime
         op = self.diodeI0.fluxop(energy,0,time=expotime,weights=weights)
+        
+        if removebeamfilters:
+            Tbeamfilters = self.xrfgeometry.detector.filter_transmission(energy,source=True)
+            if Tbeamfilters!=1:
+                op = LinearOperator(1./Tbeamfilters,0)*op
+
         return op,expotime
 
-    def Itop(self,energy,expotime=None,weights=None):
+    def Itop(self,energy,expotime=None,weights=None,removebeamfilters=False):
+        """Calculate the flux after the sample from the transmission diode response
+        
+        Args:
+            energy(num|array): keV
+            expotime(Optional(num)): sec
+            weights(Optional(num|array)): source lines ratio's
+            removebeamfilters(Optional(bool)): remove beam filter transmission
+        """
         if expotime is None:
             expotime = self.defaultexpotime
         op = self.diodeIt.fluxop(energy,0,time=expotime,weights=weights)
+        
+        if removebeamfilters:
+            # Filters after the sample (like atmosphere) are already taken into account
+            Tbeamfilters = self.xrfgeometry.detector.filter_transmission(energy,source=True)
+            if Tbeamfilters!=1:
+                op = LinearOperator(1./Tbeamfilters,0)*op
+                       
         return op,expotime
 
     def batchcalibrate(self,params_fixed,params_var):

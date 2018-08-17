@@ -64,6 +64,17 @@ class ElementBase(object):
     pymcamaterial_prefix = "Material_"
     pymcacomment_prefix = "From spectrocrunch: "
     
+    @classmethod
+    def weightedsum(cls,values,weights=None):
+        if not instance.isarray(values):
+            return values
+        elif len(values)==1:
+            return values[0]
+        elif weights is None or not instance.isarray(weights):
+            return np.mean(values)
+
+        return values*weights/sum(weights)
+    
     @property
     def pymcaname(self):
         return self.pymcamaterial_prefix+self.name

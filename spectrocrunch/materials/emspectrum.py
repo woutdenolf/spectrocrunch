@@ -24,10 +24,8 @@
 
 
 from ..common import listtools
-
-from ..common.instance import isarray
-
-from ..patch.pint import ureg
+from ..common import instance
+from ..common import units
 
 import numpy as np
 
@@ -36,16 +34,17 @@ class discrete(object):
     def __init__(self,lines,intensities=None):
         """
         Args:
-            lines(ureg.Quantity): in keV, nm, ...
+            lines(ureg.Quantity): in keV(default), nm, ...
             intensities(array): line intensities
         """
 
+        lines = units.Quantity(lines,"keV")
         unit = lines.units
         lines = lines.magnitude
             
-        self.bnumber = not isarray(lines)
+        self.bnumber = not instance.isarray(lines)
         
-        if isarray(lines):
+        if instance.isarray(lines):
             self.bnumber = False
             self.size = len(lines)
         else:
@@ -59,7 +58,7 @@ class discrete(object):
             else:
                 intensities = [1./self.size]*self.size
         else:
-            if not isarray(intensities) and not self.bnumber:
+            if not instance.isarray(intensities) and not self.bnumber:
                 intensities = [intensities]
 
         # Handle duplicates
@@ -67,13 +66,13 @@ class discrete(object):
             self.intensities = intensities
         else:
             # Sum equal lines
-            lines,intensities = listtools.weightedsum(lines,intensities)
+            lines,intensities = listtools.sumrepeats(lines,intensities)
         
             # Sort by line
             lines,self.intensities = listtools.sort2lists(lines,intensities)
-        
+            
         # Lines
-        self.lines = ureg.Quantity(lines,unit)
+        self.lines = units.Quantity(lines,unit)
         
     def __add__(self, val):
         if isinstance(val,self.__class__):
@@ -94,7 +93,7 @@ class discrete(object):
             if isinstance(lines2,np.ndarray):
                 lines2 = lines2.tolist()
                 
-            return self.__class__(ureg.Quantity(lines1 + lines2,self.lines.units),\
+            return self.__class__(units.Quantity(lines1 + lines2,self.lines.units),\
                                   intensities1 + intensities2)
         else:
             raise NotImplementedError
@@ -116,4 +115,18 @@ class discrete(object):
     @property
     def energies(self):
         return self.lines.to('keV','spectroscopy').magnitude
-        
+    
+    @property
+    def nlines(self):
+        if self.bnumber:
+            return 1
+        else:
+            return len(self.intensities)
+            
+    def weightedsum(self,x):
+        if self.bnumber:
+            return x
+        else:
+            x = instance.asarray(x)
+            return sum(x*self.ratios)
+            

@@ -59,8 +59,9 @@ compounddb["linseed oil"] = mixture.Mixture([compounddb["trilinolenin"],\
 
 # organics:
 compounddb["cellulose"] = compoundfromformula.CompoundFromFormula("C6H10O5",1.5,name="")
+#http://dx.doi.org/10.1100/tsw.2009.27:
 compounddb["hair"] = compoundfromlist.CompoundFromList(['C', 'O', 'N', 'H', 'S'],
-                                [0.45,0.28,0.15,0.067,0.053],
+                                [0.49,0.30,0.145,0.035,0.03],
                                 types.fraction.mass,1.33,name="human hair")
 
 # low-Z minerals
@@ -73,6 +74,8 @@ compounddb["alumina"] = compoundfromformula.CompoundFromFormula("Al2O3",3.987,na
 compounddb["periclase"] = compoundfromformula.CompoundFromFormula("MgO",3.6,name="periclase")
 compounddb["potassium oxide"] = compoundfromformula.CompoundFromFormula("K2O",2.2,name="potassium oxide")
 compounddb["phosphorus pentoxide"] = compoundfromformula.CompoundFromFormula("P2O5",2.39,name="phosphorus pentoxide")
+compounddb["halite"] = compoundfromformula.CompoundFromFormula("NaCl",2.16,name="halite")
+compounddb["potassium chloride"] = compoundfromformula.CompoundFromFormula("KCl",1.984,name="potassium chloride")
 
 # Ca minerals
 compounddb["calcite"] = compoundfromformula.CompoundFromFormula("CaCO3",2.7102,name="calcite")
