@@ -142,5 +142,9 @@ def asnumber(x):
         except:
             return np.nan
                 
-            
-            
+def arrayit(x):
+    if isarray(x):
+        return x
+    else:
+        return [x]
+        

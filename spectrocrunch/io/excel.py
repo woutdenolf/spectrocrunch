@@ -23,12 +23,17 @@
 # THE SOFTWARE.
 
 from ..common.Enum import Enum
+from ..common import instance
 
+import ast
 import numpy as np
 import pandas as pd
 import scipy.stats
 import xlsxwriter
 import xlsxwriter.utility as xlsxutils
+from collections import OrderedDict
+import logging
+logger = logging.getLogger(__name__) 
 
 class Writer(object):
 
@@ -59,21 +64,231 @@ class Writer(object):
 
 class DataFrame(object):
     indextypes = Enum(['index','name','xlsindex','xlscell'])
-    cellformats = Enum(['good','bad','select'])
+    cellformats = Enum(['good','bad','select','scientific'])
     critereatypes = Enum(['between','notbetween','condition','colorscale'])
+    priorities = Enum(['row','column'])
     
-    def __init__(self,writer=None,sheet_name="diagnostics"):
+    def __init__(self,writer=None,sheet_name="Sheet1",priority="row",df=None,**kwargs):
         self.writer = writer
         self.sheet_name = sheet_name
-        self.df = pd.DataFrame()
-        self.criteria = {}
-        self.formats = {}
-        
-    def adddata(self,index,dic):
-        for k,v in dic.items():
-            self.df.at[index,k] = v
+        if df is None:
+            self.df = pd.DataFrame(**kwargs)
+        else:
+            self.df = df
+        self.criteria_column = OrderedDict()
+        self.criteria_row = OrderedDict()
+        self.formats_column = OrderedDict()
+        self.formats_row = OrderedDict()
+        self.formulae_column = OrderedDict()
+        self.formulae_row = OrderedDict()
+        self.formulae_cell = OrderedDict()
+        self.priority = self.priorities(priority)
+    
+    @classmethod
+    def fromexcel(cls,filename,sheet_name=None):
+        data = pd.read_excel(filename,sheet_name=sheet_name)
+        if sheet_name is None:
+            return [cls(df=df,sheet_name=sheet_name) for sheet_name,df in data.items()]
+        else:
+            return [cls(df=data,sheet_name=sheet_name)]
+    
+    def addvalue(self,row,column,data):
+        self._remove_formulae(row=row,column=column)
+        self._addvalue(row,column,data)
+        self._reapply_formulae(row=row,column=column)
+ 
+    def addrow(self,row,data):
+        self._remove_formulae(row=row)
+        self._addrow(row,data)
+        self._reapply_formulae(row=row)
+         
+    def addcolumn(self,column,data):
+        self._remove_formulae(column=column)
+        self._addcolumn(column,data)
+        self._reapply_formulae(column=column)
 
-    def addcriterium_outliers(self,index,alpha=0.9,col=True,out=True,sided="double"):
+    def _addvalue(self,row,column,data):
+        self.df.at[row,column] = data
+        
+    def _addrow(self,row,data):
+        if isinstance(data,dict):
+            for column,value in data.items():
+                self.df.at[row,column] = value
+        else:
+            self.df.at[row,:] = data
+
+    def _addcolumn(self,column,data):
+        if isinstance(data,dict):
+            for rowindew,value in data.items():
+                self.df.at[rowindew,column] = value
+        else:
+            self.df.at[:,column] = data
+
+    def _reapply_formulae(self,row=None,column=None):
+        self.apply_formulae()
+        # Remark: differentiated reapply requires testing recursive formulae which is time consuming
+                    
+    def _remove_formulae(self,row=None,column=None):
+        if row is not None and column is not None:
+            pass
+        elif row is not None:
+            self.formulae_cell = {(r,c):v for (r,c),v in self.formulae_cell.items() if r!=row}
+        elif column is not None:
+            self.formulae_cell = {(r,c):v for (r,c),v in self.formulae_cell.items() if c!=column}
+
+    def addcolumn_formula(self,column,formula,columns):
+        if not instance.isarray(columns):
+            columns = [columns]  
+        if column in columns:
+            rhside = formula.format(*columns)
+            raise RuntimeError("Self referencing formula: {} = {}".format(column,rhside))
+        self.formulae_column[column] = formula,columns
+        self._apply_column_formula(column,formula,columns)
+        self._reapply_formulae(column=column)
+        
+    def addrow_formula(self,row,formula,rows):
+        if not instance.isarray(rows):
+            rows = [rows]
+        if row in rows:
+            rhside = formula.format(*rows)
+            raise RuntimeError("Self referencing formula: {} = {}".format(row,rhside))
+        self.formulae_row[row] = formula,rows
+        self._apply_row_formula(row,formula,rows)
+        self._reapply_formulae(row=row)
+        
+    def addcell_formula(self,row,column,formula,rows,columns):
+        if not instance.isarray(rows):
+            rows = [rows]
+        if not instance.isarray(columns):
+            columns = [columns]  
+        if row in rows or column in columns:
+            rhside = formula.format(*[rc for rc in zip(rows,columns)])
+            raise RuntimeError("Self referencing formula: {} = {}".format(row,column,rhside))
+        self.formulae_cell[(row,column)] = formula,rows,columns
+        self._apply_cell_formula(row,column,formula,rows,columns)
+        self._reapply_formulae(row=row,column=column)
+        
+    def _apply_cell_formula(self,row,column,formula,rows,columns):
+        data = self._formula_eval(formula,rows,columns,column=False)
+        self._addvalue(row,column,data)
+
+    def _apply_column_formula(self,column,formula,columns,indices=None):
+        if indices is None:
+            data = self._formula_eval_range(formula,columns,column=True)
+            self._addcolumn(column,data)
+        else:
+            for row in instance.arrayit(indices):
+                data = self._formula_eval(formula,columns,row,column=True)
+                self._addvalue(row,column,data)
+        
+    def _apply_row_formula(self,row,formula,indices,columns=None):
+        if columns is None:
+            data = self._formula_eval_range(formula,indices,column=False)
+            self._addrow(row,data)
+        else:
+            for column in instance.arrayit(columns):
+                data = self._formula_eval(formula,indices,column,column=False)
+                self._addvalue(row,column,data)
+            
+    def _apply_column_formulae(self,indices=None):
+        for column,args in self.formulae_column.items():
+            self._apply_column_formula(column,*args,indices=indices)
+    
+    def _apply_row_formulae(self,columns=None):
+        for row,args in self.formulae_row.items():
+            self._apply_row_formula(row,*args,columns=columns)
+
+    def _apply_cell_formulae(self,row=None,column=None):
+        if row is not None and column is not None:
+            fapply = lambda r,c: r==row and c==column
+        elif row is not None:
+            fapply = lambda r,c: r==row
+        elif column is not None:
+            fapply = lambda r,c: c==column
+        else:
+            fapply = lambda r,c: True
+            
+        for (row,column),args in self.formulae_cell.items():
+            if fapply(row,column):
+                self._apply_cell_formula(row,column,*args)
+
+    def apply_formulae(self):
+        if self.priority==self.priorities.row:
+            self._apply_column_formulae()
+            self._apply_row_formulae()
+        else:
+            self._apply_row_formulae()
+            self._apply_column_formulae()
+        self._apply_cell_formulae()
+        
+    @classmethod
+    def _formula_argfunc(cls,x,y,swap=False):
+        if swap:
+            x,y = y,x
+        if instance.isstring(x):
+            x = "\"{}\"".format(x)
+        if instance.isstring(y):
+            y = "\"{}\"".format(y)
+        return "self.df.at[{},{}]".format(x,y) # row,column
+        
+    @classmethod
+    def _formula_argfunc_range(cls,x,column=True):
+        if column:
+            add = ""
+        else:
+            add = ".loc"
+        if instance.isstring(x):
+            return "self.df{}[\"{}\"]".format(add,x)
+        else:
+            return "self.df{}[{}]".format(add,x)
+    
+    def _eval_selfctx(self,expr):
+        expr = ast.parse(expr, mode='eval')
+        code = compile(expr, filename="<ast>", mode="eval")
+        return eval(code, globals(), locals())
+        #return eval(expr, globals(), locals())
+        
+    def _formula_eval_range(self,expr,args,column=True):
+        # column refers to args
+        expr = expr.format(*[self._formula_argfunc_range(arg,column=column) for arg in args])
+        return self._eval_selfctx(expr)
+        
+    def _formula_eval(self,expr,args,others,column=True):
+        # column refers to args
+        if not instance.isarray(args):
+            args = [args]
+        if not instance.isarray(others):
+            others = [others]*len(args)
+        expr = expr.format(*[self._formula_argfunc(arg,other,swap=column) for arg,other in zip(args,others)])
+        return self._eval_selfctx(expr)
+
+    def addformat(self,index,fmt=None,column=True):
+        if fmt:
+            if column:
+                if index in self.formats_column:
+                    fmt = self._append_format(self.formats_column[index]["fmt"],fmt)
+                self.formats_column[index] = {"fmt":fmt}
+            else:
+                if index in self.formats_row:
+                    fmt = self._append_format(self.formats_row[index]["fmt"],fmt)
+                self.formats_row[index] = {"fmt":fmt}
+                
+    def _append_format(self,fmt,add):
+        if not instance.isarray(fmt):
+            fmt = [fmt]
+        if instance.isarray(add):
+            fmt.extend(add)
+        else:
+            fmt.append(add)
+        return fmt
+             
+    def addcriterium(self,index,crit=None,column=True):
+        if column:
+            self.criteria_column[index] = crit
+        else:
+            self.criteria_row[index] = crit
+            
+    def addcriterium_outliers(self,index,alpha=0.9,column=True,out=True,sided="double"):
         crit = {}
         if sided=="single":
             m = scipy.stats.norm.ppf(alpha)
@@ -97,9 +312,9 @@ class DataFrame(object):
         else:
             crit["fmt"] = self.cellformats.good
 
-        self.addcriterium(index,crit,col=col)
+        self.addcriterium(index,crit,column=column)
 
-    def addcriterium_colorscale(self,index,col=True,colors=None):
+    def addcriterium_colorscale(self,index,fmt=None,column=True,colors=None):
         if colors is None:
             #green,yellow,red
             colors = ['#63be7b','#ffeb84','#f8696b']
@@ -115,14 +330,9 @@ class DataFrame(object):
                     'max_color': colors[-1]}
   
         crit = {"mode":self.critereatypes.colorscale,"cond":cond}
-        self.addcriterium(index,crit,col=col)
-        
-    def addcriterium(self,index,crit=None,col=True):
-        crit["col"] = col
-        self.criteria[index] = crit
-    
-    def addformat(self,index,fmt=None,col=True):
-        self.formats[index] = {"fmt":fmt,"col":col}
+        if fmt:
+            crit["fmt"] = fmt
+        self.addcriterium(index,crit,column=column)
     
     @property
     def handle(self):
@@ -157,49 +367,59 @@ class DataFrame(object):
         width = max(len(row) for row in self.df.index)
         width = max(width,15)
         worksheet.set_column(0,0, width)
-        for i,col in enumerate(self.df.columns):
-            width = max(len(col),15)
+        for i,column in enumerate(self.df.columns):
+            width = max(len(column),15)
             worksheet.set_column(i+1,i+1, width)
         worksheet.freeze_panes(1,1)
 
     def _xls_save_formats(self):
-        for index,crit in self.criteria.items():
-            self._xls_apply_criterium(index,crit)
-        for index,fmt in self.formats.items():
-            self._xls_apply_format(index,fmt)
-
-    def _xls_add_format(self,fmt):
-        return self.workbook.add_format(self._xls_parse_format(fmt))
-
-    def _xls_parse_format(self,fmt):
-        if isinstance(fmt,dict):
-            return fmt
+        for index,crit in self.criteria_column.items():
+            self._xls_apply_criterium(index,crit,column=True)
+        for index,crit in self.criteria_row.items():
+            self._xls_apply_criterium(index,crit,column=False)
+        for index,fmt in self.formats_column.items():
+            self._xls_apply_format(index,fmt,column=True)
+        for index,fmt in self.formats_row.items():
+            self._xls_apply_format(index,fmt,column=False)
+            
+    def _xls_add_format(self,fmts):
+        fmtdict = self._xls_parse_format(fmts)
+        if fmtdict:
+            return self.workbook.add_format(fmtdict)
         else:
-            name = fmt
-            fmt = {}
-            if name==self.cellformats.good:
-                fmt["bg_color"] = '#C6EFCE'
-                fmt["font_color"] = '#006100'
-            elif name==self.cellformats.bad:
-                fmt["bg_color"] = '#FFC7CE'
-                fmt["font_color"] = '#9C0006'
-            elif name==self.cellformats.select:
-                fmt["bg_color"] = '#FFEB9C'
-                fmt["font_color"] = '#9C6500'
+            return None
+            
+    def _xls_parse_format(self,fmts):
+        fmtdict = {}
+        if not instance.isarray(fmts):
+            fmts = [fmts]
+        for fmt in fmts:
+            if fmt==self.cellformats.good:
+                fmtdict["bg_color"] = '#C6EFCE'
+                fmtdict["font_color"] = '#006100'
+            elif fmt==self.cellformats.bad:
+                fmtdict["bg_color"] = '#FFC7CE'
+                fmtdict["font_color"] = '#9C0006'
+            elif fmt==self.cellformats.select:
+                fmtdict["bg_color"] = '#FFEB9C'
+                fmtdict["font_color"] = '#9C6500'
+            elif fmt==self.cellformats.scientific:
+                fmtdict["num_format"] = "0.00E+00"
             else:
-                if not isinstance(name,dict):
-                    fmt["bg_color"] = '#FFFFFF'
-                    fmt["font_color"] = '#000000'
-            return fmt
+                if isinstance(fmt,dict):
+                    fmtdict.update(fmt)
+                elif fmt:
+                    fmtdict["bg_color"] = '#FFFFFF'
+                    fmtdict["font_color"] = '#000000'
+        return fmtdict
 
-    def _xls_apply_criterium(self,index,crit):
+    def _xls_apply_criterium(self,index,crit,column=True):
         fromtype = crit.get("fromtype",self.indextypes.name)
-        col = crit.get("col",True)
         mode = crit.get("mode",self.critereatypes.between)
         fmt = crit.get("fmt",self.cellformats.select)
-        
+
         # Select data and excel range
-        if col:
+        if column:
             head,ran = self._xls_column(index,fromtype)
             name = self._convert_colindex(index,fromtype,self.indextypes.name)
             values = self.df[name].values
@@ -231,17 +451,16 @@ class DataFrame(object):
             cond = crit.get("cond",{'type': '3_color_scale'})
         else:
             cond = {"type":"cell","criteria":">","value":-1e9}
-            
+        
         cond["format"] = self._xls_add_format(fmt)
         self.worksheet.conditional_format(ran, cond)
 
-    def _xls_apply_format(self,index,params):
+    def _xls_apply_format(self,index,params,column=True):
         fromtype = params.get("fromtype",self.indextypes.name)
-        col = params.get("col",True)
-        fmt = params.get("fmt",self.cellformats.none)
+        fmt = params.get("fmt",None)
 
         fmt = self._xls_add_format(fmt)
-        if col:
+        if column:
             coli = self._convert_colindex(index,fromtype,self.indextypes.xlsindex)
             self.worksheet.set_column(coli,coli,None,fmt)
         else:

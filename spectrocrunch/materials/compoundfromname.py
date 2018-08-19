@@ -60,22 +60,23 @@ compounddb["linseed oil"] = mixture.Mixture([compounddb["trilinolenin"],\
 # organics:
 compounddb["cellulose"] = compoundfromformula.CompoundFromFormula("C6H10O5",1.5,name="")
 #http://dx.doi.org/10.1100/tsw.2009.27:
-compounddb["hair"] = compoundfromlist.CompoundFromList(['C', 'O', 'N', 'H', 'S'],
+compounddb["human hair"] = compoundfromlist.CompoundFromList(['C', 'O', 'N', 'H', 'S'],
                                 [0.49,0.30,0.145,0.035,0.03],
                                 types.fraction.mass,1.33,name="human hair")
+compounddb["hair"] = compounddb["human hair"]
 
 # low-Z minerals
 compounddb["diamond"] = compoundfromformula.CompoundFromFormula("C",3.51,name="")
-compounddb["sodium oxide"] = compoundfromformula.CompoundFromFormula("Na2O",2.27,name="sodium oxide")
+compounddb["Na2O"] = compoundfromformula.CompoundFromFormula("Na2O",2.27,name="Na2O")
 compounddb["silica"] = compoundfromformula.CompoundFromFormula("SiO2",2.169,name="silica")
 compounddb["quartz"] = compoundfromformula.CompoundFromFormula("SiO2",2.648,name="quartz")
 compounddb["corundum"] = compoundfromformula.CompoundFromFormula("Al2O3",4.02,name="corundum")
 compounddb["alumina"] = compoundfromformula.CompoundFromFormula("Al2O3",3.987,name="alumina")
 compounddb["periclase"] = compoundfromformula.CompoundFromFormula("MgO",3.6,name="periclase")
-compounddb["potassium oxide"] = compoundfromformula.CompoundFromFormula("K2O",2.2,name="potassium oxide")
-compounddb["phosphorus pentoxide"] = compoundfromformula.CompoundFromFormula("P2O5",2.39,name="phosphorus pentoxide")
-compounddb["halite"] = compoundfromformula.CompoundFromFormula("NaCl",2.16,name="halite")
-compounddb["potassium chloride"] = compoundfromformula.CompoundFromFormula("KCl",1.984,name="potassium chloride")
+compounddb["K2O"] = compoundfromformula.CompoundFromFormula("K2O",2.2,name="K2O")
+compounddb["P2O5"] = compoundfromformula.CompoundFromFormula("P2O5",2.39,name="P2O5")
+compounddb["NaCl"] = compoundfromformula.CompoundFromFormula("NaCl",2.16,name="NaCl")
+compounddb["KCl"] = compoundfromformula.CompoundFromFormula("KCl",1.984,name="KCl")
 
 # Ca minerals
 compounddb["calcite"] = compoundfromformula.CompoundFromFormula("CaCO3",2.7102,name="calcite")
@@ -114,7 +115,7 @@ compounddb["chromia"] = compoundfromformula.CompoundFromFormula("Cr2O3",5.22,nam
 compounddb["bunsenite"] = compoundfromformula.CompoundFromFormula("NiO",6.67,name="bunsenite")
 
 # Mn minerals
-compounddb["manganous oxide"] = compoundfromformula.CompoundFromFormula("MnO",5.745,name="manganous oxide")
+compounddb["MnO"] = compoundfromformula.CompoundFromFormula("MnO",5.745,name="MnO")
 
 # Cd pigments
 compounddb["cadmium sulfide"] = compoundfromformula.CompoundFromFormula("CdS",4.826,name="cadmium sulfide")
@@ -175,15 +176,15 @@ compounddb["silicon nitride"] = compoundfromformula.CompoundFromFormula("Si3N4",
 # rocks
 compounddb["granite"] = mixture.Mixture([compounddb["silica"],\
                                     compounddb["alumina"],\
-                                    compounddb["potassium oxide"],\
-                                    compounddb["sodium oxide"],\
+                                    compounddb["K2O"],\
+                                    compounddb["Na2O"],\
                                     compounddb["lime"],\
                                     compounddb["ferrous oxide"],\
                                     compounddb["ferric oxide"],\
                                     compounddb["periclase"],\
                                     compounddb["rutile"],\
-                                    compounddb["phosphorus pentoxide"],\
-                                    compounddb["manganous oxide"]],\
+                                    compounddb["P2O5"],\
+                                    compounddb["MnO"]],\
                                     [0.7204,0.1442,0.0412,0.0369,0.0182,0.0168,0.0122,0.0071,0.0030,0.0012,0.0005],\
                                     types.fraction.mole).tocompound("granite")
 
