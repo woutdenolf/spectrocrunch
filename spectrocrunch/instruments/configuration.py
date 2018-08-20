@@ -145,7 +145,7 @@ class InstrumentInfo(with_metaclass(object)):
         
 
 class ESRF_ID21_SXM(InstrumentInfo):
-    aliases = ["sxm","id21"]
+    aliases = ["sxm","id21","ID21"]
     
     def __init__(self,**info):
         info["imagemotors"] = info.get("imagemotors",["samy","sampy","samz","sampz"])
@@ -260,7 +260,7 @@ class ESRF_ID21_MICRODIFF(InstrumentInfo):
 
 
 class ESRF_ID16B(InstrumentInfo):
-    aliases = ["id16b"]
+    aliases = ["id16b","ID16b","ID16B"]
     
     def __init__(self,**info):
         info["imagemotors"] = info.get("imagemotors",["sy","sz","sampy","sampz"])

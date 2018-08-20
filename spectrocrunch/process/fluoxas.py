@@ -35,6 +35,7 @@ from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks
 from ..common import timing
 from ..io import nexus
 from ..io import edf
+from ..io.utils import mkdir
 from ..instruments import configuration
 
 from .proc_math import execute as math
@@ -207,8 +208,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
     }
 
     # Create configuration file
-    if not os.path.exists(destpath):
-        os.makedirs(destpath)
+    mkdir(destpath)
     jsonfile = os.path.join(destpath,scanname[0]+".json")
     with open(jsonfile,'w') as f:
         json.dump(config,f,indent=2)

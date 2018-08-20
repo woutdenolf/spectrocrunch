@@ -25,6 +25,7 @@
 import os
 import shutil
 import tempfile
+import errno
 
 class temporary_copy(object):
     
@@ -44,4 +45,13 @@ class temporary_copy(object):
         if self.open_file:
             os.remove(self.open_file)
         self.open_file = None
+
+def mkdir(path):
+    try:
+        os.makedirs(path)
+    except OSError as e:
+        if e.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise e
 
