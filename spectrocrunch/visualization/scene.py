@@ -540,12 +540,12 @@ class Image(Item):
         self.labels = labels
         
         if lim0 is None:
-            lim0 = [0,img.shape[0]-1]
+            lim0 = [0,data.shape[0]-1]
         else:
             lim0 = [lim0[0],lim0[-1]]
             
         if lim1 is None:
-            lim1 = [0,img.shape[1]-1]
+            lim1 = [0,data.shape[1]-1]
         else:  
             lim1 = [lim1[0],lim1[-1]]
     
@@ -701,7 +701,7 @@ class Image(Item):
                   "cnorm":None,\
                   "cnormargs":(),\
                   "datafunc":None,\
-                  "legend":True,\
+                  "legend":False,\
                   "legendposition":"RT",\
                   "legendspacing":2.,\
                   "scalebar":False,\
@@ -715,7 +715,7 @@ class Image(Item):
                   "fontweight":500,\
                   "channels":None,\
                   "colorbar":False,\
-                  "colorbar_units":None,\
+                  "colorbar_units":"",\
                   "compositions":{},\
                   "title":None}
         
