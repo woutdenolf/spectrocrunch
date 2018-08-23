@@ -40,12 +40,12 @@ def logging_cliconfig():
         --stderr=...  Redirect stderr to a file
     """
     import argparse
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--log',default="",type=str,help="Log level")
     parser.add_argument('--logfile',default="",type=str,help="Log file")
     parser.add_argument('--stdout',default="",type=str,help="Log file for what normally goes to stdout")
     parser.add_argument('--stderr',default="",type=str,help="Log file for what normally goes to stderr")
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
     
     hashandlers = bool(logger.handlers)
     
