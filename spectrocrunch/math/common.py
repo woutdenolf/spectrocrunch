@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from __future__ import division
+
 import numpy as np
 import math
 import fractions
@@ -32,11 +34,30 @@ def logscale(img):
     ret /= np.nanmax(ret)
     return 1-ret
 
+def sig_to_ndigits(x, sig):
+    return sig-int(math.floor(math.log10(abs(x))))-1
+
+round_ndigits = round
+
+def ceil_ndigits(x, n):
+    m = 10**n
+    return math.ceil(x*m)/m
+
+def floor_ndigits(x, n):
+    m = 10**n
+    return math.floor(x*m)/m
+    
 def round_sig(x, sig):
-    return round(x, sig-int(math.floor(math.log10(abs(x))))-1)
+    return round_ndigits(x, sig_to_ndigits(x, sig))
+
+def ceil_sig(x, sig):
+    return ceil_ndigits(x, sig_to_ndigits(x, sig))
+
+def floor_sig(x, sig):
+    return floor_ndigits(x, sig_to_ndigits(x, sig))
 
 def floatformat(x, sig):
-    n = max(sig-int(math.floor(math.log10(abs(x))))-1,0)
+    n = max(_ndigits(x, sig),0)
     y = "{}".format(x).split('.')
     if len(y)==2:
         n = min(n,len(y[-1]))

@@ -42,7 +42,7 @@ import logging
 
 from ..common import instance
 from ..io import edf
-from ..io.utils import temporary_copy
+from ..io import utils as ioutils
 
 logger = logging.getLogger(__name__)
 
@@ -191,11 +191,18 @@ def AdaptPyMcaConfig_fast(cfg):
     
     if "strategyflag" not in cfg["fit"]:
         cfg["fit"]["strategyflag"] = 0
-    if cfg["fit"]["strategyflag"]:
+    elif cfg["fit"]["strategyflag"]:
         cfg["fit"]["strategyflag"] = 0
 
-    cfg['fit']['fitweight'] = 0 # fastfitting with individual weights -> bug in pymca????
+    cfg['fit']['fitweight'] = 0 # Bug in pymca?
+
+def AdaptPyMcaConfig_forcebatch(cfg):
+    # Force linear fitting:
+    cfg["fit"]["linearfitflag"] = 1
     
+    # Force no weights (for spectra with low counts): 
+    cfg['fit']['fitweight'] = 0
+
 def AdaptPyMcaConfig_modinfo(cfg,quant):
     ind = instance.asarray(cfg["fit"]["energyflag"]).astype(bool)
     _energy = instance.asarray(cfg["fit"]["energy"])[ind]
@@ -240,7 +247,8 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines=None,quant=None,fast=False):
         AdaptPyMcaConfig_quant(cfg,quant)
     if fast:
         AdaptPyMcaConfig_fast(cfg)
-
+    AdaptPyMcaConfig_forcebatch(cfg)
+    
     AdaptPyMcaConfig_modinfo(cfg,quant)
     
 
@@ -436,12 +444,11 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
         labels(list(str)): corresponding HDF5 labels
     """
 
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-
     # Adapt file
-    with temporary_copy(cfgfile,ext='.cfg') as tmpfile:
-        AdaptPyMcaConfigFile(tmpfile,energy,mlines=mlines,quant=quant,fast=fast)
+    ioutils.mkdir(outdir)
+    
+    with ioutils.Copy(cfgfile,os.path.join(outdir,outname+".cfg")) as cfgfile:
+        AdaptPyMcaConfigFile(cfgfile,energy,mlines=mlines,quant=quant,fast=fast)
 
         buncertainties = False
         bconcentrations = bool(quant)
@@ -449,7 +456,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
         if fast:
             # Prepare fit
             fastFit = FastXRFLinearFit.FastXRFLinearFit()
-            fastFit.setFitConfigurationFile(tmpfile)
+            fastFit.setFitConfigurationFile(cfgfile)
             dataStack = EDFStack.EDFStack(filelist, dtype=np.float32)
 
             # Fit
@@ -504,7 +511,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
                     
         else:
             # TODO: parallelize this
-            b = McaAdvancedFitBatch.McaAdvancedFitBatch(tmpfile,filelist=filelist,outputdir=outdir,
+            b = McaAdvancedFitBatch.McaAdvancedFitBatch(cfgfile,filelist=filelist,outputdir=outdir,
                                                         fitfiles=0,concentrations=bconcentrations)
             b.processList()
 

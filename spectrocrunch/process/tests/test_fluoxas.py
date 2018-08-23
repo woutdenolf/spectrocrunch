@@ -284,11 +284,16 @@ class test_fluoxas(unittest.TestCase):
                                                     expected = ["{}_xiaS1_{:04d}_0000_{}.edf".format(radixout,mapnum,label)\
                                                                                                     for mapnum in range(nmaps)\
                                                                                                     for label in labels]
+                                                    expected.extend(["{}_xiaS1_{:04d}_0000.cfg".format(radixout,mapnum,label)\
+                                                                                                    for mapnum in range(nmaps)])
                                                 else:
                                                     expected = ["{}_xia{:02d}_{:04d}_0000_{}.edf".format(radixout,det,mapnum,label)\
                                                                                                     for det in include_detectors\
                                                                                                     for mapnum in range(nmaps)\
                                                                                                     for label in labels]
+                                                    expected.extend(["{}_xia{:02d}_{:04d}_0000.cfg".format(radixout,det,mapnum,label)\
+                                                                                                    for det in include_detectors\
+                                                                                                    for mapnum in range(nmaps)])
                                                 self.destpath.compare(sorted(expected),path="{}_fit".format(radix),files_only=True,recursive=False)
                                             
                                             # Check top-level output directory (h5 files)

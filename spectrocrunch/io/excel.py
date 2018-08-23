@@ -68,13 +68,22 @@ class DataFrame(object):
     critereatypes = Enum(['between','notbetween','condition','colorscale'])
     priorities = Enum(['row','column'])
     
-    def __init__(self,writer=None,sheet_name="Sheet1",priority="row",df=None,**kwargs):
+    def __init__(self,writer=None,sheet_name="Sheet1",priority="row",df=None,rowlevels=None,columnlevels=None,**kwargs):
         self.writer = writer
         self.sheet_name = sheet_name
+        self.priority = self.priorities(priority)
+        
+        if rowlevels:
+            n = len(rowlevels)
+            kwargs["index"] = pd.MultiIndex(names=rowlevels,levels=[[]]*n,labels=[[]]*n)
+        if columnlevels:
+            kwargs["columns"] = pd.MultiIndex(names=columnlevels,levels=[[]]*n,labels=[[]]*n)
+        
         if df is None:
             self.df = pd.DataFrame(**kwargs)
         else:
             self.df = df
+            
         self.criteria_column = OrderedDict()
         self.criteria_row = OrderedDict()
         self.formats_column = OrderedDict()
@@ -82,7 +91,7 @@ class DataFrame(object):
         self.formulae_column = OrderedDict()
         self.formulae_row = OrderedDict()
         self.formulae_cell = OrderedDict()
-        self.priority = self.priorities(priority)
+        self.headerfmt = {"bold":True,"bg_color":'#ffffff',"font_color":"#000000"}
     
     @classmethod
     def fromexcel(cls,filename,sheet_name=None):
@@ -262,7 +271,13 @@ class DataFrame(object):
         expr = expr.format(*[self._formula_argfunc(arg,other,swap=column) for arg,other in zip(args,others)])
         return self._eval_selfctx(expr)
 
-    def addformat(self,index,fmt=None,column=True):
+    def addrowformat(self,index,fmt=None):
+        self._addformat(index,fmt=fmt,column=False)
+    
+    def addcolumnformat(self,index,fmt=None):
+        self._addformat(index,fmt=fmt,column=True)
+        
+    def _addformat(self,index,fmt=None,column=True):
         if fmt:
             if column:
                 if index in self.formats_column:
@@ -362,15 +377,45 @@ class DataFrame(object):
             self._xls_save_formats()
             self._xls_save_colwidths()
 
+    def sortrows(self,level=0):
+        self.df.sort_index(axis=0,level=level,sort_remaining=True,inplace=True)
+
+    def sortcolumns(self,level=0):
+        self.df.sort_index(axis=1,level=level,sort_remaining=True,inplace=True)
+     
+    def sort(self,rowlevel=0,columnlevel=0):
+        self.sortrows(level=rowlevel)
+        self.sortcolumns(level=columnlevel)
+    
     def _xls_save_colwidths(self):
         worksheet = self.worksheet
-        width = max(len(row) for row in self.df.index)
-        width = max(width,15)
-        worksheet.set_column(0,0, width)
-        for i,column in enumerate(self.df.columns):
-            width = max(len(column),15)
-            worksheet.set_column(i+1,i+1, width)
-        worksheet.freeze_panes(1,1)
+        
+        r0,c0 = self._xls_rowoff,self._xls_coloff
+        
+        # Width of index columns:
+        width = 15
+        
+        for c in range(c0):
+            if c0==1:
+                width = max(width,max(len(rowindex) for rowindex in self.df.index))
+            else:
+                width = max(width,max(len(rowindex[c]) for rowindex in self.df.index))
+            hname = self.df.index.names[c]
+            if hname:
+                width = max(width,len(hname))
+                        
+            worksheet.set_column(c,c,width)
+
+        # Width of data columns:
+        for i,colindex in enumerate(self.df.columns,c0):
+            if r0==1:
+                width = max(len(colindex),15)
+            else:
+                width = max(max(len(c) for c in colindex),15)
+            worksheet.set_column(i,i,width)
+        
+        # Freeze index and column names:
+        worksheet.freeze_panes(r0,c0)
 
     def _xls_save_formats(self):
         for index,crit in self.criteria_column.items():
@@ -381,7 +426,15 @@ class DataFrame(object):
             self._xls_apply_format(index,fmt,column=True)
         for index,fmt in self.formats_row.items():
             self._xls_apply_format(index,fmt,column=False)
-            
+        self._xls_save_headerformats()
+        
+    def _xls_save_headerformats(self):
+        fmt = self._xls_add_format(self.headerfmt)
+        for c in range(self._xls_coloff):
+            self.worksheet.set_column(c,c,None,fmt)
+        for r in range(self._xls_rowoff):
+            self.worksheet.set_row(r,None,fmt)
+        
     def _xls_add_format(self,fmts):
         fmtdict = self._xls_parse_format(fmts)
         if fmtdict:
@@ -473,7 +526,7 @@ class DataFrame(object):
 
     @property
     def _xls_rowoff(self):
-        return 1
+        return len(self.df.columns.names)
 
     @property
     def _xls_ncol(self):
@@ -503,15 +556,13 @@ class DataFrame(object):
                 y = self.df.index.get_loc(x)
             else:
                 y = self.df.columns.get_loc(x)
-                    
-            y = self._convert_singleindex(y,self.indextypes.index,totype)
+            y = self._convert_singleindex(y,self.indextypes.index,totype,row=row)
         else: # xlsindex, xlscell
             if row:
                 y = x-self._xls_rowoff
             else:
                 y = x-self._xls_coloff
-            
-            y = self._convert_singleindex(y,indextypes.index,totype)
+            y = self._convert_singleindex(y,indextypes.index,totype,row=row)
 
         return y
 

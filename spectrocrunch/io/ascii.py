@@ -67,12 +67,12 @@ class asciifile(object):
         data = np.array([re.split(r'\s*',line.strip()) for line in re.split(endline,p.group(2))],dtype=dtype)
         return (data,colheader)
 
+
 class Writer(object):
 
-    def __init__(self, filename=None, mode='w', tab=4):
+    def __init__(self, filename=None, mode='w'):
         self.filename = filename
         self.mode = mode
-        self.tab = ' '*tab
         self.open_file = None
 
     def __enter__(self):
@@ -87,12 +87,27 @@ class Writer(object):
             self.open_file.close()
         self.open_file = None
         
-    def write(self,line,tab=0):
-        lines = str(line).split('\n')
-        lines = ["{}{}".format(self.tab*tab,line) for line in lines]
-        
-        line = '\n'.join(lines)
+    def write(self,line):
+        self.writelines([line])
+    
+    def writelines(self,lines):
         if self.open_file:
-            self.open_file.write(line+'\n')
-        print(line)
+            self.open_file.write('\n'.join(lines)+'\n')
+    
+    
+class Logger(Writer):
+
+    def __init__(self, filename=None, tab=4, **kwargs):
+        self.tab = ' '*tab
+        super(Logger,self).__init__(filename=filename,**kwargs)
+
+    def writelines(self,lines,tab=0):
+        lines = ["{}{}".format(self.tab*tab,line) for line in lines]
+        super(Logger,self).writelines(lines)
+        for line in lines:
+            print(line)
+            
+    def write(self,line,tab=0):
+        lines = re.split("\r\n|\r|\n",str(line))
+        self.writelines(lines,tab=tab)
         

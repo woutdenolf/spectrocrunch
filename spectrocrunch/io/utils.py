@@ -23,29 +23,44 @@
 # THE SOFTWARE.
 
 import os
+import errno
 import shutil
 import tempfile
-import errno
 
-class temporary_copy(object):
+class Copy(object):
+    
+    def __init__(self,filename,copyname):
+        self.filename = filename
+        self.copyname = copyname
+
+    def __enter__(self):
+        shutil.copy2(self.filename, self.copyname)
+        return self.copyname
+
+    def __exit__(self,exc_type, exc_val, exc_tb):
+        if exc_type:
+            if os.path.isfile(self.copyname):
+                os.remove(self.copyname)
+        
+class Temporary_Copy(object):
     
     def __init__(self,filename,ext=".tmp"):
         self.filename = filename
-        self.open_file = None
+        self.tmpfilename = None
         self.ext = ext
 
     def __enter__(self):
         temp_dir = tempfile.gettempdir()
         temp_name = next(tempfile._get_candidate_names())
-        self.open_file = os.path.join(temp_dir,temp_name+self.ext)
-        shutil.copy2(self.filename, self.open_file)
-        return self.open_file
+        self.tmpfilename = os.path.join(temp_dir,temp_name+self.ext)
+        shutil.copy2(self.filename, self.tmpfilename)
+        return self.tmpfilename
 
     def __exit__(self,exc_type, exc_val, exc_tb):
-        if self.open_file:
-            os.remove(self.open_file)
-        self.open_file = None
-
+        if os.path.isfile(self.tmpfilename):
+            os.remove(self.tmpfilename)
+        self.tmpfilename = None
+        
 def mkdir(path):
     try:
         os.makedirs(path)
