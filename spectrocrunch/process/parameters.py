@@ -24,31 +24,54 @@
 
 import collections
 import itertools
-#from ordered_set import OrderedSet
+import contextlib
+try:
+    import itertools.imap as map
+except ImportError:
+    pass
+
 from ..common import hashing
 from ..common import listtools
 
+class AnnotatedKey(object):
+
+    def __init__(self,key,localcontext=False,changed=False):
+        self.original = key
+        self.localcontext = localcontext
+        self.changed = changed
+        
+    @property
+    def inherited(self):
+        return not self.local
+    
+    def __repr__(self):
+        if self.localcontext:
+            s = ""
+        else:
+            s = "I"
+        if self.changed:
+            s = s+"*"
+        if s:
+            return "{}({})".format(self.original,s)
+        else:
+            return str(self.original)
+    
 class Node(collections.MutableMapping):
     # Original idea:
     # http://code.activestate.com/recipes/577434-nested-contexts-a-chain-of-mapping-objects/
 
-    def __init__(self, parent=None, name=None, dtype=dict):
+    def __init__(self, parent=None, name=None):
         self._name = name
         
-        # Data storage:
-        if parent:
-            cls = parent.dtype
-        else:
-            cls = dtype
-        self._map = cls()
-        self._rehash = True
-        self._verify_hash = None
+        # Local parameters
+        self._local_map = {}
+        self.rehash()
+        self.changed = True
         
-        # Link with other nodes:
-        self._parent = parent
-        self._children = []
-        if parent:
-            parent._children.append(self)
+        # Link to other nodes
+        self._parent = None
+        self.children = []
+        self.parent = parent
 
     @property
     def name(self):
@@ -57,71 +80,93 @@ class Node(collections.MutableMapping):
         else:
             return str(id(self))
 
+    @property
+    def parent(self):
+        return self._parent
+    
+    @parent.setter
+    def parent(self,node):
+        if node is self or node is self.parent:
+            return
+            
+        if node is not None:
+            # "node" is downstream from "self:"
+            # make "node" a sibling to "self"
+            if id(node) in map(id,self.iter_down):
+                node._newparent(self.parent)
+                
+        self._newparent(node)
+        
+    def _newparent(self,node):
+        # Remove self from self.parent:
+        if self.parent is not None:
+            self.parent.children = [child for child in self.parent.children if child is not self]
+        # Change self.parent:
+        self._parent = node
+        # 
+        if node is not None:
+            node.children.append(self)
+            
     def branch(self, **kwargs):
         """Add a node inheriting from this one
         """
         return self.__class__(parent=self,**kwargs)
-        
-    def insert_before(self,**kwargs):
+
+    def insert_before(self,node=None,single=False,**kwargs):
         """Insert a node before this one
         """
-        parent = self._parent
+        newparent = None
+        if node is self.parent or node is self:
+            return node,newparent
+        if node is None:
+            node = self.__class__(**kwargs)
+        if single:
+            newparent = node.remove(single=True)
+        self.parent,keep = node,self.parent
+        if node.parent is None:
+            node.parent = keep
+        return node,newparent
         
-        # Add child to parent
-        child = self.__class__(parent=parent,**kwargs)
-        
-        # Link self with child
-        self._parent = child
-        child._children.append(self)
-        
-        # Remove self from parent
-        if parent:
-            parent._children.remove(self)
-
-        return child
-        
-    def insert_after(self,**kwargs):
+    def insert_after(self,node=None,single=False,**kwargs):
         """Insert a node after this one
         """
-        # Add child to self
-        child = self.__class__(parent=self,**kwargs)
-        
-        # Link self._children with child
-        print self._children
-        for child2 in self._children:
-            print child2,child,child2==child
-            if child2 != child:
-                child2._parent = child
-                child._children.append(child2)
-                
-        # Keep only child in self._children
-        self._children = [child]
-        
-        return child
+        newparent = None
+        if self is node.parent or node is self:
+            return node,newparent
+        if node is None:
+            node = self.__class__(**kwargs)
+        if single:
+            newparent = node.remove(single=True)
+        for child in list(self.children):
+            child.parent = node
+        node.parent = self
+        return node,newparent
     
-    def tree(self,level=0):
-        """Show inheritance tree of this node
-        """
-        ret = "  "*level
-        if ret:
-            ret += "> "
-
-        ret = "{}{} = {}\n".format(ret,self.name,self._map)
-        for child in self._children:
-            ret += child.tree(level=level+1)
-            
-        return ret
-    
+    def remove(self,single=True):
+        newparent = None
+        if single:
+            # Move children to parent
+            if self.parent is None:
+                newparent = self.__class__()
+                self.parent = newparent
+            parent = self.parent
+            for child in list(self.children):
+                child.parent = parent
+            if parent is not self.parent:
+                print parent,self.parent
+        self.parent = None
+        return newparent
+        
     @property
     def dtype(self):
-        return self._map.__class__
+        return self._local_map.__class__
         
-    def todict(self,full=True):
+    def todict(self,full=True,annotated=False):
         if full:
-            return self.dtype(self.items())
+            return self.dtype(self.items(annotated=annotated))
         else:
-            return self.dtype(self._map)
-    
+            return self.dtype(self._map(annotated=annotated))
+            
     def fromdict(self,dic,override=True,recursive=False):
         if not override:
             dic = {k:v for k,v in dic.items() if not self.inherited(k)}
@@ -132,7 +177,7 @@ class Node(collections.MutableMapping):
             self.update(dic)
     
     def update_recursive(self,*args,**kwargs):
-        """Update map locally and remove children override of the keys
+        """Update map locally and remove _children override of the keys
         """
         d = self.dtype(*args, **kwargs)
         self.update(d)
@@ -141,55 +186,74 @@ class Node(collections.MutableMapping):
               
     @property
     def _root(self):
-        return self if self._parent is None else self._parent._root
+        return self if self.parent is None else self.parent._root
 
-    @property
-    def _maps(self):
+    def _annotate_key(self,key,localcontext=True):
+        return AnnotatedKey(key,localcontext,changed=key in self._newkeys)
+        
+    def _map(self,annotated=False,localcontext=True):
+        # Returns a copy when annotated
+        if annotated:
+            if self.dtype is dict:
+                return {self._annotate_key(k,localcontext=localcontext):v for k,v in self._local_map.items()}
+            else:
+                return self.dtype(map(lambda item:(self._annotate_key(item[0],localcontext=localcontext),item[1]),self._local_map.items()))
+        else:
+            return self._local_map
+
+    def _maps(self,annotated=False):
         """Generator of all node maps in ascending order of inheritance (self first)
         """
-        yield self._map
-        node = self._parent
-        while node:
-            yield node._map
-            node = node._parent
-    
+        yield self._map(annotated=annotated)
+        node = self.parent
+        while node is not None:
+            yield node._map(annotated=annotated,localcontext=False)
+            node = node.parent
+
     @property
-    def _nodes_up(self):
-        """Generator of all nodes in ascending order of inheritance (self first)
+    def iter_up(self):
+        """Generator of all nodes in ascending order (self first)
         """
         yield self
-        node = self._parent
-        while node:
+        node = self.parent
+        while node is not None:
             yield node
-            node = node._parent
-            
+            node = node.parent
+
     @property
-    def _rmaps(self):
-        """Iterator of all node maps in desceding order of inheritance (root first)
-        """
-        return reversed(list(self._maps))
+    def iter_down(self):
+        yield self
+        for child in self.children:
+            for node in child.iter_down:
+                yield node
     
     @property
-    def _nodes_rup(self):
-        """Iterator of all nodes in desceding order of inheritance (root first)
-        """
-        return reversed(list(self._nodes_up))
-    
+    def root(self):
+        for node in self.iter_up:
+            pass
+        return node
+
     def __getitem__(self, key):
-        for m in self._maps:
+        for m in self._maps():
             if key in m:
                 break
         return m[key]
 
-    @property
-    def _cmap(self):
-        self.rehash(recursive=False)
-        return self._map
+    @contextlib.contextmanager
+    def _changekey(self,key):
+        try:
+            yield self._map()
+        except Exception as e:
+            raise e
+        else:
+            # Key has changed
+            self._newkeys.add(key)
+            self.rehash()
 
-    def rehash(self,recursive=True):
-        self._rehash = True
-        if recursive:
-            for child in self._children:
+    def rehash(self,recursive=False):
+        self._hash_map_cached = None
+        if recursive: # not sure we'll even need it
+            for child in self.children:
                 child.rehash(recursive=recursive)
 
     def __setitem__(self, key, value):
@@ -198,85 +262,124 @@ class Node(collections.MutableMapping):
                 return
         except KeyError:
             pass
-                 
-        self._cmap[key] = value
+        
+        with self._changekey(key) as cmap:
+            cmap[key] = value
         
     def delete_local(self,key):
         """Delete a key locally
         """
         try:
-            del self._cmap[key]
+            with self._changekey(key) as cmap:
+                del cmap[key]
         except KeyError:
             pass
             
     def delete_recursive(self,key,local=True):
-        """Delete a key in all children and optionally locally
+        """Delete a key in all _children and optionally locally
         """
         if local:
             self.delete_local(key)
-        for child in self._children:
+        for child in self.children:
             child.delete_recursive(key)
     
     def __delitem__(self, key):
-        """Delete a key locally and in all children
+        """Delete a key locally and in all _children
         """
         self.delete_recursive(key)
 
     def __len__(self):
-        return len(set(itertools.chain.from_iterable(self._maps)))
+        return len(set(itertools.chain.from_iterable(self._maps())))
 
     def __iter__(self):
-        return listtools.unique_everseen(itertools.chain.from_iterable(self._maps))
-        #return iter(OrderedSet(itertools.chain.from_iterable(self._maps)))
-        #return iter(set(itertools.chain.from_iterable(self._maps)))
+        return self.iter(annotated=False)
 
+    def iter(self,annotated=False):
+        # Iterate over keys
+        it = itertools.chain.from_iterable(self._maps(annotated=annotated))
+        if annotated:
+            key = lambda key:key.original
+        else:
+            key = None
+        return listtools.unique_everseen(it,key=key)
+        
+    def keys(self,annotated=False):
+        return self.iter(annotated=annotated)
+    
+    def items(self,annotated=False):
+        if annotated:
+            return map(lambda key:(key,self[key.original]),self.keys(annotated=True))
+        else:
+            return super(Node,self).items()
+            
     def __contains__(self, key):
-        return any(key in m for m in self._maps)
+        return any(key in m for m in self._maps())
 
     def inherited(self, key):
-        return any(key in m for m in self._maps[1:])
+        return any(key in m for m in self._maps()[1:])
+
+    def tree(self,level=0,onlychanged=False):
+        """Show inheritance tree of this node
+        """
+        prefix = "  "*level
+        if prefix:
+            prefix += "> "
+
+        lst = [child.tree(level=level+1,onlychanged=onlychanged) for child in self.children]
+        lst.insert(0,"{}{} = {}".format(prefix,self.name,self._repr_local(onlychanged=onlychanged)))
+        
+        return "\n".join(lst)
+        
+    def _repr_local(self, onlychanged=False):
+        if onlychanged:
+            lst = ["{}: {}".format(k,v) for k,v in self._map().items() if k in self._newkeys]
+        else:
+            lst = ["{}{}: {}".format(k,"(*)" if k in self._newkeys else "",v) for k,v in self._map().items()]
+            
+        if self.changed:
+            return "{"+", ".join(lst)+"}(*)"
+        else:
+            return "{"+", ".join(lst)+"}"
+
+    def _repr_all(self, onlychanged=False):
+        lst = ["{}: {}".format(k,v) for k,v in self.items(annotated=True)]
+        if self.changed:
+            return "{"+", ".join(lst)+"}(*)"
+        else:
+            return "{"+", ".join(lst)+"}"
+
+    def _repr_inheritance(self):
+        return  " -> ".join([node._repr_local() for node in self.iter_up])
 
     def __repr__(self):
-        s = " <- ".join([repr(node._map)+("(*)" if node.changed else "") for node in self._nodes_rup])
-        return "{} = {}".format(self.name,s)
+        return "{} = {}".format(self.name,self._repr_all())
 
     @property
     def _hash_local(self):
-        if self._rehash:
-            hself = hashing.calchash(self._map)
-            self._hself = hself
-            self._rehash = False
-        else:
-            hself = self._hself
-        return hself
+        if not self._hash_map_cached:
+            self._hash_map_cached = hashing.calchash(self._map())
+        return self._hash_map_cached
 
     def __hash__(self):
-        return hash((self._hash_local,hash(self._parent)))
-
-    def __eq__(self,other):
-        if isinstance(other,self.__class__):
-            return hash(self)==hash(other)
-        else:
-            return hashing.hashequal(self.todict(),other)
-            
-    def __neq__(self,other):
-        return not self.__eq__(other)
+        # Hash of all locals up the tree
+        return hash((self._hash_local,hash(self.parent)))
   
     @property
     def changed(self):
-        return hash(self)!=self._verify_hash
+        return hash(self)!=self._hash_all_cached
 
     @changed.setter
     def changed(self,changedstate):
-        hself = hash(self)
         if changedstate:
-            self._verify_hash = hself+1
+            self._hash_all_cached = None
+            self._newkeys = set(self._map())
         else:
-            self._verify_hash = hself
-
+            self._hash_all_cached = hash(self)
+            self._newkeys = set()
+        
     def reset(self,recursive=False,changedstate=False):
         self.changed = changedstate
         if recursive:
-            for child in self._children:
+            for child in self.children:
                 child.reset(recursive=recursive,changedstate=changedstate)
 

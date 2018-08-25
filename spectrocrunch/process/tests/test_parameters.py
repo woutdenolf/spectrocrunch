@@ -29,7 +29,18 @@ from ...common import hashing
 import numpy as np
 import random
 import collections
+import itertools
 
+class Counter(object):
+
+    def __init__(self,start=0):
+        self._ctr = start-1
+        
+    def __call__(self):
+        self._ctr+=1
+        return self._ctr
+        
+        
 class test_parameters(unittest.TestCase):
 
     def hashequal(self,a,b,**kwargs):
@@ -73,53 +84,193 @@ class test_parameters(unittest.TestCase):
                 
                 self.hashequal([{1:d1,2:d2}]*3,[{1:d2,2:d1}]*3)
                 self.hashnotequal([{1:d1,2:d2}]*3,[{1:d3,2:d1}]*3)
-                
-    def test_inheritance(self):
-        n = 20 # TODO: not scaleable
-        superdict = dict(zip([chr(c+ord('a')) for c in range(n)],np.linspace(0,1,n)))
+    
+    def _generate_parameters(self,n=100):
+        letters = [chr(c+ord('a')) for c in range(26)]
+        if n>26:
+            letters = list(itertools.combinations_with_replacement(letters, (n+26-1)//26))
+        letters = letters[:n]
+        superdict = dict(zip(letters,np.linspace(0,1,n)))
         
-        root = parameters.Node(name="root")
-        params = root.dtype(random.sample(superdict.items(), n//2))
-        root.update(params)
-        lst = [params]
-        nodes = [root]
-        root.reset()
-        #print -1
-        #print params
+        params = dict(random.sample(superdict.items(), n//2))
+        params_local = [params.copy()]
         
         n = 2*n//3
         for i in range(n):
-            node = nodes[-1].branch(name="Node{}".format(i))
-            nodes.append(node)
-            
-            params = node.dtype(random.sample(superdict.items(), n-i))
+            params = dict(random.sample(superdict.items(), n-i))
             for k,b in zip(params.keys(),np.random.choice([False,True],n-i)):
                 if b:
                     params[k] = random.random()
 
-            paramsi = lst[-1].copy()
-            paramsi.update(params)
-            #print i
-            #print params
-            #print paramsi
-            #print ""
-            node.update(params)
-            lst.append(paramsi)
+            params_local.append(params)
+
+        return params_local
+    
+    def _parameters_inherit(self,params_local):
+        params_inherit = []
         
-        for params,node in zip(lst,nodes):
-            #print ""
-            #print root.tree()
-            #print node.name
-            #print node.items()
-            #print node.todict()
-            #print params
-            self.assertEqual(params,node)
+        for i,params in enumerate(params_local):
+            if params_inherit:
+                paramsi = params_inherit[-1].copy()
+                paramsi.update(params)
+            else:
+                paramsi = params.copy()
+            params_inherit.append(paramsi)
+            
+        return params_inherit
+
+    def _generate_nodes_branch(self,params_local):
+        nodes = []
+
+        for i,params in enumerate(params_local):
+            name = "Node{}".format(i)
+            if nodes:
+                node = nodes[-1].branch(name=name)
+            else:
+                node = parameters.Node(name=name)
+            nodes.append(node)
+            node.update(params)
+            
+        return nodes
+
+    def _getnodes(self,node):
+        nodes = []
+        while node is not None:
+            nodes.append(node)
+            if node.children:
+                node = node.children[0]
+            else:
+                node = None
+        return nodes
+    
+    @staticmethod
+    def _lst_move(lst,index_source,before,index_dest):
+        if before:
+            if index_source>=index_dest:
+                pass
+            else:
+                index_dest -= 1
+        else:
+            if index_source<=index_dest:
+                pass
+            else:
+                index_dest += 1
+        lst.insert(index_dest, lst.pop(index_source))
+            
+    def _shuffle_nodes(self,nodes):
+        # Only works for a single chain of nodes
+        params_sorted = [node.todict(full=False) for node in nodes]
+        
+        for i in range(len(nodes)*2):
+            index_source = random.randrange(len(nodes))
+            index_dest = random.randrange(len(nodes))
+            before = random.choice([True,False])
+            # single=True: do not move children (causes forked chain)
+            if before:
+                _,newnode = nodes[index_dest].insert_before(node=nodes[index_source],single=True)
+            else:
+                _,newnode = nodes[index_dest].insert_after(node=nodes[index_source],single=True)
+
+            self._lst_move(params_sorted,index_source,before,index_dest)
+            self._lst_move(nodes,index_source,before,index_dest)
+            
+            if newnode is not None:
+                nodes.insert(0,newnode)
+                params_sorted.insert(0,{})
+        
+        parameters_inherit = self._parameters_inherit(params_sorted)
+        return nodes,parameters_inherit
+        
+    def test_inheritance(self):
+        params_local = self._generate_parameters()
+        params_inherited = self._parameters_inherit(params_local)
+        nodes = self._generate_nodes_branch(params_local)
+
+        for node,params in zip(nodes,params_inherited):
+            self.assertEqual(params,node.todict())
+    
+    def _assert_nodes_order(self,nodes):
+        lst1 = [node.name for node in nodes[0].root.iter_down]
+        lst2 = [node.name for node in nodes]
+        self.assertEqual(lst1,lst2)
+    
+    def test_insert_parameters(self):
+        for nlevels in [1,2,4,10]:
+            params_local = self._generate_parameters(n=nlevels)
+            nodes = self._generate_nodes_branch(params_local)
+            nodes,params_inherited = self._shuffle_nodes(nodes)
+            self._assert_nodes_order(nodes)
+            for node,params in zip(nodes,params_inherited):
+                self.assertEqual(params,node)
+                
+    def _checknodes(self,nodes):
+        root = nodes[0].root
+        
+        lst = list(root.iter_down)
+        self.assertEqual(len(lst),len(nodes))
+        
+        lst = set(id(child) for node in nodes for child in node.children)
+        lst.add(id(root))
+        self.assertEqual(len(lst),len(nodes))
+        
+        lst = set(id(node.parent) for node in nodes if id(node)!=id(root))
+        lst |= set(id(node) for node in nodes if id(node)!=id(root) and not node.children)
+        self.assertEqual(len(lst),len(nodes))
+        
+    def test_insert_connections(self):
+        for nlevels in [1,2,4,10]:
+            root = parameters.Node(name="root")
+            nodes = [root]
+            nodeslast = [root]
+            ctr = Counter()
+            for i in range(nlevels):
+                nodeslast = [node.branch(name="Node{}".format(ctr())) for node in nodeslast for i in range(2)]
+                nodes.extend(nodeslast)
+            self._checknodes(nodes)
+
+            for j in range(50):
+                func = random.choice(["insert_after","insert_before"])
+                single = random.choice([True,False])
+                node1 = random.choice(nodes)
+                node2 = random.choice(nodes)
+                _,newnode = getattr(node1,func)(node=node2,single=single)
+                if newnode is not None:
+                    if not any(newnode is node for node in nodes):
+                        nodes.append(newnode)
+                self._checknodes(nodes)
+
+    def debug(self):
+        root = parameters.Node(name="root")
+        root.update(a=1,b=2)
+        node1 = root.branch(name="node1")
+        node1.update(a=2,c=3)
+        node1a = node1.branch(name="node1a")
+        node1a.update(a=2,c=3)
+        
+        node2 = root.branch(name="node2")
+        node2.update(c=3)
+        node2a = node2.branch(name="node2a")
+        node2a.update(c=4)
+        node2b = node2.branch(name="node2b")
+        node2b.update(c=3)
+        root.reset(recursive=True)
+        node3 = parameters.Node(name="node3")
+        node3.update(a=1,c=2)
+        node2b.insert_before(node3)
+        
+        print root.root.tree()
+        node2a.insert_before(node1a,single=True)
+        print root.root.tree()
+        print node1a.root.tree()
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_parameters("test_hash"))
     testSuite.addTest(test_parameters("test_inheritance"))
+    testSuite.addTest(test_parameters("test_insert_connections"))
+    testSuite.addTest(test_parameters("test_insert_parameters"))
+    #testSuite.addTest(test_parameters("debug"))
     return testSuite
     
 if __name__ == '__main__':
