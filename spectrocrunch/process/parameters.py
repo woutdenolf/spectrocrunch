@@ -25,6 +25,7 @@
 import collections
 import itertools
 import contextlib
+
 try:
     import itertools.imap as map
 except ImportError:
@@ -55,7 +56,7 @@ class AnnotatedKey(object):
             return "{}({})".format(self.original,s)
         else:
             return str(self.original)
-    
+
 class Node(collections.MutableMapping):
     # Original idea:
     # http://code.activestate.com/recipes/577434-nested-contexts-a-chain-of-mapping-objects/
@@ -177,16 +178,12 @@ class Node(collections.MutableMapping):
             self.update(dic)
     
     def update_recursive(self,*args,**kwargs):
-        """Update map locally and remove _children override of the keys
+        """Update map locally and remove children override of the keys
         """
         d = self.dtype(*args, **kwargs)
         self.update(d)
         for key in d:
             self.delete_recursive(key,local=False)
-              
-    @property
-    def _root(self):
-        return self if self.parent is None else self.parent._root
 
     def _annotate_key(self,key,localcontext=True):
         return AnnotatedKey(key,localcontext,changed=key in self._newkeys)
@@ -356,9 +353,10 @@ class Node(collections.MutableMapping):
 
     @property
     def _hash_local(self):
-        if not self._hash_map_cached:
-            self._hash_map_cached = hashing.calchash(self._map())
-        return self._hash_map_cached
+        return hashing.calchash(self._map())
+        #if not self._hash_map_cached:
+        #    self._hash_map_cached = hashing.calchash(self._map())
+        #return self._hash_map_cached
 
     def __hash__(self):
         # Hash of all locals up the tree
@@ -366,20 +364,20 @@ class Node(collections.MutableMapping):
   
     @property
     def changed(self):
-        return hash(self)!=self._hash_all_cached
+        return hash(self)!=self._hash_all_last
 
     @changed.setter
-    def changed(self,changedstate):
-        if changedstate:
-            self._hash_all_cached = None
+    def changed(self,changed):
+        if changed:
+            self._hash_all_last = None
             self._newkeys = set(self._map())
         else:
-            self._hash_all_cached = hash(self)
+            self._hash_all_last = hash(self)
             self._newkeys = set()
         
-    def reset(self,recursive=False,changedstate=False):
-        self.changed = changedstate
+    def reset_state(self,changed=False,recursive=False):
+        self.changed = changed
         if recursive:
             for child in self.children:
-                child.reset(recursive=recursive,changedstate=changedstate)
+                child.reset_state(changed=changed,recursive=recursive)
 

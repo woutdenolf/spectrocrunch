@@ -85,25 +85,27 @@ class test_parameters(unittest.TestCase):
                 self.hashequal([{1:d1,2:d2}]*3,[{1:d2,2:d1}]*3)
                 self.hashnotequal([{1:d1,2:d2}]*3,[{1:d3,2:d1}]*3)
     
-    def _generate_parameters(self,n=100):
+    def _parameters(self,n):
         letters = [chr(c+ord('a')) for c in range(26)]
         if n>26:
             letters = list(itertools.combinations_with_replacement(letters, (n+26-1)//26))
         letters = letters[:n]
-        superdict = dict(zip(letters,np.linspace(0,1,n)))
-        
-        params = dict(random.sample(superdict.items(), n//2))
-        params_local = [params.copy()]
-        
-        n = 2*n//3
-        for i in range(n):
-            params = dict(random.sample(superdict.items(), n-i))
-            for k,b in zip(params.keys(),np.random.choice([False,True],n-i)):
+        return dict(zip(letters,np.arange(n)))
+
+    def _parameters_sample(self,superdict,n,overwrite=True):
+        params = dict(random.sample(superdict.items(), n))
+        if overwrite:
+            for k,b in zip(params.keys(),np.random.choice([False,True],n)):
                 if b:
                     params[k] = random.random()
-
-            params_local.append(params)
-
+        return params
+        
+    def _generate_parameters(self,n=100):
+        superdict = self._parameters(n)
+        params_local = [self._parameters_sample(superdict,n//2,overwrite=False)]
+        n = 2*n//3
+        for i in range(n):
+            params_local.append(self._parameters_sample(superdict,n-i))
         return params_local
     
     def _parameters_inherit(self,params_local):
@@ -239,29 +241,48 @@ class test_parameters(unittest.TestCase):
                         nodes.append(newnode)
                 self._checknodes(nodes)
 
+    def _random_tree(self,name="Node",nlevels=2):
+        root = parameters.Node(name="{}0".format(name))
+        nodeslast = [root]
+        nodes = [root]
+        ctr = Counter(1)
+        for i in range(nlevels):
+            nodeslast = [node.branch(name="{}{}".format(name,ctr())) for node in nodeslast for i in range(2)]
+            nodes.extend(nodeslast)
+        
+        n = len(nodes)
+        superdict = self._parameters(n)
+        params = self._parameters_sample(superdict,n//2,overwrite=False)
+        nodes[0].update(params)
+        n = 2*n//3
+        for i,node in enumerate(nodes[1:]):
+            params = self._parameters_sample(superdict,max(n-i,1))
+            node.update(params)
+        
+        return root
+        
     def debug(self):
-        root = parameters.Node(name="root")
-        root.update(a=1,b=2)
-        node1 = root.branch(name="node1")
-        node1.update(a=2,c=3)
-        node1a = node1.branch(name="node1a")
-        node1a.update(a=2,c=3)
+        rootA = self._random_tree(name="A",nlevels=2)
+        rootB = self._random_tree(name="B",nlevels=1)
+
+        nodesA = list(rootA.iter_down)
+        nodesB = list(rootB.iter_down)
+        nodes = []
+        for nodeB in nodesB:
+            nodeA = random.choice(nodesA)
+            nodeA.update(param=nodeB)
+            nodes.append(nodeA)
+            
+        rootA.reset_state(recursive=True)
+        rootB.reset_state(recursive=True)
         
-        node2 = root.branch(name="node2")
-        node2.update(c=3)
-        node2a = node2.branch(name="node2a")
-        node2a.update(c=4)
-        node2b = node2.branch(name="node2b")
-        node2b.update(c=3)
-        root.reset(recursive=True)
-        node3 = parameters.Node(name="node3")
-        node3.update(a=1,c=2)
-        node2b.insert_before(node3)
+        random.choice(nodes)["param"]["change"] = True
+        print ""
+        print rootA.tree()
+        print ""
+        print rootB.tree()
         
-        print root.root.tree()
-        node2a.insert_before(node1a,single=True)
-        print root.root.tree()
-        print node1a.root.tree()
+        
 
 def test_suite():
     """Test suite including all test suites"""
