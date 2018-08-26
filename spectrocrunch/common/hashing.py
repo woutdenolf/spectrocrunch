@@ -29,7 +29,7 @@ import numpy as np
 def _isiterable(x):
     return isinstance(x,collections.Iterable) and not isinstance(x, string_types)
 
-def _hash_ndarray(x,numpylarge=False):
+def _calchash_ndarray(x,numpylarge=False):
     if x.ndim==0:
         return hash(tuple(x[np.newaxis]))
     elif x.ndim==1:
@@ -44,6 +44,8 @@ def _hash_ndarray(x,numpylarge=False):
             return calchash(tuple(x),numpylarge=numpylarge)
             
 def calchash(x,numpylarge=False):
+    """Non-deterministic and non-cryptographic hash
+    """
     # Convert to iterable:
     if isinstance(x,collections.Set):
         x = sorted(x)
@@ -58,7 +60,7 @@ def calchash(x,numpylarge=False):
     tryhash = True
     if xisiterable:
         if isinstance(x,np.ndarray):
-            return _hash_ndarray(x,numpylarge=numpylarge)
+            return _calchash_ndarray(x,numpylarge=numpylarge)
         elif any(_isiterable(xi) for xi in x):
             tryhash = False
         else:
@@ -74,7 +76,15 @@ def calchash(x,numpylarge=False):
 
     # Hash of the hashes of an iterable
     return hash(tuple(calchash(xi,numpylarge=numpylarge) for xi in x))
-        
+
+def calcdhash(x,**kwargs):
+    """Deterministic and non-cryptographic hash
+    """
+    raise NotImplementedError()
+    
 def hashequal(a,b,**kwargs):
     return calchash(a,**kwargs)==calchash(b,**kwargs)
-    
+
+def dhashequal(a,b,**kwargs):
+    return calcdhash(a,**kwargs)==calcdhash(b,**kwargs)
+      

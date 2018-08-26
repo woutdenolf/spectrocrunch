@@ -192,7 +192,7 @@ class test_parameters(unittest.TestCase):
             self.assertEqual(params,node.todict())
     
     def _assert_nodes_order(self,nodes):
-        lst1 = [node.name for node in nodes[0].root.iter_down]
+        lst1 = [node.name for node in nodes[0].root.iter_down()]
         lst2 = [node.name for node in nodes]
         self.assertEqual(lst1,lst2)
     
@@ -208,7 +208,7 @@ class test_parameters(unittest.TestCase):
     def _checknodes(self,nodes):
         root = nodes[0].root
         
-        lst = list(root.iter_down)
+        lst = list(root.iter_down())
         self.assertEqual(len(lst),len(nodes))
         
         lst = set(id(child) for node in nodes for child in node.children)
@@ -261,12 +261,12 @@ class test_parameters(unittest.TestCase):
         
         return root
         
-    def debug(self):
+    def debug1(self):
         rootA = self._random_tree(name="A",nlevels=2)
         rootB = self._random_tree(name="B",nlevels=1)
 
-        nodesA = list(rootA.iter_down)
-        nodesB = list(rootB.iter_down)
+        nodesA = list(rootA.iter_down())
+        nodesB = list(rootB.iter_down())
         nodes = []
         for nodeB in nodesB:
             nodeA = random.choice(nodesA)
@@ -281,8 +281,26 @@ class test_parameters(unittest.TestCase):
         print rootA.tree()
         print ""
         print rootB.tree()
+    
+    def debug2(self):
+        root = parameters.Node(name="root")
+        node1 = root.branch(name="node1")
+        node2 = node1.branch(name="node2")
         
+        node = node1
+        node["var"] = 10
+        node["fit"] = {"linear":True,"Lines":["Fe-K","Ca-K"]}
+        #node["fit"]["test"] = {'a':1}
+        #root.reset_state(recursive=True)
+        #node["fit"]["linear"] = False
         
+        node = node2
+        node["fit"] = {}
+        node["fit"]["linear"] = False
+        #node2["fit"]["test"]['a'] = 2
+        print root.tree()
+        
+        #print node1
 
 def test_suite():
     """Test suite including all test suites"""
@@ -291,7 +309,7 @@ def test_suite():
     testSuite.addTest(test_parameters("test_inheritance"))
     testSuite.addTest(test_parameters("test_insert_connections"))
     testSuite.addTest(test_parameters("test_insert_parameters"))
-    #testSuite.addTest(test_parameters("debug"))
+    #testSuite.addTest(test_parameters("debug2"))
     return testSuite
     
 if __name__ == '__main__':
