@@ -1290,10 +1290,9 @@ class PNdiode(with_metaclass(base.SolidState)):
 
         # Convert from counts to photons/sec
         # op: x-> cpstoflux(x/t)
-        op = self.op_cpstoflux(energy,weights=weights)
         t = units.Quantity(expotime,"s")
-        op.m /= t
-        
+        op = self.op_countstoflux(energy,t,weights=weights)
+
         # Reference flux to which the XRF signal should be normalized
         if reference.units==ureg.hertz: # photons/sec
             Fref = reference
@@ -1303,16 +1302,15 @@ class PNdiode(with_metaclass(base.SolidState)):
         else:
             raise RuntimeError("Reference {} should be in photons/sec (flux) or counts (iodet).".format(reference))
             
-        # Convert from counts to counts at reference flux Fref and reference time tref
-        op.m /= Fref
-        op.b /= Fref
+        # Convert from counts to counts at reference flux "Fref" and reference time "tref"
         if referencetime is not None:
             tref = units.Quantity(referencetime,"s")
-            op.m *= t/tref
-            op.b *= t/tref
+            op2 = linop.LinearOperator(units.Quantity(t/(Fref*tref),"s"),units.Quantity(0,"dimensionless"))
         else:
+            op2 = linop.LinearOperator(units.Quantity(1./Fref,"s"),units.Quantity(0,"dimensionless"))
             tref = t
-            
+        op = op2*op
+        
         op.m = units.magnitude(op.m,"dimensionless")
         op.b = units.magnitude(op.b,"dimensionless")
 
