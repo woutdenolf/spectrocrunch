@@ -161,10 +161,13 @@ def createimagestacks(config,qxrfgeometry=None):
     xiastackraw.counter_reldir(config["counter_reldir"])
     
     # Processing
-    addbefore = config["addbeforefitting"] and ndet>1
-    addafter = config["addafterfitting"] and ndet>1 and not addbefore
+    addmca = ndet>1
+    addbefore = addmca and config["addbeforefitting"]
+    addafter = addmca and not config["addbeforefitting"]
     fluxnorm = qxrfgeometry is not None
-    dtcor = config["dtcor"] and (config["dtcorifsingle"] or ndet>1 or fluxnorm)
+    fluxnormbefore = fluxnorm and config["fluxnormbefore"]
+    fluxnormafter = fluxnorm and not config["fluxnormbefore"]
+    dtcor = config["dtcor"] and (config["dtcorifsingle"] or ndet>1 or fluxnormbefore)
     fit = config["fit"]
     
     procinfo["dtneeded"] = config["dtcor"] and not dtcor
@@ -240,44 +243,47 @@ def createimagestacks(config,qxrfgeometry=None):
             for ctr,f in v1.items():
                 # Add counter file
                 stacks[name][ctr][imageindex] = f[0]
-                
-    # Create new spectra when needed
-    if dtcor or addbefore or fluxnorm:
     
-        # Set normalizer for each image separately
-        if fluxnorm:
-            stackinfo["refflux"] = np.full(nstack,np.nan,dtype=np.float32)
-            stackinfo["refexpotime"] = np.full(nstack,np.nan,dtype=np.float32)
-            stackinfo["activearea"] = np.full(nstack,qxrfgeometry.xrfgeometry.detector.activearea)
-            stackinfo["anglein"] = np.full(nstack,qxrfgeometry.xrfgeometry.anglein)
-            stackinfo["angleout"] = np.full(nstack,qxrfgeometry.xrfgeometry.angleout)
-            stackinfo["xrfnormop"] = [""]*nstack
-            
-            for imageindex,xiaimage in enumerate(xiastackraw):
-                energy = stackaxes[stackdim]["data"][imageindex]
-                if not np.isnan(energy):
-                    time = stackinfo["expotime"][imageindex]
-                    if np.isnan(time):
-                        time = None
-                        
-                    xrfnormop,\
-                    stackinfo["refflux"][imageindex],\
-                    stackinfo["refexpotime"][imageindex],\
-                    stackinfo["expotime"][imageindex]\
-                     =qxrfgeometry.xrfnormop(energy,expotime=time)
-                    
-                    xiaimage.localnorm(config["fluxcounter"],func=xrfnormop)
-
-                    stackinfo["xrfnormop"][imageindex] = str(xrfnormop)
-                    pos = stackinfo["sampledetdistance"][imageindex]
-                    if not np.isnan(pos):
-                        qxrfgeometry.setxrfposition(pos)
-                    stackinfo["sampledetdistance"][imageindex] = qxrfgeometry.getxrfdistance()
+    
+    # Set normalizer for each image separately
+    if fluxnorm:
+        stackinfo["refflux"] = np.full(nstack,np.nan,dtype=np.float32)
+        stackinfo["refexpotime"] = np.full(nstack,np.nan,dtype=np.float32)
+        stackinfo["activearea"] = np.full(nstack,qxrfgeometry.xrfgeometry.detector.activearea)
+        stackinfo["anglein"] = np.full(nstack,qxrfgeometry.xrfgeometry.anglein)
+        stackinfo["angleout"] = np.full(nstack,qxrfgeometry.xrfgeometry.angleout)
+        stackinfo["xrfnormop"] = [""]*nstack
         
+        for imageindex,xiaimage in enumerate(xiastackraw):
+            energy = stackaxes[stackdim]["data"][imageindex]
+            if not np.isnan(energy):
+                time = stackinfo["expotime"][imageindex]
+                if np.isnan(time):
+                    time = None
+                    
+                xrfnormop,\
+                stackinfo["refflux"][imageindex],\
+                stackinfo["refexpotime"][imageindex],\
+                stackinfo["expotime"][imageindex]\
+                 =qxrfgeometry.xrfnormop(energy,expotime=time)
+                
+                if fluxnormbefore:
+                    xiaimage.localnorm(config["fluxcounter"],func=xrfnormop)
+                else:
+                    pass # TODO
+                    
+                stackinfo["xrfnormop"][imageindex] = str(xrfnormop)
+                pos = stackinfo["sampledetdistance"][imageindex]
+                if not np.isnan(pos):
+                    qxrfgeometry.setxrfposition(pos)
+                stackinfo["sampledetdistance"][imageindex] = qxrfgeometry.getxrfdistance()
+    
+    # Create new spectra when needed
+    if dtcor or addbefore or fluxnormbefore:
         label = ""
         if dtcor:
             label = label+"dt"
-        if fluxnorm:
+        if fluxnormbefore:
             label = label+"fl"
         if label:
             label = label+"cor"
@@ -394,7 +400,11 @@ def createimagestacks(config,qxrfgeometry=None):
                 for imageindex in range(nstack):
                     stacks["detectorsum"][k2][imageindex].append(stacks[k1][k2][imageindex])
             stacks.pop(k1)
-        
+    
+    # Flux normalization
+    if fluxnormafter:
+        pass # TODO:
+    
     # Sort stack on stack axis value
     ind = np.argsort(stackaxes[stackdim]["data"],kind='mergesort')
     stackaxes[stackdim]["data"] = stackaxes[stackdim]["data"][ind]

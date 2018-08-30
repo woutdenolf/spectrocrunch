@@ -516,9 +516,9 @@ class PymcaHandle(PymcaBaseHandle):
         return material.topymca(cfg,defaultthickness=defaultthickness)
     
     def loadfrompymca_material(self,cfg,matname,density):
-        formula = re.compile("^(([A-Z][a-z]?)([0-9]+))+$")
-        purelement = re.compile("^(?P<element>[A-Z][a-z]?)1$")
-
+        formula = re.compile("^(([A-Z][a-z]?)([0-9]*))+$")
+        purelement = re.compile("^(?P<element>[A-Z][a-z]?)1?$")
+        
         # Material name is a formula:
         name = mixture.Mixture.namefrompymca(matname)
         mf = formula.match(name)

@@ -124,6 +124,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
     encodercor = kwargs.get("encodercor",{})
     qxrfgeometry = kwargs.get("qxrfgeometry",None)
     qxrfgeometryparams = {"quantify":qxrfgeometry is not None}
+    fluxnormbefore = kwargs.get("fluxnormbefore",True)
     counters = kwargs.get("counters",[])
     fluxid = kwargs.get("fluxid","I0")
     transmissionid = kwargs.get("transmissionid","It")
@@ -199,6 +200,7 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
             "exclude_detectors": exclude_detectors,
             "include_detectors": include_detectors,
             "qxrfgeometry": qxrfgeometryparams,
+            "fluxnormbefore": fluxnormbefore,
             
             # Output directories
             "outdatapath": os.path.join(destpath,scanname[0]+"_data"),

@@ -57,7 +57,7 @@ def floor_sig(x, sig):
     return floor_ndigits(x, sig_to_ndigits(x, sig))
 
 def floatformat(x, sig):
-    n = max(_ndigits(x, sig),0)
+    n = max(sig_to_ndigits(x, sig),0)
     y = "{}".format(x).split('.')
     if len(y)==2:
         n = min(n,len(y[-1]))

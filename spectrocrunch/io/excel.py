@@ -116,6 +116,9 @@ class DataFrame(object):
         self._addcolumn(column,data)
         self._reapply_formulae(column=column)
 
+    def concat(self,df):
+        self.df = pd.concat([self.df,df],ignore_index=False,sort=False)
+
     def _addvalue(self,row,column,data):
         self.df.at[row,column] = data
         
