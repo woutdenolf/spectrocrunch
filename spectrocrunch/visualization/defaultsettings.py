@@ -32,18 +32,39 @@ logger = logging.getLogger(__name__)
 
 def update(parameters):
     matplotlib.rcParams.update(parameters)
-    
-def adapttofigsize(size,figwidth=6.4,aspect=0.75,fontsize=None,**kwargs):
-    if size is None:
-        figsize = figwidth,figwidth*aspect
+
+def figsize(publish="screen",aspect=0.75,nsidebyside=1,space=0.,widescreen=True):
+    """
+    Args:
+        publish(Optional(str)): word, powerpoint, screen
+        aspect(Optional(num)): V/H
+        nsidebyside(Optional(num)): number of images that should be put side-by-side
+        space(Optional(num)): fraction of the total width that is white space
+        widescreen(Optional(bool)): only for powerpoint
+    """
+    if publish=="word":
+        width = 6.24
+    elif publish=="powerpoint":
+        if widescreen:
+            width = 33.867
+        else:
+            width = 13.33
     else:
-        figsize = size
-    
+        width = 6.4
+    width *= (1-space)/nsidebyside
+    return width,width*aspect
+        
+def adapttofigsize(size,fontsize=None,**kwargs):
+    """
+    Args:
+        size(2-tuple): inch
+        fontsize(Optional(num)): inch
+    """
     if fontsize: # in inch
         # 1 inch = 72 points
         fontsize = fontsize*72
     else:
-        fontsize = min(figsize)*10/4.8
+        fontsize = min(size)*10/4.8
     linewidth = fontsize*0.08
     
     wtick = linewidth
@@ -83,9 +104,13 @@ def adapttofigsize(size,figwidth=6.4,aspect=0.75,fontsize=None,**kwargs):
     update(parameters)
 
 def screensize():
-    window = plt.get_current_fig_manager().window
-    h = window.winfo_screenheight()
-    w = window.winfo_screenwidth()
+    figs1 = plt.get_fignums()
+    mgr = plt.get_current_fig_manager()
+    h = mgr.window.winfo_screenheight()
+    w = mgr.window.winfo_screenwidth()
+    figs2 = plt.get_fignums()
+    if len(figs2)>len(figs1):
+        plt.close(figs2[-1])
     return w,h
 
 def dpi(publish="photo&text",best=True):

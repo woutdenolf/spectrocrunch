@@ -204,7 +204,11 @@ class Scene(Hashable,Geometry2D):
         #    self.updateview()
         
         self.ax.figure.canvas.mpl_connect('resize_event', func)
-    
+        
+        #TODO: for scalebar
+        #self.ax.callbacks.connect('xlim_changed', func)
+        #self.ax.callbacks.connect('ylim_changed', func)
+
     def showaxes(self):
         self.ax.set_axis_on()
         self.ax.get_dataaxisx().set_visible(True)
@@ -511,7 +515,6 @@ class Item(Hashable,Geometry2D):
                     olditems[name].remove()
             else:
                 olditems[name].remove()
-   
         self._scenes[self.scene] = newitems
 
     def datarange(self,dataaxis):
@@ -1012,7 +1015,7 @@ class Image(Item):
                     colors2.append(color)
                     p = pltpatches.Rectangle((0,0), 1, 1,fill=False,visible=False,**kwargs)
                 patches.append(p)
-           
+
         if not astext and patches:
             bbox_to_anchor = [1,1]
             #if "R" in settings["legendposition"]:
@@ -1031,7 +1034,6 @@ class Image(Item):
                     plt.setp(text, color = c)
     
             legend.set_visible(visible)
-    
             newitems["legend"] = legend
         
     def addscalebar(self,scene,items,newitems,position="lower right",visible=True,ratio=8.,xfrac=0.1,pad=0.1,color="#ffffff",size=0):
@@ -1039,31 +1041,40 @@ class Image(Item):
             return
             
         name = "scalebar"
-        
+
+        # Scalebar horizontal size in axis units
+        sx = scene.xmagnitude(self.displaylimx)
+        sx = abs(sx[1]-sx[0])
         if size:
-            xsize = units.umagnitude(size,self.scene.xunit)
+            xsize = units.Quantity(size,scene.xunit)
         else:
-            xsize = scene.xmagnitude(self.datalimx)
-            xsize = round_sig(abs(xsize[1]-xsize[0])*xfrac,1)
-        if xsize==int(xsize):
-            xsize = int(xsize)
+            xsize = units.Quantity(round_sig(sx*xfrac,1),scene.xunit)
+        xsize = xsize.to(scene.xunit)
+        xfrac = xsize.magnitude/sx
+        
+        # Integer if possible
+        mxsize = xsize.magnitude
+        if mxsize==int(mxsize):
+            mxsize = int(mxsize)
+            xsize = units.Quantity(mxsize,xsize.units)
+        
+        # Scalebar vertical size in axis units
+        ys = scene.ymagnitude(self.displaylimy)
+        ys = abs(ys[1]-ys[0])
+        yfrac = ratio*xfrac
+        mysize = ys*yfrac
 
-        ysize = scene.ymagnitude(self.datalimy)
-        ysize = abs(ysize[1]-ysize[0])*(ratio*xfrac)
+        #TODO: handle zoom
 
-        unit = scene.strxunit
-        if unit:
-            label = "{} {}".format(xsize,unit)
-        else:
-            label = str(xsize)
-            
         scalebar = AnchoredSizeBar(scene.ax.transData,
-                           xsize,label,position, 
+                           mxsize,
+                           "{:~}".format(xsize),
+                           position, 
                            pad=pad,
                            color=color,
                            fill_bar=True,
                            frameon=False,
-                           size_vertical=ysize)
+                           size_vertical=mysize)
                            
         newitems[name] = scalebar
         newitems[name].set_visible(visible)

@@ -26,7 +26,6 @@ from PyMca5.PyMcaPhysics.xrf import McaAdvancedFitBatch
 from PyMca5.PyMcaPhysics.xrf import FastXRFLinearFit
 from PyMca5.PyMcaPhysics.xrf import ClassMcaTheory
 from PyMca5.PyMca import EDFStack
-from PyMca5.PyMca import ArraySave
 from PyMca5.PyMcaIO import EdfFile
 from PyMca5.PyMcaIO import ConfigDict
 
