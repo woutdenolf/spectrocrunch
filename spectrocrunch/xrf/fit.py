@@ -196,9 +196,6 @@ def AdaptPyMcaConfig_fast(cfg):
     cfg['fit']['fitweight'] = 0 # Bug in pymca?
 
 def AdaptPyMcaConfig_forcebatch(cfg):
-    # Force linear fitting:
-    cfg["fit"]["linearfitflag"] = 1
-    
     # Force no weights (for spectra with low counts): 
     cfg['fit']['fitweight'] = 0
 

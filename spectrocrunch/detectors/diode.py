@@ -1604,7 +1604,32 @@ class SXM_IDET(CalibratedPNdiode):
                         darkcurrent=ureg.Quantity(0,"ampere"),\
                         energy=energy,response=response,fitresponse=False,\
                         beforesample=False,oscillator=vtof,**kwargs)
+
+class SXM_FDET(CalibratedPNdiode):
+    """
+    Keithley K428 (10V max analog output)
+    NOVA N101VTF voltage-to-frequency converter (Fmax=1e6Hz, F0=0Hz, Vmax=10V)
+    P201 counter board
+    """
+    
+    aliases = ["fdet"]
+    
+    def __init__(self,**kwargs):
+    
+        kwargs["attenuators"] = {}
+        kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":300e-4}
+        kwargs["ehole"] = constants.eholepair_si()
+
+        vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
+                        F0=ureg.Quantity(0,"Hz"),\
+                        Vmax=ureg.Quantity(10,"volt"))
                         
+        super(SXM_FDET,self).__init__(\
+                        gain=ureg.Quantity(1e5,"volt/ampere"),\
+                        gainrounder=GainRounder(base=10),\
+                        darkcurrent=ureg.Quantity(0,"ampere"),\
+                        energy=energy,response=response,fitresponse=False,\
+                        beforesample=False,oscillator=vtof,**kwargs)
 
 class SXM_IODET1(NonCalibratedPNdiode):
     """International Radiation Detectors (IRD), AXUV-PS1-S
