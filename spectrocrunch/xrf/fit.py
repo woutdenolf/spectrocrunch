@@ -225,7 +225,7 @@ def AdaptPyMcaConfig_modinfo(cfg,quant):
         info += "\n Matrix = {}".format(cfg["attenuators"]["Matrix"][1])
     info += "\n Linear = {}".format("YES" if cfg["fit"]["linearfitflag"] else "NO")
     info += "\n Error propagation = {}".format("Poisson" if cfg['fit']['fitweight'] else "OFF")
-    info += "\n Strategy = {}".format("ON" if cfg["fit"]["strategyflag"] else "OFF")
+    info += "\n Matrix adjustment = {}".format("ON" if cfg["fit"]["strategyflag"] else "OFF")
     
     logger.info("XRF fit configuration adapted:\n {}".format(info))
     
@@ -238,7 +238,9 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines=None,quant=None,fast=False):
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
         quant(Optional(dict)): 
     """
-
+    #AdaptPyMcaConfig_modinfo(cfg,quant)
+    #return
+    
     AdaptPyMcaConfig_energy(cfg,energy,addhigh)
     if mlines:
         AdaptPyMcaConfig_mlines(cfg)
@@ -250,7 +252,6 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines=None,quant=None,fast=False):
     
     AdaptPyMcaConfig_modinfo(cfg,quant)
     
-
 def PerformRoi(filelist,rois,norm=None):
     """ROI XRF spectra in batch with changing primary beam energy.
 
@@ -418,7 +419,7 @@ def PerformFit(filelist,cfgfile,energies,mlines={},norm=None,fast=False,prog=Non
 
     return ret
 
-def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fast=False):
+def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines=None,quant=None,fast=False):
     """Fit XRF spectra in batch with one primary beam energy.
 
         Least-square fitting. If you intend a linear fit, modify the configuration:
@@ -445,7 +446,7 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
 
     # Adapt file
     ioutils.mkdir(outdir)
-    
+
     with ioutils.Copy(cfgfile,os.path.join(outdir,outname+".cfg")) as cfgfile:
         AdaptPyMcaConfigFile(cfgfile,energy,mlines=mlines,quant=quant,fast=fast)
 
@@ -471,11 +472,11 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
             labels = []
             files = []
             
+            j = 0
             for i,name in enumerate(names):
                 m = parse.match(name)
                 if not m:
                     continue
-
                 m = m.groupdict()
                 Z,line = m["Z"],m["line"]
                 
@@ -503,10 +504,11 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines={},quant={},fa
                     label = "w{}-{}".format(Z,line)
                     f = filename("w{}_{}".format(Z,line))
                     edf.saveedf(f,\
-                                result['concentrations'][i],\
+                                result['concentrations'][j],\
                                 {'Title': label},overwrite=True)
                     labels.append(label)
                     files.append(f)
+                    j += 1
                     
         else:
             # TODO: parallelize this
