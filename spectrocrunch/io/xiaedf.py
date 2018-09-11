@@ -50,8 +50,14 @@ XiaName = collections.namedtuple('XiaName', ['radix', 'mapnum', 'linenum', 'labe
 class XiaNameParser():
 
     def __init__(self,counters=None):
-        defaultcounters = ["PUZ_arr","PUZ_xmap","xmap","arr","zap"]
+        m1 = re.compile('(?P<name>.*?)(?P<detector>[0-9]+|sum|Sum|S[0-9]+)$')
         
+        self.defaultcounters = {"PUZ_arr":{"detector":None},
+                               "PUZ_xmap":{"detector":m1},
+                               "xmap":{"detector":m1},
+                               "arr":{"detector":None},
+                               "zap":{"detector":None}}
+
         number = "[0-9]{4,}"
         fnumber = "[0-9]{{4,}}"
         
@@ -59,7 +65,7 @@ class XiaNameParser():
         ctrfmt = "^(?P<radix>.+)_(?P<label>{{}}.+)_(?P<mapnum>{})_0000.edf$".format(fnumber)
 
         self.xianames = [re.compile(xiafmt.format(number,number))]
-        self.xianames += [re.compile(ctrfmt.format(ctr)) for ctr in defaultcounters]
+        self.xianames += [re.compile(ctrfmt.format(ctr)) for ctr in self.defaultcounters]
         if counters is not None:
             self.xianames += [re.compile(ctrfmt.format(ctr)) for ctr in counters]
 
@@ -71,15 +77,21 @@ class XiaNameParser():
                 return m.groupdict()
         return {}
 
-    @staticmethod
-    def xiaparselabel(label):
+    def xiaparselabel(self,label):
         if label.startswith("xia"):
             return "xia",label[3:]
-        elif any(label.startswith(ctr) for ctr in ["PUZ_xmap","xmap"]):
-            tmp = label.split("_")
-            return '_'.join(tmp[:-1]),tmp[-1]
         else:
-            return label,""
+            for ctr,ctrinfo in self.defaultcounters.items():
+                if label.startswith(ctr):
+                    if ctrinfo["detector"]:
+                        m = ctrinfo["detector"].match(label)
+                        if m:
+                            m = m.groupdict()
+                            if m['name'].endswith('_'):
+                                m['name'] = m['name'][:-1]
+                            return m['name'],m['detector']
+            else:
+                return label,""
 
     def parse(self,filename,throw=True):
         """
@@ -206,7 +218,7 @@ def xiadetectorselect_tostring(detectors):
         "S0" -> "xiaS0"
         "st" -> "xiast"
         "xiast" -> "xiast"
-
+        
     Args:
         detectors(list): 
     Returns:
@@ -222,6 +234,34 @@ def xiadetectorselect_tostring(detectors):
                 lst[i] = "xia{}".format(s)
     return lst
 
+def xiadetectorselect_tocountersufix(detectors):
+    """Convert detector identifier to string:
+        0 -> "_00"
+        "xia00" -> "_00"
+        "S0" -> "xiaS0"
+        "st" -> "xiast"
+        "xiast" -> "xiast"
+        
+    Args:
+        detectors(list): 
+    Returns:
+        list(str)
+    """
+
+    lst = copy(detectors)
+    for i,s in enumerate(detectors):
+        if instance.isnumber(s):
+            lst[i] = "{:02}".format(s)
+        elif instance.isstring(s):
+            if s.startswith("xia"):
+                s = s[3:]
+            if s.startswith("S"):
+                lst[i]  = "sum"
+            elif s.isdigit():
+                lst[i] = s
+        
+    return lst
+    
 def xiadetectorselect_tonumber(detectors):
     """Convert detector identifier to number:
         0 -> 0
@@ -275,11 +315,33 @@ def xiadetectorselect_files(filenames,skipdetectors,keepdetectors):
         valid = lambda x: x not in skip
     else:
         valid = lambda x: x not in skip and x in keep
-        
+    
     filenames = [f for f in filenames if valid(xianameparser.parse(f).label)]
     
     return filenames
 
+def xiadetectorselect_counterfiles(filenames,skipdetectors,keepdetectors):
+    if len(filenames)==0:
+        return filenames
+
+    skip = xiadetectorselect_tocountersufix(skipdetectors)
+    keep = xiadetectorselect_tocountersufix(keepdetectors)
+    keep.append("") # keep counters not associated to a detector
+
+    if not skip and not keep:
+        return filenames
+
+    if not skip:
+        valid = lambda x: any(x.endswith(s) for s in keep)
+    elif not keep:
+        valid = lambda x: not any(x.endswith(s) for s in skip)
+    else:
+        valid = lambda x: not any(x.endswith(s) for s in skip) and any(x.endswith(s) for s in keep)
+
+    filenames = [f for f in filenames if valid(xianameparser.parse(f).label)]
+    
+    return filenames
+    
 def xiadetectorselect_numbers(detectors,skipdetectors,keepdetectors):
     """Select xia detectors
 
@@ -655,6 +717,19 @@ class cachedict(dict):
             self["levels"][level] = dict()
         return self["levels"][level]
 
+def deadtimecorrector(icr,ocr):
+    with np.errstate(divide='ignore', invalid='ignore'):
+        dtcor = np.divide(icr,ocr)
+        dtcor,func = instance.asarrayf(dtcor)
+        dtcor[~np.isfinite(dtcor)] = 1
+        dtcor[(instance.asarray(icr)<1000) | (dtcor<1)] = 1
+        dtcor = func(dtcor)
+    return dtcor    
+
+def normalizer(norm):
+    norm,func = instance.asarrayf(norm)
+    norm[norm==0] = 1
+    return func(norm)
 
 class xiadata(object):
     """Implements XIA data access
@@ -1110,13 +1185,8 @@ class xiadata(object):
                 
                 # Extract icr/ocr
                 icr,ocr = self.extract_icrocr(stats,index)
-                binvalid = np.logical_or(icr<=0,ocr<=0)
-                if binvalid.any():
-                    icr[binvalid] = 1
-                    ocr[binvalid] = 1
+                cor = deadtimecorrector(icr.astype(self.CORTYPE),ocr.astype(self.CORTYPE))
 
-                cor = icr.astype(self.CORTYPE) / ocr.astype(self.CORTYPE)
-                
                 # Apply deadtime correction
                 data = data*cor
                 #self._dbgmsg(data.shape)
@@ -1151,7 +1221,8 @@ class xiadata(object):
                     cor = cor[ind].reshape(s4)
                 
                 # Apply normalization
-                data = data / cor.astype(self.CORTYPE)
+                cor = normalizer(cor.astype(self.CORTYPE))
+                data = data / cor
                 #self._dbgmsg(data.shape)
             
             # Return tuple
@@ -1203,6 +1274,9 @@ class xiadata(object):
     def xiadetectorselect_files(self,lst):
         return xiadetectorselect_files(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
 
+    def xiadetectorselect_counterfiles(self,lst):
+        return xiadetectorselect_counterfiles(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
+
     def xiadetectorselect_numbers(self,lst):
         return xiadetectorselect_numbers(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
     
@@ -1211,9 +1285,8 @@ class xiadata(object):
 
     def datafilenames_used(self):
         files = self.datafilenames()
-        if len(files)==0:
+        if not files:
             return files
-
         return self.xiadetectorselect_files(files)
     
     @property
@@ -1513,19 +1586,31 @@ class xiacompound(xiadata):
             files += l.datafilenames()
         return files
         
-    def ctrfilenames(self,ctr=None):
+    def ctrfilenames(self,ctrs=None):
         """
         Args:
-            ctr(Optional(str or list)): counter base name
+            ctrs(Optional(str or list)): counter base name
         Returns:
             list(str)
         """
         items = self.getitems()
         files = []
         for l in items:
-            files += l.ctrfilenames(ctr=ctr)
+            files += l.ctrfilenames(ctrs=ctrs)
         return files
 
+    def ctrfilenames_used(self,ctrs=None):
+        """
+        Args:
+            ctrs(Optional(str or list)): counter base name
+        Returns:
+            list(str)
+        """
+        files = self.ctrfilenames(ctrs=ctrs)
+        if not files:
+            return files
+        return self.xiadetectorselect_counterfiles(files)
+        
     def statfilenames(self):
         """
         Args:
@@ -1539,13 +1624,23 @@ class xiacompound(xiadata):
             files += l.statfilenames()
         return files
 
+    def headers(self,source="xia",keys=None):
+        """
+        Args:
+            source(Optional(str)): header from xia file of ctrs
+        """
+        items = self.getitems()
+        headers = []
+        for l in items:
+            headers += l.headers(source=source,keys=keys)
+        return headers
+
     def counterbasenames(self):
         items = self.getitems()
         if items:
             return items[0].counterbasenames()
         else:
             return []
-
 
 class xialine(xiadata):
 
@@ -1820,7 +1915,7 @@ class xiaimage(xiacompound):
         """
 
         # Select all counters
-        files = self.ctrfilenames()
+        files = self.ctrfilenames_used()
         if len(files)==0:
             return np.empty((0,0,0,0),dtype=self.XIADTYPE)
 
@@ -1830,7 +1925,7 @@ class xiaimage(xiacompound):
 
         return counters
  
-    def ctrfilenames(self,ctr=None):
+    def ctrfilenames(self,ctrs=None):
         """
         Args:
             ctr(Optional(str or list)): counter base names
@@ -1840,16 +1935,44 @@ class xiaimage(xiacompound):
         if len(self._ctrfiles)==0:
             self.search()
             
-        if ctr is None:
+        if ctrs is None:
             return self._ctrfiles
             
-        if not instance.isarray(ctr):
-            ctr = [ctr]
+        if not instance.isarray(ctrs):
+            ctrs = [ctrs]
         
-        if any(not instance.isstring(c) for c in ctr):
+        if any(not instance.isstring(c) for c in ctrs):
             return []
         
-        return list(listtools.flatten([f for c in ctr for f in self._ctrfiles if xianameparser.parse(f).baselabel==c]))
+        return list(listtools.flatten([f for c in ctrs for f in self._ctrfiles if xianameparser.parse(f).baselabel==c]))
+
+    def ctrsearch(self):
+        path = os.path.abspath(os.path.join(self.path,self._xiaconfig["counter_reldir"]))
+        self._ctrfiles = xiasearch(path,radix=self.radix,mapnum=self.mapnum,onlyctrs=True)
+
+    def counterbasenames(self):
+        return [xianameparser.parse(f).baselabel for f in self._ctrfiles]
+        
+    def headers(self,**kwargs):
+        return [self.header(**kwargs)]
+        
+    def header(self,source="xia",keys=None):
+        if source=="xia":
+            files = self.statfilenames()
+        else:
+            files = self.ctrfilenames(ctrs=source)
+            
+        for f in files:
+            header = edf.edfimage(f).header
+            if header:
+                break
+        else:
+            nrow,ncol = self.dshape[:2]
+            header = {"Dim_1":ncol, "Dim_2":nrow}
+
+        if keys:
+            header = {k:header[k] if k in header else None for k in keys}
+        return header
         
     def normfilename(self):
         """
@@ -1862,7 +1985,7 @@ class xiaimage(xiacompound):
         if ctr is None:
             return None
         
-        files = self.ctrfilenames(ctr=ctr)
+        files = self.ctrfilenames(ctrs=ctr)
         if len(files)==1:
             return files[0]
         else:
@@ -1884,15 +2007,7 @@ class xiaimage(xiacompound):
             m = self._getedfimage(f)
             
         return m
-    
-    def ctrsearch(self):
-        path = os.path.abspath(os.path.join(self.path,self._xiaconfig["counter_reldir"]))
-        self._ctrfiles = xiasearch(path,radix=self.radix,mapnum=self.mapnum,onlyctrs=True)
-    
-    def counterbasenames(self):
-        return [xianameparser.parse(f).baselabel for f in self._ctrfiles]
-        
-        
+
 class xiastack(xiacompound):
     """Compounds XIA images
     """

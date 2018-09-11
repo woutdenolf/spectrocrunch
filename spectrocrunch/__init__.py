@@ -48,20 +48,22 @@ def logging_cliconfig():
     args, unknown = parser.parse_known_args()
     
     hashandlers = bool(logger.handlers)
-    
+
     if args.log and not hashandlers:
         logger.setLevel(args.log.upper())
     if args.logfile:
         logging_filehandler(args.logfile)
+        
     if args.stdout:
         logging_filehandler(args.stdout,error=False)
     elif not hashandlers:
         logging_stdhandler(error=False)
+        
     if args.stderr:
         logging_filehandler(args.stderr,error=True)
     elif not hashandlers:
         logging_stdhandler(error=True)
-        
+    
 def logging_addformat(handler):
     #formatter = logging.Formatter("%(asctime)s %(levelname)s [%(module)s]: %(message)s")
     #formatter = logging.Formatter('[%(asctime)s] p%(process)s {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s','%m-%d %H:%M:%S')
