@@ -322,7 +322,7 @@ class PymcaHandle(PymcaBaseHandle):
     def __init__(self,sample=None,emin=None,emax=None,\
                 energy=None,weights=None,scatter=None,\
                 flux=1e9,time=0.1,escape=True,pileup=False,ninteractions=1,\
-                linear=False,continuum=True,SingleLayerStrategy=None):
+                linear=False,snip=True,continuum=0,SingleLayerStrategy=None,noisepropagation=True):
         
         #TODO: do we need this?
         if sample is None:
@@ -346,7 +346,9 @@ class PymcaHandle(PymcaBaseHandle):
         self.linear = linear
         self.escape = escape
         self.pileup = pileup
+        self.snip = snip
         self.continuum = continuum
+        self.noisepropagation = noisepropagation
         self.ninteractions = ninteractions
         self.SingleLayerStrategy = SingleLayerStrategy
         self.flux = flux
@@ -463,19 +465,22 @@ class PymcaHandle(PymcaBaseHandle):
         #bmodelbkg = self.sample.geometry.detector.bstail or \
         #            self.sample.geometry.detector.bltail or \
         #            self.sample.geometry.detector.bstep
-        cfg["fit"]["stripflag"] = int(self.continuum)
+        cfg["fit"]["stripflag"] = int(self.snip)
         cfg["fit"]["stripalgorithm"] = 1
         cfg["fit"]["snipwidth"] = 100
+        cfg["fit"]["continuum"] = int(self.continuum)
     
     def loadfrompymca_background(self,cfg):
-        self.continuum = bool(cfg["fit"]["stripflag"])
-    
+        self.snip = bool(cfg["fit"]["stripflag"])
+        self.continuum = int(cfg["fit"]["continuum"])
+        
     def addtopymca_other(self,cfg):
         cfg["fit"]["escapeflag"] = int(self.escape)
         cfg["fit"]["sumflag"] = int(self.pileup)
         cfg["fit"]["linearfitflag"] = int(self.linear)
         cfg["concentrations"]["usemultilayersecondary"] = self.ninteractions-1
-    
+        cfg["fit"]["fitweight"] = int(self.noisepropagation)
+        
     def addtopymca_custom(self,cfg):
         pass
     
@@ -511,6 +516,7 @@ class PymcaHandle(PymcaBaseHandle):
         self.pileup = bool(cfg["fit"]["sumflag"])
         self.linear = bool(cfg["fit"]["linearfitflag"])
         self.ninteractions = cfg["concentrations"]["usemultilayersecondary"]+1
+        self.noisepropagation = bool(cfg["fit"]["fitweight"])
         
     def addtopymca_material(self,cfg,material,defaultthickness=1e-4):
         return material.topymca(cfg,defaultthickness=defaultthickness)
@@ -672,8 +678,13 @@ class PymcaHandle(PymcaBaseHandle):
                     groups2[g] += A
                 else:
                     groups2[g] = A
-    
+            else:
+                groups2[k] = sum(groups[k].values())
+                
         return groups2
+
+    def xraygroupareas(self,**kwargs):
+        return {k:v*self.I0 for k,v in self.xraygrouprates(**kwargs).items()}
 
     def mca(self,histogram=True,decomposed=0,energy=False,full=False,**kwargs):
         spectrum = self.xrayspectrum(**kwargs)

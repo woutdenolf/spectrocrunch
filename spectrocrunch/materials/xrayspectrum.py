@@ -718,9 +718,11 @@ class Spectrum(dict):
             return self.density/(4*np.pi) # cm^2/g -> 1/cm/srad
         elif self.type==self.TYPES.diffcrosssection:
             return self.density # cm^2/g/srad -> 1/cm/srad
-        else:
+        elif self.type==self.TYPES.rate:
             return 1
-    
+        else:
+            raise RuntimeError("Unknown spectrum type: {}".format(self.type))
+            
     def items(self):
         geomkwargs = self.geomkwargs
         for k,v in super(Spectrum,self).items():

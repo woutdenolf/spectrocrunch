@@ -110,6 +110,8 @@ class Element(hashable.Hashable,elementbase.ElementBase):
 
         # Information for calculating partial cross-sections
         self.shells = []
+        
+        self.isscatterer = True
     
     def _cmpkey(self):
         """For comparing and sorting
@@ -165,6 +167,15 @@ class Element(hashable.Hashable,elementbase.ElementBase):
     @property
     def isabsorber(self):
         return bool(self.shells)
+
+    def markscatterer(self,name=None):
+        if name is None:
+            self.isscatterer = True
+        else:
+            self.isscatterer = self==name
+
+    def unmarkscatterer(self):
+        self.isscatterer = False
 
     def markinfo(self):
         if self.isabsorber:

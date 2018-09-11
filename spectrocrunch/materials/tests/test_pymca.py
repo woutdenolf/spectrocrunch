@@ -48,7 +48,7 @@ class test_pymca(unittest.TestCase):
     def test_loadcfg(self):
         cfgfile = os.path.join(self.dir.path,"mca.cfg")
 
-        h1 = pymca.PymcaHandle(energy=self.energy,sample=xrf_setup.sample)
+        h1 = xrf_setup.simple(energy=self.energy)
         h1.savepymca(cfgfile)
 
         source = xraysources.factory("synchrotron")
@@ -62,11 +62,7 @@ class test_pymca(unittest.TestCase):
         np.testing.assert_allclose(h1.mca(),h2.mca())
 
     def test_rates(self):
-        h = pymca.PymcaHandle(energy=self.energy,sample=xrf_setup.sample,escape=0,continuum=False)
-        
-        def addtopymca_custom(self,cfg):
-            cfg["fit"]["continuum"] = 1
-        h.addcustomnpymcamethod(addtopymca_custom)
+        h = xrf_setup.simple(energy=self.energy,escape=0,snip=False,continuum=1)
         
         if False:
             path = "/data/id21/inhouse/wout/tmp/pymcatst"
@@ -164,8 +160,8 @@ class test_pymca(unittest.TestCase):
         #plt.show()
         
     def test_spectrum(self):
-        h = pymca.PymcaHandle(energy=self.energy,sample=xrf_setup.sample_complex,\
-                            escape=0,flux=1e10,time=1,scatter=np.zeros_like(self.energy),linear=1,emin=2,emax=7.4)
+        h = xrf_setup.complex(energy=self.energy,escape=0,flux=1e10,time=1,
+                              scatter=np.zeros_like(self.energy),linear=1,emin=2,emax=7.4)
         h.sample.geometry.detector.bltail = False
         h.sample.geometry.detector.bstail = False
         h.sample.geometry.detector.bstep = False
