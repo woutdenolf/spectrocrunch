@@ -115,8 +115,8 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
     stackdim = kwargs.get("stackdim",2)
     dtcor = kwargs.get("dtcor",True)
     fastfitting = kwargs.get("fastfitting",True)
+    adddetectors = kwargs.get("adddetectors",True)
     addbeforefit = kwargs.get("addbeforefit",True)
-    addafterfitting = kwargs.get("addafterfitting",True)
     mlines = kwargs.get("mlines",{})
     exclude_detectors = kwargs.get("exclude_detectors",None)
     include_detectors = kwargs.get("include_detectors",None)
@@ -124,11 +124,11 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
     encodercor = kwargs.get("encodercor",{})
     qxrfgeometry = kwargs.get("qxrfgeometry",None)
     qxrfgeometryparams = {"quantify":qxrfgeometry is not None}
-    fluxnormbefore = kwargs.get("fluxnormbefore",True)
-    counters = kwargs.get("counters",[])
+    correctspectra = kwargs.get("correctspectra",False)
     fluxid = kwargs.get("fluxid","I0")
     transmissionid = kwargs.get("transmissionid","It")
-
+    #dtcorcounters = all(k in instrument.counterdict for k in ["xrficr","xrfocr"])
+    
     if noxia:
         cfgfiles = None
     bfit = cfgfiles is not None
@@ -148,24 +148,19 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
     if not isinstance(cfgfiles,list):
         cfgfiles = [cfgfiles]
 
-    if not counters:
-        #lst = ["I0_counts","It_counts","If_counts","calc"]
-        #if not noxia:
-        #    lst.extend(["xrficr","xrfocr","xrfroi"])
-        #if encodercor:
-        #    lst.extend(["motors"])
-        #counters = instrument.counters(include=lst)
-        lst = []
-        if noxia:
-            lst.extend(["xrficr","xrfocr","xrfroi"])
-        if not encodercor:
-            lst.extend(["motors"])
-        counters = instrument.counters(exclude=lst)
-
-    # Correct for deadtime when a single detector? (ignored when dtcor==False)
-    # This exists because for one detector you can apply the deadtime correction
-    # after XRF fitting
-    dtcorifsingle = not all(k in instrument.counterdict for k in ["xrficr","xrfocr"])
+    #lst = ["I0_counts","It_counts","If_counts","calc"]
+    #if not noxia:
+    #    lst.extend(["xrficr","xrfocr","xrfroi"])
+    #if encodercor:
+    #    lst.extend(["motors"])
+    #counters = instrument.counters(include=lst)
+    lst = []
+    if noxia:
+        lst.extend(["xrficr","xrfocr","xrfroi"])
+    if not encodercor:
+        lst.extend(["motors"])
+    counters = instrument.counters(exclude=lst)
+    counters.extend(kwargs.get("counters",[]))
     
     config = {
             # Input
@@ -188,20 +183,19 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
 
             # Deadtime correction
             "dtcor": dtcor,
-            "dtcorifsingle":dtcorifsingle,
-
+            "correctspectra": correctspectra,
+            "adddetectors": adddetectors, # sum spectra
+            "addbeforefit": addbeforefit, # sum fit results and detector counters
+            "qxrfgeometry": qxrfgeometryparams,
+            
             # Configuration for fitting
             "detectorcfg": cfgfiles,
             "mlines": mlines,
             "fit": bfit,
             "fastfitting": fastfitting,
-            "addbeforefitting": addbeforefit, # sum spectra
-            "addafterfitting": addafterfitting, # sum fit results and detector counters
             "exclude_detectors": exclude_detectors,
             "include_detectors": include_detectors,
-            "qxrfgeometry": qxrfgeometryparams,
-            "fluxnormbefore": fluxnormbefore,
-            
+
             # Output directories
             "outdatapath": os.path.join(destpath,scanname[0]+"_data"),
             "outfitpath": os.path.join(destpath,scanname[0]+"_fit"),
