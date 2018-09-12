@@ -337,7 +337,7 @@ class LinearXRFGeometry(XRFGeometry):
     
     @property
     def detectorposition_rv(self):
-        return self.distanceargs["detectorposition"]
+        return self.distanceargs["detectorposition"].to(self.positionunits)
          
     @property
     def detectorposition(self):
@@ -348,7 +348,7 @@ class LinearXRFGeometry(XRFGeometry):
         if value is None:
             self.distanceargs["detectorposition"] = value
         else:
-            self.distanceargs["detectorposition"] = units.Quantity(value,self.positionunits)
+            self.distanceargs["detectorposition"] = units.Quantity(value,self.positionunits).to(self.positionunits)
 
     @property
     def zerodistance(self):

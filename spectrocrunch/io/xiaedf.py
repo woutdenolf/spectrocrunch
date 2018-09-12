@@ -1546,7 +1546,7 @@ class xiacompound(xiadata):
             # Items can be treated independently
             oitems = data.getitems()
             for i,selfitem in enumerate(selfitems):
-                logger.debug("Saving {} ...".format(selfitem))
+                #logger.debug("Saving {} ...".format(selfitem))
                 if isinstance(selfitem,xiacompound):
                     if ctrheaders:
                         ctrheaderi = ctrheaders[i,...]
