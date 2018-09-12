@@ -55,7 +55,6 @@ except ImportError:
     qt = None
     McaAdvancedFit = None
 
-
 class PymcaBaseHandle(object):
 
     def __init__(self):
@@ -318,12 +317,16 @@ class PymcaBaseHandle(object):
 
 
 class PymcaHandle(PymcaBaseHandle):
+    """Class that converts spectrocrunch to pymca parameters
+       and vice versa. Also used to call the pymca fitting
+       API for single spectra.
+    """
 
     def __init__(self,sample=None,emin=None,emax=None,\
                 energy=None,weights=None,scatter=None,\
                 flux=1e9,time=0.1,escape=True,pileup=False,ninteractions=1,\
                 linear=False,snip=True,continuum=0,SingleLayerStrategy=None,noisepropagation=True):
-        
+
         #TODO: do we need this?
         if sample is None:
             from . import multilayer
@@ -542,9 +545,8 @@ class PymcaHandle(PymcaBaseHandle):
         if not instance.isarray(dic["CompoundFraction"]):
             dic["CompoundFraction"] = [dic["CompoundFraction"]]
         massfractions = np.array(dic["CompoundFraction"])/sum(dic["CompoundFraction"])
-        if not density:
-            density = dic["Density"]
-            
+        density = dic["Density"]
+        
         # List of materials:
         lst = [self.loadfrompymca_material(cfg,mat,density) for mat in dic["CompoundList"]]
         
@@ -555,6 +557,8 @@ class PymcaHandle(PymcaBaseHandle):
             return mixture.Mixture(lst,massfractions,types.fraction.mass,name=name)
         
     def loadfrompymca(self,filename=None,config=None):
+        """Update pymca parameters and convert to spectrocrunch
+        """
         super(PymcaHandle,self).loadfrompymca(filename=filename,config=config)
         
         config = self.mcafit.getConfiguration()
@@ -564,6 +568,8 @@ class PymcaHandle(PymcaBaseHandle):
         self.sample.loadfrompymca(self,config)
     
     def addtopymca(self,fresh=False,onlygeometry=False):
+        """Convert spectrocrunch to pymca parameters
+        """
         if fresh:
             config = self.mcafit.getStartingConfiguration()
             config["attenuators"] = {}
@@ -589,9 +595,13 @@ class PymcaHandle(PymcaBaseHandle):
         self.mcafit.configure(config)
 
     def configurepymca(self,**kwargs):
+        """Convert spectrocrunch to pymca parameters
+        """
         self.addtopymca(**kwargs)
 
     def savepymca(self,filename):
+        """Convert spectrocrunch to pymca parameters and then save
+        """
         self.configurepymca()
         super(PymcaHandle,self).savepymca(filename)
 
