@@ -58,10 +58,9 @@ class test_fluoxas(unittest.TestCase):
         self.dir = TempDirectory()
     
     def create_procinfo(self):
-        source = xraysources.factory("synchrotron")
-        detector = xrfdetectors.factory("leia")
-        geometry = xrfgeometries.factory("sxm120",detector=detector,
-                                         source=source,detectorposition=-15.)
+        synchrotron = xraysources.factory("synchrotron")
+        leia = xrfdetectors.factory("leia")
+        geometry = None
         water = compoundfromname.compoundfromname("water")
         calcite = compoundfromname.compoundfromname("calcite")
         fe = element.Element("Fe")
@@ -73,47 +72,63 @@ class test_fluoxas(unittest.TestCase):
 
         ndet = 3
         detectorsinsum = [0,2]
-        sa = geometry.solidangle
-        solidangles = [1,1.5,2]
-        solidangles.append(sum(i for i in detectorsinsum))
-        solidangles = np.array(solidangles)*sa
+        samult = [1,0.8,0.5]
+        samult.append(sum(i for i in samult))
+        energy = [8,8.5,9]
         
         detectornames = ['detector{}'.format(i) for i in range(ndet)+['sum']]
         detectors = []
-        for det,solidangle in zip(detectornames,solidangles):
-            cfgfile = os.path.join(self.dir.path,det+'.cfg')
-            detector = {'cfgfile':cfgfile,'mca':[],'peakareas':[],'massfractions':[]}
-            detectors.append(detector)
-            geometry.solidangle = solidangle
-            detector['distance'] = geometry.distance
-            
-            for sample in [sample1,sample2]:
-                pymcahandle.sample = sample
-                pymcahandle.addtopymca(fresh=True)
-                pymcahandle.savepymca(cfgfile)
-                mca = pymcahandle.mca()
-                detector['mca'].append(mca)
+        for det,sam in zip(detectornames,samult):
+            geometry = xrfgeometries.factory("sxm120",detector=leia,
+                                         source=synchrotron,detectorposition=-15.)
+            geometry.solidangle *= sam
 
-                # This check is done more rigorously in test_pymca
-                peakareas = pymcahandle.xraygroupareas()
-                massfractions = pymcahandle.sample.elemental_massfractions()
-                pymcahandle.setdata(mca+1)
-                fitresult = pymcahandle.fit()
-                for k,v in fitresult["fitareas"].items():
-                    np.testing.assert_allclose(v,peakareas[k],rtol=1e-3)
-                for k,v in fitresult["massfractions"].items():
-                    np.testing.assert_allclose(v,massfractions[k.element],rtol=1e-2)
+            cfgfile = os.path.join(self.dir.path,det+'.cfg')
+            detector = {'cfgfile':cfgfile,'geometry':geometry,'mca':[],'peakareas':[],'massfractions':[]}
+            detectors.append(detector)
+
+            for en in energy:
+                pymcahandle.energy = en
+                mcas = []
+                peakareas = []
+                massfractions = []
+                detector['mca'].append(mcas)
                 detector['peakareas'].append(peakareas)
                 detector['massfractions'].append(massfractions)
-        geometry.solidangle = sa
-        
+                for sample in [sample1,sample2]:
+                    sample.geometry = geometry
+                    pymcahandle.sample = sample
+                    pymcahandle.addtopymca(fresh=True)
+                    pymcahandle.savepymca(cfgfile)
+                    
+                    pymcahandle.loadfrompymca(cfgfile)
+                    pymcahandle.savepymca(cfgfile+'_')
+                    from ...materials.pymcadiff import diff
+                    diff(cfgfile,cfgfile+'_')
+                    #exit()
+                    
+                    mca = pymcahandle.mca()+1
+                    mcas.append(mca)
+
+                    # This check is done more rigorously in test_pymca
+                    fpeakareas = pymcahandle.xraygroupareas()
+                    fmassfractions = pymcahandle.sample.elemental_massfractions()
+                    pymcahandle.setdata(mca)
+                    fitresult = pymcahandle.fit(loadfromfit=False)
+                    for k,v in fitresult["fitareas"].items():
+                        np.testing.assert_allclose(v,fpeakareas[k],rtol=1e-2)
+                    for k,v in fitresult["massfractions"].items():
+                        np.testing.assert_allclose(v,fmassfractions[k.element],rtol=2e-2)
+                    peakareas.append(fitresult["fitareas"])
+                    massfractions.append(fitresult["massfractions"])
+        exit()
         self.procinfo = {}
         self.procinfo['include_detectors'] = ([2],detectorsinsum)
         self.procinfo['flux'] = pymcahandle.flux
         self.procinfo['time'] = pymcahandle.time
-        self.procinfo['geometry'] = geometry
         self.procinfo['detectorsum'] = detectors.pop(-1)
         self.procinfo['detectors'] = detectors
+        self.procinfo['energy'] = energy
         
     def tearDown(self):
         pass#self.dir.cleanup()
@@ -134,16 +149,11 @@ class test_fluoxas(unittest.TestCase):
 
         return labels
 
-    def pymcagetenergy(self):
-        config = ConfigDict.ConfigDict()
-        config.read(self.procinfo['detectorsum']['cfgfile'])
-        return float(instance.asarray(config["fit"]["energy"])[0])
-
     def qxrfgeometry(self):
-        energy = self.pymcagetenergy()
+        energy = self.procinfo['energy']
 
         monitor = qxrf.factory("QXRFGeometry",instrument="id21",diodeI0="iodet1",diodeIt="idet",
-                                optics="KB",xrfgeometry=self.procinfo['geometry'],simplecalibration=True)
+                                optics="KB",xrfgeometry=None,simplecalibration=True)
         monitor.setreferenceflux(self.procinfo['flux'])
         monitor.setdefaulttime(self.procinfo['time'])
         monitor.diodeI0.gain = 1e8
@@ -152,10 +162,10 @@ class test_fluoxas(unittest.TestCase):
         info = {"I0_counts":300,"It_counts":30,"time":1,"dark":True,"gaindiodeI0":1e8,"gaindiodeIt":1e7}
         monitor.calibrate(**info)
         
-        info = {"I0_counts":400000,"It_counts":100000,"time":1,"dark":False,"gaindiodeI0":1e8,"gaindiodeIt":1e7,"energy":energy-2}
+        info = {"I0_counts":400000,"It_counts":100000,"time":1,"dark":False,"gaindiodeI0":1e8,"gaindiodeIt":1e7,"energy":min(energy)}
         monitor.calibrate(**info)
         
-        info = {"I0_counts":200000,"It_counts":100000,"time":1,"dark":False,"gaindiodeI0":1e8,"gaindiodeIt":1e7,"energy":energy+2}
+        info = {"I0_counts":200000,"It_counts":100000,"time":1,"dark":False,"gaindiodeI0":1e8,"gaindiodeIt":1e7,"energy":max(energy)}
         monitor.calibrate(**info)
         
         return monitor
@@ -167,30 +177,24 @@ class test_fluoxas(unittest.TestCase):
         expotime = qxrfgeometry.defaultexpotime.to("seconds").magnitude
 
         # 3 maps of a moving hotspot
-        nmaps,nlines,nspec = 3,7,6
+        nlines,nspec = 7,6
+        nmaps = len(self.procinfo['energy'])
         ndet = len(self.procinfo['detectors'])
-        nchan = len(self.procinfo['detectorsum']['mca'][0])
+        nchan = len(self.procinfo['detectorsum']['mca'][0][0])
         data = np.ones((nmaps,nlines,nspec,nchan,ndet))
         off = max(min(nlines,nspec)-nmaps,0)//2
         for idet,det in enumerate(self.procinfo['detectors']):
-            spec1,spec2 = det['mca']
-            data[...,idet] = spec1
-            for imap in range(nmaps):
-                t = imap+off
-                data[imap,t,t,:,idet] = spec2
+            for imap,spectra in enumerate(det['mca']):
+                spec1,spec2 = spectra
+                data[imap,...,idet] = spec1
+                data[imap,imap+off,imap+off,:,idet] = spec2
 
         # Generate counter headers
-        energy = self.pymcagetenergy()
-        energy = np.full(nmaps,energy)
+        energy = self.procinfo['energy']
         ctrheaders = np.vectorize(lambda e:{"DCM_Energy":e,"time":expotime},otypes=[object])(energy)
         
         # Init counters
         ctrs = {}
-
-        # Apply detector solid angle different
-        #  solidangle = sa*1,sa*2,sa*3
-        for i in range(ndet):
-            data[...,i] *= i+1
         
         # Apply flux decay
         rflux = np.linspace(1,0.5,nmaps*nlines*nspec).reshape((nmaps,nlines,nspec))
@@ -212,9 +216,6 @@ class test_fluoxas(unittest.TestCase):
             op,_ = qxrfgeometry.Itop(en,expotime=expotime)
             np.testing.assert_allclose(flux[i,...],op(ctrs["arr_idet"][i,...]))
 
-        # Apply background
-        data += 1
-
         # Deadtime corrected counters
         a = nchan/2
         b = a+100
@@ -230,8 +231,7 @@ class test_fluoxas(unittest.TestCase):
         stats = np.zeros((nmaps,nlines,nspec,xiaedf.xiadata.NSTATS,ndet),dtype=data.dtype)
         for i in range(ndet):
             ICR = data[...,i].sum(axis=-1)
-            OCR = ICR*(1-i/10.)# DT = 10*i %
-            
+            OCR = ICR*(1-0.2*i/(ndet-1.))# DT = 10*i %
             ctrs["xmap_icr_{:02d}".format(i)] = ICR
             ctrs["xmap_ocr_{:02d}".format(i)] = OCR
             
@@ -258,11 +258,12 @@ class test_fluoxas(unittest.TestCase):
         self.destpath = TempDirectory()
         yield
         self.destpath.cleanup()
-
+      
     def _assert_fitresult(self,grpname,grpdata,info):
         if 'Scatter' in grpname:
             return
-        print info
+
+        grpname = str(grpname)
         print grpname
         
         m = re.match("Scatter-(Compton|Peak)([0-9]+)",grpname)
@@ -270,34 +271,23 @@ class test_fluoxas(unittest.TestCase):
             grpname = m.group(1)
             if grpname == "Peak":
                 grpname = "Rayleigh"
-            peakarea1 = info['peakareas'][0][grpname][int(m.group(2))]
-            peakarea2 = info['peakareas'][1][grpname][int(m.group(2))]
-            massfraction1 = massfraction2 = None
+            values1 = [peakareas[0][grpname][int(m.group(2))] for peakareas in info['peakareas']]
+            values2 = [peakareas[1][grpname][int(m.group(2))] for peakareas in info['peakareas']]
         else:
             if grpname.startswith("w"):
-                grpname = grpname[1:].split('-')[0]
-                massfraction1 = info['massfractions'][0][grpname]
-                massfraction2 = info['massfractions'][1][grpname]
-                peakarea1 = peakarea2 = None
+                grpname = grpname[1:]
+                values1 = [massfractions[0][grpname] for massfractions in info['massfractions']]
+                values2 = [massfractions[1][grpname] for massfractions in info['massfractions']]
             else:
-                peakarea1 = info['peakareas'][0][grpname]
-                peakarea2 = info['peakareas'][1][grpname]
-                massfraction1 = massfraction2 = None
+                values1 = [peakareas[0][grpname] for peakareas in info['peakareas']]
+                values2 = [peakareas[1][grpname] for peakareas in info['peakareas']]
 
-        print grpdata
-        for data in grpdata:
+        for data,v1,v2 in zip(grpdata,values1,values2):
+            print data
+            print v1,v2
             mask = data==np.nanmax(data)
-            data1 = data[~mask]
-            data2 = data[mask]
-            
-            if peakarea1:
-                print peakarea1,peakarea2
-                np.testing.assert_allclose(data1,peakarea1)
-                np.testing.assert_allclose(data2,peakarea2)
-            else:
-                print massfraction1,massfraction2
-                np.testing.assert_allclose(data1,massfraction1)
-                np.testing.assert_allclose(data2,massfraction2)
+            np.testing.assert_allclose(data[~mask],v1,rtol=1e-3)
+            np.testing.assert_allclose(data[mask],v2,rtol=1e-3)
                                       
     def test_process(self):
         # Generate data
@@ -322,6 +312,10 @@ class test_fluoxas(unittest.TestCase):
                 
             if quant:
                 geom = qxrfgeometry
+                if addbefore:
+                    geom.xrfgeometries = self.procinfo['detectorsum']['geometry']
+                else:
+                    geom.xrfgeometries = [self.procinfo['detectors'][i]['geometry'] for i in include_detectors]
                 prealignnormcounter = None
             else:
                 geom = None
@@ -496,7 +490,7 @@ class test_fluoxas(unittest.TestCase):
                         self.assertEqual(set(stack.keys()),expectedgroups)
                         
                     # Check fit results
-                    if cfgfileuse and not dtcor:
+                    if cfgfileuse and dtcor:
                         with nexus.File(h5file,mode='r') as f:
                             for detector,stack in stacks.items():
                                 if detector == 'detectorsum':
