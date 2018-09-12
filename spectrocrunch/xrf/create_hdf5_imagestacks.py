@@ -316,7 +316,8 @@ def createimagestacks(config,qxrfgeometry=None):
             stackaxes[imgdim[0]] = sslow
             stackaxes[stackdim] = {"name":str(config["stacklabel"]),"data":np.full(nstack,np.nan,dtype=np.float32)}
             stackinfo["expotime"] = np.full(nstack,np.nan,dtype=np.float32)
-            stackinfo["sampledetdistance"] = np.full(nstack,np.nan,dtype=np.float32)
+            if fluxnorm:
+                stackinfo["xrfdetectorposition"] = np.full((nstack,ndet),np.nan,dtype=np.float32)
 
         # Add stackinfo
         for mot in stackinfo:
@@ -353,11 +354,18 @@ def createimagestacks(config,qxrfgeometry=None):
 
     # Set normalizer for each image separately
     if fluxnorm:
+        ngeometries = len(qxrfgeometry.xrfgeometries)
+        if ngeometries!=ndet:
+            raise RuntimeError("You need {} detector geometries, {} provides.".format(ndet,ngeometries))
+        
+        tile = lambda x: np.tile(np.array(x)[np.newaxis,:],(nstack,1))
+
         stackinfo["refflux"] = np.full(nstack,np.nan,dtype=np.float32)
         stackinfo["refexpotime"] = np.full(nstack,np.nan,dtype=np.float32)
-        stackinfo["activearea"] = np.full(nstack,qxrfgeometry.xrfgeometry.detector.activearea)
-        stackinfo["anglein"] = np.full(nstack,qxrfgeometry.xrfgeometry.anglein)
-        stackinfo["angleout"] = np.full(nstack,qxrfgeometry.xrfgeometry.angleout)
+        stackinfo["activearea"] = tile(qxrfgeometry.getxrfactivearea())
+        stackinfo["anglein"] = tile(qxrfgeometry.getxrfanglein())
+        stackinfo["angleout"] = tile(qxrfgeometry.getxrfangleout())
+        stackinfo["sampledetdistance"] = np.full((nstack,ndet),np.nan,dtype=np.float32)
         if fluxnormbefore:
             stackinfo["I0toflux"] = [None]*nstack
         
@@ -378,10 +386,11 @@ def createimagestacks(config,qxrfgeometry=None):
                     xiaimage.localnorm(config["fluxcounter"],func=xrfnormop)
                     stackinfo["I0toflux"][imageindex] = str(xrfnormop)
                     
-                pos = stackinfo["sampledetdistance"][imageindex]
-                if not np.isnan(pos):
+                pos = stackinfo["xrfdetectorposition"][imageindex,:]
+                if np.isfinite(pos).all():
                     qxrfgeometry.setxrfposition(pos)
-                stackinfo["sampledetdistance"][imageindex] = qxrfgeometry.getxrfdistance()
+                stackinfo["xrfdetectorposition"][imageindex,:] = qxrfgeometry.getxrfdetectorposition()
+                stackinfo["sampledetdistance"][imageindex,:] = qxrfgeometry.getxrfdistance()
     
     # Create new (corrected) spectra when needed
     if dtcorbefore or addbefore or fluxnormbefore:
@@ -469,21 +478,21 @@ def createimagestacks(config,qxrfgeometry=None):
             fitcfg = config["detectorcfg"]
             if len(fitcfg)!=ndet:
                 raise RuntimeError("You need {} configuration files, {} provides.".format(ndet,len(fitcfg)))
-                
+        
         for imageindex,xiaimage in enumerate(xiastackproc):
             if fluxnorm:
-                quant = {"time":stackinfo["refexpotime"][imageindex],\
-                        "flux":stackinfo["refflux"][imageindex],\
-                        "area":stackinfo["activearea"][imageindex],\
-                        "anglein":stackinfo["anglein"][imageindex],\
-                        "angleout":stackinfo["angleout"][imageindex],\
-                        "distance":stackinfo["sampledetdistance"][imageindex]}
+                quants = [{"time":stackinfo["refexpotime"][imageindex],\
+                           "flux":stackinfo["refflux"][imageindex],\
+                           "area":stackinfo["activearea"][imageindex,i],\
+                           "anglein":stackinfo["anglein"][imageindex,i],\
+                           "angleout":stackinfo["angleout"][imageindex,i],\
+                           "distance":stackinfo["sampledetdistance"][imageindex,i]} for i in range(ndet)]
             else:
-                quant = {}
+                quants = [{}]*ndet
 
             filestofit = xiaimage.datafilenames_used()
             filestofit = xiaedf.xiagroupdetectors(filestofit)
-            for detector,cfg in zip(filestofit,fitcfg):
+            for detector,cfg,quant in zip(filestofit,fitcfg,quants):
                 # Fit
                 outname = "{}_xia{}_{:04d}_0000".format(xiaimage.radix,detector,xiaimage.mapnum)
                 energy = stackaxes[stackdim]["data"][imageindex]
@@ -578,7 +587,6 @@ def exportgroups(f,stacks,axes,stackdim,imgdim,stackshape):
         for k2 in stacks[k1]: # stack subgroup (Al-K, S-K, xmap_x1c, ...)
             nxdatagrp = None
             for imageindex,slicedata in enumerate(stacks[k1][k2]):
-                logger.debug("Slice generator (index {}): {}".format(imageindex,slicedata))
                 data = slicedata.data(f,imageindex,stackdim)
                 
                 # Get destination for data
@@ -598,6 +606,8 @@ def exportgroups(f,stacks,axes,stackdim,imgdim,stackshape):
 
                     # Link axes to the new NXdata group
                     nexus.linkaxes(f,axes,[nxdatagrp])
+
+                logger.debug("Slice generator (index {}): {}".format(imageindex,slicedata))
 
                 # Some rows too much or rows missing:
                 if stackshape[imgdim[0]] > data.shape[0]:

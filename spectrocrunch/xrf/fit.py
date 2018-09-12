@@ -238,9 +238,6 @@ def AdaptPyMcaConfig(cfg,energy,addhigh=True,mlines=None,quant=None,fast=False):
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
         quant(Optional(dict)): 
     """
-    #AdaptPyMcaConfig_modinfo(cfg,quant)
-    #return
-    
     AdaptPyMcaConfig_energy(cfg,energy,addhigh)
     if mlines:
         AdaptPyMcaConfig_mlines(cfg)

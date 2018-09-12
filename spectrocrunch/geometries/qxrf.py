@@ -37,6 +37,7 @@ from ..common.classfactory import with_metaclass
 from ..io import spec
 from ..patch.pint import ureg
 from ..math.linop import LinearOperator
+from ..math.common import weightedsum
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -49,21 +50,22 @@ class QXRFGeometry(with_metaclass(object)):
     """Quantitative XRF geometry with I0 and It diodes
     """
     
-    def __init__(self,instrument=None,diodeI0=None,diodeIt=None,xrfdetector=None,\
-                xrfgeometry=None,optics=None,source="synchrotron",simplecalibration=True,\
-                fluxid="I0",transmissionid="It"):
+    def __init__(self,instrument=None,diodeI0=None,diodeIt=None,optics=None,\
+                xrfgeometries=None,xrfdetector=None,xrfgeometry=None,source="synchrotron",\
+                simplecalibration=True,fluxid="I0",transmissionid="It"):
         
         self.instrument = configuration.factory(instrument)
+        
+        if xrfgeometries is None:
+            xrfgeometries = [(xrfgeometry,xrfdetector)]
 
         self._diodeI0 = None
         self._diodeIt = None
-        self._xrfgeometry = None
-        
+        self._xrfgeometries = []
         self.simplecalibration = simplecalibration
         self.optics = optics
         self.source = source
-        self.xrfdetector = xrfdetector
-        self.xrfgeometry = xrfgeometry
+        self.xrfgeometries = xrfgeometries
         self.diodeI0 = diodeI0
         self.diodeIt = diodeIt
 
@@ -75,12 +77,15 @@ class QXRFGeometry(with_metaclass(object)):
         self.transmissionid = transmissionid
 
     def __str__(self):
+        lst = []
+        
         if self.diodeI0 is None:
             diodeI0 = None
         else:
             diodeI0 = self.diodeI0
             if hasattr(diodeI0,"geometry"):
                 diodeI0 = diodeI0.geometry
+        lst.append("DiodeI0:\n========\n{}".format(diodeI0))
         
         if self.diodeIt is None:
             diodeIt = None
@@ -88,29 +93,27 @@ class QXRFGeometry(with_metaclass(object)):
             diodeIt = self.diodeIt
             if hasattr(diodeIt,"geometry"):
                 diodeIt = diodeIt.geometry
+        lst.append("DiodeIt:\n========\n{}".format(diodeIt))
         
-        referencetime = self.referencetime
-        if referencetime is None:
-            referencetime = "<data>"
-        else:
-            referencetime = "{:~}".format(referencetime)
-            
+        for i,geom in enumerate(self.xrfgeometries,1):
+            lst.append("XRF geometry ({}):\n===========\n{}".format(i,geom))
+
+        lst.append("Flux monitor:\n===========") 
         try:
             self.reference.to("Hz")
             refname = "Normalize to flux"
         except pinterrors.DimensionalityError:
             refname = "Normalize to diode counts"
-            
-        fmt = "DiodeI0:\n========\n{}\n"\
-               "DiodeIt:\n========\n{}\n"\
-               "XRF geometry:\n===========\n{}\n"\
-               "Flux monitor:\n===========\n"\
-               "{}:\n {:~e}\n"\
-               "Normalize to exposure time:\n {}\n"\
-               "Default exposure time:\n {:~}\n"
-               
-        return fmt.format(diodeI0,diodeIt,self.xrfgeometry,\
-                   refname,self.reference,referencetime,self.defaultexpotime)
+        lst.append("{}:\n {:~e}".format(refname,self.reference))
+        referencetime = self.referencetime
+        if referencetime is None:
+            referencetime = "<data>"
+        else:
+            referencetime = "{:~}".format(referencetime)
+        lst.append("Normalize to exposure time:\n {}".format(referencetime))
+        lst.append("Default exposure time:\n {:~}",self.defaultexpotime)
+        
+        return '\n'.join(lst)
     
     @property
     def simplecalibration(self):
@@ -149,15 +152,6 @@ class QXRFGeometry(with_metaclass(object)):
         self._update_devices()
     
     @property
-    def xrfdetector(self):
-        return self._xrfdetector
-        
-    @xrfdetector.setter
-    def xrfdetector(self,device):
-        self._xrfdetector = self._generate_device(device,xrfdetectors.factory)
-        self._update_devices()
-    
-    @property
     def optics(self):
         return self._optics
         
@@ -167,14 +161,23 @@ class QXRFGeometry(with_metaclass(object)):
         self._update_devices()
         
     @property
-    def xrfgeometry(self):
-        return self._xrfgeometry
+    def xrfgeometries(self):
+        return self._xrfgeometries
 
-    @xrfgeometry.setter
-    def xrfgeometry(self,device):
-        self._xrfgeometry = self._generate_device(device,xrfgeometries.factory)
+    @xrfgeometries.setter
+    def xrfgeometries(self,detgeoms):
+        self._xrfgeometries = []
+        if detgeoms:
+            for geom in detgeoms:
+                if not isinstance(geom,xrfgeometries.XRFGeometry):
+                    xrfgeometry,xrfdetector = geom
+                    geom = self._generate_device(xrfgeometry,xrfgeometries.factory)
+                    if geom:
+                        geom.detector = self._generate_device(xrfdetector,xrfdetectors.factory)
+                if geom:
+                    self._xrfgeometries.append(geom)
         self._update_devices()
-
+        
     def _generate_device(self,device,factory):
         if instance.isstring(device):
             return factory(device)
@@ -187,18 +190,31 @@ class QXRFGeometry(with_metaclass(object)):
             if self.diodeI0.secondarytarget is not None:
                 self.diodeI0.secondarytarget.geometry.source = self.source
             self.diodeI0.simplecalibration = self.simplecalibration
-        if self.xrfgeometry is not None:
-            if self.xrfdetector is not None:
-                self.xrfgeometry.detector = self.xrfdetector
-            if self.source is not None:
-                self.xrfgeometry.source = self.source
+        if self.xrfgeometries and self.source is not None:
+            for geom in self.xrfgeometries:
+                geom.source = self.source
 
     def setxrfposition(self,value):
-        self.xrfgeometry.detectorposition = value
+        if instance.isnumber(value):
+            value = [value]
+        for geom,pos in zip(self.xrfgeometries,value):
+            geom.detectorposition = value
     
     def getxrfdistance(self):
-        return self.xrfgeometry.distance.to("cm").magnitude
+        return [geom.distance.to("cm").magnitude for geom in self.xrfgeometries]
 
+    def getxrfdetectorposition(self):
+        return [geom.detectorposition.magnitude for geom in self.xrfgeometries]
+
+    def getxrfactivearea(self):
+        return [geom.detector.activearea.to("cm**2").magnitude for geom in self.xrfgeometries]
+
+    def getxrfanglein(self):
+        return [geom.anglein for geom in self.xrfgeometries]
+
+    def getxrfangleout(self):
+        return [geom.angleout for geom in self.xrfgeometries]
+        
     def setreferenceflux(self,flux):
         self.reference = units.Quantity(flux,"hertz")
     
@@ -260,18 +276,32 @@ class QXRFGeometry(with_metaclass(object)):
         
         Returns:
             op(linop): raw diode conversion operator
-            info(dict): pymca quantification info (flux and geometry)
+            info(list(dict)): pymca quantification info (flux and geometry)
         """
-        quant = {}
-        quant["activearea"] = self.xrfgeometry.detector.activearea
-        quant["anglein"] = self.xrfgeometry.anglein
-        quant["angleout"] = self.xrfgeometry.angleout
-        quant["distance"] = self.getxrfdistance()
-        xrfnormop,quant["flux"],quant["time"],expotime = self.xrfnormop(*args,**kwargs)
-        return xrfnormop,quant
+        xrfnormop,flux,time,expotime = self.xrfnormop(*args,**kwargs)
+
+        quants = []
+        for geom in self.xrfgeometries:
+            quant = {'flux':flux,'time':time}
+            quant["activearea"] = geom.detector.activearea
+            quant["anglein"] = geom.anglein
+            quant["angleout"] = geom.angleout
+            quant["distance"] = self.getxrfdistance()
+            quants.append(quant)
+            
+        return xrfnormop,quants
+    
+    def _beamfilter_transmission(self,energy,weights=None):
+        Tbeamfilters = [weightedsum(geom.detector.filter_transmission(energy,source=True),weights=weights) for geom in self.xrfgeometries]
+        if len(set(Tbeamfilters))>1:
+            beamfilters = '\n'.join([' Geometry {}: {}'.format(i,geom.beamfilters()) for i,geom in enumerate(self.xrfgeometries,1)])
+            raise RuntimeError('Geometries should have the same beam filters:\n{}'.format(beamfilters))
+        else:
+            Tbeamfilters = Tbeamfilters[0]
+        return Tbeamfilters
         
     def I0op(self,energy,expotime=None,weights=None,removebeamfilters=False):
-        """Calculate the flux before the sample from the transmission diode response
+        """Calculate the flux before the sample from the I0 diode response
         
         Args:
             energy(num|array): keV
@@ -284,14 +314,14 @@ class QXRFGeometry(with_metaclass(object)):
         op = self.diodeI0.fluxop(energy,0,time=expotime,weights=weights)
         
         if removebeamfilters:
-            Tbeamfilters = self.xrfgeometry.detector.filter_transmission(energy,source=True)
+            Tbeamfilters = self._beamfilter_transmission(energy,weights=weights)
             if Tbeamfilters!=1:
                 op = LinearOperator(1./Tbeamfilters,0)*op
 
         return op,expotime
 
     def Itop(self,energy,expotime=None,weights=None,removebeamfilters=False):
-        """Calculate the flux after the sample from the transmission diode response
+        """Calculate the flux after the sample from the It diode response
         
         Args:
             energy(num|array): keV
@@ -305,7 +335,7 @@ class QXRFGeometry(with_metaclass(object)):
         
         if removebeamfilters:
             # Filters after the sample (like atmosphere) are already taken into account
-            Tbeamfilters = self.xrfgeometry.detector.filter_transmission(energy,source=True)
+            Tbeamfilters = self._beamfilter_transmission(energy,weights=weights)
             if Tbeamfilters!=1:
                 op = LinearOperator(1./Tbeamfilters,0)*op
                        
