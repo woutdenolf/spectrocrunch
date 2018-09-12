@@ -28,6 +28,7 @@ import numpy as np
 import math
 import fractions
 import functools
+from ..common import instance
 
 def logscale(img):
     ret = -np.log(img/np.nanmax(img))
@@ -69,5 +70,13 @@ def roundlist(x,max_denominator=1000000):
     m = functools.reduce(lambda a,b: a*b//fractions.gcd(a,b), denoms)
     return np.array([int(a*m) for a in x])
 
+def weightedsum(values,weights=None):
+    if not instance.isarray(values):
+        return values
+    elif len(values)==1:
+        return values[0]
+    elif weights is None or not instance.isarray(weights):
+        return np.mean(values)
 
-
+    return values*weights/sum(weights)
+        

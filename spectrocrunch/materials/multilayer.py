@@ -33,6 +33,7 @@ from ..common import instance
 from ..common import cache
 from ..common import listtools
 from ..math import fit1d
+from ..math.common import weightedsum
 from . import xrayspectrum
 from ..simulation.classfactory import with_metaclass
 from ..math import noisepropagation
@@ -92,7 +93,7 @@ class Layer(object):
         if weights is None:
             return muL
         else:
-            return self.material.weightedsum(muL,weights=weights)
+            return weightedsum(muL,weights=weights)
         
     def addtofisx(self,setup,cfg):
         name = cfg.addtofisx_material(self.material)
@@ -282,7 +283,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             
         A = [layer.mass_att_coeff(energy) for layer in self.freeiter()]
         if weights is not None:
-            A = [layer.material.weightedsum(csi,weights=weights) for csi in A]
+            A = [weightedsum(csi,weights=weights) for csi in A]
                 
         params = self._refine_linear(A,y,**kwargs)
         for param,layer in zip(params,self.freeiter()):
@@ -298,7 +299,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             mu = layer.mass_att_coeff(energy,decomposed=True)
             w,cs = layer.csdict_parse(mu)
             if weights is not None:
-                cs = [layer.material.weightedsum(csi,weights=weights) for csi in cs]
+                cs = [weightedsum(csi,weights=weights) for csi in cs]
             A.extend(cs)
 
         params = self._refine_linear(A,y,**kwargs)

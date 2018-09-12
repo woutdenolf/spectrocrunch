@@ -752,7 +752,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         Cj = self._chargeperdiodephoton(energy2) # nE2
         return np.sum(wiYij*Cj[np.newaxis,:])/np.sum(weights*Ts)
 
-    def samplelineweights(self,energy,weights):
+    def samplelineweights(self,energy,weights=None):
         """Source weights after transmission
         
         Args:
@@ -766,7 +766,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         # Parse input
         energy,weights = self._parse_source(energy,weights=weights)
             
-        if self.simplecalibration:
+        if self.simplecalibration or not self.beforesample:
             return weights
         else:
             # wis = Iis/sum_i[Iis] = wi.Tis / sum_i[wi.Tis]
