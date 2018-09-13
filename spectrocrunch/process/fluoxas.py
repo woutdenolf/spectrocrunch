@@ -148,12 +148,6 @@ def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs)
     if not isinstance(cfgfiles,list):
         cfgfiles = [cfgfiles]
 
-    #lst = ["I0_counts","It_counts","If_counts","calc"]
-    #if not noxia:
-    #    lst.extend(["xrficr","xrfocr","xrfroi"])
-    #if encodercor:
-    #    lst.extend(["motors"])
-    #counters = instrument.counters(include=lst)
     lst = []
     if noxia:
         lst.extend(["xrficr","xrfocr","xrfroi"])
@@ -304,7 +298,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
         h5file,stacks,axes = align(h5file,stacks,axes, copygroups, bsamefile, default,\
             alignmethod, alignreference, refimageindex, cropalign, roialign, plot, stackdim)
         h5filelast = h5file
-        
+
     # Post normalization
     if postalignnormcounter is not None:
         skip = instrument.counters(include=["xrfroi"])

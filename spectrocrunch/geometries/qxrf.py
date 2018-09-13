@@ -164,6 +164,12 @@ class QXRFGeometry(with_metaclass(object)):
     def xrfgeometries(self):
         return self._xrfgeometries
 
+    @property
+    def xrfgeometry(self):
+        if len(self._xrfgeometries)!=1:
+            raise RuntimeError('More than one XRF geometry, use "xrfgeometries"')
+        return self.xrfgeometries[0]
+
     @xrfgeometries.setter
     def xrfgeometries(self,detgeoms):
         self._xrfgeometries = []

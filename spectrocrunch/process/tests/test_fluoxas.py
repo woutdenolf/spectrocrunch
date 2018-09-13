@@ -50,8 +50,11 @@ from ...materials import types
 from ...materials import multilayer
 from ...materials import pymca
 
-logger = logging.getLogger(__loader__.fullname)
-
+try:
+    logger = logging.getLogger(__loader__.fullname)
+except NameError:
+    logger = logging.getLogger(__name__)
+    
 class test_fluoxas(unittest.TestCase):
 
     def setUp(self):
@@ -73,12 +76,14 @@ class test_fluoxas(unittest.TestCase):
         ndet = 3
         detectorsinsum = [0,2]
         samult = [1,0.8,0.5]
-        samult.append(sum(i for i in samult))
-        energy = [8,8.5,9]
-        
+        samult.append(sum(samult[i] for i in detectorsinsum))
+        bkgs = [1,1,1]
+        bkgs.append(sum(bkgs[i] for i in detectorsinsum))
+        energy = [8.,9.]
+
         detectornames = ['detector{}'.format(i) for i in range(ndet)+['sum']]
         detectors = []
-        for det,sam in zip(detectornames,samult):
+        for det,sam,bkg in zip(detectornames,samult,bkgs):
             geometry = xrfgeometries.factory("sxm120",detector=leia,
                                          source=synchrotron,detectorposition=-15.)
             geometry.solidangle *= sam
@@ -88,40 +93,38 @@ class test_fluoxas(unittest.TestCase):
             detectors.append(detector)
 
             for en in energy:
-                pymcahandle.energy = en
+                pymcahandle.set_source(en)
+                pymcahandle.emax = en+1
                 mcas = []
                 peakareas = []
                 massfractions = []
                 detector['mca'].append(mcas)
                 detector['peakareas'].append(peakareas)
                 detector['massfractions'].append(massfractions)
+                
                 for sample in [sample1,sample2]:
                     sample.geometry = geometry
                     pymcahandle.sample = sample
                     pymcahandle.addtopymca(fresh=True)
                     pymcahandle.savepymca(cfgfile)
                     
-                    pymcahandle.loadfrompymca(cfgfile)
-                    pymcahandle.savepymca(cfgfile+'_')
-                    from ...materials.pymcadiff import diff
-                    diff(cfgfile,cfgfile+'_')
+                    #pymcahandle.loadfrompymca(cfgfile)
+                    #pymcahandle.emax = en+1
+                    #pymcahandle.savepymca(cfgfile+'_')
+                    #from ...materials.pymcadiff import diff
+                    #diff(cfgfile,cfgfile+'_')
                     #exit()
                     
-                    mca = pymcahandle.mca()+1
+                    mca = pymcahandle.mca()+bkg
                     mcas.append(mca)
-
-                    # This check is done more rigorously in test_pymca
-                    fpeakareas = pymcahandle.xraygroupareas()
-                    fmassfractions = pymcahandle.sample.elemental_massfractions()
+ 
+                for mca in mcas:
                     pymcahandle.setdata(mca)
                     fitresult = pymcahandle.fit(loadfromfit=False)
-                    for k,v in fitresult["fitareas"].items():
-                        np.testing.assert_allclose(v,fpeakareas[k],rtol=1e-2)
-                    for k,v in fitresult["massfractions"].items():
-                        np.testing.assert_allclose(v,fmassfractions[k.element],rtol=2e-2)
+                    #fitresult["plot"]()
                     peakareas.append(fitresult["fitareas"])
                     massfractions.append(fitresult["massfractions"])
-        exit()
+        
         self.procinfo = {}
         self.procinfo['include_detectors'] = ([2],detectorsinsum)
         self.procinfo['flux'] = pymcahandle.flux
@@ -130,8 +133,15 @@ class test_fluoxas(unittest.TestCase):
         self.procinfo['detectors'] = detectors
         self.procinfo['energy'] = energy
         
+        # check detector sum
+        for i in range(len(energy)):
+            for j in range(2):
+                a = sum(self.procinfo['detectors'][k]['mca'][i][j] for k in detectorsinsum)
+                b = self.procinfo['detectorsum']['mca'][i][j]
+                np.testing.assert_allclose(a,b)
+
     def tearDown(self):
-        pass#self.dir.cleanup()
+        self.dir.cleanup()
 
     def fitlabelsfile(self,quant=False):
         config = ConfigDict.ConfigDict()
@@ -260,12 +270,16 @@ class test_fluoxas(unittest.TestCase):
         self.destpath.cleanup()
       
     def _assert_fitresult(self,grpname,grpdata,info):
-        if 'Scatter' in grpname:
+        if 'Scatter' in grpname or 'chisq' in grpname:
             return
 
         grpname = str(grpname)
-        print grpname
-        
+        #print grpname
+        #for peakareas in info['peakareas']:
+        #    print peakareas
+        #for massfractions in info['massfractions']:
+        #    print massfractions
+            
         m = re.match("Scatter-(Compton|Peak)([0-9]+)",grpname)
         if m:
             grpname = m.group(1)
@@ -283,11 +297,11 @@ class test_fluoxas(unittest.TestCase):
                 values2 = [peakareas[1][grpname] for peakareas in info['peakareas']]
 
         for data,v1,v2 in zip(grpdata,values1,values2):
-            print data
-            print v1,v2
+            #print data
+            #print v1,v2
             mask = data==np.nanmax(data)
-            np.testing.assert_allclose(data[~mask],v1,rtol=1e-3)
-            np.testing.assert_allclose(data[mask],v2,rtol=1e-3)
+            np.testing.assert_allclose(data[~mask],v1,rtol=1e-4)
+            np.testing.assert_allclose(data[mask],v2,rtol=1e-4)
                                       
     def test_process(self):
         # Generate data
@@ -297,8 +311,8 @@ class test_fluoxas(unittest.TestCase):
         nmaps,nlines,nspec,nchan,ndet = data.shape
         scannumbers = [range(nmaps)]
 
-        parameters = [(None,"max"),(True,False),self.procinfo['include_detectors'],(True,False),
-                      (True,False),(True,False),(True,False),(2,),(True,False)]
+        parameters = [(None,"max"),(True,False),self.procinfo['include_detectors'],(False,True),
+                      (False,True),(True,False),(True,False),(2,),(True,False)]
         for combination in itertools.product(*parameters):
             alignmethod,cfgfileuse,include_detectors,adddetectors,\
             addbeforefit,quant,dtcor,stackdim,correctspectra = combination
@@ -313,7 +327,7 @@ class test_fluoxas(unittest.TestCase):
             if quant:
                 geom = qxrfgeometry
                 if addbefore:
-                    geom.xrfgeometries = self.procinfo['detectorsum']['geometry']
+                    geom.xrfgeometries = [self.procinfo['detectorsum']['geometry']]
                 else:
                     geom.xrfgeometries = [self.procinfo['detectors'][i]['geometry'] for i in include_detectors]
                 prealignnormcounter = None
@@ -348,6 +362,7 @@ class test_fluoxas(unittest.TestCase):
             
             with self.env_destpath():
                 for skippre in [False,]:
+                    logger.debug("alignmethod = {}".format(alignmethod))
                     logger.debug("skippre = {}".format(skippre))
                     logger.debug("stackdim = {}".format(stackdim))
                     logger.debug("cfgfiles = {}".format(cfgfiles))
@@ -376,7 +391,10 @@ class test_fluoxas(unittest.TestCase):
                     parameters["skippre"] = skippre
                     parameters["instrument"] = "id21"
                     parameters["counters"] = ["arr_norm"]
-
+                    parameters["fastfitting"] = True
+                    parameters["replacenan"] = False
+                    parameters["crop"] = alignmethod is not None
+                    
                     process(sourcepath,self.destpath.path,radix,scannumbers,cfgfiles,**parameters)
 
                     # Check generated spectra (files)
@@ -436,7 +454,7 @@ class test_fluoxas(unittest.TestCase):
                         expected.append(h5file)
                     if alignmethod is not None and alignreference is not None:
                         expected.append("{}.align.h5".format(radix))
-                        h5file = "{}.replace.h5".format(radix)
+                        h5file = "{}.crop.h5".format(radix)
                         expected.append(h5file)
                     self.destpath.compare(sorted(expected),files_only=True,recursive=False)
 
@@ -493,7 +511,9 @@ class test_fluoxas(unittest.TestCase):
                     if cfgfileuse and dtcor:
                         with nexus.File(h5file,mode='r') as f:
                             for detector,stack in stacks.items():
-                                if detector == 'detectorsum':
+                                if detector == 'counters':
+                                    continue
+                                elif detector == 'detectorsum':
                                     info = self.procinfo['detectorsum']
                                 else:
                                     info = self.procinfo['detectors'][int(detector[8:])]

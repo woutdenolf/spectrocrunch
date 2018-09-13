@@ -355,7 +355,7 @@ def xiadetectorselect_numbers(detectors,skipdetectors,keepdetectors):
 
     if len(detectors)==0:
         return detectors
-    
+
     skip = xiadetectorselect_tonumber(skipdetectors)
     keep = xiadetectorselect_tonumber(keepdetectors)
 
