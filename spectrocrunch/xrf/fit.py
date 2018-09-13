@@ -506,7 +506,6 @@ def PerformBatchFit(filelist,outdir,outname,cfgfile,energy,mlines=None,quant=Non
                     labels.append(label)
                     files.append(f)
                     j += 1
-                    
         else:
             # TODO: parallelize this
             b = McaAdvancedFitBatch.McaAdvancedFitBatch(cfgfile,filelist=filelist,outputdir=outdir,

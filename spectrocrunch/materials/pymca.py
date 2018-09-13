@@ -311,8 +311,18 @@ class PymcaBaseHandle(object):
         out["interpol_energy"] = interpol_energy
         out["interpol_channel"] = interpol_channel
         out["ypileup"] = digestedresult["pileup"]
-        out["ymatrix"] = ymatrix+yback
-                
+        out["ymatrix"] = ymatrix+yback # TODO: continuum is already in ymatrix, snip not
+        
+        def _plot():
+            plt.plot(out["energy"],out["y"],'+',label='data')
+            plt.plot(out["energy"],out["yfit"],label='pymca fit')
+            plt.plot(out["energy"],out["ymatrix"],label='pymca matrix')
+            plt.plot(out["energy"],out["yback"],label='background')
+            plt.gca().set_yscale('log', basey=10)
+            plt.legend()
+            plt.show()
+        out["plot"] = _plot
+        
         return out
 
 
@@ -457,7 +467,7 @@ class PymcaHandle(PymcaBaseHandle):
     
         self.energy = instance.asarray(cfg["fit"]["energy"])
         self.energy = self.energy[ind].astype(float)
-        self.weights = np.asarray(cfg["fit"]["energyweight"],dtype=int)
+        self.weights = np.asarray(cfg["fit"]["energyweight"],dtype=float)
         self.weights = self.weights[ind]
         self.scatter = np.asarray(cfg["fit"]["energyscatter"],dtype=int)
         self.scatter = self.scatter[ind]
