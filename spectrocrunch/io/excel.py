@@ -74,10 +74,9 @@ class DataFrame(object):
         self.priority = self.priorities(priority)
         
         if rowlevels:
-            n = len(rowlevels)
-            kwargs["index"] = pd.MultiIndex(names=rowlevels,levels=[[]]*n,labels=[[]]*n)
+            kwargs["index"] = pd.MultiIndex.from_tuples([], names=rowlevels)
         if columnlevels:
-            kwargs["columns"] = pd.MultiIndex(names=columnlevels,levels=[[]]*n,labels=[[]]*n)
+            kwargs["index"] = pd.MultiIndex.from_tuples([], names=columnlevels)
         
         if df is None:
             self.df = pd.DataFrame(**kwargs)

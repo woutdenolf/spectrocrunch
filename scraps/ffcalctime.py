@@ -26,11 +26,16 @@
 import os, sys
 sys.path.insert(1,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from spectrocrunch.materials.compoundfromformula import compoundfromformula
-from spectrocrunch.materials.compoundfromname import compoundfromname
-from spectrocrunch.materials.mixture import mixture
+from spectrocrunch.math import noisepropagation
 from spectrocrunch.simulation import calcnoise
-from spectrocrunch.simulation import materials
+from spectrocrunch.materials import multilayer
+from spectrocrunch.geometries import flatarea
+from spectrocrunch.sources import xray as xraysources
+from spectrocrunch.detectors import area
+from spectrocrunch.materials.compoundfromformula import CompoundFromFormula
+from spectrocrunch.materials.compoundfromname import compoundfromname
+from spectrocrunch.materials.mixture import Mixture
+
 from spectrocrunch.fullfield import create_hdf5_imagestacks as ff
 
 import numpy as np
@@ -104,7 +109,7 @@ def hg107():
     prussianblue = compoundfromname("prussianblue")
     hydrocerussite = compoundfromname("hydrocerussite")
 
-    sample = materials.Multilayer(material=[ultralene,prussianblue,hydrocerussite,tape],thickness=[4.,10.,10.,5.])
+    sample = multilayer.Multilayer(material=[ultralene,prussianblue,hydrocerussite,tape],thickness=[4.,10.,10.,5.])
 
     getsignal(sourcepath,radix,indices)
 
@@ -113,8 +118,8 @@ def hg64():
     # Estimate sample
     ultralene = compoundfromname("ultralene")
     tape = compoundfromname("kapton")
-    cadmiumsulfide = compoundfromname("cadmiumsulfide")
-    sample = materials.Multilayer(material=[ultralene,cadmiumsulfide,tape],thickness=[4.,10.,5.])
+    cadmiumsulfide = compoundfromname("cadmium sulfide")
+    sample = multilayer.Multilayer(material=[ultralene,cadmiumsulfide,tape],thickness=[4.,10.,5.])
 
     # Experimental data
     sourcepath = ["/data/id21/store/backup_visitor/2016/hg64/id21/7913_50RH_ffCd/ff/map1"]
@@ -164,9 +169,36 @@ def hg64():
 
     plt.show()
 
+def hg94(): 
+    ultralene = compoundfromname("ultralene")
+    binder = compoundfromname("linseed oil")
+    pigment = compoundfromname("lazurite")
+    mix = Mixture([binder,pigment],[0.5,0.5])
+    
+    sample = multilayer.Multilayer(material=[ultralene,mix,ultralene],
+                                   thickness=[4.064e-4,10e-4,4.064e-4],
+                                   fixed=[True,False,True])
+
+    flux = 1e5
+    energy = np.linspace(2.46,2.65,140)
+    params = {'tframe_data': 0.07,
+              'tframe_flat': 0.07,
+              'nframe_data': 100,
+              'nframe_flat': 100,
+              'nframe_dark': 10}
+     
+    ffsetup = calcnoise.id21_ffsetup(sample=sample)
+    
+    signal,noise = ffsetup.xanes(flux,energy,**params)
+    signal = np.random.normal(signal,noise)
+    p = plt.plot(energy,signal)
+    plt.xlabel("Energy (keV)")
+    plt.ylabel("Absorbance")
+    plt.show()
+
 
 if __name__ == '__main__':
     
-    hg64()
+    hg94()
     
 

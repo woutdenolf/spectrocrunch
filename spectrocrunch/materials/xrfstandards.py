@@ -57,6 +57,7 @@ class ThinFilmStandard(Standard):
         arealdensity_film = dict(zip(map(element.Element,arealdensity.keys()),arealdensity.values()))
 
         if filmthickness is None:
+            vacuum = compoundfromname.compoundfromname('dummy')
             wfrac_substrate = substrate.elemental_massfractions()
             
             elfilm = set(arealdensity_film.keys())
@@ -64,11 +65,13 @@ class ThinFilmStandard(Standard):
             if elfilm & elsubstrate:
                 raise RuntimeError("Film and substrate cannot contain the same elements")
                 
-            kwargs["material"] = substrate
+            #kwargs["material"] = substrate
+            kwargs["material"] = vacuum
             kwargs["thickness"] = substratethickness
             if "extraelements" not in kwargs:
                 kwargs["extraelements"] = [] 
             kwargs["extraelements"].extend(elfilm)
+            kwargs["extraelements"].extend(elsubstrate)
             
             self._arealdensities = arealdensity_film
             m = substrate.density*substratethickness
