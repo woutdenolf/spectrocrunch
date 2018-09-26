@@ -37,7 +37,7 @@ def guess_gaussian(x,data):
     return np.array([x0,sx,A],dtype=np.float32)
 
 def fitgaussian(x,data):
-    return leastsq(x,data,guessfunc=guess_gaussian,func=gaussian)
+    return leastsq(x,data,guessfunc=guess_gaussian,fitfunc=gaussian)
 
 def leastsq(x,data,guessfunc=None,fitfunc=None):
     guess = guessfunc(x,data)
