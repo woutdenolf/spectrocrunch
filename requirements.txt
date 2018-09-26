@@ -1,9 +1,3 @@
-
-
---trusted-host www.silx.org
---find-links http://www.silx.org/pub/wheelhouse/
---only-binary PyQt4,PyQt5,PySide
-
 future
 numpy>=1.12
 scipy
@@ -23,4 +17,4 @@ pint
 Mako
 pyopencl==2015.1; python_version < '3.6'
 pyopencl==2018.1; python_version >= '3.6'
-pymca
+#pymca
