@@ -28,6 +28,16 @@ function python_version()
 }
 
 
+function python_major_version()
+{
+    local tmp="import sys;print(sys.version_info[0])"
+    tmp=$(python_get "${tmp}") 
+    if [[ -z ${tmp} ]];then
+        tmp=-1
+    fi
+    echo $tmp
+}
+
 function python_full_version()
 {
     local tmp="import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)"
@@ -61,6 +71,16 @@ function python_lib()
 function python_pkg()
 {
     python_get "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib());"
+}
+
+
+function python_system_pkg()
+{
+    if [[ $(python_virtualenv_active) == true ]];then
+        (deactivate;python_pkg)
+    else
+        python_pkg
+    fi
 }
 
 
@@ -166,7 +186,12 @@ function pip_bin()
 
 function python_virtualenv_active()
 {
-    if [[ "$VIRTUAL_ENV" != "" ]]; then
+    #if [[ "$VIRTUAL_ENV" != "" ]]; then
+    #    echo true
+    #else
+    #    echo false
+    #fi
+    if [[ $(python_get "import sys;print(hasattr(sys, 'real_prefix'))") == 'True' ]];then
         echo true
     else
         echo false
@@ -178,6 +203,18 @@ function python_virtualenv_deactivate()
 {
     if [[ $(python_virtualenv_active) == true ]]; then
         deactivate
+    fi
+}
+
+
+function python_virtualenv_system_link()
+{
+    if [[ $(python_virtualenv_active) == true ]]; then
+        local _pkgdir=$(python_pkg)
+        local _syspkgdir=$(python_system_pkg)
+        for var in "$@";do
+            ln -s ${_syspkgdir}/${var} ${_pkgdir}/${var}
+        done
     fi
 }
 
@@ -410,22 +447,30 @@ function require_pythondev()
 
 function require_pyqt4()
 {
-    mapt-get install $(python_apt)-pyqt4
-    pip_install pyqt4
+    if [[ $(python_hasmodule "PyQt4") == false ]]; then
+        mapt-get install $(python_apt)-qt4
+    fi
+    if [[ $(python_hasmodule "PyQt4") == false ]]; then
+        python_virtualenv_system_link PyQt4 sip.so sipconfig.py
+    fi
 }
 
 
 function require_pyqt5()
 {
-    mapt-get install $(python_apt)-pyqt5
-    pip_install pyqt5
+    if [[ $(python_hasmodule "PyQt5") == false ]]; then
+        pip_install pyqt5
+    fi
 }
 
 
 function require_pyqt()
 {
-    require_pyqt4
-    require_pyqt5
+    if [[ $(python_major_version) == 2 ]];then
+        require_pyqt4
+    else
+        require_pyqt5
+    fi
 }
 
 
