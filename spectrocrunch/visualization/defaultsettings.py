@@ -50,7 +50,10 @@ def figsize(publish="screen",aspect=0.75,nsidebyside=1,space=0.,widescreen=True)
         else:
             width = 13.33
     else:
-        width = 6.4
+        if instance.isnumber(publish):
+            width = publish
+        else:
+            width = 6.4
     width *= (1-space)/nsidebyside
     return width,width*aspect
         

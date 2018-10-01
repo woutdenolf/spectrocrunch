@@ -68,7 +68,7 @@ def factory(cls, name, *args,**kwargs):
         name(str): name of class that needs to be created
 
     Returns:
-        class
+        class instance
     """
     return cls.clsfactory(name)(*args,**kwargs)
 
@@ -98,7 +98,7 @@ def register(cls, regcls, name):
         
 class FactoryMeta(type):
     """
-    Metaclass used to register all lens classes inheriting from FactoryBase 
+    Metaclass used to register all classes inheriting from FactoryMeta 
     """
     
     def __new__(self, name, bases, attr):

@@ -29,10 +29,6 @@ import warnings
 def gaussian(x,x0,sx,A):
     return A/(np.sqrt(2*np.pi)*sx)*np.exp(-(x-x0)**2/(2*sx**2))
 
-def errorf_gaussian(p,x,data):
-    x0,sx,A = tuple(p)
-    return np.ravel(gaussian(x,x0,sx,A)-data)
-
 def guess_gaussian(x,data):
     x0i = np.argmax(data)
     x0 = x[x0i]
@@ -41,15 +37,19 @@ def guess_gaussian(x,data):
     return np.array([x0,sx,A],dtype=np.float32)
 
 def fitgaussian(x,data):
-    guess = guess_gaussian(x,data)
+    return leastsq(x,data,guessfunc=guess_gaussian,fitfunc=gaussian)
 
+def leastsq(x,data,guessfunc=None,fitfunc=None):
+    guess = guessfunc(x,data)
+    errorfunc = lambda p,x,data: np.ravel(fitfunc(x,*p)-data)
+    
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        p, success = scipy.optimize.leastsq(errorf_gaussian, guess, args=(x,data))
+        p, success = scipy.optimize.leastsq(errorfunc, guess, args=(x,data))
         success = success>0 and success<5
 
     return p, success
-    
+
 def xyremovenan(x,y):
     b = np.logical_and(~np.isnan(x),~np.isnan(y))
     x[b],y[b]

@@ -411,6 +411,7 @@ function require_pythondev()
 function require_pyqt4()
 {
     mapt-get install $(python_apt)-pyqt4
+    pip_install pyqt4
 }
 
 

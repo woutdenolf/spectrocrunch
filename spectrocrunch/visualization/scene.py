@@ -972,7 +972,7 @@ class Image(Item):
         
         return legend,colors,visible
 
-    def addlegend(self,scene,settings,items,newitems,labels,colors,visible=True,astext=False,withpatch=False):
+    def addlegend(self,scene,settings,items,newitems,labels,colors,visible=True,astext=True,withpatch=False):
         if not labels:
             return
 

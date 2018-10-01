@@ -382,7 +382,7 @@ class sxm120(LinearXRFGeometry):
 
         kwargs["positionunits"] = kwargs.get("positionunits","mm")
         kwargs["positionsign"] = kwargs.get("sign",1)
-        kwargs["zerodistance"] = units.Quantity(kwargs.get("zerodistance",56.5),"mm")
+        kwargs["zerodistance"] = units.Quantity(kwargs.get("zerodistance",57.),"mm")
         kwargs["detectorposition"] = kwargs.get("detectorposition",0)
 
         super(sxm120,self).__init__(**kwargs)

@@ -25,6 +25,7 @@
 import os
 import re
 import numpy as np
+from .utils import mkdir
 
 class asciifile(object):
     """Interface to an ascii file
@@ -77,6 +78,7 @@ class Writer(object):
 
     def __enter__(self):
         if self.filename:
+            mkdir(os.path.dirname(self.filename))
             self.open_file = open(self.filename, self.mode)
         else:
             self.open_file = None
