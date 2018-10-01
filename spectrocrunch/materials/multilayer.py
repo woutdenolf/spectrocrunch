@@ -28,6 +28,7 @@ import scipy.integrate
 import scipy.special
 import collections
 import fisx
+import logging
 
 from ..common import instance
 from ..common import cache
@@ -40,6 +41,8 @@ from ..math import noisepropagation
 from . import pymca
 from . import element
 from ..materials import compoundfromdb
+
+logger = logging.getLogger(__name__)
 
 class Layer(object):
 
@@ -288,6 +291,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         params = self._refine_linear(A,y,**kwargs)
         for param,layer in zip(params,self.freeiter()):
             setattr(layer,refinedattr,param/getattr(layer,fixedattr))
+            logger.info('Refined {} of "{}": {}'.format(refinedattr,layer,getattr(layer,refinedattr)))
 
     def refinecomposition(self,energy,absorbance,weights=None,fixthickness=True,**kwargs):
         y = absorbance
@@ -316,9 +320,11 @@ class Multilayer(with_metaclass(cache.Cache)):
             
             if fixthickness:
                 layer.density = s/layer.xraythicknessin
+                logger.info('Refined density of "{}": {} g/cm^3'.format(layer,layer.density))
             else:
                 layer.xraythicknessin = s/layer.density
-            
+                logger.info('Refined thickness "{}": {} g/cm^3'.format(layer,layer.xraythicknessin))
+                
     def refinethickness(self,energy,absorbance,**kwargs):
         self._refinerhod(energy,absorbance,"xraythicknessin","density",**kwargs)
 

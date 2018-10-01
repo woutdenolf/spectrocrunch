@@ -21,10 +21,13 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+import json
 
 from ..simulation.classfactory import with_metaclass
 from ..math import noisepropagation
 from ..common import instance
+from ..resources import resource_filename
+from ..common import units
 
 class Detector(with_metaclass()):
 
@@ -61,7 +64,6 @@ class Detector(with_metaclass()):
         Returns:
             numpy.array:
         """
-
         qe = self.qe(visspectrum) 
 
         N,qe = self.propagate_broadcast(N,qe)
@@ -107,7 +109,13 @@ class pcoedge55(Detector):
     aliases = ["PCO Edge 5.5"]
 
     def __init__(self,geometry=None):
-        qe = lambda visspectrum: 0.7
+        with open(resource_filename('id21/pcoedge5.5.json'),'r') as json_file:  
+            data = json.load(json_file)
+            x = data['x']
+            y = data['qe']
+            x = units.Quantity(x,data['xunit'])
+            qe = lambda visspectrum: visspectrum.sample(x,y)
+        
         super(pcoedge55, self).__init__(etoDU=65536/30000., qe=qe, DUoffset=95.5, darkcurrent=7.4, readoutnoise=0.95, geometry=geometry)
 
 class frelon2k16(Detector):
@@ -131,7 +139,7 @@ class frelon2k14(Detector):
     def __init__(self,geometry=None):
         # https://doi.org/10.1063/1.2783112
         # https://doi.org/10.1107/S0909049506000550
-        qe = lambda energy: [0.7]*energy.size
+        qe = lambda visspectrum: 0.7
         super(frelon2k14, self).__init__(etoDU=16384/320000., qe=qe, DUoffset=100., darkcurrent=1., readoutnoise=24., geometry=geometry)
 
 classes = Detector.clsregistry

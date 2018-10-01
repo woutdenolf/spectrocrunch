@@ -39,8 +39,7 @@ from .proc_crop import execute as execcrop
 from .proc_common import defaultstack
 from .proc_common import flattenstacks
 
-def createconfig_pre(sourcepath,destpath,radix,**kwargs):
-
+def createconfig(sourcepath,destpath,radix,**kwargs):
     rebin = kwargs.get("rebin",(1,1))
     roiraw = kwargs.get("roiraw",None)
     stackdim = kwargs.get("stackdim",2)
@@ -79,6 +78,10 @@ def createconfig_pre(sourcepath,destpath,radix,**kwargs):
         "hdf5output": os.path.join(destpath,"{}{}.h5".format(radix[0],extout)),
         "roi": roiraw,
         "rebin":rebin}
+    return config
+    
+def createconfig_pre(sourcepath,destpath,radix,**kwargs):
+    config = createconfig(sourcepath,destpath,radix,**kwargs)
 
     # Create configuration file
     if not os.path.exists(destpath):

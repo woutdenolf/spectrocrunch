@@ -28,6 +28,7 @@ from ..common import instance
 from ..common import units
 
 import numpy as np
+from scipy.interpolate import interp1d
 
 class discrete(object):
     
@@ -129,4 +130,10 @@ class discrete(object):
         else:
             x = instance.asarray(x)
             return sum(x*self.ratios)
-            
+
+    def sample(self,x,y):
+        x = units.Quantity(x,'keV').to('keV','spectroscopy').magnitude
+        x,y = listtools.sort2lists(x,y)
+        f = interp1d(x,y,kind='linear',bounds_error=False,fill_value=(y[0],y[-1]))
+        return self.weightedsum(f(self.energies))
+    
