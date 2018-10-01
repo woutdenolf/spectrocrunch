@@ -179,15 +179,15 @@ function pyopencl_install()
         mapt-get install ocl-icd-opencl-dev ocl-icd-libopencl1 opencl-headers libffi-dev
         
         intel_install_opencldrivers
+        pip_install pybind11
         pip_install mako
         pip_install pyopencl
-        pip_install pybind11
-        
+
         if [[ $(pyopencl_test) == false ]]; then
             amd_install_opencldrivers
+            pip_install pybind11
             pip_install mako
             pip_install pyopencl
-            pip_install pybind11
         fi
     fi
 }
