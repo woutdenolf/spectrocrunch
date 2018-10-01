@@ -26,7 +26,6 @@ import os
 from glob import glob
 import fabio
 import numpy as np
-from copy import copy
 import itertools
 import collections
 import operator
@@ -50,7 +49,7 @@ XiaName = collections.namedtuple('XiaName', ['radix', 'mapnum', 'linenum', 'labe
 class XiaNameParser():
 
     def __init__(self,counters=None):
-        m1 = re.compile('(?P<name>.*?)(?P<detector>[0-9]+|sum|Sum|S[0-9]+)$')
+        m1 = re.compile('(?P<name>.*?)_?(?P<detector>[0-9]+|sum|Sum|S[0-9]+)$')
         
         self.defaultcounters = {"PUZ_arr":{"detector":None},
                                "PUZ_xmap":{"detector":m1},
@@ -224,11 +223,10 @@ def xiadetectorselect_tostring(detectors):
     Returns:
         list(str)
     """
-
-    lst = copy(detectors)
+    lst = list(detectors)
     for i,s in enumerate(detectors):
         if instance.isnumber(s):
-            lst[i] = "xia{:02}".format(s)
+            lst[i] = "xia{:02d}".format(s)
         elif instance.isstring(s):
             if not s.startswith("xia"):
                 lst[i] = "xia{}".format(s)
@@ -248,10 +246,10 @@ def xiadetectorselect_tocountersufix(detectors):
         list(str)
     """
 
-    lst = copy(detectors)
+    lst = list(detectors)
     for i,s in enumerate(detectors):
         if instance.isnumber(s):
-            lst[i] = "{:02}".format(s)
+            lst[i] = "{:02d}".format(s)
         elif instance.isstring(s):
             if s.startswith("xia"):
                 s = s[3:]
@@ -263,7 +261,7 @@ def xiadetectorselect_tocountersufix(detectors):
     return lst
     
 def xiadetectorselect_tonumber(detectors):
-    """Convert detector identifier to number:
+    """Convert detector identifier to number (used for stats):
         0 -> 0
         "xia00" -> 0
         "S0" -> skip
@@ -289,7 +287,7 @@ def xiadetectorselect_tonumber(detectors):
             
     return lst
             
-def xiadetectorselect_files(filenames,skipdetectors,keepdetectors):
+def xiadetectorselect_files(filenames,exclude_detectors,include_detectors):
     """Select xia detectors
 
     Args:
@@ -303,8 +301,8 @@ def xiadetectorselect_files(filenames,skipdetectors,keepdetectors):
     if len(filenames)==0:
         return filenames
 
-    skip = xiadetectorselect_tostring(skipdetectors)
-    keep = xiadetectorselect_tostring(keepdetectors)
+    skip = xiadetectorselect_tostring(exclude_detectors)
+    keep = xiadetectorselect_tostring(include_detectors)
 
     if not skip and not keep:
         return filenames
@@ -320,13 +318,12 @@ def xiadetectorselect_files(filenames,skipdetectors,keepdetectors):
     
     return filenames
 
-def xiadetectorselect_counterfiles(filenames,skipdetectors,keepdetectors):
+def xiadetectorselect_counterfiles(filenames,exclude_detectors,include_detectors):
     if len(filenames)==0:
         return filenames
 
-    skip = xiadetectorselect_tocountersufix(skipdetectors)
-    keep = xiadetectorselect_tocountersufix(keepdetectors)
-    keep.append("") # keep counters not associated to a detector
+    skip = xiadetectorselect_tocountersufix(exclude_detectors)
+    keep = xiadetectorselect_tocountersufix(include_detectors)
 
     if not skip and not keep:
         return filenames
@@ -337,13 +334,15 @@ def xiadetectorselect_counterfiles(filenames,skipdetectors,keepdetectors):
         valid = lambda x: not any(x.endswith(s) for s in skip)
     else:
         valid = lambda x: not any(x.endswith(s) for s in skip) and any(x.endswith(s) for s in keep)
+    
+    ctrvalid = lambda x: valid(x) or not x
 
-    filenames = [f for f in filenames if valid(xianameparser.parse(f).label)]
+    filenames = [f for f in filenames if ctrvalid(xianameparser.parse(f).detector)]
     
     return filenames
     
-def xiadetectorselect_numbers(detectors,skipdetectors,keepdetectors):
-    """Select xia detectors
+def xiadetectorselect_numbers(detectors,exclude_detectors,include_detectors):
+    """Select xia detectors (used for stats)
 
     Args:
         detectors(list(int)): 
@@ -356,8 +355,8 @@ def xiadetectorselect_numbers(detectors,skipdetectors,keepdetectors):
     if len(detectors)==0:
         return detectors
 
-    skip = xiadetectorselect_tonumber(skipdetectors)
-    keep = xiadetectorselect_tonumber(keepdetectors)
+    skip = xiadetectorselect_tonumber(exclude_detectors)
+    keep = xiadetectorselect_tonumber(include_detectors)
 
     if not skip and not keep:
         return detectors
@@ -573,12 +572,12 @@ class xiadict(dict):
             self["overwrite"] = False
 
         if "detectors" not in self:
-            self["detectors"] = {"skip":[],"keep":[],"add":False}
+            self["detectors"] = {"exclude":[],"include":[],"add":False}
         else:
-            if "skip" not in self["detectors"]:
-                self["detectors"]["skip"] = []
-            if "keep" not in self["detectors"]:
-                self["detectors"]["keep"] = []
+            if "exclude" not in self["detectors"]:
+                self["detectors"]["exclude"] = []
+            if "include" not in self["detectors"]:
+                self["detectors"]["include"] = []
             if "add" not in self["detectors"]:
                 self["detectors"]["add"] = False
 
@@ -605,11 +604,11 @@ class xiadict(dict):
         if "counter_reldir" not in self:
             self["counter_reldir"] = "." # relative to the path of the xia files
 
-    def skipdetectors(self,lst):
-        self["detectors"]["skip"] = lst
+    def exclude_detectors(self,lst):
+        self["detectors"]["exclude"] = lst
 
-    def keepdetectors(self,lst):
-        self["detectors"]["keep"] = lst
+    def include_detectors(self,lst):
+        self["detectors"]["include"] = lst
 
     def onlydata(self):
         self["indexing"]["data"] = True
@@ -792,11 +791,11 @@ class xiadata(object):
     def _levelcache(self):
         return self._cache.cachelevel(self._level)
 
-    def skipdetectors(self,lst):
-        self._xiaconfig.skipdetectors(lst)
+    def exclude_detectors(self,lst):
+        self._xiaconfig.exclude_detectors(lst)
 
-    def keepdetectors(self,lst):
-        self._xiaconfig.keepdetectors(lst)
+    def include_detectors(self,lst):
+        self._xiaconfig.include_detectors(lst)
 
     def onlydata(self):
         self._xiaconfig.onlydata()
@@ -1270,15 +1269,15 @@ class xiadata(object):
                 os.makedirs(path)
 
         img.write(filename)
-        
+    
     def xiadetectorselect_files(self,lst):
-        return xiadetectorselect_files(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
+        return xiadetectorselect_files(lst,self._xiaconfig["detectors"]["exclude"],self._xiaconfig["detectors"]["include"])
 
     def xiadetectorselect_counterfiles(self,lst):
-        return xiadetectorselect_counterfiles(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
+        return xiadetectorselect_counterfiles(lst,self._xiaconfig["detectors"]["exclude"],self._xiaconfig["detectors"]["include"])
 
     def xiadetectorselect_numbers(self,lst):
-        return xiadetectorselect_numbers(lst,self._xiaconfig["detectors"]["skip"],self._xiaconfig["detectors"]["keep"])
+        return xiadetectorselect_numbers(lst,self._xiaconfig["detectors"]["exclude"],self._xiaconfig["detectors"]["include"])
     
     def datafilenames(self):
         raise NotImplementedError("xiadata should not be instantiated, use one of the derived classes")

@@ -22,9 +22,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..io import nexus
-
 import re
+
+from ..io import nexus
+from .groups_hdf5_imagestacks import Group
 
 def get_hdf5_imagestacks(h5file,datagroupnames):
     """
@@ -57,7 +58,7 @@ def get_hdf5_imagestacks(h5file,datagroupnames):
         axes = None
 
         # Get data groups
-        groups = [k for k in f.keys() if any(re.match(pattern,k) is not None for pattern in datagroupnames)]
+        groups = [Group(k) for k in f.keys() if any(re.match(pattern,k) is not None for pattern in datagroupnames)]
         stacks = {}
         for grp in groups:
             stacks[grp] = {k:f[grp][k].name for k in f[grp].keys() if "." not in k}

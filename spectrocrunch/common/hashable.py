@@ -63,7 +63,8 @@ class Hashable(Comparable):
     def __hash__(self):
         return hash(self.__str__())
 
-    
+    def encode(self,*args,**kwargs):
+        return self.__str__().encode(*args,**kwargs)
 
 
 
