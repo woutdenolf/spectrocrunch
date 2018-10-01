@@ -212,9 +212,13 @@ function python_virtualenv_system_link()
     if [[ $(python_virtualenv_active) == true ]]; then
         local _pkgdir=$(python_pkg)
         local _syspkgdir=$(python_system_pkg)
+        local _restore=$(pwd)
+        cd ${_pkgdir}
         for var in "$@";do
-            ln -s ${_syspkgdir}/${var} ${_pkgdir}/${var}
+            ln -s ${_syspkgdir}/${var} ${var}
+            ls -all ${var}
         done
+        cd ${_restore}
     fi
 }
 
