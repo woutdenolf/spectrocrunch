@@ -34,7 +34,7 @@ class Lens(with_metaclass()):
     Class representing a lens
     """
 
-    def __init__(self, magnification=None, NA=None, thickness=None, material=None):
+    def __init__(self, magnification=None, NA=None, thickness=None, material=None, lightyieldcor=1):
         """
         Args:
             magnification(num): magnification
@@ -51,6 +51,7 @@ class Lens(with_metaclass()):
         self.NA = float(NA)
         self.thickness = float(thickness)
         self.material = material
+        self.lightyieldcor = lightyieldcor
 
     def transmission(self,visspectrum):
         linatt = np.asarray(self.material.linear_attenuation_coefficient(visspectrum.lines))
@@ -64,12 +65,14 @@ class Lens(with_metaclass()):
 
         if source=="point":
             k = np.tan(np.arcsin(self.NA/nmedium)) # == 1/(2.F#)
-            return k**2*self.magnification**2/(2*(self.magnification+1.))**2
+            yld = k**2*self.magnification**2/(2*(self.magnification+1.))**2
         elif source=="lambertian":
             k = np.tan(np.arcsin(self.NA/nmedium)) # == 1/(2.F#)
-            return self.magnification**2/(((self.magnification+1.)/k)**2+self.magnification**2)
+            yld = self.magnification**2/(((self.magnification+1.)/k)**2+self.magnification**2)
         else:
-            return self.NA**2/4.
+            yld = self.NA**2/4. # approximation to point source
+        
+        return yld*self.lightyieldcor
         
     def propagate(self,N,visspectrum,nrefrac=None,source="point",forward=True):
         """Error propagation of a number of photons.
@@ -139,7 +142,7 @@ class mitutoyoid21_10x(Lens):
     aliases = ["Mitutoyo ID21 10x"]
 
     def __init__(self):
-        super(mitutoyoid21_10x, self).__init__(magnification=10, NA=0.42, thickness=8., material=Material("glass","BK7","SCHOTT"))
+        super(mitutoyoid21_10x, self).__init__(magnification=10, NA=0.42, thickness=8., material=Material("glass","BK7","SCHOTT"), lightyieldcor = 0.1)
 
 class mitutoyoid21_20x(Lens):
     """
@@ -148,7 +151,7 @@ class mitutoyoid21_20x(Lens):
     aliases = ["Mitutoyo ID21 20x"]
 
     def __init__(self):
-        super(mitutoyoid21_20x, self).__init__(magnification=20, NA=0.42, thickness=7.5, material=Material("glass","BK7","SCHOTT"))
+        super(mitutoyoid21_20x, self).__init__(magnification=20, NA=0.42, thickness=7.5, material=Material("glass","BK7","SCHOTT"), lightyieldcor = 0.1)
 
 classes = Lens.clsregistry
 aliases = Lens.aliasregistry

@@ -111,6 +111,7 @@ class id21_ffsetup(object):
             N = self.olens.propagate(N,self.oscint.visspectrum,\
                                     nrefrac=self.oscint.get_nrefrac(),\
                                     forward=forward)
+                                    
             if isarray(N):
                 N = N.reshape(s)
                 
@@ -177,10 +178,16 @@ class id21_ffsetup(object):
             D0 = 0
             
         if nframe_dark!=0:
-            D = self.odetector.propagate(D,energy,tframe=tframe_data,nframe=nframe_dark)
-            D0 = self.odetector.propagate(D0,energy,tframe=tframe_flat,nframe=nframe_dark)
+            D = self.odetector.propagate(D,self.oscint.visspectrum,tframe=tframe_data,nframe=nframe_dark)
+            D0 = self.odetector.propagate(D0,self.oscint.visspectrum,tframe=tframe_flat,nframe=nframe_dark)
     
         return N,N0,D,D0
+    
+    def fluxfromflat(self,image,energy,tframe,nframe):
+        return self.propagate(image,energy,tframe,nframe,samplein=False,withnoise=False,forward=False)/tframe
+    
+    def flatfromflux(self,flux,energy,tframe,nframe):
+        return self.propagate(flux,energy,tframe,nframe,samplein=False,withnoise=False,forward=True)
     
     @staticmethod
     def getnframes(totaltime,frametime,fracflat):

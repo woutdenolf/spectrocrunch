@@ -127,6 +127,7 @@ class GGG_ID21(Scintillator):
         
         visspectrum = emspectrum.discrete(ureg.Quantity([595,610,715],"nm"))
         
+        # http://www.esrf.eu/files/live/sites/www/files/Industry/documentation/F2_Scintillators.pdf
         super(GGG_ID21, self).__init__(thickness=thickness,material=material,nvisperkeV=32,visspectrum=visspectrum)
 
 class LSO_ID21(Scintillator):
@@ -145,6 +146,7 @@ class LSO_ID21(Scintillator):
         
         visspectrum = emspectrum.discrete(ureg.Quantity(550,"nm"))
         
+        # http://www.esrf.eu/files/live/sites/www/files/Industry/documentation/F2_Scintillators.pdf
         super(LSO_ID21, self).__init__(thickness=thickness,material=material,nvisperkeV=40,visspectrum=visspectrum)
 
 classes = Scintillator.clsregistry
