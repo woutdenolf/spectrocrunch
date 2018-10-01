@@ -23,20 +23,16 @@
 # THE SOFTWARE.
 
 import os
-import json
 import logging
 import numpy as np
-import copy
 import h5py
 import shutil
 
-from ..xrf.create_hdf5_imagestacks import create_hdf5_imagestacks
+from ..xrf import create_hdf5_imagestacks
 from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks
 from ..common import timing
-from ..io import nexus
+from ..common import instance
 from ..io import edf
-from ..io.utils import mkdir
-from ..instruments import configuration
 
 from .proc_math import execute as math
 from .proc_align import execute as align
@@ -48,18 +44,10 @@ from .proc_resample import execute as execresample
 
 logger = logging.getLogger(__name__)
 
-def getinstrument(kwargs):
-    if "instrument" not in kwargs:
-        raise RuntimeError("You need to specify an instrument.")
-    instrument = kwargs["instrument"]
-    if isinstance(instrument,configuration.InstrumentInfo):
-        return instrument
-    return configuration.factory(instrument,**kwargs.get("instrument_parameters",{}))
-
-def exportedf(h5name,**kwargs):
+def exportedf(h5name,**parameters):
     logger.info("EDF export {}:".format(h5name))
     
-    instrument = getinstrument(kwargs)
+    instrument = create_hdf5_imagestacks.getinstrument(parameters)
 
     path = os.path.basename(h5name)
     n = 0
@@ -77,9 +65,7 @@ def exportedf(h5name,**kwargs):
     stacks, axes, procinfo = get_hdf5_imagestacks(h5name,instrument.h5stackgroups)
     counters = instrument.counters()
 
-    if "detectorsum" in stacks:
-        stacks = {g:stacks[g] for g in stacks if not (g.startswith("detector") and g!="detectorsum")}
-    ndet = sum(1 for k in stacks if k.startswith("detector"))
+    ndet = sum(1 for k in stacks if k.name.startswith("detector"))
 
     with h5py.File(h5name) as hdf5FileObject:
         for g in stacks:
@@ -109,160 +95,38 @@ def exportedf(h5name,**kwargs):
                     logger.info(outfile)
                     edf.saveedf(outfile,np.squeeze(hdf5FileObject[g][s]["data"][...,i]),{'Title': s},overwrite=True)
 
-def createconfig_pre(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
-    
-    instrument = getinstrument(kwargs)
-    stackdim = kwargs.get("stackdim",2)
-    dtcor = kwargs.get("dtcor",True)
-    fastfitting = kwargs.get("fastfitting",True)
-    adddetectors = kwargs.get("adddetectors",True)
-    addbeforefit = kwargs.get("addbeforefit",True)
-    mlines = kwargs.get("mlines",{})
-    exclude_detectors = kwargs.get("exclude_detectors",None)
-    include_detectors = kwargs.get("include_detectors",None)
-    noxia = kwargs.get("noxia",False)
-    encodercor = kwargs.get("encodercor",{})
-    qxrfgeometry = kwargs.get("qxrfgeometry",None)
-    qxrfgeometryparams = {"quantify":qxrfgeometry is not None}
-    correctspectra = kwargs.get("correctspectra",False)
-    fluxid = kwargs.get("fluxid","I0")
-    transmissionid = kwargs.get("transmissionid","It")
-    #dtcorcounters = all(k in instrument.counterdict for k in ["xrficr","xrfocr"])
-    
-    if noxia:
-        cfgfiles = None
-    bfit = cfgfiles is not None
-
-    if exclude_detectors is None:
-        exclude_detectors = []
-
-    if include_detectors is None:
-        include_detectors = []
-
-    if not isinstance(sourcepath,list):
-        sourcepath = [sourcepath]
-    if not isinstance(scanname,list):
-        scanname = [scanname]
-    if not isinstance(scannumbers,list):
-        scannumbers = [scannumbers]
-    if not isinstance(cfgfiles,list):
-        cfgfiles = [cfgfiles]
-
-    lst = []
-    if noxia:
-        lst.extend(["xrficr","xrfocr","xrfroi"])
-    if not encodercor:
-        lst.extend(["motors"])
-    counters = instrument.counters(exclude=lst)
-    counters.extend(kwargs.get("counters",[]))
-    
-    config = {
-            # Input
-            "sourcepath": sourcepath,
-            "counter_reldir": instrument.counter_reldir,
-            "scanname": scanname,
-            "scannumbers": scannumbers,
-            "counters": counters,
-            "fluxcounter": instrument.counterdict[fluxid+"_counts"],
-            "transmissioncounter": instrument.counterdict[transmissionid+"_counts"],
-
-            # Meta data
-            "metadata": instrument.metadata,
-            "stacklabel": instrument.edfheaderkeys["energylabel"],
-            "speccmdlabel": instrument.edfheaderkeys["speclabel"],
-            "fastlabel": instrument.edfheaderkeys["fastlabel"],
-            "slowlabel": instrument.edfheaderkeys["slowlabel"],
-            "timelabel": instrument.edfheaderkeys["timelabel"],
-            "stackinfo": instrument.imagemotors,
-
-            # Deadtime correction
-            "dtcor": dtcor,
-            "correctspectra": correctspectra,
-            "adddetectors": adddetectors, # sum spectra
-            "addbeforefit": addbeforefit, # sum fit results and detector counters
-            "qxrfgeometry": qxrfgeometryparams,
-            
-            # Configuration for fitting
-            "detectorcfg": cfgfiles,
-            "mlines": mlines,
-            "fit": bfit,
-            "fastfitting": fastfitting,
-            "exclude_detectors": exclude_detectors,
-            "include_detectors": include_detectors,
-
-            # Output directories
-            "outdatapath": os.path.join(destpath,scanname[0]+"_data"),
-            "outfitpath": os.path.join(destpath,scanname[0]+"_fit"),
-            "hdf5output": os.path.join(destpath,scanname[0]+".h5"),
-            "stackdim": stackdim
-    }
-
-    # Create configuration file
-    mkdir(destpath)
-    jsonfile = os.path.join(destpath,scanname[0]+".json")
-    with open(jsonfile,'w') as f:
-        json.dump(config,f,indent=2)
-
-    return jsonfile,config["hdf5output"]
-
-def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
+def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**parameters):
 
     T0 = timing.taketimestamp()
 
-    # Parse parameters
-    instrument = getinstrument(kwargs)
-    # ... stack
-    bsamefile = False
-    stackdim = kwargs.get("stackdim",2)
-    default = kwargs.get("default",None)
-    # ... xrf
-    qxrfgeometry = kwargs.get("qxrfgeometry",None)
-    # ... normalization
-    prealignnormcounter = kwargs.get("prealignnormcounter",None)
-    postalignnormcounter = kwargs.get("postalignnormcounter",None)
-    # ... align
-    alignmethod = kwargs.get("alignmethod",None)
-    alignreference = kwargs.get("alignreference",None)
-    refimageindex = kwargs.get("refimageindex",None)
-    roialign = kwargs.get("roialign",None)
-    cropalign = False
-    cropafter = kwargs.get("crop",False)
-    replacenan = kwargs.get("replacenan",False)
-    plot = kwargs.get("plot",False)
-    # ... other
-    encodercor = kwargs.get("encodercor",False)
-    skippre = kwargs.get("skippre",False)
-    
     # Image stacks (counters + result of XRF fitting)
-    preprocessingexists = False
+    instrument = create_hdf5_imagestacks.getinstrument(parameters)
+    default = parameters.get("default",None)
+    skippre = parameters.get("skippre",False)
+ 
+    h5file = os.path.join(destpath,instance.asarray(scanname)[0]+".h5")
     if skippre:
-        h5file = os.path.join(destpath,scanname[0]+".h5")
         preprocessingexists = os.path.isfile(h5file)
-
+    else:
+        preprocessingexists = False
+        
     if preprocessingexists:
         stacks, axes, procinfo = get_hdf5_imagestacks(h5file,instrument.h5stackgroups)
     else:
-        jsonfile, h5file = createconfig_pre(sourcepath,destpath,scanname,scannumbers,\
-                                            cfgfiles,**kwargs)
-        stacks, axes, procinfo = create_hdf5_imagestacks(jsonfile,qxrfgeometry=qxrfgeometry)
-
-        #stacks2, axes2, procinfo2 = get_hdf5_imagestacks(h5file,["counters","detectorsum"])
-        #assert(axes == axes2)
-        #assert(stacks == stacks2)
-
-    h5filelast = h5file
-
-    # Convert stack dictionary to stack list
-    stacks = flattenstacks(stacks)
-
-    # Default group
+        stacks, axes, procinfo = create_hdf5_imagestacks.create_hdf5_imagestacks(sourcepath,destpath,scanname,
+                                                                                 scannumbers,cfgfiles,**parameters)
     defaultstack(h5file,stacks,default)
-
-    # Groups that don't change and need to be copied
+    stacks = flattenstacks(stacks)
+    h5filelast = h5file
+    
+    # Common parameters for the following steps
+    bsamefile = False
+    stackdim = parameters.get("stackdim",2)
     copygroups = ["stackinfo"]
 
     # Normalization
-    dtcor = procinfo[-1]["dtneeded"]
+    prealignnormcounter = parameters.get("prealignnormcounter",None)
+    dtcor = procinfo[-1]["result"]["dtneeded"]
     if dtcor or prealignnormcounter is not None:
         skip = instrument.counters(include=["counters"])
 
@@ -286,6 +150,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
         h5filelast = h5file
         
     # Correct for encoder positions
+    encodercor = parameters.get("encodercor",{})
     if encodercor and instrument.encoderresolution:
         resampleinfo = {mot:{"encoder":instrument.counterdict["encoders"][mot],"resolution":res} for mot,res in instrument.encoderresolution.items()}
         if resampleinfo:
@@ -293,13 +158,21 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
             h5filelast = h5file
             
     # Alignment
-    if alignmethod is not None and alignreference is not None:
+    alignmethod = parameters.get("alignmethod",None)
+    alignreference = parameters.get("alignreference",None)
+    if alignmethod and alignreference is not None:
+        refimageindex = parameters.get("refimageindex",None)
+        roialign = parameters.get("roialign",None)
+        cropalign = False
+        plot = parameters.get("plot",False)
+    
         # Alignment
         h5file,stacks,axes = align(h5file,stacks,axes, copygroups, bsamefile, default,\
             alignmethod, alignreference, refimageindex, cropalign, roialign, plot, stackdim)
         h5filelast = h5file
 
     # Post normalization
+    postalignnormcounter = parameters.get("postalignnormcounter",None)
     if postalignnormcounter is not None:
         skip = instrument.counters(include=["xrfroi"])
         skip.append(postalignnormcounter)
@@ -309,12 +182,14 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**kwargs):
         h5filelast = h5file
         
     # Remove NaN's
+    replacenan = parameters.get("replacenan",False)
     if replacenan:
         orgvalue = np.nan
         newvalue = 0
         h5filelast,_,_ = replacevalue(h5file, stacks, axes, copygroups, bsamefile, default, orgvalue, newvalue)
         
     # Crop
+    cropafter = parameters.get("crop",False)
     if cropafter:
         cropinfo = {"nanval":np.nan,"stackdim":stackdim,"reference set":alignreference}
         h5filelast,_,_ = execcrop(h5file, stacks, axes, copygroups, bsamefile, default, cropinfo)

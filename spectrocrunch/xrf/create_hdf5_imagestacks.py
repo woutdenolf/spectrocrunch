@@ -22,196 +22,161 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import json
 import numpy as np
 import logging
 import re
 import shutil
 import os
-import collections
+from collections import OrderedDict
+import json
 
 from ..io import xiaedf
-from ..io import edf
 from ..io import spec
 from ..io import nexus
+from ..io.utils import mkdir
 from ..xrf.fit import PerformBatchFit
 from ..common import units
+from ..common import instance
 from ..common import listtools
+from ..instruments import configuration
+from ..h5stacks.groups_hdf5_imagestacks import Group
+from ..h5stacks import create_hdf5_lazy
 
 logger = logging.getLogger(__name__)
 
-
-
-def detectorname(detector):
-    # detector: "00", "S0"
-    if detector:
-        if detector.isdigit():
-            name = "detector{:d}".format(int(detector))
-        elif detector.startswith("S"):
-            name = "detectorsum"
-        else:
-            raise "Unexpected detector name {}".format(detector)
-    else:
-        name = "counters"
-    return name
-
-def transmission_func(fluxt,flux0):
-    with np.errstate(divide='ignore', invalid='ignore'):
-        return np.divide(fluxt,flux0)
-
-def absorbance_func(transmission):
-    with np.errstate(divide='ignore', invalid='ignore'):
-        return -np.log(np.clip(transmission,0,1))
-
-def xrfnorm_func(xrf,flux,fluxref,xiaimage,detnr):
-    if fluxref:
-        norm = fluxref/xiaedf.normalizer(flux)
-    else:
-        norm = 1
-    if xiaimage:
-        xiaimage.onlyicrocr(True)
-        stats = xiaimage.stats
-        dtcor = xiaedf.deadtimecorrector(stats[...,0,detnr],stats[...,1,detnr])
-        dtcor = dtcor.reshape(xrf.shape)
-    else:
-        dtcor = 1
+def getinstrument(parameters):
+    if "instrument" not in parameters:
+        raise RuntimeError("You need to specify an instrument.")
+    instrument = parameters["instrument"]
+    if isinstance(instrument,configuration.InstrumentInfo):
+        return instrument
+    return configuration.factory(instrument,**parameters.get("instrument_parameters",{}))
     
-    return xrf*norm*dtcor
-
-def nanaverage(x):
-    return np.nanmean(list(x),axis=0)
-
-def nansum(x):
-    return np.nansum(list(x),axis=0)
-
-def nanmax(x):
-    return np.nanmax(list(x),axis=0)
-
-def identity(x):
-    return x
-
-class LazyArgument(object):
-
-    def __init__(self,arg):
-        self._arg = arg
-
-    def data(self,*args):
-        return self._arg 
+def createconfig(sourcepath,destpath,scanname,scannumbers,cfgfiles,**parameters):
     
-    def __repr__(self):
-        return self._arg
+    instrument = getinstrument(parameters)
+    stackdim = parameters.get("stackdim",2)
+    dtcor = parameters.get("dtcor",True)
+    fastfitting = parameters.get("fastfitting",True)
+    adddetectors = parameters.get("adddetectors",True)
+    addbeforefit = parameters.get("addbeforefit",True)
+    mlines = parameters.get("mlines",{})
+    exclude_detectors = parameters.get("exclude_detectors",None)
+    include_detectors = parameters.get("include_detectors",None)
+    noxia = parameters.get("noxia",False)
+    encodercor = parameters.get("encodercor",{})
+    qxrfgeometry = parameters.get("qxrfgeometry",None)
+    qxrfgeometryparams = {"quantify":qxrfgeometry is not None}
+    correctspectra = parameters.get("correctspectra",False)
+    fluxid = parameters.get("fluxid","I0")
+    transmissionid = parameters.get("transmissionid","It")
+    #dtcorcounters = all(k in instrument.counterdict for k in ["xrficr","xrfocr"])
     
-    def __str__(self):
-        return self.__repr__()
-        
-class LazyArgumentEdf(LazyArgument):
+    if noxia:
+        cfgfiles = None
+    bfit = cfgfiles is not None
 
-    def __init__(self,filename):
-        self._filename = filename
+    if exclude_detectors is None:
+        exclude_detectors = []
 
-    def data(self,*args):
-        return edf.edfimage(self._filename).data
+    if include_detectors is None:
+        include_detectors = []
+
+    if not instance.isarray(sourcepath):
+        sourcepath = [sourcepath]
+    if not instance.isarray(scanname):
+        scanname = [scanname]
+    if not instance.isarray(scannumbers):
+        scannumbers = [scannumbers]
+    if not instance.isarray(cfgfiles):
+        cfgfiles = [cfgfiles]
+
+    lst = []
+    if noxia:
+        lst.extend(["xrficr","xrfocr","xrfroi"])
+    if not encodercor:
+        lst.extend(["motors"])
+    counters = instrument.counters(exclude=lst)
+    counters.extend(parameters.get("counters",[]))
     
-    def __repr__(self):
-        return self._filename
+    config = {
+            # Input
+            "sourcepath": sourcepath,
+            "counter_reldir": instrument.counter_reldir,
+            "scanname": scanname,
+            "scannumbers": scannumbers,
+            "counters": counters,
+            "fluxcounter": instrument.counterdict[fluxid+"_counts"],
+            "transmissioncounter": instrument.counterdict[transmissionid+"_counts"],
+
+            # Meta data
+            "metadata": instrument.metadata,
+            "stacklabel": instrument.edfheaderkeys["energylabel"],
+            "speccmdlabel": instrument.edfheaderkeys["speclabel"],
+            "fastlabel": instrument.edfheaderkeys["fastlabel"],
+            "slowlabel": instrument.edfheaderkeys["slowlabel"],
+            "timelabel": instrument.edfheaderkeys["timelabel"],
+            "stackinfo": instrument.imagemotors,
+
+            # Deadtime correction
+            "dtcor": dtcor,
+            "correctspectra": correctspectra,
+            "adddetectors": adddetectors, # sum spectra
+            "addbeforefit": addbeforefit, # sum fit results and detector counters
+            "qxrfgeometry": qxrfgeometryparams,
+            
+            # Configuration for fitting
+            "detectorcfg": cfgfiles,
+            "mlines": mlines,
+            "fit": bfit,
+            "fastfitting": fastfitting,
+            "exclude_detectors": exclude_detectors,
+            "include_detectors": include_detectors,
+
+            # Output directories
+            "destpath": destpath,
+            "outbase": scanname[0],
+            "outdatapath": os.path.join(destpath,scanname[0]+"_data"),
+            "outfitpath": os.path.join(destpath,scanname[0]+"_fit"),
+            "hdf5output": os.path.join(destpath,scanname[0]+".h5"),
+            "stackdim": stackdim
+    }
+    return config
     
-class LazyArgumentH5Dataset(LazyArgument):
-
-    def __init__(self,groups):
-        self._groups = groups
-
-    def data(self,root,islice,stackdim):
-        grp = root
-        for g in self._groups:
-            grp = grp[g]
-        
-        dset = grp[grp.attrs["signal"]]
-        
-        if stackdim == 0:
-            data = dset[islice,...]
-        elif stackdim == 1:
-            data = dset[:,islice,:]
-        else:
-            data = dset[...,islice]
-                            
-        return data
-
-    def __repr__(self):
-        return '"{}"'.format('/'.join(self._groups))
-    
-    def __str__(self):
-        return self.__repr__()
-
-class LazyStackSlice(LazyArgument):
-
-    def __init__(self,func=None,unpackargs=True):
-        if func is None:
-            self._func = identity
-        else:
-            self._func = func
-        self._args = []
-        self._unpackargs = unpackargs
-        
-    def data(self,*info):
-        if self._unpackargs:
-            return self._func(*list(self._arggen(*info)))
-        else:
-            return self._func(self._arggen(*info))
-        
-    def _arggen(self,*info):
-        for x in self._args:
-            if isinstance(x,LazyArgument):
-                yield x.data(*info)
-            else:
-                yield x
-                
-    def appendarg(self,arg):
-        self._args.append(arg)
-           
-    def appendarg_edf(self,filename):
-        self.appendarg(LazyArgumentEdf(filename))
-
-    def appendarg_h5dataset(self,*groups):
-        self.appendarg(LazyArgumentH5Dataset(groups))
-
-    def __repr__(self):
-        if hasattr(self._func,"__name__"):
-            func = self._func.__name__
-        else:
-            func = self._func
-    
-        return "{}({})".format(func,",".join([str(arg) for arg in self._args]))
-
 class ImageStack(object):
 
-    def __init__(self,jsonfile,qxrfgeometry=None):
-        self.jsonfile = jsonfile
+    def __init__(self,sourcepath,destpath,scanname,scannumbers,cfgfiles,qxrfgeometry=None,**parameters):
+        self.configin = {'sourcepath':sourcepath,
+                         'destpath':destpath,
+                         'scanname':scanname,
+                         'scannumbers':scannumbers,
+                         'cfgfiles':cfgfiles}
+        self.configin.update(parameters)
+        
+        self.config = createconfig(sourcepath,destpath,scanname,scannumbers,cfgfiles,**parameters)
         self.qxrfgeometry = qxrfgeometry
     
     def create(self):
-        # Processing configuration
-        with open(self.jsonfile,'r') as f:
-            self.config = json.load(f)
-
         self._preparestacks()
         self._processstacks()
 
     def _preparestacks(self):
-        self._prepareinput()
-        self._prepareoutput()
-        self._prepare_processing_general()
+        self._prepare_input()
+        self._prepare_output()
 
-        # Add stacks
+        self._prepare_adddetector()
+        self._prepare_fluxnorm()
+        self._prepare_dtcor()
         self._stack_add_counters()
-        self._prepare_processing_xrfquant()
+        self._prepare_xrfquant()
+        self._prepare_xrffit()
+        self._process_xiastackraw()
         self._stack_add_flux()
-        self._correct_xrf_spectra()
         self._stack_add_xrffit()
-        
-        # Post processing
+
         self._postcorrect()
         self._sort_stacks()
-    
+
     def _processstacks(self):
         with nexus.File(self.config["hdf5output"],mode='w') as f:
             # Save stack axes values
@@ -230,7 +195,7 @@ class ImageStack(object):
 
         logger.info("Saved {}".format(self.config["hdf5output"]))
         
-    def _prepareinput(self):
+    def _prepare_input(self):
         # Check data
         npaths = len(self.config["sourcepath"])
         if npaths != len(self.config["scanname"]):
@@ -243,28 +208,12 @@ class ImageStack(object):
         if self.xiastackraw.isempty:
             raise IOError("Cannot find data: {}".format(self.xiastackraw.filedescription))
 
-        # Exclude detectors
-        ndetorg = self.xiastackraw.dshape[-1]
-        self.xiastackraw.skipdetectors(self.config["exclude_detectors"])
-        self.xiastackraw.keepdetectors(self.config["include_detectors"])
-        includeddetectors = self.xiastackraw.xiadetectorselect_numbers(range(ndetorg))
-        self.allowedgroups = ['detector{}'.format(i) for i in includeddetectors]+['counters','detectorsum']
-        self.detectorindex = {idet:i for i,idet in enumerate(includeddetectors)}
-    
-        # Counter directory relative to the XIA files
-        self.xiastackraw.counter_reldir(self.config["counter_reldir"])
-
-    @property
-    def nstack(self):
-        #nstack, nrow, ncol, nchan, ndet = self.xiastackraw.dshape
-        return self.xiastackraw.dshape[0]
-    
-    @property
-    def ndet(self):
-        return self.xiastackraw.dshape[-1]
+        dshape = self.xiastackraw.dshape #nstack, nrow, ncol, nchan, ndet 
+        self.ndetorg = dshape[-1] # xia00, xia01, xiaS0, ...
+        self.nstack = dshape[0]
         
-    def _prepareoutput(self):
-        self.stacks = collections.OrderedDict()
+    def _prepare_output(self):
+        self.stacks = OrderedDict()
         self.stackaxes = [None]*3
         self.stackinfo = {}
 
@@ -276,129 +225,95 @@ class ImageStack(object):
         else:
             self.outimgdim = [0,1]
 
-        self.procinfo = {'config':self.jsonfile}
+        mkdir(self.config['destpath'])
+        self._procinfo()
         
-    def _stack_add_counters(self):
-        # Check counters
-        countersfound = set(self.xiastackraw.counterbasenames())
-        counters = countersfound.intersection(self.config["counters"])
-
-        if self.config["metadata"]=="xia":
-            metacounters = "xia"
-        else:
-            if countersfound:
-                metacounters = next(iter(countersfound))
-            else:
-                logger.warning("Metacounters for {} are not found".format(self.xiastackraw)) 
-                metacounters = []
+    def _procinfo(self):
+        self.procinfo = {}
+        destpath = self.config['destpath']
+        outbase = self.config['outbase']
+        
+        jsonfile = os.path.join(destpath,outbase+".input.json")
+        with open(jsonfile,'w') as f:
+            json.dump(self.configin,f,indent=2)
+        self.procinfo['input'] = jsonfile
+        
+        jsonfile = os.path.join(destpath,outbase+".process.json")
+        with open(jsonfile,'w') as f:
+            json.dump(self.config,f,indent=2)
+        self.procinfo['process'] = jsonfile
+        
+        self.procinfo['result'] = {}
                 
-        # Extract metadata and counters from raw stack
-        for imageindex,xiaimage in enumerate(self.xiastackraw):
-            header = xiaimage.header(source=metacounters)
-            motfast,motslow,sfast,sslow,time = self._getscanparameters(header)
+    def _prepare_adddetector(self):
+        # Detector include/exclude
+        self.xiastackraw.exclude_detectors(self.config["exclude_detectors"])
+        include_detectors = list(listtools.flatten(self.config["include_detectors"]))
+        self.xiastackraw.include_detectors(include_detectors)
+        dshape = self.xiastackraw.dshape
+        self.ndet = dshape[-1]
 
-            # Prepare axes and stackinfo
-            if imageindex==0:
-                for mot in self.config["stackinfo"]:
-                    if mot != motfast and mot != motslow and mot in header:
-                        self.stackinfo[mot] = np.full(self.nstack,np.nan)
-                        
-                self.stackaxes[self.outimgdim[1]] = sfast
-                self.stackaxes[self.outimgdim[0]] = sslow
-                self.stackaxes[self.outstackdim] = {"name":str(self.config["stacklabel"]),"data":np.full(self.nstack,np.nan,dtype=np.float32)}
-                self.stackinfo["expotime"] = np.full(self.nstack,np.nan,dtype=np.float32)
-                if self.fluxnorm:
-                    self.stackinfo["xrfdetectorposition"] = np.full((self.nstack,self.ndetfit),np.nan,dtype=np.float32)
+        # Do we need to add all detectors?
+        adddetectors = (self.ndet>1) and self.config["adddetectors"]
 
-            # Add stackinfo
-            for mot in self.stackinfo:
-                if mot in header:
-                    self.stackinfo[mot][imageindex] = np.float(header[mot])
-                              
-            # Add stack value
-            if self.config["stacklabel"] in header:
-                self.stackaxes[self.outstackdim]["data"][imageindex] = np.float(header[self.config["stacklabel"]])
-            else:
-                logger.warning("No stack counter in header (set to NaN)")
-            
-            # Add time
-            self.stackinfo["expotime"][imageindex] = time
-            
-            # Lazy add counters
-            files = xiaimage.ctrfilenames_used(counters)
-            files = xiaedf.xiagroupdetectors(files)
-            for detector,v1 in files.items():
-                name = detectorname(detector)
-                if name not in self.allowedgroups:
-                    continue
-                    
-                # Prepare list of files
-                if imageindex==0:
-                    self.stacks[name] = collections.OrderedDict()
-                    for ctr in v1:
-                        self.stacks[name][ctr] = [None]*self.nstack
-                        
-                for ctr,f in v1.items():
-                    # Add counter file
-                    o = LazyStackSlice()
-                    o.appendarg_edf(f[0])
-                    self.stacks[name][ctr][imageindex] = o
-
-    def _getscanparameters(self,header):
-        """Get scan dimensions from header
-        """
-        result = {"name":"unknown"}
-        
-        if "speccmdlabel" in self.config:
-            if self.config["speccmdlabel"] in header:
-                o = spec.cmd_parser()
-                result = o.parse(header[self.config["speccmdlabel"]])
-        elif "fastlabel" in config and "slowlabel" in self.config:
-            o = spec.edfheader_parser(fastlabel=self.config["fastlabel"],slowlabel=self.config["slowlabel"])
-            result = o.parse(header)
-
-        if result["name"]=="zapimage":
-            sfast = {"name":result["motfast"],"data":spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])} 
-            sslow = {"name":result["motslow"],"data":spec.ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])} 
-            if "time" in result:
-                time = units.umagnitude(result["time"],units="s")
-            else:
-                time = np.nan
+        # Do we need to add detector groups?
+        if any(len(instance.asarray(lst))>1 for lst in instance.asarray(self.config["include_detectors"])):
+            self._include_detectors = {Group('S{:d}'.format(i)):instance.asarray(singledets)
+                                       for i,singledets in enumerate(self.config["include_detectors"],1)}
         else:
-            logger.warning("No motor positions in header (using pixels).")
-            sfast = {"name":"fast","data":np.arange(int(header["Dim_2"]))}
-            sslow = {"name":"slow","data":np.arange(int(header["Dim_1"]))}
-            time = np.nan
-            
-        return sfast["name"],sslow["name"],sfast,sslow,time
-    
-    def _prepare_processing_general(self):
-        self.adddetectors = self.ndet>1 and self.config["adddetectors"]
-        self.addspectra = self.adddetectors and self.config["addbeforefit"]
+            # These are not necessarily all detector!
+            self._include_detectors = {Group('S1'):include_detectors}
+        adddetectorgroups = len(self._include_detectors)>1
+
+        # Do we need to add spectra (all or in groups)?
+        self.addspectra = (adddetectors or adddetectorgroups) and self.config["addbeforefit"]
+        self.xiastackraw.detectorsum(self.addspectra)
+        
+        # How many detectors need to be fitted?
         if self.addspectra:
-            self.ndetfit = 1
+            if adddetectorgroups:
+                self.ndetfit = len(self._include_detectors)
+            else:
+                self.ndetfit = 1
         else:
             self.ndetfit = self.ndet
-            
-        self.fluxnorm = self.qxrfgeometry is not None
-        self.fluxnormbefore = self.fluxnorm and self.config["correctspectra"]
-        self.fluxnormafter = self.fluxnorm and not self.fluxnormbefore
-        self.procinfo["fluxnorm"] = self.fluxnorm
-        
+
+        # Sum after fitting:
+        self._detectors_sumto = OrderedDict()
+        if adddetectorgroups:
+            # Add single detectors to their corresponding subgroup
+            for dest,singledets in self._include_detectors.items():
+                for det in singledets:
+                    self._detectors_sumto[Group(det)] = dest
+                
+            if adddetectors:
+                # Add subgroups to the sumgroup
+                num = max(det.number for det in self._detectors_sumto)
+                dest = Group('S{:d}'.format(num+1))
+                for det in self._include_detectors:
+                    self._detectors_sumto[Group(det)] = dest
+        elif adddetectors:
+            # Add single detectors to the sumgroup
+            dest = Group('S1')
+            for det in self.xiastackraw.xialabels_used:
+                self._detectors_sumto[Group(det)] = dest
+
+    def _prepare_dtcor(self):
         dtcor = self.config["dtcor"] 
         self.dtcorbefore = dtcor and (self.config["correctspectra"] or self.addspectra)
         self.dtcorafter = dtcor and not self.dtcorbefore
-        self.procinfo["dtneeded"] = False
+        self.procinfo["result"]["dtneeded"] = False
+        self.xiastackraw.dtcor(self.dtcorbefore)
 
-        self.fit = self.config["fit"]
+    def _prepare_fluxnorm(self):
+        self.fluxnorm = self.qxrfgeometry is not None
+        self.fluxnormbefore = self.fluxnorm and self.config["correctspectra"]
+        self.fluxnormafter = self.fluxnorm and not self.fluxnormbefore
+        self.procinfo["result"]["fluxnorm"] = self.fluxnorm
 
-        self.group_detadd_functions = {}
-        self.group_xrfcorrect = set()
-        
-    def _prepare_processing_xrfquant(self):
+    def _prepare_xrfquant(self):  
         if not self.fluxnorm:
             return 
-            
         ngeometries = len(self.qxrfgeometry.xrfgeometries)
         if ngeometries!=self.ndetfit:
             raise RuntimeError("You need {} detector geometries, {} provides.".format(self.ndetfit,ngeometries))
@@ -436,10 +351,8 @@ class ImageStack(object):
                     self.qxrfgeometry.setxrfposition(pos)
                 self.stackinfo["xrfdetectorposition"][imageindex,:] = self.qxrfgeometry.getxrfdetectorposition()
                 self.stackinfo["sampledetdistance"][imageindex,:] = self.qxrfgeometry.getxrfdistance()
-        
-    def _correct_xrf_spectra(self):
-        self.xiastackraw.detectorsum(self.addspectra)
-        self.xiastackraw.dtcor(self.dtcorbefore)
+
+    def _process_xiastackraw(self):
         if self.dtcorbefore or self.addspectra or self.fluxnormbefore:
             label = ""
             if self.dtcorbefore:
@@ -458,33 +371,141 @@ class ImageStack(object):
             self.xiastackproc = xiaedf.xiastack_mapnumbers(self.config["outdatapath"],radix,self.config["scannumbers"])
             self.xiastackproc.overwrite(True)
             
+            # Only spectra, not counters (more efficient that way)
             if self.addspectra:
-                xialabels = ["xiaS1"]
+                logger.info("Creating corrected XRF spectra: {}".format(list(self._include_detectors.keys())))
+                for det,include_detector in self._include_detectors.items():
+                    self.xiastackraw.include_detectors(include_detector)
+                    self.xiastackproc.save(self.xiastackraw,xialabels=[det.xialabel])
             else:
                 xialabels = self.xiastackraw.xialabels_used
-
-            logger.info("Creating corrected XRF spectra ...")
-            #xiastackproc.save(self.xiastackraw.data,xialabels=xialabels) # all in memory
-            self.xiastackproc.save(self.xiastackraw,xialabels=xialabels) # least memory usage possible
+                logger.info("Creating corrected XRF spectra: {}".format(xialabels))
+                self.xiastackproc.save(self.xiastackraw,xialabels=xialabels)
         else:
+            logger.debug('Corrections (if any) are not applied to the XRF spectra')
             self.xiastackproc = self.xiastackraw
             
+    def _stack_add_counters(self):
+        self.xiastackraw.exclude_detectors(self.config["exclude_detectors"])
+        self.xiastackraw.include_detectors(list(listtools.flatten(self.config["include_detectors"])))
+        
+        # Counter directory relative to the XIA files
+        self.xiastackraw.counter_reldir(self.config["counter_reldir"])
+        
+        # Check counters
+        countersfound = set(self.xiastackraw.counterbasenames())
+        counters = countersfound.intersection(self.config["counters"])
+
+        if self.config["metadata"]=="xia":
+            metacounters = "xia"
+        else:
+            if countersfound:
+                metacounters = next(iter(countersfound))
+            else:
+                logger.warning("Metacounters for {} are not found".format(self.xiastackraw)) 
+                metacounters = []
+        
+        logger.info("Processing counters: {}".format(counters)) 
+        
+        # Extract metadata and counters from raw stack
+        self.counters = set()
+        for imageindex,xiaimage in enumerate(self.xiastackraw):
+            header = xiaimage.header(source=metacounters)
+            motfast,motslow,sfast,sslow,time = self._getscanparameters(header)
+
+            # Prepare axes and stackinfo
+            if imageindex==0:
+                for mot in self.config["stackinfo"]:
+                    if mot != motfast and mot != motslow and mot in header:
+                        self.stackinfo[mot] = np.full(self.nstack,np.nan)
+                        
+                self.stackaxes[self.outimgdim[1]] = sfast
+                self.stackaxes[self.outimgdim[0]] = sslow
+                self.stackaxes[self.outstackdim] = {"name":str(self.config["stacklabel"]),"data":np.full(self.nstack,np.nan,dtype=np.float32)}
+                self.stackinfo["expotime"] = np.full(self.nstack,np.nan,dtype=np.float32)
+                if self.fluxnorm:
+                    self.stackinfo["xrfdetectorposition"] = np.full((self.nstack,self.ndetfit),np.nan,dtype=np.float32)
+
+            # Add stackinfo
+            for mot in self.stackinfo:
+                if mot in header:
+                    self.stackinfo[mot][imageindex] = np.float(header[mot])
+                              
+            # Add stack value
+            if self.config["stacklabel"] in header:
+                self.stackaxes[self.outstackdim]["data"][imageindex] = np.float(header[self.config["stacklabel"]])
+            else:
+                logger.warning("No stack counter in header (set to NaN)")
+            
+            # Add time
+            self.stackinfo["expotime"][imageindex] = time
+            
+            # Lazy add counters
+            files = xiaimage.ctrfilenames_used(counters)
+            files = xiaedf.xiagroupdetectors(files)
+            for detector,v1 in files.items():
+                name = Group(detector)
+
+                # Prepare list of files
+                if imageindex==0:
+                    self.stacks[name] = OrderedDict()
+                    for ctr in v1:
+                        self.stacks[name][ctr] = [None]*self.nstack
+                        
+                for ctr,f in v1.items():
+                    # Add counter file
+                    o = create_hdf5_lazy.LazyStackSlice()
+                    o.appendarg_edf(f[0])
+                    self.stacks[name][ctr][imageindex] = o
+                    self.counters.add(ctr)
+
+    def _getscanparameters(self,header):
+        """Get scan dimensions from header
+        """
+        result = {"name":"unknown"}
+        
+        if "speccmdlabel" in self.config:
+            if self.config["speccmdlabel"] in header:
+                o = spec.cmd_parser()
+                result = o.parse(header[self.config["speccmdlabel"]])
+        elif "fastlabel" in config and "slowlabel" in self.config:
+            o = spec.edfheader_parser(fastlabel=self.config["fastlabel"],slowlabel=self.config["slowlabel"])
+            result = o.parse(header)
+
+        if result["name"]=="zapimage":
+            sfast = {"name":result["motfast"],"data":spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])} 
+            sslow = {"name":result["motslow"],"data":spec.ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])} 
+            if "time" in result:
+                time = units.umagnitude(result["time"],units="s")
+            else:
+                time = np.nan
+        else:
+            logger.warning("No motor positions in header (using pixels).")
+            sfast = {"name":"fast","data":np.arange(int(header["Dim_2"]))}
+            sslow = {"name":"slow","data":np.arange(int(header["Dim_1"]))}
+            time = np.nan
+            
+        return sfast["name"],sslow["name"],sfast,sslow,time
+
+    def _prepare_xrffit(self):
+        self.fit = self.config["fit"]
+        
     def _stack_add_flux(self): 
         if not self.fluxnorm or ("fluxcounter" not in self.config and "transmissioncounter" not in self.config):
             return
-            
+        
         self.stackinfo["I0toflux"] = [None]*self.nstack
-        self.stackinfo["Ittoflux"] = [None]*self.nstack        
+        self.stackinfo["Ittoflux"] = [None]*self.nstack  
+        name = Group(None)      
         for imageindex in range(self.nstack):
-            energy =self. stackaxes[self.outstackdim]["data"][imageindex] # handle missing energies specifically?
-            name = detectorname(None)
+            energy = self.stackaxes[self.outstackdim]["data"][imageindex] # handle missing energies specifically?
             time = self.stackinfo["refexpotime"][imageindex]
             
             if "fluxcounter" in self.config:
                 op,_ = self.qxrfgeometry.I0op(energy,expotime=time,removebeamfilters=False)
                 if "calc_flux0" not in self.stacks[name]:
                     self.stacks[name]["calc_flux0"] = [None]*self.nstack
-                o = LazyStackSlice(func=op)
+                o = create_hdf5_lazy.LazyStackSlice(func=op)
                 o.appendarg_h5dataset(name,self.config["fluxcounter"])
                 self.stacks[name]["calc_flux0"][imageindex] = o
                 self.stackinfo["I0toflux"][imageindex] = str(op)
@@ -496,20 +517,20 @@ class ImageStack(object):
                     self.stacks[name]["calc_transmission"] = [None]*self.nstack
                     self.stacks[name]["calc_absorbance"] = [None]*self.nstack
                 
-                o = LazyStackSlice(func=op)
+                o = create_hdf5_lazy.LazyStackSlice(func=op)
                 o.appendarg_h5dataset(name,self.config["transmissioncounter"])
                 self.stacks[name]["calc_fluxt"][imageindex] = o
                 self.stackinfo["Ittoflux"][imageindex] = str(op)     
                                
-                o = LazyStackSlice(func=transmission_func)
+                o = create_hdf5_lazy.LazyStackSlice(func=create_hdf5_lazy.transmission_func)
                 o.appendarg_h5dataset(name,"calc_fluxt")
                 o.appendarg_h5dataset(name,"calc_flux0")
                 self.stacks[name]["calc_transmission"][imageindex] = o
                 
-                o = LazyStackSlice(func=absorbance_func)
+                o = create_hdf5_lazy.LazyStackSlice(func=create_hdf5_lazy.absorbance_func)
                 o.appendarg_h5dataset(name,"calc_transmission")
                 self.stacks[name]["calc_absorbance"][imageindex] = o
-    
+        
     def _stack_add_xrffit(self):
         # Fit data and add elemental maps
         if not self.fit:
@@ -542,6 +563,8 @@ class ImageStack(object):
             filestofit = xiaimage.datafilenames_used()
             filestofit = xiaedf.xiagroupdetectors(filestofit)
             for detector,cfg,quant in zip(filestofit,fitcfg,quants):
+                logger.info('Pymca fit "detector{}" with "{}" ...'.format(detector,cfg))
+                
                 # Fit
                 outname = "{}_xia{}_{:04d}_0000".format(xiaimage.radix,detector,xiaimage.mapnum)
                 energy = self.stackaxes[self.outstackdim]["data"][imageindex]
@@ -551,7 +574,7 @@ class ImageStack(object):
                                        fast=self.config["fastfitting"],mlines=self.config["mlines"],quant=quant)
                 
                 # Prepare list of files    
-                name = detectorname(detector)
+                name = Group(detector)
                 if imageindex==0:
                     if name not in self.stacks:
                         self.stacks[name] = {}
@@ -560,69 +583,78 @@ class ImageStack(object):
 
                 # Add file name           
                 for f,label in zip(files,labels):
-                    o = LazyStackSlice()
+                    o = create_hdf5_lazy.LazyStackSlice()
                     o.appendarg_edf(f)
                     self.stacks[name][label][imageindex] = o
 
     def _postcorrect(self):
-        if self.dtcorafter:
+        if self._detectors_sumto:
+            self._apply_postcorrect_xrf(self.fluxnormafter,self.dtcorafter)
+            self._add_detectors()
+            
+            #if self.dtcorafter:
+            #    self._apply_postcorrect_xrf(False,self.dtcorafter)
+            #self._add_detectors()
+            #if self.fluxnormafter:
+            #    self._apply_postcorrect_xrf(self.fluxnormafter,False)
+        else:
             self._apply_postcorrect_xrf(self.fluxnormafter,self.dtcorafter)
             
-        if self.adddetectors:
-            self._add_detectors()
-
-        if self.fluxnormafter and not self.dtcorafter:
-            self._apply_postcorrect_xrf(self.fluxnormafter,self.dtcorafter)
-
-    def _is_single_detector(self,grpname):
-        return re.match("^detector([0-9]+)$",grpname)
-
-    def _is_detector(self,grpname):
-        return re.match("^detector([0-9]+|sum)$",grpname)
-
     def _add_detectors(self):
-        detectors = [grpname for grpname in self.stacks if self._is_single_detector(grpname)]
-        if "detectorsum" not in self.stacks:
-            self.stacks["detectorsum"] = {}
-        
-        detectorsum_orggrps = list(self.stacks["detectorsum"].keys())
-        
-        for k1 in detectors:
-            for k2 in self.stacks[k1]:
-                if k2 in detectorsum_orggrps:
-                    continue
-                if k2 not in self.stacks["detectorsum"]:
-                    func = self._group_add_detectors(k2)
-                    self.stacks["detectorsum"][k2] = [LazyStackSlice(func=func,unpackargs=False) for _ in range(self.nstack)]
-                for imageindex,arg in enumerate(self.stacks[k1][k2]):
-                    self.stacks["detectorsum"][k2][imageindex].appendarg(arg)
-            self.stacks.pop(k1)
+        # Datasets in sum groups that are already their shouldn't be changed:
+        fixedgroups = {}
 
+        # Add detector to sum and remove it:
+        for k1,sumdest in self._detectors_sumto.items():
+            if k1 not in self.stacks:
+                continue
+                
+            if sumdest not in self.stacks:
+                self.stacks[sumdest] = {}
+            if sumdest not in fixedgroups:
+                fixedgroups[sumdest] = list(self.stacks[sumdest].keys())
+                
+            logger.debug('Remove {} and add to {}'.format(k1,sumdest))
+            
+            for k2 in self.stacks[k1]:
+                if k2 in fixedgroups[sumdest]:
+                    logger.debug('Do not add {}["{}"] to {}'.format(k1,k2,sumdest))
+                    continue
+                if k2 not in self.stacks[sumdest]:
+                    func = self._group_add_detectors(k2)
+                    self.stacks[sumdest][k2] = [create_hdf5_lazy.LazyStackSlice(func=func,unpackargs=False) for _ in range(self.nstack)]
+                for imageindex,arg in enumerate(self.stacks[k1][k2]):
+                    self.stacks[sumdest][k2][imageindex].appendarg(arg)
+                    
+            self.stacks.pop(k1)
+        
     def _group_add_detectors(self,grpname):
-        counter = any(k in grpname for k in self.config["counters"])
-    
-        if counter:
-            func = sum
+        if grpname in self.counters:
+            func = create_hdf5_lazy.sum_func
         elif grpname.startswith('w'):
-            func = nanaverage
+            # mass fractions
+            func = create_hdf5_lazy.nanmean_func
         elif 'chisq' in grpname:
-            func = nanmax
+            func = create_hdf5_lazy.nanmax_func
         else:
-            func = sum
+            # peak areas
+            func = create_hdf5_lazy.sum_func
         
         return func
         
     def _apply_postcorrect_xrf(self,fluxnorm,dtcor):
-        detectors = [grpname for grpname in self.stacks if self._is_detector(grpname)]
-        normname = detectorname(None)
+        detectors = [detector for detector in self.stacks if detector.isdetector]
+        normname = Group(None)
+
+        logger.debug('Correction after XRF fitting (flux:{},dt:{})'.format(fluxnorm,dtcor))
+
         for k1 in detectors:
             for k2 in self.stacks[k1]:
-                if not self._group_apply_postcorrect_xrf(k2):
+                if k2 in self.counters:
                     continue
-
+                
                 keep = self.stacks[k1][k2]
-                self.stacks[k1][k2] = [LazyStackSlice(func=xrfnorm_func) for _ in range(self.nstack)]
-
+                self.stacks[k1][k2] = [create_hdf5_lazy.LazyStackSlice(func=create_hdf5_lazy.xrfnorm_func) for _ in range(self.nstack)]
                 for imageindex,(arg,xiaimage) in enumerate(zip(keep,self.xiastackproc)):
                     # arguments: xrf,flux,fluxref,xiaimage
                     self.stacks[k1][k2][imageindex].appendarg(arg)
@@ -632,15 +664,12 @@ class ImageStack(object):
                     else:
                         self.stacks[k1][k2][imageindex].appendarg(None)
                         self.stacks[k1][k2][imageindex].appendarg(None)
-                    if dtcor and k1!="detectorsum":
+                    if dtcor and not k1.issum:
                         self.stacks[k1][k2][imageindex].appendarg(xiaimage)
-                        self.stacks[k1][k2][imageindex].appendarg(self.detectorindex[int(k1[8:])])
+                        self.stacks[k1][k2][imageindex].appendarg(k1.number)
                     else:
                         self.stacks[k1][k2][imageindex].appendarg(None)
                         self.stacks[k1][k2][imageindex].appendarg(None)
-
-    def _group_apply_postcorrect_xrf(self,grpname):
-        return not any(k in grpname for k in self.config["counters"])
  
     def _sort_stacks(self):
         # Sort stack on stack axis value
@@ -670,13 +699,16 @@ class ImageStack(object):
             for k2 in self.stacks[k1]: # stack subgroup (Al-K, S-K, xmap_x1c, ...)
                 nxdatagrp = None
                 for imageindex,slicedata in enumerate(self.stacks[k1][k2]):
+                    if k2 not in grp:
+                        logger.info("saving {}/{}".format(k1,k2))
+                    logger.debug("Slice generator (index {}): {}".format(imageindex,slicedata))
+                    
                     data = slicedata.data(f,imageindex,self.outstackdim)
                     
                     # Get destination for data
                     if k2 in grp:
                         dset = grp[k2][grp[k2].attrs["signal"]]
                     else:
-                        logger.info("saving {}/{}".format(k1,k2))
                         nxdatagrp = nexus.newNXdata(grp,k2,"")
                         
                         # Allocate dataset
@@ -690,8 +722,6 @@ class ImageStack(object):
 
                         # Link axes to the new NXdata group
                         nexus.linkaxes(f,self.axes,[nxdatagrp])
-
-                    logger.debug("Slice generator (index {}): {}".format(imageindex,slicedata))
 
                     # Some rows too much or rows missing:
                     if outshape[self.outimgdim[0]] > data.shape[0]:
@@ -711,9 +741,8 @@ class ImageStack(object):
                     if nxdatagrp is not None:
                         # Replace subgroup k2 filename or calcinfo with NXentry name in stack
                         self.stacks[k1][k2] = nxdatagrp.name
-
         
-def create_hdf5_imagestacks(jsonfile,qxrfgeometry=None):
+def create_hdf5_imagestacks(sourcepath,destpath,scanname,scannumbers,cfgfiles,**parameters):
     """Convert scanning data (XIA spectra + counters) to an HDF5 file:
         groups which contain NXdata classes
         3 axes datasets on the main level
@@ -728,9 +757,8 @@ def create_hdf5_imagestacks(jsonfile,qxrfgeometry=None):
         {"name":"name2","fullname":"/axes/name2/data"},
         {"name":"name3","fullname":"/axes/name3/data"}]
     """
-    
-    
-    imagestack = ImageStack(jsonfile,qxrfgeometry=qxrfgeometry)
+
+    imagestack = ImageStack(sourcepath,destpath,scanname,scannumbers,cfgfiles,**parameters)
     imagestack.create()
     
     return imagestack.stacks,imagestack.axes,[imagestack.procinfo]

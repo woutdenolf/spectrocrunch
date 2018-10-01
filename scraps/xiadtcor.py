@@ -66,7 +66,7 @@ if __name__ == '__main__':
         # Advanced parsing
         t0 = time()
         mapin = xiaedf.xiaimage_number(datadir,scanname,scannumber)
-        mapin.skipdetectors(["xiaS0"]+["xia{:02d}".format(i) for i in exclude_detectors])
+        mapin.exclude_detectors(["xiaS0"]+["xia{:02d}".format(i) for i in exclude_detectors])
         mapin.dtcor(deadtime)
         if norm:
             mapin.norm(normctr)

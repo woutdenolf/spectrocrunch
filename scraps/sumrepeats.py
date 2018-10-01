@@ -213,7 +213,7 @@ if __name__ == '__main__':
     # Prepare data reading
     stackin = xiareader(datadirs,scannames)
     
-    stackin.skipdetectors(["xiaS0"]+["xia{:02d}".format(i) for i in exclude_detectors])
+    stackin.exclude_detectors(["xiaS0"]+["xia{:02d}".format(i) for i in exclude_detectors])
     stackin.dtcor(deadtime)
     if norm:
         normfunc,pymcaflux = normfunc(datadirs,normctr,pymcaflux,logger)

@@ -231,8 +231,31 @@ class PymcaBaseHandle(object):
                 grouprate *= safrac
                 out["rates"][zgroup] = grouprate
 
+        # Fitted areas (elements)
         out["fitareas"] = {element.Element.fluozgroup(k):v for k,v in conresult["fitarea"].items()}
-        
+
+        # Fitted areas (scatter)
+        scatterpeaks = {'Compton':{'energy':[],'fitarea':[]},'Rayleigh':{'energy':[],'fitarea':[]}}
+        nen = len(instance.asarray(digestedresult['energy']))
+        for k,v in digestedresult.items():
+            if k.startswith('Scatter'):
+                if 'Compton' in k:
+                    peak = 'Compton'
+                else:
+                    peak = 'Rayleigh'
+                energy,fitarea = zip(*[(v[k2]['energy'],v[k2]['fitarea']) for k2 in v['peaks']])
+                scatterpeaks[peak]['energy'] += energy
+                scatterpeaks[peak]['fitarea'] += fitarea
+        for peak in scatterpeaks:
+            energy = np.array(scatterpeaks[peak]['energy'])
+            fitarea = np.array(scatterpeaks[peak]['fitarea'])
+            if peak=='Compton':
+                k = xrayspectrum.ComptonLine(energy)
+            else:
+                k = xrayspectrum.RayleighLine(energy)
+            out["fitareas"][k] = fitarea
+            
+        # Fitted rates
         out["fitrates"] = {k:v/addinfo["I0"] for k,v in out["fitareas"].items()}
         
         #self._print_pymcainternals_rates()

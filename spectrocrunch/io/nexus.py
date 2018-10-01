@@ -28,6 +28,8 @@ import numpy as np
 import os
 import pkg_resources
 
+from silx.io.dictdump import dicttoh5, h5todict
+
 def hdf5pathparse(path):
     """
     Args:
@@ -148,28 +150,7 @@ def addinfogroup(fout,name,datadict):
     newgroup.attrs["sequence_index"] = index
     newgroup.attrs["date"] = timestamp()
 
-    for k in datadict:
-        if (datadict[k] is None):
-            continue    
-        elif isinstance(datadict[k],str):
-            asciilist = [datadict[k].encode("ascii","ignore")]
-            typ = "S%d"%len(asciilist[0])
-            newgroup.create_dataset(k,(1,1),typ,asciilist)
-        elif isinstance(datadict[k],list) or isinstance(datadict[k],tuple):
-            arr = np.array(datadict[k])
-            arr[np.equal(arr,None)] = 0
-            if arr.size==0:
-                newgroup[k] = arr
-            elif isinstance(arr.flat[0],str) or isinstance(arr.flat[0],np.unicode_):
-                asciilist = [s.encode("ascii","ignore") for s in datadict[k]]
-                typ = "S%d"%max([len(s) for s in asciilist])
-                newgroup.create_dataset(k,(len(asciilist),1),typ,asciilist)
-            elif isinstance(arr.flat[0],int):
-                arr = np.array(arr,dtype=int)
-            else:
-                newgroup[k] = arr
-        else:
-            newgroup[k] = datadict[k]
+    dicttoh5(datadict,fout,h5path=newgroup.name)
 
 def getinfogroups(fout):
     # Prepare list to receive info
@@ -186,8 +167,8 @@ def getinfogroups(fout):
         tmp = step.split(".")
         ind = int(tmp[0])-1
         name = ".".join(tmp[1:])
-        ret[ind] = {k:ginfo[step][k].value for k in ginfo[step]}
-    
+        ret[ind] = h5todict(fout,ginfo[step].name)
+
     return ret
 
 def copyaddinfogroup(fin,fout,name,datadict):

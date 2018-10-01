@@ -37,6 +37,7 @@ from ...io import xiaedf
 from ...io import nexus
 from ...align import types
 from ...common import instance
+from ...common import listtools
 from ...geometries import qxrf
 from ...h5stacks import get_hdf5_imagestacks
 from ...geometries import xrf as xrfgeometries
@@ -73,25 +74,23 @@ class test_fluoxas(unittest.TestCase):
         sample2 = multilayer.Multilayer(mix,1e-4,geometry=geometry)
         pymcahandle = pymca.PymcaHandle(energy=8.0,flux=1e9,time=0.1,snip=False,continuum=1,escape=False,linear=True,noisepropagation=False)
 
-        ndet = 3
-        detectorsinsum = [0,2]
-        samult = [1,0.8,0.5]
-        samult.append(sum(samult[i] for i in detectorsinsum))
-        bkgs = [1,1,1]
-        bkgs.append(sum(bkgs[i] for i in detectorsinsum))
         energy = [8.,9.]
+        
+        ndet = 3
+        samult = [1,0.8,0.5]
+        bkgs = [1,1,1]
 
-        detectornames = ['detector{}'.format(i) for i in range(ndet)+['sum']]
-        detectors = []
-        for det,sam,bkg in zip(detectornames,samult,bkgs):
+        detectors = {}
+        for seldetectors in [(0,),(1,),(2,),(0,2),(0,1,2)]:
             geometry = xrfgeometries.factory("sxm120",detector=leia,
-                                         source=synchrotron,detectorposition=-15.)
-            geometry.solidangle *= sam
-
-            cfgfile = os.path.join(self.dir.path,det+'.cfg')
+                                             source=synchrotron,detectorposition=-15.)
+            geometry.solidangle *= sum(samult[i] for i in seldetectors)
+            bkg = sum(bkgs[i] for i in seldetectors)
+            
+            cfgfile = os.path.join(self.dir.path,'detector{}.cfg'.format('_'.join(map(str,seldetectors))))
             detector = {'cfgfile':cfgfile,'geometry':geometry,'mca':[],'peakareas':[],'massfractions':[]}
-            detectors.append(detector)
-
+            detectors[seldetectors] = detector
+            
             for en in energy:
                 pymcahandle.set_source(en)
                 pymcahandle.emax = en+1
@@ -124,39 +123,49 @@ class test_fluoxas(unittest.TestCase):
                     #fitresult["plot"]()
                     peakareas.append(fitresult["fitareas"])
                     massfractions.append(fitresult["massfractions"])
-        
+
+                    labels = []
+                    for label in fitresult["fitareas"]:
+                        if label=='Rayleigh':
+                            labels += ["Scatter-Peak{:03d}".format(i) for i in range(label.nenergy)]
+                        elif label=='Compton':
+                            labels += ["Scatter-Compton{:03d}".format(i) for i in range(label.nenergy)]
+                        else:
+                            labels.append(str(label))
+                        
         self.procinfo = {}
-        self.procinfo['include_detectors'] = ([2],detectorsinsum)
+        self.procinfo['include_detectors'] = [2,(0,2),None,(1,(0,2))]
         self.procinfo['flux'] = pymcahandle.flux
         self.procinfo['time'] = pymcahandle.time
-        self.procinfo['detectorsum'] = detectors.pop(-1)
         self.procinfo['detectors'] = detectors
         self.procinfo['energy'] = energy
+        self.procinfo['ndet'] = ndet
+        self.procinfo['nchan'] = len(mca)
+        self.procinfo['labels'] = labels
         
-        # check detector sum
-        for i in range(len(energy)):
-            for j in range(2):
-                a = sum(self.procinfo['detectors'][k]['mca'][i][j] for k in detectorsinsum)
-                b = self.procinfo['detectorsum']['mca'][i][j]
-                np.testing.assert_allclose(a,b)
-
+        # check detector sum/average
+        for seldetectors,detector in detectors.items():
+            for i in range(len(energy)):
+                for j in range(2):
+                    a = sum(detectors[(k,)]['mca'][i][j] for k in seldetectors)
+                    b = detector['mca'][i][j]
+                    np.testing.assert_allclose(a,b)
+                    
+                    a = sum(np.array(detectors[(k,)]['peakareas'][i][j].values()) for k in seldetectors)
+                    b = np.array(detector['peakareas'][i][j].values())
+                    np.testing.assert_allclose(a,b)
+                    
+                    a = sum(np.array(detectors[(k,)]['massfractions'][i][j].values()) for k in seldetectors)
+                    b = np.array(detector['massfractions'][i][j].values())
+                    np.testing.assert_allclose(a/len(seldetectors),b)
+        
     def tearDown(self):
         self.dir.cleanup()
 
-    def fitlabelsfile(self,quant=False):
-        config = ConfigDict.ConfigDict()
-        config.read(self.procinfo['detectorsum']['cfgfile'])
-
-        labels = ["{}_{}".format(e,line) for e,lines in config["peaks"].items() for line in lines]
+    def fitlabels(self,quant=False):
+        labels = list(self.procinfo['labels'])
         if quant:
-            labels = labels + ["w{}_{}".format(e,line) for e,lines in config["peaks"].items() for line in lines]
-        
-        if config["fit"]["scatterflag"]:
-            n = sum(instance.asarray(config["fit"]["energyflag"]) &\
-                   instance.asarray(config["fit"]["energyscatter"]))
-            labels += ["Scatter_Compton{:03d}".format(i) for i in range(n)]
-            labels += ["Scatter_Peak{:03d}".format(i) for i in range(n)]
-
+            labels += ['w'+label for label in labels if 'Scatter' not in label]
         return labels
 
     def qxrfgeometry(self):
@@ -180,7 +189,7 @@ class test_fluoxas(unittest.TestCase):
         
         return monitor
     
-    def gendata(self):
+    def gendata(self,applyflux=False,applydt=False):
         self.create_procinfo()
         qxrfgeometry = self.qxrfgeometry()
         refflux = qxrfgeometry.reference.to("hertz").magnitude
@@ -189,11 +198,12 @@ class test_fluoxas(unittest.TestCase):
         # 3 maps of a moving hotspot
         nlines,nspec = 7,6
         nmaps = len(self.procinfo['energy'])
-        ndet = len(self.procinfo['detectors'])
-        nchan = len(self.procinfo['detectorsum']['mca'][0][0])
+        ndet = self.procinfo['ndet']
+        nchan = self.procinfo['nchan']
         data = np.ones((nmaps,nlines,nspec,nchan,ndet))
         off = max(min(nlines,nspec)-nmaps,0)//2
-        for idet,det in enumerate(self.procinfo['detectors']):
+        for idet in range(ndet):
+            det = self.procinfo['detectors'][(idet,)]
             for imap,spectra in enumerate(det['mca']):
                 spec1,spec2 = spectra
                 data[imap,...,idet] = spec1
@@ -207,7 +217,10 @@ class test_fluoxas(unittest.TestCase):
         ctrs = {}
         
         # Apply flux decay
-        rflux = np.linspace(1,0.5,nmaps*nlines*nspec).reshape((nmaps,nlines,nspec))
+        if applyflux:
+            rflux = np.linspace(1,0.5,nmaps*nlines*nspec).reshape((nmaps,nlines,nspec))
+        else:
+            rflux = np.ones((nmaps,nlines,nspec),dtype=float)
         flux = rflux*refflux
         data *= rflux[...,np.newaxis,np.newaxis]
 
@@ -216,7 +229,7 @@ class test_fluoxas(unittest.TestCase):
         ctrs["arr_norm"] = np.ones((nmaps,nlines,nspec))
         for i,en in enumerate(energy):
             ctrs["arr_iodet"][i,...] = qxrfgeometry.diodeI0.fluxtocps(en,flux[i,...])*expotime
-            ctrs["arr_idet"][i,...] = qxrfgeometry.diodeIt.fluxtocps(en,flux[i,...])*expotime
+            ctrs["arr_idet"][i,...] = qxrfgeometry.diodeIt.fluxtocps(en,flux[i,...])*expotime #TODO real transmission
             ctrs["arr_norm"][i,...] = rflux[i,...]
             op,fref,tref,traw = qxrfgeometry.xrfnormop(en)
             self.assertEqual(fref,refflux)
@@ -241,7 +254,10 @@ class test_fluoxas(unittest.TestCase):
         stats = np.zeros((nmaps,nlines,nspec,xiaedf.xiadata.NSTATS,ndet),dtype=data.dtype)
         for i in range(ndet):
             ICR = data[...,i].sum(axis=-1)
-            OCR = ICR*(1-0.2*i/(ndet-1.))# DT = 10*i %
+            if applydt:
+                OCR = ICR*(1-0.2*i/(ndet-1.))# DT = 10*i %
+            else:
+                OCR = ICR
             ctrs["xmap_icr_{:02d}".format(i)] = ICR
             ctrs["xmap_ocr_{:02d}".format(i)] = OCR
             
@@ -274,12 +290,7 @@ class test_fluoxas(unittest.TestCase):
             return
 
         grpname = str(grpname)
-        #print grpname
-        #for peakareas in info['peakareas']:
-        #    print peakareas
-        #for massfractions in info['massfractions']:
-        #    print massfractions
-            
+
         m = re.match("Scatter-(Compton|Peak)([0-9]+)",grpname)
         if m:
             grpname = m.group(1)
@@ -297,8 +308,6 @@ class test_fluoxas(unittest.TestCase):
                 values2 = [peakareas[1][grpname] for peakareas in info['peakareas']]
 
         for data,v1,v2 in zip(grpdata,values1,values2):
-            #print data
-            #print v1,v2
             mask = data==np.nanmax(data)
             np.testing.assert_allclose(data[~mask],v1,rtol=1e-4)
             np.testing.assert_allclose(data[mask],v2,rtol=1e-4)
@@ -311,41 +320,52 @@ class test_fluoxas(unittest.TestCase):
         nmaps,nlines,nspec,nchan,ndet = data.shape
         scannumbers = [range(nmaps)]
 
-        parameters = [(None,"max"),(True,False),self.procinfo['include_detectors'],(False,True),
-                      (False,True),(True,False),(True,False),(2,),(True,False)]
+        parameters = [(None,"max"),(True,False),self.procinfo['include_detectors'],(True,False),
+                      (True,False),(True,False),(True,False),(2,),(False,True)]
         for combination in itertools.product(*parameters):
-            alignmethod,cfgfileuse,include_detectors,adddetectors,\
+            alignmethod,cfgfileuse,include_detectors_p,adddetectors_p,\
             addbeforefit,quant,dtcor,stackdim,correctspectra = combination
+
             if not cfgfileuse and alignmethod is not None:
                 continue
-            adddetectors = len(include_detectors)>1 and adddetectors
-            addbefore = adddetectors and addbeforefit
-            fluxnormbefore = quant and correctspectra
-            dtcorbefore = dtcor and (correctspectra or addbefore)
-            newspectra = addbefore or fluxnormbefore or dtcorbefore
+            
+            if include_detectors_p:
+                include_detectors = include_detectors_p
+            else:
+                include_detectors = tuple(range(ndet))
                 
+            alldetectors = tuple(sorted(list(listtools.flatten(include_detectors))))
+            adddetectorgroups = any(len(instance.asarray(dets))>1 for dets in instance.asarray(include_detectors))
+            adddetectors = adddetectors_p and len(alldetectors)>1
+            addspectra = (adddetectors or adddetectorgroups) and addbeforefit
+            fluxnormbefore = quant and correctspectra
+            dtcorbefore = dtcor and (correctspectra or addspectra)
+            newspectra = addspectra or fluxnormbefore or dtcorbefore
+            
+            if addspectra:
+                if adddetectorgroups:
+                    seldetectors = [tuple(instance.asarray(dets).tolist()) for dets in instance.asarray(include_detectors)]
+                else:
+                    seldetectors = [alldetectors]
+            else:
+                seldetectors = [(det,) for det in alldetectors]
+
             if quant:
                 geom = qxrfgeometry
-                if addbefore:
-                    geom.xrfgeometries = [self.procinfo['detectorsum']['geometry']]
-                else:
-                    geom.xrfgeometries = [self.procinfo['detectors'][i]['geometry'] for i in include_detectors]
+                geom.xrfgeometries = [self.procinfo['detectors'][k]['geometry'] for k in seldetectors]
                 prealignnormcounter = None
             else:
                 geom = None
                 prealignnormcounter = "arr_norm"
 
             if cfgfileuse:
-                if addbefore:
-                    cfgfiles = self.procinfo['detectorsum']['cfgfile']
-                else:
-                    cfgfiles = [self.procinfo['detectors'][i]['cfgfile'] for i in include_detectors]
+                cfgfiles = [self.procinfo['detectors'][k]['cfgfile'] for k in seldetectors]
             else:
                 cfgfiles = None
 
             alignreference = None
-            fitlabelsfile = self.fitlabelsfile(quant=quant)
-            fitlabels = set([label.replace("_","-") for label in fitlabelsfile])
+            fitlabels = set(self.fitlabels(quant=quant))
+            fitlabelsfile = set([label.replace('-','_') for label in fitlabels])
             detcounterlabels = set(['xmap_icr','xmap_ocr','xmap_x1c','xmap_x2c'])
             counterlabels = set(['arr_iodet','arr_idet','arr_norm'])
             calclabels = set(['calc_transmission','calc_absorbance','calc_flux0','calc_fluxt'])
@@ -355,10 +375,33 @@ class test_fluoxas(unittest.TestCase):
                     break
             refimageindex = 0
 
-            if adddetectors:
-                alignref = "/detectorsum/{}".format(alignreference)
+            # Data
+            expectedgroups_data = []
+            if addspectra:
+                if adddetectorgroups:
+                    expectedgroups_data = set(["S{:d}".format(i+1) for i in range(len(include_detectors))])
+                else:
+                    if len(alldetectors)==1:
+                        expectedgroups_data = set(['{:02d}'.format(alldetectors[0])])
+                    else:
+                        expectedgroups_data = set(['S1'])
             else:
-                alignref = "/detector{}/{}".format(include_detectors[0],alignreference)
+                expectedgroups_data = set(["{:02d}".format(i) for i in list(listtools.flatten(include_detectors))])
+                
+            # Final groups
+            if adddetectors:
+                if adddetectorgroups:
+                    expectedgroups_result = ["S{:d}".format(len(include_detectors)+1)]
+                else:
+                    expectedgroups_result = ['S1']
+            elif adddetectorgroups:
+                expectedgroups_result = ["S{:d}".format(i+1) for i in range(len(include_detectors))]
+            else:
+                expectedgroups_result = ["{:02d}".format(i) for i in alldetectors]
+            
+            alignref = "/detector{}/{}".format(expectedgroups_result[0],alignreference)
+            expectedgroups_result = ['counters'] + ["detector"+det for det in expectedgroups_result]
+            expectedgroups_result = set(expectedgroups_result)
             
             with self.env_destpath():
                 for skippre in [False,]:
@@ -367,9 +410,10 @@ class test_fluoxas(unittest.TestCase):
                     logger.debug("stackdim = {}".format(stackdim))
                     logger.debug("cfgfiles = {}".format(cfgfiles))
                     logger.debug("dtcor = {}".format(dtcor))
-                    logger.debug("adddetectors = {}".format(adddetectors))
+                    logger.debug("adddetectors = {}".format(adddetectors_p))
                     logger.debug("addbeforefit = {}".format(addbeforefit))
-                    logger.debug("include_detectors = {}".format(include_detectors))
+                    logger.debug("include_detectors = {}".format(include_detectors_p))
+                    logger.debug("adddetectorgroups = {}".format(adddetectorgroups))
                     logger.debug("quant = {}".format(quant))
                     logger.debug("correctspectra = {}".format(correctspectra))
                     logger.debug("newspectra = {}".format(newspectra))
@@ -380,14 +424,14 @@ class test_fluoxas(unittest.TestCase):
                     parameters["refimageindex"] = refimageindex
                     parameters["dtcor"] = dtcor
                     parameters["plot"] = False
-                    parameters["adddetectors"] = adddetectors
+                    parameters["adddetectors"] = adddetectors_p
                     parameters["addbeforefit"] = addbeforefit
                     parameters["qxrfgeometry"] = geom
                     parameters["correctspectra"] = correctspectra
                     parameters["replacenan"] = bool(alignmethod)
                     parameters["prealignnormcounter"] = prealignnormcounter
                     parameters["stackdim"] = stackdim
-                    parameters["include_detectors"] = include_detectors
+                    parameters["include_detectors"] = include_detectors_p
                     parameters["skippre"] = skippre
                     parameters["instrument"] = "id21"
                     parameters["counters"] = ["arr_norm"]
@@ -409,13 +453,14 @@ class test_fluoxas(unittest.TestCase):
                         else:
                             radixout = radix
 
-                        if addbefore:
-                            expected = ["{}_xiaS1_{:04d}_0000_{:04d}.edf".format(radixout,mapnum,linenum)\
+                        if addspectra:
+                            expected = ["{}_xia{}_{:04d}_0000_{:04d}.edf".format(radixout,det,mapnum,linenum)\
+                                                                        for det in expectedgroups_data\
                                                                         for mapnum in range(nmaps)\
                                                                         for linenum in range(nlines)]
                         else:
-                            expected = ["{}_xia{:02d}_{:04d}_0000_{:04d}.edf".format(radixout,det,mapnum,linenum)\
-                                                                        for det in include_detectors\
+                            expected = ["{}_xia{}_{:04d}_0000_{:04d}.edf".format(radixout,det,mapnum,linenum)\
+                                                                        for det in expectedgroups_data\
                                                                         for mapnum in range(nmaps)\
                                                                         for linenum in range(nlines)]
                         self.destpath.compare(sorted(expected),path="{}_data".format(radix),files_only=True,recursive=False)
@@ -424,19 +469,21 @@ class test_fluoxas(unittest.TestCase):
                         
                     # Check pymca output (files)
                     if cfgfileuse:
-                        if addbefore:
-                            expected = ["{}_xiaS1_{:04d}_0000_{}.edf".format(radixout,mapnum,label)\
+                        if addspectra:
+                            expected = ["{}_xia{}_{:04d}_0000_{}.edf".format(radixout,det,mapnum,label)\
+                                                                            for det in expectedgroups_data\
                                                                             for mapnum in range(nmaps)\
                                                                             for label in fitlabelsfile]
-                            expected.extend(["{}_xiaS1_{:04d}_0000.cfg".format(radixout,mapnum,label)\
+                            expected.extend(["{}_xia{}_{:04d}_0000.cfg".format(radixout,det,mapnum,label)\
+                                                                            for det in expectedgroups_data\
                                                                             for mapnum in range(nmaps)])
                         else:
-                            expected = ["{}_xia{:02d}_{:04d}_0000_{}.edf".format(radixout,det,mapnum,label)\
-                                                                            for det in include_detectors\
+                            expected = ["{}_xia{}_{:04d}_0000_{}.edf".format(radixout,det,mapnum,label)\
+                                                                            for det in expectedgroups_data\
                                                                             for mapnum in range(nmaps)\
                                                                             for label in fitlabelsfile]
-                            expected.extend(["{}_xia{:02d}_{:04d}_0000.cfg".format(radixout,det,mapnum,label)\
-                                                                            for det in include_detectors\
+                            expected.extend(["{}_xia{}_{:04d}_0000.cfg".format(radixout,det,mapnum,label)\
+                                                                            for det in expectedgroups_data\
                                                                             for mapnum in range(nmaps)])
                         self.destpath.compare(sorted(expected),path="{}_fit".format(radix),files_only=True,recursive=False)
 
@@ -448,7 +495,8 @@ class test_fluoxas(unittest.TestCase):
                         expected.append("{}_data".format(radix))
                     h5file = "{}.h5".format(radix)
                     expected.append(h5file)
-                    expected.append("{}.json".format(radix))
+                    expected.append("{}.input.json".format(radix))
+                    expected.append("{}.process.json".format(radix))
                     if prealignnormcounter is not None and cfgfileuse:
                         h5file = "{}.norm.h5".format(radix)
                         expected.append(h5file)
@@ -457,6 +505,24 @@ class test_fluoxas(unittest.TestCase):
                         h5file = "{}.crop.h5".format(radix)
                         expected.append(h5file)
                     self.destpath.compare(sorted(expected),files_only=True,recursive=False)
+
+                    # Check HDF5 groups
+                    h5file = os.path.join(self.destpath.path,h5file)
+                    stacks, axes, procinfo = get_hdf5_imagestacks.get_hdf5_imagestacks(h5file,['^(counters|(detector.*))$'])
+                    self.assertEqual(set(stacks.keys()),expectedgroups_result)
+
+                    for detector,stack in stacks.items():
+                        if detector == 'counters':
+                            if quant:
+                                expectedsubgroups = counterlabels|calclabels
+                            else:
+                                expectedsubgroups = counterlabels
+                        else:
+                            if cfgfileuse:
+                                expectedsubgroups = detcounterlabels|fitlabels
+                            else:
+                                expectedsubgroups = detcounterlabels
+                        self.assertEqual(set(stack.keys()),expectedsubgroups)
 
                     # Check generated spectra (data)
                     if newspectra:
@@ -471,10 +537,14 @@ class test_fluoxas(unittest.TestCase):
                             data0 /= ctrs["arr_norm"][...,np.newaxis,np.newaxis]
 
                         # Add spectra
-                        data0 = data0[...,include_detectors]
-                        if addbefore:
-                            data0 = data0.sum(axis=-1)[...,np.newaxis]
-
+                        if addspectra:
+                            if adddetectorgroups:
+                                data0 = np.stack([data0[...,instance.asarray(ind)].sum(axis=-1) for ind in include_detectors],axis=-1)
+                            else:
+                                data0 = data0[...,alldetectors].sum(axis=-1)[...,np.newaxis]
+                        else:
+                            data0 = data0[...,alldetectors]
+                             
                         # Saved spectra
                         stack = xiaedf.xiastack_radix(os.path.join(self.destpath.path,"{}_data".format(radix)),radixout)
                         data2 = stack.data
@@ -482,42 +552,26 @@ class test_fluoxas(unittest.TestCase):
                         # Check spectra are equal
                         np.testing.assert_allclose(data0,data2,rtol=1e-6)
                     
-                    # Check HDF5 groups
-                    h5file = os.path.join(self.destpath.path,h5file)
-                    stacks, axes, procinfo = get_hdf5_imagestacks.get_hdf5_imagestacks(h5file,['^(counters|(detector([0-9]+|sum)))$'])
-                    
-                    expectedgroups = ['counters']
-                    if adddetectors:
-                        expectedgroups.append('detectorsum')
-                    else:
-                        expectedgroups += ['detector{}'.format(i) for i in include_detectors]
-                    expectedgroups = set(expectedgroups)
-                    self.assertEqual(set(stacks.keys()),expectedgroups)
-
-                    for detector,stack in stacks.items():
-                        if detector == 'counters':
-                            if quant:
-                                expectedgroups = counterlabels|calclabels
-                            else:
-                                expectedgroups = counterlabels
-                        else:
-                            if cfgfileuse:
-                                expectedgroups = detcounterlabels|fitlabels
-                            else:
-                                expectedgroups = detcounterlabels
-                        self.assertEqual(set(stack.keys()),expectedgroups)
-                        
                     # Check fit results
                     if cfgfileuse and dtcor:
                         with nexus.File(h5file,mode='r') as f:
                             for detector,stack in stacks.items():
-                                if detector == 'counters':
+                                if not detector.isdetector:
                                     continue
-                                elif detector == 'detectorsum':
-                                    info = self.procinfo['detectorsum']
+                                
+                                if detector.issum:
+                                    if adddetectorgroups:
+                                        if detector.number>len(include_detectors):
+                                            dets = alldetectors
+                                        else:
+                                            dets = tuple(instance.asarray(include_detectors[detector.number-1]).tolist())
+                                    else:
+                                        dets = alldetectors 
                                 else:
-                                    info = self.procinfo['detectors'][int(detector[8:])]
-
+                                    dets = (detector.number,)
+                                logger.debug('Check fit result for sum of detectors {}'.format(dets))
+                                info = self.procinfo['detectors'][dets]
+                                
                                 for grpname,grp in stack.items():
                                     if 'xmap' in grp:
                                         continue
@@ -532,6 +586,7 @@ class test_fluoxas(unittest.TestCase):
                                     self._assert_fitresult(grpname,grpdata,info)
                                 
                     continue
+                    
                     if cfgfileuse:
                         h5file = os.path.join(self.destpath.path,h5file)
                         stacks, axes, procinfo = get_hdf5_imagestacks.get_hdf5_imagestacks(h5file,["detectorsum"])

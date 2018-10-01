@@ -144,7 +144,7 @@ class test_xiaedf(unittest.TestCase):
         xiaobject.dtcor(False)
         xiaobject.detectorsum(False)
         xiaobject.globalnorm(None)
-        xiaobject.skipdetectors([])
+        xiaobject.exclude_detectors([])
 
         self.assertEqual(xiaobject.dshape,dshape)
         self.assertEqual(xiaobject.sshape,sshape)
@@ -172,7 +172,7 @@ class test_xiaedf(unittest.TestCase):
         np.testing.assert_array_equal(dataorg[...,0],xiaobject.data)
 
         # Test slicing
-        xiaobject.skipdetectors([])
+        xiaobject.exclude_detectors([])
  
         indices = genindexing.genindexingn(dshape,advanced=True,eco=True,nmax=50)
         for dsum in [False,True]:
@@ -264,7 +264,7 @@ class test_xiaedf(unittest.TestCase):
         ndet = dshape[-1]
 
         if ndet>2:
-            xiaobject.skipdetectors([])
+            xiaobject.exclude_detectors([])
             ind = range(0,ndet,2)
 
             xiaobject.dataandstats()
@@ -272,19 +272,19 @@ class test_xiaedf(unittest.TestCase):
             np.testing.assert_array_equal(data[...,ind],ldata)
             np.testing.assert_array_equal(stats[...,ind],lstats)
 
-            xiaobject.skipdetectors([0,ndet-1])
+            xiaobject.exclude_detectors([0,ndet-1])
             np.testing.assert_array_equal(data[...,1:-1],xiaobject.data)
             np.testing.assert_array_equal(stats[...,1:-1],xiaobject.stats)
 
         if ndet>1:
-            xiaobject.skipdetectors([])
+            xiaobject.exclude_detectors([])
 
             xiaobject.dataandstats()
             ldata,lstats = xiaobject[...,1:]
             np.testing.assert_array_equal(data[...,1:],ldata)
             np.testing.assert_array_equal(stats[...,1:],lstats)
 
-            xiaobject.skipdetectors([0])
+            xiaobject.exclude_detectors([0])
             self.assertEqual(ldata.shape,xiaobject.dshape)
             self.assertEqual(lstats.shape,xiaobject.sshape)
 
