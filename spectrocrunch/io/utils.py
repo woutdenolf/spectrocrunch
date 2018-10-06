@@ -26,7 +26,13 @@ import os
 import errno
 import shutil
 import tempfile
+import random
+import string
 
+def randomstring(size=6, chars=string.ascii_letters + string.digits):
+    # Number of combinations: n^size  (default: 62^6)
+    return ''.join(random.choice(chars) for _ in range(size))
+    
 class Copy(object):
     
     def __init__(self,filename,copyname):
@@ -42,7 +48,7 @@ class Copy(object):
             if os.path.isfile(self.copyname):
                 os.remove(self.copyname)
         
-class Temporary_Copy(object):
+class TemporaryCopy(object):
     
     def __init__(self,filename,ext=".tmp"):
         self.filename = filename
@@ -60,7 +66,19 @@ class Temporary_Copy(object):
         if os.path.isfile(self.tmpfilename):
             os.remove(self.tmpfilename)
         self.tmpfilename = None
+
+class TemporaryFilename(object):
+    
+    def __init__(self,path,suffix='.tmp',prefix=''):
+        self.tmpfilename = os.path.join(path,prefix+randomstring()+suffix)
         
+    def __enter__(self):
+        return self.tmpfilename
+
+    def __exit__(self,exc_type, exc_val, exc_tb):
+        if os.path.exists(self.tmpfilename):
+            os.remove(self.tmpfilename)
+
 def mkdir(path):
     try:
         os.makedirs(path)
