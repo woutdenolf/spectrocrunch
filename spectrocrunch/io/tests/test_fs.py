@@ -195,16 +195,16 @@ class test_fs(unittest.TestCase):
         
         root1['data2/a.txt'].copy(root1['data2a.txt'])
         root1['data2'].linkdest().copy(root1['data2b'])
-        
         self.assertTrue(root1['data2b'].isdir)
         self.assertTrue(root1['data2a.txt'].isfile)
         
-        if not isinstance(root1,h5fs.Path):
-            root1['data1/a.txt'].move(root1['data3_a.txt'])
-            root1['data1'].linkdest().move(root1['data1b'])
-            self.assertFalse(root1['data1/a.txt'].exists)
-            self.assertFalse(root2['data3'].exists)
-            self.assertTrue(root1['data1b'].exists)
+        root1['data2/a.txt'].move(root1['data2_a.txt'])
+        root1['data1'].linkdest().move(root1['data1b'])
+        self.assertFalse(root1['data1'].exists)
+        self.assertFalse(root1['data2/a.txt'].exists)
+        self.assertTrue(root1['data2b/a.txt'].exists)
+        self.assertFalse(root2['data3'].exists)
+        self.assertTrue(root1['data1b'].exists)
             
 def test_suite():
     """Test suite including all test suites"""
