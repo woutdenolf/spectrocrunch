@@ -29,7 +29,6 @@ import contextlib
 from datetime import datetime
 
 from . import fs
-from . import utils
 
 class Path(fs.Path):
 
@@ -111,7 +110,6 @@ class Path(fs.Path):
     def mkdir(self,recursive=True,force=True):
         if self._mkdir_prepare(recursive=recursive,force=force):
             return self
-            
         if recursive:
             try:
                 os.makedirs(self.path)
@@ -127,20 +125,16 @@ class Path(fs.Path):
         
     def move(self, dest, force=True):
         dest = self._copy_move_prepare(dest, force=force)
-            
         try:
             os.rename(self.path, dest.path)
         except OSError as err:
             if err.errno == errno.EXDEV:
-                tmp = '{}-{}'.format(dest, utils.randomstring)
-                shutil.copy(self.path, tmp)
-                os.rename(tmp, dest.path)
-                os.remove(self.path)
+                dest = self._move_copydel(dest)
             else:
                 raise
                 
         return dest
-        
+                
     def copy(self, dest, force=True, follow=False):
         dest = self._copy_move_prepare(dest, force=force)
         if self.isdir:

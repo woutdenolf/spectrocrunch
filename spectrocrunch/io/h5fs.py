@@ -235,7 +235,13 @@ class Path(fs.Path):
     def move(self, dest, force=True):
         with self.h5open() as f:
             dest = self._copy_move_prepare(dest, force=force)
-            f.move(self.path,dest.path)
+            if self.device==dest.device:
+                try:
+                    f.move(self.path,dest.path)
+                except ValueError:
+                    dest = self._move_copydel(dest)
+            else:
+                dest = self._move_copydel(dest)
             return dest
         
     def copy(self, dest, force=True, follow=False):

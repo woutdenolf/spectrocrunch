@@ -28,6 +28,8 @@ from abc import ABCMeta,abstractproperty,abstractmethod
 from future.utils import with_metaclass
 import operator
 
+from . import utils
+
 class FileSystemException(Exception):
     """
     Base class for generic file system exceptions.
@@ -249,6 +251,18 @@ class Path(File):
         
         return dest
 
+    def _move_copydel(self,dest):
+        """This is called if dest is an external path
+           and cannot be move directly. So copy/delete
+           instead, which is atomic if rename is atomic.
+        """
+        tmp = '{}-{}'.format(dest.name, utils.randomstring())
+        tmp = dest.parent[tmp]
+        self.copy(tmp,force=True,follow=True)
+        ret = tmp.rename(dest.path)
+        self.remove(recursive=True)
+        return ret
+        
     def _mkdir_prepare(self, recursive=True, force=True):
         if self.exists:
             if not force:
