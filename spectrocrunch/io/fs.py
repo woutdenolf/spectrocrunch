@@ -89,6 +89,7 @@ class File(with_metaclass(ABCMeta,object)):
 
     def __init__(self,**kwargs):
         self._handle = None
+        self._onclose_callbacks = []
         super(File,self).__init__()
 
     @contextlib.contextmanager
@@ -96,11 +97,12 @@ class File(with_metaclass(ABCMeta,object)):
         if self._handle is None:
             kwargs = dict(self.openparams)
             kwargs.update(openparams)
-            with self._fopen(**kwargs) as self._handle:
-                try:
-                    yield self._handle
-                finally:
-                    self._handle = None
+            with self._closectx():
+                with self._fopen(**kwargs) as self._handle:
+                    try:
+                        yield self._handle
+                    finally:
+                        self._handle = None
         else:
             yield self._handle
 
@@ -113,7 +115,25 @@ class File(with_metaclass(ABCMeta,object)):
     def openparams(self):
         pass
     
+    @contextlib.contextmanager
+    def _closectx(self):
+        try:
+            yield
+        finally:
+            if self._onclose_callbacks:
+                funcs,self._onclose_callbacks = self._onclose_callbacks,[]
+                for func,args,kwargs in funcs:
+                    func(*args,**kwargs)
     
+    def executeonclose(self,func,*args,**kwargs):
+        if self._handle:
+            self._onclose_callbacks.append((func,args,kwargs))
+        
+    def isopen(self):
+        # only checks local handle (could be opened by others)
+        return bool(self._handle)
+        
+        
 class Path(File):
 
     @property
@@ -345,7 +365,7 @@ class Path(File):
     @property
     def root(self):
         root = self
-        while root!=root.parent:
+        while root!=root.parent and root.parent:
             root = root.parent
         return root
         
@@ -376,12 +396,16 @@ class Path(File):
         
         return out
 
-    def strtree(self,recursive=True,depth=0,files=True):
+    def strtree(self,recursive=True,depth=0,files=True,stats=False):
         tree = self.tree(recursive=recursive,depth=depth,files=files)
-        return '\n'.join(self._str_tree(tree))
+        if stats:
+            lines = self._str_tree_withstats(tree)
+        else:
+            lines = self._str_tree(tree)
+        return '\n'.join(lines)
         
-    def ls(self,recursive=True,depth=0,files=True):
-        tree = self.strtree(recursive=recursive,depth=depth,files=files)
+    def ls(self,recursive=True,depth=0,files=True,stats=False):
+        tree = self.strtree(recursive=recursive,depth=depth,files=files,stats=stats)
         print(tree)
 
     @classmethod
@@ -430,6 +454,39 @@ class Path(File):
                         out += cls._str_tree(node,_padding=_padding+'|')
         return out
 
+    @classmethod
+    def _str_tree_withstats(cls,node,_padding=' '):
+        path,lst = node
+        out = []
+        if path:
+            # Node name
+            indent = _padding[:-1]
+            name,stats = path.lsinfo()
+            out.append('{}+-{}'.format(indent,name))
+            for k,v in stats.items():
+                out.append('{} | @{} = {}'.format(_padding,k,v))
+                
+            # Add subnodes
+            if lst:
+                last = len(lst)
+                _padding = _padding + ' '
+                for i,node in enumerate(lst,1):
+                    out.append(_padding+'|')
+                    if i==last:
+                        out += cls._str_tree_withstats(node,_padding=_padding+' ')
+                    else:
+                        out += cls._str_tree_withstats(node,_padding=_padding+'|')
+        return out
+    
+    def lsinfo(self):
+        try:
+            stats = self.stats()
+            name = self.name
+        except Missing:
+            name = '{} (broken link: {})'.format(self.name,self.linkdestname)
+            stats = {}
+        return name,stats
+        
     def node(self,follow=True):
         if follow:
             lnk = self.linkdest(follow=True)
@@ -461,9 +518,15 @@ class Path(File):
         pass
     
     @abstractmethod
-    def update_stats(self,**stats):
+    def update_stats(self,follow=True,**stats):
         pass
-        
+    
+    @contextlib.contextmanager
+    def openstats(self,follow=True):
+        stats = self.stats(follow=follow)
+        yield stats
+        self.update_stats(**stats)
+    
     @abstractmethod
     def remove(self,recursive=False):
         pass
@@ -476,3 +539,12 @@ class Path(File):
     def linkdest(self,follow=False):
         pass
         
+    @property
+    def linkdestname(self):
+        lnkdest = self.linkdest(follow=False)
+        if lnkdest:
+            if self.device == lnkdest.device:
+                lnkdest = self.relpath(str(lnkdest))
+            else:
+                lnkdest = lnkdest.location
+        return lnkdest
