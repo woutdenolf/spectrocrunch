@@ -165,24 +165,37 @@ class Path(fs.Path):
             os.remove(self.path)
         
     def stats(self,follow=True):
-        if follow:
-            ret = os.lstat(self.path)
-        else:
-            ret = os.stat(self.path)
+        try:
+            if follow:
+                ret = os.stat(self.path)
+            else:
+                ret = os.lstat(self.path)
+        except OSError as err:
+            if err.errno == errno.ENOENT:
+                raise fs.Missing(self.location)
+            
         ret = {k[3:]:getattr(ret,k) for k in dir(ret) if k.startswith('st_')}
         
         for k,v in ret.items():
             if 'time' in k:
                 ret[k] = datetime.fromtimestamp(v)
-                
+        
+        #ret['permissions'] = oct(ret.pop('mode') & 0o777)
         return ret
         
-    def update_stats(self,permissions=None,uid=-1,gid=-1):
-        if permissions is not None:
-            os.chmod(self.path,permissions)
-        if uid>0 or gid>0:
-            os.chown(self.path,uid,gid)
-        
+    def update_stats(self,follow=True,mode=None,uid=-1,gid=-1,**ignore):
+        if mode is not None:
+            #mode = int(mode, 8)
+            if follow:
+                os.chmod(self.path,mode)
+            else:
+                os.lchmod(self.path,mode)
+        if uid>=0 or gid>=0:
+            if follow:
+                os.chown(self.path,uid,gid)
+            else:
+                os.lchown(self.path,uid,gid)
+    
     def link(self,dest,soft=True):
         lnkname = self.path
         if soft:

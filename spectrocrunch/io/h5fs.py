@@ -61,7 +61,13 @@ class h5File(fs.File):
     @openparams.setter
     def openparams(self,value):
         self._openparams = value
-        
+    
+    def remove(self):
+        if self.isopen():
+            self.executeonclose(os.remove,self.path)
+        else:
+            os.remove(self.path)
+    
         
 class Path(fs.Path):
 
@@ -101,10 +107,12 @@ class Path(fs.Path):
                     node = None
                 # r,r+,a: nothing to do
                 
-            if not node:
+            if node:
+                if createparams:
+                    raise fs.AlreadyExists(self.location)
+            else:
                 if mode.startswith('r'):
                     raise fs.Missing(self.location)
-                
                 parent = self.parent
                 node = f.get(parent,default=None)
                 if not node:
@@ -122,6 +130,9 @@ class Path(fs.Path):
         with self._h5file.open(**openparams) as f:
             yield f
     
+    def h5remove(self):
+        self._h5file.remove()
+        
     def __eq__(self,other):
         return self.location==str(getattr(other,'location',other))
 
@@ -265,16 +276,28 @@ class Path(fs.Path):
                     if not recursive:
                         if list(self.listdir()):
                             raise fs.DirectoryIsNotEmpty(self.location)
-                del f[self.path]
-                
+                if self.path==self.sep:
+                    self.h5remove()
+                else:
+                    del f[self.path]
+        
     def stats(self,follow=True):
+        if follow==False:
+            raise ValueError('Hdf5 links do not have attributes themselves')
         with self.open(mode='r') as node:
             return dict(node.attrs)
 
     def update_stats(self,**stats):
         with self.open() as node:
             node.attrs.update(stats)
-        
+    
+    @contextlib.contextmanager
+    def openstats(self,follow=True,**openparams):
+        if follow==False:
+            raise ValueError('Hdf5 links do not have attributes themselves')
+        with self.open(**openparams) as node:
+            yield node.attrs
+            
     def link(self,dest,soft=True):
         with self.h5open() as f:
             lnkname = self.path
@@ -318,4 +341,19 @@ class Path(fs.Path):
             if follow:
                 lnk = self._link_follow(lnk)
             return lnk
-        
+    
+    def lsinfo(self):
+        try:
+            with self.open(mode='r') as node:
+                if self.isfile:
+                    shape = 'x'.join(list(map(str,node.shape)))
+                    name = '{} = {} ({})'.format(self.name,node.dtype,shape)
+                else:
+                    name = self.name
+                    if not name:
+                        name = self.sep
+                stats = self.stats()
+        except fs.Missing:
+            name = '{} (broken link: {})'.format(self.name,self.linkdestname)
+            stats = {}
+        return name,stats

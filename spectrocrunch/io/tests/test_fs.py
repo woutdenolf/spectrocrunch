@@ -29,6 +29,7 @@ from testfixtures import TempDirectory
 from .. import fs
 from .. import localfs
 from .. import h5fs
+from .. import nxfs
 from ..utils import TemporaryFilename
 
 class test_fs(unittest.TestCase):
@@ -47,20 +48,90 @@ class test_fs(unittest.TestCase):
         self.assertEqual(root['a']['b']['c'].root,'/')
         self._check_path(root,root)
         print('')
-        root.ls(recursive=True)
+        root.ls(recursive=True,stats=True)
         
     def test_h5(self):
+        self._check_h5(h5fs.Path)
+    
+    def test_nx(self):
+        self._check_h5(nxfs.Path)
+    
+    def test_nxclasses(self):
         h5filename = os.path.join(self.dir.path,'test.h5')
-        root1 = h5fs.Path('/',h5file=h5filename)
-        root2 = h5fs.Path(h5filename+':/')
-        self.assertEqual(root1,h5filename+':/')
-        self.assertEqual(root1,root2)
-        h5filename = os.path.join(self.dir.path,'ext.h5')
-        root2 = h5fs.Path(h5filename+':/')
-        self._check_path(root1,root2,shape=(2,3),dtype=int)
-        print('')
-        root1.ls(recursive=True)
+        root = nxfs.Path('/',h5file=h5filename)
         
+        nxroot = root.nxroot()
+        
+        self.assertRaises(ValueError,nxroot.nxentry,'entry0001',mode='r')
+        entry1 = nxroot.nxentry('entry0001')
+        self.assertEqual(entry1,root['entry0001'])
+        self.assertEqual(entry1,nxroot['entry0001'])
+        
+        self.assertRaises(nxfs.NexusException,nxroot.nxsubentry,'subentrya')
+        subentrya = entry1.nxsubentry('subentrya')
+        self.assertEqual(entry1,subentrya.nxentry())
+        
+        self.assertRaises(nxfs.NexusException,nxroot.nxdata,'data1')
+        data1 = subentrya.nxdata('data1')
+        entry2 = data1.nxentry('entry0002')
+        
+        self.assertRaises(ValueError,data1.nxinstrument,mode='r')
+        instrument = data1.nxinstrument()
+    
+        self._check_nxdata(data1)
+    
+        root.ls(recursive=True,stats=True)
+        
+    def _check_nxdata(self,data):
+        signals = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
+        for signal in signals:
+            data.add_signal(signal,dtype=int,shape=(2,3))
+        self.assertRaises(fs.AlreadyExists,data.add_signal,signals[-1],dtype=int,shape=(3,3))
+        self._check_nxdata_signals(data,signals[-1],signals[:-1])
+
+        data.remove_signal(signals[-1])
+        self._check_nxdata_signals(data,signals[-2],signals[:-2])
+        
+        data.remove_signal(signals[0])
+        self.assertEqual(data.signal.name,signals[-2])
+        self._check_nxdata_signals(data,signals[-2],signals[1:-2])
+        
+        signal = signals[-2]
+        signals = signals[1:-2]
+        data.default_signal(signals[0])
+        self._check_nxdata_signals(data,signals[0],signals[1:]+[signal])
+    
+    def _check_nxdata_signals(self,data,signal,signals):
+        self.assertEqual(data.signal.name,signal)
+        for signal,name in zip(data.auxiliary_signals(),signals):
+            self.assertEqual(signal.name,name)
+        
+    def _check_h5(self,cls):
+        h5filename1 = os.path.join(self.dir.path,'test.h5')
+        root1 = cls('/',h5file=h5filename1)
+        root2 = cls(h5filename1+':/')
+        self.assertEqual(root1,h5filename1+':/')
+        self.assertEqual(root1,root2)
+        
+        h5filename2 = os.path.join(self.dir.path,'ext.h5')
+        root2 = cls(h5filename2+':/')
+        self._check_path(root1,root2,shape=(2,3),dtype=int)
+        
+        with root1.openstats() as stats:
+            stats['attr'] = 10
+        self.assertEqual(root1.stats()['attr'],10)
+        
+        with root1['data1b'].openstats() as stats:
+            stats['attr'] = 20
+
+        print('')
+        root1.ls(recursive=True,stats=True)
+        
+        root1.remove(recursive=True)
+        root2.remove(recursive=True)
+        self.assertFalse(localfs.Path(h5filename1).exists)
+        self.assertFalse(localfs.Path(h5filename2).exists)
+    
     def _check_path(self,root1,root2,**createparams):
         self.assertEqual(root1['a/b/c'].parent,root1['a/b'])
         self.assertEqual(root1['a/b/c/'].parent,root1['a/b'])
@@ -209,8 +280,10 @@ class test_fs(unittest.TestCase):
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_fs("test_local"))
-    testSuite.addTest(test_fs("test_h5"))
+    #testSuite.addTest(test_fs("test_local"))
+    #testSuite.addTest(test_fs("test_h5"))
+    #testSuite.addTest(test_fs("test_nx"))
+    testSuite.addTest(test_fs("test_nxclasses"))
     return testSuite
     
 if __name__ == '__main__':
