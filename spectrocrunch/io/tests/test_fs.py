@@ -48,7 +48,7 @@ class test_fs(unittest.TestCase):
         self.assertEqual(root['a']['b']['c'].root,'/')
         self._check_path(root,root)
         print('')
-        root.ls(recursive=True,stats=True)
+        root.ls(recursive=True,stats=False)
         
     def test_h5(self):
         self._check_h5(h5fs.Path)
@@ -79,31 +79,86 @@ class test_fs(unittest.TestCase):
         instrument = data1.nxinstrument()
     
         self._check_nxdata(data1)
-    
-        root.ls(recursive=True,stats=True)
+        self._check_process(entry2)
         
-    def _check_nxdata(self,data):
+        
+        #root.ls(recursive=True,stats=False)
+        root.ls(recursive=True,stats=True)
+    
+    def _check_process(self,entry):
+        process1 = entry.nxprocess('fit')
+        
+        cfg = process1.config
+        results = process1.results
+        plotselect = process1.plotselect
+        
+        shape = (2,3)
+        dtype = float
+        signals = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
+        for detector in range(2):
+            detector = results['detector{:02d}'.format(detector)].mkdir()
+            for name in signals:
+                detector[name].mkfile(shape=shape,dtype=dtype)
+        
+        positioners = entry.positioners()
+        positioners.add_axis('y',range(2),units='um',title='vertical')
+        positioners.add_axis('x',range(3))
+        
+        for name in signals:
+            plotselect.add_signal(path=detector[name])
+        plotselect.set_axes('y','x')
+        
+        data = {'p1':10,'p2':[10,20]}
+        cfg.write_json(data)
+        self.assertEqual(cfg.data,data)
+        
+        process2 = entry.nxprocess('align')
+
+    def _check_nxdata(self,data1):
+        y = 'y',range(2),{'units':'um','title':'vertical'}
+        ywrong = 'y',[1,2],{'units':'um'}
+        x = 'x',range(3),{}
+
+        self.assertRaises(nxfs.NexusException, data1.set_axes, y,x)
+        
         signals = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
         for signal in signals:
-            data.add_signal(signal,dtype=int,shape=(2,3))
-        self.assertRaises(fs.AlreadyExists,data.add_signal,signals[-1],dtype=int,shape=(3,3))
-        self._check_nxdata_signals(data,signals[-1],signals[:-1])
+            data1.add_signal(name=signal,dtype=int,shape=(len(y[1]),len(x[1])))
+        self.assertRaises(fs.AlreadyExists,data1.add_signal,name=signals[-1],dtype=int,shape=(len(y[1])+1,len(x[1])))
+        self._check_nxdata_signals(data1,signals[-1],signals[:-1])
 
-        data.remove_signal(signals[-1])
-        self._check_nxdata_signals(data,signals[-2],signals[:-2])
+        data1.remove_signal(signals[-1])
+        self._check_nxdata_signals(data1,signals[-2],signals[:-2])
         
-        data.remove_signal(signals[0])
-        self.assertEqual(data.signal.name,signals[-2])
-        self._check_nxdata_signals(data,signals[-2],signals[1:-2])
+        data1.remove_signal(signals[0])
+        self.assertEqual(data1.signal.name,signals[-2])
+        self._check_nxdata_signals(data1,signals[-2],signals[1:-2])
         
         signal = signals[-2]
         signals = signals[1:-2]
-        data.default_signal(signals[0])
-        self._check_nxdata_signals(data,signals[0],signals[1:]+[signal])
-    
+        data1.default_signal(signals[0])
+        self._check_nxdata_signals(data1,signals[0],signals[1:]+[signal])
+        
+        signal,signals = signals[0],signals[1:]+[signal]
+        data1[signals[0]].mark_default()
+        self._check_nxdata_signals(data1,signals[0],signals[1:]+[signal])
+
+        data2 = data1.parent.nxdata('data2')
+        for signal in data1.signals:
+            data2.add_signal(path=signal)
+
+        data1.set_axes(y,x)
+        data1.set_axes(y,x)
+        self.assertRaises(ValueError,data1.set_axes,ywrong,x)
+        data2.set_axes('y','x')
+        
+        data3 = data1.parent['data3'].link('data2')
+        self.assertEqual(data3.axes[0][1].units,'micrometer')
+        
+        
     def _check_nxdata_signals(self,data,signal,signals):
         self.assertEqual(data.signal.name,signal)
-        for signal,name in zip(data.auxiliary_signals(),signals):
+        for signal,name in zip(data.auxiliary_signals,signals):
             self.assertEqual(signal.name,name)
         
     def _check_h5(self,cls):
@@ -117,15 +172,8 @@ class test_fs(unittest.TestCase):
         root2 = cls(h5filename2+':/')
         self._check_path(root1,root2,shape=(2,3),dtype=int)
         
-        with root1.openstats() as stats:
-            stats['attr'] = 10
-        self.assertEqual(root1.stats()['attr'],10)
-        
-        with root1['data1b'].openstats() as stats:
-            stats['attr'] = 20
-
         print('')
-        root1.ls(recursive=True,stats=True)
+        root1.ls(recursive=True,stats=False)
         
         root1.remove(recursive=True)
         root2.remove(recursive=True)
@@ -167,9 +215,7 @@ class test_fs(unittest.TestCase):
         self.assertTrue(file_atxt.isfile)
         self.assertFalse(file_atxt.isdir)
         if createparams:
-            with self.assertRaises(fs.AlreadyExists):
-                with file_atxt.open(mode='x',**createparams):
-                    pass
+            self.assertRaises(fs.AlreadyExists,file_atxt.mkfile,mode='x',**createparams)
         with file_atxt.open(mode='r') as f:
             pass
 
@@ -204,9 +250,7 @@ class test_fs(unittest.TestCase):
         
         # Create when wrong node is existing
         for path in [dir_a,lnk1,lnk2]:
-            with self.assertRaises(fs.NotAFile):
-                with path.open(mode='w',**createparams):
-                    pass
+            self.assertRaises(fs.NotAFile,path.mkfile,mode='w',**createparams)
                     
         for path in [file_atxt,lnk3,lnk4]:
             with self.assertRaises(fs.NotADirectory):
@@ -255,8 +299,7 @@ class test_fs(unittest.TestCase):
         
         # External
         data = root2['data3'].mkdir()
-        with data['a.txt'].open(mode='w',**createparams):
-            pass
+        data['a.txt'].mkfile(mode='w',**createparams)
         data['b.txt'].link(data['a.txt'],soft=True)
         data['c.txt'].link(data['a.txt'],soft=False)
         root2['data3'].copy(root2['data4'])
