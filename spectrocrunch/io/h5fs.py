@@ -306,8 +306,11 @@ class Path(fs.Path):
                 f[lnkname] = h5py.ExternalLink(_dest.device, _dest.path)
             else:
                 if soft:
-                    dest = self.relpath(str(dest))
-                    f[lnkname] = h5py.SoftLink(dest)
+                    #TODO: double dots do not work?
+                    sdest = self.relpath(str(dest))
+                    if '..' in sdest:
+                        sdest = str(dest)
+                    f[lnkname] = h5py.SoftLink(sdest)
                 else:
                     dest = str(_dest)
                     f[lnkname] = f[dest]
@@ -346,8 +349,11 @@ class Path(fs.Path):
         try:
             with self.open(mode='r') as node:
                 if self.isfile:
-                    shape = 'x'.join(list(map(str,node.shape)))
-                    name = '{} = {} ({})'.format(self.name,node.dtype,shape)
+                    if node.ndim==0:
+                        name = '{} = {}'.format(self.name,node.value)
+                    else:
+                        shape = 'x'.join(list(map(str,node.shape)))
+                        name = '{} = {} ({})'.format(self.name,node.dtype,shape)
                 else:
                     name = self.name
                     if not name:

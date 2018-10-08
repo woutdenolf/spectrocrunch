@@ -246,6 +246,10 @@ class Path(File):
     def __getitem__(self,value):
         return self.factory(self.join(self.path,str(value)))
 
+    def __iter__(self):
+        for path in self.listdir():
+            yield path
+    
     def __call__(self,*value):
         return self.factory(self.join(self.path,*map(str,value)))
 
@@ -364,11 +368,19 @@ class Path(File):
         
     @property
     def root(self):
-        root = self
-        while root!=root.parent and root.parent:
-            root = root.parent
+        for root in self.iterup:
+            pass
         return root
-        
+    
+    @property
+    def iterup(self):
+        # yields self as well
+        path = self
+        while path!=path.parent and path.parent:
+            yield path
+            path = path.parent
+        yield path
+    
     def tree(self,recursive=True,depth=0,files=True,_level=0):
         """
         Returns:
@@ -463,8 +475,12 @@ class Path(File):
             indent = _padding[:-1]
             name,stats = path.lsinfo()
             out.append('{}+-{}'.format(indent,name))
+            if lst:
+                sep = '|'
+            else:
+                sep = ' '
             for k,v in stats.items():
-                out.append('{} | @{} = {}'.format(_padding,k,v))
+                out.append('{} {} @{} = {}'.format(_padding,sep,k,v))
                 
             # Add subnodes
             if lst:
@@ -502,6 +518,11 @@ class Path(File):
     def mkdir(self, recursive=True, force=True):
         pass
 
+    def mkfile(self,**params):
+        with self.open(**params):
+            pass
+        return self
+        
     @abstractmethod
     def move(self, dest, force=True):
         pass
