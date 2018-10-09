@@ -137,10 +137,18 @@ class Path(fs.Path):
                 
     def copy(self, dest, force=True, follow=False):
         dest = self._copy_move_prepare(dest, force=force)
-        if self.isdir:
-            shutil.copytree(self.path, dest.path, symlinks=not follow)
+        
+        if self.islink and not follow:
+            # just copy the link
+            self.link(self.linkdest)
         else:
-            shutil.copy(self.path, dest.path)
+            # TODO: missing option: expand softlinks when pointing outside
+            #       the tree being copied.
+            if self.isdir:
+                shutil.copytree(self.path, dest.path, symlinks=not follow)
+            else:
+                shutil.copy(self.path, dest.path)
+                
         return dest
 
     def remove(self,recursive=False):

@@ -538,6 +538,12 @@ class Path(File):
     def stats(self,follow=True):
         pass
     
+    def get_stat(self,key,default=None,follow=True):
+        try:
+            return self.stats(follow=follow).get(key,default=default)
+        except fs.Missing:
+            return default
+
     @abstractmethod
     def update_stats(self,follow=True,**stats):
         pass

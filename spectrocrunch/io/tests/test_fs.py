@@ -80,23 +80,18 @@ class test_fs(unittest.TestCase):
     
         self._check_nxdata(data1)
         self._check_process(entry2)
-        
-        
-        #root.ls(recursive=True,stats=False)
-        root.ls(recursive=True,stats=True)
+
+        root.ls(recursive=True,stats=False,depth=3)
     
     def _check_process(self,entry):
-        process1 = entry.nxprocess('fit')
-        
-        cfg = process1.config
-        results = process1.results
-        plotselect = process1.plotselect
-        
+        cfg1 = {'p1':10,'p2':[10,20]}
+        process1 = entry.nxprocess('fit',parameters=cfg1)
+
         shape = (2,3)
         dtype = float
         signals = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
         for detector in range(2):
-            detector = results['detector{:02d}'.format(detector)].mkdir()
+            detector = process1.results['detector{:02d}'.format(detector)].mkdir()
             for name in signals:
                 detector[name].mkfile(shape=shape,dtype=dtype)
         
@@ -105,15 +100,19 @@ class test_fs(unittest.TestCase):
         positioners.add_axis('x',range(3))
         
         for name in signals:
-            plotselect.add_signal(path=detector[name])
-        plotselect.set_axes('y','x')
+            process1.plotselect.add_signal(path=detector[name])
+        process1.plotselect.set_axes('y','x')
+        process1.plotselect.mark_default()
         
-        data = {'p1':10,'p2':[10,20]}
-        cfg.write_json(data)
-        self.assertEqual(cfg.data,data)
+        self.assertEqual(process1.config.read(),cfg1)
+        self.assertFalse(process1.previous.exists)
         
-        process2 = entry.nxprocess('align')
-
+        process2 = entry.nxprocess('align',previous=process1)
+        self.assertEqual(process2.config.read(),None)
+        self.assertEqual(process2.previous.linkdest(),process1)
+        
+        self.assertRaises(ValueError,entry.nxprocess,'align',parameters={'wrong':1},previous=process1)
+        
     def _check_nxdata(self,data1):
         y = 'y',range(2),{'units':'um','title':'vertical'}
         ywrong = 'y',[1,2],{'units':'um'}

@@ -259,6 +259,8 @@ class Path(fs.Path):
         with self.h5open() as fsource:
             dest = self._copy_move_prepare(dest, force=force)
             with dest.h5open() as fdest:
+                # TODO: missing option: expand softlinks when pointing outside
+                #       the tree being copied.
                 fsource.copy(self.path,fdest[dest.parent],name=dest.name,
                              expand_soft=follow,expand_external=follow)
                 return dest
@@ -287,6 +289,15 @@ class Path(fs.Path):
         with self.open(mode='r') as node:
             return dict(node.attrs)
 
+    def get_stat(self,key,default=None,follow=True):
+        if follow==False:
+            raise ValueError('Hdf5 links do not have attributes themselves')
+        try:
+            with self.open(mode='r') as node:
+                return node.attrs.get(key,default=default)
+        except fs.Missing:
+            return default
+            
     def update_stats(self,**stats):
         with self.open() as node:
             node.attrs.update(stats)
@@ -363,3 +374,10 @@ class Path(fs.Path):
             name = '{} (broken link: {})'.format(self.name,self.linkdestname)
             stats = {}
         return name,stats
+
+    def read(self):
+        with self.open(mode='r') as node:
+            return node.value
+    
+    def write(self,**kwargs):
+        self.mkfile(**kwargs)
