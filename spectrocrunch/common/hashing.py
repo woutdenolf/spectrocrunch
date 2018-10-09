@@ -25,27 +25,30 @@
 import collections
 from six import string_types
 import numpy as np
+import hashlib
+import pickle
 
+def dhash(x):
+    return hashlib.md5(pickle.dumps(x)).hexdigest()
+    
 def _isiterable(x):
     return isinstance(x,collections.Iterable) and not isinstance(x, string_types)
 
-def _calchash_ndarray(x,numpylarge=False):
+def _calchash_ndarray(x,hashfunc,numpylarge=False):
     if x.ndim==0:
-        return hash(tuple(x[np.newaxis]))
+        return hashfunc(tuple(x[np.newaxis]))
     elif x.ndim==1:
-        return hash(tuple(x))
+        return hashfunc(tuple(x))
     else:
         if numpylarge:
             keep,x.flags.writeable = x.flags.writeable,False
-            ret = hash(x.data)
+            ret = hashfunc(x.data)
             x.flags.writeable = keep
             return ret
         else:
-            return calchash(tuple(x),numpylarge=numpylarge)
+            return _calchash(tuple(x),hashfunc,numpylarge=numpylarge)
             
-def calchash(x,numpylarge=False):
-    """Non-deterministic and non-cryptographic hash
-    """
+def _calchash(x,hashfunc,numpylarge=False):
     # Convert to iterable:
     if isinstance(x,collections.Set):
         x = sorted(x)
@@ -60,7 +63,7 @@ def calchash(x,numpylarge=False):
     tryhash = True
     if xisiterable:
         if isinstance(x,np.ndarray):
-            return _calchash_ndarray(x,numpylarge=numpylarge)
+            return _calchash_ndarray(x,hashfunc,numpylarge=numpylarge)
         elif any(_isiterable(xi) for xi in x):
             tryhash = False
         else:
@@ -69,19 +72,24 @@ def calchash(x,numpylarge=False):
     if tryhash:
         try:
             # This is only allowed to fail when iterable:
-            return hash(x)
+            return hashfunc(x)
         except TypeError as e:
             if not xisiterable:
                 raise e
 
     # Hash of the hashes of an iterable
-    return hash(tuple(calchash(xi,numpylarge=numpylarge) for xi in x))
+    return hashfunc(tuple(_calchash(xi,hashfunc,numpylarge=numpylarge) for xi in x))
+
+def calchash(x,**kwargs):
+    """Non-deterministic and non-cryptographic hash
+    """
+    return _calchash(x,hash,**kwargs)
 
 def calcdhash(x,**kwargs):
     """Deterministic and non-cryptographic hash
     """
-    raise NotImplementedError()
-    
+    return _calchash(x,dhash,**kwargs)
+
 def hashequal(a,b,**kwargs):
     return calchash(a,**kwargs)==calchash(b,**kwargs)
 
