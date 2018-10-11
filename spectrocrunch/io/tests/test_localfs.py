@@ -26,6 +26,7 @@ import os
 import unittest
 from testfixtures import TempDirectory
 
+from .. import fs
 from .. import localfs
 from ..utils import TemporaryFilename
 
@@ -50,7 +51,7 @@ class test_localfs(unittest.TestCase):
         
         with TemporaryFilename(self.dir.path,suffix='.txt') as filename:
             # Doesn't exist
-            self.assertRaises(IOError, self._check_r, filename,'123')
+            self.assertRaises(fs.Missing, self._check_r, filename,'123')
             self._check_w(filename,'123')
             # Exist
             self._check_r(filename,'456')
@@ -58,7 +59,7 @@ class test_localfs(unittest.TestCase):
             
         with TemporaryFilename(self.dir.path,suffix='.txt') as filename:
             # Doesn't exist
-            self.assertRaises(IOError, self._check_rp, filename,'123')
+            self.assertRaises(fs.Missing, self._check_rp, filename,'123')
             self._check_w(filename,'123')
             # Exist
             self._check_rp(filename,'456')

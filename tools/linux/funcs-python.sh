@@ -216,8 +216,9 @@ function python_virtualenv_system_link()
         cd ${_pkgdir}
         for var in "$@";do
             ln -s ${_syspkgdir}/${var} ${var}
-            ls -all ${var}
         done
+        ls -all ${_pkgdir}
+        ls -all ${_syspkgdir}
         cd ${_restore}
     fi
 }
@@ -456,6 +457,7 @@ function require_pyqt4()
     fi
     if [[ $(python_hasmodule "PyQt4") == false ]]; then
         python_virtualenv_system_link PyQt4 sip.so sipconfig.py
+        python -c "import sys;sys.stderr=sys.stdout;import PyQt4"
     fi
     
     if [[ $(python_hasmodule "PyQt4") == true ]]; then
