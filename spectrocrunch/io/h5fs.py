@@ -254,17 +254,25 @@ class Path(fs.Path):
             else:
                 dest = self._move_copydel(dest)
             return dest
-        
-    def copy(self, dest, force=True, follow=False):
+    
+    mv = move
+    
+    def copy(self, dest, force=True, follow=False, dereference=False):
         with self.h5open() as fsource:
             dest = self._copy_move_prepare(dest, force=force)
-            with dest.h5open() as fdest:
+            if self.islink and not follow:
+                # just copy the link
+                dest.link(self.linkdest)
+            else:
                 # TODO: missing option: expand softlinks when pointing outside
                 #       the tree being copied.
-                fsource.copy(self.path,fdest[dest.parent],name=dest.name,
-                             expand_soft=follow,expand_external=follow)
-                return dest
-        
+                with dest.h5open() as fdest:
+                    fsource.copy(self.path,fdest[dest.parent],name=dest.name,
+                                 expand_soft=dereference,expand_external=dereference)
+                    return dest
+    
+    cp = copy
+    
     def remove(self,recursive=False):
         with self.h5open() as f:
             if self.islink:
@@ -282,7 +290,9 @@ class Path(fs.Path):
                     self.h5remove()
                 else:
                     del f[self.path]
-        
+    
+    rm = remove
+    
     def stats(self,follow=True):
         if follow==False:
             raise ValueError('Hdf5 links do not have attributes themselves')
@@ -380,4 +390,5 @@ class Path(fs.Path):
             return node.value
     
     def write(self,**kwargs):
-        self.mkfile(**kwargs)
+        return self.mkfile(**kwargs)
+    

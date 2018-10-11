@@ -47,8 +47,8 @@ class test_fs(unittest.TestCase):
         self.assertEqual(root['/a']['b']['c'].root,'/')
         self.assertEqual(root['a']['b']['c'].root,'/')
         self._check_path(root,root)
-        print('')
-        root.ls(recursive=True,stats=False)
+        #print('')
+        #root.ls(recursive=True,stats=False)
         
     def test_h5(self):
         self._check_h5(h5fs.Path)
@@ -81,7 +81,7 @@ class test_fs(unittest.TestCase):
         self._check_nxdata(data1)
         self._check_process(entry2)
 
-        root.ls(recursive=True,stats=False,depth=3)
+        #root.ls(recursive=True,stats=False,depth=3)
     
     def _check_process(self,entry):
         cfg1 = {'p1':10,'p2':[10,20]}
@@ -110,7 +110,7 @@ class test_fs(unittest.TestCase):
         process2 = entry.nxprocess('align',previous=process1)
         self.assertEqual(process2.config.read(),None)
         self.assertEqual(process2.previous.linkdest(),process1)
-        
+
         self.assertRaises(ValueError,entry.nxprocess,'align',parameters={'wrong':1},previous=process1)
         
     def _check_nxdata(self,data1):
@@ -154,7 +154,6 @@ class test_fs(unittest.TestCase):
         data3 = data1.parent['data3'].link('data2')
         self.assertEqual(data3.axes[0][1].units,'micrometer')
         
-        
     def _check_nxdata_signals(self,data,signal,signals):
         self.assertEqual(data.signal.name,signal)
         for signal,name in zip(data.auxiliary_signals,signals):
@@ -171,8 +170,8 @@ class test_fs(unittest.TestCase):
         root2 = cls(h5filename2+':/')
         self._check_path(root1,root2,shape=(2,3),dtype=int)
         
-        print('')
-        root1.ls(recursive=True,stats=False)
+        #print('')
+        #root1.ls(recursive=True,stats=False)
         
         root1.remove(recursive=True)
         root2.remove(recursive=True)
@@ -322,9 +321,9 @@ class test_fs(unittest.TestCase):
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    #testSuite.addTest(test_fs("test_local"))
-    #testSuite.addTest(test_fs("test_h5"))
-    #testSuite.addTest(test_fs("test_nx"))
+    testSuite.addTest(test_fs("test_local"))
+    testSuite.addTest(test_fs("test_h5"))
+    testSuite.addTest(test_fs("test_nx"))
     testSuite.addTest(test_fs("test_nxclasses"))
     return testSuite
     

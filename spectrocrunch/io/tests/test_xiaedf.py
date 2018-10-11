@@ -40,7 +40,6 @@ from ...common.tests import genindexing
 
 import logging
 logger = logging.getLogger(__name__)
-#logger.setLevel(logging.DEBUG)
 
 class test_xiaedf(unittest.TestCase):
 

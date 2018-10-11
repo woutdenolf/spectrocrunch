@@ -522,17 +522,29 @@ class Path(File):
         with self.open(**params):
             pass
         return self
+    
+    @abstractmethod
+    def read(self):
+        pass
+    
+    @abstractmethod
+    def write(self,*args,**kwargs):
+        pass
         
     @abstractmethod
     def move(self, dest, force=True):
         pass
 
+    mv = move
+
     def rename(self, dest):
         return self.move(dest, force=False)
         
     @abstractmethod
-    def copy(self, dest, force=True, follow=False):
+    def copy(self, dest, force=True, follow=False, dereference=False):
         pass
+
+    cp = copy
 
     @abstractmethod
     def stats(self,follow=True):
@@ -557,6 +569,12 @@ class Path(File):
     @abstractmethod
     def remove(self,recursive=False):
         pass
+    
+    rm = remove
+    
+    def rmdir(self):
+        if self.isdir:
+            self.remove(recursive=True)
     
     @abstractmethod
     def link(self,dest,soft=True):
