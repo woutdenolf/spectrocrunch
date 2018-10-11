@@ -29,9 +29,8 @@ import math_hdf5_imagestacks_replace as m_replace
 import math_hdf5_imagestacks_resample as m_resample
 
 from ..io import nexus as nexus
-from ..common.integerbase import integerbase
-
-from spectrocrunch.common.Enum import Enum
+from ..utils.integerbase import integerbase
+from ..utils.Enum import Enum
 operationType = Enum(['expression','copy','crop','replace','resample'])
 
 import re

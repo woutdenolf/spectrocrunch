@@ -31,9 +31,9 @@ import json
 
 from . import fs
 from . import h5fs
-from ..common import units
-from ..common import instance
-from ..common.hashing import calcdhash
+from ..utils import units
+from ..utils import instance
+from ..utils.hashing import calcdhash
 from .. import __version__
 
 class NexusException(Exception):

@@ -34,9 +34,9 @@ from copy import copy
 from .. import xiaedf
 from .. import edf
 from . import xiagen
-from ...common import indexing
-from ...common import listtools
-from ...common.tests import genindexing
+from ...utils import indexing
+from ...utils import listtools
+from ...utils.tests import genindexing
 
 import logging
 logger = logging.getLogger(__name__)

@@ -22,8 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common import instance
-from ..common import units
+from ..utils import instance
+from ..utils import units
 from ..math import noisepropagation
 from ..patch.pint import ureg
 from ..materials import element

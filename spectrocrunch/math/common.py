@@ -28,7 +28,7 @@ import numpy as np
 import math
 import fractions
 import functools
-from ..common import instance
+from ..utils import instance
 
 def logscale(img):
     ret = -np.log(img/np.nanmax(img))

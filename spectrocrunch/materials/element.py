@@ -32,8 +32,8 @@ import re
 from . import elementbase
 from ..patch.xraylib import xraylib
 from ..patch.pint import ureg
-from ..common import hashable
-from ..common import instance
+from ..utils import hashable
+from ..utils import instance
 from ..math import lazy
 from . import xrayspectrum
 

@@ -25,7 +25,7 @@
 import numpy as np
 import matplotlib.colors as pltcolors
 
-from ..common import instance
+from ..utils import instance
 
 def NormalizedToRGB(x):
     """

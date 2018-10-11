@@ -29,7 +29,7 @@ import fabio
 import glob
 import re
 
-from ..common.dict import defaultdict
+from ..utils.dict import defaultdict
 from ..io import nexus
 
 def execrebin(img,rebin):
@@ -71,7 +71,7 @@ def darklibrary(config):
     Args:
         config(dict)
     Returns:
-        spectrocrunch.common.dict.defaultdict: dictionary of dark frames for particular exposures
+        spectrocrunch.utils.dict.defaultdict: dictionary of dark frames for particular exposures
     """
 
     darkfiles = []

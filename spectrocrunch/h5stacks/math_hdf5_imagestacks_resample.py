@@ -25,7 +25,7 @@
 import numpy as np
 from scipy import interpolate
 
-import spectrocrunch.io.nexus as nexus
+import ..io.nexus as nexus
 import math_hdf5_imagestacks_copy as m_copy
 
 class samplercls():

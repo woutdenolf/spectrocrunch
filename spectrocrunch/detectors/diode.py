@@ -30,22 +30,22 @@ import collections
 from ..patch.pint import ureg
 from ..math import linop
 from ..math import fit1d
-from ..common import units
+from ..utils import units
 from ..materials import compoundfromformula 
 from ..materials import compoundfromname
 from ..materials import multilayer 
 from ..materials import element
 from ..resources import resource_filename
-from ..common import constants
-from ..math.common import round_sig
+from ..utils import constants
+from ..math.utils import round_sig
 from ..geometries import diode as diodegeometries
 from ..optics import xray as xrayoptics
 from ..sources import xray as xraysources
 from ..simulation.classfactory import with_metaclass
 from ..math import noisepropagation
-from ..common import instance
+from ..utils import instance
 from . import base
-from ..common import lut
+from ..utils import lut
 
 import numpy as np
 import silx.math.fit as fit

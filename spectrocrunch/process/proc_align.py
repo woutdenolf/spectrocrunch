@@ -26,7 +26,7 @@ import logging
 
 from ..h5stacks.align_hdf5_imagestacks import align_hdf5_imagestacks as alignstacks
 
-from . import proc_common
+from . import proc_utils
 
 def execute(file_in, stacks_in, axes_in, copygroups, bsamefile, default,\
             alignmethod, alignreference, refimageindex, crop, roi, plot, stackdim):
@@ -38,7 +38,7 @@ def execute(file_in, stacks_in, axes_in, copygroups, bsamefile, default,\
     if bsamefile:
         file_out = file_in
     else:
-        base, ext = proc_common.hdf5base(file_in)
+        base, ext = proc_utils.hdf5base(file_in)
         file_out = base+".align"+ext
 
     # Processing info
@@ -55,7 +55,7 @@ def execute(file_in, stacks_in, axes_in, copygroups, bsamefile, default,\
                                         roi=roi,plot=plot,info=info,copygroups=copygroups)
 
     # Default
-    proc_common.defaultstack(file_out,stacks_out,default)
+    proc_utils.defaultstack(file_out,stacks_out,default)
     
     return file_out, stacks_out, axes_out
 

@@ -25,7 +25,7 @@
 import unittest
 
 from ..import xrf
-from ...common import units
+from ...utils import units
 
 class test_xrf(unittest.TestCase):
 

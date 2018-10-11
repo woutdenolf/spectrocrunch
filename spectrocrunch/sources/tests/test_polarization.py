@@ -26,7 +26,7 @@ import unittest
 import cmath
 
 from .. import polarization
-from ...common import instance
+from ...utils import instance
 
 import numpy as np
 from scipy import integrate

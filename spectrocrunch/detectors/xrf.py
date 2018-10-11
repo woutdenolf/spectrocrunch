@@ -25,10 +25,10 @@
 from . import base
 from ..materials import compoundfromname
 from ..materials import element
-from ..common import constants
-from ..common.classfactory import with_metaclass
-from ..common import instance
-from ..common import units
+from ..utils import constants
+from ..utils.classfactory import with_metaclass
+from ..utils import instance
+from ..utils import units
 from ..math import linalg
 
 import scipy.special

@@ -25,9 +25,9 @@ import json
 
 from ..simulation.classfactory import with_metaclass
 from ..math import noisepropagation
-from ..common import instance
+from ..utils import instance
 from ..resources import resource_filename
-from ..common import units
+from ..utils import units
 
 class Detector(with_metaclass()):
 

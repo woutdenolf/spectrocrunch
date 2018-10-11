@@ -25,7 +25,7 @@
 
 from ..patch.xraylib import xraylib
 from ..patch.pint import ureg
-from ..common.hashable import Hashable
+from ..utils.hashable import Hashable
 from . import element
 
 import numpy as np

@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common.classfactory import with_metaclass
+from ..utils.classfactory import with_metaclass
 from . import base
 
 import numpy as np

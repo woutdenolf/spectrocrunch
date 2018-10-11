@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 import logging
 
-from ..common import instance
+from ..utils import instance
 
 logger = logging.getLogger(__name__)
 

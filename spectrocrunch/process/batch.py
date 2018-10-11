@@ -27,7 +27,7 @@ from contextlib import contextmanager
 import collections
 import logging
 
-from ..common import instance
+from ..utils import instance
 
 logger = logging.getLogger(__name__)
 

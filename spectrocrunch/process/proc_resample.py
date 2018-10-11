@@ -24,9 +24,8 @@
 
 import logging
 
-from spectrocrunch.h5stacks.math_hdf5_imagestacks import resample_hdf5_imagestacks as resamplestacks
-
-from . import proc_common
+from ..h5stacks.math_hdf5_imagestacks import resample_hdf5_imagestacks as resamplestacks
+from . import proc_utils
 
 def execute(file_in, stacks_in, axes_in, copygroups, bsamefile, default,\
             resampleinfo):
@@ -38,7 +37,7 @@ def execute(file_in, stacks_in, axes_in, copygroups, bsamefile, default,\
     if bsamefile:
         file_out = file_in
     else:
-        base, ext = proc_common.hdf5base(file_in)
+        base, ext = proc_utils.hdf5base(file_in)
         file_out = base+".resample"+ext
 
     # Processing info
@@ -48,7 +47,7 @@ def execute(file_in, stacks_in, axes_in, copygroups, bsamefile, default,\
     stacks_out, axes_out = resamplestacks(file_in,file_out,axes_in,stacks_in,stacks_in,resampleinfo,overwrite=True,info=info,copygroups=copygroups)
 
     # Default
-    proc_common.defaultstack(file_out,stacks_out,default)
+    proc_utils.defaultstack(file_out,stacks_out,default)
     
     return file_out, stacks_out, axes_out
 

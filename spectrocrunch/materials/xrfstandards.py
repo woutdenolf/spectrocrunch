@@ -29,8 +29,8 @@ from . import element
 from . import multilayer
 from . import types
 from . import pymca
-from ..common.classfactory import with_metaclass
-from ..common import instance
+from ..utils.classfactory import with_metaclass
+from ..utils import instance
 
 import numpy as np
 

@@ -27,9 +27,9 @@ from . import element
 from . import interaction
 from . import types
 from . import stoichiometry
-from ..common.hashable import Hashable
-from ..common import listtools
-from ..common import instance
+from ..utils.hashable import Hashable
+from ..utils import listtools
+from ..utils import instance
 
 import numpy as np
 import fisx

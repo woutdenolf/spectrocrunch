@@ -27,7 +27,7 @@ from . import compoundfromlist
 from . import element
 from . import types
 from . import stoichiometry
-from ..common import instance
+from ..utils import instance
 
 import numpy as np
 import fisx

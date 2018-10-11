@@ -26,7 +26,7 @@ import logging
 
 from ..h5stacks.math_hdf5_imagestacks import replacevalue_hdf5_imagestacks as replacestacks
 
-from . import proc_common
+from . import proc_utils
 
 def execute(file_in, stacks_in, axes_in, copygroups, bsamefile, default,\
             orgvalue,newvalue):
@@ -38,7 +38,7 @@ def execute(file_in, stacks_in, axes_in, copygroups, bsamefile, default,\
     if bsamefile:
         file_out = file_in
     else:
-        base, ext = proc_common.hdf5base(file_in)
+        base, ext = proc_utils.hdf5base(file_in)
         file_out = base+".replace"+ext
 
     # Processing info
@@ -48,7 +48,7 @@ def execute(file_in, stacks_in, axes_in, copygroups, bsamefile, default,\
     stacks_out, axes_out = replacestacks(file_in,file_out,axes_in,stacks_in,stacks_in,orgvalue,newvalue,overwrite=True,info=info,copygroups=copygroups)
 
     # Default
-    proc_common.defaultstack(file_out,stacks_out,default)
+    proc_utils.defaultstack(file_out,stacks_out,default)
     
     return file_out, stacks_out, axes_out
 

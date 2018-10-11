@@ -23,8 +23,8 @@
 # THE SOFTWARE.
 
 import numpy as np
-from ..common import units
-from ..common import instance
+from ..utils import units
+from ..utils import instance
 from ..math import noisepropagation
 
 class Base(object):

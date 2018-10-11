@@ -26,7 +26,7 @@
 from .align import align
 import SimpleITK as sitk
 import numpy as np
-from ..common.stdout import stdout_redirect
+from ..utils.stdout import stdout_redirect
 from .types import transformationType
 import logging
 

@@ -33,12 +33,12 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import numpy as np
 
-from ..common import listtools
-from ..common import instance
-from ..common import units
-from ..common.hashable import Hashable
-from ..math.common import floatformat
-from ..math.common import round_sig
+from ..utils import listtools
+from ..utils import instance
+from ..utils import units
+from ..utils.hashable import Hashable
+from ..math.utils import floatformat
+from ..math.utils import round_sig
 from ..patch.pint import ureg
 from . import colorbar_rgb
 

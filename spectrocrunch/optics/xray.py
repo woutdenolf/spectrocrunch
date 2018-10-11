@@ -23,10 +23,10 @@
 # THE SOFTWARE.
 
 from . import base
-from ..common.classfactory import with_metaclass
+from ..utils.classfactory import with_metaclass
 from ..materials import multilayer
 from ..geometries.base import FlatSample
-from ..common import instance
+from ..utils import instance
 
 class XrayOptics(with_metaclass(base.Optics)):
     pass

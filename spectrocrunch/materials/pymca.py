@@ -29,8 +29,8 @@ import re
 import copy
 from types import MethodType
 
-from ..common import units
-from ..common import instance
+from ..utils import units
+from ..utils import instance
 from . import mixture
 from . import element
 from ..patch.xraylib import xraylib

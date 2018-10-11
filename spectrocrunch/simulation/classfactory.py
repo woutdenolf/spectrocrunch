@@ -22,8 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common.classfactory import FactoryMeta
-from ..common import instance
+from ..utils.classfactory import FactoryMeta
+from ..utils import instance
 
 import future.utils
 import numpy as np

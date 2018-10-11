@@ -24,7 +24,7 @@
 
 from ..simulation.classfactory import with_metaclass
 from ..math import noisepropagation
-from ..common import instance
+from ..utils import instance
 from .visirlib import Material
 
 import numpy as np

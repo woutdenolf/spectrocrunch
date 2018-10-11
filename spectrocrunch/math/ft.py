@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common.Enum import Enum
+from ..utils.Enum import Enum
 fftConvention = Enum(['numpy','idl'])
 
 FFT_FREQ_CONVENTION = fftConvention.numpy

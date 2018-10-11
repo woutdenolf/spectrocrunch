@@ -33,7 +33,7 @@ from ..io.spec import spec
 from ..xrf.parse_xia import parse_xia_esrf
 from ..xrf.fit import PerformFit as fitter
 from ..xrf.fit import PerformRoi as roisummer
-from ..common.timing import progress
+from ..utils.timing import progress
 
 import pylab
 import logging

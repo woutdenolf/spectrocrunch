@@ -32,9 +32,9 @@ import matplotlib.gridspec as gridspec
 import matplotlib.animation as animation
 import warnings
 
-from ..math.common import logscale
+from ..math.utils import logscale
 from ..io.spec import spec
-from ..common import instance
+from ..utils import instance
 
 class shape_object(object):
     

@@ -30,11 +30,11 @@ import collections
 import fisx
 import logging
 
-from ..common import instance
-from ..common import cache
-from ..common import listtools
+from ..utils import instance
+from ..utils import cache
+from ..utils import listtools
 from ..math import fit1d
-from ..math.common import weightedsum
+from ..math.utils import weightedsum
 from . import xrayspectrum
 from ..simulation.classfactory import with_metaclass
 from ..math import noisepropagation

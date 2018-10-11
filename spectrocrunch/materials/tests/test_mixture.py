@@ -25,7 +25,7 @@
 import unittest
 
 from ...patch.pint import ureg
-from ...common import instance
+from ...utils import instance
 from .. import compoundfromformula
 from .. import mixture
 from .. import types

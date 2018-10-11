@@ -30,7 +30,7 @@ from ..detectors import area
 from ..materials import scintillators
 from ..materials import lenses
 from ..math import noisepropagation
-from ..common.instance import isarray
+from ..utils.instance import isarray
 
 import numpy as np
 import uncertainties
