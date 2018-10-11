@@ -22,8 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common.Enum import Enum
-from ..common import instance
+from ..utils.Enum import Enum
+from ..utils import instance
 
 import ast
 import numpy as np

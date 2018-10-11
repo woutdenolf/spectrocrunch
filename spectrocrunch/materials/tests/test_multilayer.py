@@ -34,8 +34,8 @@ from .. import xrayspectrum
 from ...geometries import xrf as xrfgeometries
 from ...detectors import xrf as xrfdetectors
 from ...sources import xray as xraysources
-from ...common import timing
-from ...common import listtools
+from ...utils import timing
+from ...utils import listtools
 
 import numpy as np
 import scipy.integrate

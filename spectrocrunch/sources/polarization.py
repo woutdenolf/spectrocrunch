@@ -28,8 +28,8 @@ import cmath
 import logging
 import collections
 
-from ..common import units
-from ..common import instance
+from ..utils import units
+from ..utils import instance
 from ..patch.pint import ureg
 
 import numpy as np

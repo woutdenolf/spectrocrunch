@@ -30,11 +30,11 @@ import scipy.integrate
 
 from ..patch.xraylib import xraylib
 from ..patch.pint import ureg
-from ..common import instance
-from ..common import hashable
-from ..common import listtools
-from ..common.Enum import Enum
-from ..common.roi import mergeroi1d
+from ..utils import instance
+from ..utils import hashable
+from ..utils import listtools
+from ..utils.Enum import Enum
+from ..utils.roi import mergeroi1d
 from ..math import fit1d
 
 # Some xraylib comments:

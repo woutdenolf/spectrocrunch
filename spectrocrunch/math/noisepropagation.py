@@ -23,8 +23,8 @@
 # THE SOFTWARE.
 
 
-from ..common import instance
-from ..common import units
+from ..utils import instance
+from ..utils import units
 
 import numpy as np
 from uncertainties.core import Variable as RandomVariable

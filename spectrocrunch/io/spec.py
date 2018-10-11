@@ -28,7 +28,7 @@ from collections import OrderedDict
 import os
 import logging
 
-from ..common import instance
+from ..utils import instance
 from ..patch.pint import ureg
 from .xiaedf import XiaNameParser
 

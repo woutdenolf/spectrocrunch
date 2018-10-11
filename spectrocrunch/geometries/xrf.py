@@ -23,10 +23,10 @@
 # THE SOFTWARE.
 
 from . import base
-from ..common.classfactory import with_metaclass
+from ..utils.classfactory import with_metaclass
 from ..resources import resource_filename
 from ..math import noisepropagation
-from ..common import units
+from ..utils import units
 from ..materials import compoundfromname
 
 import numpy as np

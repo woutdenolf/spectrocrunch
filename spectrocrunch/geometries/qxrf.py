@@ -31,13 +31,13 @@ from ..detectors import xrf as xrfdetectors
 from ..sources import xray as xraysources
 from ..optics import xray as xrayoptics
 from ..instruments import configuration
-from ..common import units
-from ..common import instance
-from ..common.classfactory import with_metaclass
+from ..utils import units
+from ..utils import instance
+from ..utils.classfactory import with_metaclass
 from ..io import spec
 from ..patch.pint import ureg
 from ..math.linop import LinearOperator
-from ..math.common import weightedsum
+from ..math.utils import weightedsum
 
 import numpy as np
 import matplotlib.pyplot as plt

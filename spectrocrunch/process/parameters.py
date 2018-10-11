@@ -33,8 +33,8 @@ try:
 except ImportError:
     pass
 
-from ..common import hashing
-from ..common import listtools
+from ..utils import hashing
+from ..utils import listtools
 
 class AnnotatedKey(object):
 

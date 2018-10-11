@@ -26,7 +26,7 @@ import numpy as np
 import sympy
 from sympy.utilities.lambdify import lambdify, implemented_function
 
-from ..common import instance
+from ..utils import instance
 
 def eval(expr,subs):
     for x,v in subs.items():

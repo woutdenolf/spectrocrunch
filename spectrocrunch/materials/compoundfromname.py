@@ -27,7 +27,7 @@ from . import compoundfromlist
 from . import compoundfromformula
 from . import mixture
 from . import types
-from ..common import instance
+from ..utils import instance
 import xraylib
 
 compounddb = {}

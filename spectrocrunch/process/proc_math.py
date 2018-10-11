@@ -26,7 +26,7 @@ import logging
 
 from ..h5stacks import math_hdf5_imagestacks as math
 
-from . import proc_common
+from . import proc_utils
 
 def execute(file_in,stacks_in,axes_in,copygroups,bsamefile,default,\
             expression,skipnames,stackdim=None,copyskipped=True,extension="math"):
@@ -34,7 +34,7 @@ def execute(file_in,stacks_in,axes_in,copygroups,bsamefile,default,\
     logger.info("Normalization ...")
 
     # Stacks to normalize
-    innames = proc_common.selectnotgroups(stacks_in,skipnames)
+    innames = proc_utils.selectnotgroups(stacks_in,skipnames)
     if len(innames)==0:
         logger.warning("No other stacks found than these: "+str.join(", ",skipnames))
         return file_in, stacks_in, axes_in
@@ -44,12 +44,12 @@ def execute(file_in,stacks_in,axes_in,copygroups,bsamefile,default,\
     if bsamefile:
         file_out = file_in
     else:
-        base, ext = proc_common.hdf5base(file_in)
+        base, ext = proc_utils.hdf5base(file_in)
         file_out = base+"."+extension+ext
 
     # Expand full paths
     fixednames = math.extractexpression(expression,allowempty=False)
-    fixedpaths = proc_common.selectgroups(stacks_in,fixednames,sort=True)
+    fixedpaths = proc_utils.selectgroups(stacks_in,fixednames,sort=True)
     expression = math.replaceexpression(expression,fixednames,fixedpaths)
 
     # Processing info
@@ -63,7 +63,7 @@ def execute(file_in,stacks_in,axes_in,copygroups,bsamefile,default,\
 
     # Copy unnormalized stacks when new file
     if copyskipped:
-        innames = proc_common.selectgroups(stacks_in,skipnames)
+        innames = proc_utils.selectgroups(stacks_in,skipnames)
         if len(innames)!=0:
             if file_in==file_out:
                 stacks_out += innames
@@ -72,7 +72,7 @@ def execute(file_in,stacks_in,axes_in,copygroups,bsamefile,default,\
                 stacks_out += tmp_stacks
 
     # Default
-    proc_common.defaultstack(file_out,stacks_out,default)
+    proc_utils.defaultstack(file_out,stacks_out,default)
     
     return file_out, stacks_out, axes_out
 

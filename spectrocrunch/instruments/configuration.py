@@ -26,9 +26,9 @@ import collections
 import os
 
 from ..patch.pint import ureg
-from ..common.classfactory import with_metaclass
-from ..common import instance
-from ..common import listtools
+from ..utils.classfactory import with_metaclass
+from ..utils import instance
+from ..utils import listtools
 
 class InstrumentInfo(with_metaclass(object)):
 

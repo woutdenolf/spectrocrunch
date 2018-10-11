@@ -30,8 +30,8 @@ import shutil
 
 from ..xrf import create_hdf5_imagestacks
 from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks
-from ..common import timing
-from ..common import instance
+from ..utils import timing
+from ..utils import instance
 from ..io import edf
 
 from .proc_math import execute as math

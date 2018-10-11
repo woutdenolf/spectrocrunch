@@ -27,7 +27,7 @@ import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import interpolate
-from ..math.common import logscale
+from ..math.utils import logscale
 import warnings
 
 def show(x,y,images,xp,yp,xlabel,ylabel,names,transpose=False,flipvert=False,fliphor=False,color='#ffffff',defaultorigin=False,printpos=False,outname=None):

@@ -28,7 +28,7 @@ from ..patch.pint import ureg
 from . import compound
 from . import types
 from . import emspectrum
-from ..common import instance
+from ..utils import instance
 from ..simulation.classfactory import with_metaclass
 from ..math import noisepropagation
 

@@ -30,7 +30,7 @@ import glob
 import sys
 
 from .types import dataType
-from ..common.listtools import move
+from ..utils.listtools import move
 
 class alignDest(object):
     """Interface for storing Elastix alignment results (list of image stacks).

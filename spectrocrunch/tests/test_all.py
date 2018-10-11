@@ -25,7 +25,7 @@
 import unittest
 
 from ..align.tests import test_all as test_align
-from ..common.tests import test_all as test_common
+from ..utils.tests import test_all as test_utils
 from ..detectors.tests import test_all as test_detectors
 from ..fullfield.tests import test_all as test_fullfield
 from ..geometries.tests import test_all as test_geometries
@@ -34,6 +34,7 @@ from ..instruments.tests import test_all as test_instruments
 from ..io.tests import test_all as test_io
 from ..materials.tests import test_all as test_materials
 from ..math.tests import test_all as test_math
+from ..data.tests import test_all as test_data
 from ..optics.tests import test_all as test_optics
 from ..process.tests import test_all as test_process
 from ..simulation.tests import test_all as test_simulation
@@ -45,13 +46,14 @@ from ..xrf.tests import test_all as test_xrf
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_common.test_suite())
+    testSuite.addTest(test_utils.test_suite())
     testSuite.addTest(test_math.test_suite())
     testSuite.addTest(test_io.test_suite())
     testSuite.addTest(test_instruments.test_suite())
     testSuite.addTest(test_sources.test_suite())
     testSuite.addTest(test_geometries.test_suite())
     testSuite.addTest(test_detectors.test_suite())
+    testSuite.addTest(test_data.test_suite())
     testSuite.addTest(test_optics.test_suite())
     testSuite.addTest(test_materials.test_suite())
     testSuite.addTest(test_simulation.test_suite())

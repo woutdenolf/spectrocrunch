@@ -39,7 +39,7 @@ import matplotlib.pyplot as plt
 #warnings.filterwarnings("ignore")
 import logging
 
-from ..common import instance
+from ..utils import instance
 from ..io import edf
 from ..io import utils as ioutils
 

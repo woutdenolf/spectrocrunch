@@ -22,8 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common.classfactory import with_metaclass
-from ..common.Enum import Enum
+from ..utils.classfactory import with_metaclass
+from ..utils.Enum import Enum
 from . import polarization
 
 import numpy as np

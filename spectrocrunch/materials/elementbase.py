@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 
 from . import xrayspectrum
-from ..common import instance
+from ..utils import instance
 
 import numpy as np
 

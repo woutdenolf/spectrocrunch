@@ -23,9 +23,9 @@
 # THE SOFTWARE.
 
 
-from ..common import listtools
-from ..common import instance
-from ..common import units
+from ..utils import listtools
+from ..utils import instance
+from ..utils import units
 
 import numpy as np
 from scipy.interpolate import interp1d

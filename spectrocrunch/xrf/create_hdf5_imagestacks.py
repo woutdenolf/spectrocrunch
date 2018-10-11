@@ -35,9 +35,9 @@ from ..io import spec
 from ..io import nexus
 from ..io.utils import mkdir
 from ..xrf.fit import PerformBatchFit
-from ..common import units
-from ..common import instance
-from ..common import listtools
+from ..utils import units
+from ..utils import instance
+from ..utils import listtools
 from ..instruments import configuration
 from ..h5stacks.groups_hdf5_imagestacks import Group
 from ..h5stacks import create_hdf5_lazy

@@ -28,7 +28,7 @@ import numpy as np
 import copy
 import operator
 
-from ..common import units
+from ..utils import units
 
 
 class Operator(object):

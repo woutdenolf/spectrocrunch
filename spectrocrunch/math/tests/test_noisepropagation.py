@@ -27,8 +27,8 @@ import itertools
 
 from .. import noisepropagation
 from .. import fit1d
-from ...common import units
-from ...common import instance
+from ...utils import units
+from ...utils import instance
 
 import numpy as np
 import uncertainties

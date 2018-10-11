@@ -23,14 +23,19 @@
 # THE SOFTWARE.
 
 import unittest
-from testfixtures import TempDirectory
 import os
-import json
+import numpy as np
 
-from .. import units
-from .. import persistence
+from ...utils import units
+from .. import jsonpickle
 
-class TestPersistentClass(object):
+def equal(a,b):
+    if type(a)==np.ndarray:
+        return np.array_equal(a,b)
+    else:
+        return a==b
+        
+class ExampleClass(object):
 
     def __init__(self,x,y,z=None):
         self.x = x
@@ -38,58 +43,35 @@ class TestPersistentClass(object):
         self.z = z
 
     def __eq__(self,other):
-        return self.x==other.x and self.y==other.y and self.z==other.z
+        return equal(self.x,other.x) and equal(self.y,other.y) and equal(self.z,other.z)
 
-    def serialize(self):
-        x = self.x
-        y = self.y
-        z = self.z
-        if hasattr(x,"serialize"):
-            x = x.serialize()
-        if hasattr(y,"serialize"):
-            y = y.serialize()
-        if hasattr(z,"serialize"):
-            z = z.serialize()
+    def __getstate__(self):
+        return self.__dict__.copy()
+    
+    def __setstate__(self,state):
+        self.__dict__.update(state)
 
-        return persistence.SerializedGenerator(module=__name__,\
-                generator="TestPersistentClass",\
-                args=(x,y),\
-                kwargs={"z":z})
+class test_serialize(unittest.TestCase):
 
-
-class test_persistence(unittest.TestCase):
-
-    def setUp(self):
-        self.dir = TempDirectory()
-
-    def tearDown(self):
-        self.dir.cleanup()
-        
     def test_units(self):
         a = units.Quantity(5,"keV")
         b = 10.
-        c = TestPersistentClass(10,20,z=30)
-        d = TestPersistentClass([1,2,3],\
-                TestPersistentClass(-10,-20,z=-30),\
-                z=TestPersistentClass(-10,TestPersistentClass(-10,-20,z=-30),z=TestPersistentClass(-10,-20,z=-30)))
+        c = ExampleClass(10,[10,20],z=30)
+        d = ExampleClass(np.array([1,2,3]),\
+                ExampleClass(-10,-20,z=-30),\
+                z=ExampleClass(-10,ExampleClass(-10,-20,z=-30),z=ExampleClass(-10,-20,z=-30)))
     
-        jsonfile = os.path.join(self.dir.path,"test.json")
         data = {"a":a,"b":b,"c":c,"d":d}
         
-        serialized = {k:persistence.serialize(v) for k,v in data.items()}
-        
-        with open(jsonfile,'w') as f:
-            json.dump(serialized,f,indent=2)
-        
-        deserialized = persistence.deserialize(jsonfile)
+        serialized = jsonpickle.encode(data)
+        deserialized = jsonpickle.decode(serialized)
         
         self.assertEqual(data,deserialized)
         
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-
-    testSuite.addTest(test_persistence("test_units"))
+    testSuite.addTest(test_serialize("test_units"))
     return testSuite
     
 if __name__ == '__main__':

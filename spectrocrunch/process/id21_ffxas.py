@@ -27,7 +27,7 @@ import os
 import json
 import numpy as np
 
-from ..common import timing
+from ..utils import timing
 from ..fullfield.create_hdf5_imagestacks import create_hdf5_imagestacks as makestacks
 from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks as getstacks
 
@@ -36,8 +36,8 @@ from ..io import nexus
 from .proc_math import execute as normalizefunc
 from .proc_align import execute as align
 from .proc_crop import execute as execcrop
-from .proc_common import defaultstack
-from .proc_common import flattenstacks
+from .proc_utils import defaultstack
+from .proc_utils import flattenstacks
 
 def createconfig(sourcepath,destpath,radix,**kwargs):
     rebin = kwargs.get("rebin",(1,1))

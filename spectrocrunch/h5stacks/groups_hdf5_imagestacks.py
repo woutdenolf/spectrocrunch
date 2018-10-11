@@ -22,8 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..common.hashable import Hashable
-from ..common import instance
+from ..utils.hashable import Hashable
+from ..utils import instance
 
 class Group(Hashable):
 

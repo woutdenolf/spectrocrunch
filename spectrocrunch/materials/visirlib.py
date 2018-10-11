@@ -26,7 +26,7 @@ import os
 
 import PyTMM.refractiveIndex
 
-from ..common.instance import isarray
+from ..utils.instance import isarray
 
 db = PyTMM.refractiveIndex.RefractiveIndex(os.path.join(os.path.dirname(PyTMM.__file__),"visirlib"))
 

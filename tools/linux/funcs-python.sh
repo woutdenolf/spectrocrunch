@@ -74,13 +74,29 @@ function python_pkg()
 }
 
 
-function python_system_pkg()
+function _python_system_pkg()
 {
     if [[ $(python_virtualenv_active) == true ]];then
         (deactivate;python_pkg)
     else
         python_pkg
     fi
+}
+
+
+function python_system_pkg()
+{
+    local _dir=$(_python_system_pkg)
+    
+    if [[ ! -d ${_dir} ]];then
+        _dir = $(strreplace ${_dir} site-packages dist-packages)
+    fi
+    
+    if [[ ! -d ${_dir} ]];then
+        _dir = $(strreplace ${_dir} dist-packages site-packages)
+    fi
+    
+    echo ${_dir}
 }
 
 

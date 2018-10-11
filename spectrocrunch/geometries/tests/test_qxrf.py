@@ -24,7 +24,7 @@
 
 import unittest
 from .. import qxrf
-from ...common import units
+from ...utils import units
 
 import numpy as np
 

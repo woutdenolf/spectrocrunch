@@ -24,7 +24,7 @@
 
 from . import compound
 from . import types
-from ..common import instance
+from ..utils import instance
 import pyparsing as pp
 
 class FormulaParser(object):
