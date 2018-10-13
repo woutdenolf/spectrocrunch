@@ -129,19 +129,19 @@ class Path(h5fs.Path):
                                        .format(nxclasses))
     
     def iterup_is_nxclass(self,*nxclasses):
-        with self.h5open(mode='r'):
+        with self.h5open():
             for path in self.iterup:
                 if path.is_nxclass(*nxclasses):
                     yield self.factory(path)
 
     def iter_is_nxclass(self,*nxclasses):
-        with self.h5open(mode='r'):
+        with self.h5open():
             for path in self:
                 if path.is_nxclass(*nxclasses):
                     yield self.factory(path)
 
     def iterup_isnot_nxclass(self,*nxclasses):
-        with self.h5open(mode='r'):
+        with self.h5open():
             for path in self.iterup:
                 if path.is_not_nxclass(*nxclasses):
                     yield self.factory(path)

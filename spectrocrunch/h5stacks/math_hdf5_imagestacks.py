@@ -22,19 +22,19 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import math_hdf5_imagestacks_expression as m_expression
-import math_hdf5_imagestacks_copy as m_copy
-import math_hdf5_imagestacks_crop as m_crop
-import math_hdf5_imagestacks_replace as m_replace
-import math_hdf5_imagestacks_resample as m_resample
+import re
+import logging
+
+from . import math_hdf5_imagestacks_expression as m_expression
+from . import math_hdf5_imagestacks_copy as m_copy
+from . import math_hdf5_imagestacks_crop as m_crop
+from . import math_hdf5_imagestacks_replace as m_replace
+from . import math_hdf5_imagestacks_resample as m_resample
 
 from ..io import nexus as nexus
 from ..utils.integerbase import integerbase
 from ..utils.Enum import Enum
 operationType = Enum(['expression','copy','crop','replace','resample'])
-
-import re
-import logging
 
 def math_hdf5_imagestacks(filein,fileout,axes,operation,varargs,fixedargs,ret,extension="",overwrite=False,info=None,copygroups=None):
     """Perform some operations on hdf5 imagestacks

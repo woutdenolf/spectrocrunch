@@ -29,6 +29,7 @@ from ..sources import xray as xraysources
 from ..detectors import area
 from ..materials import scintillators
 from ..materials import lenses
+from ..materials import emspectrum
 from ..math import noisepropagation
 from ..utils.instance import isarray
 
@@ -84,13 +85,15 @@ class id21_ffsetup(object):
 
         bsample = samplein and self.sample is not None
 
+        reshape = None
+
         if forward:
             if bsample:
                 N = self.sample.propagate(N,E,forward=forward)
             N = self.oscint.propagate(N,E,forward=forward)
 
             if isarray(N):
-                s = N.shape
+                reshape = N.shape
                 N = N.flatten()
             N = self.olens.propagate(N,self.oscint.visspectrum,\
                                     nrefrac=self.oscint.get_nrefrac(),\
@@ -99,11 +102,11 @@ class id21_ffsetup(object):
                                     tframe=tframe,nframe=nframe,\
                                     forward=forward,poissonapprox=poissonapprox)
             
-            if isarray(N):
-                N = N.reshape(s)
+            if reshape:
+                N = N.reshape(reshape)
         else:
             if isarray(N):
-                s = N.shape
+                reshape = N.shape
                 N = N.flatten()
             N = self.odetector.propagate(N,self.oscint.visspectrum,\
                                     tframe=tframe,nframe=nframe,\
@@ -112,8 +115,8 @@ class id21_ffsetup(object):
                                     nrefrac=self.oscint.get_nrefrac(),\
                                     forward=forward)
                                     
-            if isarray(N):
-                N = N.reshape(s)
+            if reshape:
+                N = N.reshape(reshape)
                 
             N = self.oscint.propagate(N,E,forward=forward)
             if bsample:
@@ -122,7 +125,7 @@ class id21_ffsetup(object):
         return N
     
     def photontoDU(self,energy,tframe,nframe,samplein=False,withnoise=True):
-        """Linear relation between incomming photons and DU
+        """Linear relation between incoming photons and DU
         
         Args:
             energy(num):
@@ -131,7 +134,7 @@ class id21_ffsetup(object):
             num: DU/ph,DU
         """
         N0 = self.propagate(1,energy,tframe,nframe,samplein=samplein)
-        D0 = self.odetector.propagate(0,energy,tframe=tframe,nframe=nframe)
+        D0 = self.odetector.propagate(0,emspectrum.dark(),tframe=tframe,nframe=nframe)
 
         return N0-D0,D0
 

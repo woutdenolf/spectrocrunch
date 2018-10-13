@@ -114,7 +114,7 @@ class Path(fs.Path):
                 if mode.startswith('r'):
                     raise fs.Missing(self.location)
                 parent = self.parent
-                node = f.get(parent,default=None)
+                node = f.get(parent.path,default=None)
                 if not node:
                     raise fs.MissingParentDirectory(self.location)
                 node = node.create_dataset(self.name,**createparams)
@@ -132,12 +132,6 @@ class Path(fs.Path):
     
     def h5remove(self):
         self._h5file.remove()
-        
-    def __eq__(self,other):
-        return self.location==str(getattr(other,'location',other))
-
-    def __ne__(self,other):
-        return self.location!=str(getattr(other,'location',other))
         
     def factory(self,path):
         if isinstance(path,self.__class__):
@@ -267,7 +261,7 @@ class Path(fs.Path):
                 # TODO: missing option: expand softlinks when pointing outside
                 #       the tree being copied.
                 with dest.h5open() as fdest:
-                    fsource.copy(self.path,fdest[dest.parent],name=dest.name,
+                    fsource.copy(self.path,fdest[dest.parent.path],name=dest.name,
                                  expand_soft=dereference,expand_external=dereference)
                     return dest
     
@@ -322,19 +316,18 @@ class Path(fs.Path):
     def link(self,dest,soft=True):
         with self.h5open() as f:
             lnkname = self.path
-            _dest = self.factory(dest)
-            if _dest.device!=self.device:
-                f[lnkname] = h5py.ExternalLink(_dest.device, _dest.path)
-            else:
+            destpath = self.factory(dest)
+            if destpath.device==self.device:
                 if soft:
+                    dest = self.relpath(self._getpath(dest))
                     #TODO: double dots do not work?
-                    sdest = self.relpath(str(dest))
-                    if '..' in sdest:
-                        sdest = str(dest)
-                    f[lnkname] = h5py.SoftLink(sdest)
+                    if '..' in dest:
+                        dest = destpath.path  
+                    f[lnkname] = h5py.SoftLink(dest)
                 else:
-                    dest = str(_dest)
-                    f[lnkname] = f[dest]
+                    f[lnkname] = f[destpath.path]
+            else:
+                f[lnkname] = h5py.ExternalLink(destpath.device, destpath.path)
             return self
             
     @property

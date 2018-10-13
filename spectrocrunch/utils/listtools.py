@@ -38,9 +38,14 @@ def flatten(l):
         list
     """
     if instance.isiterable(l) and not instance.isstring(l):
-        for el in iter(l):
-            for el2 in flatten(el):
-                yield el2
+        try:
+            it = iter(l)
+        except TypeError:
+            yield l
+        else:
+            for el in it:
+                for el2 in flatten(el):
+                    yield el2
     else:
         yield l
 

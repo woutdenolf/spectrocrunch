@@ -98,7 +98,7 @@ class Jobs(collections.MutableSequence):
         
 
 @contextmanager
-def context(parameters):
+def context():
     parser = argparse.ArgumentParser()
     parser.add_argument("-j", "--jobs", type=int, default=[], nargs='+', help="execute jobs")
     parser.add_argument("-a", "--ajob", type=int, default=0, help="execute jobs from a")

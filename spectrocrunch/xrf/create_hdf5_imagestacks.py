@@ -51,8 +51,19 @@ def getinstrument(parameters):
     if isinstance(instrument,configuration.InstrumentInfo):
         return instrument
     return configuration.factory(instrument,**parameters.get("instrument_parameters",{}))
+
+def h5file(**parameters):
+    destpath = parameters.get('destpath','')
+    scanname = instance.asarray(parameters.get('scanname',''))[0]
+    return os.path.join(destpath,instance.asarray(scanname)[0]+".h5")
+
+def createconfig(**parameters):
     
-def createconfig(sourcepath,destpath,scanname,scannumbers,cfgfiles,**parameters):
+    sourcepath = parameters["sourcepath"]
+    destpath = parameters["destpath"]
+    scanname = parameters["scanname"]
+    scannumbers = parameters["scannumbers"]
+    cfgfiles = parameters["cfgfiles"]
     
     instrument = getinstrument(parameters)
     stackdim = parameters.get("stackdim",2)
@@ -145,15 +156,8 @@ def createconfig(sourcepath,destpath,scanname,scannumbers,cfgfiles,**parameters)
     
 class ImageStack(object):
 
-    def __init__(self,sourcepath,destpath,scanname,scannumbers,cfgfiles,qxrfgeometry=None,**parameters):
-        self.configin = {'sourcepath':sourcepath,
-                         'destpath':destpath,
-                         'scanname':scanname,
-                         'scannumbers':scannumbers,
-                         'cfgfiles':cfgfiles}
-        self.configin.update(parameters)
-        
-        self.config = createconfig(sourcepath,destpath,scanname,scannumbers,cfgfiles,**parameters)
+    def __init__(self,qxrfgeometry=None,**parameters):
+        self.config = createconfig(**parameters)
         self.qxrfgeometry = qxrfgeometry
     
     def create(self):
@@ -233,12 +237,7 @@ class ImageStack(object):
         destpath = self.config['destpath']
         outbase = self.config['outbase']
         
-        jsonfile = os.path.join(destpath,outbase+".input.json")
-        with open(jsonfile,'w') as f:
-            json.dump(self.configin,f,indent=2)
-        self.procinfo['input'] = jsonfile
-        
-        jsonfile = os.path.join(destpath,outbase+".process.json")
+        jsonfile = os.path.join(destpath,outbase+".json")
         with open(jsonfile,'w') as f:
             json.dump(self.config,f,indent=2)
         self.procinfo['process'] = jsonfile
@@ -742,24 +741,15 @@ class ImageStack(object):
                         # Replace subgroup k2 filename or calcinfo with NXentry name in stack
                         self.stacks[k1][k2] = nxdatagrp.name
         
-def create_hdf5_imagestacks(sourcepath,destpath,scanname,scannumbers,cfgfiles,**parameters):
-    """Convert scanning data (XIA spectra + counters) to an HDF5 file:
-        groups which contain NXdata classes
-        3 axes datasets on the main level
+def create_hdf5_imagestacks(**parameters):
+    """Process raw XRF maps (dtcor, fluxnorm, pymca fit)
 
     Returns:
-        stacks(dict): {"counters": {"name1":lstack1,"name2":lstack2,...},
-        "detector0":{"name3":lstack3,"name4":lstack4,...},
-        "detector1":{"name3":lstack5,"name4":lstack6,...},...}
-        lstack: an image stack given as an NXdata path
-
-        axes(list): [{"name":"name1","fullname":"/axes/name1/data"},
-        {"name":"name2","fullname":"/axes/name2/data"},
-        {"name":"name3","fullname":"/axes/name3/data"}]
+        stacks(dict): {"group":{"subgroup":"/group/subgroup"}}
+        axes(list): list({"name":"name1","fullname":"/axes/name1/data"})
     """
 
-    imagestack = ImageStack(sourcepath,destpath,scanname,scannumbers,cfgfiles,**parameters)
+    imagestack = ImageStack(**parameters)
     imagestack.create()
-    
     return imagestack.stacks,imagestack.axes,[imagestack.procinfo]
 

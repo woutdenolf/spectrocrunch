@@ -23,14 +23,12 @@
 # THE SOFTWARE.
 
 import os
-
 import PyTMM.refractiveIndex
 
 from ..utils.instance import isarray
+from ..patch.pint import ureg
 
 db = PyTMM.refractiveIndex.RefractiveIndex(os.path.join(os.path.dirname(PyTMM.__file__),"visirlib"))
-
-from ..patch.pint import ureg
 
 class Material(PyTMM.refractiveIndex.Material):
 

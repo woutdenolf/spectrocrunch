@@ -24,47 +24,49 @@
 
 from __future__ import absolute_import
 
-import xraylib
-xraylib.XRayInit()
-xraylib.SetErrorMessages(0)
+from xraylib import *
+XRayInit()
+SetErrorMessages(0)
 
 # Code <-> Name: one-to-one
-xraylib.code_to_shell = {xraylib.__dict__[s]:s.split('_')[0] for s in xraylib.__dict__.keys() if s.endswith("_SHELL")}
-xraylib.shell_to_code = {v: k for k, v in xraylib.code_to_shell.items()}
-xraylib.shell_min = min(xraylib.code_to_shell)
-xraylib.shell_max = max(xraylib.code_to_shell)
+_dict = globals()
+
+code_to_shell = {_dict[s]:s.split('_')[0] for s in _dict.keys() if s.endswith("_SHELL")}
+shell_to_code = {v: k for k, v in code_to_shell.items()}
+shell_min = min(code_to_shell)
+shell_max = max(code_to_shell)
 
 # Code <-> Name: one-to-many
-xraylib.line_to_code = {s.split('_')[0]:xraylib.__dict__[s] for s in xraylib.__dict__.keys() if s.endswith("_LINE")}
-xraylib.code_to_line = {code:[name for name,code2 in xraylib.line_to_code.items() if code==code2] for code in set(xraylib.line_to_code.values())}
-xraylib.line_min = min(xraylib.code_to_line)
-xraylib.line_max = max(xraylib.code_to_line)
+line_to_code = {s.split('_')[0]:_dict[s] for s in _dict.keys() if s.endswith("_LINE")}
+code_to_line = {code:[name for name,code2 in line_to_code.items() if code==code2] for code in set(line_to_code.values())}
+line_min = min(code_to_line)
+line_max = max(code_to_line)
    
 # Composites
-xraylib.composites ={xraylib.KA_LINE:[xraylib.KL3_LINE, xraylib.KL2_LINE, xraylib.KL1_LINE],\
-                      xraylib.KB_LINE:[xraylib.KP5_LINE, xraylib.KP4_LINE, xraylib.KP3_LINE, xraylib.KP2_LINE, xraylib.KP1_LINE]+\
-                                      [xraylib.KO7_LINE, xraylib.KO6_LINE, xraylib.KO5_LINE, xraylib.KO4_LINE, xraylib.KO3_LINE, xraylib.KO2_LINE, xraylib.KO1_LINE]+\
-                                      [xraylib.KN7_LINE, xraylib.KN6_LINE, xraylib.KN5_LINE, xraylib.KN4_LINE, xraylib.KN3_LINE, xraylib.KN2_LINE, xraylib.KN1_LINE]+\
-                                      [xraylib.KM5_LINE, xraylib.KM4_LINE, xraylib.KM3_LINE, xraylib.KM2_LINE, xraylib.KM1_LINE],\
-                      xraylib.KP_LINE:[xraylib.KP5_LINE, xraylib.KP4_LINE, xraylib.KP3_LINE, xraylib.KP2_LINE, xraylib.KP1_LINE],\
-                      xraylib.KO_LINE:[xraylib.KO7_LINE, xraylib.KO6_LINE, xraylib.KO5_LINE, xraylib.KO4_LINE, xraylib.KO3_LINE, xraylib.KO2_LINE, xraylib.KO1_LINE],\
-                      xraylib.LA_LINE:[xraylib.L3M5_LINE, xraylib.L3M4_LINE],\
-                      xraylib.LB_LINE:[xraylib.L3O4_LINE, xraylib.L3O3_LINE, xraylib.L3N5_LINE, xraylib.L3N1_LINE, xraylib.L2M4_LINE, xraylib.L1M3_LINE, xraylib.L1M2_LINE],\
-                      xraylib.L1N67_LINE:[xraylib.L1N7_LINE,xraylib.L1N6_LINE],\
-                      xraylib.L1O45_LINE:[xraylib.L1O5_LINE,xraylib.L1O4_LINE],\
-                      xraylib.L1P23_LINE:[xraylib.L1P3_LINE,xraylib.L1P2_LINE],\
-                      xraylib.L2P23_LINE:[xraylib.L2P3_LINE,xraylib.L2P2_LINE],\
-                      xraylib.L3O45_LINE:[xraylib.L3O5_LINE,xraylib.L3O4_LINE],\
-                      xraylib.L3P23_LINE:[xraylib.L3P3_LINE,xraylib.L3P2_LINE],\
-                      xraylib.L3P45_LINE:[xraylib.L3P5_LINE,xraylib.L3P4_LINE]\
+composites ={KA_LINE:[KL3_LINE, KL2_LINE, KL1_LINE],\
+                      KB_LINE:[KP5_LINE, KP4_LINE, KP3_LINE, KP2_LINE, KP1_LINE]+\
+                                      [KO7_LINE, KO6_LINE, KO5_LINE, KO4_LINE, KO3_LINE, KO2_LINE, KO1_LINE]+\
+                                      [KN7_LINE, KN6_LINE, KN5_LINE, KN4_LINE, KN3_LINE, KN2_LINE, KN1_LINE]+\
+                                      [KM5_LINE, KM4_LINE, KM3_LINE, KM2_LINE, KM1_LINE],\
+                      KP_LINE:[KP5_LINE, KP4_LINE, KP3_LINE, KP2_LINE, KP1_LINE],\
+                      KO_LINE:[KO7_LINE, KO6_LINE, KO5_LINE, KO4_LINE, KO3_LINE, KO2_LINE, KO1_LINE],\
+                      LA_LINE:[L3M5_LINE, L3M4_LINE],\
+                      LB_LINE:[L3O4_LINE, L3O3_LINE, L3N5_LINE, L3N1_LINE, L2M4_LINE, L1M3_LINE, L1M2_LINE],\
+                      L1N67_LINE:[L1N7_LINE,L1N6_LINE],\
+                      L1O45_LINE:[L1O5_LINE,L1O4_LINE],\
+                      L1P23_LINE:[L1P3_LINE,L1P2_LINE],\
+                      L2P23_LINE:[L2P3_LINE,L2P2_LINE],\
+                      L3O45_LINE:[L3O5_LINE,L3O4_LINE],\
+                      L3P23_LINE:[L3P3_LINE,L3P2_LINE],\
+                      L3P45_LINE:[L3P5_LINE,L3P4_LINE]\
                      }
 
-xraylib.rcomposites = {}
-for k,v in xraylib.composites.items():
+rcomposites = {}
+for k,v in composites.items():
     for l in v:
-        if l in xraylib.rcomposites:
-            xraylib.rcomposites[l].append(k)
-            xraylib.rcomposites[l].sort()
+        if l in rcomposites:
+            rcomposites[l].append(k)
+            rcomposites[l].sort()
         else:
-            xraylib.rcomposites[l]=[k]
+            rcomposites[l]=[k]
             

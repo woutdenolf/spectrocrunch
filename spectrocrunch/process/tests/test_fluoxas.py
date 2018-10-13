@@ -35,9 +35,10 @@ import re
 from ..fluoxas import process
 from ...io import xiaedf
 from ...io import nexus
+from ...io import nxfs
 from ...align import types
-from ...common import instance
-from ...common import listtools
+from ...utils import instance
+from ...utils import listtools
 from ...geometries import qxrf
 from ...h5stacks import get_hdf5_imagestacks
 from ...geometries import xrf as xrfgeometries
@@ -419,6 +420,12 @@ class test_fluoxas(unittest.TestCase):
                     logger.debug("newspectra = {}".format(newspectra))
                     
                     parameters = {}
+                    parameters["sourcepath"] = sourcepath
+                    parameters["destpath"] = self.destpath.path
+                    parameters["scanname"] = radix
+                    parameters["scannumbers"] = scannumbers
+                    parameters["cfgfiles"] = cfgfiles
+                    
                     parameters["alignmethod"] = alignmethod
                     parameters["alignreference"] = alignref
                     parameters["refimageindex"] = refimageindex
@@ -439,7 +446,7 @@ class test_fluoxas(unittest.TestCase):
                     parameters["replacenan"] = False
                     parameters["crop"] = alignmethod is not None
                     
-                    process(sourcepath,self.destpath.path,radix,scannumbers,cfgfiles,**parameters)
+                    process(**parameters)
 
                     # Check generated spectra (files)
                     if newspectra:
@@ -495,8 +502,7 @@ class test_fluoxas(unittest.TestCase):
                         expected.append("{}_data".format(radix))
                     h5file = "{}.h5".format(radix)
                     expected.append(h5file)
-                    expected.append("{}.input.json".format(radix))
-                    expected.append("{}.process.json".format(radix))
+                    expected.append("{}.json".format(radix))
                     if prealignnormcounter is not None and cfgfileuse:
                         h5file = "{}.norm.h5".format(radix)
                         expected.append(h5file)

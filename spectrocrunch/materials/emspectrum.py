@@ -137,3 +137,7 @@ class discrete(object):
         f = interp1d(x,y,kind='linear',bounds_error=False,fill_value=(y[0],y[-1]))
         return self.weightedsum(f(self.energies))
     
+class dark(object):
+    
+    def sample(self,x,y):
+        return 0

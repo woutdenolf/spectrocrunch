@@ -14,7 +14,8 @@ matplotlib
 shapely
 uncertainties
 pint
+jsonpickle
 Mako
 pyopencl==2015.1; python_version < '3.6'
 pyopencl==2018.1; python_version >= '3.6'
-pymca
+PyMca5

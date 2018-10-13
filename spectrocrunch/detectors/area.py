@@ -35,7 +35,7 @@ class Detector(with_metaclass()):
         """
         Args:
             etoDU(num): number of DU per electron (DU/e)
-            qe(num): detector quantum efficiency (e/ph)
+            qe(callable): detector quantum efficiency (e/ph)
             DUoffset(num): pixel intensity offset (DU)
             darkcurrent(num): dark current (e/sec)
             readoutnoise(num): readout noise (e)

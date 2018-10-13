@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..io import nexus as nexus
+from ..io import nexus
 
 def evaluate_entire(operation,fin,varargs,retstacks):
     """Copy image stacks
