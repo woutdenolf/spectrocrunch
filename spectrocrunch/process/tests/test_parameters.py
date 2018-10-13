@@ -25,7 +25,7 @@
 import unittest
 
 from .. import parameters
-from ...common import hashing
+from ...utils import hashing
 import numpy as np
 import random
 import collections

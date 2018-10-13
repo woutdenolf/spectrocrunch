@@ -25,7 +25,7 @@
 import unittest
 from ..id21_ffxas import process
 from ...io.edf import saveedf
-from ...common.listtools import move
+from ...utils.listtools import move
 
 from testfixtures import TempDirectory
 

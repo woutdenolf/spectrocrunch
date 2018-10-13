@@ -110,12 +110,9 @@ class test_calcnoise(unittest.TestCase):
         o = calcnoise.id21_ffsetup()
         
         ph = flux*tframe
-        
         DU = o.propagate(ph,energy,tframe=tframe,nframe=nframe)
-
         m,b = o.photontoDU(energy,tframe,nframe)
-        
-        np.testing.assert_allclose(np.squeeze(DU),ph*m+b)
+        np.testing.assert_allclose(DU,ph*m+b)
 
         
 def test_suite():

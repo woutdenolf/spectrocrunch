@@ -21,12 +21,9 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
 import os
 import logging
 import numpy as np
-import h5py
-import shutil
 
 from ..xrf import create_hdf5_imagestacks
 from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks
@@ -38,64 +35,13 @@ from .proc_math import execute as math
 from .proc_align import execute as align
 from .proc_replacevalue import execute as replacevalue
 from .proc_crop import execute as execcrop
-from .proc_common import defaultstack
-from .proc_common import flattenstacks
+from .proc_utils import defaultstack
+from .proc_utils import flattenstacks
 from .proc_resample import execute as execresample
 
 logger = logging.getLogger(__name__)
-
-def exportedf(h5name,**parameters):
-    logger.info("EDF export {}:".format(h5name))
-    
-    instrument = create_hdf5_imagestacks.getinstrument(parameters)
-
-    path = os.path.basename(h5name)
-    n = 0
-    while len(path)!=n:
-        n = len(path)
-        path = os.path.splitext(path)[0]
-    path = os.path.join(os.path.dirname(h5name),"{}_results".format(path))
-    
-    # not necessary but clean in case of reruns
-    if os.path.isdir(path):
-        shutil.rmtree(path)
-            
-    filename = os.path.splitext(os.path.basename(h5name))[0]
-
-    stacks, axes, procinfo = get_hdf5_imagestacks(h5name,instrument.h5stackgroups)
-    counters = instrument.counters()
-
-    ndet = sum(1 for k in stacks if k.name.startswith("detector"))
-
-    with h5py.File(h5name) as hdf5FileObject:
-        for g in stacks:
-            if ndet==1:
-                outpath = path
-            else:
-                outpath = os.path.join(path,g)
-            
-            if not os.path.exists(outpath):
-                os.makedirs(outpath)
         
-            for s in stacks[g]:
-                if s in counters:
-                    continue
-                energy = hdf5FileObject[g][s][instrument.edfheaderkeys["energylabel"]]
-                n = len(energy)
-                for i in range(n):
-                    outfile = s.split("/")[-1]
-                    outfile = outfile.replace("-","_")
-                    outfile = outfile.replace("(","")
-                    outfile = outfile.replace(")","")
-                    if n==1:
-                        outfile = os.path.join(outpath,"{}.edf".format(outfile))
-                    else:
-                        outfile = os.path.join(outpath,"{}_{}{}.edf".format(outfile,energy[i],instrument.edfheaderkeys["energyunit"]))
-
-                    logger.info(outfile)
-                    edf.saveedf(outfile,np.squeeze(hdf5FileObject[g][s]["data"][...,i]),{'Title': s},overwrite=True)
-
-def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**parameters):
+def process(**parameters):
 
     T0 = timing.taketimestamp()
 
@@ -104,7 +50,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**parameters):
     default = parameters.get("default",None)
     skippre = parameters.get("skippre",False)
  
-    h5file = os.path.join(destpath,instance.asarray(scanname)[0]+".h5")
+    h5file = create_hdf5_imagestacks.h5file(**parameters)
     if skippre:
         preprocessingexists = os.path.isfile(h5file)
     else:
@@ -113,8 +59,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**parameters):
     if preprocessingexists:
         stacks, axes, procinfo = get_hdf5_imagestacks(h5file,instrument.h5stackgroups)
     else:
-        stacks, axes, procinfo = create_hdf5_imagestacks.create_hdf5_imagestacks(sourcepath,destpath,scanname,
-                                                                                 scannumbers,cfgfiles,**parameters)
+        stacks, axes, procinfo = create_hdf5_imagestacks.create_hdf5_imagestacks(**parameters)
     defaultstack(h5file,stacks,default)
     stacks = flattenstacks(stacks)
     h5filelast = h5file
@@ -126,7 +71,7 @@ def process(sourcepath,destpath,scanname,scannumbers,cfgfiles,**parameters):
 
     # Normalization
     prealignnormcounter = parameters.get("prealignnormcounter",None)
-    dtcor = procinfo[-1]["result"]["dtneeded"]
+    dtcor = procinfo[-1]["result"]["dtneeded"] # No longer needed
     if dtcor or prealignnormcounter is not None:
         skip = instrument.counters(include=["counters"])
 

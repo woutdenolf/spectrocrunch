@@ -24,8 +24,8 @@
 
 import numpy as np
 
-from ..io import nexus as nexus
-import math_hdf5_imagestacks_copy as m_copy
+from ..io import nexus
+from . import math_hdf5_imagestacks_copy as m_copy
 
 def calccroproi(stack,nanval,stackdim):
     """Determine crop ROI so that no column or row consists of only nanval

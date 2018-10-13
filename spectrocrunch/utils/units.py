@@ -23,12 +23,12 @@
 # THE SOFTWARE.
 
 from ..patch.pint import ureg
+from ..patch.pint import errors as pinterrors
 from . import instance
-from . import persistence
 from . import listtools
 
-from pint import errors as pinterrors
 import numpy as np
+from jsonpickle.handlers import BaseHandler,register
 
 def Quantity(x,units=None,forcequantity=True):
     """Quantity with given units when not present
@@ -206,15 +206,15 @@ def binary_operator(a,b,op):
     """
     return op(Quantity(a,forcequantity=False),quantity_like(b,a,forcequantity=False))
 
-def serialize(x):
-    try:
-        x.units
-        return persistence.SerializedGenerator(module=__name__,\
-                    generator="Quantity",\
-                    args=(x.magnitude,),\
-                    kwargs={"units":str(x.units)})
-    except AttributeError:
-        return x
-        
+class QuantityHandler(BaseHandler):
+    
+    def flatten(self, quantity, data):
+        data['magnitude'] = quantity.magnitude
+        data['units'] = str(quantity.units)
+        return data
+    
+    def restore(self, data):
+        return ureg.Quantity(data['magnitude'],units=data['units'])
 
-
+def jsonpickle_register_handlers():
+    register(ureg.Quantity, QuantityHandler, base=True)

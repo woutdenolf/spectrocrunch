@@ -134,7 +134,6 @@ class test_nxfs(unittest.TestCase):
         data1.set_axes(y,x)
         self.assertRaises(ValueError,data1.set_axes,ywrong,x)
         data2.set_axes('y','x')
-        
         data3 = data1.parent['data3'].link('data2')
         self.assertEqual(data3.axes[0][1].units,'micrometer')
         

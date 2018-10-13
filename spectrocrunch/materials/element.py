@@ -30,7 +30,7 @@ import numbers
 import re
 
 from . import elementbase
-from ..patch.xraylib import xraylib
+from ..patch import xraylib
 from ..patch.pint import ureg
 from ..utils import hashable
 from ..utils import instance

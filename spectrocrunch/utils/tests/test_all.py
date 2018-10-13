@@ -27,7 +27,6 @@ import unittest
 from . import test_instance
 from . import test_classfactory
 from . import test_indexing
-from . import test_persistence
 
 def test_suite():
     """Test suite including all test suites"""
@@ -35,7 +34,6 @@ def test_suite():
     testSuite.addTest(test_instance.test_suite())
     testSuite.addTest(test_classfactory.test_suite())
     testSuite.addTest(test_indexing.test_suite())
-    testSuite.addTest(test_persistence.test_suite())
     return testSuite
     
 if __name__ == '__main__':

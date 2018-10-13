@@ -185,12 +185,19 @@ class Path(File):
             return path
         else:
             return cls(path)
-            
+    
+    @staticmethod
+    def _getpath(path):
+        try:
+            return path.path
+        except AttributeError:
+            return path
+    
     def __repr__(self):
-        return "'{}'".format(self.path)
+        return "'{}'".format(self)
         
     def __str__(self):
-        return self.path
+        return self.location
     
     def __hash__(self):
         return hash(str(self))
@@ -229,29 +236,17 @@ class Path(File):
         return self[other]
 
     def __iadd__(self,other):
-        self.path += str(other)
-
-    def split(self,*args):
-        return str(self).split(self.sep)
-    
-    def endswith(self,*args):
-        return str(self).endswith(*args)
-    
-    def startswith(self,*args):
-        return str(self).endswith(*args)
-    
-    def encode(self,*args):
-        return str(self).encode(*args)
+        self.path += other
         
     def __getitem__(self,value):
-        return self.factory(self.join(self.path,str(value)))
+        return self.factory(self.join(self.path,value))
 
     def __iter__(self):
         for path in self.listdir():
             yield path
     
     def __call__(self,*value):
-        return self.factory(self.join(self.path,*map(str,value)))
+        return self.factory(self.join(self.path,*value))
 
     def append(self,value):
         self += value
@@ -350,6 +345,10 @@ class Path(File):
         return self._sep_out(os.path.join(*args))
 
     def norm(self,path):
+        """remove redundant separators
+           remove references '.' and '..'
+           make and absolute path
+        """
         path = self._sep_in(path)
         path = os.path.abspath(os.path.normpath(path))
         return self._sep_out(path)
@@ -358,8 +357,11 @@ class Path(File):
         return self.norm(self.join(self.parent.path,path))
         
     def relpath(self,path):
+        """get path relative to self
+        """
         path = self._sep_in(path)
-        path = os.path.relpath(path,self.parent.path)
+        if os.path.isabs(path):
+            path = os.path.relpath(path,self.parent.path)
         return self._sep_out(path)
 
     @property
@@ -444,7 +446,7 @@ class Path(File):
                 nodename = '{} -{}-> '.format(nodename,sep)
                 
                 if path.device == lnkdest.device:
-                    lnkdest = path.relpath(str(lnkdest))
+                    lnkdest = path.relpath(lnkdest.path)
                     lst = None
                 else:
                     lnkdest = lnkdest.location
@@ -589,7 +591,7 @@ class Path(File):
         lnkdest = self.linkdest(follow=False)
         if lnkdest:
             if self.device == lnkdest.device:
-                lnkdest = self.relpath(str(lnkdest))
+                lnkdest = self.relpath(lnkdest.path)
             else:
                 lnkdest = lnkdest.location
         return lnkdest

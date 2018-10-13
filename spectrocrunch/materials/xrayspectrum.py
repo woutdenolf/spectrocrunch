@@ -28,7 +28,7 @@ import numbers
 import collections
 import scipy.integrate
 
-from ..patch.xraylib import xraylib
+from ..patch import xraylib
 from ..patch.pint import ureg
 from ..utils import instance
 from ..utils import hashable

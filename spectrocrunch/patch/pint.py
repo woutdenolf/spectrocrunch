@@ -24,8 +24,7 @@
 
 from __future__ import absolute_import
 
-import pint
+from pint import *
 
-ureg = pint.UnitRegistry()
+ureg = UnitRegistry()
 ureg.define('classical_electron_radius = e^2/(4*pi*m_e*epsilon_0*c^2) = r_e')
-

@@ -31,6 +31,7 @@ import matplotlib.pyplot as plt
 
 from .. import pymca
 from .. import multilayer
+from .. import xrayspectrum
 from ...geometries import xrf as xrfgeometries
 from ...sources import xray as xraysources
 from ...detectors import xrf as xrfdetectors
@@ -102,6 +103,8 @@ class test_pymca(unittest.TestCase):
         np.testing.assert_allclose(safrac,h._pymcainternals_solidanglefrac())
         
         for group in fitresult["fitareas"]:
+            if not isinstance(group,xrayspectrum.FluoZLine):
+                continue
             element,linegroup = group.element,group.group
 
             grouprate_avg = h.mcafit._fluoRates[0][element]["rates"]["{} xrays".format(linegroup)]

@@ -46,7 +46,6 @@ def createconfig(sourcepath,destpath,radix,**kwargs):
     skipnormalization = kwargs.get("skipnormalization",False)
     normalizeonload = kwargs.get("normalizeonload",True)
     normalize = normalizeonload and not skipnormalization
-    extout = kwargs.get("extout","").replace(".","_")
 
     if not isinstance(sourcepath,list):
         sourcepath = [sourcepath]
@@ -75,7 +74,7 @@ def createconfig(sourcepath,destpath,radix,**kwargs):
         "normalize": normalize,
 
         # Output
-        "hdf5output": os.path.join(destpath,"{}{}.h5".format(radix[0],extout)),
+        "hdf5output": os.path.join(destpath,"{}.h5".format(radix[0])),
         "roi": roiraw,
         "rebin":rebin}
     return config
@@ -86,7 +85,7 @@ def createconfig_pre(sourcepath,destpath,radix,**kwargs):
     # Create configuration file
     if not os.path.exists(destpath):
         os.makedirs(destpath)
-    jsonfile = os.path.join(destpath,"{}{}.json".format(radix[0],extout))
+    jsonfile = os.path.join(destpath,"{}.json".format(radix[0]))
     with open(jsonfile,'w') as f:
         json.dump(config,f,indent=2)
 

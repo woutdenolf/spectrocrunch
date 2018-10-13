@@ -29,15 +29,15 @@ import re
 import copy
 from types import MethodType
 
-from ..utils import units
-from ..utils import instance
 from . import mixture
 from . import element
-from ..patch.xraylib import xraylib
 from . import compoundfromformula
 from . import xrayspectrum
 from . import compoundfromlist
 from . import types
+from ..utils import units
+from ..utils import instance
+from ..patch import xraylib
 from ..io.mca import save as savemca
 
 import numpy as np
