@@ -36,28 +36,33 @@ class test_axis(unittest.TestCase):
         j = units.Quantity(17,units='um')
         b = units.Quantity(20,units='um')
         precision = units.Quantity(1,units='nm')
-        n = 10
+        nsteps = 10
         
-        ax1 = axis.AxisRegular(a,b,n,title='x',precision=precision)
+        ax1 = axis.AxisRegular(a,b,nsteps,title='x',precision=precision)
         self.assertEqual(ax1,axis.Axis(ax1.values))
         
-        ax2 = axis.AxisRegularInc(a.to('mm'),ax1.stepsize,n,title='y',precision=precision)
+        ax2 = axis.AxisRegularInc(a.to('mm'),ax1.stepsize,nsteps,title='y',precision=precision)
         self.assertEqual(ax2,axis.Axis(ax2.values))
         self.assertEqual(ax1,ax2)
 
         ax3 = axis.AxisNumber(a,title='z',precision=precision)
         self.assertEqual(ax3,axis.Axis(ax3.values))
-        self.assertEqual(ax3,axis.AxisRegular(a,a,1))
+        self.assertEqual(ax3,axis.AxisRegular(a,a,0))
         
-        ax4 = axis.Axis(ax2.values,precision=ax2.precision).simplify()
+        ax4 = axis.factory(ax2.values,precision=ax2.precision)
+        self.assertEqual(ax4,ax2)
         self.assertTrue(isinstance(ax4,axis.AxisRegular))
         
         o = units.Quantity(3,units='um')
-        ax5 = axis.AxisSegments(a,n,i,n,j,n,b)
-        ax6 = axis.AxisSegments(a-o,n,i,n,j,n,b)
+        ax5 = axis.AxisSegments([a,i,j,b],[nsteps,nsteps,nsteps],precision=precision)
+        ax6 = axis.AxisSegments([a-o,i,j,b],[nsteps,nsteps,nsteps],precision=precision)
         ax5.limits = a-o,i,j,b
         self.assertEqual(ax5,ax6)
         
+        ax7 = axis.factory(ax5.values,precision=ax5.precision)
+        self.assertEqual(ax5,ax7)
+        self.assertTrue(isinstance(ax7,axis.AxisSegments))
+        np.testing.assert_array_equal(ax5.limits,ax7.limits)
         
 def test_suite():
     """Test suite including all test suites"""

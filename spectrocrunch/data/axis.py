@@ -97,6 +97,10 @@ class Axis(object):
     @property
     def size(self):
         return self.values.size
+    
+    @property
+    def nsteps(self):
+        return self.size-1
         
     @property
     def precision(self):
@@ -153,9 +157,21 @@ class Axis(object):
             if self.size==1:
                 return AxisNumber(self.start,**self.initkwargs) 
             elif self.size==2:
-                return AxisRegular(self.start,self.end,2,**self.initkwargs) 
-            elif max(abs(np.diff(np.diff(self.magnitude)))) <= self.precision.magnitude:
-                return AxisRegular(self.start,self.end,self.size,**self.initkwargs)
+                return AxisRegular(self.start,self.end,1,**self.initkwargs) 
+            else:
+                diff = abs(np.diff(np.diff(self.magnitude)))
+                if max(diff) <= self.precision.magnitude:
+                    return AxisRegular(self.start,self.end,self.size-1,**self.initkwargs)
+                else:
+                    n = len(self)
+                    ind = np.array([0] + (np.where(diff>self.precision.magnitude)[0]+1).tolist() + [n-1])
+                    nseg = len(ind)-1
+                    if nseg<n/3.:
+                        # Limit the number of segments to 1/3 of the number of values
+                        limits = self.values[ind]
+                        nsteps = np.diff(ind)
+                        return AxisSegments(limits,nsteps,**self.initkwargs)
+                    
         return self
 
 class _AxisRegular(Axis):
@@ -197,6 +213,14 @@ class _AxisRegular(Axis):
         self._size = value
 
     @property
+    def nsteps(self):
+        return self._size-1
+
+    @nsteps.setter
+    def nsteps(self,value):
+        self._size = value+1
+        
+    @property
     def units(self):
         return self.start.units
 
@@ -222,19 +246,23 @@ class AxisRegular(_AxisRegular):
 
     @_AxisRegular.size.setter
     def size(self,value):
-        self.values = self.start,self.end,value
+        self.values = self.start,self.end,value-1
     
+    @_AxisRegular.nsteps.setter
+    def nsteps(self,value):
+        self.values = self.start,self.end,value
+        
     @_AxisRegular.values.setter
     def values(self,params):
         self._params = params
         self._start = units.Quantity(params[0])
         u = self._start.units
         self._end = units.Quantity(params[1],units=units).to(u)
-        self._size = params[2]
-        if params[2]==1:
+        self._size = params[2]+1
+        if self.size==1:
             self._stepsize = 0
         else:
-            self._stepsize = (self.end-self.start)/(self.size-1)
+            self._stepsize = (self.end-self.start)/self.nsteps
         self._values = units.Quantity(np.linspace(self.start.magnitude,self.end.magnitude,self.size),units=u)
         
 class AxisRegularInc(_AxisRegular):
@@ -249,7 +277,11 @@ class AxisRegularInc(_AxisRegular):
 
     @_AxisRegular.size.setter
     def size(self,value):
-        self.values = self.start,self.stepsize,value
+        self.values = self.start,self.stepsize,value-1
+    
+    @_AxisRegular.nsteps.setter
+    def nsteps(self,value):
+        self.values = self.start,self.end,value
         
     @_AxisRegular.values.setter
     def values(self,params):
@@ -257,8 +289,8 @@ class AxisRegularInc(_AxisRegular):
         self._start = units.Quantity(params[0])
         u = self._start.units
         self._stepsize = units.Quantity(params[1],units=u).to(u)
-        self._size = params[2]
-        self._end = self.start + self.stepsize*(self.size-1)
+        self._size = params[2]+1
+        self._end = self.start + self.stepsize*self.nsteps
         self._values = np.arange(self.size)*self.stepsize+self.start
 
 class AxisNumber(_AxisRegular):
@@ -300,16 +332,8 @@ class AxisSegments(Axis):
     
     @limits.setter
     def limits(self,values):
-        self._set_values(values,self.nbpts)
+        self.values = values,self.nsteps
     
-    @property
-    def nbpts(self):
-        return self._nbpts
-    
-    @nbpts.setter
-    def nbpts(self,values):
-        self._set_values(self.limits,values)
-        
     @property
     def stepsizes(self):
         return self._stepsizes
@@ -317,61 +341,70 @@ class AxisSegments(Axis):
     @stepsizes.setter
     def stepsizes(self,values):
         limits = self.limits
-        u = limits.units
-        func = lambda x: units.Quantity(x,units=u).to(u).magnitude
-        limits = limits.magnitude
         
-        nbpts = []
+        u = units.Quantity(values[0]).units
+        if u=='dimensionless':
+            u = limits.units
+        func = lambda x: units.Quantity(x,units=u)
+        
+        nsteps = []
         for i,stepsize in enumerate(values):
             stepsize = func(stepsize)
             a,b = limits[i],limits[i+1]
-            nbpts.append(int(round((b-a)/stepsize+1.)))
-            
-        self._set_values(limits,self._nbpts)
+            nsteps.append(int(round((b-a)/stepsize)))
+
+        self.values = limits,nsteps
 
     @property
     def nsteps(self):
-        return self.nbpts-1
+        return self._nsteps
 
     @nsteps.setter
     def nsteps(self,values):
-        self.nbpts = np.asarray(values)+1
+        self.values = self.limits,values
 
-    def _set_values(self,limits,nbpts):
-        nbpts = np.asarray(nbpts).tolist()+[None]
-        self.values = tuple(list(listtools.flatten(zip(limits,nbpts)))[:-1])
+    @staticmethod
+    def mergeargs(limits,nsteps):
+        nsteps = np.asarray(nsteps).tolist()+[None]
+        return tuple(list(listtools.flatten(zip(limits,nsteps)))[:-1])
+    
+    @property
+    def nsegments(self):
+        return len(self._nsteps)
         
     @Axis.values.setter
     def values(self,params):
-        if (len(params) % 2)==0:
-            raise ValueError("Segments are defined as: b1,n1,b2,n2,...,bn")
+        limits,nsteps = params
+        if len(limits)!=len(nsteps)+1:
+            raise ValueError("Number of segments does not match the number of limits")
         self._params = params
 
-        u = units.Quantity(params[0]).units
+        u = units.Quantity(limits[0]).units
         func = lambda x: units.Quantity(x,units=u).to(u).magnitude
 
-        limits = []
+        lmts = []
         stepsizes = []
         values = []
-        for i in range(0, len(params)-1, 2):
-            start,size,end = params[i:i+3]
-            start = func(start)
-            end = func(end)
+        for i in range(len(nsteps)):
+            start,end = func(limits[i]),func(limits[i+1])
             if start >= end:
-                raise ValueError("Segments are defined as: b1,n1,b2,n2,...,bn")
-            inc = (end-start)/(size-1.)
-            values += (start+inc*np.arange(size-1)).tolist()
-            limits.append(start)
+                raise ValueError("Limits must be strictly increasing")
+            nspt = func(nsteps[i])
+            inc = (end-start)/float(nspt)
+            values += (start+inc*np.arange(nspt)).tolist()
+            lmts.append(start)
             stepsizes.append(inc)
-        limits.append(end)
+        lmts.append(end)
+        values.append(end)
         
         self._stepsizes = units.Quantity(stepsizes,units=u)
-        self._limits = units.Quantity(limits,units=u)
-        self._nbpts = np.asarray(params[1::2])
+        self._limits = units.Quantity(lmts,units=u)
+        self._nsteps = np.asarray(nsteps)
         self._values = units.Quantity(values,units=u)
     
     def __repr__(self):
-        s = ''.join(list('{:~}--({}x{:~})--'.format(lim,n,step) for lim,step,n in zip(self.limits,self.stepsizes,self.nsteps)))
+        s = ''.join(list('{:~}--({}x{:~})--'.format(lim,n,step) 
+                    for lim,step,n in zip(self.limits,self.stepsizes,self.nsteps)))
         s = '{}{:~}'.format(s,self.limits[-1])
         return "{}({})".format(self.name,s)
     

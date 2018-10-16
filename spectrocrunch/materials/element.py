@@ -161,6 +161,9 @@ class Element(hashable.Hashable,elementbase.ElementBase):
                 else:
                     self.shells = [f(shells)]
 
+    def edge_energies(self):
+        return [shell.edgeenergy(self.Z) for shell in self.shells]
+
     def unmarkabsorber(self):
         self.shells = []
 

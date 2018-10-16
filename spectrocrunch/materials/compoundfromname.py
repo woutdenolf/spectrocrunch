@@ -167,6 +167,9 @@ compounddb["moxtek ap3.7"] = compoundfromlist.CompoundFromList(['B', 'C', 'N', '
                                 [0.14109395570244615, 0.3969446446586894, 0.20446566594853216, 0.195183216894773, 0.06231251679555934],
                                 types.fraction.mole,1.23845839755,name="moxtek ap3.7")
 
+
+compounddb["epoxy resin"] = compoundfromformula.CompoundFromFormula("C21H25ClO5",2.,name="epoxy resin")
+
 # tape (adhesive on plastic)
 compounddb["sulfur-free tape"] = mixture.Mixture([compounddb["pva"],compounddb["pe"]],\
                                     [0.5,0.5],types.fraction.mole).tocompound("sulfur-free tape") # 50 um
