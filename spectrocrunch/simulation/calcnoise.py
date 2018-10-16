@@ -193,29 +193,16 @@ class id21_ffsetup(object):
         return self.propagate(flux,energy,tframe,nframe,samplein=False,withnoise=False,forward=True)
     
     @staticmethod
-    def getnframes(totaltime,frametime,fracflat):
-        n = int(round(totaltime/frametime))
-        nflat = max(int(round(fracflat*n/2.)),1)
+    def getnframes(totaltime,tframe_data,tframe_flat,fracflat):
+        ndata = max(int(round(totaltime/tframe_data*(1-fracflat))),1)
+        nflat = max(int(round(totaltime/tframe_data*fracflat/2.)),1)
         nflat *= 2 # before and after
-        ndata = max(n - nflat,1)
-
         return ndata,nflat
 
-    @staticmethod
-    def getrealtime(totaltime,frametime,fracflat):
-        ndata,nflat = self.getnframes(totaltime,frametime,fracflat)
-        n = ndata+nflat
-        overhead = 6.50305 + 0.0131498*n
-        return frametime*n + overhead
-
     def xanes(self,flux,energy,**kwarg):
-
         N,N0,D,D0 = self.measurement(flux,energy,**kwarg)
-                                
         T = transmission(N,N0,D=D,D0=D0,**kwarg)
-
         XAS = absorbance(T)
-
         signal = noisepropagation.E(XAS)
         noise = noisepropagation.S(XAS)
         return signal,noise

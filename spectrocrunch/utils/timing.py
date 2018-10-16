@@ -40,7 +40,7 @@ def hms(seconds):
     return (hours,min,sec)
 
 def strseconds(seconds):
-    return "{:d}h {:d}m {:d}s".format(hours,min,sec)
+    return "{:d}h {:d}m {:d}s".format(*hms(seconds))
 
 def printtimeelapsed(T0,logger,text="Elapsed time"):
     hours,min,sec = hms((datetime.datetime.now()-T0).seconds)
