@@ -57,8 +57,9 @@ class test_nxfs(unittest.TestCase):
         
         self.assertRaises(nxfs.NexusException,nxroot.nxdata,'data1')
         data1 = subentrya.nxdata('data1')
-        entry2 = data1.nxentry('entry0002')
-        
+        entry2 = data1.new_nxentry()
+        self.assertEqual(entry2,root['entry0002'])
+
         self.assertRaises(ValueError,data1.nxinstrument,mode='r')
         instrument = data1.nxinstrument()
     
@@ -89,13 +90,13 @@ class test_nxfs(unittest.TestCase):
         process1.plotselect.mark_default()
         
         self.assertEqual(process1.config.read(),cfg1)
-        self.assertFalse(process1.previous.exists)
+        self.assertFalse(process1.previous_processes)
         
-        process2 = entry.nxprocess('align',previous=process1)
+        process2 = entry.nxprocess('align',previous=[process1])
         self.assertEqual(process2.config.read(),None)
-        self.assertEqual(process2.previous.linkdest(),process1)
+        self.assertEqual(process2.previous_processes[0].linkdest(),process1)
 
-        self.assertRaises(ValueError,entry.nxprocess,'align',parameters={'wrong':1},previous=process1)
+        self.assertRaises(ValueError,entry.nxprocess,'align',parameters={'wrong':1},previous=[process1])
         
     def _check_nxdata(self,data1):
         y = 'y',range(2),{'units':'um','title':'vertical'}

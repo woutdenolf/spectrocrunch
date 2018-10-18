@@ -28,13 +28,15 @@ import numpy as np
 import contextlib
 from datetime import datetime
 import json
+import re
 
 from . import fs
 from . import h5fs
 from ..utils import units
 from ..utils import instance
-from ..utils.hashing import calcdhash
+from ..utils.hashing import calcdhash,mergedhash
 from .. import __version__
+PROGRAM_NAME = 'spectrocrunch'
 
 class NexusException(Exception):
     """
@@ -58,8 +60,8 @@ def textarray(arr):
 
 def timestamp():
     return textarray(datetime.now().isoformat())
-    
-    
+
+
 class Path(h5fs.Path):
 
     def lsinfo(self):
@@ -162,7 +164,7 @@ class Path(h5fs.Path):
                 'file_time':timestamp(),
                 'HDF5_Version':textarray(h5py.version.hdf5_version),
                 'h5py_version':textarray(h5py.version.version),
-                'creator':textarray('spectrocrunch')}
+                'creator':textarray(PROGRAM_NAME)}
                 
     def nxentry(self,name=None,**openparams):
         path = self.findfirstup_is_nxclass('NXentry')
@@ -178,6 +180,30 @@ class Path(h5fs.Path):
         return self._init_nxclass(path[name],'NXentry',
                                   filesgen=self._filesgen_nxentry,
                                   **openparams)
+
+    def last_nxentry(self):
+        entry = None
+        for entry in self.root.iter_is_nxclass('NXentry'):
+            pass
+        return entry
+        
+    def new_nxentry(self):
+        entry = self.last_nxentry()
+        if entry:
+            entry = entry.name
+        name = self._new_nxentryname(entry)
+        return self.nxentry(name=name)
+
+    def _new_nxentryname(self,name):
+        if name:
+            p = re.compile("[0-9]+")
+            for m in p.finditer(name):
+                pos,num = m.start(), m.group()
+            n = len(num)
+            fmt = name[:pos]+'{{:0{}d}}'.format(n)+name[pos+n:]
+            return fmt.format(int(num)+1)
+        else:
+            return 'entry_0000'
 
     def nxsubentry(self,name,**openparams):
         self._raise_ifnot_class('NXentry','NXsubentry')
@@ -209,9 +235,8 @@ class Path(h5fs.Path):
             process = self[name]
             if process.exists:
                 return process
-            dhash = None
         else:
-            dhash = calcdhash(parameters)
+            dhash = self.nxproces_calcdhash(previous,calcdhash(parameters))
             for process in entry.iter_is_nxclass('NXprocess'):
                 if process.verify_hash(dhash):
                     return process
@@ -222,11 +247,50 @@ class Path(h5fs.Path):
         process = self._init_nxclass(self[name],'NXprocess',
                                      filesgen=self._filesgen_nxprocess,
                                      **openparams)
-        process.set_config(parameters,dhash=dhash,previous=previous)
+        process.set_config(parameters,previous=previous)
         return process
     
+    @classmethod
+    def nxproces_calcdhash(cls,previous,confighash):
+        if previous:
+            hashes = [prev.dhash for prev in previous]
+        else:
+            hashes = []
+        hashes.append(confighash)
+        return mergedhash(*hashes)
+    
+    def last_nxprocess(self,**openparams):
+        entry = self.nxentry(**openparams)
+        process = None
+        i = 0
+        for proc in entry.iter_is_nxclass('NXprocess'):
+            if proc['sequence_index'].read()>=i:
+                process = proc
+        return process
+    
+    def find_nxentry(self,name=None):
+        with self.h5open(mode='r'):
+            if name:
+                entry = self.nxentry(name=name)
+            else:
+                entry = self.last_nxentry()
+        return entry
+        
+    def find_nxprocess(self,entryname=None,processname=None):
+        with self.h5open(mode='r'):
+            entry = self.find_nxentry(name=entryname)
+            if not entry:
+                return None
+            
+            if processname:
+                process = entry.nxprocess(processname)
+            else:
+                process = entry.last_nxprocess()
+
+            return process
+    
     def _filesgen_nxprocess(self):
-        return {'program':textarray('spectrocrunch'),
+        return {'program':textarray(PROGRAM_NAME),
                 'version':textarray(__version__),
                 'date':timestamp()}
 
@@ -250,20 +314,25 @@ class Path(h5fs.Path):
         return path.nxcollection('positioners',**openparams)
         
     def factory(self,path):
+        if not isinstance(path,h5fs.Path):
+            path = super(Path,self).factory(path)
+            
         cls = None
-        if isinstance(path,h5fs.Path):
-            nxclass = path.nxclass
-            if nxclass=='NXdata':
-                cls = _NXdata
-            elif nxclass=='NXprocess':
-                cls = _NXprocess
-            elif nxclass=='NXnote':
-                cls = _NXnote
-            elif nxclass=='NXcollection':
-                if path.name == 'positioners' and path.parent.nxclass == 'NXinstrument':
-                    cls = _Positioners
+        nxclass = path.nxclass
+        if nxclass=='NXdata':
+            cls = _NXdata
+        elif nxclass=='NXprocess':
+            cls = _NXprocess
+        elif nxclass=='NXnote':
+            cls = _NXnote
+        elif nxclass=='NXcollection':
+            if path.name == 'positioners' and path.parent.nxclass == 'NXinstrument':
+                cls = _Positioners
+            else:
+                cls = _NXcollection
+
         if cls is None:
-            return super(Path,self).factory(path)
+            return path
         else:
             return cls(path,h5file=self._h5file)
     
@@ -330,32 +399,26 @@ class _NXprocess(_NXPath):
         with self._verify():
             return self.nxdata('plotselect')
     
-    def set_config(self,parameters,dhash=None,previous=None):
+    def set_config(self,parameters,previous=None):
         with self._verify():
+            # Save parameters
             self.config.write_dict(parameters)
-            if dhash is None:
-                dhash = calcdhash(parameters)
-            #self.results['configuration_hash'].write(data=dhash)
-            
+
+            # Links to previous processes
+            self.previous.mkdir()
             if previous:
-                if isinstance(previous,h5fs.Path):
-                    if self.parent!=previous.parent:
+                for prev in previous:
+                    prev._raise_ifnot_class(self.NX_CLASS)
+                    if self.parent!=prev.parent:
                         raise ValueError('{} and {} should be in the same entry'.format(self,previous))
-                else:
-                    previous = self.parent[previous]
-                if not previous.exists:
-                    raise fs.Missing(previous)
-            
-                self.previous.link(previous)
-                self['sequence_index'].write(data=previous['sequence_index'].read()+1)
-            else:
-                previous = self.previous
-                if previous.exists:
-                    ind = previous['sequence_index'].read()+1
-                else:
-                    ind = 1
-                self['sequence_index'].write(data=ind)
-            
+                        
+                for prev in previous:
+                    prev = self.previous[prev.name].link(prev)
+
+            # Other info
+            self['sequence_index'].write(data=self.previous_sequence_index+1)
+            #self.results['configuration_hash'].write(data=self.dhash)
+
             self.updated()
             
     def verify_hash(self,dhash):
@@ -367,15 +430,38 @@ class _NXprocess(_NXPath):
             path = self.resultspath['configuration_hash']
             if path.exists:
                 return path.read()
-            path = self.configpath
-            if path.exists:
-                return calcdhash(self.config.read())
-            return None
+            return self.nxproces_calcdhash(self.previous,self.confighash)
     
+    @property
+    def confighash(self):
+        if self.configpath.exists:
+            return calcdhash(self.config.read())
+        else:
+            return None
+  
     @property
     def previous(self):
         return self.results['previous']
     
+    @property
+    def previous_processes(self):
+        if self.previous.exists:
+            return [prev for prev in self.previous]
+        else:
+            return []
+            
+    @property
+    def previous_sequence_index(self):
+        ind = 0
+        with self._verify():
+            for previous in self.previous:
+                ind = max(ind,previous['sequence_index'].read())
+        return ind
+    
+    @property
+    def sequence_index(self):
+        return self['sequence_index'].read()
+
     
 class _NXnote(_NXPath):
     
@@ -453,7 +539,7 @@ class _NXdata(_NXPath):
                 with self[name].open(**createparams) as node:
                     node.attrs["long_name"] = textarray(title)
                     if not interpretation:
-                        self._interpretation(node)
+                        interpretation = self._interpretation(node)
                     node.attrs["interpretation"] = textarray(interpretation)
             else:
                 raise ValueError('Provide either "name" or "signal"')
@@ -560,7 +646,7 @@ class _NXdata(_NXPath):
         shaped = signal.shape
         shapea = tuple(self._axis_size(name,value,positioners) for name,value,_ in axes)
         if shaped!=shapea:
-            raise NexusFormatException('Wrong axes dimensions: {} instead of {}'.shape(shaped,shapea))
+            raise NexusFormatException('Axes dimensions {} do not match signal dimensions {}'.format(shapea,shaped))
         
         return axes,positioners
 
@@ -598,15 +684,9 @@ class _NXdata(_NXPath):
             plotselect.mark_default()
             
 
-class _Positioners(_NXPath):
+class _NXcollection(_NXPath):
     
     NX_CLASS = 'NXcollection'
-    
-    def _verify_func(self):
-        self._raise_ifnot_class(self.NX_CLASS)
-        if self.name!='positioners':
-            NexusFormatException('Name should be "positioners" not "{}"'
-                                       .format(self.name))
         
     def add_axis(self,name,value,title=None,units=None):
         with self._verify():
@@ -659,3 +739,14 @@ class _Positioners(_NXPath):
                     return np.array_equal(axis1,node2)
             else:
                 return np.array_equal(axis1,axis2)
+
+
+class _Positioners(_NXcollection):
+    
+    NX_CLASS = 'NXcollection'
+    
+    def _verify_func(self):
+        self._raise_ifnot_class(self.NX_CLASS)
+        if self.name!='positioners':
+            NexusFormatException('Name should be "positioners" not "{}"'
+                                       .format(self.name))
