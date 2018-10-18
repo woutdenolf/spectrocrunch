@@ -211,7 +211,7 @@ class Path(fs.Path):
                 for k in root.keys():
                     yield self.factory(self.join(self.path,k))
             elif root:
-                yield root.name
+                yield self.factory(root.name)
                 
     @property
     def sep(self):
@@ -328,7 +328,7 @@ class Path(fs.Path):
                     f[lnkname] = f[destpath.path]
             else:
                 f[lnkname] = h5py.ExternalLink(destpath.device, destpath.path)
-            return self
+            return self.factory(self)
             
     @property
     def islink(self):

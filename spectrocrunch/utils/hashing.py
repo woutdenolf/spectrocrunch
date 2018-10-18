@@ -95,4 +95,15 @@ def hashequal(a,b,**kwargs):
 
 def dhashequal(a,b,**kwargs):
     return calcdhash(a,**kwargs)==calcdhash(b,**kwargs)
-      
+
+def mergehash(*hashes):
+    if len(hashes)>1:
+        return calchash(hashes)
+    else:
+        return hashes[0]
+        
+def mergedhash(*hashes):
+    if len(hashes)>1:
+        return calcdhash(hashes)
+    else:
+        return hashes[0]

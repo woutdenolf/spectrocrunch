@@ -24,6 +24,7 @@
 
 import sys
 import numpy as np
+import pandas as pd
 from ..utils import units
 from ..utils import instance
 from ..utils import listtools
@@ -48,6 +49,16 @@ class Axis(object):
         self.values = params
         self.precision = precision
 
+    def __getitem__(self,index):
+        return self.values[index]
+
+    def __setitem__(self,index,values):
+        if self.type=='quantitative':
+            values = units.Quantity(values,units=self.units)
+            self.values[index] = values
+        else:
+            self.values.iloc[index] = values
+            
     @property
     def initargs(self):
         if isinstance(self._params,tuple):
@@ -62,17 +73,29 @@ class Axis(object):
         
     @property
     def units(self):
-        return self.values.units
-
+        if self.type=='quantitative':
+            return self.values.units
+        else:
+            return None
+            
     @units.setter
     def units(self,value):
+        if self.type!='quantitative':
+            raise RuntimeError('{} axis has no units'.format(self.type))
         self.values.ito(value)
         
     @property
     def magnitude(self):
-        return self.values.magnitude
-    
+        """np.ndarray or pandas.Index
+        """
+        if self.type=='quantitative':
+            return self.values.magnitude
+        else:
+            return self.values
+            
     def umagnitude(self,u):
+        if self.type!='quantitative':
+            raise RuntimeError('{} axis has no units'.format(self.type))
         return self.values.to(u).magnitude
     
     @property
@@ -81,11 +104,16 @@ class Axis(object):
 
     @values.setter
     def values(self,params):
+        """pint.Quantity or pandas.Index
+        """
         self._params = params
-        if self.type == 'quantitative':
-            params = units.asqarray(params)
         self._values = params
-
+        if self.type == 'quantitative':
+            self._values = units.asqarray(self._values)
+        else:
+            if not isinstance(self._values,pd.Index):
+                self._values = pd.Index(self._values)
+                
     @property
     def start(self):
         return self.values[0]
@@ -101,19 +129,21 @@ class Axis(object):
     @property
     def nsteps(self):
         return self.size-1
-        
+    
     @property
     def precision(self):
-        return self._precision.to(self.units)
-    
+        p = self._precision
+        if self.type == 'quantitative':
+            p = p.to(self.units)
+        return p
+        
     @precision.setter
     def precision(self,value):
         if value is None:
             value = 0
-        self._precision = units.Quantity(value,units=self.units)
-    
-    def __getitem__(self,index):
-        return self.values[index]
+        if self.type == 'quantitative':
+            value = units.Quantity(value,units=self.units)
+        self._precision = value
     
     def __len__(self):
         return self.size
@@ -130,10 +160,13 @@ class Axis(object):
     def __eq__(self,other):
         if self.size!=other.size:
             return False
-        diff = max(abs(self.magnitude-other.umagnitude(self.units)))
-        threshold = max(self.precision,other.precision.to(self.units)).magnitude
-        return diff<=self.precision.magnitude
-
+        if self.type=='quantitative':
+            diff = max(abs(self.magnitude-other.umagnitude(self.units)))
+            threshold = max(self.precision,other.precision.to(self.units)).magnitude
+            return diff<=self.precision.magnitude
+        else:
+            return self.values==other.values
+        
     def __ne__(self,other):
         return not self.__eq__(other)
 
@@ -146,6 +179,8 @@ class Axis(object):
             return np.argmin(np.abs(x-values))
 
     def to(self,u):
+        if self.type!='quantitative':
+            raise RuntimeError('{} axis has no units'.format(self.type))
         ret = self.__class__(*self.initargs,**self.initkwargs)
         ret.units = u
         return ret
@@ -180,6 +215,9 @@ class _AxisRegular(Axis):
         kwargs['type'] = 'quantitative'
         super(_AxisRegular,self).__init__(params,**kwargs)
 
+    def __setitem__(self,ind,values):
+        raise RuntimeError('Axis values are not editable')
+        
     @property
     def start(self):
         return self._start
@@ -232,7 +270,7 @@ class _AxisRegular(Axis):
         self.stepsize.ito(value)
 
     def __repr__(self):
-        return "{}(start={:~},end={:~},stepsize={:~},n={})".format(self.name,self.start,self.end,self.stepsize,len(self))
+        return "{}(start={:~},end={:~},step={:~},size={})".format(self.name,self.start,self.end,self.stepsize,len(self))
         
 class AxisRegular(_AxisRegular):
 
@@ -317,6 +355,9 @@ class AxisSegments(Axis):
     def __init__(self,*params,**kwargs):
         kwargs['type'] = 'quantitative'
         super(AxisSegments,self).__init__(params,**kwargs)
+    
+    def __setitem__(self,ind,values):
+        raise RuntimeError('Axis values are not editable')
         
     @property
     def start(self):
