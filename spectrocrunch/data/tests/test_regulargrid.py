@@ -48,17 +48,21 @@ class test_regulargrid(unittest.TestCase):
         entry = root.new_nxentry()
         process = entry.nxprocess('test',parameters={'a':1,'b':2},previous=None)
 
-        shape = (4,7)
+        shape = (10,13)
         positioners = entry.positioners()
         positioners.add_axis('y',range(shape[0]),units='um',title='vertical')
         positioners.add_axis('x',range(shape[1]))
         
-        dtype = float
+        dtype = np.float32
         signals = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
         for detector in range(2):
             detector = process.results.nxdata('detector{:02d}'.format(detector)).mkdir()
             for name in signals:
                 data = np.random.normal(size=shape).astype(dtype)
+                data[0,:] = np.nan
+                data[-2:,:] = np.nan
+                data[:,0] = np.nan
+                data[:,-2:] = np.nan
                 detector.add_signal(name,data=data)
             detector.set_axes('y','x')
 
@@ -75,9 +79,14 @@ class test_regulargrid(unittest.TestCase):
     def test_nxdata(self):
         with self._nxprocess() as nxprocess:
             nxdata = nxprocess.results['detector00']
-            grid = regulargrid.NXSignalRegularGrid(nxdata,nxdata.signal)
+            grid = regulargrid.NXSignalRegularGrid(nxdata.signal)
             self._check_grid(grid)
-        
+    
+    def test_crop(self):
+        with self._nxprocess() as nxprocess:
+            grid = regulargrid.NXRegularGrid(nxprocess)
+            
+            
     def _check_grid(self,grid):
         data = grid.values
         self.assertEqual(grid.shape,data.shape)

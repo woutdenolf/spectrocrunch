@@ -364,7 +364,7 @@ class Path(fs.Path):
             with self.open(mode='r') as node:
                 if self.isfile:
                     if node.ndim==0:
-                        name = '{} = {}'.format(self.name,node.value)
+                        name = '{} = {}'.format(self.name,node[()])
                     else:
                         shape = 'x'.join(list(map(str,node.shape)))
                         name = '{} = {} ({})'.format(self.name,node.dtype,shape)
@@ -380,7 +380,7 @@ class Path(fs.Path):
 
     def read(self):
         with self.open(mode='r') as node:
-            return node.value
+            return node[()]
     
     def write(self,**kwargs):
         return self.mkfile(**kwargs)

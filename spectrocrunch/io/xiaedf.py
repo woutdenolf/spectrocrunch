@@ -42,8 +42,6 @@ from . import edf
 import logging
 logger = logging.getLogger(__name__)
 
-
-
 XiaName = collections.namedtuple('XiaName', ['radix', 'mapnum', 'linenum', 'label', 'baselabel', 'detector'])
 
 class XiaNameParser():
@@ -1413,7 +1411,7 @@ class xiacompound(xiadata):
 
         # Generate sliced stack
         generator = lambda line: line
-        data = indexing.slicedstack(generator,items,index,self.ndim,shapefull=self.dshape,axis=0)
+        data = indexing.getitem(generator,items,index,self.ndim,shapefull=self.dshape,axis=0)
         
         if data.size==0:
             data = self._reshapeemptydata(data)
@@ -1421,7 +1419,7 @@ class xiacompound(xiadata):
         return data
         
     def _reshapeemptydata(self,data):
-        # slicedstack does not call the sublevels when the compound dimension is reduced to zero
+        # indexing.getitem does not call the sublevels when the compound dimension is reduced to zero
         if self._xiaconfig["detectors"]["add"] and self._level > self._xiaconfig["leveldatainfo"]["sum"]:
             s = list(data.shape)
             s[self._getaxis(-1)] = 1
@@ -1442,7 +1440,7 @@ class xiacompound(xiadata):
 
         # Generate sliced stack
         generator = lambda image: image
-        return indexing.slicedstack(generator,items,index,self.ndim,shapefull=self.cshape,axis=0)
+        return indexing.getitem(generator,items,index,self.ndim,shapefull=self.cshape,axis=0)
         
     def _getstats(self,index=slice(None)):
         """
@@ -1457,7 +1455,7 @@ class xiacompound(xiadata):
 
         # Generate sliced stack
         generator = lambda line: line
-        return indexing.slicedstack(generator,items,index,self.ndim,shapefull=self.sshape,axis=0)
+        return indexing.getitem(generator,items,index,self.ndim,shapefull=self.sshape,axis=0)
 
     def getsaveitems(self,nitems,copyctrs=False,ctrnames=None):
         items = self.getitems()
@@ -1726,7 +1724,7 @@ class xialine(xiadata):
 
         # Generate sliced stack
         generator = lambda f: indexing.expanddims(self._getedfimage(f).data,self.ndim-1)
-        data = indexing.slicedstack(generator,files,index,self.ndim,shapefull=self.dshape,axis=-1)
+        data = indexing.getitem(generator,files,index,self.ndim,shapefull=self.dshape,axis=-1)
 
         return data
 
@@ -1920,7 +1918,7 @@ class xiaimage(xiacompound):
 
         # Generate sliced stack
         generator = lambda f: indexing.expanddims(self._getedfimage(f).data,self.ndim-1)
-        counters = indexing.slicedstack(generator,files,index,self.ndim,shapefull=self.cshape,axis=2)
+        counters = indexing.getitem(generator,files,index,self.ndim,shapefull=self.cshape,axis=2)
 
         return counters
  

@@ -171,32 +171,53 @@ class MultiElementBase(elementbase.ElementBase):
         return beta.to("dimensionless").magnitude
 
     @classmethod
-    def csdict_collapse(cls,csdict):
-        if isinstance(csdict,dict):
-            return sum(w*cls.csdict_collapse(cs) for w,cs in zip(csdict['w'],csdict['cs']))
-        else:
-            return csdict
-            
-    @classmethod
-    def csdict_parse(cls,csdict):
-        coeff = np.array([c['w'] for c in csdict.values()])
-        cs = [cls.csdict_collapse(c['cs']) for c in csdict.values()]
-
-        return coeff,cs
-
-    @classmethod
-    def csdict_parse_elements(cls,dictin,dictout=None,w=1):
-        if dictout is None:
-            dictout = {}
-            
-        for k,v in dictin.items():
-            if isinstance(v["cs"],dict):
-                cls.csdict_parse_elements(v["cs"],w=v["w"],dictout=dictout)
-            else:
-                if k in dictout:
-                    dictout[k] += w*v["w"]*v["cs"]
+    def cs_type(cls,cs):
+        # 0. cs = [...]                -> element cs
+        # 1. cs = {'w':0.1,'cs':[...]} -> element w+cs
+        # 2. cs = {'A':{},'B':{}}      -> compound or mixture 
+        if isinstance(cs,dict):
+            if 'cs' in cs:
+                if isinstance(cs['cs'],dict):
+                    return 2
                 else:
-                    dictout[k] = w*v["w"]*v["cs"]
-                    
-        return dictout
+                    return 1
+            else:
+                return 2
+        else:
+            return 0
+            
+    @classmethod
+    def cs_collapse(cls,cs):
+        t = cls.cs_type(cs)
+        if t==0:
+            return cs
+        elif t==1:
+            return cs['w']*cs['cs']
+        else:
+            return sum(cls.cs_collapse(c) for c in cs.values())
+            
+    @classmethod
+    def csdict_parse(cls,cs):
+        t = cls.cs_type(cs)
+        if t==0:
+            return np.array([1]),[cs]
+        elif t==1:
+            return np.array([cs['w']]),[cs['cs']]
+        else:
+            w = np.array([c['w'] for c in cs.values()])
+            cs = [cls.cs_collapse(c['cs']) for c in cs.values()]
+            return w,cs
 
+    @classmethod
+    def csdict_parse_elements(cls,csin,csout=None,w=1,k=None):
+        if csout is None:
+            csout = {}
+        t = cls.cs_type(csin)
+        if t==0:
+            csout[k] = csout.get(k,0)+w*cs
+        elif t==1:
+            csout[k] = csout.get(k,0)+w*cs['w']*cs['cs']
+        else:
+            for k,c in csin.items():
+                cls.csdict_parse_elements(c['cs'],csout=csout,w=w*c['w'],k=k)
+        return csout

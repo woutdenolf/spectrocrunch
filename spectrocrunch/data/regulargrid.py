@@ -62,6 +62,10 @@ class RegularGrid(with_metaclass(ABCMeta)):
     def __getitem__(self,index):
         pass
 
+    @abstractmethod
+    def __setitem__(self,index,value):
+        pass
+        
     @property
     @abstractmethod
     def values(self):
@@ -111,7 +115,8 @@ class RegularGrid(with_metaclass(ABCMeta)):
 
 class NXSignalRegularGrid(RegularGrid):
     
-    def __init__(self,nxdata,signal):
+    def __init__(self,signal):
+        nxdata = signal.parent
         axes = [factory(values,name=name,title=attrs['title'],type='quantitative')
                 for name,values,attrs in nxdata.axes]
         self.signal = signal
@@ -128,6 +133,26 @@ class NXSignalRegularGrid(RegularGrid):
                 return dset[index]
             except ValueError as e:
                 raise IndexError(e)
+
+    def __setitem__(self,index,value):
+        with self.open() as dset:
+            dset[index] = value
+
+    def __iadd__(self,value):
+        with self.open() as dset:
+            dset[index] += value
+    
+    def __isub__(self,value):
+        with self.open() as dset:
+            dset[index] -= value
+            
+    def __imul__(self,value):
+        with self.open() as dset:
+            dset[index] *= value
+    
+    def __idiv__(self,value):
+        with self.open() as dset:
+            dset[index] /= value
 
     @property
     def dtype(self):
@@ -146,7 +171,6 @@ class NXRegularGrid(RegularGrid):
     def __init__(self,nxgroup):
         # Axes in memory, data as nxfs paths
         axes = []
-        axnew = []
         signals = []
         
         if nxgroup.nxclass=='NXdata':
@@ -165,11 +189,9 @@ class NXRegularGrid(RegularGrid):
                         for name,values,attrs in nxdata.axes]
 
             for signal in nxdata.signals:
-                axnew.append((nxdata.name,signal.name))
                 signals.append(signal)
                 
-        axnew = factory(pd.MultiIndex.from_tuples(axnew, names=['group','dataset']),
-                        name='datasets',type='nominal')
+        axnew = factory(signals,type='nominal')
         axes.insert(0,axnew)
         
         self.nxgroup = nxgroup
@@ -184,8 +206,33 @@ class NXRegularGrid(RegularGrid):
     def __getitem__(self,index):
         with self.open(mode='r') as entry:
             generator = lambda signal: entry[self.nxgroup.relpath(signal.path)]
-            return indexing.slicedstack(generator,self.signals,index,self.ndim,shapefull=self.shape,axis=0)
+            return indexing.getitem(generator,self.signals,index,self.ndim,shapefull=self.shape,axis=0)
 
+    def __setitem__(self,index,value):
+        with self.open(mode='r') as entry:
+            selector = lambda signal: entry[self.nxgroup.relpath(signal.path)]
+            indexing.setitem(selector,self.signals,index,self.ndim,value,shapefull=self.shape,axis=0,method='set')
+    
+    def __iadd__(self,value):
+        with self.open(mode='r') as entry:
+            selector = lambda signal: entry[self.nxgroup.relpath(signal.path)]
+            indexing.setitem(selector,self.signals,(Ellipsis,),self.ndim,value,shapefull=self.shape,axis=0,method='add')
+    
+    def __isub__(self,value):
+        with self.open(mode='r') as entry:
+            selector = lambda signal: entry[self.nxgroup.relpath(signal.path)]
+            indexing.setitem(selector,self.signals,(Ellipsis,),self.ndim,value,shapefull=self.shape,axis=0,method='sub')
+            
+    def __imul__(self,value):
+        with self.open(mode='r') as entry:
+            selector = lambda signal: entry[self.nxgroup.relpath(signal.path)]
+            indexing.setitem(selector,self.signals,(Ellipsis,),self.ndim,value,shapefull=self.shape,axis=0,method='mul')
+    
+    def __idiv__(self,value):
+        with self.open(mode='r') as entry:
+            selector = lambda signal: entry[self.nxgroup.relpath(signal.path)]
+            indexing.setitem(selector,self.signals,(Ellipsis,),self.ndim,value,shapefull=self.shape,axis=0,method='div')
+            
     @property
     def dtype(self):
         with self.signals[0].open(mode='r') as dset:
