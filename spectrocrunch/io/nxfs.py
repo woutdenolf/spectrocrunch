@@ -672,7 +672,7 @@ class _NXdata(_NXPath):
     def _axis_astuple(self,name,axis):
         attrs = {'title':axis.attrs.get('long_name',None),
                  'units':axis.attrs.get('units',None)}
-        values = axis.value
+        values = axis[()]
         values = units.Quantity(values,attrs['units'])
         return name,values,attrs
     
@@ -720,7 +720,7 @@ class _NXcollection(_NXPath):
             axis = self[name]
             if axis.exists:
                 with axis.open(mode='r') as node:
-                    values = node.value
+                    values = node[()]
                     u = node.attrs.get('units','dimensionless')
                     values = units.Quantity(values,u)
                 return values
