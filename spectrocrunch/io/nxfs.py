@@ -83,6 +83,8 @@ class Path(h5fs.Path):
             tm = timestamp()
             for path in self.iterup_is_nxclass('NXentry','NXsubentry'):
                 path['end_time'].write(mode='w',data=tm)
+            for path in self.iterup_is_nxclass('NXprocess'):
+                path['date'].write(mode='w',data=tm)
             self.nxroot().update_stats(file_update_time=tm)
     
     def _init_nxclass(self,path,nxclass,attrgen=None,filesgen=None,**openparams):

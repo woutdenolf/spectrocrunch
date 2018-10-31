@@ -22,12 +22,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+DEFAULT_STACKDIM = 0
+
 def next_process(nxprevious,parameters):
     return nxprevious[-1].nxentry().nxprocess(parameters["name"],
                     parameters=parameters,previous=nxprevious)
 
-def set_default(nxresults,default):
-    it = nxresults.iter_is_nxclass('NXdata')
+def set_default(nxprocess,default):
+    plotselect = nxprocess.results['plotselect']
+    plotselect.remove()
+    it = nxprocess.results.iter_is_nxclass('NXdata')
     
     # Default signal
     for nxdata in it:
@@ -37,8 +41,5 @@ def set_default(nxresults,default):
             nxdata.default_signal(default)
 
     # Default NXdata
-    plotselect = nxresults['plotselect']
-    if plotselect.islink:
-        plotselect.remove()
     plotselect = plotselect.link(nxdata)
     plotselect.mark_default()
