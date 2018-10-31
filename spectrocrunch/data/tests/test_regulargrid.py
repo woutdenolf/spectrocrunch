@@ -32,26 +32,30 @@ from .. import regulargrid
 from ...utils import units
 from ...io import nxfs
 from ...utils.tests import genindexing
+from .. import nxprocess
 
 class test_regulargrid(unittest.TestCase):
 
     def setUp(self):
         self.dir = TempDirectory()
-    
+
     def tearDown(self):
         self.dir.cleanup()
     
     @contextlib.contextmanager
-    def _nxprocess(self):
+    def _nxprocess(self,method=None):
         h5filename = os.path.join(self.dir.path,'test.h5')
         root = nxfs.Path('/',h5file=h5filename).nxroot()
         entry = root.new_nxentry()
-        process = entry.nxprocess('test',parameters={'a':1,'b':2},previous=None)
-
-        shape = (10,13)
+        process,new = entry.nxprocess('fromraw',parameters={'a':1,'b':2},previous=None)
+        info = {}
+        
+        shape = (2,10,13)
+        self.stackdim = 0
         positioners = entry.positioners()
-        positioners.add_axis('y',range(shape[0]),units='um',title='vertical')
-        positioners.add_axis('x',range(shape[1]))
+        positioners.add_axis('z',range(shape[0]))
+        positioners.add_axis('y',range(shape[1]),units='um',title='vertical')
+        positioners.add_axis('x',range(shape[2]))
         
         dtype = np.float32
         signals = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
@@ -59,33 +63,56 @@ class test_regulargrid(unittest.TestCase):
             detector = process.results.nxdata('detector{:02d}'.format(detector)).mkdir()
             for name in signals:
                 data = np.random.normal(size=shape).astype(dtype)
-                data[0,:] = np.nan
-                data[-2:,:] = np.nan
-                data[:,0] = np.nan
-                data[:,-2:] = np.nan
+                if method=='crop':
+                    data[:,0,:] = np.nan
+                    data[:,-2:,:] = np.nan
+                    data[:,:,0:2] = np.nan
+                    data[:,:,-1] = np.nan
+                    info['y_crop'] = positioners.get_axis('y')[1:-2]
+                    info['x_crop'] = positioners.get_axis('x')[2:-1]
                 detector.add_signal(name,data=data)
-            detector.set_axes('y','x')
+            detector.set_axes('z','y','x')
 
         try:
-            yield process
+            yield process,info
         finally:
-            root.remove(recursive=True)
-            
+            #root.remove(recursive=True)
+            pass
+                
     def test_nxprocess(self):
-        with self._nxprocess() as nxprocess:
-            grid = regulargrid.NXRegularGrid(nxprocess)
+        with self._nxprocess() as proc:
+            proc,info = proc
+            grid = regulargrid.NXRegularGrid(proc)
             self._check_grid(grid)
     
     def test_nxdata(self):
-        with self._nxprocess() as nxprocess:
-            nxdata = nxprocess.results['detector00']
+        with self._nxprocess() as proc:
+            proc,info = proc
+            nxdata = proc.results['detector00']
             grid = regulargrid.NXSignalRegularGrid(nxdata.signal)
             self._check_grid(grid)
     
     def test_crop(self):
-        with self._nxprocess() as nxprocess:
-            grid = regulargrid.NXRegularGrid(nxprocess)
+        with self._nxprocess(method='crop') as proc1:
+            proc1,info = proc1
+            parameters = {'method':'crop','reference':'Al-K','nanval':np.nan,'sliced':False,'default':'Si-K'}
+            proc2 = nxprocess.single_regulargrid(proc1,parameters)
+            parameters['sliced'] = True
+            parameters['name'] = 'crop2'
+            proc3 = nxprocess.single_regulargrid(proc1,parameters)
             
+            grid2 = regulargrid.NXRegularGrid(proc2)
+            grid3 = regulargrid.NXRegularGrid(proc3)
+            np.testing.assert_array_equal(grid2.values,grid3.values)
+            for k,v in info.items():
+                for ax in grid2.axes:
+                    if ax.name==k:
+                        np.testing.assert_array_equal(ax.magnitude,v)
+                        break
+                else:
+                    assert(False)
+            
+            self.assertEqual(proc1.root.default.signal.name,parameters['default'])
             
     def _check_grid(self,grid):
         data = grid.values
@@ -106,6 +133,7 @@ def test_suite():
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_regulargrid("test_nxprocess"))
     testSuite.addTest(test_regulargrid("test_nxdata"))
+    testSuite.addTest(test_regulargrid("test_crop"))
     return testSuite
     
 if __name__ == '__main__':
