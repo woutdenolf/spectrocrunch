@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 
 from copy import deepcopy
-from abc import ABCMeta,abstractproperty,abstractmethod
+from abc import ABCMeta,abstractmethod
 from future.utils import with_metaclass
 
 from . import nxutils
@@ -34,6 +34,9 @@ class TaskException(Exception):
 class MissingParameter(TaskException):
     pass
 
+class ParameterError(TaskException):
+    pass
+    
 class Task(with_metaclass(ABCMeta,object)):
     
     def __init__(self,parameters,previous):
@@ -52,6 +55,12 @@ class Task(with_metaclass(ABCMeta,object)):
     def _parameters_defaults(self):
         self.parameters["name"] = self.parameters.get('name',self.method)
 
+    def _required_parameters(self,*params):
+        parameters = self.parameters
+        for p in params:
+            if p not in parameters:
+                raise MissingParameter(p)
+                
     @property
     def name(self):
         return self.parameters['name']
@@ -73,9 +82,15 @@ class Task(with_metaclass(ABCMeta,object)):
     @abstractmethod
     def _execute(self):
         pass
-    
+
 def newtask(parameters,previous):
     method = parameters.get('method',None)
     if method=='crop':
         from .nxcrop import Task
+    elif method=='replace':
+        from .nxreplace import Task
+    elif method=='minlog':
+        from .nxminlog import Task
+    else:
+        raise ParameterError('Unknown method {}'.format(repr(method)))
     return Task(parameters,previous)
