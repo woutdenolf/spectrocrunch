@@ -69,11 +69,11 @@ class test_nxfs(unittest.TestCase):
         #root.ls(recursive=True,stats=False,depth=3)
     
     def _check_process(self,entry):
-        cfg1 = {'p1':10,'p2':[10,20]}
-        process1,new = entry.nxprocess('fit',parameters=cfg1)
-        self.assertTrue(new)
-        _,new = entry.nxprocess('fit',parameters=cfg1)
-        self.assertFalse(new)
+        cfg1 = {'p1':10,'p2':[10.,20.],'p3':{'a':1},'p4':'test'}
+        process1,notnew = entry.nxprocess('fit',parameters=cfg1)
+        self.assertFalse(notnew)
+        _,notnew = entry.nxprocess('fit',parameters=cfg1)
+        self.assertTrue(notnew)
         
         shape = (2,3)
         dtype = float
@@ -95,8 +95,8 @@ class test_nxfs(unittest.TestCase):
         self.assertEqual(process1.config.read(),cfg1)
         self.assertFalse(process1.previous_processes)
         
-        process2,new = entry.nxprocess('align',previous=[process1])
-        self.assertFalse(new)
+        process2,notnew = entry.nxprocess('align',previous=[process1])
+        self.assertFalse(notnew)
         self.assertEqual(process2.config.read(),None)
         self.assertEqual(process2.previous_processes[0].linkdest(),process1)
 

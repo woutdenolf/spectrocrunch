@@ -22,23 +22,23 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from copy import deepcopy
-from . import regulargrid
-from . import nxutils
-from .nxprocess_crop import crop
+def next_process(nxprevious,parameters):
+    return nxprevious[-1].nxentry().nxprocess(parameters["name"],
+                    parameters=parameters,previous=nxprevious)
 
-def single_regulargrid(previous,parameters):
-    parameters = deepcopy(parameters)
+def set_default(nxresults,default):
+    it = nxresults.iter_is_nxclass('NXdata')
     
-    grid = regulargrid.NXRegularGrid(previous)
-    method = parameters.get('method',None)
-    parameters["name"] = parameters.get('name',method)
-    default = parameters.pop('default',None)
-    
-    if method=='crop':
-        nxprocess = crop(grid,parameters)
-    else:
-        raise ValueError('Unknown method {}'.format(repr(method)))
-    
-    nxutils.set_default(nxprocess.results,default)
-    return nxprocess
+    # Default signal
+    for nxdata in it:
+        if default is None:
+            default = nxdata.signal.name
+        else:
+            nxdata.default_signal(default)
+
+    # Default NXdata
+    plotselect = nxresults['plotselect']
+    if plotselect.islink:
+        plotselect.remove()
+    plotselect = plotselect.link(nxdata)
+    plotselect.mark_default()

@@ -111,8 +111,8 @@ class test_regulargrid(unittest.TestCase):
                         break
                 else:
                     assert(False)
-            
-            self.assertEqual(proc1.root.default.signal.name,parameters['default'])
+
+            self.assertEqual(proc1.default.signal.name,parameters['default'])
             
     def _check_grid(self,grid):
         data = grid.values

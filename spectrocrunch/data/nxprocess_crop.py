@@ -100,7 +100,12 @@ def execute(grid,roi,parameters):
     Returns:
         nxfs.Path
     """
-    
+    # New nxprocess (return when already exists)
+    process,notnew = nxutils.next_process([grid.nxgroup],parameters)
+    if notnew:
+        return process
+    results = process.results
+        
     # Create new axes (if needed)
     positioners = grid.nxgroup.positioners()
     axes = []
@@ -114,11 +119,9 @@ def execute(grid,roi,parameters):
             positioners.add_axis(name,ax[a:b],title=ax.title)
             axes.append(name)
 
-    process,new = grid.nxgroup.nxentry().nxprocess(parameters["name"],
-                    parameters=parameters,previous=[grid.nxgroup])
-    if not new:
-        return process
-    results = process.results
+
+    
+    
 
     # Cropped signals
     stackdim = parameters["stackdim"]
