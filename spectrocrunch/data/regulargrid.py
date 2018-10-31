@@ -28,7 +28,7 @@ from future.utils import with_metaclass
 import contextlib
 import numpy as np
 
-from .axis import factory
+from .axis import factory as axisfactory
 from ..utils import indexing
 from ..io import nxfs
 
@@ -95,11 +95,11 @@ class RegularGrid(with_metaclass(ABCMeta)):
             raise ValueError('Slice dimension should be between 0 and {}'.format(slicedim))
 
         if slicedim==0:
-            indexgen = lambda i:i,Ellipsis
+            indexgen = lambda i:(i,Ellipsis)
             shape = self.shape[1:]
             
         elif slicedim==maxdim:
-            indexgen = lambda i:Ellipsis,i
+            indexgen = lambda i:(Ellipsis,i)
             shape = self.shape[:-1]
         else:
             a = (slice(None),)*slicedim
@@ -117,7 +117,7 @@ class NXSignalRegularGrid(RegularGrid):
     
     def __init__(self,signal):
         nxdata = signal.parent
-        axes = [factory(values,name=name,title=attrs['title'],type='quantitative')
+        axes = [axisfactory(values,name=name,title=attrs['title'],type='quantitative')
                 for name,values,attrs in nxdata.axes]
         self.signal = signal
         super(NXSignalRegularGrid,self).__init__(axes)
@@ -185,14 +185,15 @@ class NXRegularGrid(RegularGrid):
 
         for nxdata in it:
             if not axes:
-                axes = [factory(values,name=name,title=attrs['title'],type='quantitative')
+                axes = [axisfactory(values,name=name,title=attrs['title'],type='quantitative')
                         for name,values,attrs in nxdata.axes]
 
             for signal in nxdata.signals:
                 signals.append(signal)
-                
-        axnew = factory(signals,type='nominal')
-        axes.insert(0,axnew)
+        
+        self.stackdim = 0
+        axnew = axisfactory(signals,type='nominal')
+        axes.insert(self.stackdim,axnew)
         
         self.nxgroup = nxgroup
         self.signals = signals

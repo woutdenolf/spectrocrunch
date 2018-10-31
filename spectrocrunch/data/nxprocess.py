@@ -22,14 +22,22 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from copy import deepcopy
 from . import regulargrid
-from . import nxprocess_crop import crop
+from . import nxutils
+from .nxprocess_crop import crop
 
-def regulargrid(grid,method,parameters):
-
+def single_regulargrid(previous,parameters):
+    parameters = deepcopy(parameters)
+    
+    grid = regulargrid.NXRegularGrid(previous)
+    method = parameters.get('method',None)
+    parameters["name"] = parameters.get('name',method)
+    
     if method=='crop':
         nxprocess = crop(grid,parameters)
     else:
-        raise ValueError('Unknown method "{}"'.format(method))
-
+        raise ValueError('Unknown method {}'.format(repr(method)))
+        
+    nxutils.set_default(nxprocess.results,parameters)
     return nxprocess

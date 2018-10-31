@@ -110,9 +110,6 @@ class Axis(object):
         self._values = params
         if self.type == 'quantitative':
             self._values = units.asqarray(self._values)
-        else:
-            if not isinstance(self._values,pd.Index):
-                self._values = pd.Index(self._values)
                 
     @property
     def start(self):
@@ -124,8 +121,8 @@ class Axis(object):
     
     @property
     def size(self):
-        return self.values.size
-    
+        return len(self.values)
+            
     @property
     def nsteps(self):
         return self.size-1

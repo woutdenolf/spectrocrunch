@@ -226,20 +226,25 @@ class Path(h5fs.Path):
     
     def _filesgen_nxnote(self):
         return {'date':timestamp()}
-    
+        
     def nxprocess(self,name,parameters=None,previous=None,**openparams):
+        """
+        Returns:
+            process(Path):
+            new(bool): new process name
+        """
         entry = self.nxentry(**openparams)
         
         # Return existing process (verify hash when parameters are given)
         if parameters is None:
             process = self[name]
             if process.exists:
-                return process
+                return process,False
         else:
             dhash = self.nxproces_calcdhash(previous,calcdhash(parameters))
             for process in entry.iter_is_nxclass('NXprocess'):
                 if process.verify_hash(dhash):
-                    return process
+                    return process,False
             process = self[name]
             if process.exists:
                 raise ValueError('Process with the same name and a different hash exists. Use a different name.')
@@ -248,7 +253,7 @@ class Path(h5fs.Path):
                                      filesgen=self._filesgen_nxprocess,
                                      **openparams)
         process.set_config(parameters,previous=previous)
-        return process
+        return process,True
     
     @classmethod
     def nxproces_calcdhash(cls,previous,confighash):
@@ -343,9 +348,9 @@ class Path(h5fs.Path):
             parentnxclass = parent.nxclass
             if parentnxclass=='NXdata':
                 parent.default_signal(path.name)
-            else:
+            elif parentnxclass in ['NXentry','NXsubentry','NXroot']:
                 parent.update_stats(default=path.name)
-            if parentnxclass=='NXEntry' or parentnxclass=='NXroot':
+            if parentnxclass=='NXentry' or parentnxclass=='NXroot':
                 break
             path = parent
             parent = path.parent
@@ -470,7 +475,7 @@ class _NXnote(_NXPath):
     def read(self):
         with self._verify():
             with self['data'].open(mode='r') as node:
-                data = node.value
+                data = node[()]
                 mimetype = node.attrs.get('type','text/plain')
                 if mimetype=='application/json':
                     data = json.loads(data)
@@ -680,7 +685,10 @@ class _NXdata(_NXPath):
         super(_NXdata,self).mark_default()
         entry = self.nxentry()
         if self.parent!=entry:
-            plotselect = entry['plotselect'].link(self)
+            plotselect = entry['plotselect']
+            if plotselect.islink:
+                plotselect.remove()
+            plotselect = plotselect.link(self)
             plotselect.mark_default()
             
 

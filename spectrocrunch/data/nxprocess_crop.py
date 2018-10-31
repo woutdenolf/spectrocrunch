@@ -24,6 +24,7 @@
 
 import numpy as np
 from . import regulargrid
+from . import nxutils
 
 def calccroproi(grid,nanval,stackdim,sliced=True):
     """Determine crop ROI to remove slices other than stackdim which contain
@@ -43,7 +44,7 @@ def calccroproi(grid,nanval,stackdim,sliced=True):
     if sliced:
         shape,indexgen = grid.sliceinfo(stackdim)
         mask = np.ones(shape,dtype=np.bool)
-        for i in range(nimg):
+        for i in range(grid.shape[stackdim]):
             img = grid[indexgen(i)]
             if nanval is np.nan:
                 mask &= np.logical_not(np.isnan(img))
@@ -63,7 +64,7 @@ def calccroproi(grid,nanval,stackdim,sliced=True):
             iroi = (0,grid.shape[stackdim])
         else:
             imask += 1
-            sumdims = [i for i in range(grid.ndim-1) if i!=imask]
+            sumdims = tuple([i for i in range(grid.ndim-1) if i!=imask])
             indvalid = np.argwhere(mask.sum(axis=sumdims))[:,0]
             if indvalid.size==0:
                 return None
@@ -88,14 +89,13 @@ def convertuserroi(grid,roi,stackdim):
     roi.insert(stackdim,(0,grid.shape[stackdim]))
     return roi
 
-def execute(grid,roi,parameters,stackdim):
+def execute(grid,roi,parameters):
     """Apply ROI
     
     Args:
         grid(RegularGrid):
         roi(list(2-tuple)):
         parameters(dict):
-        stackdim(num)
 
     Returns:
         nxfs.Path
@@ -104,38 +104,53 @@ def execute(grid,roi,parameters,stackdim):
     # Create new axes (if needed)
     positioners = grid.nxgroup.positioners()
     axes = []
-    for ax,(a,b) in zip(grid.axes,roi):
+    gaxes = grid.axes
+    gaxes.pop(grid.stackdim)
+    for ax,(a,b) in zip(gaxes,roi):
         if ax.size==b-a:
             axes.append(ax.name)
         else:
-            name = '{}_{}'.format()
+            name = '{}_{}'.format(ax.name,parameters['method'])
             positioners.add_axis(name,ax[a:b],title=ax.title)
             axes.append(name)
 
-    procname = parameters.get('name',parameters['type'])
-    process = grid.nxgroup.nxentry().nxprocess(procname,parameters=parameters,previous=[grid.nxgroup])
-    
+    process,new = grid.nxgroup.nxentry().nxprocess(parameters["name"],
+                    parameters=parameters,previous=[grid.nxgroup])
+    if not new:
+        return process
+    results = process.results
+
     # Cropped signals
+    stackdim = parameters["stackdim"]
     shape = tuple([b-a for a,b in roi])
-    index = tuple([slice(a,b) for a,b in roi])
-    nstack = grid.shape[stackdim]
+    indexcrop = [slice(a,b) for a,b in roi]
+    indexout = [slice(None)]*len(roi)
+    nslice = grid.shape[stackdim]
     dtype = grid.dtype
     sliced = parameters["sliced"]
     for signalin in grid.signals:
-        nxdata = process[signalin.parent.name]
-        if not nxdata.exists:
-            nxdata = process.nxdata(name=signalin.parent.name)
-            nxdata.set_axes(axes)
-        
-        if sliced:
-            signalout = nxdata.add_signal(signal.name,shape=shape,dtype=dtype)
-            with signalin.open() as dsetin:
+        nxdata = results[signalin.parent.name]
+        bnew = not nxdata.exists
+        if bnew:
+            nxdata = results.nxdata(name=signalin.parent.name)
+
+        with signalin.open() as dsetin:
+            if sliced:
+                signalout = nxdata.add_signal(signalin.name,shape=shape,
+                                              dtype=dtype,chunks=True)
                 with signalout.open() as dsetout:
-                    for i in range(nstack):
-                        index[stackdim] = i
-                        dsetout = dsetin[index]
-        else:
-            signalout = nxdata.add_signal(signal.name,data=signalin.read())
+                    for i in range(nslice):
+                        indexcrop[stackdim] = i
+                        indexout[stackdim] = i
+                        dsetout[tuple(indexout)] = dsetin[tuple(indexcrop)]
+            else:
+                signalout = nxdata.add_signal(signalin.name,data=dsetin[tuple(indexcrop)],
+                                              chunks=True)
+    
+        if bnew: 
+            nxdata.set_axes(*axes)
+        
+    return process
     
 def crop(grid,parameters):
     # Parameters with defaults
@@ -147,22 +162,24 @@ def crop(grid,parameters):
     ax = grid.axes[0]
     ind = np.array([s.path.endswith(reference) for s in ax])
     if ind.any():
-        refgrid = NXSignalRegularGrid(ax[ind[-1]])
+        ind = np.where(ind)[0][-1]
+        refgrid = regulargrid.NXSignalRegularGrid(ax[ind])
     else:
         raise ValueError('Reference "{}" not present in {}'.format(ref,ax))
     
     # Determine ROI
     roi = None
     if "nanval" in parameters:
-        roi = calccroproi(refgrid,parameters["nanval"],stackdim,sliced=parameters["sliced"])
+        roi = calccroproi(refgrid,parameters["nanval"],parameters["stackdim"],
+                          sliced=parameters["sliced"])
     elif "roi" in parameters:
-        roi = convertuserroi(refgrid,parameters["roi"],stackdim)
+        roi = convertuserroi(refgrid,parameters["roi"],parameters["stackdim"])
     else:
         raise ValueError('Specify either "nanval" or "roi"')
     
     # Apply ROI
     if roi:
-        return execute(grid,roi,parameters,stackdim)
+        return execute(grid,roi,parameters)
     else:
         return None
         
