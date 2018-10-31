@@ -32,7 +32,7 @@ from .. import regulargrid
 from ...utils import units
 from ...io import nxfs
 from ...utils.tests import genindexing
-from .. import nxprocess
+from .. import nxtask
 
 class test_regulargrid(unittest.TestCase):
 
@@ -96,14 +96,20 @@ class test_regulargrid(unittest.TestCase):
         with self._nxprocess(method='crop') as proc1:
             proc1,info = proc1
             parameters = {'method':'crop','reference':'Al-K','nanval':np.nan,'sliced':False,'default':'Si-K'}
-            proc2 = nxprocess.single_regulargrid(proc1,parameters)
+            task = nxtask.newtask(parameters,proc1)
+            proc2 = task.run()
+            proc3 = task.run()
+            self.assertEqual(proc2,proc3)
+            
             parameters['sliced'] = True
             parameters['name'] = 'crop2'
-            proc3 = nxprocess.single_regulargrid(proc1,parameters)
+            task = nxtask.newtask(parameters,proc1)
+            proc4 = task.run()
+            self.assertNotEqual(proc2,proc4)
             
             grid2 = regulargrid.NXRegularGrid(proc2)
-            grid3 = regulargrid.NXRegularGrid(proc3)
-            np.testing.assert_array_equal(grid2.values,grid3.values)
+            grid4 = regulargrid.NXRegularGrid(proc4)
+            np.testing.assert_array_equal(grid2.values,grid4.values)
             for k,v in info.items():
                 for ax in grid2.axes:
                     if ax.name==k:
