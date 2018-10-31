@@ -22,22 +22,20 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-def next_process(nxprevious,parameters):
-    return nxprevious[-1].nxentry().nxprocess(parameters["name"],
-                    parameters=parameters,previous=nxprevious)
+import numpy as np
+from . import nxregulargrid
 
-def set_default(nxprocess,default):
-    plotselect = nxprocess.results['plotselect']
-    plotselect.remove()
-    it = nxprocess.results.iter_is_nxclass('NXdata')
+class Task(nxregulargrid.Task):
     
-    # Default signal
-    for nxdata in it:
-        if default is None:
-            default = nxdata.signal.name
-        else:
-            nxdata.default_signal(default)
+    def _parameters_defaults(self):
+        super(Task,self)._parameters_defaults()
+        self._required_parameters('old','new')
 
-    # Default NXdata
-    plotselect = plotselect.link(nxdata)
-    plotselect.mark_default()
+    def _process_data(self,data):
+        v1 = self.parameters['old']
+        v2 = self.parameters['new']
+        if v1 is np.nan:
+            data[np.isnan(data)] = v2
+        else:
+            data[data==v1] = v2
+        return data

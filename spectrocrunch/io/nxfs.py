@@ -580,8 +580,8 @@ class _NXdata(_NXPath):
             with self.open() as node:
                 if name==node.attrs["signal"]:
                     return
-                signals = np.append(node.attrs.get("auxiliary_signals",[]),
-                                    node.attrs.get("signal",[]))
+                signals = np.append(node.attrs.get("signal",[]),
+                                    node.attrs.get("auxiliary_signals",[]))
                 if name not in signals:
                     raise ValueError('No signal with that name')
                                     
@@ -607,6 +607,24 @@ class _NXdata(_NXPath):
                         aux = textarray([signal for signal in signals if signal!=name])
                         if aux.size:
                             node.attrs["auxiliary_signals"] = aux
+            self.updated()
+
+    def sort_signals(self,other=None):
+        with self._verify():
+            with self.open() as node:
+                signals = sorted(sig.name for sig in self.signals)
+                
+                if other:
+                    other_signals = list(sig.name for sig in other.signals)
+                    if sorted(other_signals)!=signals:
+                        return
+                    signals = other_signals
+
+                aux = textarray(signals[1:])
+                if aux.size:
+                    node.attrs["auxiliary_signals"] = aux
+                node.attrs["signal"] = textarray(signals[0])
+    
             self.updated()
 
     def set_axes(self,*axes):

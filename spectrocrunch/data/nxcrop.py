@@ -23,112 +23,39 @@
 # THE SOFTWARE.
 
 import numpy as np
-from . import regulargrid
-from . import nxutils
-from . import nxtask
+from . import nxregulargrid
 
-class Task(nxtask.Task):
+class Task(nxregulargrid.Task):
     
     def _parameters_defaults(self):
         super(Task,self)._parameters_defaults()
-        parameters = self.parameters
-        parameters['sliced'] = parameters.get('sliced',True)
-        parameters['stackdim'] = parameters.get('stackdim',nxutils.DEFAULT_STACKDIM)
-        if all(p not in parameters for p in ['roi','nanval']):
+        if all(p not in self.parameters for p in ['roi','nanval']):
             raise nxtask.MissingParameter('Specify either "nanval" or "roi"')
-        if 'stackdim' not in parameters:
-            raise nxtask.MissingParameter('"stackdim" is missing')
 
-    def _execute(self):
-        """
-        Returns:
-            nxfs._NXprocess | None
-        """
-        self.grid = regulargrid.NXRegularGrid(self.previous)
-        refgrid = self.refgrid
-        
-        if "nanval" in self.parameters:
-            roi = self.calccroproi(refgrid)
-        elif "roi" in self.parameters:
-            roi = convertuserroi(refgrid)
-        else:
-            roi = None
-            
-        if roi:
-            return self._crop(roi)
-        else:
-            return None
-            
+    def _prepare_process(self):
+        if 'nanval' in self.parameters:
+            self.roi = self.calccroproi(self.refgrid)
+        elif 'roi' in self.parameters:
+            self.roi = self.convertuserroi(self.refgrid)
+
+        self.cropped_shape = tuple([b-a for a,b in self.roi])
+        self.indexin = [slice(a,b) for a,b in self.roi]
+        self.indexout = [slice(None)]*len(self.roi)
+    
     @property
-    def refgrid(self):
-        reference = self.parameters["reference"]
-        ax = self.grid.axes[0]
-        ind = np.array([s.path.endswith(reference) for s in ax])
-        if ind.any():
-            ind = np.where(ind)[0][-1]
-            return regulargrid.NXSignalRegularGrid(ax[ind])
-        else:
-            raise ValueError('Reference "{}" not present in {}'.format(ref,ax))
-        
-    def _crop(self,roi):
-        """Apply ROI
-        
-        Args:
-            roi(list(2-tuple)):
-
-        Returns:
-            nxfs._NXprocess
-        """
-        # New nxprocess (return when already exists)
-        process,notnew = nxutils.next_process([self.grid.nxgroup],self.parameters)
-        if notnew:
-            return process
-        results = process.results
-            
-        # Create new axes (if needed)
-        positioners = self.grid.nxgroup.positioners()
+    def signal_shape(self):
+        return self.cropped_shape
+    
+    def _process_axes(self,positioners,gaxes):
         axes = []
-        gaxes = self.grid.axes
-        gaxes.pop(self.grid.stackdim)
-        for ax,(a,b) in zip(gaxes,roi):
+        for ax,(a,b) in zip(gaxes,self.roi):
             if ax.size==b-a:
                 axes.append(ax.name)
             else:
                 name = '{}_{}'.format(ax.name,self.name)
                 positioners.add_axis(name,ax[a:b],title=ax.title)
                 axes.append(name)
-
-        # Cropped signals
-        stackdim = self.parameters["stackdim"]
-        shape = tuple([b-a for a,b in roi])
-        indexcrop = [slice(a,b) for a,b in roi]
-        indexout = [slice(None)]*len(roi)
-        nslice = self.grid.shape[stackdim]
-        dtype = self.grid.dtype
-        sliced = self.parameters["sliced"]
-        for signalin in self.grid.signals:
-            nxdata = results[signalin.parent.name]
-            bnew = not nxdata.exists
-            if bnew:
-                nxdata = results.nxdata(name=signalin.parent.name)
-
-            with signalin.open() as dsetin:
-                if sliced:
-                    signalout = nxdata.add_signal(signalin.name,shape=shape,
-                                                  dtype=dtype,chunks=True)
-                    with signalout.open() as dsetout:
-                        for i in range(nslice):
-                            indexcrop[stackdim] = i
-                            indexout[stackdim] = i
-                            dsetout[tuple(indexout)] = dsetin[tuple(indexcrop)]
-                else:
-                    signalout = nxdata.add_signal(signalin.name,data=dsetin[tuple(indexcrop)],
-                                                  chunks=True)
-        
-            if bnew: 
-                nxdata.set_axes(*axes)
-            
-        return process
+        return axes
     
     def calccroproi(self,refgrid):
         """Determine crop ROI to remove slices other than stackdim which contain
@@ -138,18 +65,16 @@ class Task(nxtask.Task):
             refgrid(RegularGrid):
 
         Returns:
-            tuple or None
+            list(2-tuple): dimensions of refgrid
         """
         
-        stackdim = self.parameters['stackdim']
-        sliced = self.parameters['sliced']
         nanval = self.parameters['nanval']
         
         # Mask (True = valid pixel)
-        if sliced:
-            shape,indexgen = refgrid.sliceinfo(stackdim)
+        if self.sliced:
+            shape,indexgen = refgrid.sliceinfo(self.signal_stackdim)
             mask = np.ones(shape,dtype=np.bool)
-            for i in range(refgrid.shape[stackdim]):
+            for i in range(refgrid.shape[self.signal_stackdim]):
                 img = refgrid[indexgen(i)]
                 if nanval is np.nan:
                     mask &= np.logical_not(np.isnan(img))
@@ -157,16 +82,16 @@ class Task(nxtask.Task):
                     mask &= img != nanval
         else:
             if nanval is np.nan:
-                mask = np.isnan(refgrid.values).sum(axis=stackdim)==0
+                mask = np.isnan(refgrid.values).sum(axis=self.signal_stackdim)==0
             else:
-                mask = (refgrid.values==nanval).sum(axis=stackdim)==0
+                mask = (refgrid.values==nanval).sum(axis=self.signal_stackdim)==0
             shape = mask.shape
 
         imask = -1
         roi = []
         for igrid in range(refgrid.ndim):
-            if igrid==stackdim:
-                iroi = (0,refgrid.shape[stackdim])
+            if igrid==self.signal_stackdim:
+                iroi = (0,refgrid.shape[self.signal_stackdim])
             else:
                 imask += 1
                 sumdims = tuple([i for i in range(refgrid.ndim-1) if i!=imask])
@@ -186,7 +111,7 @@ class Task(nxtask.Task):
             refgrid(RegularGrid):
 
         Returns:
-            list(2-tuple)
+            list(2-tuple): dimensions of refgrid
         """
         roi = list(self.parameters["roi"])
         stackdim = self.parameters['stackdim']

@@ -184,6 +184,9 @@ class NXRegularGrid(RegularGrid):
             raise ValueError('{} should be an NXdata or NXprocess group'.format(nxgroup))
 
         for nxdata in it:
+            if nxdata.islink:
+                continue
+            
             if not axes:
                 axes = [axisfactory(values,name=name,title=attrs['title'],type='quantitative')
                         for name,values,attrs in nxdata.axes]
