@@ -231,7 +231,7 @@ class Path(h5fs.Path):
         """
         Returns:
             process(Path):
-            new(bool): new process name
+            exists(bool): process with same name and parameters already exists
         """
         entry = self.nxentry(**openparams)
         
@@ -239,12 +239,12 @@ class Path(h5fs.Path):
         if parameters is None:
             process = self[name]
             if process.exists:
-                return process,False
+                return process,True
         else:
-            dhash = self.nxproces_calcdhash(previous,calcdhash(parameters))
+            dhash = self.nxproces_calcdhash(previous,self.nxproces_confighash(parameters))
             for process in entry.iter_is_nxclass('NXprocess'):
                 if process.verify_hash(dhash):
-                    return process,False
+                    return process,True
             process = self[name]
             if process.exists:
                 raise ValueError('Process with the same name and a different hash exists. Use a different name.')
@@ -253,7 +253,11 @@ class Path(h5fs.Path):
                                      filesgen=self._filesgen_nxprocess,
                                      **openparams)
         process.set_config(parameters,previous=previous)
-        return process,True
+        return process,False
+    
+    @classmethod
+    def nxproces_confighash(cls,config):
+        return calcdhash(json.loads(json.dumps(config)))
     
     @classmethod
     def nxproces_calcdhash(cls,previous,confighash):
@@ -350,14 +354,14 @@ class Path(h5fs.Path):
                 parent.default_signal(path.name)
             elif parentnxclass in ['NXentry','NXsubentry','NXroot']:
                 parent.update_stats(default=path.name)
-            if parentnxclass=='NXentry' or parentnxclass=='NXroot':
+            if parentnxclass=='NXroot':
                 break
             path = parent
             parent = path.parent
             
     @property
     def default(self):
-        path = self.nxentry()
+        path = self.root
         default = path.get_stat('default',default=None)
         while default:
             path = path[default]
@@ -493,7 +497,7 @@ class _NXnote(_NXPath):
     def write_dict(self,dic):
         with self._verify():
             self._write(textarray(json.dumps(dic)),'application/json')
-        
+
         
 class _NXdata(_NXPath):
     
