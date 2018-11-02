@@ -33,6 +33,8 @@ from ...utils import units
 from ...io import nxfs
 from ...utils.tests import genindexing
 from .. import nxtask
+from .. import axis
+from ...utils import units
 
 class test_regulargrid(unittest.TestCase):
 
@@ -65,7 +67,11 @@ class test_regulargrid(unittest.TestCase):
             indexinfo = list(index)
             indexinfo.insert(self.stackdim,slice(None))
             info['index'] = tuple(indexinfo)
-            
+        elif method=='align':
+            info['axes'] = axis.factory(range(shape[0])),\
+                           axis.factory(units.Quantity(range(-shape[0]+1,shape[1]),units='um')),\
+                           axis.factory(range(-shape[0]+1,shape[2]))
+
         for detector in range(2):
             detector = process.results.nxdata('detector{:02d}'.format(detector)).mkdir()
             for name in signals:
@@ -81,6 +87,11 @@ class test_regulargrid(unittest.TestCase):
                     data[index] = -1
                 elif method=='minlog':
                     data -= np.min(data)*1.1
+                elif method=='align':
+                    hot = np.max(data)*1.1
+                    for i in range(shape[0]):
+                        data[i,i,i] = hot
+                    
                 detector.add_signal(name,data=data)
             detector.set_axes('z','y','x')
 
@@ -145,7 +156,6 @@ class test_regulargrid(unittest.TestCase):
             proc2 = task.run()
             proc3 = task.run()
             self.assertEqual(proc2,proc3)
-            self.assertEqual(proc2,proc3)
             
             parameters['sliced'] = True
             parameters['name'] = 'replace2'
@@ -172,7 +182,6 @@ class test_regulargrid(unittest.TestCase):
             proc2 = task.run()
             proc3 = task.run()
             self.assertEqual(proc2,proc3)
-            self.assertEqual(proc2,proc3)
             
             parameters['sliced'] = True
             parameters['name'] = 'minlog2'
@@ -189,6 +198,21 @@ class test_regulargrid(unittest.TestCase):
             np.testing.assert_array_equal(grid2.values,grid4.values)
             np.testing.assert_array_equal(-np.log(grid1.values),grid4.values)
 
+    def test_align(self):
+        with self._nxprocess(method='align') as proc1:
+            proc1,info = proc1
+            parameters = {'method':'align','alignmethod':'max','reference':'Fe-K','refimageindex':0}
+            task = nxtask.newtask(parameters,proc1)
+            proc2 = task.run()
+            proc3 = task.run()
+            self.assertEqual(proc2,proc3)
+            
+            grid2 = regulargrid.NXRegularGrid(proc2)
+            axes = grid2.axes
+            axes.pop(grid2.stackdim)
+            for ax1,ax2 in zip(info['axes'],axes):
+                self.assertEqual(ax1,ax2)
+            
     def _check_grid(self,grid):
         data = grid.values
         self.assertEqual(grid.shape,data.shape)
@@ -211,6 +235,7 @@ def test_suite():
     testSuite.addTest(test_regulargrid("test_crop"))
     testSuite.addTest(test_regulargrid("test_replace"))
     testSuite.addTest(test_regulargrid("test_minlog"))
+    testSuite.addTest(test_regulargrid("test_align"))
     return testSuite
     
 if __name__ == '__main__':

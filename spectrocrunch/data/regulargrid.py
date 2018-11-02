@@ -27,12 +27,18 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 from future.utils import with_metaclass
 import contextlib
 import numpy as np
-
+try:
+    from contextlib import ExitStack
+except ImportError:
+    from contextlib2 import ExitStack
+    
 from .axis import factory as axisfactory
 from ..utils import indexing
 from ..io import nxfs
 
 class RegularGrid(with_metaclass(ABCMeta)):
+    
+    DEFAULT_STACKDIM = 0
     
     def __init__(self,axes):
         self.axes = axes
@@ -115,11 +121,15 @@ class RegularGrid(with_metaclass(ABCMeta)):
 
 class NXSignalRegularGrid(RegularGrid):
     
-    def __init__(self,signal):
+    def __init__(self,signal,stackdim=None):
         nxdata = signal.parent
         axes = [axisfactory(values,name=name,title=attrs['title'],type='quantitative')
                 for name,values,attrs in nxdata.axes]
         self.signal = signal
+        if stackdim is None:
+            self.stackdim = self.DEFAULT_STACKDIM
+        else:
+            self.stackdim = stackdim
         super(NXSignalRegularGrid,self).__init__(axes)
     
     @contextlib.contextmanager
@@ -165,7 +175,7 @@ class NXSignalRegularGrid(RegularGrid):
         with self.open(mode='r') as dset:
             dset.read_direct(ret)
         return ret
-        
+    
 class NXRegularGrid(RegularGrid):
     
     def __init__(self,nxgroup):
@@ -206,6 +216,11 @@ class NXRegularGrid(RegularGrid):
     def open(self,**openparams):
         with self.nxgroup.parent.open(**openparams) as entry:
             yield entry
+
+    @contextlib.contextmanager
+    def open_signals(self,**openparams):
+        with ExitStack() as stack:
+            yield [stack.enter_context(signal.open(**openparams)) for signal in self.signals]
 
     def __getitem__(self,index):
         with self.open(mode='r') as entry:

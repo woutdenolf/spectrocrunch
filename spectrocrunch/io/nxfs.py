@@ -693,7 +693,7 @@ class _NXdata(_NXPath):
         with self._verify():
             with self.open() as node:
                 ret = []
-                for name in node.attrs["axes"]:
+                for name in node.attrs.get('axes',[]):
                     with self[name].open(mode='r') as axis:
                         ret.append(self._axis_astuple(name,axis))
                 return ret
