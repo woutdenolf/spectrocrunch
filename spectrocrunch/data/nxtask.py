@@ -91,6 +91,8 @@ def newtask(parameters,previous):
         from .nxreplace import Task
     elif method=='minlog':
         from .nxminlog import Task
+    elif method=='align':
+        from .nxalign import Task
     else:
         raise ParameterError('Unknown method {}'.format(repr(method)))
     return Task(parameters,previous)

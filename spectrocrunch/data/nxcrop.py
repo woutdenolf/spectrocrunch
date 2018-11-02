@@ -34,9 +34,9 @@ class Task(nxregulargrid.Task):
 
     def _prepare_process(self):
         if 'nanval' in self.parameters:
-            self.roi = self.calccroproi(self.refgrid)
+            self.roi = self.calccroproi(self.reference_signal)
         elif 'roi' in self.parameters:
-            self.roi = self.convertuserroi(self.refgrid)
+            self.roi = self.convertuserroi(self.reference_signal)
 
         self.cropped_shape = tuple([b-a for a,b in self.roi])
         self.indexin = [slice(a,b) for a,b in self.roi]
@@ -113,7 +113,7 @@ class Task(nxregulargrid.Task):
         Returns:
             list(2-tuple): dimensions of refgrid
         """
-        roi = list(self.parameters["roi"])
+        roi = list(self.parameters['roi'])
         stackdim = self.parameters['stackdim']
         roi.insert(stackdim,(0,refgrid.shape[stackdim]))
         return roi

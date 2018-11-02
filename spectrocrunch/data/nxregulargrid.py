@@ -59,18 +59,22 @@ class Task(nxtask.Task):
             nxdataprev = previous[nxdata.name]
             if nxdataprev.exists:
                 nxdata.sort_signals(other=nxdataprev)
-                
+    
     @property
-    def refgrid(self):
+    def reference_signal_index(self):
         self._required_parameters('reference')
         reference = self.parameters['reference']
         ax = self.grid.axes[0]
         ind = np.array([s.path.endswith(reference) for s in ax])
         if ind.any():
-            ind = np.where(ind)[0][-1]
-            return regulargrid.NXSignalRegularGrid(ax[ind])
+            return np.where(ind)[0][-1]
         else:
             raise ValueError('Reference "{}" not present in {}'.format(ref,ax))
+        
+    @property
+    def reference_signal(self):
+        ax = self.grid.axes[self.grid.stackdim][self.reference_signal_index]
+        return regulargrid.NXSignalRegularGrid(ax,stackdim=self.parameters['stackdim'])
     
     def _execute_grid(self):
         """
@@ -110,7 +114,7 @@ class Task(nxtask.Task):
                             dsetout[tuple(self.indexout)] = data
                 else:
                     data = self._process_data(dsetin[tuple(self.indexin)])
-                    signalout = nxdata.add_signal(signalin.name,data=data,
+                    signalout = nxdata.add_signal(name=signalin.name,data=data,
                                                   chunks=True)
         
             if bnew: 

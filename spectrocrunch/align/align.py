@@ -68,8 +68,8 @@ class align(object):
             C4: post transformation (crop)
     """
 
-    def __init__(self,source,sourcelist,dest,destlist,extension,\
-                stackdim=None,overwrite=False,cval=np.nan,plot=False,\
+    def __init__(self,source,sourcelist,dest,destlist,extension,
+                stackdim=None,overwrite=False,cval=np.nan,plot=False,
                 transfotype=transformationType.translation):
         """
         """
@@ -249,7 +249,7 @@ class align(object):
         return self.cof_in_pretransform_frame(C2).transformimage(img)
 
     def absolute_cofs(self,homography=False):
-        """Change-of-frame for each raw image (i.e. maps destination keypoints to reference keypoints)
+        """Change-of-frame for each raw image (i.e. inverse of coordinate transformation matrix)
         """
         if self.source.nimages==0:
             return None
@@ -561,8 +561,61 @@ class align(object):
                 
         self.calccof_pretransform_to_prealign()
 
+    def transform_axes(self,axes):
+        """Image X and Y axes after transformation
+        
+        Args:
+            list(array)
+        Returns:
+            list(array)
+        """
+        if not self.pre_transform["pad"] and not self.post_transform["crop"]:
+            return axes
+
+        if self.source.stackdim==2:
+            ind = [0,1]
+        elif self.source.stackdim==1:
+            ind = [0,2]
+        else:
+            ind = [1,2]
+
+        out = list(axes)
+        for i in range(len(ind)):
+            j = ind[i]
+            nleft = self.extend[i][0]
+            nright = self.extend[i][1]
+            naxis = len(axes[j])
+            newaxis = np.empty(naxis + nleft + nright,dtype = axes[j].dtype)
+
+            off0 = 0
+            axis0 = 0
+            axisn = naxis
+            if nleft < 0:
+                axis0 -= nleft
+            else:
+                off0 += nleft
+            if nright < 0:
+                axisn += nright
+            offn = off0 + axisn - axis0
+
+            if nleft > 0:
+                delta = axes[j][1]-axes[j][0]
+                newaxis[0:nleft] = (axes[j][0] - delta*nleft) + delta*np.arange(nleft)
+
+            newaxis[off0:offn] = axes[j][axis0:axisn]
+
+            if nright > 0:
+                delta = axes[j][-1]-axes[j][-2]
+                newaxis[offn:] = (axes[j][-1] + delta) + delta*np.arange(nright)
+
+            out[j] = newaxis
+        return out
+        
     def getaxesaftertransformation(self,axes):
         """Image X and Y axes after transformation
+        
+        Args:
+            list(array)
         """
         if not self.pre_transform["pad"] and not self.post_transform["crop"]:
             return

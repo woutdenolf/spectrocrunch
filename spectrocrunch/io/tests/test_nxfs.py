@@ -125,11 +125,11 @@ class test_nxfs(unittest.TestCase):
         signal = signals[-2]
         signals = signals[1:-2]
         data1.default_signal(signals[0])
-        self._check_nxdata_signals(data1,signals[0],signals[1:]+[signal])
+        self._check_nxdata_signals(data1,signals[0],[signal]+signals[1:])
         
         signal,signals = signals[0],signals[1:]+[signal]
         data1[signals[0]].mark_default()
-        self._check_nxdata_signals(data1,signals[0],signals[1:]+[signal])
+        self._check_nxdata_signals(data1,signals[0],[signal]+signals[1:])
 
         data2 = data1.parent.nxdata('data2')
         for signal in data1.signals:
