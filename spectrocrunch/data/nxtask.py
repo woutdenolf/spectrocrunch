@@ -93,6 +93,8 @@ def newtask(parameters,previous):
         from .nxminlog import Task
     elif method=='align':
         from .nxalign import Task
+    elif method=='expression':
+        from .nxexpression import Task
     else:
         raise ParameterError('Unknown method {}'.format(repr(method)))
     return Task(parameters,previous)

@@ -43,7 +43,7 @@ class test_regulargrid(unittest.TestCase):
 
     def tearDown(self):
         self.dir.cleanup()
-    
+     
     @contextlib.contextmanager
     def _nxprocess(self,method=None):
         h5filename = os.path.join(self.dir.path,'test.h5')
@@ -71,9 +71,18 @@ class test_regulargrid(unittest.TestCase):
             info['axes'] = axis.factory(range(shape[0])),\
                            axis.factory(units.Quantity(range(-shape[0]+1,shape[1]),units='um')),\
                            axis.factory(range(-shape[0]+1,shape[2]))
+        elif method=='expression':
+            info['expression'] = '{}/{arr_iodet}'
+            info['skip'] = ['arr_iodet']
+            info['select'] = process.results['counters']['arr_iodet']
 
-        for detector in range(2):
-            detector = process.results.nxdata('detector{:02d}'.format(detector)).mkdir()
+        groups = {}
+        for group in range(2):
+            groups['detector{:02d}'.format(group)] = signals
+        groups['counters'] = ['arr_iodet','arr_idet']
+
+        for group,signals in groups.items():
+            group = process.results.nxdata(group).mkdir()
             for name in signals:
                 data = np.random.normal(size=shape).astype(dtype)
                 if method=='crop':
@@ -91,9 +100,8 @@ class test_regulargrid(unittest.TestCase):
                     hot = np.max(data)*1.1
                     for i in range(shape[0]):
                         data[i,i,i] = hot
-                    
-                detector.add_signal(name,data=data)
-            detector.set_axes('z','y','x')
+                group.add_signal(name,data=data)
+            group.set_axes('z','y','x')
 
         try:
             yield process,info
@@ -212,7 +220,47 @@ class test_regulargrid(unittest.TestCase):
             axes.pop(grid2.stackdim)
             for ax1,ax2 in zip(info['axes'],axes):
                 self.assertEqual(ax1,ax2)
+    
+    def test_expression(self):
+        with self._nxprocess(method='expression') as proc1:
+            proc1,info = proc1
+            parameters = {'method':'expression','expression':info['expression'],'skip':info['skip'],'sliced':False}
+            task = nxtask.newtask(parameters,proc1)
+            proc2 = task.run()
+            proc3 = task.run()
+            self.assertEqual(proc2,proc3)
             
+            parameters['sliced'] = True
+            parameters['name'] = 'expression2'
+            task = nxtask.newtask(parameters,proc1)
+            proc4 = task.run()
+            self.assertNotEqual(proc2,proc4)
+
+            grid1 = regulargrid.NXRegularGrid(proc1)
+            grid2 = regulargrid.NXRegularGrid(proc2)
+            self._check_axes(grid1,grid2)
+
+            index = grid1.locate(info['select'],None,None,None)
+            norm = grid1[index]
+            inorm = index[grid1.stackdim]
+            for i in range(grid1.shape[grid1.stackdim]):
+                index = list(index)
+                index[grid1.stackdim] = i
+                index = tuple(index)
+                data = grid1[index]
+                if grid1.signals[i].name not in info['skip']:
+                    data = data/norm
+                np.testing.assert_array_equal(data,grid2[index])
+            
+    def _check_axes(self,grid1,grid2):
+        for ax1,ax2 in zip(grid1.axes,grid2.axes):
+            if ax1.type=='quantitative':
+                self.assertEqual(ax1,ax2)
+            else:
+                self.assertEqual(len(ax1),len(ax2))
+                for v1,v2 in zip(ax1,ax2):
+                    self.assertEqual(v1.name,v2.name)
+                    
     def _check_grid(self,grid):
         data = grid.values
         self.assertEqual(grid.shape,data.shape)
@@ -236,6 +284,7 @@ def test_suite():
     testSuite.addTest(test_regulargrid("test_replace"))
     testSuite.addTest(test_regulargrid("test_minlog"))
     testSuite.addTest(test_regulargrid("test_align"))
+    testSuite.addTest(test_regulargrid("test_expression"))
     return testSuite
     
 if __name__ == '__main__':

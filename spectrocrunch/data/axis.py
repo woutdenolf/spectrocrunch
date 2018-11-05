@@ -94,10 +94,11 @@ class Axis(object):
             return self.values
             
     def umagnitude(self,u):
-        if self.type!='quantitative':
-            raise RuntimeError('{} axis has no units'.format(self.type))
-        return self.values.to(u).magnitude
-    
+        if self.type=='quantitative':
+            return self.values.to(u).magnitude
+        else:
+            return self.values
+            
     @property
     def values(self):
         return self._values
@@ -168,13 +169,26 @@ class Axis(object):
         return not self.__eq__(other)
 
     def locate(self,values):
-        values = units.umagnitude(values)
+        if values is None:
+            return slice(None)
+        if instance.isquantity(values):
+            values = units.umagnitude(values)
         x = self.magnitude
-        try:
-            return np.array([np.argmin(np.abs(x-v)) for v in iter(values)])          
-        except TypeError:
-            return np.argmin(np.abs(x-values))
-
+        if instance.isarray(values):
+            if self.type=='quantitative':
+                return [np.argmin(np.abs(x-v)) for v in iter(values)]
+            else:
+                return [i for i,v2 in enumerate(x) for v1 in iter(values) if v1==v2]
+        else:
+            if self.type=='quantitative':
+                return np.argmin(np.abs(x-values))
+            else:
+                lst = [i for i,v2 in enumerate(x) if values==v2]
+                if len(lst)==1:
+                    return lst[0]
+                else:
+                    return lst
+                    
     def to(self,u):
         if self.type!='quantitative':
             raise RuntimeError('{} axis has no units'.format(self.type))

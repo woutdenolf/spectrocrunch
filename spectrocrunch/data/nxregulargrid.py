@@ -95,6 +95,8 @@ class Task(nxtask.Task):
         # Create new signals
         results = process.results
         for signalin in self.grid.signals:
+            self._prepare_signal(signalin)
+            
             # Create new NXdata if needed
             nxdata = results[signalin.parent.name]
             bnew = not nxdata.exists
@@ -126,6 +128,9 @@ class Task(nxtask.Task):
         n = self.grid.ndim-1
         self.indexin = [slice(None)]*n
         self.indexout = [slice(None)]*n
+    
+    def _prepare_signal(self,signal):
+        pass
         
     def _process_axes(self,positioners,gaxes):
         return [ax.name for ax in gaxes]
