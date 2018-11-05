@@ -583,7 +583,7 @@ class _NXdata(_NXPath):
                 signals = np.append(node.attrs.get("signal",[]),
                                     node.attrs.get("auxiliary_signals",[]))
                 if name not in signals:
-                    raise ValueError('No signal with that name')
+                    return False
                                     
                 aux = textarray([signal for signal in signals if signal!=name])
                 if aux.size:
@@ -591,7 +591,8 @@ class _NXdata(_NXPath):
                 node.attrs["signal"] = textarray(name)
     
             self.updated()
-    
+        return True
+        
     def remove_signal(self,name):
         with self._verify():
             self[name].remove()

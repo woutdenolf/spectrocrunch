@@ -32,12 +32,15 @@ def set_default(nxprocess,default):
     it = nxprocess.results.iter_is_nxclass('NXdata')
     
     # Default signal
+    nxdataselect = None
     for nxdata in it:
         if default is None:
             default = nxdata.signal.name
         else:
-            nxdata.default_signal(default)
+            if nxdata.default_signal(default):
+                nxdataselect = nxdata
 
     # Default NXdata
-    plotselect = plotselect.link(nxdata)
-    plotselect.mark_default()
+    if nxdataselect:
+        plotselect = plotselect.link(nxdataselect)
+        plotselect.mark_default()

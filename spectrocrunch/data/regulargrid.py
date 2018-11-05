@@ -119,6 +119,9 @@ class RegularGrid(with_metaclass(ABCMeta)):
     def open(self,**openparams):
         yield None
 
+    def locate(self,*ordinates):
+        return tuple([ax.locate(x) for x,ax in zip(ordinates,self.axes)])
+
 class NXSignalRegularGrid(RegularGrid):
     
     def __init__(self,signal,stackdim=None):
