@@ -39,7 +39,7 @@ class InstrumentInfo(with_metaclass(object)):
         self.units = collections.defaultdict(lambda :ureg.dimensionless)
         self.units.update(info.get("units",{}))
 
-        self.encoderresolution = info.get("encoderresolution",{})# steps/motor unit
+        self.encoderinfo = info.get("encoderinfo",{})# steps/motor unit
         self.compensationmotors = info.get("compensationmotors",{})
         
         self.edfheaderkeys = {"speclabel":"title",\
@@ -155,8 +155,9 @@ class ESRF_ID21_SXM(InstrumentInfo):
                                     "samz":["sampz"],\
                                     "sampy":["samy"],\
                                     "sampz":["samz"]})
-        info["encoderresolution"] = info.get("encoderresolution",\
-                                    {"samy":52500,"samz":50000})
+        info["encoderinfo"] = info.get("encoderinfo",\
+                                    {"samy":{"resolution":52500,"offset":0,"counter":"sarr_samy"},
+                                     "samz":{"resolution":50000,"offset":0,"counter":"sarr_samz"}})
                                     
         info["edfheaderkeys"] = info.get("edfheaderkeys",\
                                     {"speclabel":"Title",\

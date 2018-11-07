@@ -25,12 +25,14 @@
 import unittest
 from . import test_axis
 from . import test_regulargrid
+from . import test_nxprocess
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_axis.test_suite())
     testSuite.addTest(test_regulargrid.test_suite())
+    testSuite.addTest(test_nxprocess.test_suite())
     return testSuite
     
 if __name__ == '__main__':

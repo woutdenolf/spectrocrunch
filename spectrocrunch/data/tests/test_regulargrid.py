@@ -24,243 +24,63 @@
 
 import unittest
 import numpy as np
-from testfixtures import TempDirectory
-import os
-import contextlib
 
 from .. import regulargrid
-from ...utils import units
-from ...io import nxfs
-from ...utils.tests import genindexing
-from .. import nxtask
 from .. import axis
 from ...utils import units
+from ...utils.tests import genindexing
 
 class test_regulargrid(unittest.TestCase):
 
-    def setUp(self):
-        self.dir = TempDirectory()
-
-    def tearDown(self):
-        self.dir.cleanup()
-     
-    @contextlib.contextmanager
-    def _nxprocess(self,method=None):
-        h5filename = os.path.join(self.dir.path,'test.h5')
-        root = nxfs.Path('/',h5file=h5filename).nxroot()
-        entry = root.new_nxentry()
-        process,new = entry.nxprocess('fromraw',parameters={'a':1,'b':2},previous=None)
-        info = {}
-        
-        shape = (2,10,13)
-        self.stackdim = 0
-        positioners = entry.positioners()
-        positioners.add_axis('z',range(shape[0]))
-        positioners.add_axis('y',range(shape[1]),units='um',title='vertical')
-        positioners.add_axis('x',range(shape[2]))
-        
+    def _generate(self,stackaxis,shape=(2,3,4),stackdim=0):
         dtype = np.float32
-        signals = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
+        stackaxis = axis.factory(stackaxis,type='ordinal')
+        axes = [axis.factory(range(n)) for n in shape]
+        axes.insert(stackdim,stackaxis)
+        shape = [len(ax) for ax in axes]
+        data = np.random.normal(size=shape).astype(dtype)*100
+        return regulargrid.RegularGrid(axes,data,stackdim=stackdim)
+    
+    def test_indexing(self):
+        stackaxis = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
+        for i in range(3):
+            grid = self._generate(stackaxis,shape=(6,8),stackdim=i)
+            self._check_grid(grid)
         
-        if method=='replace':
-            index = tuple([np.random.randint(0,shape[i],10).tolist() for i in range(3)])
-            indexinfo = list(index)
-            indexinfo.insert(self.stackdim,slice(None))
-            info['index'] = tuple(indexinfo)
-        elif method=='align':
-            info['axes'] = axis.factory(range(shape[0])),\
-                           axis.factory(units.Quantity(range(-shape[0]+1,shape[1]),units='um')),\
-                           axis.factory(range(-shape[0]+1,shape[2]))
-        elif method=='expression':
-            info['expression'] = '{}/{arr_iodet}'
-            info['skip'] = ['arr_iodet']
-            info['select'] = process.results['counters']['arr_iodet']
-
-        groups = {}
-        for group in range(2):
-            groups['detector{:02d}'.format(group)] = signals
-        groups['counters'] = ['arr_iodet','arr_idet']
-
-        for group,signals in groups.items():
-            group = process.results.nxdata(group).mkdir()
-            for name in signals:
-                data = np.random.normal(size=shape).astype(dtype)
-                if method=='crop':
-                    data[:,0,:] = np.nan
-                    data[:,-2:,:] = np.nan
-                    data[:,:,0:2] = np.nan
-                    data[:,:,-1] = np.nan
-                    info['y_crop'] = positioners.get_axis('y')[1:-2]
-                    info['x_crop'] = positioners.get_axis('x')[2:-1]
-                elif method=='replace':
-                    data[index] = -1
-                elif method=='minlog':
-                    data -= np.min(data)*1.1
-                elif method=='align':
-                    hot = np.max(data)*1.1
-                    for i in range(shape[0]):
-                        data[i,i,i] = hot
-                group.add_signal(name,data=data)
-            group.set_axes('z','y','x')
-
-        try:
-            yield process,info
-        finally:
-            #root.remove(recursive=True)
-            pass
+    def test_interpolate(self):
+        for degree in [0,1,2]:
+            rtol = 1e-3
+            
+            # 1D
+            stackaxis = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
+            grid = self._generate(stackaxis,shape=(),stackdim=0)
+            data = grid.interpolate('Fe-K')
+            np.testing.assert_allclose(grid.data[0],data,rtol=rtol)
+            data = grid.interpolate(['Fe-K','Ce-L'],degree=degree)
+            np.testing.assert_allclose(grid.data[[0,-1]],data,rtol=rtol)
+            
+            # 2D
+            grid = self._generate(stackaxis,shape=(6,),stackdim=0)
+            data = grid.interpolate('Fe-K',None,degree=degree)
+            np.testing.assert_allclose(grid.data[np.newaxis,0,:],data,rtol=rtol)
+            for asgrid in [True,False]:
+                data = grid.interpolate(['Fe-K','S-K','Ce-L'],[0,2,3],degree=degree,asgrid=asgrid)
+                ind = [0,3,4],[0,2,3]
+                if asgrid:
+                    ind = np.meshgrid(*ind, indexing='ij')
+                np.testing.assert_allclose(grid.data[ind],data,rtol=rtol)
+            
+            # 3D
+            grid = self._generate(stackaxis,shape=(6,8),stackdim=1)
+            data = grid.interpolate(None,'Fe-K',None,degree=degree)
+            np.testing.assert_allclose(grid.data[:,np.newaxis,0,:],data,rtol=rtol)
+            for asgrid in [True,False]:
+                data = grid.interpolate([1,3,4],['Fe-K','S-K','Ce-L'],[0,2,3],degree=degree,asgrid=asgrid)
+                ind = [1,3,4],[0,3,4],[0,2,3]
+                if asgrid:
+                    ind = np.meshgrid(*ind, indexing='ij')
+                np.testing.assert_allclose(grid.data[ind],data,rtol=rtol)
                 
-    def test_nxprocess(self):
-        with self._nxprocess() as proc:
-            proc,info = proc
-            grid = regulargrid.NXRegularGrid(proc)
-            self._check_grid(grid)
-    
-    def test_nxdata(self):
-        with self._nxprocess() as proc:
-            proc,info = proc
-            nxdata = proc.results['detector00']
-            grid = regulargrid.NXSignalRegularGrid(nxdata.signal)
-            self._check_grid(grid)
-    
-    def test_crop(self):
-        with self._nxprocess(method='crop') as proc1:
-            proc1,info = proc1
-            parameters = {'method':'crop','default':'Si-K','sliced':False,
-                          'reference':'Al-K','nanval':np.nan}
-            task = nxtask.newtask(parameters,proc1)
-            proc2 = task.run()
-            proc3 = task.run()
-            self.assertEqual(proc2,proc3)
-            
-            parameters['sliced'] = True
-            parameters['name'] = 'crop2'
-            task = nxtask.newtask(parameters,proc1)
-            proc4 = task.run()
-            self.assertNotEqual(proc2,proc4)
-            
-            grid1 = regulargrid.NXRegularGrid(proc1)
-            grid2 = regulargrid.NXRegularGrid(proc2)
-            grid4 = regulargrid.NXRegularGrid(proc4)
-            self.assertEqual(set([sig.name for sig in grid1.signals]),
-                             set([sig.name for sig in grid2.signals]))
-            self.assertFalse(np.isnan(grid2.values).any())
-            np.testing.assert_array_equal(grid2.values,grid4.values)
-            for k,v in info.items():
-                for ax in grid2.axes:
-                    if ax.name==k:
-                        np.testing.assert_array_equal(ax.magnitude,v)
-                        break
-                else:
-                    assert(False)
-
-            self.assertEqual(proc1.default.signal.name,parameters['default'])
-    
-    def test_replace(self):
-        with self._nxprocess(method='replace') as proc1:
-            proc1,info = proc1
-            parameters = {'method':'replace','default':'Si-K','sliced':False,
-                          'old':-1,'new':-2}
-            task = nxtask.newtask(parameters,proc1)
-            proc2 = task.run()
-            proc3 = task.run()
-            self.assertEqual(proc2,proc3)
-            
-            parameters['sliced'] = True
-            parameters['name'] = 'replace2'
-            task = nxtask.newtask(parameters,proc1)
-            proc4 = task.run()
-            self.assertNotEqual(proc2,proc4)
-            
-            grid1 = regulargrid.NXRegularGrid(proc1)
-            grid2 = regulargrid.NXRegularGrid(proc2)
-            grid4 = regulargrid.NXRegularGrid(proc4)
-            self.assertEqual(set([sig.name for sig in grid1.signals]),
-                             set([sig.name for sig in grid2.signals]))
-            np.testing.assert_array_equal(grid2.values,grid4.values)
-            np.testing.assert_array_equal(grid1.values[info['index']],parameters['old'])
-            np.testing.assert_array_equal(grid2.values[info['index']],parameters['new'])
-
-            self.assertEqual(proc1.default.signal.name,parameters['default'])
-    
-    def test_minlog(self):
-        with self._nxprocess(method='minlog') as proc1:
-            proc1,info = proc1
-            parameters = {'method':'minlog','sliced':False}
-            task = nxtask.newtask(parameters,proc1)
-            proc2 = task.run()
-            proc3 = task.run()
-            self.assertEqual(proc2,proc3)
-            
-            parameters['sliced'] = True
-            parameters['name'] = 'minlog2'
-            task = nxtask.newtask(parameters,proc1)
-            proc4 = task.run()
-            self.assertNotEqual(proc2,proc4)
-            
-            grid1 = regulargrid.NXRegularGrid(proc1)
-            grid2 = regulargrid.NXRegularGrid(proc2)
-            grid4 = regulargrid.NXRegularGrid(proc4)
-            
-            self.assertEqual(set([sig.name for sig in grid1.signals]),
-                             set([sig.name for sig in grid2.signals]))
-            np.testing.assert_array_equal(grid2.values,grid4.values)
-            np.testing.assert_array_equal(-np.log(grid1.values),grid4.values)
-
-    def test_align(self):
-        with self._nxprocess(method='align') as proc1:
-            proc1,info = proc1
-            parameters = {'method':'align','alignmethod':'max','reference':'Fe-K','refimageindex':0}
-            task = nxtask.newtask(parameters,proc1)
-            proc2 = task.run()
-            proc3 = task.run()
-            self.assertEqual(proc2,proc3)
-            
-            grid2 = regulargrid.NXRegularGrid(proc2)
-            axes = grid2.axes
-            axes.pop(grid2.stackdim)
-            for ax1,ax2 in zip(info['axes'],axes):
-                self.assertEqual(ax1,ax2)
-    
-    def test_expression(self):
-        with self._nxprocess(method='expression') as proc1:
-            proc1,info = proc1
-            parameters = {'method':'expression','expression':info['expression'],'skip':info['skip'],'sliced':False}
-            task = nxtask.newtask(parameters,proc1)
-            proc2 = task.run()
-            proc3 = task.run()
-            self.assertEqual(proc2,proc3)
-            
-            parameters['sliced'] = True
-            parameters['name'] = 'expression2'
-            task = nxtask.newtask(parameters,proc1)
-            proc4 = task.run()
-            self.assertNotEqual(proc2,proc4)
-
-            grid1 = regulargrid.NXRegularGrid(proc1)
-            grid2 = regulargrid.NXRegularGrid(proc2)
-            self._check_axes(grid1,grid2)
-
-            index = grid1.locate(info['select'],None,None,None)
-            norm = grid1[index]
-            inorm = index[grid1.stackdim]
-            for i in range(grid1.shape[grid1.stackdim]):
-                index = list(index)
-                index[grid1.stackdim] = i
-                index = tuple(index)
-                data = grid1[index]
-                if grid1.signals[i].name not in info['skip']:
-                    data = data/norm
-                np.testing.assert_array_equal(data,grid2[index])
-            
-    def _check_axes(self,grid1,grid2):
-        for ax1,ax2 in zip(grid1.axes,grid2.axes):
-            if ax1.type=='quantitative':
-                self.assertEqual(ax1,ax2)
-            else:
-                self.assertEqual(len(ax1),len(ax2))
-                for v1,v2 in zip(ax1,ax2):
-                    self.assertEqual(v1.name,v2.name)
-                    
     def _check_grid(self,grid):
         data = grid.values
         self.assertEqual(grid.shape,data.shape)
@@ -274,17 +94,12 @@ class test_regulargrid(unittest.TestCase):
  
         for a,b in zip(grid,data):
             np.testing.assert_array_equal(a,b)
-        
+            
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_regulargrid("test_nxprocess"))
-    testSuite.addTest(test_regulargrid("test_nxdata"))
-    testSuite.addTest(test_regulargrid("test_crop"))
-    testSuite.addTest(test_regulargrid("test_replace"))
-    testSuite.addTest(test_regulargrid("test_minlog"))
-    testSuite.addTest(test_regulargrid("test_align"))
-    testSuite.addTest(test_regulargrid("test_expression"))
+    testSuite.addTest(test_regulargrid("test_indexing"))
+    testSuite.addTest(test_regulargrid("test_interpolate"))
     return testSuite
     
 if __name__ == '__main__':

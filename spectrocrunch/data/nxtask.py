@@ -95,6 +95,8 @@ def newtask(parameters,previous):
         from .nxalign import Task
     elif method=='expression':
         from .nxexpression import Task
+    elif method=='resample':
+        from .nxresample import Task
     else:
         raise ParameterError('Unknown method {}'.format(repr(method)))
     return Task(parameters,previous)

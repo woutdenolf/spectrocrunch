@@ -24,8 +24,6 @@
 
 from __future__ import division
 import pyparsing
-import math
-import operator
 import numpy as np
 import scipy.ndimage.filters as filters
 import h5py
@@ -187,9 +185,9 @@ class MathParser(object):
                 "/" : np.true_divide,
                 "^" : np.power }
                 
-        self.fn  = { "sin" : math.sin,
-                "cos" : math.cos,
-                "tan" : math.tan,
+        self.fn  = { "sin" : np.sin,
+                "cos" : np.cos,
+                "tan" : np.tan,
                 "abs" : abs,
                 "trunc" : lambda a: int(a),
                 "round" : round,
@@ -219,9 +217,9 @@ class MathParser(object):
             op1 = self.evaluateStack(s)
             return self.opn[op](op1,op2)
         elif op.upper() == "PI":
-            return math.pi # 3.1415926535
+            return np.pi # 3.1415926535
         elif op.upper() == "E":
-            return math.e  # 2.718281828
+            return np.e  # 2.718281828
         elif op in self.fn:
             return self.fn[op](self.evaluateStack(s))
         elif op[0].isalpha():
