@@ -63,11 +63,47 @@ class test_axis(unittest.TestCase):
         self.assertEqual(ax5,ax7)
         self.assertTrue(isinstance(ax7,axis.AxisSegments))
         np.testing.assert_array_equal(ax5.limits,ax7.limits)
+    
+    def test_locate(self):
+        ax = axis.factory(units.Quantity(np.arange(10),units='um'))
+        self.assertEqual(ax.locate(2),2)
+        np.testing.assert_array_equal(ax.locate([2,5]),[2,5])
+        self.assertEqual(ax.locate(-10),0)
+        ax2 = axis.factory(units.Quantity((np.arange(10)+5)/1000.,units='mm'))
+        self.assertEqual(ax.locate(ax2),range(5,10)+[9]*5)
+        
+        ax = axis.factory(['a','b','c'],type='nominal')
+        self.assertEqual(ax.locate('b'),1)
+        self.assertEqual(ax.locate(['b','a']),[1,0])
+        self.assertEqual(ax.locate('d'),None)
+        self.assertEqual(ax.locate(['d','e']),[])
+
+    def test_interpolate(self):
+        ax = axis.factory(units.Quantity(np.arange(10),units='um'))
+        xold,xnew = ax.interpolate(2)
+        np.testing.assert_array_equal(xold,range(10))
+        self.assertEqual(xnew,2)
+        xold,xnew = ax.interpolate(units.Quantity([2,5],units='um').to('mm'))
+        np.testing.assert_array_equal(xold,range(10))
+        np.testing.assert_array_equal(xnew,[2,5])
+        
+        ax = axis.factory(['a','b','c'],type='nominal')
+        xold,xnew = ax.interpolate('b')
+        self.assertEqual(xold,range(3))
+        self.assertEqual(xnew,[1])
+        xold,xnew = ax.interpolate(['b','a'])
+        self.assertEqual(xold,range(3))
+        self.assertEqual(xnew,[1,0])
+        
+        self.assertRaises(ValueError,ax.interpolate,'d')
+        self.assertRaises(ValueError,ax.interpolate,['a','d'])
         
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_axis("test_quantitative"))
+    testSuite.addTest(test_axis("test_locate"))
+    testSuite.addTest(test_axis("test_interpolate"))
     return testSuite
     
 if __name__ == '__main__':

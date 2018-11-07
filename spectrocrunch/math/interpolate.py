@@ -22,8 +22,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from scipy.interpolate import interp1d
-from scipy import arange, array, exp
+import numpy as np
+import scipy.interpolate
+from scipy import array
 
 def extrap1d(interpolator):
     xs = interpolator.x
@@ -42,20 +43,43 @@ def extrap1d(interpolator):
 
     return ufunclike
 
-def interp(z,x=None,y=None,**kwargs):
-    ndim = sum(i > 1 for i in z.shape)
-    z = z.squeeze()
-    
-    if ndim<=1:
-        if x is None:
-            x = np.arange(z.size)
-        return scipy.interpolate.interp1d(x,z,**kwargs)
-        
-    if ndim==2:
-        x = np.arange(z.shape[1])
-        y = np.arange(z.shape[0])
-        xx, yy = np.meshgrid(x, y)
-        return scipy.interpolate.interp2d(x, y, z ,**kwargs)
-    
-    raise NotImplementedError("Did not implement {}-interpolator.",ndim)
-    
+def interpolate_ndgrid(data,axold,axnew,cval=np.nan,degree=1,asgrid=True):
+    """
+    Args:
+        data(array): the grid
+        axold(list(array)): grid coordinates (regular but not necessary evenly spaced)
+        axnew(list(array)): 
+    """
+    ndim = data.ndim
+    if len(axold)!=ndim or len(axnew)!=ndim:
+        raise ValueError('Data and axes dimensions must be the same')
+            
+    post = None
+    args = axnew
+    kwargs = {}
+    if ndim==1:
+        kind = ['nearest','linear','quadratic','cubic'][min(degree,3)]
+        # nearest==zero, linear==slinear ???
+        interp = scipy.interpolate.interp1d(axold[0],data,kind=kind,assume_sorted=False,
+                                       fill_value=cval,bounds_error=False)
+    elif ndim==2 and degree>0:
+        interp = scipy.interpolate.RectBivariateSpline(axold[0],axold[1],data,kx=degree,ky=degree)
+        kwargs['grid'] = asgrid
+    else:
+        if degree==0:
+            method = 'nearest'
+        else:
+            method = 'linear'
+        interp = scipy.interpolate.RegularGridInterpolator(axold,data,method=method,
+                                                fill_value=cval,bounds_error=False)
+        if asgrid:
+            shape = tuple([len(ax) for ax in axnew])
+            post = lambda x:x.reshape(shape)
+            axnew = np.meshgrid(*axnew, indexing='ij')
+            axnew = [ax.flat for ax in axnew]
+        args = (np.array(zip(*axnew)),)
+
+    ret = interp(*args,**kwargs)
+    if post:
+        ret = post(ret)
+    return ret

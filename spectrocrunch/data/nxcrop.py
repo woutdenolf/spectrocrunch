@@ -24,6 +24,7 @@
 
 import numpy as np
 from . import nxregulargrid
+from . import nxtask
 
 class Task(nxregulargrid.Task):
     

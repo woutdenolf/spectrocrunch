@@ -1,6 +1,6 @@
 future
 numpy>=1.12
-scipy
+scipy>=0.17
 pandas>=0.23
 xlsxwriter
 xlrd

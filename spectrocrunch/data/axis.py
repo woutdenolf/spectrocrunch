@@ -168,27 +168,62 @@ class Axis(object):
     def __ne__(self,other):
         return not self.__eq__(other)
 
-    def locate(self,values):
+    def _extract_magnitude(self,values):
         if values is None:
+            return None
+        elif instance.isquantity(values):
+            return units.umagnitude(values,units=self.units)
+        elif isinstance(values,Axis):
+            return values.umagnitude(self.units)
+        else:
+            return values
+            
+    def locate(self,values):
+        xnew = self._extract_magnitude(values)
+
+        if xnew is None:
             return slice(None)
-        if instance.isquantity(values):
-            values = units.umagnitude(values)
-        x = self.magnitude
-        if instance.isarray(values):
+
+        xold = self.magnitude
+        if instance.isarray(xnew):
             if self.type=='quantitative':
-                return [np.argmin(np.abs(x-v)) for v in iter(values)]
+                return [np.argmin(np.abs(xold-v)) for v in iter(xnew)]
             else:
-                return [i for i,v2 in enumerate(x) for v1 in iter(values) if v1==v2]
+                return [i for v1 in iter(xnew) for i,v2 in enumerate(xold) if v1==v2]
         else:
             if self.type=='quantitative':
-                return np.argmin(np.abs(x-values))
+                return np.argmin(np.abs(xold-xnew))
             else:
-                lst = [i for i,v2 in enumerate(x) if values==v2]
-                if len(lst)==1:
+                lst = [i for i,v2 in enumerate(xold) if xnew==v2]
+                n = len(lst)
+                if n==0:
+                    return None
+                elif n==1:
                     return lst[0]
                 else:
                     return lst
-                    
+
+    def interpolate(self,values):
+        xold = self.magnitude
+        xnew = self._extract_magnitude(values)
+        
+        if self.type=='quantitative':
+            if xnew is None:
+                return xold,xold
+            else:
+                return xold,xnew
+        else:
+            ind = range(len(self))
+            if xnew is None:
+                return ind,ind
+            else:
+                indnew = []
+                xnew = instance.asarray(xnew)
+                xold = instance.asarray(xold).tolist()
+                for x in xnew:
+                    indnew.append(xold.index(x))
+                return ind,indnew
+
     def to(self,u):
         if self.type!='quantitative':
             raise RuntimeError('{} axis has no units'.format(self.type))

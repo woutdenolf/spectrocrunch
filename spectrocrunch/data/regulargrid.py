@@ -27,21 +27,28 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 from future.utils import with_metaclass
 import contextlib
 import numpy as np
+
 try:
     from contextlib import ExitStack
 except ImportError:
     from contextlib2 import ExitStack
     
-from .axis import factory as axisfactory
+from . import axis
 from ..utils import indexing
 from ..io import nxfs
+from ..math.interpolate import interpolate_ndgrid
 
-class RegularGrid(with_metaclass(ABCMeta)):
+class RegularGrid(object):
     
     DEFAULT_STACKDIM = 0
     
-    def __init__(self,axes):
+    def __init__(self,axes,data,stackdim=None):
         self.axes = axes
+        self.data = data
+        if stackdim is None:
+            self.stackdim = self.DEFAULT_STACKDIM
+        else:
+            self.stackdim = stackdim
 
     @property
     def shape(self):
@@ -63,28 +70,7 @@ class RegularGrid(with_metaclass(ABCMeta)):
     
     def __str__(self):
         return str(self.axes)
-    
-    @abstractmethod
-    def __getitem__(self,index):
-        pass
 
-    @abstractmethod
-    def __setitem__(self,index,value):
-        pass
-        
-    @property
-    @abstractmethod
-    def values(self):
-        pass
-    
-    @property
-    @abstractmethod
-    def dtype(self):
-        pass
-    
-    def regrid(self):
-        pass
-    
     def sliceinfo(self,slicedim):
         """
         Args:
@@ -117,68 +103,77 @@ class RegularGrid(with_metaclass(ABCMeta)):
     
     @contextlib.contextmanager
     def open(self,**openparams):
-        yield None
+        yield self.data
 
     def locate(self,*ordinates):
         return tuple([ax.locate(x) for x,ax in zip(ordinates,self.axes)])
 
+    def __getitem__(self,index):
+        with self.open(mode='r') as data:
+            try:
+                return data[index]
+            except ValueError as e:
+                raise IndexError(e)
+
+    def __setitem__(self,index,value):
+        with self.open() as data:
+            data[index] = value
+
+    def __iadd__(self,value):
+        with self.open() as data:
+            data[index] += value
+    
+    def __isub__(self,value):
+        with self.open() as data:
+            data[index] -= value
+            
+    def __imul__(self,value):
+        with self.open() as data:
+            data[index] *= value
+    
+    def __idiv__(self,value):
+        with self.open() as data:
+            data[index] /= value
+
+    @property
+    def dtype(self):
+        with self.open(mode='r') as data:
+            return data.dtype
+    
+    @property
+    def values(self):
+        with self.open(mode='r') as data:
+            return data
+            
+    def interpolate(self,*axes,**kwargs):
+        ndim = self.ndim
+        if len(axes)!=ndim:
+            raise ValueError('Expected {} dimensions'.format(ndim))
+        axes = [axold.interpolate(axnew) for axold,axnew in zip(self.axes,axes)]
+        axold,axnew = zip(*axes)
+        return interpolate_ndgrid(self,axold,axnew,**kwargs)
+        
 class NXSignalRegularGrid(RegularGrid):
     
     def __init__(self,signal,stackdim=None):
         nxdata = signal.parent
-        axes = [axisfactory(values,name=name,title=attrs['title'],type='quantitative')
+        axes = [axis.factory(values,name=name,title=attrs['title'],type='quantitative')
                 for name,values,attrs in nxdata.axes]
         self.signal = signal
-        if stackdim is None:
-            self.stackdim = self.DEFAULT_STACKDIM
-        else:
-            self.stackdim = stackdim
-        super(NXSignalRegularGrid,self).__init__(axes)
+        super(NXSignalRegularGrid,self).__init__(axes,None,stackdim=stackdim)
     
     @contextlib.contextmanager
     def open(self,**openparams):
         with self.signal.open(**openparams) as dset:
             yield dset
-    
-    def __getitem__(self,index):
-        with self.open(mode='r') as dset:
-            try:
-                return dset[index]
-            except ValueError as e:
-                raise IndexError(e)
-
-    def __setitem__(self,index,value):
-        with self.open() as dset:
-            dset[index] = value
-
-    def __iadd__(self,value):
-        with self.open() as dset:
-            dset[index] += value
-    
-    def __isub__(self,value):
-        with self.open() as dset:
-            dset[index] -= value
             
-    def __imul__(self,value):
-        with self.open() as dset:
-            dset[index] *= value
-    
-    def __idiv__(self,value):
-        with self.open() as dset:
-            dset[index] /= value
-
-    @property
-    def dtype(self):
-        with self.open(mode='r') as dset:
-            return dset.dtype
-
     @property
     def values(self):
         ret = np.empty(self.shape,dtype=self.dtype)
-        with self.open(mode='r') as dset:
-            dset.read_direct(ret)
+        with self.open(mode='r') as data:
+            data.read_direct(ret)
         return ret
-    
+        
 class NXRegularGrid(RegularGrid):
     
     def __init__(self,nxgroup):
@@ -201,19 +196,19 @@ class NXRegularGrid(RegularGrid):
                 continue
             
             if not axes:
-                axes = [axisfactory(values,name=name,title=attrs['title'],type='quantitative')
+                axes = [axis.factory(values,name=name,title=attrs['title'],type='quantitative')
                         for name,values,attrs in nxdata.axes]
 
             for signal in nxdata.signals:
                 signals.append(signal)
         
-        self.stackdim = 0
-        axnew = axisfactory(signals,type='nominal')
-        axes.insert(self.stackdim,axnew)
+        stackdim = 0
+        axnew = axis.factory(signals,type='nominal')
+        axes.insert(stackdim,axnew)
         
         self.nxgroup = nxgroup
         self.signals = signals
-        super(NXRegularGrid,self).__init__(axes)
+        super(NXRegularGrid,self).__init__(axes,None,stackdim=stackdim)
 
     @contextlib.contextmanager
     def open(self,**openparams):
