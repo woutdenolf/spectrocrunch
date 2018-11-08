@@ -25,6 +25,7 @@
 import numpy as np
 from . import nxregulargrid
 from . import nxtask
+from . import axis
 
 class Task(nxregulargrid.Task):
     
@@ -51,15 +52,12 @@ class Task(nxregulargrid.Task):
     def signal_shape(self):
         return self.cropped_shape
     
-    def _process_axes(self,positioners,gaxes):
+    def _process_axes(self):
         axes = []
-        for ax,(a,b) in zip(gaxes,self.roi):
-            if ax.size==b-a:
-                axes.append(ax.name)
-            else:
-                name = '{}_{}'.format(ax.name,self.name)
-                positioners.add_axis(name,ax[a:b],title=ax.title)
-                axes.append(name)
+        for ax,(a,b) in zip(self.signal_axes,self.roi):
+            if ax.size!=b-a:
+                ax = self._new_axis(ax[a:b],ax)
+            axes.append(ax)
         return axes
     
     def calccroproi(self,refgrid):

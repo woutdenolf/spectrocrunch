@@ -25,9 +25,7 @@
 from . import nxregulargrid
 from . import nxtask
 from . import nxutils
-from . import axis
 from ..utils import instance
-from ..utils import units
 from ..io import fs
 
 class Task(nxregulargrid.Task):
@@ -100,23 +98,15 @@ class Task(nxregulargrid.Task):
             self.signalsout.append(nxdata[signalin.name])
     
     def _process_axes(self,o):
-        positioners = self.grid.nxgroup.positioners()
-        axes1 = list(self.grid.axes)
-        axes1.pop(self.grid.stackdim)
+        axes1 = self.signal_axes
         axes2 = o.transform_axes([ax.values for ax in axes1])
-
         out = []
         for ax1,ax2 in zip(axes1,axes2):
-            if not isinstance(ax2,axis.Axis):
-                ax2 = units.Quantity(ax2,units=ax1.units)
-            name = '{}_{}'.format(ax1.name,self.name)
-            ax2 = axis.factory(ax2,name=name,title=ax1.title)
-            
+            ax2 = self._new_axis(ax2,ax1)
             if ax1==ax2:
-                out.append(ax1.name)
+                out.append(ax1)
             else:
-                positioners.add_axis(ax2.name,ax2.values,title=ax2.title)
-                out.append(ax2.name)
+                out.append(ax2)
         return out
     
     def _execute_grid(self):
@@ -133,6 +123,7 @@ class Task(nxregulargrid.Task):
                 kwargs = {k:parameters[k] for k in ['onraw','pad','crop','roi','refimageindex']}
                 o.align(self.reference_signal_index,**kwargs)
                 axes = self._process_axes(o)
+                axes = self._create_axes(axes)
                 self.process.results['change-of-frame'].write(data=o.absolute_cofs())
 
         # Set NXdata signal and axes attributes

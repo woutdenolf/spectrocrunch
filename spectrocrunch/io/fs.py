@@ -208,6 +208,9 @@ class Path(File):
     def __nonzero__(self):
         return self.__bool__()
     
+    def __contains__(self,other):
+        return self[other].exists
+    
     def _binary_op(self,other,op):
         return op(str(self),str(other))
 

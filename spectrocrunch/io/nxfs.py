@@ -757,7 +757,7 @@ class _NXcollection(_NXPath):
                     u = node.attrs.get('units','dimensionless')
                     values = units.Quantity(values,u)
                 return values
-            
+    
     def _axis_equal(self,axis1,axis2):
         if isinstance(axis1,h5fs.Path):
             with axis1.open(mode='r') as node1:
