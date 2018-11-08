@@ -51,6 +51,8 @@ class Task(with_metaclass(ABCMeta,object)):
     def parameters(self,value):
         self._parameters = deepcopy(value)
         self._parameters_defaults()
+        lst = self._parameters_filter()
+        self._parameters = {k:v for k,v in self._parameters.items() if k in lst}
     
     def _parameters_defaults(self):
         self.parameters["name"] = self.parameters.get('name',self.method)
@@ -60,7 +62,10 @@ class Task(with_metaclass(ABCMeta,object)):
         for p in params:
             if p not in parameters:
                 raise MissingParameter(p)
-                
+    
+    def _parameters_filter(self):
+        return ['name','method','default']
+    
     @property
     def name(self):
         return self.parameters['name']

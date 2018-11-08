@@ -38,7 +38,10 @@ class Task(nxregulargrid.Task):
         self._required_parameters('encoders')
         parameters = self.parameters
         parameters['cval'] = parameters.get('cval',np.nan)
-        parameters['kind'] = parameters.get('kind','linear')
+        parameters['degree'] = parameters.get('degree',1)
+
+    def _parameters_filter(self):
+        return super(Task,self)._parameters_filter()+['encoders','cval','degree']
 
     def _prepare_process(self):
         super(Task,self)._prepare_process()

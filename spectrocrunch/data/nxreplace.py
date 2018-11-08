@@ -31,6 +31,9 @@ class Task(nxregulargrid.Task):
         super(Task,self)._parameters_defaults()
         self._required_parameters('old','new')
 
+    def _parameters_filter(self):
+        return super(Task,self)._parameters_filter()+['old','new']
+        
     def _process_data(self,data):
         v1 = self.parameters['old']
         v2 = self.parameters['new']
