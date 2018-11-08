@@ -27,6 +27,9 @@ from abc import abstractmethod
 from . import nxtask
 from . import nxutils
 from . import regulargrid
+from . import axis
+from ..utils import instance
+from ..utils import units
 
 class Task(nxtask.Task):
 
@@ -79,6 +82,10 @@ class Task(nxtask.Task):
         ax = self.grid.axes[self.grid.stackdim][self.reference_signal_index]
         return regulargrid.NXSignalRegularGrid(ax,stackdim=self.parameters['stackdim'])
     
+    @property
+    def positioners(self):
+        return self.grid.nxgroup.positioners()
+    
     def _execute_grid(self):
         """
         Returns:
@@ -90,10 +97,7 @@ class Task(nxtask.Task):
             return process
 
         # Create new axes (if needed)
-        positioners = self.grid.nxgroup.positioners()
-        gaxes = list(self.grid.axes)
-        gaxes.pop(self.grid.stackdim)
-        axes = self._process_axes(positioners,gaxes)
+        axes = self._create_axes(self._process_axes())
 
         # Create new signals
         results = process.results
@@ -135,8 +139,21 @@ class Task(nxtask.Task):
     def _prepare_signal(self,signal):
         pass
         
-    def _process_axes(self,positioners,gaxes):
-        return [ax.name for ax in gaxes]
+    def _process_axes(self):
+        return self.signal_axes
+    
+    def _create_axes(self,axes):
+        """
+        Args:
+            list(Axis)
+        Returns:
+            list(str)
+        """
+        positioners = self.positioners
+        for ax in axes:
+            if ax.name not in positioners:
+                positioners.add_axis(ax.name,ax.values,title=ax.title)
+        return [ax.name for ax in axes]
         
     def _process_data(self,data):
         return data
@@ -162,3 +179,15 @@ class Task(nxtask.Task):
         shape = list(self.grid.shape)
         shape.pop(self.grid.stackdim)
         return tuple(shape)
+
+    @property
+    def signal_axes(self):
+        axes = list(self.grid.axes)
+        axes.pop(self.grid.stackdim)
+        return axes
+
+    def _new_axis(self,newvalues,axold):
+        name = '{}_{}'.format(axold.name,self.name)
+        if not isinstance(newvalues,axis.Axis):
+            newvalues = units.Quantity(newvalues,units=axold.units)
+        return axis.factory(newvalues,name=name,title=axold.title)

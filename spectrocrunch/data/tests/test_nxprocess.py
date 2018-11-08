@@ -56,15 +56,16 @@ class test_nxprocess(unittest.TestCase):
         positioners = entry.positioners()
         positioners.add_axis('z',range(shape[0]))
         positioners.add_axis('y',range(shape[1]),units='um',title='vertical')
-        positioners.add_axis('x',range(shape[2]))
+        positioners.add_axis('x',range(shape[2])[::-1])
         yencres = 2.
-        xencres = 4.
-        yencoff = -4.
-        xencoff = -8.
+        xencres = 3.
+        ypossmax = 2
+        xpossmax = 3
 
-        posmap = np.arange(shape[1])[:,np.newaxis]+np.arange(shape[2])[np.newaxis,:]
-        yenc = np.stack([posmap*yencres+yencoff]*shape[self.stackdim],axis=self.stackdim)
-        xenc = np.stack([posmap*xencres+xencoff]*shape[self.stackdim],axis=self.stackdim)
+        posmap = np.arange(shape[1])[:,np.newaxis]+np.arange(shape[2])[np.newaxis,:]/(shape[2]-1.)*ypossmax
+        yenc = np.stack([posmap*yencres]*shape[self.stackdim],axis=self.stackdim)
+        posmap = np.arange(shape[2])[np.newaxis,::-1]+np.arange(shape[1])[:,np.newaxis]/(shape[1]-1.)*xpossmax
+        xenc = np.stack([posmap*xencres]*shape[self.stackdim],axis=self.stackdim)
 
         dtype = np.float32
         signals = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
@@ -77,15 +78,16 @@ class test_nxprocess(unittest.TestCase):
         elif method=='align':
             info['axes'] = axis.factory(range(shape[0])),\
                            axis.factory(units.Quantity(range(-shape[0]+1,shape[1]),units='um')),\
-                           axis.factory(range(-shape[0]+1,shape[2]))
+                           axis.factory(range(shape[2]+1)[::-1])
         elif method=='expression':
             info['expression'] = '{}/{arr_iodet}'
             info['skip'] = ['arr_iodet']
             info['select'] = process.results['counters']['arr_iodet']
         elif method=='resample':
-            info = {'y':{'counter':'arr_samy','resolution':yencres,'offset':yencoff},
-                    'x':{'counter':'arr_samx','resolution':xencres,'offset':xencoff}}
-            
+            info['encoders'] = {'y':{'counter':'arr_samy','resolution':yencres},
+                                'x':{'counter':'arr_samx','resolution':xencres}}
+            info['shift'] = {'y':ypossmax,'x':xpossmax}
+        
         groups = {}
         for group in range(2):
             groups['detector{:02d}'.format(group)] = signals
@@ -268,7 +270,7 @@ class test_nxprocess(unittest.TestCase):
     def test_resample(self):
         with self._nxprocess(method='resample') as proc1:
             proc1,info = proc1
-            parameters = {'method':'resample','encoders':info}
+            parameters = {'method':'resample','encoders':info['encoders'],'crop':False}
             task = nxtask.newtask(parameters,proc1)
             proc2 = task.run()
             proc3 = task.run()
