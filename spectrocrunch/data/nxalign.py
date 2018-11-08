@@ -59,6 +59,9 @@ class Task(nxregulargrid.Task):
             raise nxtask.ParameterError('Unknown alignmethod {}'.format(repr(alignmethod)))
         self.alignclass = alignclass
     
+    def _parameters_filter(self):
+        return super(Task,self)._parameters_filter()+['alignmethod','reference','refimageindex','crop','roi','plot','pad','onraw']
+        
     def _prepare_reference(self):
         parameters = self.parameters
         refimageindex = parameters.get('refimageindex',-1)

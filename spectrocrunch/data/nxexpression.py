@@ -42,6 +42,9 @@ class Task(nxregulargrid.Task):
         self._required_parameters('expression')
         parameters = self.parameters
         parameters['skip'] = parameters.get('skip',[])
+    
+    def _parameters_filter(self):
+        return super(Task,self)._parameters_filter()+['expression','skip']
         
     def _prepare_process(self):
         super(Task,self)._prepare_process()

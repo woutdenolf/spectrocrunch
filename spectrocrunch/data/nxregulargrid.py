@@ -38,7 +38,10 @@ class Task(nxtask.Task):
         parameters['sliced'] = parameters.get('sliced',True)
         parameters['stackdim'] = parameters.get('stackdim',self.DEFAULT_STACKDIM)
         # Not all processes need a reference
-        
+    
+    def _parameters_filter(self):
+        return super(Task,self)._parameters_filter()+['sliced','stackdim']
+    
     def _execute(self):
         """
         Returns:

@@ -156,8 +156,8 @@ class ESRF_ID21_SXM(InstrumentInfo):
                                     "sampy":["samy"],\
                                     "sampz":["samz"]})
         info["encoderinfo"] = info.get("encoderinfo",\
-                                    {"samy":{"resolution":52500,"offset":0,"counter":"sarr_samy"},
-                                     "samz":{"resolution":50000,"offset":0,"counter":"sarr_samz"}})
+                                    {"samy":{"resolution":52500,"counter":"sarr_samy"},
+                                     "samz":{"resolution":50000,"counter":"sarr_samz"}})
                                     
         info["edfheaderkeys"] = info.get("edfheaderkeys",\
                                     {"speclabel":"Title",\

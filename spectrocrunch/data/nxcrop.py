@@ -30,8 +30,12 @@ class Task(nxregulargrid.Task):
     
     def _parameters_defaults(self):
         super(Task,self)._parameters_defaults()
+        self._required_parameters('reference')
         if all(p not in self.parameters for p in ['roi','nanval']):
             raise nxtask.MissingParameter('Specify either "nanval" or "roi"')
+
+    def _parameters_filter(self):
+        return super(Task,self)._parameters_filter()+['roi','nanval','reference']
 
     def _prepare_process(self):
         if 'nanval' in self.parameters:

@@ -99,7 +99,8 @@ class test_nxprocess(unittest.TestCase):
                 elif name=='arr_samx':
                     data = xenc
                 else:
-                    data = np.random.normal(size=shape).astype(dtype)
+                    data = np.random.normal(size=shape)
+                data = data.astype(dtype)
                 if method=='crop':
                     data[:,0,:] = np.nan
                     data[:,-2:,:] = np.nan
@@ -216,8 +217,8 @@ class test_nxprocess(unittest.TestCase):
             self.assertEqual(set([sig.name for sig in grid1.signals]),
                              set([sig.name for sig in grid2.signals]))
             np.testing.assert_array_equal(grid2.values,grid4.values)
-            np.testing.assert_array_equal(-np.log(grid1.values),grid4.values)
-
+            np.testing.assert_array_equal(-np.log(grid1),grid4.values)
+            
     def test_align(self):
         with self._nxprocess(method='align') as proc1:
             proc1,info = proc1
