@@ -27,6 +27,7 @@ import numpy as np
 from testfixtures import TempDirectory
 import os
 import contextlib
+import itertools
 
 from .. import regulargrid
 from ...io import nxfs
@@ -57,10 +58,10 @@ class test_nxprocess(unittest.TestCase):
         positioners.add_axis('z',range(shape[0]))
         positioners.add_axis('y',range(shape[1]),units='um',title='vertical')
         positioners.add_axis('x',range(shape[2])[::-1])
-        yencres = 2.
-        xencres = 3.
-        ypossmax = 2
-        xpossmax = 3
+        yencres = 2
+        xencres = 3
+        ypossmax = 4
+        xpossmax = 6
 
         posmap = np.arange(shape[1])[:,np.newaxis]+np.arange(shape[2])[np.newaxis,:]/(shape[2]-1.)*ypossmax
         yenc = np.stack([posmap*yencres]*shape[self.stackdim],axis=self.stackdim)
@@ -113,7 +114,10 @@ class test_nxprocess(unittest.TestCase):
                 elif method=='replace':
                     data[index] = -1
                 elif method=='minlog':
-                    data -= np.min(data)*1.1
+                    mi = np.min(data)*1.1
+                    if mi==0:
+                        mi = -1
+                    data -= mi
                 elif method=='align':
                     hot = np.max(data)*1.1
                     for i in range(shape[0]):
@@ -270,20 +274,81 @@ class test_nxprocess(unittest.TestCase):
     def test_resample(self):
         with self._nxprocess(method='resample') as proc1:
             proc1,info = proc1
-            parameters = {'method':'resample','encoders':info['encoders'],'crop':False}
-            task = nxtask.newtask(parameters,proc1)
-            proc2 = task.run()
-            proc3 = task.run()
-            self.assertEqual(proc2,proc3)
+            
+            params = ((['y'],['x','y']),(True,False))
+            
+            for i,p in enumerate(itertools.product(*params),1):
+                axes,crop = p
+                encoders = {k:v for k,v in info['encoders'].items() if k in axes}
+                parameters = {'name':'crop{}'.format(i),'method':'resample','encoders':encoders,'crop':crop}
+                task = nxtask.newtask(parameters,proc1)
+                proc2 = task.run()
+                proc3 = task.run()
+                self.assertEqual(proc2,proc3)
 
+                grid1 = regulargrid.NXRegularGrid(proc1)
+                grid2 = regulargrid.NXRegularGrid(proc2)
+                
+                # Check new axes position
+                encoder_signals = {}
+                offsets = proc2.results['encoder_offset'].read().tolist()
+                offsets.insert(grid2.stackdim,0)
+                for ax1,ax2,offset in zip(grid1.axes,grid2.axes,offsets):
+                    name = ax1.name
+                    if name in axes:
+                        n = int(np.ceil(info['shift'][name]/2.))
+                        if crop:
+                            ax1 = axis.factory(ax1[n:-n])
+                        else:
+                            add = np.arange(1,n+1)*ax1.stepsize
+                            addstart = ax1.start-add[::-1]
+                            addend = ax1.end+add
+                            x = addstart.magnitude.tolist()+\
+                                ax1.magnitude.tolist()+\
+                                addend.magnitude.tolist()
+                            ax1 = axis.factory(units.Quantity(x,units=ax1.units))
+                        resolution = units.Quantity(parameters['encoders'][name]['resolution'],units=1/ax2.units)
+                        encoder_signals[name] = (ax2.values*resolution+offset).to('dimensionless').magnitude
+                    self._check_axis(ax1,ax2)
+
+                # Check encoder signals
+                signals = grid2.signal_names
+                for axname,encinfo in encoders.items():
+                    i = signals.index(encinfo['counter'])
+                    enc = grid2[i,...]
+                    encnan = np.isnan(enc)
+                    self.assertTrue(crop^encnan.any())
+                    
+                    # Expected encoder values
+                    encvalues = encoder_signals[axname]
+                    index = [np.newaxis]*enc.ndim
+                    if axname=='y':
+                        index[1] = slice(None)
+                    else:
+                        index[2] = slice(None)
+                    encvalues = encvalues[index]
+                    
+                    # Handle nan's
+                    if not crop:
+                        m = np.ones(enc.shape)
+                        m[encnan] = np.nan
+                        encvalues = encvalues*m
+                        encvalues[encnan] = 999
+                        enc[encnan] = 999
+                        
+                    self.assertTrue(np.isclose(enc, encvalues).all())
+                        
     def _check_axes(self,grid1,grid2):
         for ax1,ax2 in zip(grid1.axes,grid2.axes):
-            if ax1.type=='quantitative':
-                self.assertEqual(ax1,ax2)
-            else:
-                self.assertEqual(len(ax1),len(ax2))
-                for v1,v2 in zip(ax1,ax2):
-                    self.assertEqual(v1.name,v2.name)
+            self._check_axis(ax1,ax2)
+    
+    def _check_axis(self,ax1,ax2):
+        if ax1.type=='quantitative':
+            self.assertEqual(ax1,ax2)
+        else:
+            self.assertEqual(len(ax1),len(ax2))
+            for v1,v2 in zip(ax1,ax2):
+                self.assertEqual(v1.name,v2.name)
                     
     def _check_grid(self,grid):
         data = grid.values
@@ -308,7 +373,7 @@ def test_suite():
     testSuite.addTest(test_nxprocess("test_minlog"))
     testSuite.addTest(test_nxprocess("test_align"))
     testSuite.addTest(test_nxprocess("test_expression"))
-    #testSuite.addTest(test_nxprocess("test_resample"))
+    testSuite.addTest(test_nxprocess("test_resample"))
     return testSuite
     
 if __name__ == '__main__':

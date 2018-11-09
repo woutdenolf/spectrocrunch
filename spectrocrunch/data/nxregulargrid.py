@@ -40,11 +40,12 @@ class Task(nxtask.Task):
         super(Task,self)._parameters_defaults()
         parameters = self.parameters
         parameters['sliced'] = parameters.get('sliced',True)
+        parameters['dtypex'] = parameters.get('dtypex',False)
         parameters['stackdim'] = parameters.get('stackdim',self.DEFAULT_STACKDIM)
         # Not all processes need a reference
     
     def _parameters_filter(self):
-        return super(Task,self)._parameters_filter()+['sliced','stackdim']
+        return super(Task,self)._parameters_filter()+['sliced','stackdim','dtypex']
     
     def _execute(self):
         """
@@ -114,8 +115,8 @@ class Task(nxtask.Task):
             with signalin.open() as dsetin:
                 # Calculate new signal from old signal
                 if self.sliced:
-                    signalout = nxdata.add_signal(signalin.name,shape=self.signal_shape,
-                                                  dtype=self.signal_dtype,chunks=True)
+                    signalout = nxdata.add_signal(signalin.name,shape=self.signalout_shape,
+                                                  dtype=self.signalout_dtype,chunks=True)
                     with signalout.open() as dsetout:
                         for i in range(self.signal_nslices):
                             self.indexin[self.signal_stackdim] = i
@@ -130,7 +131,7 @@ class Task(nxtask.Task):
             if bnew: 
                 nxdata.set_axes(*axes)
                 
-            return process
+        return process
 
     def _prepare_process(self):
         n = self.grid.ndim-1
@@ -169,18 +170,23 @@ class Task(nxtask.Task):
         
     @property
     def signal_nslices(self):
-        return self.signal_shape[self.signal_stackdim]
+        return self.signalin_shape[self.signal_stackdim]
 
     @property
-    def signal_dtype(self):
-        return self.grid.dtype
+    def signalout_dtype(self):
+        x = np.array(0,dtype=self.grid.dtype)*self.parameters['dtypex']
+        return x.dtype
 
     @property
-    def signal_shape(self):
+    def signalin_shape(self):
         shape = list(self.grid.shape)
         shape.pop(self.grid.stackdim)
         return tuple(shape)
 
+    @property
+    def signalout_shape(self):
+        return self.signalin_shape
+        
     @property
     def signal_axes(self):
         axes = list(self.grid.axes)

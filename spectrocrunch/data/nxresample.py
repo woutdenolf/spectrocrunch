@@ -33,7 +33,7 @@ except ImportError:
     
 from . import nxregulargrid
 from . import nxtask
-from ..math.interpolate import interpolate_ndgrid
+from ..math.interpolate import interpolate_irregular
 from ..utils import units
 from . import axis
 from . import nxutils
@@ -50,7 +50,7 @@ class Task(nxregulargrid.Task):
         parameters['cval'] = parameters.get('cval',np.nan)
         parameters['degree'] = parameters.get('degree',1)
         parameters['crop'] = parameters.get('crop',False)
-        
+
     def _parameters_filter(self):
         return super(Task,self)._parameters_filter()+['encoders','cval','degree','crop']
 
@@ -58,23 +58,28 @@ class Task(nxregulargrid.Task):
         super(Task,self)._prepare_process()
         parameters = self.parameters
         
+        # New axes with associated encoder axis and encoder signal (None if missing)
         encoders = parameters['encoders']
         signals = {sig.name:sig for sig in self.grid.signals}
         lst = []
         for axisdim,ax in enumerate(self.signal_axes):
             encdict = encoders.get(ax.name,None)
-            encoder,signal = None,None
+            encoder,signal,offset = None,None,0
             if encdict:
                 # axis should have an encoder
                 signal = signals.get(encdict['counter'],None)
                 if signal:
                     # axis does indeed have an encoder
-                    ax,encoder = self._encoder(ax,axisdim,signal,encdict['resolution'],
+                    ax,encoder,offset = self._encoder(ax,axisdim,signal,encdict['resolution'],
                                         offset=encdict.get('offset',None))
-            lst.append((ax,encoder,signal))
+            lst.append((ax,encoder,signal,offset))
+        self.axes,self.encoders,self.encoder_signals,self.offsets = zip(*lst)
 
-        self.axes,self.encoders,self.encoder_signals = zip(*lst)
-        self.encoderdim = None
+        # Prepare interpolation
+        self.interp_kwargs = {'cval':parameters['cval'],
+                              'degree':parameters['degree'],
+                              'asgrid':True}
+        self.resampled_shape = tuple([s if enc is None else len(enc) for s,enc in zip(self.signalin_shape,self.encoders)])
         
     def _process_axes(self):
         return self.axes
@@ -84,9 +89,13 @@ class Task(nxregulargrid.Task):
         with ExitStack() as stack:
             self.encoder_datasets = [stack.enter_context(signal.open())
                                      for signal in self.encoder_signals if signal is not None]
-            self.encoder_dest = [enc for enc in self.encoders if enc is not None]
+            self.encoder_dest = [enc.magnitude for enc in self.encoders if enc is not None]
             yield
-            
+    
+    @property
+    def signalout_shape(self):
+        return self.resampled_shape
+    
     def _execute_grid(self):
         """
         Returns:
@@ -102,12 +111,10 @@ class Task(nxregulargrid.Task):
 
         # Create new signals
         with self._context_encoders():
-            indices = self._process_indices()
+            indices = list(self._process_indices())
             
             results = process.results
             for signalin in self.grid.signals:
-                self._prepare_signal(signalin)
-                
                 # Create new NXdata if needed
                 nxdata = results[signalin.parent.name]
                 bnew = not nxdata.exists
@@ -116,33 +123,28 @@ class Task(nxregulargrid.Task):
 
                 with signalin.open() as dsetin:
                     # Calculate new signal from old signal
-                    signalout = nxdata.add_signal(signalin.name,shape=self.signal_shape,
-                                                  dtype=self.signal_dtype,chunks=True)
+                    signalout = nxdata.add_signal(signalin.name,shape=self.signalout_shape,
+                                                  dtype=self.signalout_dtype,chunks=True)
                     with signalout.open() as dsetout:
                         for index in indices:
                             self.indexin = index
                             dsetout[index] = self._process_data(dsetin[index])
-                
+                    
                 if bnew: 
                     nxdata.set_axes(*axes)
-                    
-                return process
+            
+            results['encoder_offset'].write(data=self.offsets)
+        return process
             
     def _process_indices(self):
-        shape = self.signal_shape
+        shape = self.signalin_shape
         indices = [range(shape[i]) if enc is None else [slice(None)]
                    for i,enc in enumerate(self.encoders)]
         return itertools.product(*indices)
 
     def _process_data(self,data):
-        encoders = [dset[self.indexin] for dset in self.encoder_datasets]
-        
-        print data.shape
-        for enc in encoders:
-            print enc.shape
-        print [enc.size for enc in self.encoder_dest]
-             
-        return data
+        axold = [dset[self.indexin] for dset in self.encoder_datasets]
+        return interpolate_irregular(data,axold,self.encoder_dest,**self.interp_kwargs)
 
     def _encoder(self,position,axisdim,signal,resolution,offset=None):
         """
@@ -155,6 +157,7 @@ class Task(nxregulargrid.Task):
         Returns:
             position(Axis): in motor units
             encoder(Axis): in encoder steps
+            offset(Optional(num)): 
         """
         
         # Encoder(units) = axis(units)*resolution(steps/units) + offset(units)
@@ -171,9 +174,11 @@ class Task(nxregulargrid.Task):
             ndim = dset.ndim
             ind = [slice(None)]*ndim
 
-            # Get encoder start/end
+            # Encoder: expected start/end
             start_expected = encoder.start
             end_expected = encoder.end
+            
+            # Encoder: measured start/end (depending on crop)
             increasing = end_expected>start_expected
             fmin = lambda ind: np.min(dset[tuple(ind)])
             fmax = lambda ind: np.max(dset[tuple(ind)])
@@ -199,41 +204,12 @@ class Task(nxregulargrid.Task):
                 m_measured = (start_measured+end_measured)/2.
                 offset = m_measured-m_expected
                 encoder = axis.factory(encoder.values+offset)
-                start_expected = encoder.start
-                end_expected = encoder.end
 
-            # Expand/crop axis to capture the measured positions
-            if hasattr(encoder,'stepsize'):
-                start_stepsize = encoder.stepsize
-                end_stepsize = start_stepsize
-            elif hasattr(encoder,'stepsizes'):
-                start_stepsize = encoder.stepsizes[0]
-                end_stepsize = encoder.stepsizes[1]
+            # Encoder (and corresponding motor positions) at which to interpolate the data
+            encoder = encoder.newlimits(start_measured,end_measured)
+            if encoder is None:
+                logger.warning('Skip resampling along axis {} (dimension was reduced to zero)'.format(repr(position.name)))
+                return position,None,offset
             else:
-                start_stepsize = encoder.values[1]-encoder.values[0]
-                end_stepsize = encoder.values[-2]-encoder.values[-1]
-            
-            x = encoder.magnitude
-            nstepsadd = (start_expected-start_measured)/start_stepsize
-            nstepsadd = int(np.ceil(nstepsadd.to('dimensionless').magnitude))
-            if nstepsadd>0:
-                add = start_expected - np.arange(1,nstepsadd+1)[::-1]*start_stepsize
-                x = np.append(add.magnitude,x)
-            elif nstepsadd<0:
-                x = x[-nstepsadd:]
-            
-            nstepsadd = (end_measured-end_expected)/start_stepsize
-            nstepsadd = int(np.ceil(nstepsadd.to('dimensionless').magnitude))
-            if nstepsadd>0:
-                add = end_expected + np.arange(1,nstepsadd+1)*end_stepsize
-                x = np.append(x,add.magnitude)
-            elif nstepsadd<0:
-                x = x[:nstepsadd]
-
-            if len(x)>0:
-                encoder = axis.factory(x)
                 position = self._new_axis((encoder.values-offset)/resolution,position)
-                return position,encoder
-            else:
-                logger.warning('Skip resampling along axis {}'.format(repr(position.name)))
-                return position,None
+                return position,encoder,offset.to('dimensionless').magnitude

@@ -61,10 +61,11 @@ class test_distributions(unittest.TestCase):
         integral,integrale = self.quad(pdf,qmin,qmax)
         self._check_pdfintegral(integral,integrale,1)
         
-        x=np.linspace(xmin,xmax,xn)
+        x = np.linspace(xmin,xmax,xn)
         np.allclose(ppf(cdf(x)),x)
         
         p = np.linspace(0,1,xn)
+        #TODO: check RuntimeWarning
         np.allclose(cdf(ppf(x)),x)
         
         for x in np.linspace(xmin,xmax,xn):
@@ -101,9 +102,7 @@ class test_distributions(unittest.TestCase):
         xmin,xmax,xn = -10,10,50
         rv = distributions.limitednorm(k)
         self.checkpdf(rv,qmin,qmax,xmin,xmax,xn)
-    
 
-        
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()

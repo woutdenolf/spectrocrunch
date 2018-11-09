@@ -220,6 +220,10 @@ class NXRegularGrid(RegularGrid):
         with ExitStack() as stack:
             yield [stack.enter_context(signal.open(**openparams)) for signal in self.signals]
 
+    @property
+    def signal_names(self):
+        return [sig.name for sig in self.signals]
+
     def __getitem__(self,index):
         with self.open(mode='r') as entry:
             generator = lambda signal: entry[self.nxgroup.relpath(signal.path)]
