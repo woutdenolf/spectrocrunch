@@ -52,7 +52,8 @@ class Task(nxtask.Task):
         Returns:
             nxfs._NXprocess | None
         """
-        self.grid = regulargrid.NXRegularGrid(self.previous)
+        self.grid = regulargrid.NXRegularGrid(self.previous[0])
+        self.previous = self.grid.nxgroup
         self._prepare_process()
         nxprocess = self._execute_grid()
         self._sort(nxprocess)
@@ -60,7 +61,7 @@ class Task(nxtask.Task):
 
     def _sort(self,nxprocess):
         it = nxprocess.results.iter_is_nxclass('NXdata')
-        previous = self.previous.results
+        previous = self.previous[0].results
         for nxdata in it:
             if nxdata.islink:
                 continue
@@ -87,14 +88,14 @@ class Task(nxtask.Task):
     @property
     def positioners(self):
         return self.grid.nxgroup.positioners()
-    
+
     def _execute_grid(self):
         """
         Returns:
             nxfs._NXprocess
         """
         # New nxprocess (return when already exists)
-        process,notnew = nxutils.next_process([self.grid.nxgroup],self.parameters)
+        process,notnew = self.next_process()
         if notnew:
             return process
 
