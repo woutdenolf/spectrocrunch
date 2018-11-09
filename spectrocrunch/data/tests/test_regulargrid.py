@@ -49,32 +49,31 @@ class test_regulargrid(unittest.TestCase):
         
     def test_interpolate(self):
         for degree in [0,1,2]:
-            rtol = 1e-3
-            
-            # 1D
-            stackaxis = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
-            grid = self._generate(stackaxis,shape=(),stackdim=0)
-            data = grid.interpolate('Fe-K')
-            np.testing.assert_allclose(grid.data[0],data,rtol=rtol)
-            data = grid.interpolate(['Fe-K','Ce-L'],degree=degree)
-            np.testing.assert_allclose(grid.data[[0,-1]],data,rtol=rtol)
-            
-            # 2D
-            grid = self._generate(stackaxis,shape=(6,),stackdim=0)
-            data = grid.interpolate('Fe-K',None,degree=degree)
-            np.testing.assert_allclose(grid.data[np.newaxis,0,:],data,rtol=rtol)
             for asgrid in [True,False]:
+                rtol = 1e-3
+                
+                # 1D
+                stackaxis = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
+                grid = self._generate(stackaxis,shape=(),stackdim=0)
+                data = grid.interpolate('Fe-K',degree=degree,asgrid=asgrid)
+                np.testing.assert_allclose(grid.data[0],data,rtol=rtol)
+                data = grid.interpolate(['Fe-K','Ce-L'],degree=degree,asgrid=asgrid)
+                np.testing.assert_allclose(grid.data[[0,-1]],data,rtol=rtol)
+                
+                # 2D
+                grid = self._generate(stackaxis,shape=(6,),stackdim=0)
+                data = grid.interpolate('Fe-K',None,degree=degree)
+                np.testing.assert_allclose(grid.data[np.newaxis,0,:],data,rtol=rtol)
                 data = grid.interpolate(['Fe-K','S-K','Ce-L'],[0,2,3],degree=degree,asgrid=asgrid)
                 ind = [0,3,4],[0,2,3]
                 if asgrid:
                     ind = np.meshgrid(*ind, indexing='ij')
                 np.testing.assert_allclose(grid.data[ind],data,rtol=rtol)
-            
-            # 3D
-            grid = self._generate(stackaxis,shape=(6,8),stackdim=1)
-            data = grid.interpolate(None,'Fe-K',None,degree=degree)
-            np.testing.assert_allclose(grid.data[:,np.newaxis,0,:],data,rtol=rtol)
-            for asgrid in [True,False]:
+                
+                # 3D
+                grid = self._generate(stackaxis,shape=(6,8),stackdim=1)
+                data = grid.interpolate(None,'Fe-K',None,degree=degree)
+                np.testing.assert_allclose(grid.data[:,np.newaxis,0,:],data,rtol=rtol)
                 data = grid.interpolate([1,3,4],['Fe-K','S-K','Ce-L'],[0,2,3],degree=degree,asgrid=asgrid)
                 ind = [1,3,4],[0,3,4],[0,2,3]
                 if asgrid:

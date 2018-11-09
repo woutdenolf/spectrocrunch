@@ -23,14 +23,20 @@
 # THE SOFTWARE.
 
 import numpy as np
-from scipy import interpolate
 import logging
-
+import contextlib
+import itertools
+try:
+    from contextlib import ExitStack
+except ImportError:
+    from contextlib2 import ExitStack
+    
 from . import nxregulargrid
 from . import nxtask
 from ..math.interpolate import interpolate_ndgrid
 from ..utils import units
 from . import axis
+from . import nxutils
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +46,7 @@ class Task(nxregulargrid.Task):
         super(Task,self)._parameters_defaults()
         self._required_parameters('encoders')
         parameters = self.parameters
+        parameters['sliced'] = False
         parameters['cval'] = parameters.get('cval',np.nan)
         parameters['degree'] = parameters.get('degree',1)
         parameters['crop'] = parameters.get('crop',False)
@@ -54,24 +61,88 @@ class Task(nxregulargrid.Task):
         encoders = parameters['encoders']
         signals = {sig.name:sig for sig in self.grid.signals}
         lst = []
-        axes = self.grid.axes
-        axes.pop(self.grid.stackdim)
-        for axisdim,ax in enumerate(axes):
-            encoder = encoders.get(ax.name,None)
-            add = ax,None
-            if encoder:
+        for axisdim,ax in enumerate(self.signal_axes):
+            encdict = encoders.get(ax.name,None)
+            encoder,signal = None,None
+            if encdict:
                 # axis should have an encoder
-                signal = signals.get(encoder['counter'],None)
+                signal = signals.get(encdict['counter'],None)
                 if signal:
                     # axis does indeed have an encoder
-                    add = self._encoder(ax,axisdim,signal,encoder['resolution'],
-                                        offset=encoder.get('offset',None))
-            lst.append(add)
+                    ax,encoder = self._encoder(ax,axisdim,signal,encdict['resolution'],
+                                        offset=encdict.get('offset',None))
+            lst.append((ax,encoder,signal))
 
-        self.axes,self.encoders = zip(*lst)
-
+        self.axes,self.encoders,self.encoder_signals = zip(*lst)
+        self.encoderdim = None
+        
     def _process_axes(self):
         return self.axes
+
+    @contextlib.contextmanager
+    def _context_encoders(self):
+        with ExitStack() as stack:
+            self.encoder_datasets = [stack.enter_context(signal.open())
+                                     for signal in self.encoder_signals if signal is not None]
+            self.encoder_dest = [enc for enc in self.encoders if enc is not None]
+            yield
+            
+    def _execute_grid(self):
+        """
+        Returns:
+            nxfs._NXprocess
+        """
+        # New nxprocess (return when already exists)
+        process,notnew = nxutils.next_process([self.grid.nxgroup],self.parameters)
+        if notnew:
+            return process
+
+        # Create new axes (if needed)
+        axes = self._create_axes(self._process_axes())
+
+        # Create new signals
+        with self._context_encoders():
+            indices = self._process_indices()
+            
+            results = process.results
+            for signalin in self.grid.signals:
+                self._prepare_signal(signalin)
+                
+                # Create new NXdata if needed
+                nxdata = results[signalin.parent.name]
+                bnew = not nxdata.exists
+                if bnew:
+                    nxdata = results.nxdata(name=signalin.parent.name)
+
+                with signalin.open() as dsetin:
+                    # Calculate new signal from old signal
+                    signalout = nxdata.add_signal(signalin.name,shape=self.signal_shape,
+                                                  dtype=self.signal_dtype,chunks=True)
+                    with signalout.open() as dsetout:
+                        for index in indices:
+                            self.indexin = index
+                            dsetout[index] = self._process_data(dsetin[index])
+                
+                if bnew: 
+                    nxdata.set_axes(*axes)
+                    
+                return process
+            
+    def _process_indices(self):
+        shape = self.signal_shape
+        indices = [range(shape[i]) if enc is None else [slice(None)]
+                   for i,enc in enumerate(self.encoders)]
+        return itertools.product(*indices)
+
+    def _process_data(self,data):
+        encoders = [dset[self.indexin] for dset in self.encoder_datasets]
+        
+        print data.shape
+        for enc in encoders:
+            print enc.shape
+        print [enc.size for enc in self.encoder_dest]
+             
+        return data
 
     def _encoder(self,position,axisdim,signal,resolution,offset=None):
         """
@@ -87,7 +158,7 @@ class Task(nxregulargrid.Task):
         """
         
         # Encoder(units) = axis(units)*resolution(steps/units) + offset(units)
-        resolution = units.Quantity(resolution,units=1/ax.units)
+        resolution = units.Quantity(resolution,units=1/position.units)
         if offset is None:
             encoder = axis.factory(position.values*resolution)
         else:
@@ -161,7 +232,7 @@ class Task(nxregulargrid.Task):
 
             if len(x)>0:
                 encoder = axis.factory(x)
-                position = self._new_axis((encoder.values-offset)/resolution,ax)
+                position = self._new_axis((encoder.values-offset)/resolution,position)
                 return position,encoder
             else:
                 logger.warning('Skip resampling along axis {}'.format(repr(position.name)))

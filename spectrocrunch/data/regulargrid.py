@@ -36,7 +36,7 @@ except ImportError:
 from . import axis
 from ..utils import indexing
 from ..io import nxfs
-from ..math.interpolate import interpolate_ndgrid
+from ..math.interpolate import interpolate_regular
 
 class RegularGrid(object):
     
@@ -151,7 +151,7 @@ class RegularGrid(object):
             raise ValueError('Expected {} dimensions'.format(ndim))
         axes = [axold.interpolate(axnew) for axold,axnew in zip(self.axes,axes)]
         axold,axnew = zip(*axes)
-        return interpolate_ndgrid(self,axold,axnew,**kwargs)
+        return interpolate_regular(self,axold,axnew,**kwargs)
         
 class NXSignalRegularGrid(RegularGrid):
     
