@@ -25,9 +25,11 @@
 from copy import deepcopy
 from abc import ABCMeta,abstractmethod
 from future.utils import with_metaclass
+import traceback
 
 from . import nxutils
 from ..utils import instance
+from ..io.utils import randomstring
 
 class TaskException(Exception):
     pass
@@ -41,6 +43,7 @@ class ParameterError(TaskException):
 class Task(with_metaclass(ABCMeta,object)):
     
     def __init__(self,parameters,previous):
+        self._tempname = randomstring()
         self.parameters = parameters
         self.previous = previous
             
@@ -94,13 +97,52 @@ class Task(with_metaclass(ABCMeta,object)):
         return self.parameters.get('default',None)
     
     def run(self):
-        nxprocess = self._execute()
-        if nxprocess and self.default:
-            nxutils.set_default(nxprocess,self.default)
-        return nxprocess
-                
-    def next_process(self):
-        return nxutils.next_process(self.previous,self.parameters)
+        """This is atomic if h5py.Group.move is atomic
+        """
+        if not self.done:
+            nxprocess = self._tempoutput
+            try:
+                self._execute()
+            except Exception:
+                traceback.print_exc()
+                nxprocess.remove(recursive=True)
+
+            if nxprocess.exists:
+                nxprocess = nxprocess.rename(self.output)
+                if self.default:
+                    nxutils.set_default(nxprocess,self.default)
+
+    @property
+    def entry(self):
+        return self.previous[-1].nxentry()
+    
+    def _temp_process(self):
+        """Creates the process when it doesn't exist yet
+        
+        Returns:
+            process(NXprocess)
+        """
+        process,_ = self.entry.nxprocess(self._tempname,
+                                    parameters=self.parameters,
+                                    previous=self.previous)
+        return process
+        
+    @property
+    def output(self):
+        return self.entry[self.parameters["name"]]
+    
+    @property
+    def _tempoutput(self):
+        return self.entry[self._tempname]
+        
+    @property
+    def done(self):
+        """Finished means it exists with the correct name and parameters
+        """
+        _,exists = self.entry.nxprocess_exists(self.name,
+                                    parameters=self.parameters,
+                                    previous=self.previous)
+        return exists
     
     @abstractmethod
     def _execute(self):

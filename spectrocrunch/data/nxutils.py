@@ -22,10 +22,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-def next_process(nxprevious,parameters):
-    return nxprevious[-1].nxentry().nxprocess(parameters["name"],
-                    parameters=parameters,previous=nxprevious)
-
 def set_default(nxprocess,default):
     plotselect = nxprocess.results['plotselect']
     plotselect.remove()
