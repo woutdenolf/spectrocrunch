@@ -97,13 +97,22 @@ class test_axis(unittest.TestCase):
         
         self.assertRaises(ValueError,ax.interpolate,'d')
         self.assertRaises(ValueError,ax.interpolate,['a','d'])
-        
+    
+    def test_newlimits(self):
+        x0,x1 = 0,10
+        ax1 = axis.factory(units.Quantity(np.arange(x0,x1+1),units='um'))
+        for ai,bi in [(-2,3),(2,-4),(3,1),(-2,-4)]:
+            a,b = x0+ai,x1+bi
+            ax2 = axis.factory(units.Quantity(np.arange(a,b+1),units='um'))
+            self.assertEqual(ax1.newlimits(a,b),ax2)
+
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_axis("test_quantitative"))
     testSuite.addTest(test_axis("test_locate"))
     testSuite.addTest(test_axis("test_interpolate"))
+    testSuite.addTest(test_axis("test_newlimits"))
     return testSuite
     
 if __name__ == '__main__':

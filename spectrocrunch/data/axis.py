@@ -255,6 +255,89 @@ class Axis(object):
                     
         return self
 
+    @property
+    def start_stepsize(self):
+        return self[1]-self[0]
+    
+    @property
+    def end_stepsize(self):
+        return self[-2]-self[-1]
+
+    @classmethod
+    def factory(cls,data,**kwargs):
+        if not isinstance(data,Axis):
+            data = Axis(data,**kwargs)      
+        return data.simplify()
+
+    def newstart(self,newstart):
+        """Expand/crop from the start (make sure newstart is included)
+        
+        Args:
+            newstart(num)
+        
+        Returns:
+            Axis|None
+        """
+        x = self.magnitude
+        stepsize = self.start_stepsize
+        newstart = units.Quantity(newstart,units=self.units)
+        oldstart = self.start
+        nstepsadd = (oldstart-newstart)/stepsize
+        nstepsadd = int(np.ceil(nstepsadd.to('dimensionless').magnitude))
+        if nstepsadd>0:
+            add = oldstart - np.arange(1,nstepsadd+1)[::-1]*stepsize
+            x = np.append(add.magnitude,x)
+        elif nstepsadd<0:
+            x = x[-nstepsadd:]
+        
+        if len(x):
+            return self.factory(units.Quantity(x,units=self.units))
+        else:
+            return None
+            
+    def newend(self,newend):
+        """Expand/crop from the start (make sure newend is included)
+        
+        Args:
+            newend(num)
+        
+        Returns:
+            Axis|None
+        """
+        x = self.magnitude
+        stepsize = self.end_stepsize
+        newend = units.Quantity(newend,units=self.units)
+        oldend = self.end
+        nstepsadd = (newend-oldend)/stepsize
+        nstepsadd = int(np.ceil(nstepsadd.to('dimensionless').magnitude))
+        if nstepsadd>0:
+            add = oldend + np.arange(1,nstepsadd+1)*stepsize
+            x = np.append(x,add.magnitude)
+        elif nstepsadd<0:
+            x = x[:nstepsadd]
+
+        if len(x):
+            return self.factory(units.Quantity(x,units=self.units))
+        else:
+            return None
+
+    def newlimits(self,newstart,newend):
+        """Expand/crop from the start (make sure limits is included)
+        
+        Args:
+            newstart(num)
+            newend(num)
+        
+        Returns:
+            Axis|None
+        """
+        axis = self.newstart(newstart)
+        if axis is not None:
+            axis = axis.newend(newend)
+        return axis
+
+factory = Axis.factory
+
 class _AxisRegular(Axis):
 
     def __init__(self,*params,**kwargs):
@@ -287,6 +370,14 @@ class _AxisRegular(Axis):
     @stepsize.setter
     def stepsize(self,value):
         self._stepsize = value
+    
+    @property
+    def start_stepsize(self):
+        return self.stepsize
+    
+    @property
+    def end_stepsize(self):
+        return self.stepsize
         
     @property
     def size(self):
@@ -443,6 +534,14 @@ class AxisSegments(Axis):
         self.values = limits,nsteps
 
     @property
+    def start_stepsize(self):
+        return self.stepsizes[0]
+    
+    @property
+    def end_stepsize(self):
+        return self.stepsizes[1]
+        
+    @property
     def nsteps(self):
         return self._nsteps
 
@@ -494,8 +593,5 @@ class AxisSegments(Axis):
                     for lim,step,n in zip(self.limits,self.stepsizes,self.nsteps)))
         s = '{}{:~}'.format(s,self.limits[-1])
         return "{}({})".format(self.name,s)
-    
-def factory(data,**kwargs):
-    if not isinstance(data,Axis):
-        data = Axis(data,**kwargs)      
-    return data.simplify()
+
+

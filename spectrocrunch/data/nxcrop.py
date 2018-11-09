@@ -49,7 +49,7 @@ class Task(nxregulargrid.Task):
         self.indexout = [slice(None)]*len(self.roi)
     
     @property
-    def signal_shape(self):
+    def signalout_shape(self):
         return self.cropped_shape
     
     def _process_axes(self):
