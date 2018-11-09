@@ -141,29 +141,40 @@ class test_nxprocess(unittest.TestCase):
             grid = regulargrid.NXSignalRegularGrid(nxdata.signal)
             self._check_grid(grid)
     
+    def _run_task(self,parameters,proc1):
+        task = nxtask.newtask(parameters,proc1)
+        task.run()
+        proc2 = task.output
+        self.assertTrue(task.done)
+        task.run()
+        proc3 = task.output
+        self.assertEqual(proc2,proc3)
+        task = nxtask.newtask(parameters,proc1)
+        self.assertTrue(task.done)
+        task.run()
+        proc3 = task.output
+        self.assertEqual(proc2,proc3)
+        return proc2
+        
     def test_crop(self):
         with self._nxprocess(method='crop') as proc1:
             proc1,info = proc1
             parameters = {'method':'crop','default':'Si-K','sliced':False,
                           'reference':'Al-K','nanval':np.nan}
-            task = nxtask.newtask(parameters,proc1)
-            proc2 = task.run()
-            proc3 = task.run()
-            self.assertEqual(proc2,proc3)
+            proc2 = self._run_task(parameters,proc1)
             
             parameters['sliced'] = True
             parameters['name'] = 'crop2'
-            task = nxtask.newtask(parameters,proc1)
-            proc4 = task.run()
-            self.assertNotEqual(proc2,proc4)
+            proc3 = self._run_task(parameters,proc1)
+            self.assertNotEqual(proc2,proc3)
             
             grid1 = regulargrid.NXRegularGrid(proc1)
             grid2 = regulargrid.NXRegularGrid(proc2)
-            grid4 = regulargrid.NXRegularGrid(proc4)
+            grid3 = regulargrid.NXRegularGrid(proc3)
             self.assertEqual(set([sig.name for sig in grid1.signals]),
                              set([sig.name for sig in grid2.signals]))
             self.assertFalse(np.isnan(grid2.values).any())
-            np.testing.assert_array_equal(grid2.values,grid4.values)
+            np.testing.assert_array_equal(grid2.values,grid3.values)
             for k,v in info.items():
                 for ax in grid2.axes:
                     if ax.name==k:
@@ -179,23 +190,19 @@ class test_nxprocess(unittest.TestCase):
             proc1,info = proc1
             parameters = {'method':'replace','default':'Si-K','sliced':False,
                           'old':-1,'new':-2}
-            task = nxtask.newtask(parameters,proc1)
-            proc2 = task.run()
-            proc3 = task.run()
-            self.assertEqual(proc2,proc3)
+            proc2 = self._run_task(parameters,proc1)
             
             parameters['sliced'] = True
             parameters['name'] = 'replace2'
-            task = nxtask.newtask(parameters,proc1)
-            proc4 = task.run()
-            self.assertNotEqual(proc2,proc4)
+            proc3 = self._run_task(parameters,proc1)
+            self.assertNotEqual(proc2,proc3)
             
             grid1 = regulargrid.NXRegularGrid(proc1)
             grid2 = regulargrid.NXRegularGrid(proc2)
-            grid4 = regulargrid.NXRegularGrid(proc4)
+            grid3 = regulargrid.NXRegularGrid(proc3)
             self.assertEqual(set([sig.name for sig in grid1.signals]),
                              set([sig.name for sig in grid2.signals]))
-            np.testing.assert_array_equal(grid2.values,grid4.values)
+            np.testing.assert_array_equal(grid2.values,grid3.values)
             np.testing.assert_array_equal(grid1.values[info['index']],parameters['old'])
             np.testing.assert_array_equal(grid2.values[info['index']],parameters['new'])
 
@@ -205,34 +212,27 @@ class test_nxprocess(unittest.TestCase):
         with self._nxprocess(method='minlog') as proc1:
             proc1,info = proc1
             parameters = {'method':'minlog','sliced':False}
-            task = nxtask.newtask(parameters,proc1)
-            proc2 = task.run()
-            proc3 = task.run()
-            self.assertEqual(proc2,proc3)
+            proc2 = self._run_task(parameters,proc1)
             
             parameters['sliced'] = True
             parameters['name'] = 'minlog2'
-            task = nxtask.newtask(parameters,proc1)
-            proc4 = task.run()
-            self.assertNotEqual(proc2,proc4)
+            proc3 = self._run_task(parameters,proc1)
+            self.assertNotEqual(proc2,proc3)
             
             grid1 = regulargrid.NXRegularGrid(proc1)
             grid2 = regulargrid.NXRegularGrid(proc2)
-            grid4 = regulargrid.NXRegularGrid(proc4)
+            grid3 = regulargrid.NXRegularGrid(proc3)
             
             self.assertEqual(set([sig.name for sig in grid1.signals]),
                              set([sig.name for sig in grid2.signals]))
-            np.testing.assert_array_equal(grid2.values,grid4.values)
-            np.testing.assert_array_equal(-np.log(grid1),grid4.values)
+            np.testing.assert_array_equal(grid2.values,grid3.values)
+            np.testing.assert_array_equal(-np.log(grid1),grid3.values)
             
     def test_align(self):
         with self._nxprocess(method='align') as proc1:
             proc1,info = proc1
             parameters = {'method':'align','alignmethod':'max','reference':'Fe-K','refimageindex':0}
-            task = nxtask.newtask(parameters,proc1)
-            proc2 = task.run()
-            proc3 = task.run()
-            self.assertEqual(proc2,proc3)
+            proc2 = self._run_task(parameters,proc1)
             
             grid2 = regulargrid.NXRegularGrid(proc2)
             axes = grid2.axes
@@ -244,16 +244,12 @@ class test_nxprocess(unittest.TestCase):
         with self._nxprocess(method='expression') as proc1:
             proc1,info = proc1
             parameters = {'method':'expression','expression':info['expression'],'skip':info['skip'],'sliced':False}
-            task = nxtask.newtask(parameters,proc1)
-            proc2 = task.run()
-            proc3 = task.run()
-            self.assertEqual(proc2,proc3)
+            proc2 = self._run_task(parameters,proc1)
             
             parameters['sliced'] = True
             parameters['name'] = 'expression2'
-            task = nxtask.newtask(parameters,proc1)
-            proc4 = task.run()
-            self.assertNotEqual(proc2,proc4)
+            proc3 = self._run_task(parameters,proc1)
+            self.assertNotEqual(proc2,proc3)
 
             grid1 = regulargrid.NXRegularGrid(proc1)
             grid2 = regulargrid.NXRegularGrid(proc2)
@@ -281,10 +277,7 @@ class test_nxprocess(unittest.TestCase):
                 axes,crop = p
                 encoders = {k:v for k,v in info['encoders'].items() if k in axes}
                 parameters = {'name':'crop{}'.format(i),'method':'resample','encoders':encoders,'crop':crop}
-                task = nxtask.newtask(parameters,proc1)
-                proc2 = task.run()
-                proc3 = task.run()
-                self.assertEqual(proc2,proc3)
+                proc2 = self._run_task(parameters,proc1)
 
                 grid1 = regulargrid.NXRegularGrid(proc1)
                 grid2 = regulargrid.NXRegularGrid(proc2)

@@ -230,33 +230,45 @@ class Path(h5fs.Path):
         return {'date':timestamp()}
         
     def nxprocess(self,name,parameters=None,previous=None,**openparams):
-        """
+        """Creates the process when it doesn't exist
+        
         Returns:
             process(Path):
-            exists(bool): process with same name and parameters already exists
+            existed(bool): process with same name and parameters already exists
+        """
+        process,exists = self.nxprocess_exists(name,parameters=parameters,previous=previous,**openparams)
+        if exists:
+            return process,exists
+        else:
+            process = self._init_nxclass(process,'NXprocess',
+                                         filesgen=self._filesgen_nxprocess,
+                                         **openparams)
+            process.set_config(parameters,previous=previous)
+            return process,False
+    
+    def nxprocess_exists(self,name,parameters=None,previous=None,**openparams):
+        """
+        Returns:
+            process(Path): full path
+            exists(bool): process with same name and parameters exists
         """
         entry = self.nxentry(**openparams)
         
         # Return existing process (verify hash when parameters are given)
         if parameters is None:
-            process = self[name]
-            if process.exists:
-                return process,True
+            process = entry[name]
+            return process,process.exists
         else:
             dhash = self.nxproces_calcdhash(previous,self.nxproces_confighash(parameters))
             for process in entry.iter_is_nxclass('NXprocess'):
                 if process.verify_hash(dhash):
                     return process,True
-            process = self[name]
+            process = entry[name]
             if process.exists:
                 raise ValueError('Process with the same name and a different hash exists. Use a different name.')
 
-        process = self._init_nxclass(self[name],'NXprocess',
-                                     filesgen=self._filesgen_nxprocess,
-                                     **openparams)
-        process.set_config(parameters,previous=previous)
         return process,False
-    
+
     @classmethod
     def nxproces_confighash(cls,config):
         return calcdhash(json.loads(json.dumps(config)))

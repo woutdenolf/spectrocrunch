@@ -36,7 +36,6 @@ from . import nxtask
 from ..math.interpolate import interpolate_irregular
 from ..utils import units
 from . import axis
-from . import nxutils
 
 logger = logging.getLogger(__name__)
 
@@ -102,9 +101,7 @@ class Task(nxregulargrid.Task):
             nxfs._NXprocess
         """
         # New nxprocess (return when already exists)
-        process,notnew = nxutils.next_process([self.grid.nxgroup],self.parameters)
-        if notnew:
-            return process
+        process = self._temp_process()
 
         # Create new axes (if needed)
         axes = self._create_axes(self._process_axes())
@@ -134,7 +131,6 @@ class Task(nxregulargrid.Task):
                     nxdata.set_axes(*axes)
             
             results['encoder_offset'].write(data=self.offsets)
-        return process
             
     def _process_indices(self):
         shape = self.signalin_shape

@@ -24,7 +24,6 @@
 
 from . import nxregulargrid
 from . import nxtask
-from . import nxutils
 from ..utils import instance
 from ..io import fs
 
@@ -84,7 +83,7 @@ class Task(nxregulargrid.Task):
         self._prepare_reference()
         
         # New nxprocess (return when already exists)
-        self.process,self.notnew = nxutils.next_process([self.grid.nxgroup],self.parameters)
+        self.process = self._temp_process()
 
         # Output signal paths
         results = self.process.results
@@ -92,8 +91,6 @@ class Task(nxregulargrid.Task):
         for signalin in self.grid.signals:
             nxdata = results[signalin.parent.name]
             if not nxdata.exists:
-                if self.notnew:
-                    raise fs.Missing(nxdata)
                 nxdata = results.nxdata(name=signalin.parent.name)
             self.signalsout.append(nxdata[signalin.name])
     
@@ -110,9 +107,6 @@ class Task(nxregulargrid.Task):
         return out
     
     def _execute_grid(self):
-        if self.notnew:
-            return self.process
-
         # Align image stacks
         with self.grid.open_signals() as datasets:
             parameters = self.parameters
@@ -133,7 +127,3 @@ class Task(nxregulargrid.Task):
                 signalout = nxdata.add_signal(dsetout.name)
             if not nxdata.axes: 
                 nxdata.set_axes(*axes)
-            
-        return self.process
-        
-

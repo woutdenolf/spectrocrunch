@@ -26,7 +26,6 @@ import numpy as np
 from abc import abstractmethod
 
 from . import nxtask
-from . import nxutils
 from . import regulargrid
 from . import axis
 from ..utils import instance
@@ -55,19 +54,20 @@ class Task(nxtask.Task):
         self.grid = regulargrid.NXRegularGrid(self.previous[0])
         self.previous = self.grid.nxgroup
         self._prepare_process()
-        nxprocess = self._execute_grid()
-        self._sort(nxprocess)
-        return nxprocess
+        self._execute_grid()
+        self._sort()
 
-    def _sort(self,nxprocess):
-        it = nxprocess.results.iter_is_nxclass('NXdata')
-        previous = self.previous[0].results
-        for nxdata in it:
-            if nxdata.islink:
-                continue
-            nxdataprev = previous[nxdata.name]
-            if nxdataprev.exists:
-                nxdata.sort_signals(other=nxdataprev)
+    def _sort(self):
+        nxprocess = self._tempoutput
+        if nxprocess.exists:
+            it = nxprocess.results.iter_is_nxclass('NXdata')
+            previous = self.previous[0].results
+            for nxdata in it:
+                if nxdata.islink:
+                    continue
+                nxdataprev = previous[nxdata.name]
+                if nxdataprev.exists:
+                    nxdata.sort_signals(other=nxdataprev)
     
     @property
     def reference_signal_index(self):
@@ -94,10 +94,8 @@ class Task(nxtask.Task):
         Returns:
             nxfs._NXprocess
         """
-        # New nxprocess (return when already exists)
-        process,notnew = self.next_process()
-        if notnew:
-            return process
+        # NXprocess
+        process = self._temp_process()
 
         # Create new axes (if needed)
         axes = self._create_axes(self._process_axes())
@@ -131,8 +129,6 @@ class Task(nxtask.Task):
         
             if bnew: 
                 nxdata.set_axes(*axes)
-                
-        return process
 
     def _prepare_process(self):
         n = self.grid.ndim-1

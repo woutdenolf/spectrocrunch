@@ -70,10 +70,10 @@ class test_nxfs(unittest.TestCase):
     
     def _check_process(self,entry):
         cfg1 = {'p1':10,'p2':[10.,20.],'p3':{'a':1},'p4':'test'}
-        process1,notnew = entry.nxprocess('fit',parameters=cfg1)
-        self.assertFalse(notnew)
-        _,notnew = entry.nxprocess('fit',parameters=cfg1)
-        self.assertTrue(notnew)
+        process1,done = entry.nxprocess('fit',parameters=cfg1)
+        self.assertFalse(done)
+        _,done = entry.nxprocess('fit',parameters=cfg1)
+        self.assertTrue(done)
         
         shape = (2,3)
         dtype = float
@@ -95,8 +95,8 @@ class test_nxfs(unittest.TestCase):
         self.assertEqual(process1.config.read(),cfg1)
         self.assertFalse(process1.previous_processes)
         
-        process2,notnew = entry.nxprocess('align',previous=[process1])
-        self.assertFalse(notnew)
+        process2,done = entry.nxprocess('align',previous=[process1])
+        self.assertFalse(done)
         self.assertEqual(process2.config.read(),None)
         self.assertEqual(process2.previous_processes[0].linkdest(),process1)
 
