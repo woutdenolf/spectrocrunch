@@ -24,6 +24,7 @@
 
 import numpy as np
 from abc import abstractmethod
+
 from . import nxtask
 from . import nxutils
 from . import regulargrid
@@ -128,8 +129,8 @@ class Task(nxtask.Task):
         
             if bnew: 
                 nxdata.set_axes(*axes)
-            
-        return process
+                
+            return process
 
     def _prepare_process(self):
         n = self.grid.ndim-1

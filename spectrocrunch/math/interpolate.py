@@ -43,12 +43,17 @@ def extrap1d(interpolator):
 
     return ufunclike
 
-def interpolate_ndgrid(data,axold,axnew,cval=np.nan,degree=1,asgrid=True):
-    """
+def interpolate_regular(data,axold,axnew,cval=np.nan,degree=1,asgrid=True):
+    """Regular data (not necessarily even spaced)
+    
     Args:
-        data(array): the grid
-        axold(list(array)): grid coordinates (regular but not necessary evenly spaced)
-        axnew(list(array)): 
+        data(array): nD-array
+        axold(tuple(array)): 1D-array (regular but not necessary evenly spaced)
+        axnew(tuple(array)): 1D-array
+        asgrid(Optional(True))
+        
+    Returns:
+        data(array): (data.size,nD) or mD-array (asgrid)
     """
     ndim = data.ndim
     if len(axold)!=ndim or len(axnew)!=ndim:
@@ -83,3 +88,55 @@ def interpolate_ndgrid(data,axold,axnew,cval=np.nan,degree=1,asgrid=True):
     if post:
         ret = post(ret)
     return ret
+
+def _ravel(ax):
+    if isinstance(ax,np.ndarray):
+        return ax.ravel()
+    else:
+        return np.array(ax)
+
+def _ravel_reshape(ax,i,ndim):
+    ind = [np.newaxis]*ndim
+    ind[i] = slice(None)
+    return _ravel(ax)[ind]
+    
+    
+def interpolate_irregular(data,axold,axnew,cval=np.nan,degree=1,asgrid=True):
+    """Irregular data
+    
+    Args:
+        data(array): nD-array
+        axold(tuple(array)): nD-coordinates
+        axnew(tuple(array)): 1D-coordinates
+        asgrid(Optional(True))
+        
+    Returns:
+        grid(array): (data.size,nD) or mD-array (asgrid)
+    """
+    ndim = data.ndim
+    if len(axold)!=ndim or len(axnew)!=ndim:
+        raise ValueError('Data and axes dimensions must be the same')
+    
+    if ndim==1:
+        kind = ['nearest','linear','quadratic','cubic'][min(degree,3)]
+        # nearest==zero, linear==slinear ???
+        interp = scipy.interpolate.interp1d(axold[0],data,kind=kind,assume_sorted=False,
+                                       fill_value=cval,bounds_error=False)
+        return interp(axnew[0])
+    else:
+        if ndim==2:
+            method = ['nearest','linear',None,'cubic'][min(degree,3)]
+            if method is None:
+                method = 'cubic'
+        else:
+            if degree==0:
+                method = 'nearest'
+            else:
+                method = 'linear'
+        axold = tuple([_ravel(ax) for ax in axold])
+        if asgrid:
+            axnew = tuple([_ravel_reshape(ax,i,ndim) for i,ax in enumerate(axnew)])
+        else:
+            axnew = tuple([_ravel(ax) for ax in axnew])
+        return scipy.interpolate.griddata(axold, data.ravel(), axnew, method=method,
+                                          fill_value=cval)
