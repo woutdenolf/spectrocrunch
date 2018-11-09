@@ -27,6 +27,7 @@ from abc import ABCMeta,abstractmethod
 from future.utils import with_metaclass
 
 from . import nxutils
+from ..utils import instance
 
 class TaskException(Exception):
     pass
@@ -42,7 +43,7 @@ class Task(with_metaclass(ABCMeta,object)):
     def __init__(self,parameters,previous):
         self.parameters = parameters
         self.previous = previous
-        
+            
     @property
     def parameters(self):
         return self._parameters
@@ -54,6 +55,20 @@ class Task(with_metaclass(ABCMeta,object)):
         lst = self._parameters_filter()
         self._parameters = {k:v for k,v in self._parameters.items() if k in lst}
     
+    @property
+    def previous(self):
+        return self._previous
+    
+    @previous.setter
+    def previous(self,value):
+        if instance.isarray(value):
+            self._previous = value
+        else:
+            if value is None:
+                self._previous = []
+            else:
+                self._previous = [value]
+                
     def _parameters_defaults(self):
         self.parameters["name"] = self.parameters.get('name',self.method)
 
@@ -83,6 +98,9 @@ class Task(with_metaclass(ABCMeta,object)):
         if nxprocess and self.default:
             nxutils.set_default(nxprocess,self.default)
         return nxprocess
+                
+    def next_process(self):
+        return nxutils.next_process(self.previous,self.parameters)
     
     @abstractmethod
     def _execute(self):
