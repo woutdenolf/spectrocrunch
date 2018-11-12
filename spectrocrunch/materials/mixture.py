@@ -72,6 +72,14 @@ class Mixture(multielementbase.MultiElementBase):
             else:
                 self.compounds[c] = float(n)
 
+    def __getstate__(self):
+        return {'name':self.name,'compounds_keys':self.compounds.keys(),
+                                 'compounds_values':self.compounds.values()}
+    
+    def __setstate__(self,state):
+        self.name = state['name']
+        self.compounds = dict(zip(state['compounds_keys'],state['compounds_values']))
+
     @property
     def parts(self):
         return self.compounds

@@ -165,6 +165,13 @@ class FluoLine(hashable.Hashable):
             self.code = self.getlinecode(line)
             self.name = self.getlinename(line)
 
+    def __getstate__(self):
+        return {'code':self.code,'name':self.name}
+    
+    def __setstate__(self,state):
+        self.code = state['code']
+        self.name = state['name']
+
     def _cmpkey(self):
         """For comparing and sorting
         """
@@ -383,6 +390,14 @@ class Shell(hashable.Hashable):
                 self._fluolines = None # all lines
             else:
                 self._fluolines = FluoLine.factory(shells=[self],fluolines=fluolines)
+
+    def __getstate__(self):
+        return {'code':self.code,'name':self.name,'fluolines':self._fluolines}
+    
+    def __setstate__(self,state):
+        self.code = state['code']
+        self.name = state['name']
+        self._fluolines = state['fluolines']
 
     @property
     def fluolines(self):

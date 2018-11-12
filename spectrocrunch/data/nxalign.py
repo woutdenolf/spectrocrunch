@@ -33,6 +33,7 @@ class Task(nxregulargrid.Task):
         super(Task,self)._parameters_defaults()
         self._required_parameters('alignmethod','reference')
         parameters = self.parameters
+        parameters['refimageindex'] = parameters.get('refimageindex',-1)
         parameters['crop'] = parameters.get('crop',False)
         parameters['roi'] = parameters.get('roi',None)
         parameters['plot'] = parameters.get('plot',False)
@@ -61,7 +62,7 @@ class Task(nxregulargrid.Task):
         
     def _prepare_reference(self):
         parameters = self.parameters
-        refimageindex = parameters.get('refimageindex',-1)
+        refimageindex = parameters['refimageindex']
         refgrid = self.reference_signal
         if instance.isstring(refimageindex):
             if refimageindex=='first':
@@ -124,6 +125,6 @@ class Task(nxregulargrid.Task):
         for signalout in self.signalsout:
             nxdata = signalout.parent
             with signalout.open() as dsetout:
-                signalout = nxdata.add_signal(dsetout.name)
+                signalout = nxdata.add_signal(signalout.name)
             if not nxdata.axes: 
                 nxdata.set_axes(*axes)

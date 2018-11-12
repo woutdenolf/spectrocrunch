@@ -345,3 +345,10 @@ classes = InstrumentInfo.clsregistry
 aliases = InstrumentInfo.aliasregistry
 factory = InstrumentInfo.factory
 
+def getinstrument(parameters):
+    if "instrument" not in parameters:
+        raise RuntimeError("You need to specify an instrument.")
+    instrument = parameters["instrument"]
+    if isinstance(instrument,InstrumentInfo):
+        return instrument
+    return factory(instrument,**parameters.get("instrument_parameters",{}))

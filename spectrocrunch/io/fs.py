@@ -429,12 +429,12 @@ class Path(File):
         if path:
             # Node name
             indent = _padding[:-1]
-            if indent or stats:
+            if indent:
                 node = path.name
             else:
                 node = path.location
             nodename = '{}+-{}'.format(indent,node)
-
+            
             # Add link info
             lnkdest = path.linkdest(follow=False)
             if lnkdest:
