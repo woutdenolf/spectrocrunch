@@ -415,10 +415,7 @@ class Path(File):
 
     def strtree(self,recursive=True,depth=0,files=True,stats=False):
         tree = self.tree(recursive=recursive,depth=depth,files=files)
-        if stats:
-            lines = self._str_tree_withstats(tree)
-        else:
-            lines = self._str_tree(tree)
+        lines = self._str_tree(tree,stats=stats)
         return '\n'.join(lines)
         
     def ls(self,recursive=True,depth=0,files=True,stats=False):
@@ -426,19 +423,18 @@ class Path(File):
         print(tree)
 
     @classmethod
-    def _str_tree(cls,node,_padding=' '):
+    def _str_tree(cls,node,stats=False,_padding=' '):
         path,lst = node
         out = []
         if path:
             # Node name
             indent = _padding[:-1]
-            
-            if indent:
+            if indent or stats:
                 node = path.name
             else:
                 node = path.location
             nodename = '{}+-{}'.format(indent,node)
-            
+
             # Add link info
             lnkdest = path.linkdest(follow=False)
             if lnkdest:
@@ -459,6 +455,20 @@ class Path(File):
 
             out.append(nodename)
             
+            # Add stats
+            if stats:
+                try:
+                    sts = path.stats()
+                except Missing:
+                    pass # broken link
+                else:
+                    if lst:
+                        sep = '|'
+                    else:
+                        sep = ' '
+                    for k,v in sts.items():
+                        out.append('{} {} @{} = {}'.format(_padding,sep,k,v))
+            
             # Add subnodes
             if lst:
                 last = len(lst)
@@ -466,47 +476,10 @@ class Path(File):
                 for i,node in enumerate(lst,1):
                     out.append(_padding+'|')
                     if i==last:
-                        out += cls._str_tree(node,_padding=_padding+' ')
+                        out += cls._str_tree(node,stats=stats,_padding=_padding+' ')
                     else:
-                        out += cls._str_tree(node,_padding=_padding+'|')
+                        out += cls._str_tree(node,stats=stats,_padding=_padding+'|')
         return out
-
-    @classmethod
-    def _str_tree_withstats(cls,node,_padding=' '):
-        path,lst = node
-        out = []
-        if path:
-            # Node name
-            indent = _padding[:-1]
-            name,stats = path.lsinfo()
-            out.append('{}+-{}'.format(indent,name))
-            if lst:
-                sep = '|'
-            else:
-                sep = ' '
-            for k,v in stats.items():
-                out.append('{} {} @{} = {}'.format(_padding,sep,k,v))
-                
-            # Add subnodes
-            if lst:
-                last = len(lst)
-                _padding = _padding + ' '
-                for i,node in enumerate(lst,1):
-                    out.append(_padding+'|')
-                    if i==last:
-                        out += cls._str_tree_withstats(node,_padding=_padding+' ')
-                    else:
-                        out += cls._str_tree_withstats(node,_padding=_padding+'|')
-        return out
-    
-    def lsinfo(self):
-        try:
-            stats = self.stats()
-            name = self.name
-        except Missing:
-            name = '{} (broken link: {})'.format(self.name,self.linkdestname)
-            stats = {}
-        return name,stats
         
     def node(self,follow=True):
         if follow:
