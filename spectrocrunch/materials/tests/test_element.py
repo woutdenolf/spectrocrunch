@@ -29,6 +29,7 @@ from .. import xrayspectrum
 from ...patch import xraylib
 from ...patch.pint import ureg
 from ...sources import xray as xraysources
+from ...patch import jsonpickle
 
 import numpy as np
 from scipy import integrate
@@ -227,7 +228,7 @@ class test_element(unittest.TestCase):
             
     def test_formfact(self):
         e = element.Element("Fe")
-        
+
         energy = 30
         wavelength = ureg.Quantity(energy,'keV').to("cm","spectroscopy")
         f2 = e.scatfact_imag(energy)
@@ -241,6 +242,13 @@ class test_element(unittest.TestCase):
         theta = np.radians(45)
         np.testing.assert_allclose(xraylib.FF_Rayl(e.Z,xraylib.MomentTransf(energy,theta)),e.scatfact_classic_real(energy,theta=theta),rtol=1e-5)
     
+    def test_serialize(self):
+        e1 = element.Element("Fe")
+        e1.markabsorber("Fe",shells=['K'],fluolines=['KA'])
+        e2 = jsonpickle.decode(jsonpickle.encode(e1))
+        self.assertEqual(e1,e2)
+        self.assertEqual(e1.shells,e2.shells)
+        
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
@@ -251,6 +259,7 @@ def test_suite():
     testSuite.addTest(test_element("test_diffcs_elastic"))
     testSuite.addTest(test_element("test_diffcs_inelastic"))
     testSuite.addTest(test_element("test_formfact"))
+    testSuite.addTest(test_element("test_serialize"))
     return testSuite
 
 if __name__ == '__main__':

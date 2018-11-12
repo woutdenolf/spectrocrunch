@@ -26,13 +26,17 @@ from . import types
 from . import elementbase
 from ..utils import instance 
 from ..patch.pint import ureg
+from ..utils.hashable import Hashable
 
 import numpy as np
 
 
-class MultiElementBase(elementbase.ElementBase):
+class MultiElementBase(Hashable,elementbase.ElementBase):
     # TODO: refactor most of Mixture and Compound
     
+    def _cmpkey(self):
+        return self.name
+        
     @property
     def nparts(self):
         return len(self.parts)

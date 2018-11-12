@@ -31,6 +31,7 @@ from .. import compoundfromcif
 from .. import compoundfromname
 from .. import types
 from ...patch.pint import ureg
+from ...patch import jsonpickle
 
 try:
     import iotbx.cif as iotbxcif
@@ -185,7 +186,13 @@ class test_compound(unittest.TestCase):
         delta = c.refractive_index_delta(energy)
         m = (2*np.pi/(ureg.classical_electron_radius*wavelength**2*ureg.avogadro_number/ureg.Quantity(c.molarmasseff(),"g/mol")*c.Zeff)).to("g/cm^3").magnitude
         np.testing.assert_allclose(delta*m,c.density,rtol=1e-2)
-        
+    
+    def test_serialize(self):
+        c1 = compoundfromformula.CompoundFromFormula("Fe2O3",5.3,name="test")
+        c2 = jsonpickle.decode(jsonpickle.encode(c1))
+        self.assertEqual(c1,c2)
+        self.assertEqual(c1.elements,c2.elements)
+        self.assertEqual(c1.density,c2.density)
         
 def test_suite():
     """Test suite including all test suites"""
@@ -199,6 +206,7 @@ def test_suite():
     testSuite.addTest(test_compound("test_name"))
     testSuite.addTest(test_compound("test_refractiveindex"))
     testSuite.addTest(test_compound("test_refractiveindex2"))
+    testSuite.addTest(test_compound("test_serialize"))
     return testSuite
     
 if __name__ == '__main__':

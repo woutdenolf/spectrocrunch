@@ -65,7 +65,6 @@ class test_serialize(unittest.TestCase):
         
         serialized = jsonpickle.encode(data)
         deserialized = jsonpickle.decode(serialized)
-        
         self.assertEqual(data,deserialized)
         
 def test_suite():

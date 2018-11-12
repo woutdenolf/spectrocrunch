@@ -97,4 +97,13 @@ def timeit(name=""):
     t1 = time.time()
 
     print("Execution time ({}): {}".format(name,t1-t0))
-    
+
+@contextlib.contextmanager
+def timeit_logger(logger,name=""):
+    T0 = taketimestamp()
+    yield
+    if name:
+        text = "Elapsed time ({})".format(name)
+    else:
+        text = None
+    printtimeelapsed(T0,logger,text=text)

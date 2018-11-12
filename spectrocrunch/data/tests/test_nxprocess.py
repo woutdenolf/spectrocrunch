@@ -142,14 +142,14 @@ class test_nxprocess(unittest.TestCase):
             self._check_grid(grid)
     
     def _run_task(self,parameters,proc1):
-        task = nxtask.newtask(parameters,proc1)
+        task = nxtask.newtask(previous=proc1,**parameters)
         task.run()
         proc2 = task.output
         self.assertTrue(task.done)
         task.run()
         proc3 = task.output
         self.assertEqual(proc2,proc3)
-        task = nxtask.newtask(parameters,proc1)
+        task = nxtask.newtask(previous=proc1,**parameters)
         self.assertTrue(task.done)
         task.run()
         proc3 = task.output
@@ -231,7 +231,8 @@ class test_nxprocess(unittest.TestCase):
     def test_align(self):
         with self._nxprocess(method='align') as proc1:
             proc1,info = proc1
-            parameters = {'method':'align','alignmethod':'max','reference':'Fe-K','refimageindex':0}
+            parameters = {'method':'align','alignmethod':'max','reference':'Fe-K',
+                          'refimageindex':0,'default':'Fe-K'}
             proc2 = self._run_task(parameters,proc1)
             
             grid2 = regulargrid.NXRegularGrid(proc2)

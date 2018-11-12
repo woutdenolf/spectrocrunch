@@ -64,6 +64,14 @@ class Layer(object):
         self.fixed = fixed
         self.ml = ml
 
+    def __getstate__(self):
+        return {'material':self.material,'thickness':self.thickness,'fixed':self.fixed}
+    
+    def __setstate__(self,state):
+        self.material = state['material']
+        self.thickness = state['thickness']
+        self.fixed = state['fixed']
+
     def __getattr__(self,attr):
         return getattr(self.material,attr)
 
@@ -110,7 +118,7 @@ class Layer(object):
         m = self.density*self.thickness
         return dict(zip(wfrac.keys(),np.array(wfrac.values())*m))
     
-    
+        
 class Multilayer(with_metaclass(cache.Cache)):
     """
     Class representing a multilayer of compounds or mixtures
@@ -142,6 +150,15 @@ class Multilayer(with_metaclass(cache.Cache)):
         
         super(Multilayer,self).__init__(force=True)
     
+    def __getstate__(self):
+        return {'layers':self.layers}
+    
+    def __setstate__(self,state):
+        self.layers = state['layers']
+        for layer in self.layers:
+            layer.ml = self
+        self.geometry = state['geometry']
+        
     def __len__(self):
         return len(self.layers)
     

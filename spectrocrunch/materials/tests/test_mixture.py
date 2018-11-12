@@ -25,6 +25,7 @@
 import unittest
 
 from ...patch.pint import ureg
+from ...patch import jsonpickle
 from ...utils import instance
 from .. import compoundfromformula
 from .. import mixture
@@ -157,6 +158,14 @@ class test_mixture(unittest.TestCase):
         delta = c.refractive_index_delta(energy)
         m = (2*np.pi/(ureg.classical_electron_radius*wavelength**2*ureg.avogadro_number/ureg.Quantity(c.molarmasseff(),"g/mol")*c.Zeff)).to("g/cm^3").magnitude
         np.testing.assert_allclose(delta*m,c.density,rtol=1e-2)
+    
+    def test_serialize(self):
+        c1 = compoundfromformula.CompoundFromFormula("Co2O3",1.5)
+        c2 = compoundfromformula.CompoundFromFormula("Fe2O3",1.6)
+        m1 = mixture.Mixture([c1,c2],[2,3],types.fraction.mole,name='mixture')
+        m2 = jsonpickle.decode(jsonpickle.encode(m1))
+        self.assertEqual(m1.compounds,m2.compounds)
+        self.assertEqual(m1.density,m2.density)
         
 def test_suite():
     """Test suite including all test suites"""
@@ -166,6 +175,7 @@ def test_suite():
     testSuite.addTest(test_mixture("test_tocompound"))
     testSuite.addTest(test_mixture("test_cross_sections"))
     testSuite.addTest(test_mixture("test_refractiveindex"))
+    testSuite.addTest(test_mixture("test_serialize"))
     return testSuite
     
 if __name__ == '__main__':

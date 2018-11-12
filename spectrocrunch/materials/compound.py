@@ -27,14 +27,13 @@ from . import element
 from . import interaction
 from . import types
 from . import stoichiometry
-from ..utils.hashable import Hashable
 from ..utils import listtools
 from ..utils import instance
 
 import numpy as np
 import fisx
 
-class Compound(Hashable,multielementbase.MultiElementBase):
+class Compound(multielementbase.MultiElementBase):
     """Interface to a compound
     """
 
@@ -97,6 +96,19 @@ class Compound(Hashable,multielementbase.MultiElementBase):
             else:
                 self._elements[e] = float(n)
 
+    def __getstate__(self):
+        return {'name':self.name,'nrefrac':self.nrefrac,'density':self.density,
+                'elements_keys':self._elements.keys(),
+                'elements_values':self._elements.values(),
+                'isscatterer':self.isscatterer}
+    
+    def __setstate__(self,state):
+        self.name = state['name']
+        self.nrefrac = state['nrefrac']
+        self.density = state['density']
+        self._elements = dict(zip(state['elements_keys'],state['elements_values']))
+        self.isscatterer = state['isscatterer']
+
     def addelements(self,elements,fractions,fractype,density=None):
         """Add an element to the compound
 
@@ -158,9 +170,6 @@ class Compound(Hashable,multielementbase.MultiElementBase):
             
         # Elements
         self._compose_elements(elements,nfrac)
-
-    def _cmpkey(self):
-        return self.name
 
     def _stringrepr(self):
         return self.name

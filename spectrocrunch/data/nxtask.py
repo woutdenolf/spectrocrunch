@@ -26,10 +26,14 @@ from copy import deepcopy
 from abc import ABCMeta,abstractmethod
 from future.utils import with_metaclass
 import traceback
+import logging
 
 from . import nxutils
 from ..utils import instance
+from ..utils import timing
 from ..io.utils import randomstring
+
+logger = logging.getLogger(__name__)
 
 class TaskException(Exception):
     pass
@@ -42,10 +46,13 @@ class ParameterError(TaskException):
     
 class Task(with_metaclass(ABCMeta,object)):
     
-    def __init__(self,parameters,previous):
+    def __init__(self,previous=None,nxentry=None,**parameters):
         self._tempname = randomstring()
         self.parameters = parameters
         self.previous = previous
+        self._nxentry = nxentry
+        if not self.previous and not nxentry:
+            raise ValueError('Specify "nxentry" when task is not based on a previous NXprocess')
             
     @property
     def parameters(self):
@@ -56,7 +63,8 @@ class Task(with_metaclass(ABCMeta,object)):
         self._parameters = deepcopy(value)
         self._parameters_defaults()
         lst = self._parameters_filter()
-        self._parameters = {k:v for k,v in self._parameters.items() if k in lst}
+        if lst:
+            self._parameters = {k:v for k,v in self._parameters.items() if k in lst}
     
     @property
     def previous(self):
@@ -73,7 +81,8 @@ class Task(with_metaclass(ABCMeta,object)):
                 self._previous = [value]
                 
     def _parameters_defaults(self):
-        self.parameters["name"] = self.parameters.get('name',self.method)
+        self._required_parameters('method')
+        self.parameters['name'] = self.parameters.get('name',self.method)
 
     def _required_parameters(self,*params):
         parameters = self.parameters
@@ -96,25 +105,44 @@ class Task(with_metaclass(ABCMeta,object)):
     def default(self):
         return self.parameters.get('default',None)
     
+    def __str__(self):
+        return "Task '{}'".format(self.name)
+    
     def run(self):
         """This is atomic if h5py.Group.move is atomic
         """
-        if not self.done:
-            nxprocess = self._tempoutput
-            try:
-                self._execute()
-            except Exception:
-                traceback.print_exc()
-                nxprocess.remove(recursive=True)
+        with timing.timeit_logger(logger,name=str(self)):
+            fmt = "Task {} {{}}".format(self)
+            if self.done:
+                logger.info(fmt.format("already done"))
+            else:
+                logger.info(fmt.format("started ..."))
+                
+                # Make sure previous tasks are executed
+                for nxprocess in self.previous:
+                    if not nxprocess.exists:
+                        return
+                
+                # Try to execute this task (output under temporary name)
+                nxprocess = self._tempoutput
+                try:
+                    self._execute()
+                except Exception:
+                    logger.error(traceback.format_exc())
+                    nxprocess.remove(recursive=True)
 
-            if nxprocess.exists:
-                nxprocess = nxprocess.rename(self.output)
-                if self.default:
-                    nxutils.set_default(nxprocess,self.default)
+                # Proper output name and set default
+                if nxprocess.exists:
+                    nxprocess = nxprocess.rename(self.output)
+                    if self.default:
+                        nxutils.set_default(nxprocess,self.default)
 
     @property
     def entry(self):
-        return self.previous[-1].nxentry()
+        if self.previous:
+            return self.previous[-1].nxentry()
+        else:
+            return self._nxentry
     
     def _temp_process(self):
         """Creates the process when it doesn't exist yet
@@ -148,7 +176,7 @@ class Task(with_metaclass(ABCMeta,object)):
     def _execute(self):
         pass
 
-def newtask(parameters,previous):
+def newtask(**parameters):
     method = parameters.get('method',None)
     if method=='crop':
         from .nxcrop import Task
@@ -162,6 +190,8 @@ def newtask(parameters,previous):
         from .nxexpression import Task
     elif method=='resample':
         from .nxresample import Task
+    elif method=='xrf':
+        from .nxxrf import Task
     else:
         raise ParameterError('Unknown method {}'.format(repr(method)))
-    return Task(parameters,previous)
+    return Task(**parameters)

@@ -101,18 +101,36 @@ class Element(hashable.Hashable,elementbase.ElementBase):
         Args:
             symb(int or str or Element)
         """
-        
-        # Atomic number
         self.Z,self.name = elementParse(symb)
-        
-        # Atomic properties
-        self.MM = xraylib.AtomicWeight(self.Z)
-
-        # Information for calculating partial cross-sections
         self.shells = []
-        
         self.isscatterer = True
+
+    @property
+    def Z(self):
+        return self._Z
     
+    @Z.setter
+    def Z(self,value):
+        self._Z,self._name = elementParse(value)
+        self.MM = xraylib.AtomicWeight(self._Z)
+
+    @property
+    def name(self):
+        return self._name
+    
+    @name.setter
+    def name(self,value):
+        self._Z,self._name = elementParse(value)
+        self.MM = xraylib.AtomicWeight(self._Z)
+    
+    def __getstate__(self):
+        return {'Z':self.Z,'shells':self.shells,'isscatterer':self.isscatterer}
+    
+    def __setstate__(self,state):
+        self.Z = state['Z']
+        self.shells = state['shells']
+        self.isscatterer = state['isscatterer']
+
     def _cmpkey(self):
         """For comparing and sorting
         """
