@@ -30,10 +30,13 @@ import h5py
 import re
 import string
 import collections
+import logging
 
 from . import nxregulargrid
 from ..utils.integerbase import integerbase
 from ..io import nxfs
+
+logger = logging.getLogger(__name__)
 
 class Task(nxregulargrid.Task):
     
@@ -42,15 +45,28 @@ class Task(nxregulargrid.Task):
         self._required_parameters('expression')
         parameters = self.parameters
         parameters['skip'] = parameters.get('skip',[])
-    
+        logger.info('Skip regex: {}'.format(parameters['skip']))
+        logger.info('Expression: {}'.format(parameters['expression']))
+
     def _parameters_filter(self):
         return super(Task,self)._parameters_filter()+['expression','skip']
+    
+    @staticmethod
+    def skipfunc(skipdict):
+        method = skipdict.get('method','regex')
+        if method=='regexparent':
+            return lambda signal:re.match(skipdict['pattern'],signal.parent.name)
+        elif method=='regex':
+            return lambda signal:re.match(skipdict['pattern'],signal.name)
+        else:
+            return lambda signal:False
         
     def _prepare_process(self):
         super(Task,self)._prepare_process()
         self.mathparser = MathParser()
         self._parse_expression()
-        
+        self.skipfuncs = [self.skipfunc(skipdict) for skipdict in self.parameters['skip']]
+
     def _process_data(self,data):
         if self.variables:
             variables = {'a':data}
@@ -93,9 +109,11 @@ class Task(nxregulargrid.Task):
         self.vardefault = {k:vardefault[k] for k,v in varcount.items() if v==1}
 
     def _prepare_signal(self,signal):
-        if signal.name in self.parameters['skip']:
+        if self._skip(signal):
+            logger.info('saving (skip) {}'.format(signal.name))
             self.variables = {}
         else:
+            logger.info('saving {}'.format(signal.name))
             # For example: 'xmap_icr':'var_c' -> 'var_c':.../detector00/xmap_icr
             self.variables = {}
             for oldname,newname in self.namemap.items():
@@ -103,6 +121,12 @@ class Task(nxregulargrid.Task):
                 if not path:
                     path = signal.parent[oldname]
                 self.variables[newname] = path
+
+    def _skip(self,signal):
+        for func in self.skipfuncs:
+            if func(signal):
+                return True
+        return False
 
     def _extract_variable_names(self,allowempty=True):
         expression = self.parameters['expression']

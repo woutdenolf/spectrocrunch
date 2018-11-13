@@ -38,13 +38,12 @@ class Task(nxtask.Task):
     def _parameters_defaults(self):
         super(Task,self)._parameters_defaults()
         parameters = self.parameters
-        parameters['sliced'] = parameters.get('sliced',True)
-        parameters['dtypex'] = parameters.get('dtypex',False)
+        parameters['sliced'] = parameters.get('sliced',False)
         parameters['stackdim'] = parameters.get('stackdim',self.DEFAULT_STACKDIM)
         # Not all processes need a reference
     
     def _parameters_filter(self):
-        return super(Task,self)._parameters_filter()+['sliced','stackdim','dtypex']
+        return super(Task,self)._parameters_filter()+['sliced','stackdim']
     
     def _execute(self):
         """
@@ -164,8 +163,12 @@ class Task(nxtask.Task):
         return self.signalin_shape[self.signal_stackdim]
 
     @property
+    def dtype_process(self):
+        return np.float32(0)
+
+    @property
     def signalout_dtype(self):
-        x = np.array(0,dtype=self.grid.dtype)*self.parameters['dtypex']
+        x = np.array(0,dtype=self.grid.dtype)*self.dtype_process
         return x.dtype
 
     @property

@@ -25,12 +25,12 @@
 import numpy as np
 from collections import OrderedDict
 import logging
-import os
 
 from . import nxtask
-from . import nxutils
+from . import nxresult
 from . import nxlazy
 from ..io import xiaedf
+from ..io import localfs
 from ..data import axis
 from ..utils import listtools
 from ..utils import instance
@@ -177,11 +177,11 @@ class Task(nxtask.Task):
 
         # Do we need to add detector groups?
         if any(len(instance.asarray(lst))>1 for lst in instance.asarray(self.parameters["include_detectors"])):
-            self._include_detectors = {nxutils.ProcessGroup('S{:d}'.format(i)):instance.asarray(singledets)
+            self._include_detectors = {nxresult.Group('S{:d}'.format(i)):instance.asarray(singledets)
                                        for i,singledets in enumerate(self.parameters["include_detectors"],1)}
         else:
             # These are not necessarily all detector!
-            self._include_detectors = {nxutils.ProcessGroup('S1'):include_detectors}
+            self._include_detectors = {nxresult.Group('S1'):include_detectors}
         adddetectorgroups = len(self._include_detectors)>1
 
         # Do we need to add spectra (all or in groups)?
@@ -203,19 +203,19 @@ class Task(nxtask.Task):
             # Add single detectors to their corresponding subgroup
             for dest,singledets in self._include_detectors.items():
                 for det in singledets:
-                    self._detectors_sumto[nxutils.ProcessGroup(det)] = dest
+                    self._detectors_sumto[nxresult.Group(det)] = dest
                 
             if adddetectors:
                 # Add subgroups to the sumgroup
                 num = max(det.number for det in self._detectors_sumto)
-                dest = nxutils.ProcessGroup('S{:d}'.format(num+1))
+                dest = nxresult.Group('S{:d}'.format(num+1))
                 for det in self._include_detectors:
-                    self._detectors_sumto[nxutils.ProcessGroup(det)] = dest
+                    self._detectors_sumto[nxresult.Group(det)] = dest
         elif adddetectors:
             # Add single detectors to the sumgroup
-            dest = nxutils.ProcessGroup('S1')
+            dest = nxresult.Group('S1')
             for det in self.xiastackraw.xialabels_used:
-                self._detectors_sumto[nxutils.ProcessGroup(det)] = dest
+                self._detectors_sumto[nxresult.Group(det)] = dest
 
     def _prepare_dtcor(self):
         dtcor = self.parameters["dtcor"] 
@@ -287,26 +287,31 @@ class Task(nxtask.Task):
             else:
                 radix = self.parameters["scanname"]
             
-            # not necesarry but clean in case of re-runs
-            if os.path.isdir(self.parameters["outdatapath"]):
-                shutil.rmtree(self.parameters["outdatapath"])
-            self.xiastackproc = xiaedf.xiastack_mapnumbers(self.parameters["outdatapath"],radix,self.parameters["scannumbers"])
-            self.xiastackproc.overwrite(True)
-            
-            # Only spectra, not counters (more efficient that way)
-            if self.addspectra:
-                logger.info("Creating corrected XRF spectra: {}".format(list(self._include_detectors.keys())))
-                for det,include_detector in self._include_detectors.items():
-                    self.xiastackraw.include_detectors(include_detector)
-                    self.xiastackproc.save(self.xiastackraw,xialabels=[det.xialabel])
+            outpath = localfs.Path(self.parameters["outdatapath"])
+            self.xiastackproc = xiaedf.xiastack_mapnumbers(outpath.path,radix,self.parameters["scannumbers"])
+            shape = self.xiastackproc.dshape
+            if shape:
+                create = shape[:-1]!=self.xiastackraw.dshape[:-1]
             else:
-                xialabels = self.xiastackraw.xialabels_used
-                logger.info("Creating corrected XRF spectra: {}".format(xialabels))
-                self.xiastackproc.save(self.xiastackraw,xialabels=xialabels)
+                create = True
+            if create:
+                # Only spectra, not counters (more efficient that way)
+                self.xiastackproc.overwrite(True)
+                if self.addspectra:
+                    logger.info("Creating corrected XRF spectra: {}".format(list(self._include_detectors.keys())))
+                    for det,include_detector in self._include_detectors.items():
+                        self.xiastackraw.include_detectors(include_detector)
+                        self.xiastackproc.save(self.xiastackraw,xialabels=[det.xialabel])
+                else:
+                    xialabels = self.xiastackraw.xialabels_used
+                    logger.info("Creating corrected XRF spectra: {}".format(xialabels))
+                    self.xiastackproc.save(self.xiastackraw,xialabels=xialabels)
+            else:
+                logger.info('Corrected XRF spectra already exist')
         else:
-            logger.debug('Corrections (if any) are not applied to the XRF spectra')
+            logger.info('Corrections (if any) are not applied to the XRF spectra')
             self.xiastackproc = self.xiastackraw
-            
+        
     def _stack_add_counters(self):
         self.xiastackraw.exclude_detectors(self.parameters["exclude_detectors"])
         self.xiastackraw.include_detectors(list(listtools.flatten(self.parameters["include_detectors"])))
@@ -366,7 +371,7 @@ class Task(nxtask.Task):
             files = xiaimage.ctrfilenames_used(counters)
             files = xiaedf.xiagroupdetectors(files)
             for detector,v1 in files.items():
-                name = nxutils.ProcessGroup(detector)
+                name = nxresult.Group(detector)
 
                 # Prepare list of files
                 if imageindex==0:
@@ -439,7 +444,7 @@ class Task(nxtask.Task):
         self._add_axis_procinfo("it_to_flux_offset",defaultunits='Hz')
         self._add_axis_procinfo("it_to_flux_factor",defaultunits='Hz')
         
-        name = nxutils.ProcessGroup(None)
+        name = nxresult.Group(None)
         for imageindex in range(self.nstack):
             energy = self.axes[self.axes_names[self.outstackdim]][imageindex].magnitude
             time = self.procaxes["refexpotime"][imageindex]
@@ -484,9 +489,9 @@ class Task(nxtask.Task):
         logger.info("Fit XRF spectra ...")
 
         # not necessary but clean in case of re-runs
-        if os.path.isdir(self.parameters["outfitpath"]):
-            shutil.rmtree(self.parameters["outfitpath"])
-                    
+        outpath = localfs.Path(self.parameters["outfitpath"])
+        outpath.remove(recursive=True)
+
         if len(self.parameters["detectorcfg"])==1:
             fitcfg = self.parameters["detectorcfg"]*self.ndetfit
         else:
@@ -515,11 +520,11 @@ class Task(nxtask.Task):
                 energy = self.axes[self.axes_names[self.outstackdim]][imageindex].magnitude
 
                 files, labels = PerformBatchFit(filestofit[detector]["xia"],
-                                       self.parameters["outfitpath"],outname,cfg,energy,
+                                       outpath.path,outname,cfg,energy,
                                        fast=self.parameters["fastfitting"],mlines=self.parameters["mlines"],quant=quant)
                 
                 # Prepare list of files    
-                name = nxutils.ProcessGroup(detector)
+                name = nxresult.Group(detector)
                 if imageindex==0:
                     if name not in self.stacks:
                         self.stacks[name] = {}
@@ -589,7 +594,7 @@ class Task(nxtask.Task):
         
     def _apply_postcorrect_xrf(self,fluxnorm,dtcor):
         detectors = [detector for detector in self.stacks if detector.isdetector]
-        normname = nxutils.ProcessGroup(None)
+        normname = nxresult.Group(None)
 
         logger.debug('Correction after XRF fitting (flux:{},dt:{})'.format(fluxnorm,dtcor))
 

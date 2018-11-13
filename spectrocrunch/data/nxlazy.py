@@ -73,7 +73,7 @@ class lazy_xrfnorm(LazyFunction):
 
     def __call__(self,xrf,flux,fluxref,xiaimage,detnr):
         if fluxref:
-            norm = fluxref/xiaedf.normalizer(flux)
+            norm = fluxref.to('Hz').magnitude/xiaedf.normalizer(flux)
         else:
             norm = 1
         if xiaimage:
