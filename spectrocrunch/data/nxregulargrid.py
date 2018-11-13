@@ -58,7 +58,7 @@ class Task(nxtask.Task):
         self._sort()
 
     def _sort(self):
-        it = self.nxprocess.results.iter_is_nxclass('NXdata')
+        it = self.nxresults.iter_is_nxclass('NXdata')
         previous = self.previous[0].results
         for nxdata in it:
             if nxdata.islink:
@@ -96,15 +96,14 @@ class Task(nxtask.Task):
         axes = self._create_axes(self._process_axes())
 
         # Create new signals
-        results = self.nxprocess.results
         for signalin in self.grid.signals:
             self._prepare_signal(signalin)
             
             # Create new NXdata if needed
-            nxdata = results[signalin.parent.name]
+            nxdata = self.nxresults[signalin.parent.name]
             bnew = not nxdata.exists
             if bnew:
-                nxdata = results.nxdata(name=signalin.parent.name)
+                nxdata = self.nxresults.nxdata(name=signalin.parent.name)
 
             with signalin.open() as dsetin:
                 # Calculate new signal from old signal

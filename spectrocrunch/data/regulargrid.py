@@ -34,6 +34,7 @@ except ImportError:
     from contextlib2 import ExitStack
     
 from . import axis
+from . import nxresult
 from ..utils import indexing
 from ..io import nxfs
 from ..math.interpolate import interpolate_regular
@@ -177,37 +178,12 @@ class NXSignalRegularGrid(RegularGrid):
 class NXRegularGrid(RegularGrid):
     
     def __init__(self,nxgroup):
-        # Axes in memory, data as nxfs paths
-        axes = []
-        signals = []
-        
-        if nxgroup.nxclass=='NXdata':
-            it = [nxgroup]
-        elif nxgroup.nxclass=='NXprocess':
-            progname = nxgroup['program'].read()
-            if progname!=nxfs.PROGRAM_NAME:
-                raise ValueError('NXprocess from program "{}" is not known'.format(progname))
-            it = nxgroup.results.iter_is_nxclass('NXdata')
-        else:
-            raise ValueError('{} should be an NXdata or NXprocess group'.format(nxgroup))
-
-        for nxdata in it:
-            if nxdata.islink:
-                continue
-            
-            if not axes:
-                axes = [axis.factory(values,name=name,title=attrs['title'],type='quantitative')
-                        for name,values,attrs in nxdata.axes]
-
-            for signal in nxdata.signals:
-                signals.append(signal)
-        
+        groups,axes = nxresult.regulargriddata(nxgroup)
+        self.signals = [signal for group in groups.values() for signal in group]
         stackdim = 0
-        axnew = axis.factory(signals,type='nominal')
+        axnew = axis.factory(self.signals,type='nominal')
         axes.insert(stackdim,axnew)
-        
         self.nxgroup = nxgroup
-        self.signals = signals
         super(NXRegularGrid,self).__init__(axes,None,stackdim=stackdim)
 
     @contextlib.contextmanager

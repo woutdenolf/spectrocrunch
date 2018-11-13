@@ -52,6 +52,8 @@ class Task(with_metaclass(ABCMeta,object)):
         self.parameters = parameters
         self.previous = previous
         self._nxentry = nxentry
+        self.nxprocess = None
+        self.nxresults = None
         if not self.previous and not nxentry:
             raise ValueError('Specify "nxentry" when task is not based on a previous NXprocess')
             
@@ -134,6 +136,7 @@ class Task(with_metaclass(ABCMeta,object)):
         self.nxprocess,_ = self.nxentry.nxprocess(self._tempname,
                                     parameters=self.parameters,
                                     previous=self.previous)
+        self.nxresults = self.nxprocess.results
         try:
             yield
         except Exception:
@@ -143,8 +146,10 @@ class Task(with_metaclass(ABCMeta,object)):
             nxprocess = self.nxprocess.rename(self.output)
             if self.default:
                 nxutils.set_default(nxprocess,self.default)
+            nxprocess.updated()
         finally:
             self.nxprocess = None
+            self.nxresults = None
             
     @property
     def nxentry(self):
@@ -156,7 +161,7 @@ class Task(with_metaclass(ABCMeta,object)):
     @property
     def output(self):
         return self.nxentry[self.name]
-        
+    
     @property
     def done(self):
         """A task is done when the output exists with the same name and parameters

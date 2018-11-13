@@ -25,15 +25,17 @@
 import numpy as np
 from collections import OrderedDict
 import logging
+import os
 
 from . import nxtask
+from . import nxutils
+from . import nxlazy
 from ..io import xiaedf
 from ..data import axis
 from ..utils import listtools
 from ..utils import instance
 from ..utils import units
-from . import nxutils
-from . import nxlazy
+from ..xrf.fit import PerformBatchFit
 
 logger = logging.getLogger(__name__)
 
@@ -629,7 +631,7 @@ class Task(nxtask.Task):
                 group[k2] = [group[k2][i] for i in ind]
     
     def _exportgroups(self):
-        """Export groups of EDF stacks, summated or not
+        """Export groups of EDF stacks, summed or not
         """
         outshape = None
         for k1 in self.stacks: # detector or counter group
