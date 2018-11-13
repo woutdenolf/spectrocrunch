@@ -84,12 +84,11 @@ class Task(nxregulargrid.Task):
         self._prepare_reference()
         
         # Output signal paths
-        results = self.nxprocess.results
         self.signalsout = []
         for signalin in self.grid.signals:
-            nxdata = results[signalin.parent.name]
+            nxdata = self.nxresults[signalin.parent.name]
             if not nxdata.exists:
-                nxdata = results.nxdata(name=signalin.parent.name)
+                nxdata = self.nxresults.nxdata(name=signalin.parent.name)
             self.signalsout.append(nxdata[signalin.name])
     
     def _process_axes(self,o):
@@ -116,7 +115,7 @@ class Task(nxregulargrid.Task):
                 o.align(self.reference_signal_index,**kwargs)
                 axes = self._process_axes(o)
                 axes = self._create_axes(axes)
-                self.nxprocess.results['change-of-frame'].write(data=o.absolute_cofs())
+                self.nxresults['change-of-frame'].write(data=o.absolute_cofs())
 
         # Set NXdata signal and axes attributes
         for signalout in self.signalsout:

@@ -106,14 +106,13 @@ class Task(nxregulargrid.Task):
         # Create new signals
         with self._context_encoders():
             indices = list(self._process_indices())
-            
-            results = self.nxprocess.results
+
             for signalin in self.grid.signals:
                 # Create new NXdata if needed
-                nxdata = results[signalin.parent.name]
+                nxdata = self.nxresults[signalin.parent.name]
                 bnew = not nxdata.exists
                 if bnew:
-                    nxdata = results.nxdata(name=signalin.parent.name)
+                    nxdata = self.nxresults.nxdata(name=signalin.parent.name)
 
                 with signalin.open() as dsetin:
                     # Calculate new signal from old signal
@@ -127,7 +126,7 @@ class Task(nxregulargrid.Task):
                 if bnew: 
                     nxdata.set_axes(*axes)
             
-            results['encoder_offset'].write(data=self.offsets)
+            self.nxresults['encoder_offset'].write(data=self.offsets)
             
     def _process_indices(self):
         shape = self.signalin_shape
