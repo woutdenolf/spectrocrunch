@@ -23,24 +23,23 @@
 # THE SOFTWARE.
 
 import unittest
-from testfixtures import TempDirectory
-from PyMca5.PyMcaIO import ConfigDict
 import numpy as np
 import os
 import contextlib
 import itertools
 import logging
 import re
+from testfixtures import TempDirectory
+from PyMca5.PyMcaIO import ConfigDict
 
 from ..fluoxas import process
 from ...io import xiaedf
-from ...io import nexus
 from ...io import nxfs
+from ...data import nxresult
 from ...align import types
 from ...utils import instance
 from ...utils import listtools
 from ...geometries import qxrf
-from ...h5stacks import get_hdf5_imagestacks
 from ...geometries import xrf as xrfgeometries
 from ...sources import xray as xraysources
 from ...detectors import xrf as xrfdetectors
@@ -76,7 +75,8 @@ class test_fluoxas(unittest.TestCase):
         sample1 = multilayer.Multilayer(mix,1e-4,geometry=geometry)
         mix = mixture.Mixture([water,calcite,fe],[0.3,0.3,0.4],types.fraction.mass,name="sample")
         sample2 = multilayer.Multilayer(mix,1e-4,geometry=geometry)
-        pymcahandle = pymca.PymcaHandle(energy=8.0,flux=1e9,time=0.1,snip=False,continuum=1,escape=False,linear=True,noisepropagation=False)
+        pymcahandle = pymca.PymcaHandle(energy=8.0,flux=1e9,time=0.1,snip=False,
+                    continuum=1,escape=False,linear=True,noisepropagation=False)
 
         energy = [8.,9.]
         
@@ -92,7 +92,8 @@ class test_fluoxas(unittest.TestCase):
             bkg = sum(bkgs[i] for i in seldetectors)
             
             cfgfile = os.path.join(self.dir.path,'detector{}.cfg'.format('_'.join(map(str,seldetectors))))
-            detector = {'cfgfile':cfgfile,'geometry':geometry,'mca':[],'peakareas':[],'massfractions':[]}
+            detector = {'cfgfile':cfgfile,'geometry':geometry,
+                        'mca':[],'peakareas':[],'massfractions':[]}
             detectors[seldetectors] = detector
             
             for en in energy:
@@ -131,14 +132,16 @@ class test_fluoxas(unittest.TestCase):
                     labels = []
                     for label in fitresult["fitareas"]:
                         if label=='Rayleigh':
-                            labels += ["Scatter-Peak{:03d}".format(i) for i in range(label.nenergy)]
+                            labels += ["Scatter-Peak{:03d}".format(i)
+                                        for i in range(label.nenergy)]
                         elif label=='Compton':
-                            labels += ["Scatter-Compton{:03d}".format(i) for i in range(label.nenergy)]
+                            labels += ["Scatter-Compton{:03d}".format(i)
+                                        for i in range(label.nenergy)]
                         else:
                             labels.append(str(label))
                         
         self.procinfo = {}
-        self.procinfo['include_detectors'] = [2,(0,2),None,(1,(0,2))]
+        self.procinfo['include_detectors'] = [(0,2),2,None,(1,(0,2))]
         self.procinfo['flux'] = pymcahandle.flux
         self.procinfo['time'] = pymcahandle.time
         self.procinfo['detectors'] = detectors
@@ -155,11 +158,13 @@ class test_fluoxas(unittest.TestCase):
                     b = detector['mca'][i][j]
                     np.testing.assert_allclose(a,b)
                     
-                    a = sum(np.array(detectors[(k,)]['peakareas'][i][j].values()) for k in seldetectors)
+                    a = sum(np.array(detectors[(k,)]['peakareas'][i][j].values())
+                            for k in seldetectors)
                     b = np.array(detector['peakareas'][i][j].values())
                     np.testing.assert_allclose(a,b)
                     
-                    a = sum(np.array(detectors[(k,)]['massfractions'][i][j].values()) for k in seldetectors)
+                    a = sum(np.array(detectors[(k,)]['massfractions'][i][j].values())
+                            for k in seldetectors)
                     b = np.array(detector['massfractions'][i][j].values())
                     np.testing.assert_allclose(a/len(seldetectors),b)
 
@@ -179,13 +184,16 @@ class test_fluoxas(unittest.TestCase):
         monitor.diodeI0.gain = 1e8
         monitor.diodeIt.gain = 1e7
         
-        info = {"I0_counts":300,"It_counts":30,"time":1,"dark":True,"gaindiodeI0":1e8,"gaindiodeIt":1e7}
+        info = {"I0_counts":300,"It_counts":30,"time":1,"dark":True,
+                "gaindiodeI0":1e8,"gaindiodeIt":1e7}
         monitor.calibrate(**info)
         
-        info = {"I0_counts":400000,"It_counts":100000,"time":1,"dark":False,"gaindiodeI0":1e8,"gaindiodeIt":1e7,"energy":min(energy)}
+        info = {"I0_counts":400000,"It_counts":100000,"time":1,"dark":False,
+                "gaindiodeI0":1e8,"gaindiodeIt":1e7,"energy":min(energy)}
         monitor.calibrate(**info)
         
-        info = {"I0_counts":200000,"It_counts":100000,"time":1,"dark":False,"gaindiodeI0":1e8,"gaindiodeIt":1e7,"energy":max(energy)}
+        info = {"I0_counts":200000,"It_counts":100000,"time":1,"dark":False,
+                "gaindiodeI0":1e8,"gaindiodeIt":1e7,"energy":max(energy)}
         monitor.calibrate(**info)
         
         return monitor
@@ -212,7 +220,8 @@ class test_fluoxas(unittest.TestCase):
 
         # Generate counter headers
         energy = self.procinfo['energy']
-        ctrheaders = np.vectorize(lambda e:{"DCM_Energy":e,"time":expotime},otypes=[object])(energy)
+        ctrheaders = np.vectorize(lambda e:{"DCM_Energy":e,"time":expotime},
+                                  otypes=[object])(energy)
         
         # Init counters
         ctrs = {}
@@ -322,7 +331,7 @@ class test_fluoxas(unittest.TestCase):
         scannumbers = [range(nmaps)]
 
         parameters = [(None,"max"),(True,False),self.procinfo['include_detectors'],(True,False),
-                      (True,False),(True,False),(True,False),(0,),(False,True)]
+                      (False,True),(True,False),(True,False),(0,),(False,True)]
         for combination in itertools.product(*parameters):
             alignmethod,cfgfileuse,include_detectors_p,adddetectors_p,\
             addbeforefit,quant,dtcor,stackdim,correctspectra = combination
@@ -404,10 +413,17 @@ class test_fluoxas(unittest.TestCase):
             expectedgroups_result = ['counters'] + ["detector"+det for det in expectedgroups_result]
             expectedgroups_result = set(expectedgroups_result)
             
+            # Processes
+            expected_nxprocess = ['xrf']
+            if prealignnormcounter is not None and cfgfileuse:
+                expected_nxprocess.append('normalize')
+            if alignmethod is not None and alignreference is not None:
+                expected_nxprocess.append('align')
+                expected_nxprocess.append('crop')
+            
             with self.env_destpath():
-                for skippre in [False,]:
+                for repeat in range(2):
                     logger.debug("alignmethod = {}".format(alignmethod))
-                    logger.debug("skippre = {}".format(skippre))
                     logger.debug("stackdim = {}".format(stackdim))
                     logger.debug("cfgfiles = {}".format(cfgfiles))
                     logger.debug("dtcor = {}".format(dtcor))
@@ -420,6 +436,7 @@ class test_fluoxas(unittest.TestCase):
                     logger.debug("newspectra = {}".format(newspectra))
                     
                     parameters = {}
+                    parameters["nxentry"] = 'entry_0001'
                     parameters["sourcepath"] = sourcepath
                     parameters["destpath"] = self.destpath.path
                     parameters["scanname"] = radix
@@ -439,14 +456,13 @@ class test_fluoxas(unittest.TestCase):
                     parameters["prealignnormcounter"] = prealignnormcounter
                     parameters["stackdim"] = stackdim
                     parameters["include_detectors"] = include_detectors_p
-                    parameters["skippre"] = skippre
                     parameters["instrument"] = "id21"
                     parameters["counters"] = ["arr_norm"]
                     parameters["fastfitting"] = True
                     parameters["replacenan"] = False
                     parameters["crop"] = alignmethod is not None
-                    
-                    process(**parameters)
+
+                    nxprocess = process(**parameters)
 
                     # Check generated spectra (files)
                     if newspectra:
@@ -502,22 +518,19 @@ class test_fluoxas(unittest.TestCase):
                         expected.append("{}_data".format(radix))
                     h5file = "{}.h5".format(radix)
                     expected.append(h5file)
-                    if prealignnormcounter is not None and cfgfileuse:
-                        h5file = "{}.norm.h5".format(radix)
-                        expected.append(h5file)
-                    if alignmethod is not None and alignreference is not None:
-                        expected.append("{}.align.h5".format(radix))
-                        h5file = "{}.crop.h5".format(radix)
-                        expected.append(h5file)
                     self.destpath.compare(sorted(expected),files_only=True,recursive=False)
 
-                    # Check HDF5 groups
-                    h5file = os.path.join(self.destpath.path,h5file)
-                    stacks, axes, procinfo = get_hdf5_imagestacks.get_hdf5_imagestacks(h5file,['^(counters|(detector.*))$'])
-                    self.assertEqual(set(stacks.keys()),expectedgroups_result)
+                    # Check NXprocess groups
+                    entry = nxprocess.nxentry()
+                    for name in expected_nxprocess:
+                        self.assertTrue(name in entry)
+                    self.assertEqual(nxprocess.name,expected_nxprocess[-1])
 
-                    for detector,stack in stacks.items():
-                        if detector == 'counters':
+                    # Check NXdata groups
+                    groups, axes = nxresult.regulargriddata(nxprocess)
+                    self.assertEqual(set(groups.keys()),expectedgroups_result)
+                    for group,signals in groups.items():
+                        if group == 'counters':
                             if quant:
                                 expectedsubgroups = counterlabels|calclabels
                             else:
@@ -527,7 +540,7 @@ class test_fluoxas(unittest.TestCase):
                                 expectedsubgroups = detcounterlabels|fitlabels
                             else:
                                 expectedsubgroups = detcounterlabels
-                        self.assertEqual(set(stack.keys()),expectedsubgroups)
+                        self.assertEqual(set([sig.name for sig in signals]),expectedsubgroups)
 
                     # Check generated spectra (data)
                     if newspectra:
@@ -559,75 +572,40 @@ class test_fluoxas(unittest.TestCase):
                     
                     # Check fit results
                     if cfgfileuse and dtcor:
-                        with nexus.File(h5file,mode='r') as f:
-                            for detector,stack in stacks.items():
-                                if not detector.isdetector:
-                                    continue
-                                
-                                if detector.issum:
-                                    if adddetectorgroups:
-                                        if detector.number>len(include_detectors):
-                                            dets = alldetectors
-                                        else:
-                                            dets = tuple(instance.asarray(include_detectors[detector.number-1]).tolist())
+                        for group,signals in groups.items():
+                            if not group.isdetector:
+                                continue
+                            
+                            if group.issum:
+                                if adddetectorgroups:
+                                    if group.number>len(include_detectors):
+                                        dets = alldetectors
                                     else:
-                                        dets = alldetectors 
+                                        dets = tuple(instance.asarray(include_detectors[group.number-1]).tolist())
                                 else:
-                                    dets = (detector.number,)
-                                logger.debug('Check fit result for sum of detectors {}'.format(dets))
-                                info = self.procinfo['detectors'][dets]
-                                
-                                for grpname,grp in stack.items():
-                                    if 'xmap' in grp:
-                                        continue
-                                    dataset,_,_ = nexus.parse_NXdata(f[grp])
-                                    if stackdim==1:
-                                        grpdata = np.moveaxis(dataset,1,0)
-                                    elif stackdim==2:
-                                        grpdata = np.moveaxis(dataset,2,0)
-                                    else:
-                                        grpdata = dataset[:]
-       
-                                    self._assert_fitresult(grpname,grpdata,info)
-                                
-                    continue
-                    
-                    if cfgfileuse:
-                        h5file = os.path.join(self.destpath.path,h5file)
-                        stacks, axes, procinfo = get_hdf5_imagestacks.get_hdf5_imagestacks(h5file,["detectorsum"])
-                        data4 = None
-                        with nexus.File(h5file,mode='r') as f:
-                            for stack in stacks.values():
-                                for grp in stack.values():
-                                    #if "xmap" in grp:
-                                    #    continue
-                                    dataset,_,_ = nexus.parse_NXdata(f[grp])
-                                    if stackdim==1:
-                                        data3 = np.moveaxis(dataset,1,0)
-                                    elif stackdim==2:
-                                        data3 = np.moveaxis(dataset,2,0)
-                                    else:
-                                        data3 = dataset[:]
-                                    if data4 is None:
-                                        data4 = data3
-                                    else:
-                                        r = data4/data3 # ratio's of elements
-                                        
-                                        #TODO: large differences in ratio's, why?
+                                    dets = alldetectors 
+                            else:
+                                dets = (group.number,)
+                            logger.debug('Check fit result for sum of detectors {}'.format(dets))
+                            info = self.procinfo['detectors'][dets]
+                            
+                            for signal in signals:
+                                if 'xmap' in signal.name:
+                                    continue
+                                dataset = signal.read()
+                                if stackdim==1:
+                                    grpdata = np.moveaxis(dataset,1,0)
+                                elif stackdim==2:
+                                    grpdata = np.moveaxis(dataset,2,0)
+                                else:
+                                    grpdata = dataset[:]
+   
+                                self._assert_fitresult(signal.name,grpdata,info)
 
-                                        try:
-                                            np.testing.assert_allclose(np.nanmin(r),np.nanmax(r),rtol=1e-6)
-                                        except Exception as e:
-                                            print h5file
-                                            print grp
-                                            print (np.nanmin(r)-np.nanmax(r))/np.nanmax(r)
-                                            for i in range(nmaps):
-                                                print data4[i,...]
-                                                print data3[i,...]
-                                                print r[i,...]
-                                            raise e
-                    # Finished one condition set
-                                
+                #repeat
+            #destpath
+        #parameters
+        
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()

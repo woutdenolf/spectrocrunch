@@ -115,11 +115,10 @@ class Task(with_metaclass(ABCMeta,object)):
         """Creates an NXprocess group atomically
         """
         with timing.timeit_logger(logger,name=str(self)):
-            fmt = "Task {} {{}}".format(self)
             if self.done:
-                logger.info(fmt.format("already done"))
+                logger.info('{} already done'.format(self))
             else:
-                logger.info(fmt.format("started ..."))
+                logger.info('{} started ...'.format(self))
                 
                 # Make sure previous tasks are executed
                 for nxprocess in self.previous:

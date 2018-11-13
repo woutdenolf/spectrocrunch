@@ -57,6 +57,7 @@ def xrfparameters(**parameters):
     fluxid = parameters.get("fluxid","I0")
     transmissionid = parameters.get("transmissionid","It")
     #dtcorcounters = all(k in instrument.counterdict for k in ["xrficr","xrfocr"])
+    nxentry = parameters.get("nxentry",None)
     
     if noxia:
         cfgfiles = None
@@ -86,7 +87,10 @@ def xrfparameters(**parameters):
     counters.extend(parameters.get("counters",[]))
     
     h5file = os.path.join(destpath,scanname[0]+".h5")
-    nxentry = nxfs.Path('/',h5file=h5file).new_nxentry()
+    if nxentry:
+        nxentry = nxfs.Path('/',h5file=h5file).nxentry(name=nxentry)
+    else:
+        nxentry = nxfs.Path('/',h5file=h5file).new_nxentry()
     
     config = {
             # Input
@@ -148,10 +152,8 @@ def process(**parameters):
     with timing.timeit_logger(logger):
     
         # Common parameters
-        default = parameters.get('default',None)
-        stackdim = parameters.get('stackdim',0)
-        parameters['stackdim'] = stackdim
-        parameters['default'] = default
+        parameters['stackdim'] = parameters.get('stackdim',0)
+        parameters['default'] = parameters.get('default',None)
         commonparams = {k:parameters[k] for k in ['default','stackdim']}
 
         # Image stacks (counters + result of XRF fitting)
@@ -165,25 +167,23 @@ def process(**parameters):
         
         # Normalization
         prealignnormcounter = parameters.get("prealignnormcounter",None)
-        dtcor = nxprocess.results['info']['dtneeded'] # No longer needed
+        dtcor = not nxprocess.results['info']['dtneeded'] # No longer needed
         if dtcor or prealignnormcounter is not None:
-            skip = instrument.counters(include=["counters"])
+            skip = [{'method':'regexparent','pattern':'counters'},
+                    {'method':'regex','pattern':instrument.counterdict["xrficr"]},
+                    {'method':'regex','pattern':instrument.counterdict["xrfocr"]},
+                    ]
 
             # Create normalization expression
             if dtcor:
                 icr = instrument.counterdict["xrficr"]
                 ocr = instrument.counterdict["xrfocr"]
-                
                 if prealignnormcounter is None:
                     expression = "{{}}*nanone({{{}}}/{{{}}})".format(icr,ocr)
                 else:
                     expression = "{{}}*nanone({{{}}}/({{{}}}*{{{}}}))".format(icr,ocr,prealignnormcounter)
-                skip += [icr,ocr]
             else:
                 expression = "{{}}/{{{}}}".format(prealignnormcounter)
-
-            if prealignnormcounter is not None:
-                skip += [prealignnormcounter]
 
             nxprocess = runtask(previous=nxprocess,method='expression',name='normalize',
                                 expression=expression,skip=skip,**commonparams)
@@ -221,9 +221,11 @@ def process(**parameters):
         # Post normalization
         postalignnormcounter = parameters.get("postalignnormcounter",None)
         if postalignnormcounter is not None:
-            skip = instrument.counters(include=["xrfroi"])
-            skip.append(postalignnormcounter)
-            skip.extend(["calc_flux0","calc_fluxt"])
+            skip = [{'method':'regexparent','pattern':'counters'},
+                    {'method':'regex','pattern':instrument.counterdict["xrficr"]},
+                    {'method':'regex','pattern':instrument.counterdict["xrfocr"]},
+                    ]
+            
             expression = "{{}}/{{{}}}".format(postalignnormcounter)
             nxprocess = runtask(previous=nxprocess,method='expression',name='postnormalize',
                                 expression=expression,skip=skip,**commonparams)
