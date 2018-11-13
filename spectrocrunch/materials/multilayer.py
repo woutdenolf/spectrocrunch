@@ -151,7 +151,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         super(Multilayer,self).__init__(force=True)
     
     def __getstate__(self):
-        return {'layers':self.layers}
+        return {'layers':self.layers,'geometry':self.geometry}
     
     def __setstate__(self,state):
         self.layers = state['layers']

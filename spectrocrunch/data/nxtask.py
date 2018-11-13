@@ -27,6 +27,7 @@ from abc import ABCMeta,abstractmethod
 from future.utils import with_metaclass
 import traceback
 import logging
+import contextlib
 
 from . import nxutils
 from ..utils import instance
@@ -109,7 +110,7 @@ class Task(with_metaclass(ABCMeta,object)):
         return "Task '{}'".format(self.name)
     
     def run(self):
-        """This is atomic if h5py.Group.move is atomic
+        """Creates an NXprocess group atomically
         """
         with timing.timeit_logger(logger,name=str(self)):
             fmt = "Task {} {{}}".format(self)
@@ -123,51 +124,44 @@ class Task(with_metaclass(ABCMeta,object)):
                     if not nxprocess.exists:
                         return
                 
-                # Try to execute this task (output under temporary name)
-                nxprocess = self._tempoutput
-                try:
+                with self._atomic_nxprocess():
                     self._execute()
-                except Exception:
-                    logger.error(traceback.format_exc())
-                    nxprocess.remove(recursive=True)
 
-                # Proper output name and set default
-                if nxprocess.exists:
-                    nxprocess = nxprocess.rename(self.output)
-                    if self.default:
-                        nxutils.set_default(nxprocess,self.default)
-
+    @contextlib.contextmanager
+    def _atomic_nxprocess(self):
+        """This is atomic if h5py.Group.move is atomic
+        """
+        self.nxprocess,_ = self.nxentry.nxprocess(self._tempname,
+                                    parameters=self.parameters,
+                                    previous=self.previous)
+        try:
+            yield
+        except Exception:
+            logger.error(traceback.format_exc())
+            self.nxprocess.remove(recursive=True)
+        else:
+            nxprocess = self.nxprocess.rename(self.output)
+            if self.default:
+                nxutils.set_default(nxprocess,self.default)
+        finally:
+            self.nxprocess = None
+            
     @property
-    def entry(self):
+    def nxentry(self):
         if self.previous:
             return self.previous[-1].nxentry()
         else:
             return self._nxentry
-    
-    def _temp_process(self):
-        """Creates the process when it doesn't exist yet
-        
-        Returns:
-            process(NXprocess)
-        """
-        process,_ = self.entry.nxprocess(self._tempname,
-                                    parameters=self.parameters,
-                                    previous=self.previous)
-        return process
-        
+
     @property
     def output(self):
-        return self.entry[self.parameters["name"]]
-    
-    @property
-    def _tempoutput(self):
-        return self.entry[self._tempname]
+        return self.nxentry[self.name]
         
     @property
     def done(self):
-        """Finished means it exists with the correct name and parameters
+        """A task is done when the output exists with the same name and parameters
         """
-        _,exists = self.entry.nxprocess_exists(self.name,
+        _,exists = self.nxentry.nxprocess_exists(self.name,
                                     parameters=self.parameters,
                                     previous=self.previous)
         return exists

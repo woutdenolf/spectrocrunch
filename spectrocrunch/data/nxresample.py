@@ -100,9 +100,6 @@ class Task(nxregulargrid.Task):
         Returns:
             nxfs._NXprocess
         """
-        # New nxprocess (return when already exists)
-        process = self._temp_process()
-
         # Create new axes (if needed)
         axes = self._create_axes(self._process_axes())
 
@@ -110,7 +107,7 @@ class Task(nxregulargrid.Task):
         with self._context_encoders():
             indices = list(self._process_indices())
             
-            results = process.results
+            results = self.nxprocess.results
             for signalin in self.grid.signals:
                 # Create new NXdata if needed
                 nxdata = results[signalin.parent.name]
