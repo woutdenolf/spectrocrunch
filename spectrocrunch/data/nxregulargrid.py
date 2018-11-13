@@ -58,16 +58,14 @@ class Task(nxtask.Task):
         self._sort()
 
     def _sort(self):
-        nxprocess = self._tempoutput
-        if nxprocess.exists:
-            it = nxprocess.results.iter_is_nxclass('NXdata')
-            previous = self.previous[0].results
-            for nxdata in it:
-                if nxdata.islink:
-                    continue
-                nxdataprev = previous[nxdata.name]
-                if nxdataprev.exists:
-                    nxdata.sort_signals(other=nxdataprev)
+        it = self.nxprocess.results.iter_is_nxclass('NXdata')
+        previous = self.previous[0].results
+        for nxdata in it:
+            if nxdata.islink:
+                continue
+            nxdataprev = previous[nxdata.name]
+            if nxdataprev.exists:
+                nxdata.sort_signals(other=nxdataprev)
     
     @property
     def reference_signal_index(self):
@@ -94,14 +92,11 @@ class Task(nxtask.Task):
         Returns:
             nxfs._NXprocess
         """
-        # NXprocess
-        process = self._temp_process()
-
         # Create new axes (if needed)
         axes = self._create_axes(self._process_axes())
 
         # Create new signals
-        results = process.results
+        results = self.nxprocess.results
         for signalin in self.grid.signals:
             self._prepare_signal(signalin)
             

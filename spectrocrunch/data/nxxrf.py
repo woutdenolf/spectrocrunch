@@ -24,12 +24,18 @@
 
 import numpy as np
 from collections import OrderedDict
+import logging
 
 from . import nxtask
 from ..io import xiaedf
+from ..data import axis
 from ..utils import listtools
 from ..utils import instance
+from ..utils import units
 from . import nxutils
+from . import nxlazy
+
+logger = logging.getLogger(__name__)
 
 class Task(nxtask.Task):
     
@@ -54,6 +60,7 @@ class Task(nxtask.Task):
                         "slowlabel",
                         "timelabel",
                         "positionmotors",
+                        "units",
                         # Data correction
                         "dtcor",
                         "correctspectra",
@@ -76,6 +83,10 @@ class Task(nxtask.Task):
         self._required_parameters(*self.allparams)
         self.parameters['stackdim'] = self.parameters.get('stackdim',self.DEFAULT_STACKDIM)
         
+        # TODO: temporary measure until pickleable
+        self.qxrfgeometry = self.parameters.pop('qxrfgeometry')
+        self.units = self.parameters.pop('units')
+
     def _parameters_filter(self):
         return super(Task,self)._parameters_filter()+self.allparams+['stackdim']
 
@@ -212,7 +223,7 @@ class Task(nxtask.Task):
         self.xiastackraw.dtcor(self.dtcorbefore)
 
     def _prepare_fluxnorm(self):
-        self.fluxnorm = self.self.parameters['qxrfgeometry'] is not None
+        self.fluxnorm = self.qxrfgeometry is not None
         self.fluxnormbefore = self.fluxnorm and self.parameters["correctspectra"]
         self.fluxnormafter = self.fluxnorm and not self.fluxnormbefore
         self.procinfo["fluxnorm"] = self.fluxnorm
@@ -220,8 +231,7 @@ class Task(nxtask.Task):
     def _prepare_xrfquant(self):  
         if not self.fluxnorm:
             return 
-        qxrfgeometry = self.parameters['qxrfgeometry']
-        ngeometries = len(qxrfgeometry.xrfgeometries)
+        ngeometries = len(self.qxrfgeometry.xrfgeometries)
         if ngeometries!=self.ndetfit:
             raise RuntimeError("You need {} detector geometries, {} provides.".format(self.ndetfit,ngeometries))
         
@@ -229,9 +239,9 @@ class Task(nxtask.Task):
 
         self._add_axis_procinfo("refflux",defaultunits='Hz')
         self._add_axis_procinfo("refexpotime",defaultunits='s')
-        self._add_axis_procinfo("activearea",values=tile(qxrfgeometry.getxrfactivearea()),defaultunits='cm**2')
-        self._add_axis_procinfo("anglein",values=tile(qxrfgeometry.getxrfanglein()),defaultunits='deg')
-        self._add_axis_procinfo("angleout",values=tile(qxrfgeometry.getxrfangleout()),defaultunits='deg')
+        self._add_axis_procinfo("activearea",values=tile(self.qxrfgeometry.getxrfactivearea()),defaultunits='cm**2')
+        self._add_axis_procinfo("anglein",values=tile(self.qxrfgeometry.getxrfanglein()),defaultunits='deg')
+        self._add_axis_procinfo("angleout",values=tile(self.qxrfgeometry.getxrfangleout()),defaultunits='deg')
         self._add_axis_procinfo("sampledetdistance",values=np.full((self.nstack,self.ndetfit),np.nan,dtype=np.float32),defaultunits='cm')
         
         if self.fluxnormbefore:
@@ -249,7 +259,7 @@ class Task(nxtask.Task):
                 self.procaxes["refflux"][imageindex],\
                 self.procaxes["refexpotime"][imageindex],\
                 self.procaxes["expotime"][imageindex]\
-                 =qxrfgeometry.xrfnormop(energy,expotime=time)
+                 =self.qxrfgeometry.xrfnormop(energy,expotime=time)
                 
                 if self.fluxnormbefore:
                     xiaimage.localnorm(self.parameters["fluxcounter"],func=xrfnormop)
@@ -258,9 +268,9 @@ class Task(nxtask.Task):
                     
                 pos = self.procaxes["xrfdetectorposition"][imageindex,:]
                 if np.isfinite(pos).all():
-                    qxrfgeometry.setxrfposition(pos)
-                self.procaxes["xrfdetectorposition"][imageindex,:] = qxrfgeometry.getxrfdetectorposition()
-                self.procaxes["sampledetdistance"][imageindex,:] = qxrfgeometry.getxrfdistance()
+                    self.qxrfgeometry.setxrfposition(pos)
+                self.procaxes["xrfdetectorposition"][imageindex,:] = self.qxrfgeometry.getxrfdetectorposition()
+                self.procaxes["sampledetdistance"][imageindex,:] = self.qxrfgeometry.getxrfdistance()
 
     def _process_xiastackraw(self):
         if self.dtcorbefore or self.addspectra or self.fluxnormbefore:
@@ -364,7 +374,7 @@ class Task(nxtask.Task):
                         
                 for ctr,f in v1.items():
                     # Add counter file
-                    o = create_hdf5_lazy.LazyStackSlice()
+                    o = nxlazy.LazyStackSlice()
                     o.appendarg_edf(f[0])
                     self.stacks[name][ctr][imageindex] = o
                     self.counters.add(ctr)
@@ -372,17 +382,17 @@ class Task(nxtask.Task):
     def _add_axis(self,name,values=None,index=None,defaultunits=None,type=None):
         if values is None:
             values = np.full(self.nstack,np.nan,dtype=np.float32)
-        values = units.Quantity(values,units=self.instrument.units.get(name,defaultunits))
-        self.axes[name] = Axis(values,type=type,name=name)
+        values = units.Quantity(values,units=self.units.get(name,defaultunits))
+        self.axes[name] = axis.Axis(values,type=type,name=name)
         if index is not None:
             self.axes_names[index] = name
     
     def _add_axis_procinfo(self,name,values=None,index=None,defaultunits=None,type=None):
         if values is None:
             values = np.full(self.nstack,np.nan,dtype=np.float32)
-        values = units.Quantity(values,units=self.instrument.units.get(name,defaultunits))
-        self.procaxes[name] = Axis(values,type=type,name=name)
-            
+        values = units.Quantity(values,units=self.units.get(name,defaultunits))
+        self.procaxes[name] = axis.Axis(values,type=type,name=name)
+        
     def _getscanparameters(self,header):
         """Get scan dimensions from header
         """
@@ -427,41 +437,40 @@ class Task(nxtask.Task):
         self._add_axis_procinfo("it_to_flux_offset",defaultunits='Hz')
         self._add_axis_procinfo("it_to_flux_factor",defaultunits='Hz')
         
-        name = nxutils.ProcessGroup(None) 
-        qxrfgeometry = self.parameters['qxrfgeometry']     
+        name = nxutils.ProcessGroup(None)
         for imageindex in range(self.nstack):
             energy = self.axes[self.axes_names[self.outstackdim]][imageindex].magnitude
             time = self.procaxes["refexpotime"][imageindex]
             
             if "fluxcounter" in self.parameters:
-                op,_ = qxrfgeometry.I0op(energy,expotime=time,removebeamfilters=False)
+                op,_ = self.qxrfgeometry.I0op(energy,expotime=time,removebeamfilters=False)
                 if "calc_flux0" not in self.stacks[name]:
                     self.stacks[name]["calc_flux0"] = [None]*self.nstack
-                o = create_hdf5_lazy.LazyStackSlice(func=op)
+                o = nxlazy.LazyStackSlice(func=op)
                 o.appendarg_h5dataset(self.nxresults[str(name)][self.parameters["fluxcounter"]])
                 self.stacks[name]["calc_flux0"][imageindex] = o
                 self.procaxes["i0_to_flux_offset"][imageindex] = op.b
                 self.procaxes["i0_to_flux_factor"][imageindex] = op.m
                 
             if "transmissioncounter" in self.parameters:
-                op,_ = qxrfgeometry.Itop(energy,expotime=time,removebeamfilters=True)
+                op,_ = self.qxrfgeometry.Itop(energy,expotime=time,removebeamfilters=True)
                 if "calc_fluxt" not in self.stacks[name]:
                     self.stacks[name]["calc_fluxt"] = [None]*self.nstack
                     self.stacks[name]["calc_transmission"] = [None]*self.nstack
                     self.stacks[name]["calc_absorbance"] = [None]*self.nstack
                 
-                o = create_hdf5_lazy.LazyStackSlice(func=op)
+                o = nxlazy.LazyStackSlice(func=op)
                 o.appendarg_h5dataset(self.nxresults[str(name)][self.parameters["transmissioncounter"]])
                 self.stacks[name]["calc_fluxt"][imageindex] = o
                 self.procaxes["it_to_flux_offset"][imageindex] = op.b
                 self.procaxes["it_to_flux_factor"][imageindex] = op.m
                                
-                o = create_hdf5_lazy.LazyStackSlice(func=create_hdf5_lazy.transmission_func)
+                o = nxlazy.LazyStackSlice(func=nxlazy.transmission_func)
                 o.appendarg_h5dataset(self.nxresults[str(name)]["calc_fluxt"])
                 o.appendarg_h5dataset(self.nxresults[str(name)]["calc_flux0"])
                 self.stacks[name]["calc_transmission"][imageindex] = o
                 
-                o = create_hdf5_lazy.LazyStackSlice(func=create_hdf5_lazy.absorbance_func)
+                o = nxlazy.LazyStackSlice(func=nxlazy.absorbance_func)
                 o.appendarg_h5dataset(self.nxresults[str(name)]["calc_transmission"])
                 self.stacks[name]["calc_absorbance"][imageindex] = o
         
@@ -517,7 +526,7 @@ class Task(nxtask.Task):
 
                 # Add file name           
                 for f,label in zip(files,labels):
-                    o = create_hdf5_lazy.LazyStackSlice()
+                    o = nxlazy.LazyStackSlice()
                     o.appendarg_edf(f)
                     self.stacks[name][label][imageindex] = o
 
@@ -556,7 +565,7 @@ class Task(nxtask.Task):
                     continue
                 if k2 not in self.stacks[sumdest]:
                     func = self._group_add_detectors(k2)
-                    self.stacks[sumdest][k2] = [create_hdf5_lazy.LazyStackSlice(func=func,unpackargs=False) for _ in range(self.nstack)]
+                    self.stacks[sumdest][k2] = [nxlazy.LazyStackSlice(func=func,unpackargs=False) for _ in range(self.nstack)]
                 for imageindex,arg in enumerate(self.stacks[k1][k2]):
                     self.stacks[sumdest][k2][imageindex].appendarg(arg)
                     
@@ -564,15 +573,15 @@ class Task(nxtask.Task):
         
     def _group_add_detectors(self,grpname):
         if grpname in self.counters:
-            func = create_hdf5_lazy.sum_func
+            func = nxlazy.sum_func
         elif grpname.startswith('w'):
             # mass fractions
-            func = create_hdf5_lazy.nanmean_func
+            func = nxlazy.nanmean_func
         elif 'chisq' in grpname:
-            func = create_hdf5_lazy.nanmax_func
+            func = nxlazy.nanmax_func
         else:
             # peak areas
-            func = create_hdf5_lazy.sum_func
+            func = nxlazy.sum_func
         
         return func
         
@@ -588,7 +597,7 @@ class Task(nxtask.Task):
                     continue
                 
                 keep = self.stacks[k1][k2]
-                self.stacks[k1][k2] = [create_hdf5_lazy.LazyStackSlice(func=create_hdf5_lazy.xrfnorm_func) for _ in range(self.nstack)]
+                self.stacks[k1][k2] = [nxlazy.LazyStackSlice(func=nxlazy.xrfnorm_func) for _ in range(self.nstack)]
                 for imageindex,(arg,xiaimage) in enumerate(zip(keep,self.xiastackproc)):
                     # arguments: xrf,flux,fluxref,xiaimage
                     self.stacks[k1][k2][imageindex].appendarg(arg)

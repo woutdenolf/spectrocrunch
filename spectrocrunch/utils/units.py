@@ -210,11 +210,21 @@ class QuantityHandler(BaseHandler):
     
     def flatten(self, quantity, data):
         data['magnitude'] = quantity.magnitude
-        data['units'] = str(quantity.units)
+        data['units'] = quantity.units
         return data
     
     def restore(self, data):
         return ureg.Quantity(data['magnitude'],units=data['units'])
 
+class UnitHandler(BaseHandler):
+    
+    def flatten(self, unit, data):
+        data['units'] = str(unit)
+        return data
+    
+    def restore(self, data):
+        return ureg.Unit(data['units'])
+
 def jsonpickle_register_handlers():
     register(ureg.Quantity, QuantityHandler, base=True)
+    register(ureg.Unit, UnitHandler, base=True)
