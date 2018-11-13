@@ -62,6 +62,9 @@ class test_fluoxas(unittest.TestCase):
     def setUp(self):
         self.dir = TempDirectory()
     
+    def tearDown(self):
+        self.dir.cleanup()
+        
     def create_procinfo(self):
         synchrotron = xraysources.factory("synchrotron")
         leia = xrfdetectors.factory("leia")
@@ -159,9 +162,6 @@ class test_fluoxas(unittest.TestCase):
                     a = sum(np.array(detectors[(k,)]['massfractions'][i][j].values()) for k in seldetectors)
                     b = np.array(detector['massfractions'][i][j].values())
                     np.testing.assert_allclose(a/len(seldetectors),b)
-        
-    def tearDown(self):
-        self.dir.cleanup()
 
     def fitlabels(self,quant=False):
         labels = list(self.procinfo['labels'])
@@ -322,7 +322,7 @@ class test_fluoxas(unittest.TestCase):
         scannumbers = [range(nmaps)]
 
         parameters = [(None,"max"),(True,False),self.procinfo['include_detectors'],(True,False),
-                      (True,False),(True,False),(True,False),(2,),(False,True)]
+                      (True,False),(True,False),(True,False),(0,),(False,True)]
         for combination in itertools.product(*parameters):
             alignmethod,cfgfileuse,include_detectors_p,adddetectors_p,\
             addbeforefit,quant,dtcor,stackdim,correctspectra = combination
@@ -502,7 +502,6 @@ class test_fluoxas(unittest.TestCase):
                         expected.append("{}_data".format(radix))
                     h5file = "{}.h5".format(radix)
                     expected.append(h5file)
-                    expected.append("{}.json".format(radix))
                     if prealignnormcounter is not None and cfgfileuse:
                         h5file = "{}.norm.h5".format(radix)
                         expected.append(h5file)

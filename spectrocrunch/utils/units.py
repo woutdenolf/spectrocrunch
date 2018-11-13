@@ -210,7 +210,7 @@ class QuantityHandler(BaseHandler):
     
     def flatten(self, quantity, data):
         data['magnitude'] = quantity.magnitude
-        data['units'] = quantity.units
+        data['units'] = str(quantity.units)
         return data
     
     def restore(self, data):

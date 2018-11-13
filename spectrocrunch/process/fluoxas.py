@@ -26,120 +26,226 @@ import logging
 import numpy as np
 
 from ..xrf import create_hdf5_imagestacks
-from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks
 from ..utils import timing
 from ..utils import instance
-from ..io import edf
-
-from .proc_math import execute as math
-from .proc_align import execute as align
-from .proc_replacevalue import execute as replacevalue
-from .proc_crop import execute as execcrop
-from .proc_utils import defaultstack
-from .proc_utils import flattenstacks
-from .proc_resample import execute as execresample
+from ..data import nxtask
+from ..io import nxfs
+from ..instruments.configuration import getinstrument
 
 logger = logging.getLogger(__name__)
+
+def xrfparameters(**parameters):
+    
+    sourcepath = parameters["sourcepath"]
+    destpath = parameters["destpath"]
+    scanname = parameters["scanname"]
+    scannumbers = parameters["scannumbers"]
+    cfgfiles = parameters["cfgfiles"]
+    
+    instrument = getinstrument(parameters)
+    dtcor = parameters.get("dtcor",True)
+    fastfitting = parameters.get("fastfitting",True)
+    adddetectors = parameters.get("adddetectors",True)
+    addbeforefit = parameters.get("addbeforefit",True)
+    mlines = parameters.get("mlines",{})
+    exclude_detectors = parameters.get("exclude_detectors",None)
+    include_detectors = parameters.get("include_detectors",None)
+    noxia = parameters.get("noxia",False)
+    encodercor = parameters.get("encodercor",{})
+    qxrfgeometry = parameters.get("qxrfgeometry",None)
+    correctspectra = parameters.get("correctspectra",False)
+    fluxid = parameters.get("fluxid","I0")
+    transmissionid = parameters.get("transmissionid","It")
+    #dtcorcounters = all(k in instrument.counterdict for k in ["xrficr","xrfocr"])
+    
+    if noxia:
+        cfgfiles = None
+    bfit = cfgfiles is not None
+
+    if exclude_detectors is None:
+        exclude_detectors = []
+
+    if include_detectors is None:
+        include_detectors = []
+
+    if not instance.isarray(sourcepath):
+        sourcepath = [sourcepath]
+    if not instance.isarray(scanname):
+        scanname = [scanname]
+    if not instance.isarray(scannumbers):
+        scannumbers = [scannumbers]
+    if not instance.isarray(cfgfiles):
+        cfgfiles = [cfgfiles]
+
+    lst = []
+    if noxia:
+        lst.extend(["xrficr","xrfocr","xrfroi"])
+    if not encodercor:
+        lst.extend(["motors"])
+    counters = instrument.counters(exclude=lst)
+    counters.extend(parameters.get("counters",[]))
+    
+    h5file = os.path.join(destpath,scanname[0]+".h5")
+    nxentry = nxfs.Path('/',h5file=h5file).new_nxentry()
+    
+    config = {
+            # Input
+            "sourcepath": sourcepath,
+            "counter_reldir": instrument.counter_reldir,
+            "scanname": scanname,
+            "scannumbers": scannumbers,
+            "counters": counters,
+            "fluxcounter": instrument.counterdict[fluxid+"_counts"],
+            "transmissioncounter": instrument.counterdict[transmissionid+"_counts"],
+
+            # Meta data
+            "metadata": instrument.metadata,
+            "stacklabel": instrument.edfheaderkeys["energylabel"],
+            "speccmdlabel": instrument.edfheaderkeys["speclabel"],
+            "fastlabel": instrument.edfheaderkeys["fastlabel"],
+            "slowlabel": instrument.edfheaderkeys["slowlabel"],
+            "timelabel": instrument.edfheaderkeys["timelabel"],
+            "positionmotors": instrument.imagemotors,
+            "units": instrument.units,
+
+            # Data correction
+            "dtcor": dtcor,
+            "correctspectra": correctspectra,
+            "adddetectors": adddetectors, # sum spectra
+            "addbeforefit": addbeforefit, # sum fit results and detector counters
+            "qxrfgeometry": qxrfgeometry,
+            
+            # Configuration for fitting
+            "detectorcfg": cfgfiles,
+            "mlines": mlines,
+            "fit": bfit,
+            "fastfitting": fastfitting,
+            "exclude_detectors": exclude_detectors,
+            "include_detectors": include_detectors,
+
+            # Output directories
+            "destpath": destpath,
+            "outbase": scanname[0],
+            "outdatapath": os.path.join(destpath,scanname[0]+"_data"),
+            "outfitpath": os.path.join(destpath,scanname[0]+"_fit"),
+            "nxentry": nxentry
+    }
+    
+    return config,instrument
+
+
+def runtask(**parameters):
+    task = nxtask.newtask(**parameters)
+    task.run()
+    nxprocess = task.output
+    if nxprocess.exists:
+        return nxprocess
+    else:
+        return None
         
 def process(**parameters):
 
-    T0 = timing.taketimestamp()
-
-    # Image stacks (counters + result of XRF fitting)
-    instrument = create_hdf5_imagestacks.getinstrument(parameters)
-    default = parameters.get("default",None)
-    skippre = parameters.get("skippre",False)
- 
-    h5file = create_hdf5_imagestacks.h5file(**parameters)
-    if skippre:
-        preprocessingexists = os.path.isfile(h5file)
-    else:
-        preprocessingexists = False
-        
-    if preprocessingexists:
-        stacks, axes, procinfo = get_hdf5_imagestacks(h5file,instrument.h5stackgroups)
-    else:
-        stacks, axes, procinfo = create_hdf5_imagestacks.create_hdf5_imagestacks(**parameters)
-    defaultstack(h5file,stacks,default)
-    stacks = flattenstacks(stacks)
-    h5filelast = h5file
+    with timing.timeit_logger(logger):
     
-    # Common parameters for the following steps
-    bsamefile = False
-    stackdim = parameters.get("stackdim",2)
-    copygroups = ["stackinfo"]
+        # Common parameters
+        default = parameters.get('default',None)
+        stackdim = parameters.get('stackdim',0)
+        parameters['stackdim'] = stackdim
+        parameters['default'] = default
+        commonparams = {k:parameters[k] for k in ['default','stackdim']}
 
-    # Normalization
-    prealignnormcounter = parameters.get("prealignnormcounter",None)
-    dtcor = procinfo[-1]["result"]["dtneeded"] # No longer needed
-    if dtcor or prealignnormcounter is not None:
-        skip = instrument.counters(include=["counters"])
-
-        # Create normalization expression
-        if dtcor:
-            icr = instrument.counterdict["xrficr"]
-            ocr = instrument.counterdict["xrfocr"]
-            
-            if prealignnormcounter is None:
-                expression = "{{}}*nanone({{{}}}/{{{}}})".format(icr,ocr)
-            else:
-                expression = "{{}}*nanone({{{}}}/({{{}}}*{{{}}}))".format(icr,ocr,prealignnormcounter)
-            skip += [icr,ocr]
+        # Image stacks (counters + result of XRF fitting)
+        xrfparams,instrument = xrfparameters(**parameters)
+        xrfparams.update(commonparams)
+        nxprocess = runtask(method='xrf',**xrfparams)
+        if nxprocess is None:
+            return nxprocess
         else:
-            expression = "{{}}/{{{}}}".format(prealignnormcounter)
-
-        if prealignnormcounter is not None:
-            skip += [prealignnormcounter]
-
-        h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="norm")
-        h5filelast = h5file
+            nxprocesslast = nxprocess
         
-    # Correct for encoder positions
-    encodercor = parameters.get("encodercor",{})
-    if encodercor and instrument.encoderresolution:
-        resampleinfo = {mot:{"encoder":instrument.counterdict["encoders"][mot],"resolution":res} for mot,res in instrument.encoderresolution.items()}
-        if resampleinfo:
-            h5file,stacks,axes = execresample(h5file, stacks, axes, copygroups, bsamefile, default, resampleinfo,extension="resample")
-            h5filelast = h5file
+        # Normalization
+        prealignnormcounter = parameters.get("prealignnormcounter",None)
+        dtcor = nxprocess.results['info']['dtneeded'] # No longer needed
+        if dtcor or prealignnormcounter is not None:
+            skip = instrument.counters(include=["counters"])
+
+            # Create normalization expression
+            if dtcor:
+                icr = instrument.counterdict["xrficr"]
+                ocr = instrument.counterdict["xrfocr"]
+                
+                if prealignnormcounter is None:
+                    expression = "{{}}*nanone({{{}}}/{{{}}})".format(icr,ocr)
+                else:
+                    expression = "{{}}*nanone({{{}}}/({{{}}}*{{{}}}))".format(icr,ocr,prealignnormcounter)
+                skip += [icr,ocr]
+            else:
+                expression = "{{}}/{{{}}}".format(prealignnormcounter)
+
+            if prealignnormcounter is not None:
+                skip += [prealignnormcounter]
+
+            nxprocess = runtask(previous=nxprocess,method='expression',name='normalize',
+                                expression=expression,skip=skip,**commonparams)
+            if nxprocess is None:
+                return nxprocesslast
+            else:
+                nxprocesslast = nxprocess
             
-    # Alignment
-    alignmethod = parameters.get("alignmethod",None)
-    alignreference = parameters.get("alignreference",None)
-    if alignmethod and alignreference is not None:
-        refimageindex = parameters.get("refimageindex",None)
-        roialign = parameters.get("roialign",None)
-        cropalign = False
-        plot = parameters.get("plot",False)
-    
+        # Correct for encoder positions
+        encodercor = parameters.get("encodercor",False)
+        if encodercor and instrument.encoderresolution:
+            encoders = instrument.encoderinfo
+            nxprocess = runtask(previous=nxprocess,method='resample',
+                                encoders=encoders,**commonparams)
+            if nxprocess is None:
+                return nxprocesslast
+            else:
+                nxprocesslast = nxprocess
+                
         # Alignment
-        h5file,stacks,axes = align(h5file,stacks,axes, copygroups, bsamefile, default,\
-            alignmethod, alignreference, refimageindex, cropalign, roialign, plot, stackdim)
-        h5filelast = h5file
+        alignmethod = parameters.get("alignmethod",None)
+        alignreference = parameters.get("alignreference",None)
+        if alignmethod and alignreference is not None:
+            refimageindex = parameters.get("refimageindex",-1)
+            roi = parameters.get("roialign",None)
+            plot = parameters.get("plot",False)
+            nxprocess = runtask(previous=nxprocess,method='align',alignmethod=alignmethod,
+                                reference=alignreference,refimageindex=refimageindex,
+                                crop=False,roi=roi,plot=plot,**commonparams)
+            if nxprocess is None:
+                return nxprocesslast
+            else:
+                nxprocesslast = nxprocess
 
-    # Post normalization
-    postalignnormcounter = parameters.get("postalignnormcounter",None)
-    if postalignnormcounter is not None:
-        skip = instrument.counters(include=["xrfroi"])
-        skip.append(postalignnormcounter)
-        skip.extend(["calc_flux0","calc_fluxt"])
-        expression = "{{}}/{{{}}}".format(postalignnormcounter)
-        h5file,stacks,axes = math(h5file,stacks,axes,copygroups,bsamefile,default,expression,skip,stackdim=stackdim,extension="postnorm")
-        h5filelast = h5file
-        
-    # Remove NaN's
-    replacenan = parameters.get("replacenan",False)
-    if replacenan:
-        orgvalue = np.nan
-        newvalue = 0
-        h5filelast,_,_ = replacevalue(h5file, stacks, axes, copygroups, bsamefile, default, orgvalue, newvalue)
-        
-    # Crop
-    cropafter = parameters.get("crop",False)
-    if cropafter:
-        cropinfo = {"nanval":np.nan,"stackdim":stackdim,"reference set":alignreference}
-        h5filelast,_,_ = execcrop(h5file, stacks, axes, copygroups, bsamefile, default, cropinfo)
-          
-    timing.printtimeelapsed(T0,logger)
-    
-    return h5filelast
-    
+        # Post normalization
+        postalignnormcounter = parameters.get("postalignnormcounter",None)
+        if postalignnormcounter is not None:
+            skip = instrument.counters(include=["xrfroi"])
+            skip.append(postalignnormcounter)
+            skip.extend(["calc_flux0","calc_fluxt"])
+            expression = "{{}}/{{{}}}".format(postalignnormcounter)
+            nxprocess = runtask(previous=nxprocess,method='expression',name='postnormalize',
+                                expression=expression,skip=skip,**commonparams)
+            if nxprocess is None:
+                return nxprocesslast
+            else:
+                nxprocesslast = nxprocess
+            
+        # Remove NaN's
+        replacenan = parameters.get("replacenan",False)
+        if replacenan:
+            tmp = runtask(nxprocess,method='replace',
+                          org=np.nan,new=0,**commonparams)
+            if tmp is not None:
+                nxprocesslast = tmp
+                                                
+        # Crop
+        cropafter = parameters.get("crop",False)
+        if cropafter:
+            nxprocesslast = runtask(previous=nxprocess,method='crop',nanval=np.nan,
+                                    reference=alignreference,**commonparams)
+            if tmp is not None:
+                nxprocesslast = tmp
+                                                
+        return nxprocesslast
