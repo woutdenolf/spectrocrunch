@@ -47,7 +47,7 @@ class test_fs(unittest.TestCase):
         self.assertEqual(root['/a']['b']['c'].root,'/')
         self.assertEqual(root['a']['b']['c'].root,'/')
         self._check_path(root,root)
-        root.ls(recursive=True,stats=False)
+        #root.ls(recursive=True,stats=False)
         
     def test_h5(self):
         self._check_h5(h5fs.Path)

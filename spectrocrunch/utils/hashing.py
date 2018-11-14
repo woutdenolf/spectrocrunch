@@ -27,9 +27,20 @@ from six import string_types
 import numpy as np
 import hashlib
 import pickle
+import json
 
 def dhash(x):
-    return hashlib.md5(pickle.dumps(x)).hexdigest()
+    """
+    Args:
+        x(string|buffer)
+    """
+    return hashlib.md5(x).hexdigest()
+    
+def phash(x):
+    return dhash(pickle.dumps(x))
+
+def jhash(x):
+    return dhash(json.dumps(x))
     
 def _isiterable(x):
     return isinstance(x,collections.Iterable) and not isinstance(x, string_types)
@@ -90,20 +101,45 @@ def calcdhash(x,**kwargs):
     """
     return _calchash(x,dhash,**kwargs)
 
+def calcjhash(x,**kwargs):
+    """Deterministic and non-cryptographic hash
+    """
+    return _calchash(x,jhash,**kwargs)
+
+def calcphash(x,**kwargs):
+    """Deterministic and non-cryptographic hash
+    """
+    return _calchash(x,phash,**kwargs)
+
+def _eq_hash(func,a,b,kwargs):
+    return func(a,**kwargs)==func(b,**kwargs)
+    
 def hashequal(a,b,**kwargs):
-    return calchash(a,**kwargs)==calchash(b,**kwargs)
+    return _eq_hash(calchash,a,b,kwargs)
 
 def dhashequal(a,b,**kwargs):
-    return calcdhash(a,**kwargs)==calcdhash(b,**kwargs)
+    return _eq_hash(calcdhash,a,b,kwargs)
+    
+def jhashequal(a,b,**kwargs):
+    return _eq_hash(calcjhash,a,b,kwargs)
+    
+def phashequal(a,b,**kwargs):
+    return _eq_hash(calcphash,a,b,kwargs)
+
+def _mergehash(hashes,func):
+    if len(hashes)>1:
+        return func(hashes)
+    else:
+        return hashes[0]
 
 def mergehash(*hashes):
-    if len(hashes)>1:
-        return calchash(hashes)
-    else:
-        return hashes[0]
+    return _mergehash(hashes,calchash)
         
 def mergedhash(*hashes):
-    if len(hashes)>1:
-        return calcdhash(hashes)
-    else:
-        return hashes[0]
+    return _mergehash(hashes,calcdhash)
+
+def mergejhash(*hashes):
+    return _mergehash(hashes,calcjhash)
+
+def mergephash(*hashes):
+    return _mergehash(hashes,calcphash)

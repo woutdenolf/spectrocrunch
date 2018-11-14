@@ -47,12 +47,16 @@ class Path(fs.Path):
                 a+: create (append when existing), read/write from end
         """
         if mode not in ('r','r+','w','w+','x','x+','a','a+'):
-            raise ValueError('Invalid mode \'{}\''.format(mode))
+            raise ValueError('Invalid mode {}'.format(repr(mode)))
         self.openparams = kwargs
         self.openparams['mode'] = mode
         
         self.path = path
         super(Path,self).__init__(**kwargs)
+    
+    @property
+    def factory_kwargs(self):
+        return self.openparams
     
     @property
     def openparams(self):
@@ -61,7 +65,7 @@ class Path(fs.Path):
     @openparams.setter
     def openparams(self,value):
         self._openparams = value
-    
+            
     @contextlib.contextmanager
     def _fopen(self,**openparams):
         try:

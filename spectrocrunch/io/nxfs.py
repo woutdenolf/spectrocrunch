@@ -34,7 +34,7 @@ from . import fs
 from . import h5fs
 from ..utils import units
 from ..utils import instance
-from ..utils.hashing import calcdhash,mergedhash
+from ..utils import hashing
 from .. import __version__
 PROGRAM_NAME = 'spectrocrunch'
 
@@ -61,7 +61,14 @@ def textarray(arr):
 def timestamp():
     return textarray(datetime.now().isoformat())
 
-
+def calc_checksum(previous,confighash):
+    if previous:
+        hashes = [prev.checksum for prev in previous]
+    else:
+        hashes = []
+    hashes.append(confighash)
+    return hashing.mergejhash(*hashes)
+        
 class Path(h5fs.Path):
 
     def lsinfo(self):
@@ -259,28 +266,15 @@ class Path(h5fs.Path):
             process = entry[name]
             return process,process.exists
         else:
-            dhash = self.nxproces_calcdhash(previous,self.nxproces_confighash(parameters))
+            checksum = calc_checksum(previous,hashing.calcjhash(parameters))
             for process in entry.iter_is_nxclass('NXprocess'):
-                if process.verify_hash(dhash):
+                if process.verify_checksum(checksum):
                     return process,True
             process = entry[name]
             if process.exists:
                 raise ValueError('Process with the same name and a different hash exists. Use a different name.')
 
         return process,False
-
-    @classmethod
-    def nxproces_confighash(cls,config):
-        return calcdhash(json.loads(json.dumps(config)))
-    
-    @classmethod
-    def nxproces_calcdhash(cls,previous,confighash):
-        if previous:
-            hashes = [prev.dhash for prev in previous]
-        else:
-            hashes = []
-        hashes.append(confighash)
-        return mergedhash(*hashes)
     
     def last_nxprocess(self,**openparams):
         entry = self.nxentry(**openparams)
@@ -428,7 +422,6 @@ class _NXprocess(_NXPath):
             self.config.write_dict(parameters)
 
             # Links to previous processes
-            self.previous.mkdir()
             if previous:
                 for prev in previous:
                     prev._raise_ifnot_class(self.NX_CLASS)
@@ -440,31 +433,31 @@ class _NXprocess(_NXPath):
 
             # Other info
             self['sequence_index'].write(data=self.previous_sequence_index+1)
-            #self.results['configuration_hash'].write(data=self.dhash)
+            self.results['checksum'].write(data=self.checksum)
 
             self.updated()
             
-    def verify_hash(self,dhash):
-        return self.dhash==dhash
+    def verify_checksum(self,checksum):
+        return self.checksum==checksum
     
     @property
-    def dhash(self):
+    def checksum(self):
         with self._verify():
-            path = self.resultspath['configuration_hash']
+            path = self.resultspath['checksum']
             if path.exists:
                 return path.read()
-            return self.nxproces_calcdhash(self.previous,self.confighash)
+            return calc_checksum(self.previous,self.confighash)
     
     @property
     def confighash(self):
         if self.configpath.exists:
-            return calcdhash(self.config.read())
+            return hashing.calcjhash(self.config.read(parse=True))
         else:
             return None
   
     @property
     def previous(self):
-        return self.results['previous']
+        return self.results.nxcollection('previous')
     
     @property
     def previous_processes(self):
@@ -490,13 +483,14 @@ class _NXnote(_NXPath):
     
     NX_CLASS = 'NXnote'
 
-    def read(self):
+    def read(self,parse=True):
         with self._verify():
             with self['data'].open(mode='r') as node:
                 data = node[()]
-                mimetype = node.attrs.get('type','text/plain')
-                if mimetype=='application/json':
-                    data = json.loads(data)
+                if parse:
+                    mimetype = node.attrs.get('type','text/plain')
+                    if mimetype=='application/json':
+                        data = json.loads(data)
                 return data
             
     def _write(self,data,mimetype):

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -23,19 +23,34 @@
 # THE SOFTWARE.
 
 import unittest
+import numpy as np
+from random import shuffle
+import collections
 
-from . import test_instance
-from . import test_classfactory
-from . import test_indexing
-from . import test_hashing
+from .. import hashing
 
+class test_hashing(unittest.TestCase):
+
+    def test_compare(self):
+        eqfuncs = [hashing.hashequal,hashing.jhashequal,hashing.phashequal]
+        a = {'a':1,'b':[1,{'c':2,'d':3}]}
+        b = {'b':[1,{'c':2,'d':3}],'a':1}
+        for func in eqfuncs:
+            self.assertTrue(func(a,b))
+    
+        a = {'a':1,'b':[1,collections.OrderedDict([('c',2),('d',3)])]}
+        b = {'b':[1,collections.OrderedDict([('c',2),('d',3)])],'a':1}
+        for func in eqfuncs:
+            self.assertTrue(func(a,b))
+    
+        b = {'b':[1,collections.OrderedDict([('d',3),('c',2)])],'a':1}
+        for func in eqfuncs:
+            self.assertFalse(func(a,b))
+    
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_instance.test_suite())
-    testSuite.addTest(test_classfactory.test_suite())
-    testSuite.addTest(test_indexing.test_suite())
-    testSuite.addTest(test_hashing.test_suite())
+    testSuite.addTest(test_hashing("test_compare"))
     return testSuite
     
 if __name__ == '__main__':
