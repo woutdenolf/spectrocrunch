@@ -245,8 +245,8 @@ def process(**parameters):
         # Crop
         cropafter = parameters.get("crop",False)
         if cropafter:
-            nxprocesslast = runtask(previous=nxprocess,method='crop',nanval=np.nan,
-                                    reference=alignreference,**commonparams)
+            tmp = runtask(previous=nxprocess,method='crop',nanval=np.nan,
+                          reference=alignreference,**commonparams)
             if tmp is not None:
                 nxprocesslast = tmp
                                                 

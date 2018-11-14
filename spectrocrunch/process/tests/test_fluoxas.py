@@ -64,7 +64,7 @@ class test_fluoxas(unittest.TestCase):
     def tearDown(self):
         self.dir.cleanup()
         
-    def create_procinfo(self):
+    def _data_init(self):
         synchrotron = xraysources.factory("synchrotron")
         leia = xrfdetectors.factory("leia")
         geometry = None
@@ -168,38 +168,8 @@ class test_fluoxas(unittest.TestCase):
                     b = np.array(detector['massfractions'][i][j].values())
                     np.testing.assert_allclose(a/len(seldetectors),b)
 
-    def fitlabels(self,quant=False):
-        labels = list(self.procinfo['labels'])
-        if quant:
-            labels += ['w'+label for label in labels if 'Scatter' not in label]
-        return labels
-
-    def qxrfgeometry(self):
-        energy = self.procinfo['energy']
-
-        monitor = qxrf.factory("QXRFGeometry",instrument="id21",diodeI0="iodet1",diodeIt="idet",
-                                optics="KB",xrfgeometry=None,simplecalibration=True)
-        monitor.setreferenceflux(self.procinfo['flux'])
-        monitor.setdefaulttime(self.procinfo['time'])
-        monitor.diodeI0.gain = 1e8
-        monitor.diodeIt.gain = 1e7
-        
-        info = {"I0_counts":300,"It_counts":30,"time":1,"dark":True,
-                "gaindiodeI0":1e8,"gaindiodeIt":1e7}
-        monitor.calibrate(**info)
-        
-        info = {"I0_counts":400000,"It_counts":100000,"time":1,"dark":False,
-                "gaindiodeI0":1e8,"gaindiodeIt":1e7,"energy":min(energy)}
-        monitor.calibrate(**info)
-        
-        info = {"I0_counts":200000,"It_counts":100000,"time":1,"dark":False,
-                "gaindiodeI0":1e8,"gaindiodeIt":1e7,"energy":max(energy)}
-        monitor.calibrate(**info)
-        
-        return monitor
-    
-    def gendata(self,applyflux=False,applydt=False):
-        self.create_procinfo()
+    def _data_generate(self,applyflux=True,applydt=True):
+        self._data_init()
         qxrfgeometry = self.qxrfgeometry()
         refflux = qxrfgeometry.reference.to("hertz").magnitude
         expotime = qxrfgeometry.defaultexpotime.to("seconds").magnitude
@@ -288,43 +258,10 @@ class test_fluoxas(unittest.TestCase):
         stack.save(data,xialabels,stats=stats,ctrs=np.stack(ctrs.values(),axis=-1),ctrnames=ctrs.keys(),ctrheaders=ctrheaders)
 
         return path,radix,data,stats,ctrs,qxrfgeometry
-    
-    @contextlib.contextmanager
-    def env_destpath(self):
-        self.destpath = TempDirectory()
-        yield
-        self.destpath.cleanup()
-      
-    def _assert_fitresult(self,grpname,grpdata,info):
-        if 'Scatter' in grpname or 'chisq' in grpname:
-            return
-
-        grpname = str(grpname)
-
-        m = re.match("Scatter-(Compton|Peak)([0-9]+)",grpname)
-        if m:
-            grpname = m.group(1)
-            if grpname == "Peak":
-                grpname = "Rayleigh"
-            values1 = [peakareas[0][grpname][int(m.group(2))] for peakareas in info['peakareas']]
-            values2 = [peakareas[1][grpname][int(m.group(2))] for peakareas in info['peakareas']]
-        else:
-            if grpname.startswith("w"):
-                grpname = grpname[1:]
-                values1 = [massfractions[0][grpname] for massfractions in info['massfractions']]
-                values2 = [massfractions[1][grpname] for massfractions in info['massfractions']]
-            else:
-                values1 = [peakareas[0][grpname] for peakareas in info['peakareas']]
-                values2 = [peakareas[1][grpname] for peakareas in info['peakareas']]
-
-        for data,v1,v2 in zip(grpdata,values1,values2):
-            mask = data==np.nanmax(data)
-            np.testing.assert_allclose(data[~mask],v1,rtol=1e-4)
-            np.testing.assert_allclose(data[mask],v2,rtol=1e-4)
-                                      
+                              
     def test_process(self):
         # Generate data
-        sourcepath,radix,data,stats,ctrs,qxrfgeometry = self.gendata()
+        sourcepath,radix,data,stats,ctrs,qxrfgeometry = self._data_generate()
         
         # Raw data 
         nmaps,nlines,nspec,nchan,ndet = data.shape
@@ -415,7 +352,7 @@ class test_fluoxas(unittest.TestCase):
             
             # Processes
             expected_nxprocess = ['xrf']
-            if prealignnormcounter is not None and cfgfileuse:
+            if prealignnormcounter is not None:
                 expected_nxprocess.append('normalize')
             if alignmethod is not None and alignreference is not None:
                 expected_nxprocess.append('align')
@@ -605,7 +542,70 @@ class test_fluoxas(unittest.TestCase):
                 #repeat
             #destpath
         #parameters
+
+    def fitlabels(self,quant=False):
+        labels = list(self.procinfo['labels'])
+        if quant:
+            labels += ['w'+label for label in labels if 'Scatter' not in label]
+        return labels
+
+    def qxrfgeometry(self):
+        energy = self.procinfo['energy']
+
+        monitor = qxrf.factory("QXRFGeometry",instrument="id21",diodeI0="iodet1",diodeIt="idet",
+                                optics="KB",xrfgeometry=None,simplecalibration=True)
+        monitor.setreferenceflux(self.procinfo['flux'])
+        monitor.setdefaulttime(self.procinfo['time'])
+        monitor.diodeI0.gain = 1e8
+        monitor.diodeIt.gain = 1e7
         
+        info = {"I0_counts":300,"It_counts":30,"time":1,"dark":True,
+                "gaindiodeI0":1e8,"gaindiodeIt":1e7}
+        monitor.calibrate(**info)
+        
+        info = {"I0_counts":400000,"It_counts":100000,"time":1,"dark":False,
+                "gaindiodeI0":1e8,"gaindiodeIt":1e7,"energy":min(energy)}
+        monitor.calibrate(**info)
+        
+        info = {"I0_counts":200000,"It_counts":100000,"time":1,"dark":False,
+                "gaindiodeI0":1e8,"gaindiodeIt":1e7,"energy":max(energy)}
+        monitor.calibrate(**info)
+        
+        return monitor
+    
+    @contextlib.contextmanager
+    def env_destpath(self):
+        self.destpath = TempDirectory()
+        yield
+        self.destpath.cleanup()
+      
+    def _assert_fitresult(self,grpname,grpdata,info):
+        if 'Scatter' in grpname or 'chisq' in grpname:
+            return
+
+        grpname = str(grpname)
+
+        m = re.match("Scatter-(Compton|Peak)([0-9]+)",grpname)
+        if m:
+            grpname = m.group(1)
+            if grpname == "Peak":
+                grpname = "Rayleigh"
+            values1 = [peakareas[0][grpname][int(m.group(2))] for peakareas in info['peakareas']]
+            values2 = [peakareas[1][grpname][int(m.group(2))] for peakareas in info['peakareas']]
+        else:
+            if grpname.startswith("w"):
+                grpname = grpname[1:]
+                values1 = [massfractions[0][grpname] for massfractions in info['massfractions']]
+                values2 = [massfractions[1][grpname] for massfractions in info['massfractions']]
+            else:
+                values1 = [peakareas[0][grpname] for peakareas in info['peakareas']]
+                values2 = [peakareas[1][grpname] for peakareas in info['peakareas']]
+
+        for data,v1,v2 in zip(grpdata,values1,values2):
+            mask = data==np.nanmax(data)
+            np.testing.assert_allclose(data[~mask],v1,rtol=1e-4)
+            np.testing.assert_allclose(data[mask],v2,rtol=1e-4)
+            
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
