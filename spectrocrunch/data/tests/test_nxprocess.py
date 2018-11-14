@@ -244,7 +244,8 @@ class test_nxprocess(unittest.TestCase):
     def test_expression(self):
         with self._nxprocess(method='expression') as proc1:
             proc1,info = proc1
-            parameters = {'method':'expression','expression':info['expression'],'skip':info['skip'],'sliced':False}
+            skip = [{'method':'regex','pattern':name} for name in info['skip']]
+            parameters = {'method':'expression','expression':info['expression'],'skip':skip,'sliced':False}
             proc2 = self._run_task(parameters,proc1)
             
             parameters['sliced'] = True

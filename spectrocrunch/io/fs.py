@@ -179,12 +179,15 @@ class Path(File):
             path = tmp[0]
         return device,path
 
-    @classmethod
-    def factory(cls,path):
-        if isinstance(path,cls):
+    @property
+    def factory_kwargs(self):
+        return {}
+
+    def factory(self,path):
+        if isinstance(path,self.__class__):
             return path
         else:
-            return cls(path)
+            return self.__class__(path,**self.factory_kwargs)
     
     @staticmethod
     def _getpath(path):

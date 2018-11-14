@@ -43,7 +43,7 @@ class h5File(fs.File):
                 a    : create (append when existing), read/write
         """
         if mode not in ('r','r+','w','x','w-','a'):
-            raise ValueError('Invalid mode \'{}\''.format(mode))
+            raise ValueError('Invalid mode {}'.format(repr(mode)))
         self.openparams = kwargs
         self.openparams['mode'] = mode
         self.path = path

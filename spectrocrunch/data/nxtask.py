@@ -32,6 +32,7 @@ import contextlib
 from . import nxutils
 from ..utils import instance
 from ..utils import timing
+from ..utils import hashing
 from ..io.utils import randomstring
 
 logger = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ class MissingParameter(TaskException):
 
 class ParameterError(TaskException):
     pass
-    
+
 class Task(with_metaclass(ABCMeta,object)):
     
     def __init__(self,previous=None,nxentry=None,**parameters):
@@ -68,6 +69,12 @@ class Task(with_metaclass(ABCMeta,object)):
         lst = self._parameters_filter()
         if lst:
             self._parameters = {k:v for k,v in self._parameters.items() if k in lst}
+    
+    @property
+    def checksum(self):
+        hashes = [task.checksum for task in self.previous]
+        hashes.append(hashing.calcjhash(self.parameters))
+        return hashing.mergejhash(*hashes)
     
     @property
     def previous(self):
