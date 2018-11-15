@@ -25,6 +25,7 @@
 import unittest
 import numpy as np
 import os
+import sys
 import contextlib
 import itertools
 import logging
@@ -257,291 +258,300 @@ class test_fluoxas(unittest.TestCase):
         xialabels = ["xia{:02d}".format(i) for i in range(ndet)]
         stack.save(data,xialabels,stats=stats,ctrs=np.stack(ctrs.values(),axis=-1),ctrnames=ctrs.keys(),ctrheaders=ctrheaders)
 
-        return path,radix,data,stats,ctrs,qxrfgeometry
+        self._data = path,radix,data,stats,ctrs,qxrfgeometry
                               
     def test_process(self):
-        # Generate data
-        sourcepath,radix,data,stats,ctrs,qxrfgeometry = self._data_generate()
+        self._data_generate()
         
-        # Raw data 
+        parameters = [(None,"max"),(True,False),self.procinfo['include_detectors'],(True,False),
+                      (False,True),(True,False),(True,False),(0,),(False,True)]
+        
+        if hasattr(self,'subTest'):
+            for i,combination in enumerate(itertools.product(*parameters)):
+                with self.subTest(i=i):
+                    self._process(*combination)
+        else:
+            for i,combination in enumerate(itertools.product(*parameters)):
+                self._process(*combination)
+                sys.stdout.write('.')
+                sys.stdout.flush()
+                    
+    def _process(self,alignmethod,cfgfileuse,include_detectors_p,adddetectors_p,\
+                      addbeforefit,quant,dtcor,stackdim,correctspectra):
+
+        if not cfgfileuse and alignmethod is not None:
+            return
+        
+        sourcepath,radix,data,stats,ctrs,qxrfgeometry = self._data
         nmaps,nlines,nspec,nchan,ndet = data.shape
         scannumbers = [range(nmaps)]
 
-        parameters = [(None,"max"),(True,False),self.procinfo['include_detectors'],(True,False),
-                      (False,True),(True,False),(True,False),(0,),(False,True)]
-        for combination in itertools.product(*parameters):
-            alignmethod,cfgfileuse,include_detectors_p,adddetectors_p,\
-            addbeforefit,quant,dtcor,stackdim,correctspectra = combination
-
-            if not cfgfileuse and alignmethod is not None:
-                continue
+        if include_detectors_p:
+            include_detectors = include_detectors_p
+        else:
+            include_detectors = tuple(range(ndet))
             
-            if include_detectors_p:
-                include_detectors = include_detectors_p
+        alldetectors = tuple(sorted(list(listtools.flatten(include_detectors))))
+        adddetectorgroups = any(len(instance.asarray(dets))>1 for dets in instance.asarray(include_detectors))
+        adddetectors = adddetectors_p and len(alldetectors)>1
+        addspectra = (adddetectors or adddetectorgroups) and addbeforefit
+        fluxnormbefore = quant and correctspectra
+        dtcorbefore = dtcor and (correctspectra or addspectra)
+        newspectra = addspectra or fluxnormbefore or dtcorbefore
+        
+        if addspectra:
+            if adddetectorgroups:
+                seldetectors = [tuple(instance.asarray(dets).tolist()) for dets in instance.asarray(include_detectors)]
             else:
-                include_detectors = tuple(range(ndet))
+                seldetectors = [alldetectors]
+        else:
+            seldetectors = [(det,) for det in alldetectors]
+
+        if quant:
+            geom = qxrfgeometry
+            geom.xrfgeometries = [self.procinfo['detectors'][k]['geometry'] for k in seldetectors]
+            prealignnormcounter = None
+        else:
+            geom = None
+            prealignnormcounter = "arr_norm"
+
+        if cfgfileuse:
+            cfgfiles = [self.procinfo['detectors'][k]['cfgfile'] for k in seldetectors]
+        else:
+            cfgfiles = None
+
+        alignreference = None
+        fitlabels = set(self.fitlabels(quant=quant))
+        fitlabelsfile = set([label.replace('-','_') for label in fitlabels])
+        detcounterlabels = set(['xmap_icr','xmap_ocr','xmap_x1c','xmap_x2c'])
+        counterlabels = set(['arr_iodet','arr_idet','arr_norm'])
+        calclabels = set(['calc_transmission','calc_absorbance','calc_flux0','calc_fluxt'])
+        for label in fitlabels:
+            if not 'Scatter' in label:
+                alignreference = label
+                break
+        refimageindex = 0
+
+        # Data
+        expectedgroups_data = []
+        if addspectra:
+            if adddetectorgroups:
+                expectedgroups_data = set(["S{:d}".format(i+1) for i in range(len(include_detectors))])
+            else:
+                if len(alldetectors)==1:
+                    expectedgroups_data = set(['{:02d}'.format(alldetectors[0])])
+                else:
+                    expectedgroups_data = set(['S1'])
+        else:
+            expectedgroups_data = set(["{:02d}".format(i) for i in list(listtools.flatten(include_detectors))])
+            
+        # Final groups
+        if adddetectors:
+            if adddetectorgroups:
+                expectedgroups_result = ["S{:d}".format(len(include_detectors)+1)]
+            else:
+                expectedgroups_result = ['S1']
+        elif adddetectorgroups:
+            expectedgroups_result = ["S{:d}".format(i+1) for i in range(len(include_detectors))]
+        else:
+            expectedgroups_result = ["{:02d}".format(i) for i in alldetectors]
+        
+        alignref = "/detector{}/{}".format(expectedgroups_result[0],alignreference)
+        expectedgroups_result = ['counters'] + ["detector"+det for det in expectedgroups_result]
+        expectedgroups_result = set(expectedgroups_result)
+        
+        # Processes
+        expected_nxprocess = ['xrf']
+        if prealignnormcounter is not None:
+            expected_nxprocess.append('normalize')
+        if alignmethod is not None and alignreference is not None:
+            expected_nxprocess.append('align')
+            expected_nxprocess.append('crop')
+        
+        with self._destpath_context() as destpath:
+            for repeat in range(2):
+                logger.debug("alignmethod = {}".format(alignmethod))
+                logger.debug("stackdim = {}".format(stackdim))
+                logger.debug("cfgfiles = {}".format(cfgfiles))
+                logger.debug("dtcor = {}".format(dtcor))
+                logger.debug("adddetectors = {}".format(adddetectors_p))
+                logger.debug("addbeforefit = {}".format(addbeforefit))
+                logger.debug("include_detectors = {}".format(include_detectors_p))
+                logger.debug("adddetectorgroups = {}".format(adddetectorgroups))
+                logger.debug("quant = {}".format(quant))
+                logger.debug("correctspectra = {}".format(correctspectra))
+                logger.debug("newspectra = {}".format(newspectra))
                 
-            alldetectors = tuple(sorted(list(listtools.flatten(include_detectors))))
-            adddetectorgroups = any(len(instance.asarray(dets))>1 for dets in instance.asarray(include_detectors))
-            adddetectors = adddetectors_p and len(alldetectors)>1
-            addspectra = (adddetectors or adddetectorgroups) and addbeforefit
-            fluxnormbefore = quant and correctspectra
-            dtcorbefore = dtcor and (correctspectra or addspectra)
-            newspectra = addspectra or fluxnormbefore or dtcorbefore
-            
-            if addspectra:
-                if adddetectorgroups:
-                    seldetectors = [tuple(instance.asarray(dets).tolist()) for dets in instance.asarray(include_detectors)]
-                else:
-                    seldetectors = [alldetectors]
-            else:
-                seldetectors = [(det,) for det in alldetectors]
+                parameters = {}
+                parameters["nxentry"] = 'entry_0001'
+                parameters["sourcepath"] = sourcepath
+                parameters["destpath"] = destpath.path
+                parameters["scanname"] = radix
+                parameters["scannumbers"] = scannumbers
+                parameters["cfgfiles"] = cfgfiles
+                parameters["alignmethod"] = alignmethod
+                parameters["alignreference"] = alignref
+                parameters["refimageindex"] = refimageindex
+                parameters["dtcor"] = dtcor
+                parameters["plot"] = False
+                parameters["adddetectors"] = adddetectors_p
+                parameters["addbeforefit"] = addbeforefit
+                parameters["qxrfgeometry"] = geom
+                parameters["correctspectra"] = correctspectra
+                parameters["replacenan"] = bool(alignmethod)
+                parameters["prealignnormcounter"] = prealignnormcounter
+                parameters["stackdim"] = stackdim
+                parameters["include_detectors"] = include_detectors_p
+                parameters["instrument"] = "id21"
+                parameters["counters"] = ["arr_norm"]
+                parameters["fastfitting"] = True
+                parameters["replacenan"] = False
+                parameters["crop"] = alignmethod is not None
 
-            if quant:
-                geom = qxrfgeometry
-                geom.xrfgeometries = [self.procinfo['detectors'][k]['geometry'] for k in seldetectors]
-                prealignnormcounter = None
-            else:
-                geom = None
-                prealignnormcounter = "arr_norm"
+                nxprocess = process(**parameters)
 
-            if cfgfileuse:
-                cfgfiles = [self.procinfo['detectors'][k]['cfgfile'] for k in seldetectors]
-            else:
-                cfgfiles = None
-
-            alignreference = None
-            fitlabels = set(self.fitlabels(quant=quant))
-            fitlabelsfile = set([label.replace('-','_') for label in fitlabels])
-            detcounterlabels = set(['xmap_icr','xmap_ocr','xmap_x1c','xmap_x2c'])
-            counterlabels = set(['arr_iodet','arr_idet','arr_norm'])
-            calclabels = set(['calc_transmission','calc_absorbance','calc_flux0','calc_fluxt'])
-            for label in fitlabels:
-                if not 'Scatter' in label:
-                    alignreference = label
-                    break
-            refimageindex = 0
-
-            # Data
-            expectedgroups_data = []
-            if addspectra:
-                if adddetectorgroups:
-                    expectedgroups_data = set(["S{:d}".format(i+1) for i in range(len(include_detectors))])
-                else:
-                    if len(alldetectors)==1:
-                        expectedgroups_data = set(['{:02d}'.format(alldetectors[0])])
-                    else:
-                        expectedgroups_data = set(['S1'])
-            else:
-                expectedgroups_data = set(["{:02d}".format(i) for i in list(listtools.flatten(include_detectors))])
-                
-            # Final groups
-            if adddetectors:
-                if adddetectorgroups:
-                    expectedgroups_result = ["S{:d}".format(len(include_detectors)+1)]
-                else:
-                    expectedgroups_result = ['S1']
-            elif adddetectorgroups:
-                expectedgroups_result = ["S{:d}".format(i+1) for i in range(len(include_detectors))]
-            else:
-                expectedgroups_result = ["{:02d}".format(i) for i in alldetectors]
-            
-            alignref = "/detector{}/{}".format(expectedgroups_result[0],alignreference)
-            expectedgroups_result = ['counters'] + ["detector"+det for det in expectedgroups_result]
-            expectedgroups_result = set(expectedgroups_result)
-            
-            # Processes
-            expected_nxprocess = ['xrf']
-            if prealignnormcounter is not None:
-                expected_nxprocess.append('normalize')
-            if alignmethod is not None and alignreference is not None:
-                expected_nxprocess.append('align')
-                expected_nxprocess.append('crop')
-            
-            with self.env_destpath():
-                for repeat in range(2):
-                    logger.debug("alignmethod = {}".format(alignmethod))
-                    logger.debug("stackdim = {}".format(stackdim))
-                    logger.debug("cfgfiles = {}".format(cfgfiles))
-                    logger.debug("dtcor = {}".format(dtcor))
-                    logger.debug("adddetectors = {}".format(adddetectors_p))
-                    logger.debug("addbeforefit = {}".format(addbeforefit))
-                    logger.debug("include_detectors = {}".format(include_detectors_p))
-                    logger.debug("adddetectorgroups = {}".format(adddetectorgroups))
-                    logger.debug("quant = {}".format(quant))
-                    logger.debug("correctspectra = {}".format(correctspectra))
-                    logger.debug("newspectra = {}".format(newspectra))
-                    
-                    parameters = {}
-                    parameters["nxentry"] = 'entry_0001'
-                    parameters["sourcepath"] = sourcepath
-                    parameters["destpath"] = self.destpath.path
-                    parameters["scanname"] = radix
-                    parameters["scannumbers"] = scannumbers
-                    parameters["cfgfiles"] = cfgfiles
-                    
-                    parameters["alignmethod"] = alignmethod
-                    parameters["alignreference"] = alignref
-                    parameters["refimageindex"] = refimageindex
-                    parameters["dtcor"] = dtcor
-                    parameters["plot"] = False
-                    parameters["adddetectors"] = adddetectors_p
-                    parameters["addbeforefit"] = addbeforefit
-                    parameters["qxrfgeometry"] = geom
-                    parameters["correctspectra"] = correctspectra
-                    parameters["replacenan"] = bool(alignmethod)
-                    parameters["prealignnormcounter"] = prealignnormcounter
-                    parameters["stackdim"] = stackdim
-                    parameters["include_detectors"] = include_detectors_p
-                    parameters["instrument"] = "id21"
-                    parameters["counters"] = ["arr_norm"]
-                    parameters["fastfitting"] = True
-                    parameters["replacenan"] = False
-                    parameters["crop"] = alignmethod is not None
-
-                    nxprocess = process(**parameters)
-
-                    # Check generated spectra (files)
-                    if newspectra:
-                        corlabel = ""
-                        if dtcorbefore:
-                            corlabel = corlabel+"dt"
-                        if fluxnormbefore:
-                            corlabel = corlabel+"fl"
-                        if corlabel:
-                            radixout = "{}_{}cor".format(radix,corlabel)
-                        else:
-                            radixout = radix
-
-                        if addspectra:
-                            expected = ["{}_xia{}_{:04d}_0000_{:04d}.edf".format(radixout,det,mapnum,linenum)\
-                                                                        for det in expectedgroups_data\
-                                                                        for mapnum in range(nmaps)\
-                                                                        for linenum in range(nlines)]
-                        else:
-                            expected = ["{}_xia{}_{:04d}_0000_{:04d}.edf".format(radixout,det,mapnum,linenum)\
-                                                                        for det in expectedgroups_data\
-                                                                        for mapnum in range(nmaps)\
-                                                                        for linenum in range(nlines)]
-                        self.destpath.compare(sorted(expected),path="{}_data".format(radix),files_only=True,recursive=False)
+                # Check generated spectra (files)
+                if newspectra:
+                    corlabel = ""
+                    if dtcorbefore:
+                        corlabel = corlabel+"dt"
+                    if fluxnormbefore:
+                        corlabel = corlabel+"fl"
+                    if corlabel:
+                        radixout = "{}_{}cor".format(radix,corlabel)
                     else:
                         radixout = radix
-                        
-                    # Check pymca output (files)
-                    if cfgfileuse:
-                        if addspectra:
-                            expected = ["{}_xia{}_{:04d}_0000_{}.edf".format(radixout,det,mapnum,label)\
-                                                                            for det in expectedgroups_data\
-                                                                            for mapnum in range(nmaps)\
-                                                                            for label in fitlabelsfile]
-                            expected.extend(["{}_xia{}_{:04d}_0000.cfg".format(radixout,det,mapnum,label)\
-                                                                            for det in expectedgroups_data\
-                                                                            for mapnum in range(nmaps)])
-                        else:
-                            expected = ["{}_xia{}_{:04d}_0000_{}.edf".format(radixout,det,mapnum,label)\
-                                                                            for det in expectedgroups_data\
-                                                                            for mapnum in range(nmaps)\
-                                                                            for label in fitlabelsfile]
-                            expected.extend(["{}_xia{}_{:04d}_0000.cfg".format(radixout,det,mapnum,label)\
-                                                                            for det in expectedgroups_data\
-                                                                            for mapnum in range(nmaps)])
-                        self.destpath.compare(sorted(expected),path="{}_fit".format(radix),files_only=True,recursive=False)
 
-                    # Check top-level output directory (h5 files)
-                    expected = []
-                    if cfgfiles:
-                        expected.append("{}_fit".format(radix))
-                    if newspectra:
-                        expected.append("{}_data".format(radix))
-                    h5file = "{}.h5".format(radix)
-                    expected.append(h5file)
-                    self.destpath.compare(sorted(expected),files_only=True,recursive=False)
-
-                    # Check NXprocess groups
-                    entry = nxprocess.nxentry()
-                    for name in expected_nxprocess:
-                        self.assertTrue(name in entry)
-                    self.assertEqual(nxprocess.name,expected_nxprocess[-1])
-
-                    # Check NXdata groups
-                    groups, axes = nxresult.regulargriddata(nxprocess)
-                    self.assertEqual(set(groups.keys()),expectedgroups_result)
-                    for group,signals in groups.items():
-                        if group == 'counters':
-                            if quant:
-                                expectedsubgroups = counterlabels|calclabels
-                            else:
-                                expectedsubgroups = counterlabels
-                        else:
-                            if cfgfileuse:
-                                expectedsubgroups = detcounterlabels|fitlabels
-                            else:
-                                expectedsubgroups = detcounterlabels
-                        self.assertEqual(set([sig.name for sig in signals]),expectedsubgroups)
-
-                    # Check generated spectra (data)
-                    if newspectra:
-                        # Apply DT correction
-                        if dtcorbefore:
-                            data0 = data * (stats[...,xiaedf.xiadata.STICR,:]/stats[...,xiaedf.xiadata.STOCR,:])[...,np.newaxis,:]
-                        else:
-                            data0 = data.copy()
-                        
-                        # Apply flux normalization
-                        if fluxnormbefore:
-                            data0 /= ctrs["arr_norm"][...,np.newaxis,np.newaxis]
-
-                        # Add spectra
-                        if addspectra:
-                            if adddetectorgroups:
-                                data0 = np.stack([data0[...,instance.asarray(ind)].sum(axis=-1) for ind in include_detectors],axis=-1)
-                            else:
-                                data0 = data0[...,alldetectors].sum(axis=-1)[...,np.newaxis]
-                        else:
-                            data0 = data0[...,alldetectors]
-                             
-                        # Saved spectra
-                        stack = xiaedf.xiastack_radix(os.path.join(self.destpath.path,"{}_data".format(radix)),radixout)
-                        data2 = stack.data
-                        
-                        # Check spectra are equal
-                        np.testing.assert_allclose(data0,data2,rtol=1e-6)
+                    if addspectra:
+                        expected = ["{}_xia{}_{:04d}_0000_{:04d}.edf".format(radixout,det,mapnum,linenum)\
+                                                                    for det in expectedgroups_data\
+                                                                    for mapnum in range(nmaps)\
+                                                                    for linenum in range(nlines)]
+                    else:
+                        expected = ["{}_xia{}_{:04d}_0000_{:04d}.edf".format(radixout,det,mapnum,linenum)\
+                                                                    for det in expectedgroups_data\
+                                                                    for mapnum in range(nmaps)\
+                                                                    for linenum in range(nlines)]
+                    destpath.compare(sorted(expected),path="{}_data".format(radix),files_only=True,recursive=False)
+                else:
+                    radixout = radix
                     
-                    # Check fit results
-                    if cfgfileuse and dtcor:
-                        for group,signals in groups.items():
-                            if not group.isdetector:
-                                continue
-                            
-                            if group.issum:
-                                if adddetectorgroups:
-                                    if group.number>len(include_detectors):
-                                        dets = alldetectors
-                                    else:
-                                        dets = tuple(instance.asarray(include_detectors[group.number-1]).tolist())
-                                else:
-                                    dets = alldetectors 
-                            else:
-                                dets = (group.number,)
-                            logger.debug('Check fit result for sum of detectors {}'.format(dets))
-                            info = self.procinfo['detectors'][dets]
-                            
-                            for signal in signals:
-                                if 'xmap' in signal.name:
-                                    continue
-                                dataset = signal.read()
-                                if stackdim==1:
-                                    grpdata = np.moveaxis(dataset,1,0)
-                                elif stackdim==2:
-                                    grpdata = np.moveaxis(dataset,2,0)
-                                else:
-                                    grpdata = dataset[:]
-   
-                                self._assert_fitresult(signal.name,grpdata,info)
+                # Check pymca output (files)
+                if cfgfileuse:
+                    if addspectra:
+                        expected = ["{}_xia{}_{:04d}_0000_{}.edf".format(radixout,det,mapnum,label)\
+                                                                        for det in expectedgroups_data\
+                                                                        for mapnum in range(nmaps)\
+                                                                        for label in fitlabelsfile]
+                        expected.extend(["{}_xia{}_{:04d}_0000.cfg".format(radixout,det,mapnum,label)\
+                                                                        for det in expectedgroups_data\
+                                                                        for mapnum in range(nmaps)])
+                    else:
+                        expected = ["{}_xia{}_{:04d}_0000_{}.edf".format(radixout,det,mapnum,label)\
+                                                                        for det in expectedgroups_data\
+                                                                        for mapnum in range(nmaps)\
+                                                                        for label in fitlabelsfile]
+                        expected.extend(["{}_xia{}_{:04d}_0000.cfg".format(radixout,det,mapnum,label)\
+                                                                        for det in expectedgroups_data\
+                                                                        for mapnum in range(nmaps)])
+                    destpath.compare(sorted(expected),path="{}_fit".format(radix),files_only=True,recursive=False)
 
-                #repeat
-            #destpath
-        #parameters
+                # Check top-level output directory (h5 files)
+                expected = []
+                if cfgfiles:
+                    expected.append("{}_fit".format(radix))
+                if newspectra:
+                    expected.append("{}_data".format(radix))
+                h5file = "{}.h5".format(radix)
+                expected.append(h5file)
+                destpath.compare(sorted(expected),files_only=True,recursive=False)
+
+                # Check NXprocess groups
+                entry = nxprocess.nxentry()
+                for name in expected_nxprocess:
+                    self.assertTrue(name in entry)
+                self.assertEqual(nxprocess.name,expected_nxprocess[-1])
+
+                # Check NXdata groups
+                groups, axes = nxresult.regulargriddata(nxprocess)
+                self.assertEqual(set(groups.keys()),expectedgroups_result)
+                for group,signals in groups.items():
+                    if group == 'counters':
+                        if quant:
+                            expectedsubgroups = counterlabels|calclabels
+                        else:
+                            expectedsubgroups = counterlabels
+                    else:
+                        if cfgfileuse:
+                            expectedsubgroups = detcounterlabels|fitlabels
+                        else:
+                            expectedsubgroups = detcounterlabels
+                    self.assertEqual(set([sig.name for sig in signals]),expectedsubgroups)
+
+                # Check generated spectra (data)
+                if newspectra:
+                    # Apply DT correction
+                    if dtcorbefore:
+                        data0 = data * (stats[...,xiaedf.xiadata.STICR,:]/stats[...,xiaedf.xiadata.STOCR,:])[...,np.newaxis,:]
+                    else:
+                        data0 = data.copy()
+                    
+                    # Apply flux normalization
+                    if fluxnormbefore:
+                        data0 /= ctrs["arr_norm"][...,np.newaxis,np.newaxis]
+
+                    # Add spectra
+                    if addspectra:
+                        if adddetectorgroups:
+                            data0 = np.stack([data0[...,instance.asarray(ind)].sum(axis=-1) for ind in include_detectors],axis=-1)
+                        else:
+                            data0 = data0[...,alldetectors].sum(axis=-1)[...,np.newaxis]
+                    else:
+                        data0 = data0[...,alldetectors]
+                         
+                    # Saved spectra
+                    stack = xiaedf.xiastack_radix(os.path.join(destpath.path,"{}_data".format(radix)),radixout)
+                    data2 = stack.data
+                    
+                    # Check spectra are equal
+                    np.testing.assert_allclose(data0,data2,rtol=1e-6)
+                
+                # Check fit results
+                if cfgfileuse and dtcor:
+                    for group,signals in groups.items():
+                        if not group.isdetector:
+                            continue
+                        
+                        if group.issum:
+                            if adddetectorgroups:
+                                if group.number>len(include_detectors):
+                                    dets = alldetectors
+                                else:
+                                    dets = tuple(instance.asarray(include_detectors[group.number-1]).tolist())
+                            else:
+                                dets = alldetectors 
+                        else:
+                            dets = (group.number,)
+                        logger.debug('Check fit result for sum of detectors {}'.format(dets))
+                        info = self.procinfo['detectors'][dets]
+                        
+                        for signal in signals:
+                            if 'xmap' in signal.name:
+                                continue
+                            dataset = signal.read()
+                            if stackdim==1:
+                                grpdata = np.moveaxis(dataset,1,0)
+                            elif stackdim==2:
+                                grpdata = np.moveaxis(dataset,2,0)
+                            else:
+                                grpdata = dataset[:]
+
+                            self._assert_fitresult(signal.name,grpdata,info)
+
+            #repeat
+
+
+
 
     def fitlabels(self,quant=False):
         labels = list(self.procinfo['labels'])
@@ -574,10 +584,10 @@ class test_fluoxas(unittest.TestCase):
         return monitor
     
     @contextlib.contextmanager
-    def env_destpath(self):
-        self.destpath = TempDirectory()
-        yield
-        self.destpath.cleanup()
+    def _destpath_context(self):
+        destpath = TempDirectory()
+        yield destpath
+        destpath.cleanup()
       
     def _assert_fitresult(self,grpname,grpdata,info):
         if 'Scatter' in grpname or 'chisq' in grpname:
