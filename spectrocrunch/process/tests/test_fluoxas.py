@@ -263,7 +263,7 @@ class test_fluoxas(unittest.TestCase):
     def test_process(self):
         self._data_generate()
         
-        parameters = [(None,"max"),(True,False),self.procinfo['include_detectors'],(True,False),
+        parameters = [(None,),(True,False),self.procinfo['include_detectors'],(True,False),
                       (False,True),(True,False),(True,False),(0,),(False,True)]
         
         if hasattr(self,'subTest'):
@@ -549,9 +549,7 @@ class test_fluoxas(unittest.TestCase):
                             self._assert_fitresult(signal.name,grpdata,info)
 
             #repeat
-
-
-
+        #destpath context
 
     def fitlabels(self,quant=False):
         labels = list(self.procinfo['labels'])
