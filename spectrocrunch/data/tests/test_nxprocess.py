@@ -54,10 +54,9 @@ class test_nxprocess(unittest.TestCase):
         
         shape = (2,10,13)
         self.stackdim = 0
-        positioners = entry.positioners()
-        positioners.add_axis('z',range(shape[0]))
-        positioners.add_axis('y',range(shape[1]),units='um',title='vertical')
-        positioners.add_axis('x',range(shape[2])[::-1])
+        z = 'z',range(shape[0]),None
+        y = 'y',range(shape[1]),{'units':'um','title':'vertical'}
+        x = 'x',range(shape[2])[::-1],None
         yencres = 2
         xencres = 3
         ypossmax = 4
@@ -96,6 +95,7 @@ class test_nxprocess(unittest.TestCase):
 
         for group,signals in groups.items():
             group = process.results.nxdata(group).mkdir()
+            positioners = process.results.positioners()
             for name in signals:
                 if name=='arr_samy':
                     data = yenc
@@ -109,8 +109,8 @@ class test_nxprocess(unittest.TestCase):
                     data[:,-2:,:] = np.nan
                     data[:,:,0:2] = np.nan
                     data[:,:,-1] = np.nan
-                    info['y_crop'] = positioners.get_axis('y')[1:-2]
-                    info['x_crop'] = positioners.get_axis('x')[2:-1]
+                    info['y_crop'] = y[1][1:-2]
+                    info['x_crop'] = x[1][2:-1]
                 elif method=='replace':
                     data[index] = -1
                 elif method=='minlog':
@@ -123,7 +123,7 @@ class test_nxprocess(unittest.TestCase):
                     for i in range(shape[0]):
                         data[i,i,i] = hot
                 group.add_signal(name,data=data)
-            group.set_axes('z','y','x')
+            group.set_axes(z,y,x)
 
         try:
             yield process,info
@@ -207,7 +207,7 @@ class test_nxprocess(unittest.TestCase):
             np.testing.assert_array_equal(grid2.values[info['index']],parameters['new'])
 
             self.assertEqual(proc1.default.signal.name,parameters['default'])
-    
+
     def test_minlog(self):
         with self._nxprocess(method='minlog') as proc1:
             proc1,info = proc1

@@ -327,7 +327,11 @@ class Path(h5fs.Path):
         return self._init_nxclass(self[name],'NXcollection',**openparams)
 
     def positioners(self,**openparams):
-        path = self.nxinstrument(**openparams)
+        path = self.findfirstup_is_nxclass('NXprocess')
+        if path.nxclass=='NXprocess':
+            path = path.results
+        else:
+            path = self.nxinstrument(**openparams)
         return path.nxcollection('positioners',**openparams)
         
     def factory(self,path):
@@ -650,13 +654,13 @@ class _NXdata(_NXPath):
             
                 # Check dimensions
                 axes,positioners = self._axes_validate(axes,signal)
-                
+
                 # Create axes if needed
                 names = []
                 for name,value,attr in axes:
                     axis = positioners.add_axis(name,value,**attr)
-                    if self[name].linkdest()!=axis:
-                        self[name].link(axis)
+                    if not self[name].exists:
+                        self[name].link(axis,soft=False)
                     names.append(name)
                     
                 node.attrs["axes"] = textarray(names)

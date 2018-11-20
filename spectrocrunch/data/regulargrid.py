@@ -183,13 +183,13 @@ class NXRegularGrid(RegularGrid):
         stackdim = 0
         axnew = axis.factory(self.signals,type='nominal')
         axes.insert(stackdim,axnew)
-        self.nxgroup = nxgroup
+        self.nxentry = nxgroup.nxentry()
         super(NXRegularGrid,self).__init__(axes,None,stackdim=stackdim)
 
     @contextlib.contextmanager
     def open(self,**openparams):
-        with self.nxgroup.parent.open(**openparams) as entry:
-            yield entry
+        with self.nxentry.open(**openparams) as group:
+            yield group
 
     @contextlib.contextmanager
     def open_signals(self,**openparams):
@@ -201,33 +201,33 @@ class NXRegularGrid(RegularGrid):
         return [sig.name for sig in self.signals]
 
     def __getitem__(self,index):
-        with self.open(mode='r') as entry:
-            generator = lambda signal: entry[self.nxgroup.relpath(signal.path)]
+        with self.open(mode='r') as group:
+            generator = lambda signal: group[self.nxentry.relpath(signal.path)]
             return indexing.getitem(generator,self.signals,index,self.ndim,shapefull=self.shape,axis=0)
 
     def __setitem__(self,index,value):
-        with self.open(mode='r') as entry:
-            selector = lambda signal: entry[self.nxgroup.relpath(signal.path)]
+        with self.open(mode='r') as group:
+            selector = lambda signal: group[self.nxentry.relpath(signal.path)]
             indexing.setitem(selector,self.signals,index,self.ndim,value,shapefull=self.shape,axis=0,method='set')
     
     def __iadd__(self,value):
-        with self.open(mode='r') as entry:
-            selector = lambda signal: entry[self.nxgroup.relpath(signal.path)]
+        with self.open(mode='r') as group:
+            selector = lambda signal: group[self.nxentry.relpath(signal.path)]
             indexing.setitem(selector,self.signals,(Ellipsis,),self.ndim,value,shapefull=self.shape,axis=0,method='add')
     
     def __isub__(self,value):
-        with self.open(mode='r') as entry:
-            selector = lambda signal: entry[self.nxgroup.relpath(signal.path)]
+        with self.open(mode='r') as group:
+            selector = lambda signal: group[self.nxentry.relpath(signal.path)]
             indexing.setitem(selector,self.signals,(Ellipsis,),self.ndim,value,shapefull=self.shape,axis=0,method='sub')
             
     def __imul__(self,value):
-        with self.open(mode='r') as entry:
-            selector = lambda signal: entry[self.nxgroup.relpath(signal.path)]
+        with self.open(mode='r') as group:
+            selector = lambda signal: group[self.nxentry.relpath(signal.path)]
             indexing.setitem(selector,self.signals,(Ellipsis,),self.ndim,value,shapefull=self.shape,axis=0,method='mul')
     
     def __idiv__(self,value):
-        with self.open(mode='r') as entry:
-            selector = lambda signal: entry[self.nxgroup.relpath(signal.path)]
+        with self.open(mode='r') as group:
+            selector = lambda signal: group[self.nxentry.relpath(signal.path)]
             indexing.setitem(selector,self.signals,(Ellipsis,),self.ndim,value,shapefull=self.shape,axis=0,method='div')
             
     @property
