@@ -315,21 +315,36 @@ class Path(fs.Path):
             
     def link(self,dest,soft=True):
         with self.h5open() as f:
-            lnkname = self.path
+            base = self.parent
+            lnkname = self.name
+            
             destpath = self.factory(dest)
             if destpath.device==self.device:
                 if soft:
-                    dest = self.relpath(self._getpath(dest))
-                    #TODO: double dots do not work?
+                    dest = base.relpath(self._getpath(dest))
+
+                    # Remove '..' because it is not supported:
+                    # https://support.hdfgroup.org/HDF5/doc/UG/HDF5_Users_Guide-Responsive%20HTML5/index.html#t=HDF5_Users_Guide%2FGroups%2FHDF5_Groups.htm%23IX_soft_links
                     if '..' in dest:
-                        dest = destpath.path  
-                    f[lnkname] = h5py.SoftLink(dest)
+                        # This does not work either:
+                        #lst = dest.split(self.sep)
+                        #i = len(lst) - lst[::-1].index('..')
+                        #base = base[self.sep.join(lst[:i])]
+                        #dest = base.relpath(destpath.path)
+                        #lnkname = base.relpath(self.path)
+                        
+                        # Use absolute path instead:
+                        dest = destpath.path
+                    dest = h5py.SoftLink(dest)
                 else:
-                    f[lnkname] = f[destpath.path]
+                    dest = f[destpath.path]
             else:
-                f[lnkname] = h5py.ExternalLink(destpath.device, destpath.path)
-            return self.factory(self)
+                dest = h5py.ExternalLink(destpath.device, destpath.path)
             
+            f[base.path][lnkname] = dest
+            #base.ls()
+            return self.factory(self)
+    
     @property
     def islink(self):
         with self.h5open(mode='r') as f:
