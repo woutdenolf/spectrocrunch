@@ -51,7 +51,6 @@ class Task(nxtask.Task):
             nxfs._NXprocess | None
         """
         self.grid = regulargrid.NXRegularGrid(self.previous[0])
-        self.previous = self.grid.nxgroup
         self._prepare_process()
         self._execute_grid()
         self._sort()
@@ -84,7 +83,7 @@ class Task(nxtask.Task):
     
     @property
     def positioners(self):
-        return self.grid.nxgroup.positioners()
+        return self.nxprocess.positioners()
 
     def _execute_grid(self):
         """
