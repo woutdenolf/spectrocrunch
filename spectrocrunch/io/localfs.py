@@ -126,6 +126,12 @@ class Path(fs.Path):
                 raise fs.MissingParentDirectory(self.location)
             os.mkdir(self.path)
         return self
+    
+    def mkfile(self,data=None,**params):
+        with self.open(**params) as f:
+            if data:
+                f.write(data)
+        return self
         
     def move(self, dest, force=True):
         dest = self._copy_move_prepare(dest, force=force)
