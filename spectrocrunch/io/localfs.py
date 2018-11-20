@@ -217,7 +217,7 @@ class Path(fs.Path):
     def link(self,dest,soft=True):
         lnkname = self.path
         if soft:
-            dest = self.relpath(self._getpath(dest))
+            dest = self.parent.relpath(self._getpath(dest))
             os.symlink(dest, lnkname)
         else:
             dest = self.factory(dest).path

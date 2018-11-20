@@ -47,6 +47,7 @@ class test_fs(unittest.TestCase):
         self.assertEqual(root['/a']['b']['c'].root,'/')
         self.assertEqual(root['a']['b']['c'].root,'/')
         self._check_path(root,root)
+        self._check_link(root)
         #root.ls(recursive=True,stats=False)
         
     def test_h5(self):
@@ -64,7 +65,8 @@ class test_fs(unittest.TestCase):
         
         h5filename2 = os.path.join(self.dir.path,'ext.h5')
         root2 = cls(h5filename2+':/')
-        self._check_path(root1,root2,shape=(2,3),dtype=int)
+        #self._check_path(root1,root2,shape=(2,3),dtype=int)
+        self._check_link(root1)
         
         #print('')
         #root1.ls(recursive=True,stats=False)
@@ -213,7 +215,23 @@ class test_fs(unittest.TestCase):
         self.assertTrue(root1['data2b/a.txt'].exists)
         self.assertFalse(root2['data3'].exists)
         self.assertTrue(root1['data1b'].exists)
-            
+        
+    def _check_link(self,root,data=None):
+        dir1 = root['dir1'].mkdir()
+        data1 = 'file1'
+        data2 = 'file2'
+        file1 = dir1['file1.txt'].mkfile(data=data1)
+        dir2 = root['dir2'].mkdir()
+        file2 = dir2['file2.txt'].mkfile(data=data2)
+        slink1 = dir1['file1_soft.txt'].link(file1,soft=True)
+        slink2 = dir1['file2_soft.txt'].link(file2,soft=True)
+        hlink1 = dir1['file1_hard.txt'].link(file1,soft=False)
+        hlink2 = dir1['file2_hard.txt'].link(file2,soft=False)
+        self.assertEqual(file1,slink1.linkdest())
+        self.assertEqual(file2,slink2.linkdest())
+        self.assertEqual(hlink1.read(),data1)
+        self.assertEqual(hlink2.read(),data2)
+        
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()

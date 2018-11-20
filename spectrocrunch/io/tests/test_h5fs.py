@@ -127,7 +127,7 @@ class test_h5fs(unittest.TestCase):
         else:
             b = None==word
         self.assertTrue(b)
-
+        
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()

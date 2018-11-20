@@ -367,7 +367,7 @@ class Path(File):
         """
         path = self._sep_in(path)
         if os.path.isabs(path):
-            path = os.path.relpath(path,self.parent.path)
+            path = os.path.relpath(path,self.path)
         return self._sep_out(path)
 
     @property
@@ -407,13 +407,11 @@ class Path(File):
                                              files=files,_level=_level+1))
                 elif files:
                     lst.append((path,None))
-             
         else:
             if files:
                 out = (self,None)
             else:
                 out = (None,None)
-        
         return out
 
     def strtree(self,recursive=True,depth=0,files=True,stats=False):
@@ -448,7 +446,7 @@ class Path(File):
                 nodename = '{} -{}-> '.format(nodename,sep)
                 
                 if path.device == lnkdest.device:
-                    lnkdest = path.relpath(lnkdest.path)
+                    lnkdest = path.parent.relpath(lnkdest.path)
                     lst = None
                 else:
                     lnkdest = lnkdest.location
