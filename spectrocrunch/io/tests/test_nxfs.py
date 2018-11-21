@@ -83,7 +83,7 @@ class test_nxfs(unittest.TestCase):
             for name in signals:
                 detector[name].mkfile(shape=shape,dtype=dtype)
         
-        positioners = entry.positioners()
+        positioners = process1.positioners()
         positioners.add_axis('y',range(2),units='um',title='vertical')
         positioners.add_axis('x',range(3))
         
