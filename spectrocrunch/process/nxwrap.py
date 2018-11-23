@@ -22,23 +22,25 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import unittest
-from . import test_axis
-from . import test_regulargrid
-from . import test_nxprocess
+from . import nxtask
 
-def test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_axis.test_suite())
-    testSuite.addTest(test_regulargrid.test_suite())
-    testSuite.addTest(test_nxprocess.test_suite())
-    return testSuite
+class Task(nxtask.Task):
+
+    def __init__(self,nxprocess):
+        if not nxprocess.exists:
+            raise nxtask.ParameterError('NXprocess must exist')
+        self.previous = None
+        self._nxentry = nxprocess.nxentry()
+        self.nxprocess = nxprocess
+        self.nxresults = nxprocess.results
+        self._parameters = nxprocess.config.read()
+
+    @property
+    def name(self):
+        return self.nxprocess.name
     
-if __name__ == '__main__':
-    import sys
+    def run(self):
+        pass
 
-    mysuite = test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)
+    def _execute(self):
+        pass

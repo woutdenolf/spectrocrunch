@@ -33,6 +33,7 @@ from .. import regulargrid
 from ...io import nxfs
 from ...utils.tests import genindexing
 from .. import nxtask
+from .. import nxwrap
 from .. import axis
 from ...utils import units
 
@@ -49,7 +50,7 @@ class test_nxprocess(unittest.TestCase):
         h5filename = os.path.join(self.dir.path,'test.h5')
         root = nxfs.Path('/',h5file=h5filename).nxroot()
         entry = root.new_nxentry()
-        process,new = entry.nxprocess('fromraw',parameters={'a':1,'b':2},previous=None)
+        nxprocess,new = entry.nxprocess('fromraw',parameters={'a':1,'b':2},previous=None)
         info = {}
         
         shape = (2,10,13)
@@ -69,6 +70,7 @@ class test_nxprocess(unittest.TestCase):
 
         dtype = np.float32
         signals = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
+        counters = ['arr_iodet','arr_idet','arr_samy','arr_samx']
         
         if method=='replace':
             index = tuple([np.random.randint(0,shape[i],10).tolist() for i in range(3)])
@@ -81,8 +83,12 @@ class test_nxprocess(unittest.TestCase):
                            axis.factory(range(shape[2]+1)[::-1])
         elif method=='expression':
             info['expression'] = '{}/{arr_iodet}'
-            info['skip'] = ['arr_iodet']
-            info['select'] = process.results['counters']['arr_iodet']
+            info['copy'] = ['arr_iodet']
+            info['select'] = nxprocess.results['counters']['arr_iodet']
+        elif method=='copy':
+            info['expression'] = '{}'
+            info['copy'] = ['Fe-K','Si-K']
+            info['skip'] = [s for s in signals if s not in info['copy']]+counters
         elif method=='resample':
             info['encoders'] = {'y':{'counter':'arr_samy','resolution':yencres},
                                 'x':{'counter':'arr_samx','resolution':xencres}}
@@ -91,11 +97,11 @@ class test_nxprocess(unittest.TestCase):
         groups = {}
         for group in range(2):
             groups['detector{:02d}'.format(group)] = signals
-        groups['counters'] = ['arr_iodet','arr_idet','arr_samy','arr_samx']
+        groups['counters'] = counters
 
         for group,signals in groups.items():
-            group = process.results.nxdata(group).mkdir()
-            positioners = process.results.positioners()
+            group = nxprocess.results.nxdata(group).mkdir()
+            positioners = nxprocess.results.positioners()
             for name in signals:
                 if name=='arr_samy':
                     data = yenc
@@ -126,7 +132,7 @@ class test_nxprocess(unittest.TestCase):
             group.set_axes(z,y,x)
 
         try:
-            yield process,info
+            yield nxprocess,info
         finally:
             #root.remove(recursive=True)
             pass
@@ -142,14 +148,15 @@ class test_nxprocess(unittest.TestCase):
             self._check_grid(grid)
     
     def _run_task(self,parameters,proc1):
-        task = nxtask.newtask(previous=proc1,**parameters)
+        previous = nxwrap.Task(proc1)
+        task = nxtask.newtask(previous=previous,**parameters)
         task.run()
         proc2 = task.output
         self.assertTrue(task.done)
         task.run()
         proc3 = task.output
         self.assertEqual(proc2,proc3)
-        task = nxtask.newtask(previous=proc1,**parameters)
+        task = nxtask.newtask(previous=previous,**parameters)
         self.assertTrue(task.done)
         task.run()
         proc3 = task.output
@@ -244,8 +251,8 @@ class test_nxprocess(unittest.TestCase):
     def test_expression(self):
         with self._nxprocess(method='expression') as proc1:
             proc1,info = proc1
-            skip = [{'method':'regex','pattern':name} for name in info['skip']]
-            parameters = {'method':'expression','expression':info['expression'],'skip':skip,'sliced':False}
+            copy = [{'method':'regex','pattern':name} for name in info['copy']]
+            parameters = {'method':'expression','expression':info['expression'],'copy':copy,'sliced':False}
             proc2 = self._run_task(parameters,proc1)
             
             parameters['sliced'] = True
@@ -265,7 +272,7 @@ class test_nxprocess(unittest.TestCase):
                 index[grid1.stackdim] = i
                 index = tuple(index)
                 data = grid1[index]
-                if grid1.signals[i].name not in info['skip']:
+                if grid1.signals[i].name not in info['copy']:
                     data = data/norm
                 np.testing.assert_array_equal(data,grid2[index])
     
@@ -332,7 +339,38 @@ class test_nxprocess(unittest.TestCase):
                         enc[encnan] = 999
                         
                     self.assertTrue(np.isclose(enc, encvalues).all())
-                        
+    
+    def test_copy(self):
+        with self._nxprocess(method='copy') as proc1:
+            proc1,info = proc1
+            copy = [{'method':'regex','pattern':name} for name in info['copy']]
+            skip = [{'method':'regex','pattern':name} for name in info['skip']]
+            parameters = {'method':'expression','expression':info['expression'],
+                          'copy':copy,'skip':skip,'sliced':False}
+            proc2 = self._run_task(parameters,proc1)
+            
+            parameters['sliced'] = True
+            parameters['name'] = 'expression2'
+            proc3 = self._run_task(parameters,proc1)
+            self.assertNotEqual(proc2,proc3)
+
+            grid1 = regulargrid.NXRegularGrid(proc2)
+            grid2 = regulargrid.NXRegularGrid(proc2)
+            signals1 = [s.name for s in grid1.signals if s.name not in info['skip']]
+            signals2 = [s.name for s in grid2.signals]
+            self.assertEqual(set(signals1),set(signals2))
+            
+            index = [None]*grid2.ndim
+            for s2 in grid2.signals:
+                for s1 in grid1.signals:
+                    if s1.name==s2.name and s1.parent.name==s2.parent.name:
+                        break
+                index[grid1.stackdim] = s1
+                index1 = grid1.locate(index)
+                index[grid2.stackdim] = s2
+                index2 = grid2.locate(index)
+                np.testing.assert_array_equal(grid1[index1],grid2[index2])
+            
     def _check_axes(self,grid1,grid2):
         for ax1,ax2 in zip(grid1.axes,grid2.axes):
             self._check_axis(ax1,ax2)
@@ -369,6 +407,7 @@ def test_suite():
     testSuite.addTest(test_nxprocess("test_align"))
     testSuite.addTest(test_nxprocess("test_expression"))
     testSuite.addTest(test_nxprocess("test_resample"))
+    testSuite.addTest(test_nxprocess("test_copy"))
     return testSuite
     
 if __name__ == '__main__':

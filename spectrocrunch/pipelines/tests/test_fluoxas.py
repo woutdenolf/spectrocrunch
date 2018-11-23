@@ -33,10 +33,11 @@ import re
 from testfixtures import TempDirectory
 from PyMca5.PyMcaIO import ConfigDict
 
-from ..fluoxas import process
+from .. import fluoxas
+from ..run import run_sequential
 from ...io import xiaedf
 from ...io import nxfs
-from ...data import nxresult
+from ...process import nxresult
 from ...align import types
 from ...utils import instance
 from ...utils import listtools
@@ -408,7 +409,18 @@ class test_fluoxas(unittest.TestCase):
                 parameters["replacenan"] = False
                 parameters["crop"] = alignmethod is not None
 
-                nxprocess = process(**parameters)
+                tasks = fluoxas.tasks(**parameters)
+                if repeat:
+                    for task in tasks:
+                        self.assertTrue(task.done)
+                    continue
+                else:
+                    for task in tasks:
+                        self.assertFalse(task.done)
+                    run_sequential(tasks)
+                    for task in tasks:
+                        self.assertTrue(task.done)
+                    nxprocess = tasks[-1].output
 
                 # Check generated spectra (files)
                 if newspectra:

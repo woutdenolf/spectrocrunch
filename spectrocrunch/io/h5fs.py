@@ -247,7 +247,7 @@ class Path(fs.Path):
                     dest = self._move_copydel(dest)
             else:
                 dest = self._move_copydel(dest)
-            return dest
+            return self.factory(dest)
     
     mv = move
     
@@ -263,7 +263,7 @@ class Path(fs.Path):
                 with dest.h5open() as fdest:
                     fsource.copy(self.path,fdest[dest.parent.path],name=dest.name,
                                  expand_soft=dereference,expand_external=dereference)
-                    return dest
+            return self.factory(dest)
     
     cp = copy
     

@@ -30,7 +30,6 @@ import glob
 import re
 
 from ..utils.dict import defaultdict
-from ..io import nexus
 
 def execrebin(img,rebin):
     """
@@ -55,38 +54,38 @@ def execroi(img,roi):
     """
     return img[roi[0][0]:roi[0][1],roi[1][0]:roi[1][1]]
 
-def procraw(img,config):
-    roi = config["roi"]
+def procraw(img,parameters):
+    roi = parameters["roi"]
     if roi is not None:
         img = execroi(img,roi)
 
-    rebin = config["rebin"]
+    rebin = parameters["rebin"]
     if rebin[0] > 1 or rebin[1] > 1:
         img = execrebin(img,rebin)
 
     return img
 
-def darklibrary(config):
+def darklibrary(parameters):
     """
     Args:
-        config(dict)
+        parameters(dict)
     Returns:
         spectrocrunch.utils.dict.defaultdict: dictionary of dark frames for particular exposures
     """
 
     darkfiles = []
-    for f in config["darklist"]:
+    for f in parameters["darklist"]:
         darkfiles += glob.glob(f)
 
     # Labels
-    frametimelabel = config["frametimelabel"]
-    frametimedefault = str(config["frametimedefault"])
-    dtype = eval(config["dtype"])
-    nflabel = config["nbframeslabel"]
+    frametimelabel = parameters["frametimelabel"]
+    frametimedefault = str(parameters["frametimedefault"])
+    dtype = eval(parameters["dtype"])
+    nflabel = parameters["nbframeslabel"]
 
     # Library
     dark = defaultdict()
-    dark.setdefaultfactory(lambda frametime: {"data":config["darkcurrentzero"] + config["darkcurrentgain"]*float(frametime),"nframes":1})
+    dark.setdefaultfactory(lambda frametime: {"data":parameters["darkcurrentzero"] + parameters["darkcurrentgain"]*float(frametime),"nframes":1})
     
     for f in darkfiles:
         fh = fabio.open(f)
@@ -94,7 +93,7 @@ def darklibrary(config):
 
         # Raw data
         data = fh.data.astype(dtype)
-        data = procraw(data,config)
+        data = procraw(data,parameters)
         
         # Frame time
         if frametimelabel in h:
@@ -118,7 +117,9 @@ def darklibrary(config):
     return dark
 
 def getroi(roilabel,h,fh):
-    """ roi = [row0,col0,nrow,ncol] or [y0,x0,ny,nx]
+    """
+    Returns:
+        list: [row0,col0,nrow,ncol] or [y0,x0,ny,nx]
     """
 
     # ROI from label
@@ -133,18 +134,25 @@ def getroi(roilabel,h,fh):
 
     return roi
 
-def axesvalues(roi,config):
+def axesvalues(roi,parameters):
+    """
+    Args:
+        roi(list): y0,x0,ny,nx
+        parameters(dict)
+    Returns:
+        tuple(np.ndarray)
+    """
     x0 = roi[1]
     y0 = roi[0]
     nx = roi[3]
     ny = roi[2]
 
     # Sub region
-    if config["roi"] is not None:
-        ax = config["roi"][1][0]
-        bx = config["roi"][1][1]
-        ay = config["roi"][0][0]
-        by = config["roi"][0][1]
+    if parameters["roi"] is not None:
+        ax = parameters["roi"][1][0]
+        bx = parameters["roi"][1][1]
+        ay = parameters["roi"][0][0]
+        by = parameters["roi"][0][1]
         if ax is None:
             ax = 0
         if bx is None:
@@ -168,8 +176,8 @@ def axesvalues(roi,config):
         ny = by-ay
        
     # Rebin
-    dx = config["rebin"][1]
-    dy = config["rebin"][0]
+    dx = parameters["rebin"][1]
+    dy = parameters["rebin"][0]
 
     nx //= dx
     ny //= dy
@@ -185,12 +193,12 @@ def axesvalues(roi,config):
     row = np.linspace(y0,y1,ny)
 
     return row,col
-
-def dataflatlibrary(config):
+    
+def dataflatlibrary(parameters):
     """Separate and sort data and flat fields
 
     Args:
-        config(dict): description
+        parameters(dict): description
         
     Returns:
         data(dict):
@@ -203,16 +211,16 @@ def dataflatlibrary(config):
     """
 
     datafiles = []
-    for f in config["datalist"]:
+    for f in parameters["datalist"]:
         datafiles += glob.glob(f)
 
     flatfiles = []
-    for f in config["flatlist"]:
+    for f in parameters["flatlist"]:
         flatfiles += glob.glob(f)
 
     # Labels
-    stacklabel = config["stacklabel"]
-    roilabel = config["roilabel"]
+    stacklabel = parameters["stacklabel"]
+    roilabel = parameters["roilabel"]
 
     # Data and flat dictionaries
     roi = None
@@ -264,7 +272,7 @@ def dataflatlibrary(config):
             flat[key].append(f)
 
     if len(data)==0:
-        raise IOError("Not data files found ({})".format(config["datalist"][0]))
+        raise IOError("No data files found ({})".format(parameters["datalist"][0]))
 
     # Remove entries with missing images
     #ndata = map(lambda x:len(data[x]),data)
@@ -277,7 +285,7 @@ def dataflatlibrary(config):
     #flat = tmp2
     
     # Split up flat images
-    if config["beforeafter"]:
+    if parameters["flatbeforeafter"]:
         flat1 = {}
         flat2 = {}
         for k in flat:
@@ -297,9 +305,10 @@ def dataflatlibrary(config):
     stackvalues = np.array(map(lambda x:np.float32(x),data.keys()))
     keyindices = np.argsort(stackvalues)
     stackvalues = stackvalues[keyindices]
-    row,col = axesvalues(roi,config)
+    row,col = axesvalues(roi,parameters)
 
-    stackdim,imgdim = dimensions(config)
+    stackdim = parameters["stackdim"]
+    imgdim = [i for i in range(3) if i!=stackdim]
     stackaxes = [None]*3
     stackaxes[imgdim[0]] = {"name":"row","data":row}
     stackaxes[imgdim[1]] = {"name":"col","data":col}
@@ -308,31 +317,27 @@ def dataflatlibrary(config):
     # Result
     return data,flat1,flat2,keyindices,stackaxes
 
-def dimensions(config):
-    stackdim = config["stackdim"]
-    if stackdim == 0:
-        imgdim = [1,2]
-    elif stackdim == 1:
-        imgdim = [0,2]
-    else:
-        imgdim = [0,1]
-    return stackdim,imgdim
-
-def getsingleimage(filename,darklib,config):
+def getsingleimage(filename,darklib,parameters):
     """ Get image and corresponding information (dark, expo time, nframes)
+    
+    Returns:
+        data(np.ndarray): image
+        frametime(num): exposure time per frame
+        nframes(num): number of frames
+        dark(dict): {"data":...,"nframes":...}
     """
     # Labels
-    frametimelabel = config["frametimelabel"]
-    frametimedefault = str(config["frametimedefault"])
-    dtype = eval(config["dtype"])
-    nflabel = config["nbframeslabel"]
+    frametimelabel = parameters["frametimelabel"]
+    frametimedefault = str(parameters["frametimedefault"])
+    dtype = eval(parameters["dtype"])
+    nflabel = parameters["nbframeslabel"]
 
     fh = fabio.open(filename)
     h = fh.header
 
     # Raw data
     data = fh.data.astype(dtype)
-    data = procraw(data,config)
+    data = procraw(data,parameters)
 
     # Frame time
     if frametimelabel in h:
@@ -348,7 +353,7 @@ def getsingleimage(filename,darklib,config):
 
     return data,frametime,nframes,darklib[frametime]
 
-def getnormalizedimage(fileslist,darklib,config):
+def getnormalizedimage(fileslist,darklib,parameters):
     """ Get dark subtracted images from a list of files with intensity in DU/sec
         
         img = (img1 - nf1*dark1) + (img2 - nf2*dark2) + ...
@@ -357,10 +362,10 @@ def getnormalizedimage(fileslist,darklib,config):
     """
 
     # Labels
-    frametimelabel = config["frametimelabel"]
-    frametimedefault = str(config["frametimedefault"])
-    dtype = eval(config["dtype"])
-    nflabel = config["nbframeslabel"]
+    frametimelabel = parameters["frametimelabel"]
+    frametimedefault = str(parameters["frametimedefault"])
+    dtype = eval(parameters["dtype"])
+    nflabel = parameters["nbframeslabel"]
 
     img = None
     time = None
@@ -370,7 +375,7 @@ def getnormalizedimage(fileslist,darklib,config):
 
         # Raw data
         data = fh.data.astype(dtype)
-        data = procraw(data,config)
+        data = procraw(data,parameters)
 
         # Frame time
         if frametimelabel in h:
@@ -394,139 +399,4 @@ def getnormalizedimage(fileslist,darklib,config):
 
     img /= time
     return img
-
-def create_hdf5_imagestacks(jsonfile):
-    """Convert transmission images to an HDF5 file:
-        groups which contain NXdata classes
-        3 axes datasets on the main level
-
-    Returns:
-        stacks: {"counters":{"name1":lstack1,"name2":lstack2,...},
-                 "det0":{"name3":lstack3,"name4":lstack4,...},
-                 "det1":{"name3":lstack5,"name4":lstack6,...},...}
-                 lstack: an image stack given as an NXdata path
-
-        axes: [{"name":"name1","fullname":"/axes/name1/data"},
-               {"name":"name2","fullname":"/axes/name2/data"},
-               {"name":"name3","fullname":"/axes/name3/data"}]
-    """
-
-    # This is the structure at ID21 (not imposed):
-    # data: path/radix_zonenumber_energynumber_repeat.edf
-    # flat: path/radix_zonenumber_energynumber_repeat.edf
-    # path/radix_dark_exposuretime_repeat.edf
-
-    # Processing configuration
-    with open(jsonfile,'r') as f:
-        config = json.load(f)
-
-    # Dark, data and flat libraries
-    darklib = darklibrary(config)
-    data,flat1,flat2,keyindices,stackaxes = dataflatlibrary(config)
-
-    # Prepare stack dimensions
-    dim = [0]*3
-    stackdim,imgdim = dimensions(config)
-
-    # Open file and create detector group
-    f = nexus.File(config["hdf5output"],mode='w')
-    grp = nexus.newNXentry(f,"detector0")
-
-    # Save stack axes values
-    axes = nexus.createaxes(f,stackaxes)
-
-    # Create NXdata groups for transmission and flat-field stacks
-    nxdatasample = nexus.newNXdata(grp,"sample","")
-    nxdataflat1 = None
-    nxdataflat2 = None
-    if not config["normalize"]:
-        nxdataflat1 = nexus.newNXdata(grp,"flat1","")
-        if flat2 is not None:
-            nxdataflat2 = nexus.newNXdata(grp,"flat2","")
-
-    # Loop over the images
-    keys = data.keys()
-    dtype = eval(config["dtype"])
-    for i in range(len(keyindices)):
-        key = keys[keyindices[i]]
-    
-        # Get data
-        img = getnormalizedimage(data[key],darklib,config)
-
-        # Normalize
-        if config["normalize"]:
-            flat = getnormalizedimage(flat1[key],darklib,config)
-            if flat2 is not None:
-                flat += getnormalizedimage(flat2[key],darklib,config)
-                flat /= 2.
-            img = -np.log(img/flat)
-
-        # Allocate datasets
-        if i==0:
-            dim[imgdim[0]] = img.shape[0]
-            dim[imgdim[1]] = img.shape[1]
-            dim[stackdim] = len(data)
-            dsetsample = nexus.createNXdataSignal(nxdatasample,shape=dim,chunks = True,dtype = dtype)
-            if nxdataflat1 is not None:
-                dsetflat1 = nexus.createNXdataSignal(nxdataflat1,shape=dim,chunks = True,dtype = dtype)
-                if nxdataflat2 is not None:
-                    dsetflat2 = nexus.createNXdataSignal(nxdataflat2,shape=dim,chunks = True,dtype = dtype)
-
-        if stackdim == 0:
-            dsetsample[i,...] = img
-            if nxdataflat1 is not None:
-                dsetflat1[i,...] = getnormalizedimage(flat1[key],darklib,config)
-                if nxdataflat2 is not None:
-                    if len(flat2[key])==0:
-                        dsetflat2[i,...] = dsetflat1[i,...]
-                    else:
-                        dsetflat2[i,...] = getnormalizedimage(flat2[key],darklib,config)
-        elif stackdim == 1:
-            dsetsample[:,i,:] = img
-            if nxdataflat1 is not None:
-                dsetflat1[:,i,:] = getnormalizedimage(flat1[key],darklib,config)
-                if nxdataflat2 is not None:
-                    if len(flat2[key])==0:
-                        dsetflat2[:,i,:] = dsetflat1[:,i,:]
-                    else:
-                        dsetflat2[:,i,:] = getnormalizedimage(flat2[key],darklib,config)
-        else:
-            dsetsample[...,i] = img
-            if nxdataflat1 is not None:
-                dsetflat1[...,i] = getnormalizedimage(flat1[key],darklib,config)
-                if nxdataflat2 is not None:
-                    if len(flat2[key])==0:
-                        dsetflat2[...,i] = dsetflat1[...,i]
-                    else:
-                        dsetflat2[...,i] = getnormalizedimage(flat2[key],darklib,config)
-
-    # Stack dict and link axes
-    if nxdataflat1 is None:
-        stacks = {"detector0":{"sample":nxdatasample.name}}
-        nexus.linkaxes(f,axes,[nxdatasample])
-    else:
-        if nxdataflat2 is None:
-            stacks = {"detector0":{"sample":nxdatasample.name,"flat1":nxdataflat1.name}}
-            nexus.linkaxes(f,axes,[nxdatasample,nxdataflat1])
-        else:
-            stacks = {"detector0":{"sample":nxdatasample.name,"flat1":nxdataflat1.name,"flat2":nxdataflat2.name}}
-            nexus.linkaxes(f,axes,[nxdatasample,nxdataflat1,nxdataflat2])
-
-    # Save stackinfo
-    #stackinfogrp = nexus.newNXentry(f,"stackinfo")
-    #for k in stackinfo:
-    #    stackinfogrp[k] = stackinfo[k]
-
-    # Add processing info
-    #nexus.addinfogroup(f,"fromraw",config)
-    nexus.addinfogroup(f,"fromraw",{"config":jsonfile,"pixel unit":"DU/sec","dark current":"subtracted"})
-
-    f.close()
-
-    return stacks,axes
-
-if __name__ == '__main__':
-    import sys
-    if len(sys.argv)>=2:
-        create_hdf5_imagestacks(sys.argv[1])
 

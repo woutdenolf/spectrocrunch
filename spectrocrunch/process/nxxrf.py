@@ -29,9 +29,9 @@ import logging
 from . import nxtask
 from . import nxresult
 from . import nxlazy
+from . import axis
 from ..io import xiaedf
 from ..io import localfs
-from ..data import axis
 from ..utils import listtools
 from ..utils import instance
 from ..utils import units
@@ -76,7 +76,7 @@ class Task(nxtask.Task):
                         "fastfitting",
                         "exclude_detectors",
                         "include_detectors",
-                        # Output directories
+                        # Output directories (non hdf5 output)
                         "destpath",
                         "outbase",
                         "outdatapath",

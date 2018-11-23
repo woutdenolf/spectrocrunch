@@ -24,12 +24,16 @@
 
 import numpy as np
 from abc import abstractmethod
+import re
+import logging
 
 from . import nxtask
 from . import regulargrid
 from . import axis
 from ..utils import instance
 from ..utils import units
+
+logger = logging.getLogger(__name__)
 
 class Task(nxtask.Task):
 
@@ -38,30 +42,34 @@ class Task(nxtask.Task):
     def _parameters_defaults(self):
         super(Task,self)._parameters_defaults()
         parameters = self.parameters
+        parameters['skip'] = parameters.get('skip',[])
         parameters['sliced'] = parameters.get('sliced',False)
         parameters['stackdim'] = parameters.get('stackdim',self.DEFAULT_STACKDIM)
+        logger.info('Skip signals: {}'.format(parameters['skip']))
         # Not all processes need a reference
     
     def _parameters_filter(self):
-        return super(Task,self)._parameters_filter()+['sliced','stackdim']
+        return super(Task,self)._parameters_filter()+['sliced','stackdim','skip']
     
     def _execute(self):
         """
         Returns:
             nxfs._NXprocess | None
         """
-        self.grid = regulargrid.NXRegularGrid(self.previous[0])
+        if len(self.previous)!=1:
+            raise RuntimeError('nxregulargrid.Task can only depend on exactly one previous task')
+        self.grid = regulargrid.NXRegularGrid(self.previous[0].output)
         self._prepare_process()
         self._execute_grid()
         self._sort()
 
     def _sort(self):
         it = self.nxresults.iter_is_nxclass('NXdata')
-        previous = self.previous[0].results
+        previous_results = self.previous[0].output.results
         for nxdata in it:
             if nxdata.islink:
                 continue
-            nxdataprev = previous[nxdata.name]
+            nxdataprev = previous_results[nxdata.name]
             if nxdataprev.exists:
                 nxdata.sort_signals(other=nxdataprev)
     
@@ -95,7 +103,8 @@ class Task(nxtask.Task):
 
         # Create new signals
         for signalin in self.grid.signals:
-            self._prepare_signal(signalin)
+            if not self._prepare_signal(signalin):
+                continue
             
             # Create new NXdata if needed
             nxdata = self.nxresults[signalin.parent.name]
@@ -126,9 +135,16 @@ class Task(nxtask.Task):
         n = self.grid.ndim-1
         self.indexin = [slice(None)]*n
         self.indexout = [slice(None)]*n
+        self.skipfuncs = [self._rematch_func(redict) for redict in self.parameters['skip']]
     
+    def _skip(self,signal):
+        for func in self.skipfuncs:
+            if func(signal):
+                return True
+        return False
+        
     def _prepare_signal(self,signal):
-        pass
+        return not self._skip(signal)
         
     def _process_axes(self):
         return self.signal_axes
@@ -191,3 +207,13 @@ class Task(nxtask.Task):
         if not isinstance(newvalues,axis.Axis):
             newvalues = units.Quantity(newvalues,units=axold.units)
         return axis.factory(newvalues,name=name,title=axold.title)
+
+    @staticmethod
+    def _rematch_func(redict):
+        method = redict.get('method','regex')
+        if method=='regexparent':
+            return lambda signal:re.match(redict['pattern'],signal.parent.name)
+        elif method=='regex':
+            return lambda signal:re.match(redict['pattern'],signal.name)
+        else:
+            return lambda signal:False

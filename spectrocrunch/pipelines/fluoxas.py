@@ -21,21 +21,14 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-import os
-import logging
-import numpy as np
 
-from ..xrf import create_hdf5_imagestacks
-from ..utils import timing
+import os
 from ..utils import instance
-from ..data import nxtask
+from ..process import nxtask
 from ..io import nxfs
 from ..instruments.configuration import getinstrument
 
-logger = logging.getLogger(__name__)
-
 def xrfparameters(**parameters):
-    
     sourcepath = parameters["sourcepath"]
     destpath = parameters["destpath"]
     scanname = parameters["scanname"]
@@ -136,118 +129,90 @@ def xrfparameters(**parameters):
     }
     
     return config,instrument
-
-
-def runtask(**parameters):
-    task = nxtask.newtask(**parameters)
-    task.run()
-    nxprocess = task.output
-    if nxprocess.exists:
-        return nxprocess
-    else:
-        return None
-        
-def process(**parameters):
-
-    with timing.timeit_logger(logger):
     
-        # Common parameters
-        parameters['stackdim'] = parameters.get('stackdim',0)
-        parameters['default'] = parameters.get('default',None)
-        commonparams = {k:parameters[k] for k in ['default','stackdim']}
+def tasks(**parameters):
+    tasks = []
+    
+    # Common parameters
+    parameters['stackdim'] = parameters.get('stackdim',0)
+    parameters['default'] = parameters.get('default',None)
+    commonparams = {k:parameters[k] for k in ['default','stackdim']}
 
-        # Image stacks (counters + result of XRF fitting)
-        xrfparams,instrument = xrfparameters(**parameters)
-        xrfparams.update(commonparams)
-        nxprocess = runtask(method='xrf',**xrfparams)
-        if nxprocess is None:
-            return nxprocess
+    # Image stacks (counters + result of XRF fitting)
+    xrfparams,instrument = xrfparameters(**parameters)
+    xrfparams.update(commonparams)
+    task = nxtask.newtask(method='xrf',**xrfparams)
+    tasks.append(task)
+    
+    # Normalization
+    prealignnormcounter = parameters.get("prealignnormcounter",None)
+    dtcor = False # No longer needed
+    if dtcor or prealignnormcounter is not None:
+        skip = [{'method':'regexparent','pattern':'counters'},
+                {'method':'regex','pattern':instrument.counterdict["xrficr"]},
+                {'method':'regex','pattern':instrument.counterdict["xrfocr"]},
+                ]
+
+        # Create normalization expression
+        if dtcor:
+            icr = instrument.counterdict["xrficr"]
+            ocr = instrument.counterdict["xrfocr"]
+            if prealignnormcounter is None:
+                expression = "{{}}*nanone({{{}}}/{{{}}})".format(icr,ocr)
+            else:
+                expression = "{{}}*nanone({{{}}}/({{{}}}*{{{}}}))".format(icr,ocr,prealignnormcounter)
         else:
-            nxprocesslast = nxprocess
+            expression = "{{}}/{{{}}}".format(prealignnormcounter)
+
+        task = nxtask.newtask(previous=task,method='expression',name='normalize',
+                              expression=expression,skip=skip,**commonparams)
+        tasks.append(task)
         
-        # Normalization
-        prealignnormcounter = parameters.get("prealignnormcounter",None)
-        dtcor = not nxprocess.results['info']['dtneeded'] # No longer needed
-        if dtcor or prealignnormcounter is not None:
-            skip = [{'method':'regexparent','pattern':'counters'},
-                    {'method':'regex','pattern':instrument.counterdict["xrficr"]},
-                    {'method':'regex','pattern':instrument.counterdict["xrfocr"]},
-                    ]
-
-            # Create normalization expression
-            if dtcor:
-                icr = instrument.counterdict["xrficr"]
-                ocr = instrument.counterdict["xrfocr"]
-                if prealignnormcounter is None:
-                    expression = "{{}}*nanone({{{}}}/{{{}}})".format(icr,ocr)
-                else:
-                    expression = "{{}}*nanone({{{}}}/({{{}}}*{{{}}}))".format(icr,ocr,prealignnormcounter)
-            else:
-                expression = "{{}}/{{{}}}".format(prealignnormcounter)
-
-            nxprocess = runtask(previous=nxprocess,method='expression',name='normalize',
-                                expression=expression,skip=skip,**commonparams)
-            if nxprocess is None:
-                return nxprocesslast
-            else:
-                nxprocesslast = nxprocess
+    # Correct for encoder positions
+    encodercor = parameters.get("encodercor",False)
+    if encodercor and instrument.encoderresolution:
+        encoders = instrument.encoderinfo
+        task = nxtask.newtask(previous=task,method='resample',
+                              encoders=encoders,**commonparams)
+        tasks.append(task)
             
-        # Correct for encoder positions
-        encodercor = parameters.get("encodercor",False)
-        if encodercor and instrument.encoderresolution:
-            encoders = instrument.encoderinfo
-            nxprocess = runtask(previous=nxprocess,method='resample',
-                                encoders=encoders,**commonparams)
-            if nxprocess is None:
-                return nxprocesslast
-            else:
-                nxprocesslast = nxprocess
-                
-        # Alignment
-        alignmethod = parameters.get("alignmethod",None)
-        alignreference = parameters.get("alignreference",None)
-        if alignmethod and alignreference is not None:
-            refimageindex = parameters.get("refimageindex",-1)
-            roi = parameters.get("roialign",None)
-            plot = parameters.get("plot",False)
-            nxprocess = runtask(previous=nxprocess,method='align',alignmethod=alignmethod,
-                                reference=alignreference,refimageindex=refimageindex,
-                                crop=False,roi=roi,plot=plot,**commonparams)
-            if nxprocess is None:
-                return nxprocesslast
-            else:
-                nxprocesslast = nxprocess
+    # Alignment
+    alignmethod = parameters.get("alignmethod",None)
+    alignreference = parameters.get("alignreference",None)
+    if alignmethod and alignreference is not None:
+        refimageindex = parameters.get("refimageindex",-1)
+        roi = parameters.get("roialign",None)
+        plot = parameters.get("plot",False)
+        task = nxtask.newtask(previous=task,method='align',alignmethod=alignmethod,
+                              reference=alignreference,refimageindex=refimageindex,
+                              crop=False,roi=roi,plot=plot,**commonparams)
+        tasks.append(task)
 
-        # Post normalization
-        postalignnormcounter = parameters.get("postalignnormcounter",None)
-        if postalignnormcounter is not None:
-            skip = [{'method':'regexparent','pattern':'counters'},
-                    {'method':'regex','pattern':instrument.counterdict["xrficr"]},
-                    {'method':'regex','pattern':instrument.counterdict["xrfocr"]},
-                    ]
-            
-            expression = "{{}}/{{{}}}".format(postalignnormcounter)
-            nxprocess = runtask(previous=nxprocess,method='expression',name='postnormalize',
-                                expression=expression,skip=skip,**commonparams)
-            if nxprocess is None:
-                return nxprocesslast
-            else:
-                nxprocesslast = nxprocess
-            
-        # Remove NaN's
-        replacenan = parameters.get("replacenan",False)
-        if replacenan:
-            tmp = runtask(nxprocess,method='replace',
-                          org=np.nan,new=0,**commonparams)
-            if tmp is not None:
-                nxprocesslast = tmp
-                                                
-        # Crop
-        cropafter = parameters.get("crop",False)
-        if cropafter:
-            tmp = runtask(previous=nxprocess,method='crop',nanval=np.nan,
-                          reference=alignreference,**commonparams)
-            if tmp is not None:
-                nxprocesslast = tmp
-                                                
-        return nxprocesslast
+    # Post normalization
+    postalignnormcounter = parameters.get("postalignnormcounter",None)
+    if postalignnormcounter is not None:
+        skip = [{'method':'regexparent','pattern':'counters'},
+                {'method':'regex','pattern':instrument.counterdict["xrficr"]},
+                {'method':'regex','pattern':instrument.counterdict["xrfocr"]},
+                ]
+        
+        expression = "{{}}/{{{}}}".format(postalignnormcounter)
+        task  = nxtask.newtask(previous=task,method='expression',name='postnormalize',
+                               expression=expression,skip=skip,**commonparams)
+        tasks.append(task)
+        
+    # Remove NaN's
+    replacenan = parameters.get("replacenan",False)
+    if replacenan:
+        tmp = nxtask.newtask(previous=task,method='replace',
+                             org=np.nan,new=0,**commonparams)
+        tasks.append(tmp)
+                                            
+    # Crop
+    cropafter = parameters.get("crop",False)
+    if cropafter:
+        tmp = nxtask.newtask(previous=task,method='crop',nanval=np.nan,
+                             reference=alignreference,**commonparams)
+        tasks.append(tmp)
+                                            
+    return tasks

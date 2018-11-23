@@ -21,3 +21,23 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+
+def set_default(nxprocess,default):
+    plotselect = nxprocess.results['plotselect']
+    plotselect.remove()
+    it = nxprocess.results.iter_is_nxclass('NXdata')
+
+    # Default signal
+    nxdataselect = None
+    for nxdata in it:
+        if default is None:
+            default = nxdata.signal.name
+            nxdataselect = nxdata
+        else:
+            if nxdata.default_signal(default):
+                nxdataselect = nxdata
+
+    # Default NXdata
+    if nxdataselect:
+        plotselect = plotselect.link(nxdataselect)
+        plotselect.mark_default()

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,21 +22,23 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-def set_default(nxprocess,default):
-    plotselect = nxprocess.results['plotselect']
-    plotselect.remove()
-    it = nxprocess.results.iter_is_nxclass('NXdata')
-    
-    # Default signal
-    nxdataselect = None
-    for nxdata in it:
-        if default is None:
-            default = nxdata.signal.name
-        else:
-            if nxdata.default_signal(default):
-                nxdataselect = nxdata
+import unittest
+from . import test_id21_ffxas
+from . import test_fluoxas
+from . import test_parameters
 
-    # Default NXdata
-    if nxdataselect:
-        plotselect = plotselect.link(nxdataselect)
-        plotselect.mark_default()
+def test_suite():
+    """Test suite including all test suites"""
+    testSuite = unittest.TestSuite()
+    testSuite.addTest(test_parameters.test_suite())
+    testSuite.addTest(test_id21_ffxas.test_suite())
+    testSuite.addTest(test_fluoxas.test_suite())
+    return testSuite
+    
+if __name__ == '__main__':
+    import sys
+
+    mysuite = test_suite()
+    runner = unittest.TextTestRunner()
+    if not runner.run(mysuite).wasSuccessful():
+        sys.exit(1)
