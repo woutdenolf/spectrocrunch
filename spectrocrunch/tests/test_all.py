@@ -30,7 +30,6 @@ from ..utils.tests import test_all as test_utils
 from ..detectors.tests import test_all as test_detectors
 from ..fullfield.tests import test_all as test_fullfield
 from ..geometries.tests import test_all as test_geometries
-from ..h5stacks.tests import test_all as test_h5stacks
 from ..instruments.tests import test_all as test_instruments
 from ..io.tests import test_all as test_io
 from ..materials.tests import test_all as test_materials
@@ -62,7 +61,6 @@ def test_suite():
     testSuite.addTest(test_align.test_suite())
     testSuite.addTest(test_fullfield.test_suite())
     testSuite.addTest(test_xrf.test_suite())
-    testSuite.addTest(test_h5stacks.test_suite())
     testSuite.addTest(test_pipeline.test_suite())
     testSuite.addTest(test_visualization.test_suite())
     return testSuite

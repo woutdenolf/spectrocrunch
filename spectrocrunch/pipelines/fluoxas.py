@@ -148,10 +148,8 @@ def tasks(**parameters):
     prealignnormcounter = parameters.get("prealignnormcounter",None)
     dtcor = False # No longer needed
     if dtcor or prealignnormcounter is not None:
-        skip = [{'method':'regexparent','pattern':'counters'},
-                {'method':'regex','pattern':instrument.counterdict["xrficr"]},
-                {'method':'regex','pattern':instrument.counterdict["xrfocr"]},
-                ]
+        copy = [{'method':'regexparent','pattern':prefix}
+                for prefix in instrument.counterdict["counters"]]
 
         # Create normalization expression
         if dtcor:
@@ -165,7 +163,7 @@ def tasks(**parameters):
             expression = "{{}}/{{{}}}".format(prealignnormcounter)
 
         task = nxtask.newtask(previous=task,method='expression',name='normalize',
-                              expression=expression,skip=skip,**commonparams)
+                              expression=expression,copy=copy,**commonparams)
         tasks.append(task)
         
     # Correct for encoder positions
@@ -191,14 +189,12 @@ def tasks(**parameters):
     # Post normalization
     postalignnormcounter = parameters.get("postalignnormcounter",None)
     if postalignnormcounter is not None:
-        skip = [{'method':'regexparent','pattern':'counters'},
-                {'method':'regex','pattern':instrument.counterdict["xrficr"]},
-                {'method':'regex','pattern':instrument.counterdict["xrfocr"]},
-                ]
+        copy = [{'method':'regexparent','pattern':prefix}
+                for prefix in instrument.counterdict["counters"]]
         
         expression = "{{}}/{{{}}}".format(postalignnormcounter)
         task  = nxtask.newtask(previous=task,method='expression',name='postnormalize',
-                               expression=expression,skip=skip,**commonparams)
+                               expression=expression,copy=copy,**commonparams)
         tasks.append(task)
         
     # Remove NaN's
