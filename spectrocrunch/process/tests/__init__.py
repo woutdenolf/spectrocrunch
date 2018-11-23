@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #

@@ -29,6 +29,7 @@ import contextlib
 from datetime import datetime
 import json
 import re
+import logging
 
 from . import fs
 from . import h5fs
@@ -37,6 +38,8 @@ from ..utils import instance
 from ..utils import hashing
 from .. import __version__
 PROGRAM_NAME = 'spectrocrunch'
+
+logger = logging.getLogger(__name__)
 
 class NexusException(Exception):
     """
@@ -272,7 +275,9 @@ class Path(h5fs.Path):
                     return process,True
             process = entry[name]
             if process.exists:
-                raise ValueError('Process with the same name and a different hash exists. Use a different name.')
+                logger.debug('Process {} already exists.\n parameters = {}\n new parameters = {}'
+                              .format(repr(name),process.config.read(),parameters))
+                raise ValueError('Process {} already exists with a different hash. Use a different name.'.format(repr(name)))
 
         return process,False
     
@@ -589,7 +594,7 @@ class _NXdata(_NXPath):
         with self._verify():
             with self.open() as node:
                 if name==node.attrs["signal"]:
-                    return
+                    return True
                 signals = np.append(node.attrs.get("signal",[]),
                                     node.attrs.get("auxiliary_signals",[]))
                 if name not in signals:

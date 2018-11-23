@@ -39,11 +39,11 @@ class Task(nxregulargrid.Task):
         return super(Task,self)._parameters_filter()+['roi','nanval','reference']
 
     def _prepare_process(self):
+        super(Task,self)._prepare_process()
         if 'nanval' in self.parameters:
             self.roi = self.calccroproi(self.reference_signal)
         elif 'roi' in self.parameters:
             self.roi = self.convertuserroi(self.reference_signal)
-
         self.cropped_shape = tuple([b-a for a,b in self.roi])
         self.indexin = [slice(a,b) for a,b in self.roi]
         self.indexout = [slice(None)]*len(self.roi)

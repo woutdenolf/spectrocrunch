@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -23,16 +23,16 @@
 # THE SOFTWARE.
 
 import unittest
-from . import test_id21_ffxas
-from . import test_fluoxas
-from . import test_parameters
+from . import test_axis
+from . import test_regulargrid
+from . import test_nxprocess
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_parameters.test_suite())
-    testSuite.addTest(test_id21_ffxas.test_suite())
-    testSuite.addTest(test_fluoxas.test_suite())
+    testSuite.addTest(test_axis.test_suite())
+    testSuite.addTest(test_regulargrid.test_suite())
+    testSuite.addTest(test_nxprocess.test_suite())
     return testSuite
     
 if __name__ == '__main__':

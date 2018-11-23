@@ -35,9 +35,9 @@ from ..instruments.tests import test_all as test_instruments
 from ..io.tests import test_all as test_io
 from ..materials.tests import test_all as test_materials
 from ..math.tests import test_all as test_math
-from ..data.tests import test_all as test_data
-from ..optics.tests import test_all as test_optics
 from ..process.tests import test_all as test_process
+from ..optics.tests import test_all as test_optics
+from ..pipelines.tests import test_all as test_pipeline
 from ..simulation.tests import test_all as test_simulation
 from ..sources.tests import test_all as test_sources
 from ..visualization.tests import test_all as test_visualization
@@ -55,7 +55,7 @@ def test_suite():
     testSuite.addTest(test_sources.test_suite())
     testSuite.addTest(test_geometries.test_suite())
     testSuite.addTest(test_detectors.test_suite())
-    testSuite.addTest(test_data.test_suite())
+    testSuite.addTest(test_process.test_suite())
     testSuite.addTest(test_optics.test_suite())
     testSuite.addTest(test_materials.test_suite())
     testSuite.addTest(test_simulation.test_suite())
@@ -63,7 +63,7 @@ def test_suite():
     testSuite.addTest(test_fullfield.test_suite())
     testSuite.addTest(test_xrf.test_suite())
     testSuite.addTest(test_h5stacks.test_suite())
-    testSuite.addTest(test_process.test_suite())
+    testSuite.addTest(test_pipeline.test_suite())
     testSuite.addTest(test_visualization.test_suite())
     return testSuite
 

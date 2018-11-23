@@ -56,7 +56,7 @@ class Task(with_metaclass(ABCMeta,object)):
         self.nxprocess = None
         self.nxresults = None
         if not self.previous and not nxentry:
-            raise ValueError('Specify "nxentry" when task is not based on a previous NXprocess')
+            raise ValueError('Specify "nxentry" when task is not based on a previous task')
             
     @property
     def parameters(self):
@@ -78,17 +78,17 @@ class Task(with_metaclass(ABCMeta,object)):
     
     @property
     def previous(self):
-        return self._previous
+        return self._previous_tasks
     
     @previous.setter
     def previous(self,value):
         if instance.isarray(value):
-            self._previous = value
+            self._previous_tasks = value
         else:
             if value is None:
-                self._previous = []
+                self._previous_tasks = []
             else:
-                self._previous = [value]
+                self._previous_tasks = [value]
                 
     def _parameters_defaults(self):
         self._required_parameters('method')
@@ -127,9 +127,9 @@ class Task(with_metaclass(ABCMeta,object)):
             else:
                 logger.info('{} started ...'.format(self))
                 
-                # Make sure previous tasks are executed
-                for nxprocess in self.previous:
-                    if not nxprocess.exists:
+                # Make sure previous tasks are done
+                for task in self.previous:
+                    if not task.done:
                         return
                 
                 with self._atomic_nxprocess():
@@ -141,7 +141,7 @@ class Task(with_metaclass(ABCMeta,object)):
         """
         self.nxprocess,_ = self.nxentry.nxprocess(self._tempname,
                                     parameters=self.parameters,
-                                    previous=self.previous)
+                                    previous=[task.output for task in self.previous])
         self.nxresults = self.nxprocess.results
         try:
             yield
@@ -160,7 +160,7 @@ class Task(with_metaclass(ABCMeta,object)):
     @property
     def nxentry(self):
         if self.previous:
-            return self.previous[-1].nxentry()
+            return self.previous[-1].output.nxentry()
         else:
             return self._nxentry
 
@@ -172,9 +172,16 @@ class Task(with_metaclass(ABCMeta,object)):
     def done(self):
         """A task is done when the output exists with the same name and parameters
         """
+        previous = []
+        for task in self.previous:
+            output = task.output
+            if output.exists:
+                previous.append(output)
+            else:
+                return False
         _,exists = self.nxentry.nxprocess_exists(self.name,
                                     parameters=self.parameters,
-                                    previous=self.previous)
+                                    previous=previous)
         return exists
     
     @abstractmethod
@@ -197,6 +204,8 @@ def newtask(**parameters):
         from .nxresample import Task
     elif method=='xrf':
         from .nxxrf import Task
+    elif method=='fullfield':
+        from .nxfullfield import Task
     else:
         raise ParameterError('Unknown method {}'.format(repr(method)))
     return Task(**parameters)

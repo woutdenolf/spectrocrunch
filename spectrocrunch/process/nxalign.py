@@ -60,29 +60,7 @@ class Task(nxregulargrid.Task):
     def _parameters_filter(self):
         return super(Task,self)._parameters_filter()+['alignmethod','reference','refimageindex','crop','roi','plot','pad','onraw']
         
-    def _prepare_reference(self):
-        parameters = self.parameters
-        refimageindex = parameters['refimageindex']
-        refgrid = self.reference_signal
-        if instance.isstring(refimageindex):
-            if refimageindex=='first':
-                refimageindex = 0
-            elif refimageindex=='last':
-                refimageindex = -1
-            elif refimageindex=='middle':
-                refimageindex = refgrid.shape[refgrid.stackdim]//2
-            else:
-                raise nxtask.ParameterError('Unknown refimageindex {}'.format(repr(refimageindex)))
-        elif instance.isinteger(refimageindex):
-            pass
-        else: # fraction
-            refimageindex = int(round(refimageindex*refgrid.shape[refgrid.stackdim]))
-        parameters['refimageindex'] = refimageindex
-        
     def _prepare_process(self):
-        # Reference stack and image for alignment
-        self._prepare_reference()
-        
         # Output signal paths
         self.signalsout = []
         for signalin in self.grid.signals:
@@ -112,6 +90,7 @@ class Task(nxregulargrid.Task):
                 signalsout = [sig.path for sig in self.signalsout]
                 o = self.alignclass(datasets,None,fout,signalsout,"",**kwargs)
                 kwargs = {k:parameters[k] for k in ['onraw','pad','crop','roi','refimageindex']}
+                self._prepare_reference(kwargs)
                 o.align(self.reference_signal_index,**kwargs)
                 axes = self._process_axes(o)
                 axes = self._create_axes(axes)
@@ -124,3 +103,23 @@ class Task(nxregulargrid.Task):
                 signalout = nxdata.add_signal(signalout.name)
             if not nxdata.axes: 
                 nxdata.set_axes(*axes)
+
+    def _prepare_reference(self,parameters):
+        refimageindex = parameters['refimageindex']
+        refgrid = self.reference_signal
+        if instance.isstring(refimageindex):
+            if refimageindex=='first':
+                refimageindex = 0
+            elif refimageindex=='last':
+                refimageindex = -1
+            elif refimageindex=='middle':
+                refimageindex = refgrid.shape[refgrid.stackdim]//2
+            else:
+                raise nxtask.ParameterError('Unknown refimageindex {}'.format(repr(refimageindex)))
+        elif instance.isinteger(refimageindex):
+            pass
+        elif refimageindex is None:
+            refimageindex = -1
+        else: # fraction
+            refimageindex = int(round(refimageindex*refgrid.shape[refgrid.stackdim]))
+        parameters['refimageindex'] = refimageindex

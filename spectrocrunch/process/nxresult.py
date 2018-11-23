@@ -54,10 +54,7 @@ class Group(Hashable):
                 number = int(groupname[1:])
                 name = "detectorS{:01d}".format(number)
                 category = 1
-            elif groupname==name:
-                pass
-            elif groupname:
-                raise ValueError("Unexpected detector name {}".format(groupname))
+
         elif isinstance(groupname,self.__class__):
             name,number,category = groupname.name,groupname.number,groupname.category
         elif groupname:

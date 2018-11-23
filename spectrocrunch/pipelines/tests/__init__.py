@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -21,5 +21,3 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-"""Common data API.
-"""
