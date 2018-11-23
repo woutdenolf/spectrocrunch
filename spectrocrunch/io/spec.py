@@ -29,8 +29,10 @@ import os
 import logging
 
 from ..utils import instance
+from ..utils import units
 from ..patch.pint import ureg
 from .xiaedf import XiaNameParser
+from ..process import axis
 
 from PyMca5.PyMcaCore import SpecFileDataSource
 
@@ -146,8 +148,9 @@ def zapimage_submap(header,cmdlabel,scanrange,currentpos,microntounits):
                 logger.warning("Current position of {} ({}) is ignored and set to {}".format(k,v,startpositions[k]))
     
     return scancmd,mvcmd,[[ifasta,ifastb+1,ifast],[islowa,islowb+1,islow]]
-        
+    
 class cmd_parser(object):
+    
     def __init__(self):
         self.fnumber = "(?:[+-]?[0-9]*\.?[0-9]+)"
         self.inumber = "\d+"
@@ -373,62 +376,87 @@ class cmd_parser(object):
 
 class edfheader_parser(object):
 
-    def __init__(self,fastlabel=None,slowlabel=None,\
-                    timelabel=None,timeunit=None,\
-                    energylabel=None,energyunit=None,\
-                    speclabel=None):
+    def __init__(self,fastlabel=None,slowlabel=None,speclabel=None,
+                 units=None,**otherlabels):
         self.fastlabel = fastlabel
         self.slowlabel = slowlabel
-        self.timelabel = timelabel
-        if timeunit is None:
-            self.timeunit = "s"
-        else:
-            self.timeunit = timeunit
-        self.energylabel = energylabel
-        if energyunit is None:
-            self.energyunit = "keV"
-        else:
-            self.energyunit = energyunit
         self.speclabel = speclabel
+        self.otherlabels = otherlabels
         self.specparser = cmd_parser()
+        if units:
+            self.units = units
+        else:
+            self.units = {}
 
     def parse(self,header):
-        try:
-            r = self.specparser.parse(str(header[self.speclabel]))
-        except:
-            r = {}
-            
-        try:
-            r['motfast'] = str(header[self.fastlabel+"_mot"])
-            r['startfast'] = np.float(header[self.fastlabel+"_start"])
-            r['endfast'] = np.float(header[self.fastlabel+"_end"])
-            r['npixelsfast'] = np.int(header[self.fastlabel+"_nbp"])
-        except:
-            r['name'] = 'unknown'
-            
-        try:
-            r['motslow'] = str(header[self.slowlabel+"_mot"])
-            r['startslow'] = np.float(header[self.slowlabel+"_start"])
-            r['endslow'] = np.float(header[self.slowlabel+"_end"])
-            r['nstepsslow'] = np.int(header[self.slowlabel+"_nbp"])
-        except:
-            r['name'] = 'unknown'
+        r = {}
+        if self.speclabel:
+            try:
+                r = self.specparser.parse(str(header[self.speclabel]))
+            except KeyError:
+                r = {}
+
+        if self.fastlabel:
+            try:
+                r['motfast'] = str(header[self.fastlabel+"_mot"])
+                r['startfast'] = np.float(header[self.fastlabel+"_start"])
+                r['endfast'] = np.float(header[self.fastlabel+"_end"])
+                r['npixelsfast'] = np.int(header[self.fastlabel+"_nbp"])
+            except KeyError:
+                pass
+        
+        if self.slowlabel:
+            try:
+                r['motslow'] = str(header[self.slowlabel+"_mot"])
+                r['startslow'] = np.float(header[self.slowlabel+"_start"])
+                r['endslow'] = np.float(header[self.slowlabel+"_end"])
+                r['nstepsslow'] = np.int(header[self.slowlabel+"_nbp"])
+            except KeyError:
+                pass
+
+        for k,label in self.otherlabels.items():
+            if label:
+                try:
+                    u = self.units.get(label,'dimensionless')
+                    r[k] = units.Quantity(np.float(header[label]),u)
+                except KeyError:
+                    if k not in r:
+                        r[k] = ureg.Quantity(np.nan,u)
+
+        # Parse axes:
+        # data.shape == (Dim_2,Dim_1) == (slow,fast)
+        axes = []
 
         try:
-            r['time'] = ureg.Quantity(np.float(header[self.timelabel]),self.timeunit)
-        except:
-            pass
-
+            name = r.pop('motslow')
+            u = self.units.get(name,'dimensionless')
+            start = units.Quantity(r.pop('startslow'),units=u)
+            end = units.Quantity(r.pop('endslow'),units=u)
+            nsteps = r.pop('nstepsslow')
+            axes.append(axis.zapscan(start,end,nsteps,name=name))
+        except KeyError:
+            nsteps = int(header['Dim_2'])-1
+            axes.append(axis.AxisRegular(0,nsteps,nsteps,name='slow'))
+        
         try:
-            r['energy'] = ureg.Quantity(np.float(header[self.energylabel]),self.energyunit)
-        except:
-            pass
-                     
+            name = r.pop('motfast')
+            u = self.units.get(name,'dimensionless')
+            start = units.Quantity(r.pop('startfast'),units=u)
+            end = units.Quantity(r.pop('endfast'),units=u)
+            npixels = r.pop('npixelsfast')
+            axes.append(axis.zapscan(start,end,npixels,name=name))
+        except KeyError:
+            nsteps = int(header['Dim_1'])-1
+            axes.append(axis.AxisRegular(0,nsteps,nsteps,name='fast'))
+            
+        r['axes'] = axes
+        
         if 'name' not in r:
-            r['name'] = 'zapimage'
-        
+            r['name'] = 'unknown'
+            if len(axes)==2:
+                r['name'] = 'zapimage'
+
         return r
-        
         
 class spec(SpecFileDataSource.SpecFileDataSource):
     """An interface to a spec file

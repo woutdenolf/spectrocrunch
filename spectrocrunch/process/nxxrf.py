@@ -30,6 +30,7 @@ from . import nxtask
 from . import nxresult
 from . import nxlazy
 from . import axis
+from ..io import spec
 from ..io import xiaedf
 from ..io import localfs
 from ..utils import listtools
@@ -126,7 +127,7 @@ class Task(nxtask.Task):
 
         # Processing axes
         positioners = self.nxresults.nxcollection('stackaxes')
-        for ax in self.procaxes.values():
+        for ax in self.infoaxes.values():
             positioners.add_axis(ax.name,ax.values,title=ax.title)
 
         # Processing datasets
@@ -154,7 +155,7 @@ class Task(nxtask.Task):
         self.axes_names = [None]*3
         self.axes = {}
         self.procinfo = {}
-        self.procaxes = {}
+        self.infoaxes = {}
         
         self.outstackdim = self.parameters["stackdim"]
         if self.outstackdim == 0:
@@ -239,40 +240,40 @@ class Task(nxtask.Task):
         
         tile = lambda x: np.tile(np.array(x)[np.newaxis,:],(self.nstack,1))
 
-        self._add_axis_procinfo("refflux",defaultunits='Hz')
-        self._add_axis_procinfo("refexpotime",defaultunits='s')
-        self._add_axis_procinfo("activearea",values=tile(self.qxrfgeometry.getxrfactivearea()),defaultunits='cm**2')
-        self._add_axis_procinfo("anglein",values=tile(self.qxrfgeometry.getxrfanglein()),defaultunits='deg')
-        self._add_axis_procinfo("angleout",values=tile(self.qxrfgeometry.getxrfangleout()),defaultunits='deg')
-        self._add_axis_procinfo("sampledetdistance",values=np.full((self.nstack,self.ndetfit),np.nan,dtype=np.float32),defaultunits='cm')
+        self._add_info_axis("refflux",defaultunits='Hz')
+        self._add_info_axis("refexpotime",defaultunits='s')
+        self._add_info_axis("activearea",values=tile(self.qxrfgeometry.getxrfactivearea()),defaultunits='cm**2')
+        self._add_info_axis("anglein",values=tile(self.qxrfgeometry.getxrfanglein()),defaultunits='deg')
+        self._add_info_axis("angleout",values=tile(self.qxrfgeometry.getxrfangleout()),defaultunits='deg')
+        self._add_info_axis("sampledetdistance",values=np.full((self.nstack,self.ndetfit),np.nan,dtype=np.float32),defaultunits='cm')
         
         if self.fluxnormbefore:
-            self._add_axis_procinfo("i0_to_norm_offset")
-            self._add_axis_procinfo("i0_to_norm_factor")
+            self._add_info_axis("i0_to_norm_offset")
+            self._add_info_axis("i0_to_norm_factor")
         
         for imageindex,xiaimage in enumerate(self.xiastackraw):
             energy = self.axes[self.axes_names[self.outstackdim]][imageindex].magnitude
             if not np.isnan(energy):
-                time = self.procaxes["expotime"][imageindex].magnitude
+                time = self.infoaxes["expotime"][imageindex].magnitude
                 if np.isnan(time):
                     time = None
                     
                 xrfnormop,\
-                self.procaxes["refflux"][imageindex],\
-                self.procaxes["refexpotime"][imageindex],\
-                self.procaxes["expotime"][imageindex]\
+                self.infoaxes["refflux"][imageindex],\
+                self.infoaxes["refexpotime"][imageindex],\
+                self.infoaxes["expotime"][imageindex]\
                  =self.qxrfgeometry.xrfnormop(energy,expotime=time)
                 
                 if self.fluxnormbefore:
                     xiaimage.localnorm(self.parameters["fluxcounter"],func=xrfnormop)
-                    self.procaxes["i0_to_norm_offset"][imageindex] = xrfnormop.b
-                    self.procaxes["i0_to_norm_factor"][imageindex] = xrfnormop.m
+                    self.infoaxes["i0_to_norm_offset"][imageindex] = xrfnormop.b
+                    self.infoaxes["i0_to_norm_factor"][imageindex] = xrfnormop.m
                     
-                pos = self.procaxes["xrfdetectorposition"][imageindex,:]
+                pos = self.infoaxes["xrfdetectorposition"][imageindex,:]
                 if np.isfinite(pos).all():
                     self.qxrfgeometry.setxrfposition(pos)
-                self.procaxes["xrfdetectorposition"][imageindex,:] = self.qxrfgeometry.getxrfdetectorposition()
-                self.procaxes["sampledetdistance"][imageindex,:] = self.qxrfgeometry.getxrfdistance()
+                self.infoaxes["xrfdetectorposition"][imageindex,:] = self.qxrfgeometry.getxrfdetectorposition()
+                self.infoaxes["sampledetdistance"][imageindex,:] = self.qxrfgeometry.getxrfdistance()
 
     def _process_xiastackraw(self):
         if self.dtcorbefore or self.addspectra or self.fluxnormbefore:
@@ -338,20 +339,25 @@ class Task(nxtask.Task):
         self.counters = set()
         for imageindex,xiaimage in enumerate(self.xiastackraw):
             header = xiaimage.header(source=metacounters)
-            motfast,motslow,sfast,sslow,time = self._getscanparameters(header)
+            parsedheader = self._getscanparameters(header)
 
             # Prepare axes and stackinfo
             if imageindex==0:
+                axes = parsedheader['axes']
+                axesnames = [ax.name for ax in axes]
                 for mot in self.parameters["positionmotors"]:
-                    if mot != motfast and mot != motslow and mot in header:
-                        self._add_axis(mot)
-                
-                self._add_axis(motslow,values=sslow,index=self.outimgdim[0])
-                self._add_axis(motfast,values=sfast,index=self.outimgdim[1])
-                self._add_axis(str(self.parameters["stacklabel"]),index=self.outstackdim)
-                self._add_axis_procinfo("expotime",defaultunits='s')
+                    if mot not in axesnames:
+                        self._add_stack_axis(mot,self.units.get(mot,'dimensionless'))
+                self._add_grid_axis(axes[0],index=self.outimgdim[0])
+                self._add_grid_axis(axes[1],index=self.outimgdim[1])
+                self._add_stack_axis(self.parameters['stacklabel'],
+                                     parsedheader['stackvalue'].units,
+                                     index=self.outstackdim)
+                self._add_info_axis("expotime",
+                                    defaultunits=parsedheader['time'].units)
                 if self.fluxnorm:
-                    self._add_axis_procinfo("xrfdetectorposition",values=np.full((self.nstack,self.ndetfit),np.nan,dtype=np.float32),defaultunits='cm')
+                    values = np.full((self.nstack,self.ndetfit),np.nan,dtype=np.float32)
+                    self._add_info_axis("xrfdetectorposition",values=values,defaultunits='cm')
             
             # Add stackinfo
             for mot in self.axes:
@@ -359,13 +365,10 @@ class Task(nxtask.Task):
                     self.axes[mot][imageindex] = np.float(header[mot])
                               
             # Add stack value
-            if self.parameters["stacklabel"] in header:
-                self.axes[self.axes_names[self.outstackdim]][imageindex] = np.float(header[self.parameters["stacklabel"]])
-            else:
-                logger.warning("No stack counter in header (set to NaN)")
-            
+            self.axes[self.axes_names[self.outstackdim]][imageindex] = parsedheader['stackvalue'].magnitude
+
             # Add time
-            self.procaxes["expotime"][imageindex] = time
+            self.infoaxes["expotime"][imageindex] = parsedheader['time'].magnitude
             
             # Lazy add counters
             files = xiaimage.ctrfilenames_used(counters)
@@ -385,52 +388,35 @@ class Task(nxtask.Task):
                     o.appendarg_edf(f[0])
                     self.stacks[name][ctr][imageindex] = o
                     self.counters.add(ctr)
-        
-    def _add_axis(self,name,values=None,index=None,defaultunits=None,type=None):
-        if values is None:
-            values = np.full(self.nstack,np.nan,dtype=np.float32)
-        values = units.Quantity(values,units=self.units.get(name,defaultunits))
-        self.axes[name] = axis.Axis(values,type=type,name=name)
-        if index is not None:
-            self.axes_names[index] = name
     
-    def _add_axis_procinfo(self,name,values=None,index=None,defaultunits=None,type=None):
+    def _add_grid_axis(self,axis,index=None):
+        self.axes[axis.name] = axis
+        if index is not None:
+            self.axes_names[index] = axis.name
+    
+    def _add_stack_axis(self,name,unit,index=None):
+        values = np.full(self.nstack,np.nan,dtype=np.float32)
+        values = units.Quantity(values,units=unit)
+        ax = axis.Axis(values,name=name)
+        self._add_grid_axis(ax,index=index)
+
+    def _add_info_axis(self,name,values=None,defaultunits=None,type=None):
         if values is None:
             values = np.full(self.nstack,np.nan,dtype=np.float32)
         values = units.Quantity(values,units=self.units.get(name,defaultunits))
-        self.procaxes[name] = axis.Axis(values,type=type,name=name)
+        self.infoaxes[name] = axis.Axis(values,type=type,name=name)
         
     def _getscanparameters(self,header):
         """Get scan dimensions from header
         """
-        result = {"name":"unknown"}
-        
-        # data.shape == (Dim_2,Dim_1) == (slow,fast)
-        
-        if "speccmdlabel" in self.parameters:
-            if self.parameters["speccmdlabel"] in header:
-                o = spec.cmd_parser()
-                result = o.parse(header[self.parameters["speccmdlabel"]])
-        elif "fastlabel" in config and "slowlabel" in self.parameters:
-            o = spec.edfheader_parser(fastlabel=self.parameters["fastlabel"],slowlabel=self.parameters["slowlabel"])
-            result = o.parse(header)
-
-        if result["name"]=="zapimage":
-            motfast,motslow = result["motfast"],result["motslow"]
-            sfast = spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])
-            sslow = spec.ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])
-            if "time" in result:
-                time = units.umagnitude(result["time"],units="s")
-            else:
-                time = np.nan
-        else:
-            logger.warning("No motor positions in header (using pixels).")
-            motfast,motslow = 'fast','slow'
-            sfast = np.arange(int(header["Dim_1"]))
-            sslow = np.arange(int(header["Dim_2"]))
-            time = np.nan
-
-        return motfast,motslow,sfast,sslow,time
+        kwargs = {}
+        kwargs['speclabel'] = self.parameters.get('speccmdlabel',None)
+        kwargs['slowlabel'] = self.parameters.get('slowlabel',None)
+        kwargs['fastlabel'] = self.parameters.get('fastlabel',None)
+        kwargs['stackvalue'] = self.parameters.get('stacklabel',None)
+        kwargs['time'] = self.parameters.get('timelabel',None)
+        o = spec.edfheader_parser(units=self.units,**kwargs)
+        return o.parse(header)
 
     def _prepare_xrffit(self):
         self.fit = self.parameters["fit"]
@@ -439,15 +425,15 @@ class Task(nxtask.Task):
         if not self.fluxnorm or ("fluxcounter" not in self.parameters and "transmissioncounter" not in self.parameters):
             return
         
-        self._add_axis_procinfo("i0_to_flux_offset",defaultunits='Hz')
-        self._add_axis_procinfo("i0_to_flux_factor",defaultunits='Hz')
-        self._add_axis_procinfo("it_to_flux_offset",defaultunits='Hz')
-        self._add_axis_procinfo("it_to_flux_factor",defaultunits='Hz')
+        self._add_info_axis("i0_to_flux_offset",defaultunits='Hz')
+        self._add_info_axis("i0_to_flux_factor",defaultunits='Hz')
+        self._add_info_axis("it_to_flux_offset",defaultunits='Hz')
+        self._add_info_axis("it_to_flux_factor",defaultunits='Hz')
         
         name = nxresult.Group(None)
         for imageindex in range(self.nstack):
             energy = self.axes[self.axes_names[self.outstackdim]][imageindex].magnitude
-            time = self.procaxes["refexpotime"][imageindex]
+            time = self.infoaxes["refexpotime"][imageindex]
             
             if "fluxcounter" in self.parameters:
                 op,_ = self.qxrfgeometry.I0op(energy,expotime=time,removebeamfilters=False)
@@ -456,8 +442,8 @@ class Task(nxtask.Task):
                 o = nxlazy.LazyStackSlice(func=op)
                 o.appendarg_h5dataset(self.nxresults[str(name)][self.parameters["fluxcounter"]])
                 self.stacks[name]["calc_flux0"][imageindex] = o
-                self.procaxes["i0_to_flux_offset"][imageindex] = op.b
-                self.procaxes["i0_to_flux_factor"][imageindex] = op.m
+                self.infoaxes["i0_to_flux_offset"][imageindex] = op.b
+                self.infoaxes["i0_to_flux_factor"][imageindex] = op.m
                 
             if "transmissioncounter" in self.parameters:
                 op,_ = self.qxrfgeometry.Itop(energy,expotime=time,removebeamfilters=True)
@@ -469,8 +455,8 @@ class Task(nxtask.Task):
                 o = nxlazy.LazyStackSlice(func=op)
                 o.appendarg_h5dataset(self.nxresults[str(name)][self.parameters["transmissioncounter"]])
                 self.stacks[name]["calc_fluxt"][imageindex] = o
-                self.procaxes["it_to_flux_offset"][imageindex] = op.b
-                self.procaxes["it_to_flux_factor"][imageindex] = op.m
+                self.infoaxes["it_to_flux_offset"][imageindex] = op.b
+                self.infoaxes["it_to_flux_factor"][imageindex] = op.m
                                
                 o = nxlazy.LazyStackSlice(func=nxlazy.transmission_func)
                 o.appendarg_h5dataset(self.nxresults[str(name)]["calc_fluxt"])
@@ -501,12 +487,12 @@ class Task(nxtask.Task):
         
         for imageindex,xiaimage in enumerate(self.xiastackproc):
             if self.fluxnorm:
-                quants = [{"time":self.procaxes["refexpotime"][imageindex].to('s').magnitude,\
-                           "flux":self.procaxes["refflux"][imageindex].to('Hz').magnitude,\
-                           "area":self.procaxes["activearea"][imageindex,i].to('cm**2').magnitude,\
-                           "anglein":self.procaxes["anglein"][imageindex,i].to('deg').magnitude,\
-                           "angleout":self.procaxes["angleout"][imageindex,i].to('deg').magnitude,\
-                           "distance":self.procaxes["sampledetdistance"][imageindex,i].to('cm').magnitude} for i in range(self.ndetfit)]
+                quants = [{"time":self.infoaxes["refexpotime"][imageindex].to('s').magnitude,\
+                           "flux":self.infoaxes["refflux"][imageindex].to('Hz').magnitude,\
+                           "area":self.infoaxes["activearea"][imageindex,i].to('cm**2').magnitude,\
+                           "anglein":self.infoaxes["anglein"][imageindex,i].to('deg').magnitude,\
+                           "angleout":self.infoaxes["angleout"][imageindex,i].to('deg').magnitude,\
+                           "distance":self.infoaxes["sampledetdistance"][imageindex,i].to('cm').magnitude} for i in range(self.ndetfit)]
             else:
                 quants = [{}]*self.ndetfit
 
@@ -610,7 +596,7 @@ class Task(nxtask.Task):
                     self.stacks[k1][k2][imageindex].appendarg(arg)
                     if fluxnorm:
                         self.stacks[k1][k2][imageindex].appendarg_h5dataset(self.nxresults[str(normname)]["calc_flux0"])
-                        self.stacks[k1][k2][imageindex].appendarg(self.procaxes["refflux"][imageindex])
+                        self.stacks[k1][k2][imageindex].appendarg(self.infoaxes["refflux"][imageindex])
                     else:
                         self.stacks[k1][k2][imageindex].appendarg(None)
                         self.stacks[k1][k2][imageindex].appendarg(None)
@@ -627,8 +613,8 @@ class Task(nxtask.Task):
         ind = np.argsort(self.axes[mot].magnitude,kind='mergesort')
         self.axes[mot].values = self.axes[mot][ind]
 
-        for name in self.procaxes:
-            self.procaxes[name].values = self.procaxes[name][ind,...]
+        for name in self.infoaxes:
+            self.infoaxes[name].values = self.infoaxes[name][ind,...]
 
         for k1 in self.stacks:
             group = self.stacks[k1]

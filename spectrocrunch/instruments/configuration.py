@@ -207,6 +207,7 @@ class ESRF_ID21_SXM(InstrumentInfo):
         info["units"] = info.get("units",{})                           
         info["units"]["time"] = info["units"].get("time",ureg.seconds)
         info["units"]["energy"] = info["units"].get("energy",ureg.Unit("keV"))
+        info["units"]["DCM_Energy"] = info["units"].get("DCM_Energy",ureg.Unit("keV"))
         info["units"]["I0_counts"] = info["units"].get("I0_counts",ureg.dimensionless)
         info["units"]["It_counts"] = info["units"].get("It_counts",ureg.dimensionless)
         info["units"]["I0_cps"] = info["units"].get("I0_cps",ureg.Unit("Hz"))

@@ -410,7 +410,9 @@ class _AxisRegular(Axis):
         return "{}(start={:~},end={:~},step={:~},size={})".format(self.name,self.start,self.end,self.stepsize,len(self))
         
 class AxisRegular(_AxisRegular):
-
+    """start, end, nsteps
+    """
+    
     @_AxisRegular.start.setter
     def start(self,value):
         self.values = value,self.end,self.size
@@ -432,16 +434,18 @@ class AxisRegular(_AxisRegular):
         self._params = params
         self._start = units.Quantity(params[0])
         u = self._start.units
-        self._end = units.Quantity(params[1],units=units).to(u)
+        self._end = units.Quantity(params[1],units=u).to(u)
         self._size = params[2]+1
         if self.size==1:
-            self._stepsize = 0
+            self._stepsize = units.Quantity(0,units=u).to(u)
         else:
             self._stepsize = (self.end-self.start)/self.nsteps
         self._values = units.Quantity(np.linspace(self.start.magnitude,self.end.magnitude,self.size),units=u)
-        
-class AxisRegularInc(_AxisRegular):
 
+class AxisRegularInc(_AxisRegular):
+    """start, stepsize, nsteps
+    """
+    
     @_AxisRegular.start.setter
     def start(self,value):
         self.values = value,self.stepsize,self.size
@@ -456,7 +460,7 @@ class AxisRegularInc(_AxisRegular):
     
     @_AxisRegular.nsteps.setter
     def nsteps(self,value):
-        self.values = self.start,self.end,value
+        self.values = self.start,self.stepsize,value
         
     @_AxisRegular.values.setter
     def values(self,params):
@@ -467,6 +471,19 @@ class AxisRegularInc(_AxisRegular):
         self._size = params[2]+1
         self._end = self.start + self.stepsize*self.nsteps
         self._values = np.arange(self.size)*self.stepsize+self.start
+
+def zapscan(start,end,npixels,unit=None,**kwargs):
+    pixelsize = (end-start)/float(npixels)
+    if unit is None:
+        unit = 'dimensionless'
+    start = units.Quantity(start+pixelsize/2,units=unit)
+    return AxisRegularInc(start,pixelsize,npixels-1,**kwargs)
+
+def ascan(start,end,intervals,unit=None,**kwargs):
+    if unit is None:
+        unit = 'dimensionless'
+    start = units.Quantity(start,units=unit)
+    return AxisRegular(start,end,intervals,**kwargs)
 
 class AxisNumber(_AxisRegular):
 
