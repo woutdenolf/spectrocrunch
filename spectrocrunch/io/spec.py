@@ -157,6 +157,9 @@ class cmd_parser(object):
         self.blanks = "\s+"
         self.motor = "[a-zA-Z]+"
         self.motornum = "[a-zA-Z0-9]+"
+    
+    def __call__(self,cmd):
+        return self.parse(cmd)
         
     def parse(self,cmd):
         scanname = cmd.split(' ')[0]
@@ -388,6 +391,9 @@ class edfheader_parser(object):
         else:
             self.units = {}
 
+    def __call__(self,cmd):
+        return self.parse(cmd)
+        
     def parse(self,header):
         r = {}
         if self.speclabel:

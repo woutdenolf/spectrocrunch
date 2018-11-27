@@ -43,6 +43,40 @@ def extrap1d(interpolator):
 
     return ufunclike
 
+def interp1d_floor(xs,ys):
+
+    def pointwise(x):
+        ind = np.where(x>=xs)[0]
+        if ind.size==0:
+            return np.nan
+        else:
+            return ys[ind[-1]]
+            
+    def ufunclike(x):
+        try:
+            return array(map(pointwise, array(x)))
+        except TypeError:
+            return pointwise(x)
+
+    return ufunclike
+    
+def interp1d_ceil(xs,ys):
+
+    def pointwise(x):
+        ind = np.where(x<=xs)[0]
+        if ind.size==0:
+            return np.nan
+        else:
+            return ys[ind[0]]
+            
+    def ufunclike(x):
+        try:
+            return array(map(pointwise, array(x)))
+        except TypeError:
+            return pointwise(x)
+            
+    return ufunclike
+
 def interpolate_regular(data,axold,axnew,cval=np.nan,degree=1,asgrid=True):
     """Regular data (not necessarily even spaced)
     
@@ -99,7 +133,6 @@ def _ravel_reshape(ax,i,ndim):
     ind = [np.newaxis]*ndim
     ind[i] = slice(None)
     return _ravel(ax)[ind]
-    
     
 def interpolate_irregular(data,axold,axnew,cval=np.nan,degree=1,asgrid=True):
     """Irregular data

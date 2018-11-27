@@ -35,7 +35,9 @@ def xiaimage_to_nx(xiaimage,h5file,nxentry=None):
     else:
         nxentry = nxfs.Path('/',h5file=h5file).new_nxentry()
     
-    
+    xiaimage.dtcor(False)
+    xiaimage.adddetectors(False)
+    xiaimage.onlyicrocr(True)
     
     
     

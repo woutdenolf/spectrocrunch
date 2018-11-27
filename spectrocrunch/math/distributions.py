@@ -23,12 +23,15 @@
 # THE SOFTWARE.
 
 from scipy.stats import rv_continuous
+from scipy.stats import rv_discrete
+from scipy.stats import _continuous_distns as crv_helper
+from scipy.stats import _discrete_distns as drv_helper
 import scipy.special as special
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import _continuous_distns as rv_helper
 
-def plothistogram(values,edges=None,**kwargs):
+
+def plothistogram(values,edges=None,markcen=False,**kwargs):
     """Usage:
         plothistogram(samples,density=1)
         plothistogram(*np.histogram(samples,density=1))
@@ -44,7 +47,8 @@ def plothistogram(values,edges=None,**kwargs):
         xleft = edges[:-1]
         plt.bar(xleft,height=values,width=wbin,align='edge',**kwargs)
         xcen = xleft + wbin*0.5
-        plt.plot(xcen,values,'o') 
+        if markcen:
+            plt.plot(xcen,values,'o') 
         return xcen
 
 
@@ -94,10 +98,10 @@ class truncnorm_gen(rv_continuous):
     def _argcheck(self, a, b):
         self.a = a
         self.b = b
-        self._cdfb = rv_helper._norm_cdf(b)
-        self._cdfa = rv_helper._norm_cdf(a)
-        self._cdfminb = rv_helper._norm_cdf(-b)
-        self._cdfmina = rv_helper._norm_cdf(-a)
+        self._cdfb = crv_helper._norm_cdf(b)
+        self._cdfa = crv_helper._norm_cdf(a)
+        self._cdfminb = crv_helper._norm_cdf(-b)
+        self._cdfmina = crv_helper._norm_cdf(-a)
         self._delta = np.where(self.a > 0,
                                -(self._cdfminb - self._cdfmina),
                                self._cdfb - self._cdfa)
@@ -105,23 +109,23 @@ class truncnorm_gen(rv_continuous):
         return a != b
 
     def _pdf(self, x, a, b):
-        return rv_helper._norm_pdf(x) / self._delta
+        return crv_helper._norm_pdf(x) / self._delta
 
     def _logpdf(self, x, a, b):
-        return rv_helper._norm_logpdf(x) - self._logdelta
+        return crv_helper._norm_logpdf(x) - self._logdelta
 
     def _cdf(self, x, a, b):
-        return (rv_helper._norm_cdf(x) - self._cdfa) / self._delta
+        return (crv_helper._norm_cdf(x) - self._cdfa) / self._delta
 
     def _ppf(self, q, a, b):
         return np.where(self.a > 0,
-                       -rv_helper._norm_ppf(q*self._cdfminb + self._cdfmina*(1.0-q)),
-                        rv_helper._norm_ppf(q*self._cdfb + self._cdfa*(1.0-q)))
+                       -crv_helper._norm_ppf(q*self._cdfminb + self._cdfmina*(1.0-q)),
+                        crv_helper._norm_ppf(q*self._cdfb + self._cdfa*(1.0-q)))
 
     def _stats(self, a, b):
         nA, nB = self._cdfa, self._cdfb
         d = nB - nA
-        pA, pB = rv_helper._norm_pdf(a), rv_helper._norm_pdf(b)
+        pA, pB = crv_helper._norm_pdf(a), crv_helper._norm_pdf(b)
         mu = (pA - pB) / d   # correction sign
         mu2 = 1 + (a*pA - b*pB) / d - mu*mu
         return mu, mu2, None, None
@@ -140,10 +144,10 @@ class holenorm_gen(rv_continuous):
     def _argcheck(self, a, b):
         self.a = a
         self.b = b
-        self._cdfb = rv_helper._norm_cdf(b)
-        self._cdfa = rv_helper._norm_cdf(a)
-        self._cdfminb = rv_helper._norm_cdf(-b)
-        self._cdfmina = rv_helper._norm_cdf(-a)
+        self._cdfb = crv_helper._norm_cdf(b)
+        self._cdfa = crv_helper._norm_cdf(a)
+        self._cdfminb = crv_helper._norm_cdf(-b)
+        self._cdfmina = crv_helper._norm_cdf(-a)
         self._delta = np.where(self.a > 0,
                                -(self._cdfminb - self._cdfmina),
                                self._cdfb - self._cdfa)
@@ -151,23 +155,23 @@ class holenorm_gen(rv_continuous):
         return a != b
 
     def _pdf(self, x, a, b):
-        return rv_helper._norm_pdf(x) / self._delta
+        return crv_helper._norm_pdf(x) / self._delta
 
     def _logpdf(self, x, a, b):
-        return rv_helper._norm_logpdf(x) - self._logdelta
+        return crv_helper._norm_logpdf(x) - self._logdelta
 
     def _cdf(self, x, a, b):
-        return (rv_helper._norm_cdf(x) - self._cdfa) / self._delta
+        return (crv_helper._norm_cdf(x) - self._cdfa) / self._delta
 
     def _ppf(self, q, a, b):
         return np.where(self.a > 0,
-                       -rv_helper._norm_ppf(q*self._cdfminb + self._cdfmina*(1.0-q)),
-                        rv_helper._norm_ppf(q*self._cdfb + self._cdfa*(1.0-q)))
+                       -crv_helper._norm_ppf(q*self._cdfminb + self._cdfmina*(1.0-q)),
+                        crv_helper._norm_ppf(q*self._cdfb + self._cdfa*(1.0-q)))
 
     def _stats(self, a, b):
         nA, nB = self._cdfa, self._cdfb
         d = nB - nA
-        pA, pB = rv_helper._norm_pdf(a), rv_helper._norm_pdf(b)
+        pA, pB = crv_helper._norm_pdf(a), crv_helper._norm_pdf(b)
         mu = (pA - pB) / d   # correction sign
         mu2 = 1 + (a*pA - b*pB) / d - mu*mu
         return mu, mu2, None, None
@@ -177,3 +181,6 @@ def holenorm(k,**kwargs):
     k = np.abs(k)
     return holenorm_gen(name='holenorm',**kwargs)(a=-k,b=k)
     
+
+# Random number generator (slow if ppf is calculated directly)
+# distribution.rvs(size=1000)

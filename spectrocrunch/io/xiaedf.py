@@ -1948,6 +1948,8 @@ class xiaimage(xiacompound):
         self._ctrfiles = xiasearch(path,radix=self.radix,mapnum=self.mapnum,onlyctrs=True)
 
     def counterbasenames(self):
+        if len(self._ctrfiles)==0:
+            self.search()
         return [xianameparser.parse(f).baselabel for f in self._ctrfiles]
         
     def headers(self,**kwargs):
