@@ -6,6 +6,7 @@ Tutorials
 
     materials
     diodes
+    xia
     xrfquant
     detectionlimits
     xrfdetectionlimits
