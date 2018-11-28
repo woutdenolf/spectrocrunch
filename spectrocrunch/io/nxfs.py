@@ -61,6 +61,11 @@ else:
 def textarray(arr):
     return np.array(arr, dtype=text_dtype)
 
+def dataprepare(data):
+    if instance.isstring(data):
+        data = textarray(data)
+    return data
+    
 def timestamp():
     return textarray(datetime.now().isoformat())
 
@@ -226,6 +231,9 @@ class Path(h5fs.Path):
     def _filesgen_nxentry(self):
         return {'start_time':timestamp()}
 
+    def _filesgen_nxxrf(self):
+        return {'definition':'NXxrf'}
+        
     def nxdata(self,name,**openparams):
         self._raise_if_class('NXroot')
         return self._init_nxclass(self[name],'NXdata',**openparams)
@@ -327,9 +335,30 @@ class Path(h5fs.Path):
         
         return self._init_nxclass(path['instrument'],'NXinstrument',**openparams)
     
+    def nxmeasurement(self,**openparams):
+        path = self.findfirstup_is_nxclass('NXmeasurement')
+        if path.nxclass=='NXmeasurement':
+            return path
+        
+        path = self.findfirstup_is_nxclass('NXentry')
+        if path.nxclass!='NXentry':
+            raise NexusException('Could not find NXmeasurement or NXentry')
+        
+        return self._init_nxclass(path['measurement'],'NXmeasurement',**openparams)
+        
     def nxcollection(self,name,**openparams):
         self._raise_if_class('NXroot')
         return self._init_nxclass(self[name],'NXcollection',**openparams)
+
+    def nxdetector(self,name,**openparams):
+        instrument = self.nxinstrument(**openparams)
+        return self._init_nxclass(instrument[name],'NXdetector',**openparams)
+
+    def nxxrf(self,name,**openparams):
+        entry = self.nxentry(**openparams)
+        return self._init_nxclass(self[name],'NXsubentry',
+                          filesgen=self._filesgen_nxxrf,
+                          **openparams)
 
     def positioners(self,**openparams):
         path = self.findfirstup_is_nxclass('NXprocess')
@@ -384,6 +413,21 @@ class Path(h5fs.Path):
             path = path[default]
             default = path.get_stat('default',default=None)
         return path
+    
+    def mkfile(self,data=None,units=None,**params):
+        if instance.isquantity(data):
+            units = '{:~}'.format(data.units)
+            data = data.magnitude
+        if data is not None:
+            params['data'] = dataprepare(data)
+        with self.open(**params) as dset:
+            if units is not None:
+                dset.attrs['units'] = dataprepare(units)
+        return self
+    
+    def update_stats(self,**stats):
+        stats = {k:dataprepare(v) for k,v in stats.items()}
+        super(Path,self).update_stats(**stats)
         
         
 class _NXPath(Path):

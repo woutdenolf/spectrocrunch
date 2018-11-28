@@ -1397,7 +1397,23 @@ class xiacompound(xiadata):
             return items[0].xialabels_used
         else:
             return []
-            
+    
+    @property
+    def detectors(self):
+        items = self.getitems()
+        if items:
+            return items[0].detectors
+        else:
+            return []
+
+    @property
+    def detectors_used(self):
+        items = self.getitems()
+        if items:
+            return items[0].detectors_used
+        else:
+            return []
+
     def _getdata(self,index=slice(None)):
         """
         Args:
@@ -1639,6 +1655,13 @@ class xiacompound(xiadata):
         else:
             return []
 
+    def counternames(self):
+        items = self.getitems()
+        if items:
+            return items[0].counternames()
+        else:
+            return []
+            
 class xialine(xiadata):
 
     def __init__(self,**kwargs):
@@ -1691,12 +1714,22 @@ class xialine(xiadata):
     def xialabels(self):
         files = self.datafilenames()
         return [xianameparser.parse(f).label for f in files]
+    
+    @property
+    def detectors(self):
+        files = self.datafilenames()
+        return [xianameparser.xiaparselabel(xianameparser.parse(f).label)[1] for f in files]
         
     @property
     def xialabels_used(self):
         files = self.datafilenames_used()
         return [xianameparser.parse(f).label for f in files]
-        
+    
+    @property
+    def detectors_used(self):
+        files = self.datafilenames_used()
+        return [xianameparser.xiaparselabel(xianameparser.parse(f).label)[1] for f in files]
+
     @property
     def sshape(self):
         # nspec x nstat x ndet
@@ -1951,6 +1984,11 @@ class xiaimage(xiacompound):
         if len(self._ctrfiles)==0:
             self.search()
         return [xianameparser.parse(f).baselabel for f in self._ctrfiles]
+    
+    def counternames(self):
+        if len(self._ctrfiles)==0:
+            self.search()
+        return [xianameparser.parse(f).label for f in self._ctrfiles]
         
     def headers(self,**kwargs):
         return [self.header(**kwargs)]
