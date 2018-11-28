@@ -45,10 +45,11 @@ def plothistogram(values,edges=None,markcen=False,**kwargs):
     else:
         wbin = np.diff(edges)
         xleft = edges[:-1]
-        plt.bar(xleft,height=values,width=wbin,align='edge',**kwargs)
+        container = plt.bar(xleft,height=values,width=wbin,align='edge',**kwargs)
         xcen = xleft + wbin*0.5
         if markcen:
-            plt.plot(xcen,values,'o') 
+            color = container[0].get_facecolor()
+            plt.plot(xcen,values,'o',color=color) 
         return xcen
 
 
