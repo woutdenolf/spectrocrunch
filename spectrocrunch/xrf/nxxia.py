@@ -22,17 +22,26 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from __future__ import division
 import numpy as np
+from psutil import virtual_memory
 from collections import defaultdict
+import logging
+
 from ..io import xiaedf
 from ..io import nxfs
 from ..io import spec
+from ..utils import units
 from ..instruments.configuration import getinstrument
+
+logger = logging.getLogger(__name__)
+
 
 def xiaimage_number_to_nx(path,radix,number,**kwargs):
     xiaimage = xiaedf.xiaimage_number(path,radix,number)
     convertor = Xia2NX(**kwargs)
     return convertor(xiaimage)
+
 
 class Xia2NX(object):
     
@@ -66,7 +75,7 @@ class Xia2NX(object):
                 self._parse_positioners()
                 self._parse_xiastats()
                 self._parse_xiadata()
-                #self._create_appdef()
+                self._create_appdef()
             finally:
                 self._reset()
         return self.nxentry
@@ -101,11 +110,6 @@ class Xia2NX(object):
             self._counter_names = self._xiaobject.counternames()
         return self._counter_names
 
-    @property
-    def mca(self):
-        self._xiaobject.dtcor(False)
-        return self._xiaobject.data
-        
     @property
     def stats(self):
         if self._stats is None:
@@ -192,13 +196,55 @@ class Xia2NX(object):
             nxdetector.updated()
         self.stats = None
 
+    def _copy_indexing(self):
+        # Index MCA array to avoid disk swapping
+        shape = list(self._xiaobject.dshape)
+        ndet = shape[-1]
+        shape[-1] = self._xiaobject.dtype(0).itemsize
+        nbytes_data = np.prod(shape)
+        nbytes_mem = virtual_memory().available
+        nchunks = int(np.ceil(nbytes_data/nbytes_mem))
+        if nchunks>1:
+            nchunks = int(np.ceil(2.*nbytes_data/nbytes_mem))
+        n = shape[0]
+        inc = int(np.ceil(n/nchunks))
+        ind = range(n)[::inc]
+        if ind[-1]!=n:
+            ind.append(n)
+        nbytes_data = units.Quantity(ndet*nbytes_data,'bytes').to('GB')
+        nbytes_mem = units.Quantity(ndet*nbytes_mem,'bytes').to('GB')
+        nchunks *= ndet
+        msg = 'Copy {:~} of MCA data in {} chunks ({:~} available memory)'.format(nbytes_data,nchunks,nbytes_mem)
+        return ind,msg
+
+    def _copy_mca(self,nxdetector):
+        copyindex,copymsg = self._copy_indexing()
+        if len(copyindex)>2:
+            logger.warning(copymsg)
+            openparams = {'shape': self._xiaobject.dshape[:-1],
+                          'dtype': self._xiaobject.dtype,
+                          'chunks': True}
+            with nxdetector['counts'].open(**openparams) as dset:
+                for i in range(len(copyindex)-1):
+                    islice = (slice(copyindex[i],copyindex[i+1]),Ellipsis)
+                    mca = self._xiaobject[islice]
+                    dset.write_direct(mca, source_sel=(Ellipsis,0),
+                                           dest_sel=islice)
+                    dset.file.flush()
+                mca = self._xiaobject.data
+                np.testing.assert_array_equal(dset[()],mca[...,0])
+        else:
+            logger.info(copymsg)
+            mca = self._xiaobject.data
+            nxdetector['counts'].mkfile(data=mca[...,0],chunks=True)
+                
     def _parse_xiadata(self):
         nxinstrument = self.nxinstrument()
         self._xiaobject.dtcor(False)
-        mca = self.mca
-        for i,detname in enumerate(self._xiaobject.detectors_used):
+        self._xiaobject.onlydata()
+        for detname in self._xiaobject.iter_detectors():
             nxdetector = nxinstrument.nxdetector('mca'+detname)
-            nxdetector['counts'].mkfile(data=mca[...,i])
+            self._copy_mca(nxdetector)
             nxdetector.updated()
 
     def _create_appdef(self):

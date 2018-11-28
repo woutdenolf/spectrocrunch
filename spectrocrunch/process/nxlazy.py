@@ -78,8 +78,8 @@ class lazy_xrfnorm(LazyFunction):
             norm = 1
         if xiaimage:
             xiaimage.onlyicrocr(True)
-            xiaimage.exclude_detectors([])
-            xiaimage.include_detectors([detnr])
+            xiaimage.exclude_detectors = []
+            xiaimage.include_detectors = [detnr]
             stats = xiaimage.stats
             dtcor = xiaedf.deadtimecorrector(stats[...,0,0],stats[...,1,0])
             dtcor = dtcor.reshape(xrf.shape)
