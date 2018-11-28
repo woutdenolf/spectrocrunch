@@ -211,6 +211,7 @@ def xiasearch(path,radix=None,mapnum=None,linenum=None,label=None,sort=True,ctrl
 def xiadetectorselect_tostring(detectors):
     """Convert detector identifier to string:
         0 -> "xia00"
+        "00" -> "xia00"
         "xia00" -> "xia00"
         "S0" -> "xiaS0"
         "st" -> "xiast"
@@ -226,7 +227,9 @@ def xiadetectorselect_tostring(detectors):
         if instance.isnumber(s):
             lst[i] = "xia{:02d}".format(s)
         elif instance.isstring(s):
-            if not s.startswith("xia"):
+            if s.isdigit():
+                lst[i] = "xia{:02d}".format(int(s))
+            elif not s.startswith("xia"):
                 lst[i] = "xia{}".format(s)
     return lst
 
@@ -234,7 +237,7 @@ def xiadetectorselect_tocountersufix(detectors):
     """Convert detector identifier to string:
         0 -> "_00"
         "xia00" -> "_00"
-        "S0" -> "xiaS0"
+        "S0" -> "sum"
         "st" -> "xiast"
         "xiast" -> "xiast"
         
@@ -254,7 +257,7 @@ def xiadetectorselect_tocountersufix(detectors):
             if s.startswith("S"):
                 lst[i]  = "sum"
             elif s.isdigit():
-                lst[i] = s
+                lst[i] = "{:02d}".format(int(s))
         
     return lst
     
@@ -602,9 +605,20 @@ class xiadict(dict):
         if "counter_reldir" not in self:
             self["counter_reldir"] = "." # relative to the path of the xia files
 
+
+    @property
+    def exclude_detectors(self):
+        return self["detectors"]["exclude"]
+
+    @exclude_detectors.setter
     def exclude_detectors(self,lst):
         self["detectors"]["exclude"] = lst
 
+    @property
+    def include_detectors(self):
+        return self["detectors"]["include"]
+    
+    @include_detectors.setter
     def include_detectors(self,lst):
         self["detectors"]["include"] = lst
 
@@ -789,11 +803,34 @@ class xiadata(object):
     def _levelcache(self):
         return self._cache.cachelevel(self._level)
 
-    def exclude_detectors(self,lst):
-        self._xiaconfig.exclude_detectors(lst)
+    @property
+    def exclude_detectors(self):
+        return self._xiaconfig.exclude_detectors
 
+    @exclude_detectors.setter
+    def exclude_detectors(self,lst):
+        self._xiaconfig.exclude_detectors = lst
+
+    @property
+    def include_detectors(self):
+        return self._xiaconfig.include_detectors
+    
+    @include_detectors.setter
     def include_detectors(self,lst):
-        self._xiaconfig.include_detectors(lst)
+        self._xiaconfig.include_detectors = lst
+
+    def iter_detectors(self):
+        detectors = self.detectors_used
+        lstexclude = self.exclude_detectors
+        lstinclude = self.include_detectors
+        try:
+            self.exclude_detectors = []
+            for det in detectors:
+                self.include_detectors = [det]
+                yield det
+        finally:
+            self.exclude_detectors = lstexclude
+            self.include_detectors = lstinclude
 
     def onlydata(self):
         self._xiaconfig.onlydata()
@@ -1106,7 +1143,7 @@ class xiadata(object):
             thisleveldatainfo = self.thisleveldatainfo()
 
             #self._dbgmsg("")
-            #self._dbgmsg(self)
+            self._dbgmsg(self)
             #self._dbgmsg(self._xiaconfig)
             #self._dbgmsg("level: {}".format(self._level))
             #self._dbgmsg("thisleveldatainfo: {}".format(thisleveldatainfo))

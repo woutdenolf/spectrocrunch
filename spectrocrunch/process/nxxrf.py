@@ -167,9 +167,9 @@ class Task(nxtask.Task):
         
     def _prepare_adddetector(self):
         # Detector include/exclude
-        self.xiastackraw.exclude_detectors(self.parameters["exclude_detectors"])
+        self.xiastackraw.exclude_detectors = self.parameters["exclude_detectors"]
         include_detectors = list(listtools.flatten(self.parameters["include_detectors"]))
-        self.xiastackraw.include_detectors(include_detectors)
+        self.xiastackraw.include_detectors = include_detectors
         dshape = self.xiastackraw.dshape
         self.ndet = dshape[-1]
 
@@ -314,8 +314,8 @@ class Task(nxtask.Task):
             self.xiastackproc = self.xiastackraw
         
     def _stack_add_counters(self):
-        self.xiastackraw.exclude_detectors(self.parameters["exclude_detectors"])
-        self.xiastackraw.include_detectors(list(listtools.flatten(self.parameters["include_detectors"])))
+        self.xiastackraw.exclude_detectors = self.parameters["exclude_detectors"]
+        self.xiastackraw.include_detectors = list(listtools.flatten(self.parameters["include_detectors"]))
         
         # Counter directory relative to the XIA files
         self.xiastackraw.counter_reldir(self.parameters["counter_reldir"])
