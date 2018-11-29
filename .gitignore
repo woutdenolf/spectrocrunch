@@ -17,6 +17,7 @@ log.*
 *.*.txt
 *.cprof
 .[^.]*
+test.py
 
 # Generated data
 testresults

@@ -102,7 +102,7 @@ def xrfparameters(**parameters):
             "fastlabel": instrument.edfheaderkeys["fastlabel"],
             "slowlabel": instrument.edfheaderkeys["slowlabel"],
             "timelabel": instrument.edfheaderkeys["timelabel"],
-            "positionmotors": instrument.imagemotors,
+            "imagemotors": instrument.imagemotors,
             "units": instrument.units,
 
             # Data correction

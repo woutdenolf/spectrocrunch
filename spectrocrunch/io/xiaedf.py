@@ -1674,7 +1674,7 @@ class xiacompound(xiadata):
             files += l.statfilenames()
         return files
 
-    def headers(self,source="xia",keys=None):
+    def headers(self,source=None,keys=None):
         """
         Args:
             source(Optional(str)): header from xia file of ctrs
@@ -2030,11 +2030,11 @@ class xiaimage(xiacompound):
     def headers(self,**kwargs):
         return [self.header(**kwargs)]
         
-    def header(self,source="xia",keys=None):
-        if source=="xia":
-            files = self.statfilenames()
-        else:
+    def header(self,source=None,keys=None):
+        if source and source!='xia':
             files = self.ctrfilenames(ctrs=source)
+        else:
+            files = self.statfilenames()
             
         for f in files:
             header = edf.edfimage(f).header
