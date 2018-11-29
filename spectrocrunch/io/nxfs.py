@@ -171,6 +171,13 @@ class Path(h5fs.Path):
             return path
         return self.nxroot()
 
+    def findfirstup_is_name(self,*names):
+        path = None
+        for path in self.iterup:
+            if path.name in names:
+                return path
+        return self.nxroot()
+        
     def nxroot(self,**openparams):
         return self._init_nxclass(self.root,'NXroot',
                                   attrgen=self._attrgen_nxroot,
@@ -328,23 +335,19 @@ class Path(h5fs.Path):
         path = self.findfirstup_is_nxclass('NXinstrument')
         if path.nxclass=='NXinstrument':
             return path
-        
         path = self.findfirstup_is_nxclass('NXentry')
         if path.nxclass!='NXentry':
             raise NexusException('Could not find NXinstrument or NXentry')
-        
         return self._init_nxclass(path['instrument'],'NXinstrument',**openparams)
     
-    def nxmeasurement(self,**openparams):
-        path = self.findfirstup_is_nxclass('NXmeasurement')
-        if path.nxclass=='NXmeasurement':
+    def measurement(self,**openparams):
+        path = self.findfirstup_is_name('measurement')
+        if path.name=='measurement':
             return path
-        
         path = self.findfirstup_is_nxclass('NXentry')
         if path.nxclass!='NXentry':
-            raise NexusException('Could not find NXmeasurement or NXentry')
-        
-        return self._init_nxclass(path['measurement'],'NXmeasurement',**openparams)
+            raise NexusException('Could not find measurement or NXentry')
+        return self._init_nxclass(path['measurement'],'NXcollection',**openparams)
         
     def nxcollection(self,name,**openparams):
         self._raise_if_class('NXroot')
@@ -354,11 +357,15 @@ class Path(h5fs.Path):
         instrument = self.nxinstrument(**openparams)
         return self._init_nxclass(instrument[name],'NXdetector',**openparams)
 
-    def nxxrf(self,name,**openparams):
+    def nxmonochromator(self,name='monochromator',**openparams):
+        instrument = self.nxinstrument(**openparams)
+        return self._init_nxclass(instrument[name],'NXmonochromator',**openparams)
+
+    def application_xrf(self,name,**openparams):
         entry = self.nxentry(**openparams)
         return self._init_nxclass(self[name],'NXsubentry',
-                          filesgen=self._filesgen_nxxrf,
-                          **openparams)
+                                  filesgen=self._filesgen_nxxrf,
+                                  **openparams)
 
     def positioners(self,**openparams):
         path = self.findfirstup_is_nxclass('NXprocess')
@@ -380,6 +387,8 @@ class Path(h5fs.Path):
             cls = _NXprocess
         elif nxclass=='NXnote':
             cls = _NXnote
+        elif nxclass=='NXmonochromator':
+            cls = _NXmonochromator
         elif nxclass=='NXcollection':
             if path.name == 'positioners' and path.parent.nxclass == 'NXinstrument':
                 cls = _Positioners
@@ -598,6 +607,8 @@ class _NXdata(_NXPath):
             createparams(dict)
         """
         with self._verify():
+            # TODO: check dimensions
+            
             # Create the signal dataset
             if path:
                 if name is None:
@@ -694,15 +705,18 @@ class _NXdata(_NXPath):
         """
         with self._verify():
             with self.open() as node:
-                # Look for the signal
+                axes,positioners = self._axes_parse(axes)
+
+                # Check dimensions
                 signal = node.attrs.get('signal',None)
                 if signal:
-                    signal = node.get(signal,default=None)
-                if not signal:
-                    raise NexusFormatException('NXdata should have a signal before adding axes')
-            
-                # Check dimensions
-                axes,positioners = self._axes_validate(axes,signal)
+                    signal = node.get(signal,None)
+                if signal:
+                    shaped = signal.shape
+                    shapea = tuple(self._axis_size(name,value,positioners) for name,value,_ in axes)
+                    if shaped!=shapea:
+                        raise NexusFormatException('Axes dimensions {} do not match signal dimensions {}'
+                                                   .format(shapea,shaped))
 
                 # Create axes if needed
                 names = []
@@ -711,13 +725,11 @@ class _NXdata(_NXPath):
                     if not self[name].exists:
                         self[name].link(axis,soft=False)
                     names.append(name)
-                    
                 node.attrs["axes"] = textarray(names)
-                
                 self.updated()
                 return axes
-                
-    def _axes_validate(self,axesin,signal):
+
+    def _axes_parse(self,axesin):
         positioners = self.positioners()
         
         # Axes as list of tuples
@@ -730,12 +742,6 @@ class _NXdata(_NXPath):
                 if attr is None:
                     attr = {}
             axes.append((name,value,attr))
-
-        # Check compatibility with data dimensions
-        shaped = signal.shape
-        shapea = tuple(self._axis_size(name,value,positioners) for name,value,_ in axes)
-        if shaped!=shapea:
-            raise NexusFormatException('Axes dimensions {} do not match signal dimensions {}'.format(shapea,shaped))
         
         return axes,positioners
 
@@ -842,3 +848,22 @@ class _Positioners(_NXcollection):
         if self.name!='positioners':
             NexusFormatException('Name should be "positioners" not "{}"'
                                        .format(self.name))
+
+
+class _NXmonochromator(_NXPath):
+    
+    NX_CLASS = 'NXmonochromator'
+    
+    @property
+    def energy(self):
+        with self._verify():
+            with self['energy'].open(mode='r') as node:
+                value = node[()]
+                u = node.attrs.get('units','keV')
+                return units.Quantity(value,u)
+            
+    @energy.setter
+    def energy(self,value):
+        with self._verify():
+            self['energy'].mkfile(data=units.Quantity(value,'keV'))
+

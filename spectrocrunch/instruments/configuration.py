@@ -145,11 +145,12 @@ class InstrumentInfo(with_metaclass(object)):
         
 
 class ESRF_ID21_SXM(InstrumentInfo):
+    longname = 'ESRF ID21: Scanning X-ray Microscope'
+    shortname = 'id21'
     aliases = ["sxm","id21","ID21"]
     
     def __init__(self,**info):
-        info["imagemotors"] = info.get("imagemotors",["samy","sampy","samz","sampz"])
-        info["imageaxes"] = info.get("imageaxes",("z","y"))
+        info["imagemotors"] = info.get("imagemotors",{"samy":"y","sampy":"y","samz":"z","sampz":"z"})
         info["compensationmotors"] = info.get("compensationmotors",\
                                     {"samy":["sampy"],\
                                     "samz":["sampz"],\
@@ -169,6 +170,7 @@ class ESRF_ID21_SXM(InstrumentInfo):
                                     "If_counts":"arr_fdet",\
                                     "xrficr":"xmap_icr",\
                                     "xrfocr":"xmap_ocr",\
+                                    "xrfdt":"xmap_dt",\
                                     "encoders":["arr_samy","arr_samz"],\
                                     "xrfroi":["xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c"],\
                                     "calc":["arr_absorp1","arr_absorp2","arr_absorp3"],\
@@ -231,11 +233,12 @@ class ESRF_ID21_SXM(InstrumentInfo):
                 
 
 class ESRF_ID21_MICRODIFF(InstrumentInfo):
+    longname = 'ESRF ID21: Micro-Diffraction end-station'
+    shortname = 'id21'
     aliases = ["microdiff"]
     
     def __init__(self,**info):
-        info["imagemotors"] = info.get("imagemotors",["samh","samph","samv","sampv"])
-        info["imageaxes"] = info.get("imageaxes",("v","h"))
+        info["imagemotors"] = info.get("imagemotors",{"samh":"h","samph":"h","samv":"v","sampv":"v"})
         info["units"] = info.get("units",\
                                     {"samh":ureg.millimeter,\
                                     "samv":ureg.millimeter,\
@@ -253,6 +256,7 @@ class ESRF_ID21_MICRODIFF(InstrumentInfo):
                                     "It_counts":"zap_idet",\
                                     "xrficr":"xmap_icr",\
                                     "xrfocr":"xmap_ocr",\
+                                    "xrfdt":"xmap_dt",\
                                     "xrfroi":["xmap_x1","xmap_x1c","xmap_x2","xmap_x2c","xmap_x3","xmap_x3c"]})
         
         info["datalocation"] = info.get("datalocation",{"xrf_dynamic":{"subdir":"zap"},"xrf_static":{"subdir":"xrf"},
@@ -262,22 +266,17 @@ class ESRF_ID21_MICRODIFF(InstrumentInfo):
 
 
 class ESRF_ID16B(InstrumentInfo):
-    aliases = ["id16b","ID16b","ID16B"]
+    longname = 'ESRF ID16B'
+    shortname = 'id16b'
+    aliases = ["id16b","ID16b","ID16B","ID16NA"]
     
     def __init__(self,**info):
-        info["imagemotors"] = info.get("imagemotors",["sy","sz","sampy","sampz"])
-        info["imageaxes"] = info.get("imageaxes",("z","y"))
-        info["units"] = info.get("units",\
-                                    {"sx":ureg.millimeter,\
-                                    "sy":ureg.millimeter,\
-                                    "sz":ureg.millimeter,\
-                                    "sampy":ureg.micrometer,\
-                                    "sampz":ureg.micrometer})
+        info["imagemotors"] = info.get("imagemotors",{"sy":"y","sz":"z","sampy":"y","sampz":"z"})
         info["compensationmotors"] = info.get("compensationmotors",\
                                     {"sy":["sampy"],\
-                                    "sz":["sampz"],\
-                                    "sampy":["sy"],\
-                                    "sampz":["sz"]})
+                                     "sz":["sampz"],\
+                                     "sampy":["sy"],\
+                                     "sampz":["sz"]})
                                     
         info["diodeI0"] = info.get("diodeI0",\
                                   {"default":"id16b_IC",\
@@ -286,7 +285,7 @@ class ESRF_ID16B(InstrumentInfo):
                                     
         info["edfheaderkeys"] = info.get("edfheaderkeys",\
                                     {"speclabel":"title",\
-                                    "energylabel":"energy"})
+                                     "energylabel":"energy"})
 
         info["diodeIt"] = info.get("diodeIt",\
                                   {"default":"id16b_It"}\
@@ -314,7 +313,7 @@ class ESRF_ID16B(InstrumentInfo):
                                            "It_flux":"flux_It"}
                                          )
 
-        info["units"] = info.get("units",{})                           
+        info["units"] = info.get("units",{})
         info["units"]["time"] = info["units"].get("time",ureg.seconds)
         info["units"]["I0_counts"] = info["units"].get("I0_counts",ureg.dimensionless)
         info["units"]["It_counts"] = info["units"].get("It_counts",ureg.dimensionless)
@@ -328,7 +327,12 @@ class ESRF_ID16B(InstrumentInfo):
         info["units"]["I0_current"] = info["units"].get("I0_current",ureg.Unit("pA"))
         info["units"]["It_current"] = info["units"].get("It_current",ureg.Unit("pA"))
         info["units"]["IC_current"] = info["units"].get("IC_current",ureg.Unit("pA"))
-
+        info["units"]["sx"] = info["units"].get("sx",ureg.millimeter)
+        info["units"]["sy"] = info["units"].get("sy",ureg.millimeter)
+        info["units"]["sz"] = info["units"].get("sz",ureg.millimeter)
+        info["units"]["sampz"] = info["units"].get("sampz",ureg.micrometer)
+        info["units"]["sampy"] = info["units"].get("sampy",ureg.micrometer)
+        
         info["metadata"] = info.get("metadata","xia")
 
         super(ESRF_ID16B,self).__init__(**info)

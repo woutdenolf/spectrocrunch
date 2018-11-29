@@ -300,8 +300,8 @@ class Task(nxtask.Task):
                 self.xiastackproc.overwrite(True)
                 if self.addspectra:
                     logger.info("Creating corrected XRF spectra: {}".format(list(self._include_detectors.keys())))
-                    for det,include_detector in self._include_detectors.items():
-                        self.xiastackraw.include_detectors(include_detector)
+                    for det,singledets in self._include_detectors.items():
+                        self.xiastackraw.include_detectors = singledets
                         self.xiastackproc.save(self.xiastackraw,xialabels=[det.xialabel])
                 else:
                     xialabels = self.xiastackraw.xialabels_used

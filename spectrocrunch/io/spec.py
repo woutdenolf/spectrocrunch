@@ -380,11 +380,26 @@ class cmd_parser(object):
 class edfheader_parser(object):
 
     def __init__(self,fastlabel=None,slowlabel=None,speclabel=None,
-                 units=None,**otherlabels):
+                 units=None,compensationmotors=None,axesnamemap=None,**otherlabels):
+        """
+        Args:
+            fastlabel(Optional(str)): "slow"
+            slowlabel(Optional(str)): "fast"
+            speclabel(Optional(str)): "Title"
+            units(Optional(dict)): {'samz':'mm',...}
+            compensationmotors(Optional(dict)): {'samz':['sampz'],...}
+            axesnamemap(Optional(dict)): {'samz':'z',...}
+        """
         self.fastlabel = fastlabel
         self.slowlabel = slowlabel
         self.speclabel = speclabel
         self.otherlabels = otherlabels
+        if compensationmotors is None:
+            compensationmotors = {}
+        self.compensationmotors = compensationmotors
+        if axesnamemap is None:
+            axesnamemap = {}
+        self.axesnamemap = axesnamemap
         self.specparser = cmd_parser()
         if units:
             self.units = units
@@ -395,75 +410,92 @@ class edfheader_parser(object):
         return self.parse(cmd)
         
     def parse(self,header):
-        r = {}
+        out = {}
         if self.speclabel:
             try:
-                r = self.specparser.parse(str(header[self.speclabel]))
+                out = self.specparser.parse(str(header[self.speclabel]))
             except KeyError:
-                r = {}
+                out = {}
 
         if self.fastlabel:
             try:
-                r['motfast'] = str(header[self.fastlabel+"_mot"])
-                r['startfast'] = np.float(header[self.fastlabel+"_start"])
-                r['endfast'] = np.float(header[self.fastlabel+"_end"])
-                r['npixelsfast'] = np.int(header[self.fastlabel+"_nbp"])
+                out['motfast'] = str(header[self.fastlabel+"_mot"])
+                out['startfast'] = np.float(header[self.fastlabel+"_start"])
+                out['endfast'] = np.float(header[self.fastlabel+"_end"])
+                out['npixelsfast'] = np.int(header[self.fastlabel+"_nbp"])
             except KeyError:
                 pass
         
         if self.slowlabel:
             try:
-                r['motslow'] = str(header[self.slowlabel+"_mot"])
-                r['startslow'] = np.float(header[self.slowlabel+"_start"])
-                r['endslow'] = np.float(header[self.slowlabel+"_end"])
-                r['nstepsslow'] = np.int(header[self.slowlabel+"_nbp"])
+                out['motslow'] = str(header[self.slowlabel+"_mot"])
+                out['startslow'] = np.float(header[self.slowlabel+"_start"])
+                out['endslow'] = np.float(header[self.slowlabel+"_end"])
+                out['nstepsslow'] = np.int(header[self.slowlabel+"_nbp"])
             except KeyError:
                 pass
 
-        for k,label in self.otherlabels.items():
+        self._extract_floats(header,self.otherlabels,out)
+        for k,labels in self.compensationmotors.items():
+            for v in labels:
+                self._extract_floats(header,{v:v},out)
+
+        # EDF: row-first ordering
+        # data.shape == (Dim_2,Dim_1) == (slow,fast)
+        axes = []
+        axes.append(self._extract_axis('Dim_2',header,out,fast=False))
+        axes.append(self._extract_axis('Dim_1',header,out,fast=True))
+        out['axes'] = axes
+        
+        if 'name' not in out:
+            out['name'] = 'unknown'
+            if len(axes)==2:
+                out['name'] = 'zapimage'
+                
+        return out
+        
+    def _extract_floats(self,header,labels,out):
+        for k,label in labels.items():
             if label:
                 try:
                     u = self.units.get(label,'dimensionless')
-                    r[k] = units.Quantity(np.float(header[label]),u)
+                    out[k] = units.Quantity(np.float(header[label]),u)
                 except KeyError:
-                    if k not in r:
-                        r[k] = ureg.Quantity(np.nan,u)
+                    if k not in out:
+                        out[k] = ureg.Quantity(np.nan,u)
 
-        # Parse axes:
-        # data.shape == (Dim_2,Dim_1) == (slow,fast)
-        axes = []
-
+    def _extract_axis(self,dimkey,header,out,fast=True):
+        if fast:
+            label = 'fast'
+            nlabel = 'npixels'
+        else:
+            label = 'slow'
+            nlabel = 'nsteps'
         try:
-            name = r.pop('motslow')
+            name = out.pop('mot'+label)
             u = self.units.get(name,'dimensionless')
-            start = units.Quantity(r.pop('startslow'),units=u)
-            end = units.Quantity(r.pop('endslow'),units=u)
-            nsteps = r.pop('nstepsslow')
-            axes.append(axis.zapscan(start,end,nsteps,name=name))
+            start = units.Quantity(out.pop('start'+label),units=u)
+            end = units.Quantity(out.pop('end'+label),units=u)
+            n = out.pop(nlabel+label)
+            lst = self.compensationmotors.get(name)
+            for mot in lst:
+                pos = out.pop(mot,None)
+                if pos is not None:
+                    start += pos
+                    end += pos
+                    name = self.axesnamemap.get(name,name)
+            if fast:
+                return axis.zapscan(start,end,n,name=name)
+            else:
+                return axis.ascan(start,end,n,name=name)
         except KeyError:
-            nsteps = int(header['Dim_2'])-1
-            axes.append(axis.AxisRegular(0,nsteps,nsteps,name='slow'))
-        
-        try:
-            name = r.pop('motfast')
-            u = self.units.get(name,'dimensionless')
-            start = units.Quantity(r.pop('startfast'),units=u)
-            end = units.Quantity(r.pop('endfast'),units=u)
-            npixels = r.pop('npixelsfast')
-            axes.append(axis.zapscan(start,end,npixels,name=name))
-        except KeyError:
-            nsteps = int(header['Dim_1'])-1
-            axes.append(axis.AxisRegular(0,nsteps,nsteps,name='fast'))
-            
-        r['axes'] = axes
-        
-        if 'name' not in r:
-            r['name'] = 'unknown'
-            if len(axes)==2:
-                r['name'] = 'zapimage'
+            name = label
+            nsteps = int(header[dimkey])-1
+            if fast:
+                return axis.AxisRegular(0.5,nsteps+0.5,nsteps,name=name)
+            else:
+                return axis.AxisRegular(0,nsteps,nsteps,name=name)
 
-        return r
-        
 class spec(SpecFileDataSource.SpecFileDataSource):
     """An interface to a spec file
     """
