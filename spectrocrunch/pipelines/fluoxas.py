@@ -85,6 +85,12 @@ def xrfparameters(**parameters):
     else:
         nxentry = nxfs.Path('/',h5file=h5file).new_nxentry()
     
+    edffields1 = ('speclabel','slowlabel','fastlabel','energylabel','timelabel')
+    edffields2 = ('speclabel','slowlabel','fastlabel','stackvalue','time')
+    edfheader = {k2:instrument.edfheaderkeys[k1] for k1,k2 in zip(edffields1,edffields2)}
+    edfheader['axesnamemap'] = instrument.imagemotors
+    edfheader['compensationmotors'] = instrument.compensationmotors
+    
     config = {
             # Input
             "sourcepath": sourcepath,
@@ -97,12 +103,7 @@ def xrfparameters(**parameters):
 
             # Meta data
             "metadata": instrument.metadata,
-            "stacklabel": instrument.edfheaderkeys["energylabel"],
-            "speccmdlabel": instrument.edfheaderkeys["speclabel"],
-            "fastlabel": instrument.edfheaderkeys["fastlabel"],
-            "slowlabel": instrument.edfheaderkeys["slowlabel"],
-            "timelabel": instrument.edfheaderkeys["timelabel"],
-            "imagemotors": instrument.imagemotors,
+            "edfheader": edfheader,
             "units": instrument.units,
 
             # Data correction

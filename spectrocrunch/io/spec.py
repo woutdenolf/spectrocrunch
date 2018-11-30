@@ -479,7 +479,7 @@ class edfheader_parser(object):
             n = out.pop(nlabel+label)
             lst = self.compensationmotors.get(name)
             for mot in lst:
-                pos = out.pop(mot,None)
+                pos = out.get(mot,None)
                 if pos is not None:
                     start += pos
                     end += pos
