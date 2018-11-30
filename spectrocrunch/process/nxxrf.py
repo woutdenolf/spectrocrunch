@@ -338,39 +338,45 @@ class Task(nxtask.Task):
         # Extract metadata and counters from raw stack
         self.counters = set()
         for imageindex,xiaimage in enumerate(self.xiastackraw):
-            header = xiaimage.header(source=metacounters)
-            parsedheader = self._getscanparameters(header)
+            h = xiaimage.header(source=metacounters)
+            parsedheader = self._getscanparameters(h)
 
             # Prepare axes and stackinfo
             if imageindex==0:
                 # Image axes: may be different for each image due to drift compenation,
                 #             but keep the values of the first image
                 axes = parsedheader['axes']
+                axesnames = [ax.name for ax in axes]
                 self._add_grid_axis(axes[0],index=self.outimgdim[0])
                 self._add_grid_axis(axes[1],index=self.outimgdim[1])
                 
                 # Stack axes: one value for each image
-                self._add_stack_axis(self.parameters['edfheader']['stackvalue'],
+                stackaxes = {}
+                stackaxisname = self.parameters['edfheader']['stackvalue']
+                self._add_stack_axis(stackaxisname,
                                      parsedheader['stackvalue'].units,
                                      index=self.outstackdim)
-                axesnames = [ax.name for ax in axes]
+                stackaxes[stackaxisname] = 'stackvalue'
                 for mot in self.parameters['edfheader']['axesnamemap']:
-                    if mot not in axesnames:
-                        self._add_stack_axis(mot,self.units.get(mot,'dimensionless'))
+                    if mot not in axesnames and mot in parsedheader:
+                        if not np.isnan(parsedheader[mot].magnitude):
+                            stackaxes[mot] = mot
+                            self._add_stack_axis(mot,self.units.get(mot,'dimensionless'))
                 
                 # Info axes: one or more values for each image
                 self._add_info_axis('expotime',defaultunits=parsedheader['time'].units)
+                infoaxes = {'expotime':'time'}
                 if self.fluxnorm:
                     values = np.full((self.nstack,self.ndetfit),np.nan,dtype=np.float32)
                     self._add_info_axis('xrfdetectorposition',values=values,defaultunits='cm')
-            
-            # Values for stack and info axes:
-            self.axes[self.axes_names[self.outstackdim]][imageindex] = parsedheader['stackvalue']
-            self.infoaxes['expotime'][imageindex] = parsedheader['time']
-            for mot in self.axes:
-                if mot in header:
-                    self.axes[mot][imageindex] = parsedheader[mot]
 
+            # Values for stack and info axes:
+            # TODO: xrfdetectorposition
+            for mot,hkey in stackaxes.items():
+                self.axes[mot][imageindex] = parsedheader[hkey]
+            for param,hkey in infoaxes.items():
+                self.infoaxes[param][imageindex] = parsedheader[hkey]
+            
             # Lazy add counters
             files = xiaimage.ctrfilenames_used(counters)
             files = xiaedf.xiagroupdetectors(files)
@@ -391,6 +397,7 @@ class Task(nxtask.Task):
                     self.counters.add(ctr)
     
     def _add_grid_axis(self,axis,index=None):
+        print 'add',axis.name
         self.axes[axis.name] = axis
         if index is not None:
             self.axes_names[index] = axis.name
