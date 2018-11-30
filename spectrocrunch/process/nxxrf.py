@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 class Task(nxtask.Task):
     
     DEFAULT_STACKDIM = 0
-    
+
     def _parameters_defaults(self):
         super(Task,self)._parameters_defaults()
         self.allparams = [
@@ -57,12 +57,7 @@ class Task(nxtask.Task):
                         "transmissioncounter",
                         # Meta data
                         "metadata",
-                        "stacklabel",
-                        "speccmdlabel",
-                        "fastlabel",
-                        "slowlabel",
-                        "timelabel",
-                        "positionmotors",
+                        "edfheader",
                         "units",
                         # Data correction
                         "dtcor",
@@ -84,12 +79,17 @@ class Task(nxtask.Task):
                         "outfitpath",
                         ]
         self._required_parameters(*self.allparams)
-        self.parameters['stackdim'] = self.parameters.get('stackdim',self.DEFAULT_STACKDIM)
-        
-        # TODO: temporary measure until pickleable
-        self.qxrfgeometry = self.parameters.pop('qxrfgeometry')
-        self.units = self.parameters.pop('units')
+        parameters = self.parameters
+        parameters['stackdim'] = parameters.get('stackdim',self.DEFAULT_STACKDIM)
+        edffields = ('speclabel','slowlabel','fastlabel','stackvalue','time','axesnamemap','compensationmotors')
+        defaults = (None,None,None,None,None,{},{})
+        edfheader = parameters['edfheader']
+        parameters['edfheader'] = {k:edfheader.get(k,default) for k,default in zip(edffields,defaults)}
 
+        # TODO: temporary measure until pickleable
+        self.qxrfgeometry = parameters.pop('qxrfgeometry')
+        self.units = parameters.pop('units')
+    
     def _parameters_filter(self):
         return super(Task,self)._parameters_filter()+self.allparams+['stackdim']
 
@@ -314,26 +314,26 @@ class Task(nxtask.Task):
             self.xiastackproc = self.xiastackraw
         
     def _stack_add_counters(self):
-        self.xiastackraw.exclude_detectors = self.parameters["exclude_detectors"]
-        self.xiastackraw.include_detectors = list(listtools.flatten(self.parameters["include_detectors"]))
+        self.xiastackraw.exclude_detectors = self.parameters['exclude_detectors']
+        self.xiastackraw.include_detectors = list(listtools.flatten(self.parameters['include_detectors']))
         
         # Counter directory relative to the XIA files
-        self.xiastackraw.counter_reldir(self.parameters["counter_reldir"])
+        self.xiastackraw.counter_reldir(self.parameters['counter_reldir'])
         
         # Check counters
         countersfound = set(self.xiastackraw.counterbasenames())
-        counters = countersfound.intersection(self.parameters["counters"])
+        counters = countersfound.intersection(self.parameters['counters'])
 
-        if self.parameters["metadata"]=="xia":
-            metacounters = "xia"
+        if self.parameters['metadata']=='xia':
+            metacounters = 'xia'
         else:
             if countersfound:
                 metacounters = next(iter(countersfound))
             else:
-                logger.warning("Metacounters for {} are not found".format(self.xiastackraw)) 
+                logger.warning('Metacounters for {} are not found'.format(self.xiastackraw)) 
                 metacounters = []
         
-        logger.info("Processing counters: {}".format(counters)) 
+        logger.info('Processing counters: {}'.format(counters)) 
         
         # Extract metadata and counters from raw stack
         self.counters = set()
@@ -343,33 +343,34 @@ class Task(nxtask.Task):
 
             # Prepare axes and stackinfo
             if imageindex==0:
+                # Image axes: may be different for each image due to drift compenation,
+                #             but keep the values of the first image
                 axes = parsedheader['axes']
-                axesnames = [ax.name for ax in axes]
-                for mot in self.parameters["positionmotors"]:
-                    if mot not in axesnames:
-                        self._add_stack_axis(mot,self.units.get(mot,'dimensionless'))
                 self._add_grid_axis(axes[0],index=self.outimgdim[0])
                 self._add_grid_axis(axes[1],index=self.outimgdim[1])
-                self._add_stack_axis(self.parameters['stacklabel'],
+                
+                # Stack axes: one value for each image
+                self._add_stack_axis(self.parameters['edfheader']['stackvalue'],
                                      parsedheader['stackvalue'].units,
                                      index=self.outstackdim)
-                self._add_info_axis("expotime",
-                                    defaultunits=parsedheader['time'].units)
+                axesnames = [ax.name for ax in axes]
+                for mot in self.parameters['edfheader']['axesnamemap']:
+                    if mot not in axesnames:
+                        self._add_stack_axis(mot,self.units.get(mot,'dimensionless'))
+                
+                # Info axes: one or more values for each image
+                self._add_info_axis('expotime',defaultunits=parsedheader['time'].units)
                 if self.fluxnorm:
                     values = np.full((self.nstack,self.ndetfit),np.nan,dtype=np.float32)
-                    self._add_info_axis("xrfdetectorposition",values=values,defaultunits='cm')
+                    self._add_info_axis('xrfdetectorposition',values=values,defaultunits='cm')
             
-            # Add stackinfo
+            # Values for stack and info axes:
+            self.axes[self.axes_names[self.outstackdim]][imageindex] = parsedheader['stackvalue']
+            self.infoaxes['expotime'][imageindex] = parsedheader['time']
             for mot in self.axes:
                 if mot in header:
-                    self.axes[mot][imageindex] = np.float(header[mot])
-                              
-            # Add stack value
-            self.axes[self.axes_names[self.outstackdim]][imageindex] = parsedheader['stackvalue'].magnitude
+                    self.axes[mot][imageindex] = parsedheader[mot]
 
-            # Add time
-            self.infoaxes["expotime"][imageindex] = parsedheader['time'].magnitude
-            
             # Lazy add counters
             files = xiaimage.ctrfilenames_used(counters)
             files = xiaedf.xiagroupdetectors(files)
@@ -409,13 +410,7 @@ class Task(nxtask.Task):
     def _getscanparameters(self,header):
         """Get scan dimensions from header
         """
-        kwargs = {}
-        kwargs['speclabel'] = self.parameters.get('speccmdlabel',None)
-        kwargs['slowlabel'] = self.parameters.get('slowlabel',None)
-        kwargs['fastlabel'] = self.parameters.get('fastlabel',None)
-        kwargs['stackvalue'] = self.parameters.get('stacklabel',None)
-        kwargs['time'] = self.parameters.get('timelabel',None)
-        o = spec.edfheader_parser(units=self.units,**kwargs)
+        o = spec.edfheader_parser(units=self.units,**self.parameters['edfheader'])
         return o.parse(header)
 
     def _prepare_xrffit(self):
