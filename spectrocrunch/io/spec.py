@@ -481,9 +481,10 @@ class edfheader_parser(object):
             for mot in lst:
                 pos = out.get(mot,None)
                 if pos is not None:
-                    start += pos
-                    end += pos
-                    name = self.axesnamemap.get(name,name)
+                    if not np.isnan(pos.magnitude):
+                        start += pos
+                        end += pos
+                        name = self.axesnamemap.get(name,name)
             if fast:
                 return axis.zapscan(start,end,n,name=name)
             else:

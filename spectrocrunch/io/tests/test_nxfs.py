@@ -107,8 +107,6 @@ class test_nxfs(unittest.TestCase):
         ywrong = 'y',[1,2],{'units':'um'}
         x = 'x',range(3),{}
 
-        self.assertRaises(nxfs.NexusException, data1.set_axes, y,x)
-        
         signals = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
         for signal in signals:
             data1.add_signal(name=signal,dtype=int,shape=(len(y[1]),len(x[1])))

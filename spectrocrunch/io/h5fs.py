@@ -28,8 +28,9 @@ import contextlib
 import os
 
 from . import fs
+from . import localfs
 
-class h5File(fs.File):
+class h5File(localfs.Path):
 
     def __init__(self,path,mode='a',**kwargs):
         """
@@ -46,8 +47,7 @@ class h5File(fs.File):
             raise ValueError('Invalid mode {}'.format(repr(mode)))
         self.openparams = kwargs
         self.openparams['mode'] = mode
-        self.path = path
-        super(h5File,self).__init__(**kwargs)
+        super(h5File,self).__init__(path,**kwargs)
     
     @contextlib.contextmanager
     def _fopen(self,**openparams):
@@ -62,13 +62,12 @@ class h5File(fs.File):
     def openparams(self,value):
         self._openparams = value
     
-    def remove(self):
-        if self.isopen():
-            self.executeonclose(os.remove,self.path)
-        else:
-            os.remove(self.path)
-    
-        
+    @fs.onclose
+    def remove(self,**kwargs):
+        super(h5File,self).remove(**kwargs)
+    rm = remove
+
+
 class Path(fs.Path):
 
     def __init__(self,path,h5file=None,**kwargs):
@@ -79,7 +78,7 @@ class Path(fs.Path):
             h5file = h5File(h5file,**kwargs)
         self._h5file = h5file
         super(Path,self).__init__(**kwargs)
-    
+        
     @property
     def openparams(self):
         return self._h5file.openparams
@@ -132,13 +131,13 @@ class Path(fs.Path):
     
     def h5remove(self):
         self._h5file.remove()
-        
+
     def factory(self,path):
         if isinstance(path,self.__class__):
             return path
         else:
             device,path = self._split_path(path,device=self._h5file)
-            return self.__class__(path,h5file=device)
+            return self.__class__(path,h5file=device,**self.factory_kwargs)
 
     @property
     def exists(self):
@@ -181,29 +180,28 @@ class Path(fs.Path):
     
     @property
     def device(self):
-        return self._h5file.path
+        return self._h5file
     
-    def _split_path(self,path,device=None):
-        """
-        Args:
-            path(str):
-            device(Optional(str|h5File)): when device description in path is missing
-            
-        Returns:
-            device(str):
-            path(str):
-        """
-        device,path = super(Path,self)._split_path(path,device=device)
-        if not path:
-            path = self.sep
-        return device,path
-             
-    def norm(self,path):
-        path = self._split_path(path)[1]
-        if not path.startswith(self.sep):
-            path = self.sep+path
-        return super(Path,self).norm(path)
+    @property
+    def devsep(self):
+        return ':'
         
+    def devsplit(self,path):
+        n = len(self.devsep)
+        pattern = '\.[^{}]+{}'.format(re.escape(self.sep),re.escape(self.devsep))
+        a = 0
+        lst = []
+        for m in re.finditer(pattern,path):
+            b = m.end()
+            add = path[a:b-n]
+            if add:
+                lst.append(add)
+            a = b
+        add = path[a:]
+        lst.append(add)
+        return lst
+        #return path.split(self.devsep)
+             
     def listdir(self,recursive=False,depth=0):
         with self.h5open(mode='r') as f:
             root = f.get(self.path,default=None)
@@ -221,7 +219,6 @@ class Path(fs.Path):
         with self.h5open() as f:
             if self._mkdir_prepare(recursive=recursive,force=force):
                 return self
-            
             parent = self.parent
             if recursive:
                 node = parent

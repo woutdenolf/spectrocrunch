@@ -127,11 +127,46 @@ class test_h5fs(unittest.TestCase):
         else:
             b = None==word
         self.assertTrue(b)
+    
+    def test_path_splitting(self):
+        path = h5fs.Path('test.h5')
+        cwd = os.getcwd()
+        self.assertEqual(path.device,os.path.join(cwd,'test.h5'))
+        self.assertEqual(path.path,'/')
+        
+        path = h5fs.Path('test.h5:entry')
+        self.assertEqual(path.device,os.path.join(cwd,'test.h5'))
+        self.assertEqual(path.path,'/entry')
+        
+        path = h5fs.Path('test.h5:/entry/abs:def')
+        self.assertEqual(path.device,os.path.join(cwd,'test.h5'))
+        self.assertEqual(path.path,'/entry/abs:def')
+        
+        path = h5fs.Path('../test.h5:/entry/abs:def')
+        self.assertEqual(path.device,os.path.abspath(os.path.join(cwd,'..','test.h5')))
+        self.assertEqual(path.path,'/entry/abs:def')
+        
+        path = h5fs.Path('../te:st.h5:/entry/abs:def')
+        self.assertEqual(path.device,os.path.abspath(os.path.join(cwd,'..','te:st.h5')))
+        self.assertEqual(path.path,'/entry/abs:def')
+        
+        path = h5fs.Path('../te:st:/entry/abs:def')
+        self.assertEqual(path.device,os.path.abspath(os.path.join(cwd,'../te:st:/entry/abs:def')))
+        self.assertEqual(path.path,'/')
+        
+        path = h5fs.Path('../te:st:::/entry/abs:def',h5file='../te:st')
+        self.assertEqual(path.device,os.path.abspath(os.path.join(cwd,'..','te:st')))
+        self.assertEqual(path.path,'/::/entry/abs:def')
+        
+        path = h5fs.Path('../te:st:::/entry/abs:def',h5file='../te:st:')
+        self.assertEqual(path.device,os.path.abspath(os.path.join(cwd,'..','te:st:')))
+        self.assertEqual(path.path,'/:/entry/abs:def')
         
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_h5fs("test_mode"))
+    testSuite.addTest(test_h5fs("test_path_splitting"))
     return testSuite
     
 if __name__ == '__main__':

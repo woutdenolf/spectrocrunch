@@ -27,6 +27,10 @@ import contextlib
 from abc import ABCMeta,abstractproperty,abstractmethod
 from future.utils import with_metaclass
 import operator
+import logging
+import functools
+
+logger = logging.getLogger(__name__)
 
 from . import utils
 
@@ -84,7 +88,17 @@ class DirectoryIsNotEmpty(FileSystemException):
     """
     pass
     
-    
+
+def onclose(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if self._handle:
+            self._onclose_callbacks.append((func,args,kwargs))
+        else:
+            return func(*args,**kwargs)
+    return wrapper
+
+
 class File(with_metaclass(ABCMeta,object)):
 
     def __init__(self,**kwargs):
@@ -124,14 +138,18 @@ class File(with_metaclass(ABCMeta,object)):
                 funcs,self._onclose_callbacks = self._onclose_callbacks,[]
                 for func,args,kwargs in funcs:
                     func(*args,**kwargs)
-    
-    def executeonclose(self,func,*args,**kwargs):
-        if self._handle:
-            self._onclose_callbacks.append((func,args,kwargs))
-        
+
     def isopen(self):
         # only checks local handle (could be opened by others)
         return bool(self._handle)
+    
+    @abstractmethod
+    def __str__(self):
+        pass
+    
+    @abstractmethod
+    def __repr__(self):
+        pass
         
         
 class Path(File):
@@ -157,27 +175,74 @@ class Path(File):
     
     @property
     def devsep(self):
-        return ':'
+        return ''
+    
+    def devsplit(self,path):
+        return path.split(self.devsep)
     
     def _split_path(self,path,device=None):
-        """
+        """Split device and path.
+        
+        .. code-block:: 
+        
+            path = '/tmp/test.h5:/entry/subentry:name'
+            device = None
+            _split_path(path,device)==('/tmp/test.h5','/entry/subentry:name')
+        
+            path = '/tmp/test.h5:/entry/subentry:name'
+            device = '/tmp/test.h5'
+            _split_path(path,device)==('/tmp/test.h5','/entry/subentry:name')
+        
+            path = '/tmp/test.h5:/entry/subentry:name'
+            device = '/tmp/other.h5'
+            _split_path(path,device)==('/tmp/other.h5','/tmp/test.h5:/entry/subentry:name')
+        
         Args:
             path(str):
-            device(Optional(str)): when device description in path is missing
+            device(Optional(str)):
             
         Returns:
             device(str):
             path(str):
         """
-        tmp = str(path).split(self.devsep)
-        n = len(tmp)
-        if n==2:
-            device,path = tmp
-        elif n>2:
-            device,path = tmp[0],self.devsep.join(tmp[1:])
+        path = str(path)
+        if self.devsep:
+            # Tricky because a path could also have self.devsep characters
+            tmp = self.devsplit(path)
+            n = len(tmp)
+            if n==1:
+                # /tmp/test.h5
+                devicepath,localpath = tmp[0],''
+            elif n==2:
+                # /tmp/test.h5:/entry/subentry
+                devicepath,localpath = tmp
+            else:
+                # /tmp/test.h5:/entry/subentry:name
+                devicepath,localpath = tmp[0],self.devsep.join(tmp[1:])
+                
+            if device is not None:
+                strdevice = str(device)
+                if devicepath==strdevice:
+                    devicepath = device
+                else:
+                    if path.startswith(strdevice):
+                        devicepath = device
+                        localpath = path[len(strdevice):]
+                        if localpath.startswith(self.devsep):
+                            localpath = localpath[len(self.devsep):]
+                    else:
+                        devicepath = device
+                        localpath = path
+            
+            # Missing local path root:
+            # /tmp/test.h5:entry/subentry -> /tmp/test.h5:/entry/subentry
+            if devicepath is not None:
+                if not localpath.startswith(self.sep):
+                    localpath = self.sep+localpath
         else:
-            path = tmp[0]
-        return device,path
+            devicepath,localpath = None,path
+        
+        return devicepath,localpath
 
     @property
     def factory_kwargs(self):
@@ -197,7 +262,7 @@ class Path(File):
             return path
     
     def __repr__(self):
-        return "'{}'".format(self)
+        return repr(str(self))
         
     def __str__(self):
         return self.location
