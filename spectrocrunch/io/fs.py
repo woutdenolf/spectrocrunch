@@ -89,16 +89,6 @@ class DirectoryIsNotEmpty(FileSystemException):
     pass
     
 
-def onclose(func):
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if self._handle:
-            self._onclose_callbacks.append((func,args,kwargs))
-        else:
-            return func(*args,**kwargs)
-    return wrapper
-
-
 class File(with_metaclass(ABCMeta,object)):
 
     def __init__(self,**kwargs):
@@ -150,8 +140,18 @@ class File(with_metaclass(ABCMeta,object)):
     @abstractmethod
     def __repr__(self):
         pass
-        
-        
+
+
+def onclose(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if self._handle:
+            self._onclose_callbacks.append((func,(self,)+args,kwargs))
+        else:
+            return func(self, *args,**kwargs)
+    return wrapper
+
+
 class Path(File):
 
     @property
