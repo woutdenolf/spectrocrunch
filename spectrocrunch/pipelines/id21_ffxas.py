@@ -105,7 +105,7 @@ def tasks(**parameters):
             expression = "-ln(2*{}/({flat1}+{flat2}))"
         else:
             expression = "-ln({}/{flat1})"
-        task = nxtask.newtask(previous=task,method='expression',name='normalize',
+        task = nxtask.newtask(dependencies=task,method='expression',name='normalize',
                               expression=expression,skip=skip,**commonparams)
         tasks.append(task)
     
@@ -116,7 +116,7 @@ def tasks(**parameters):
         refimageindex = parameters.get("refimageindex",-1)
         roi = parameters.get("roialign",None)
         plot = parameters.get("plot",False)
-        task = nxtask.newtask(previous=task,method='align',alignmethod=alignmethod,
+        task = nxtask.newtask(dependencies=task,method='align',alignmethod=alignmethod,
                               reference=alignreference,refimageindex=refimageindex,
                               crop=False,roi=roi,plot=plot,**commonparams)
         tasks.append(task)
@@ -124,7 +124,7 @@ def tasks(**parameters):
     # Crop
     roiresult = parameters.get("roiresult",None)
     if roiresult:
-        tmp = nxtask.newtask(previous=task,method='crop',name='roi',roi=roiresult,
+        tmp = nxtask.newtask(dependencies=task,method='crop',name='roi',roi=roiresult,
                              reference=alignreference,**commonparams)
         tasks.append(tmp)
 

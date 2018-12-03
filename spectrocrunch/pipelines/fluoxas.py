@@ -163,7 +163,7 @@ def tasks(**parameters):
         else:
             expression = "{{}}/{{{}}}".format(prealignnormcounter)
 
-        task = nxtask.newtask(previous=task,method='expression',name='normalize',
+        task = nxtask.newtask(dependencies=task,method='expression',name='normalize',
                               expression=expression,copy=copy,**commonparams)
         tasks.append(task)
         
@@ -171,7 +171,7 @@ def tasks(**parameters):
     encodercor = parameters.get("encodercor",False)
     if encodercor and instrument.encoderresolution:
         encoders = instrument.encoderinfo
-        task = nxtask.newtask(previous=task,method='resample',
+        task = nxtask.newtask(dependencies=task,method='resample',
                               encoders=encoders,**commonparams)
         tasks.append(task)
             
@@ -182,7 +182,7 @@ def tasks(**parameters):
         refimageindex = parameters.get("refimageindex",-1)
         roi = parameters.get("roialign",None)
         plot = parameters.get("plot",False)
-        task = nxtask.newtask(previous=task,method='align',alignmethod=alignmethod,
+        task = nxtask.newtask(dependencies=task,method='align',alignmethod=alignmethod,
                               reference=alignreference,refimageindex=refimageindex,
                               crop=False,roi=roi,plot=plot,**commonparams)
         tasks.append(task)
@@ -194,21 +194,21 @@ def tasks(**parameters):
                 for prefix in instrument.counterdict["counters"]]
         
         expression = "{{}}/{{{}}}".format(postalignnormcounter)
-        task  = nxtask.newtask(previous=task,method='expression',name='postnormalize',
+        task  = nxtask.newtask(dependencies=task,method='expression',name='postnormalize',
                                expression=expression,copy=copy,**commonparams)
         tasks.append(task)
         
     # Remove NaN's
     replacenan = parameters.get("replacenan",False)
     if replacenan:
-        tmp = nxtask.newtask(previous=task,method='replace',
+        tmp = nxtask.newtask(dependencies=task,method='replace',
                              org=np.nan,new=0,**commonparams)
         tasks.append(tmp)
                                             
     # Crop
     cropafter = parameters.get("crop",False)
     if cropafter:
-        tmp = nxtask.newtask(previous=task,method='crop',nanval=np.nan,
+        tmp = nxtask.newtask(dependencies=task,method='crop',nanval=np.nan,
                              reference=alignreference,**commonparams)
         tasks.append(tmp)
                                             

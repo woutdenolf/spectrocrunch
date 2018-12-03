@@ -25,22 +25,29 @@
 from . import nxtask
 
 class Task(nxtask.Task):
+    """Used to wrap an NXprocess which is not produced by an NXtask
+    """
+    
+    def __init__(self,nxprocess=None,**kwargs):
+        super(Task,self).__init__(**kwargs)
+        if 'name' in self.parameters:
+            self.nxprocess = self.nxentry[self.parameters['name']]
+            self.nxresults = self.nxprocess.results
+        else:
+            if nxprocess is None:
+                raise ValueError('Provide "nxprocess" to the wrapper task')
+            self.nxprocess = nxprocess
+            self.nxresults = nxprocess.results
 
-    def __init__(self,nxprocess):
-        if not nxprocess.exists:
-            raise nxtask.ParameterError('NXprocess must exist')
-        self.previous = None
-        self._nxentry = nxprocess.nxentry()
-        self.nxprocess = nxprocess
-        self.nxresults = nxprocess.results
-        self._parameters = nxprocess.config.read()
+    def _parameters_defaults(self):
+        pass
+    
+    def _parameters_filter(self):
+        pass
+        
+    def _execute(self):
+        pass
 
     @property
     def name(self):
         return self.nxprocess.name
-    
-    def run(self):
-        pass
-
-    def _execute(self):
-        pass

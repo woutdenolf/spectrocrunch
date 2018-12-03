@@ -93,14 +93,14 @@ class test_nxfs(unittest.TestCase):
         process1.plotselect.mark_default()
         
         self.assertEqual(process1.config.read(),cfg1)
-        self.assertFalse(process1.previous_processes)
+        self.assertFalse([dep for dep in process1.dependencies])
         
-        process2,done = entry.nxprocess('align',previous=[process1])
+        process2,done = entry.nxprocess('align',dependencies=[process1])
         self.assertFalse(done)
         self.assertEqual(process2.config.read(),None)
-        self.assertEqual(process2.previous_processes[0].linkdest(),process1)
+        self.assertEqual(next(iter(process2.dependencies)).linkdest(),process1)
 
-        self.assertRaises(ValueError,entry.nxprocess,'align',parameters={'wrong':1},previous=[process1])
+        self.assertRaises(ValueError,entry.nxprocess,'align',parameters={'wrong':1},dependencies=[process1])
         
     def _check_nxdata(self,data1):
         y = 'y',range(2),{'units':'um','title':'vertical'}

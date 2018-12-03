@@ -48,15 +48,19 @@ class ParameterError(TaskException):
 
 class Task(with_metaclass(ABCMeta,object)):
     
-    def __init__(self,previous=None,nxentry=None,**parameters):
+    def __init__(self,dependencies=None,nxentry=None,**parameters):
+        """
+        Args:
+            dependencies(Optional(Task|Path))
+        """
         self._tempname = randomstring()
         self.parameters = parameters
-        self.previous = previous
+        self.dependencies = dependencies
         self._nxentry = nxentry
         self.nxprocess = None
         self.nxresults = None
-        if not self.previous and not nxentry:
-            raise ValueError('Specify "nxentry" when task is not based on a previous task')
+        if not self.dependencies and not nxentry:
+            raise ValueError('Specify "nxentry" when task does not have dependencies')
             
     @property
     def parameters(self):
@@ -72,24 +76,34 @@ class Task(with_metaclass(ABCMeta,object)):
     
     @property
     def checksum(self):
-        hashes = [task.checksum for task in self.previous]
+        hashes = [dependency.checksum for dependency in self.dependencies]
         hashes.append(hashing.calcjhash(self.parameters))
         return hashing.mergejhash(*hashes)
     
     @property
-    def previous(self):
-        return self._previous_tasks
+    def dependencies(self):
+        return self._dependencies
     
-    @previous.setter
-    def previous(self,value):
+    @property
+    def previous_outputs(self):
+        ret = []
+        for dependency in self.dependencies:
+            if isinstance(dependency,Task):
+                ret.append(dependency.output)
+            else:
+                ret.append(dependency)
+        return ret
+        
+    @dependencies.setter
+    def dependencies(self,value):
         if instance.isarray(value):
-            self._previous_tasks = value
+            self._dependencies = value
         else:
             if value is None:
-                self._previous_tasks = []
+                self._dependencies = []
             else:
-                self._previous_tasks = [value]
-                
+                self._dependencies = [value]
+
     def _parameters_defaults(self):
         self._required_parameters('method')
         self.parameters['name'] = self.parameters.get('name',self.method)
@@ -127,11 +141,12 @@ class Task(with_metaclass(ABCMeta,object)):
             else:
                 logger.info('{} started ...'.format(self))
                 
-                # Make sure previous tasks are done
-                for task in self.previous:
+                # Make sure dependencies are done
+                for task in self.dependencies:
                     if not task.done:
                         return
                 
+                # Process and create result atomically
                 with self._atomic_nxprocess():
                     self._execute()
 
@@ -141,7 +156,7 @@ class Task(with_metaclass(ABCMeta,object)):
         """
         self.nxprocess,_ = self.nxentry.nxprocess(self._tempname,
                                     parameters=self.parameters,
-                                    previous=[task.output for task in self.previous])
+                                    dependencies=list(self.previous_outputs))
         self.nxresults = self.nxprocess.results
         try:
             yield
@@ -159,8 +174,8 @@ class Task(with_metaclass(ABCMeta,object)):
             
     @property
     def nxentry(self):
-        if self.previous:
-            return self.previous[-1].output.nxentry()
+        if self.dependencies:
+            return self.previous_outputs[-1].nxentry()
         else:
             return self._nxentry
 
@@ -170,18 +185,19 @@ class Task(with_metaclass(ABCMeta,object)):
     
     @property
     def done(self):
-        """A task is done when the output exists with the same name and parameters
+        """A task is done when
+            - the dependencies exist
+            - the output exists with the same name and parameters
         """
-        previous = []
-        for task in self.previous:
-            output = task.output
+        dependencies = []
+        for output in self.previous_outputs:
             if output.exists:
-                previous.append(output)
+                dependencies.append(output)
             else:
                 return False
         _,exists = self.nxentry.nxprocess_exists(self.name,
                                     parameters=self.parameters,
-                                    previous=previous)
+                                    dependencies=dependencies)
         return exists
     
     @abstractmethod
@@ -207,5 +223,13 @@ def newtask(**parameters):
     elif method=='fullfield':
         from .nxfullfield import Task
     else:
-        raise ParameterError('Unknown method {}'.format(repr(method)))
+        from .nxwrap import Task
     return Task(**parameters)
+
+def nxprocesstotask(nxprocess):
+    parameters = nxprocess.config.read()
+    if 'method' not in parameters and 'name' not in parameters:
+        parameters['nxprocess'] = nxprocess
+    nxentry = nxprocess.nxentry()
+    dependencies = [path for path in nxprocess.dependencies]
+    return newtask(dependencies=dependencies,nxentry=nxentry,**parameters)

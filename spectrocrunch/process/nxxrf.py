@@ -397,7 +397,6 @@ class Task(nxtask.Task):
                     self.counters.add(ctr)
     
     def _add_grid_axis(self,axis,index=None):
-        print 'add',axis.name
         self.axes[axis.name] = axis
         if index is not None:
             self.axes_names[index] = axis.name

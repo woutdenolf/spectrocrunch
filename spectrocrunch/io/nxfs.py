@@ -69,9 +69,9 @@ def dataprepare(data):
 def timestamp():
     return textarray(datetime.now().isoformat())
 
-def calc_checksum(previous,confighash):
-    if previous:
-        hashes = [prev.checksum for prev in previous]
+def calc_checksum(dependencies,confighash):
+    if dependencies:
+        hashes = [prev.checksum for prev in dependencies]
     else:
         hashes = []
     hashes.append(confighash)
@@ -254,24 +254,24 @@ class Path(h5fs.Path):
     def _filesgen_nxnote(self):
         return {'date':timestamp()}
         
-    def nxprocess(self,name,parameters=None,previous=None,**openparams):
+    def nxprocess(self,name,parameters=None,dependencies=None,**openparams):
         """Creates the process when it doesn't exist
         
         Returns:
             process(Path):
             existed(bool): process with same name and parameters already exists
         """
-        process,exists = self.nxprocess_exists(name,parameters=parameters,previous=previous,**openparams)
+        process,exists = self.nxprocess_exists(name,parameters=parameters,dependencies=dependencies,**openparams)
         if exists:
             return process,exists
         else:
             process = self._init_nxclass(process,'NXprocess',
                                          filesgen=self._filesgen_nxprocess,
                                          **openparams)
-            process.set_config(parameters,previous=previous)
+            process.set_config(parameters,dependencies=dependencies)
             return process,False
     
-    def nxprocess_exists(self,name,parameters=None,previous=None,**openparams):
+    def nxprocess_exists(self,name,parameters=None,dependencies=None,**openparams):
         """
         Returns:
             process(Path): full path
@@ -284,7 +284,7 @@ class Path(h5fs.Path):
             process = entry[name]
             return process,process.exists
         else:
-            checksum = calc_checksum(previous,hashing.calcjhash(parameters))
+            checksum = calc_checksum(dependencies,hashing.calcjhash(parameters))
             for process in entry.iter_is_nxclass('NXprocess'):
                 if process.verify_checksum(checksum):
                     return process,True
@@ -478,23 +478,23 @@ class _NXprocess(_NXPath):
         with self._verify():
             return self.nxdata('plotselect')
     
-    def set_config(self,parameters,previous=None):
+    def set_config(self,parameters,dependencies=None):
         with self._verify():
             # Save parameters
             self.config.write_dict(parameters)
 
-            # Links to previous processes
-            if previous:
-                for prev in previous:
-                    prev._raise_ifnot_class(self.NX_CLASS)
-                    if self.parent!=prev.parent:
-                        raise ValueError('{} and {} should be in the same entry'.format(self,previous))
+            # Links to dependencies
+            if dependencies:
+                for dependency in dependencies:
+                    dependency._raise_ifnot_class(self.NX_CLASS)
+                    if self.parent!=dependency.parent:
+                        raise ValueError('{} and {} should be in the same entry'.format(self,dependencies))
                         
-                for prev in previous:
-                    prev = self.previous[prev.name].link(prev)
+                for dependency in dependencies:
+                    dependency = self.dependencies[dependency.name].link(dependency)
 
             # Other info
-            self['sequence_index'].write(data=self.previous_sequence_index+1)
+            self['sequence_index'].write(data=self.sequence_index)
             self.results['checksum'].write(data=self.checksum)
 
             self.updated()
@@ -508,7 +508,8 @@ class _NXprocess(_NXPath):
             path = self.resultspath['checksum']
             if path.exists:
                 return path.read()
-            return calc_checksum(self.previous,self.confighash)
+            else:
+                return calc_checksum(self.dependencies,self.confighash)
     
     @property
     def confighash(self):
@@ -518,28 +519,23 @@ class _NXprocess(_NXPath):
             return None
   
     @property
-    def previous(self):
-        return self.results.nxcollection('previous')
-    
-    @property
-    def previous_processes(self):
-        if self.previous.exists:
-            return [prev for prev in self.previous]
-        else:
-            return []
+    def dependencies(self):
+        return self.results.nxcollection('dependencies')
             
     @property
-    def previous_sequence_index(self):
-        ind = 0
-        with self._verify():
-            for previous in self.previous:
-                ind = max(ind,previous['sequence_index'].read())
-        return ind
-    
-    @property
     def sequence_index(self):
-        return self['sequence_index'].read()
-
+        """Indexing starts from 1
+        """
+        path = self['sequence_index']
+        if path.exists:
+            return path.read()
+        else:
+            ind = 0
+            with self._verify():
+                for dependency in self.dependencies:
+                    ind = max(ind,dependency.sequence_index)
+            return ind+1
+            
     
 class _NXnote(_NXPath):
     

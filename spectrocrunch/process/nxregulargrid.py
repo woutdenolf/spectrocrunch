@@ -56,16 +56,16 @@ class Task(nxtask.Task):
         Returns:
             nxfs._NXprocess | None
         """
-        if len(self.previous)!=1:
+        if len(self.dependencies)!=1:
             raise RuntimeError('nxregulargrid.Task can only depend on exactly one previous task')
-        self.grid = regulargrid.NXRegularGrid(self.previous[0].output)
+        self.grid = regulargrid.NXRegularGrid(self.previous_outputs[0])
         self._prepare_process()
         self._execute_grid()
         self._sort()
 
     def _sort(self):
         it = self.nxresults.iter_is_nxclass('NXdata')
-        previous_results = self.previous[0].output.results
+        previous_results = self.previous_outputs[0].results
         for nxdata in it:
             if nxdata.islink:
                 continue
