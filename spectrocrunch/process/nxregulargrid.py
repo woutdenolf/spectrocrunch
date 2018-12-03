@@ -27,7 +27,7 @@ from abc import abstractmethod
 import re
 import logging
 
-from . import nxtask
+from . import nxprocess
 from . import regulargrid
 from . import axis
 from ..utils import instance
@@ -35,7 +35,7 @@ from ..utils import units
 
 logger = logging.getLogger(__name__)
 
-class Task(nxtask.Task):
+class Task(nxprocess.Task):
 
     DEFAULT_STACKDIM = 0
 

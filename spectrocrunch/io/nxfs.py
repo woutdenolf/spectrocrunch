@@ -79,11 +79,11 @@ def calc_checksum(dependencies,confighash):
         
 class Path(h5fs.Path):
 
-    def lsinfo(self):
-        name,stats = super(Path,self).lsinfo()
+    def _contentinfo(self):
+        contentinfo = super(Path,self)._contentinfo()
         nxclass = stats.pop('NX_class',None)
         if nxclass:
-            name = '{}:{}'.format(name,nxclass)
+            name = ':{}{}'.format(nxclass,contentinfo)
         return name,stats
         
     @property
@@ -220,14 +220,13 @@ class Path(h5fs.Path):
 
     def _new_nxentryname(self,name):
         if name:
-            p = re.compile("[0-9]+")
-            for m in p.finditer(name):
+            for m in re.finditer("[0-9]+",name):
                 pos,num = m.start(), m.group()
             n = len(num)
             fmt = name[:pos]+'{{:0{}d}}'.format(n)+name[pos+n:]
             return fmt.format(int(num)+1)
         else:
-            return 'entry_0000'
+            return 'entry0001'
 
     def nxsubentry(self,name,**openparams):
         self._raise_ifnot_class('NXentry','NXsubentry')
@@ -743,7 +742,7 @@ class _NXdata(_NXPath):
                 for name,value,attr in axes:
                     axis = positioners.add_axis(name,value,**attr)
                     if not self[name].exists:
-                        self[name].link(axis,soft=False)
+                        self[name].link(axis,soft=True)
                     names.append(name)
                 node.attrs["axes"] = textarray(names)
                 self.updated()
