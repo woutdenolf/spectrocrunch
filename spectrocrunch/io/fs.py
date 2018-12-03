@@ -329,7 +329,21 @@ class Path(File):
     @property
     def parent(self):
         return self['..']
-            
+    
+    def common(self,path):
+        path = self.factory(path)
+        if path.device!=self.device:
+            return None
+        lst1 = [p for p in self.iterup]
+        lst2 = [p for p in path.iterup]
+        ret = None
+        for p1,p2 in zip(reversed(lst1),reversed(lst2)):
+            if p1==p2:
+                ret = p1
+            else:
+                return ret
+        return ret
+    
     def _copy_move_prepare(self, dest, force=True):
         dest = self.factory(dest)
         if dest.exists and not force:
@@ -519,8 +533,12 @@ class Path(File):
                     
                 nodename += lnkdest
 
-            out.append(nodename)
+            # Content info
+            if stats:
+                nodename += self._contentinfo()
             
+            out.append(nodename)
+
             # Add stats
             if stats:
                 try:
@@ -546,7 +564,10 @@ class Path(File):
                     else:
                         out += cls._str_tree(node,stats=stats,_padding=_padding+'|')
         return out
-        
+    
+    def _contentinfo(self):
+        return ''
+    
     def node(self,follow=True):
         if follow:
             lnk = self.linkdest(follow=True)

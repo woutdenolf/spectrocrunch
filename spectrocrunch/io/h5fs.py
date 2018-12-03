@@ -215,8 +215,6 @@ class Path(fs.Path):
             if isinstance(root,h5py.Group):
                 for k in root.keys():
                     yield self.factory(self.join(self.path,k))
-            elif root:
-                yield self.factory(root.name)
                 
     @property
     def sep(self):
@@ -251,10 +249,22 @@ class Path(fs.Path):
                     dest = self._move_copydel(dest)
             else:
                 dest = self._move_copydel(dest)
+            dest._move_relink(self,dest)
             return self.factory(dest)
     
     mv = move
     
+    def _move_relink(self,source,dest):
+        # Softlink in HDF5 are absolute, so relink all links below self
+        # that point to a destination below self (including self)
+        for path in self.listdir():
+            path._move_relink(source,dest)
+        if self.islink:
+            linkdest = self.linkdest()
+            if source.common(linkdest)==source:
+                self.remove()
+                self.link(dest[source.relpath(linkdest.path)])
+
     def copy(self, dest, force=True, follow=False, dereference=False):
         with self.h5open() as fsource:
             dest = self._copy_move_prepare(dest, force=force)
@@ -378,24 +388,16 @@ class Path(fs.Path):
                 lnk = self._link_follow(lnk)
             return lnk
     
-    def lsinfo(self):
-        try:
+    def _contentinfo(self):
+        contentinfo = ''
+        if self.isfile:
             with self.open(mode='r') as node:
-                if self.isfile:
-                    if node.ndim==0:
-                        name = '{} = {}'.format(self.name,node[()])
-                    else:
-                        shape = 'x'.join(list(map(str,node.shape)))
-                        name = '{} = {} ({})'.format(self.name,node.dtype,shape)
+                if node.ndim==0:
+                    contentinfo = ' = {} ({})'.format(node.dtype,node[()])
                 else:
-                    name = self.name
-                    if not name:
-                        name = self.sep
-                stats = self.stats()
-        except fs.Missing:
-            name = '{} (broken link: {})'.format(self.name,self.linkdestname)
-            stats = {}
-        return name,stats
+                    shape = 'x'.join(list(map(str,node.shape)))
+                    contentinfo = ' = {} ({})'.format(node.dtype,shape)
+        return contentinfo
 
     def read(self):
         with self.open(mode='r') as node:

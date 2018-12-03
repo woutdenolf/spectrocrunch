@@ -132,6 +132,8 @@ def xrfparameters(**parameters):
     return config,instrument
     
 def tasks(**parameters):
+    """Scripted pipeline to process FluoXAS data
+    """
     tasks = []
     
     # Common parameters
@@ -142,7 +144,7 @@ def tasks(**parameters):
     # Image stacks (counters + result of XRF fitting)
     xrfparams,instrument = xrfparameters(**parameters)
     xrfparams.update(commonparams)
-    task = nxtask.newtask(method='xrf',**xrfparams)
+    task = nxtask.task(method='xrf',**xrfparams)
     tasks.append(task)
     
     # Normalization
@@ -163,7 +165,7 @@ def tasks(**parameters):
         else:
             expression = "{{}}/{{{}}}".format(prealignnormcounter)
 
-        task = nxtask.newtask(dependencies=task,method='expression',name='normalize',
+        task = nxtask.task(dependencies=task,method='expression',name='normalize',
                               expression=expression,copy=copy,**commonparams)
         tasks.append(task)
         
@@ -171,7 +173,7 @@ def tasks(**parameters):
     encodercor = parameters.get("encodercor",False)
     if encodercor and instrument.encoderresolution:
         encoders = instrument.encoderinfo
-        task = nxtask.newtask(dependencies=task,method='resample',
+        task = nxtask.task(dependencies=task,method='resample',
                               encoders=encoders,**commonparams)
         tasks.append(task)
             
@@ -182,7 +184,7 @@ def tasks(**parameters):
         refimageindex = parameters.get("refimageindex",-1)
         roi = parameters.get("roialign",None)
         plot = parameters.get("plot",False)
-        task = nxtask.newtask(dependencies=task,method='align',alignmethod=alignmethod,
+        task = nxtask.task(dependencies=task,method='align',alignmethod=alignmethod,
                               reference=alignreference,refimageindex=refimageindex,
                               crop=False,roi=roi,plot=plot,**commonparams)
         tasks.append(task)
@@ -194,21 +196,21 @@ def tasks(**parameters):
                 for prefix in instrument.counterdict["counters"]]
         
         expression = "{{}}/{{{}}}".format(postalignnormcounter)
-        task  = nxtask.newtask(dependencies=task,method='expression',name='postnormalize',
+        task  = nxtask.task(dependencies=task,method='expression',name='postnormalize',
                                expression=expression,copy=copy,**commonparams)
         tasks.append(task)
         
     # Remove NaN's
     replacenan = parameters.get("replacenan",False)
     if replacenan:
-        tmp = nxtask.newtask(dependencies=task,method='replace',
+        tmp = nxtask.task(dependencies=task,method='replace',
                              org=np.nan,new=0,**commonparams)
         tasks.append(tmp)
                                             
     # Crop
     cropafter = parameters.get("crop",False)
     if cropafter:
-        tmp = nxtask.newtask(dependencies=task,method='crop',nanval=np.nan,
+        tmp = nxtask.task(dependencies=task,method='crop',nanval=np.nan,
                              reference=alignreference,**commonparams)
         tasks.append(tmp)
                                             

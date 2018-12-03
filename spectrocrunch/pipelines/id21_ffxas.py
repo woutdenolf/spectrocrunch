@@ -92,7 +92,7 @@ def tasks(**parameters):
     # Image stacks (fullfield)
     ffparams = ffparameters(**parameters)
     ffparams.update(commonparams)
-    task = nxtask.newtask(method='fullfield',**ffparams)
+    task = nxtask.task(method='fullfield',**ffparams)
     tasks.append(task)
     
     # Normalization
@@ -105,7 +105,7 @@ def tasks(**parameters):
             expression = "-ln(2*{}/({flat1}+{flat2}))"
         else:
             expression = "-ln({}/{flat1})"
-        task = nxtask.newtask(dependencies=task,method='expression',name='normalize',
+        task = nxtask.task(dependencies=task,method='expression',name='normalize',
                               expression=expression,skip=skip,**commonparams)
         tasks.append(task)
     
@@ -116,7 +116,7 @@ def tasks(**parameters):
         refimageindex = parameters.get("refimageindex",-1)
         roi = parameters.get("roialign",None)
         plot = parameters.get("plot",False)
-        task = nxtask.newtask(dependencies=task,method='align',alignmethod=alignmethod,
+        task = nxtask.task(dependencies=task,method='align',alignmethod=alignmethod,
                               reference=alignreference,refimageindex=refimageindex,
                               crop=False,roi=roi,plot=plot,**commonparams)
         tasks.append(task)
@@ -124,7 +124,7 @@ def tasks(**parameters):
     # Crop
     roiresult = parameters.get("roiresult",None)
     if roiresult:
-        tmp = nxtask.newtask(dependencies=task,method='crop',name='roi',roi=roiresult,
+        tmp = nxtask.task(dependencies=task,method='crop',name='roi',roi=roiresult,
                              reference=alignreference,**commonparams)
         tasks.append(tmp)
 

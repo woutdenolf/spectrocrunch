@@ -22,20 +22,20 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from . import nxtask
+from . import nxprocess
 
-class Task(nxtask.Task):
-    """Used to wrap an HDF5 path which is not produced by a NXtask
+class Task(nxprocess.Task):
+    """Used to wrap an NXprocess which is not produced by a NXtask
     """
     
     def __init__(self,path=None,**kwargs):
         super(Task,self).__init__(**kwargs)
         if 'name' in self.parameters:
-            self.nxpath = self.nxparent[self.parameters['name']]
+            self.nxprocess = self.nxentry[self.parameters['name']]
         else:
             if path is None:
                 raise ValueError('Provide "path" to the wrapper task')
-            self.nxpath = path
+            self.nxprocess = path
 
     def _parameters_defaults(self):
         pass
@@ -48,4 +48,4 @@ class Task(nxtask.Task):
 
     @property
     def name(self):
-        return self.nxpath.name
+        return self.nxprocess.name
