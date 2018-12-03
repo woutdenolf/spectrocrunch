@@ -110,7 +110,8 @@ class test_nxfs(unittest.TestCase):
         signals = ['Fe-K','Si-K','Al-K','S-K','Ce-L']
         for signal in signals:
             data1.add_signal(name=signal,dtype=int,shape=(len(y[1]),len(x[1])))
-        self.assertRaises(fs.AlreadyExists,data1.add_signal,name=signals[-1],dtype=int,shape=(len(y[1])+1,len(x[1])))
+        self.assertRaises(nxfs.NexusFormatException,data1.add_signal,name=signals[-1],dtype=int,shape=(len(y[1])+1,len(x[1])))
+        self.assertRaises(fs.AlreadyExists,data1.add_signal,name=signals[-1],dtype=int,shape=(len(y[1]),len(x[1])))
         self._check_nxdata_signals(data1,signals[-1],signals[:-1])
 
         data1.remove_signal(signals[-1])

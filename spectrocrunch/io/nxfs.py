@@ -41,7 +41,7 @@ PROGRAM_NAME = 'spectrocrunch'
 
 logger = logging.getLogger(__name__)
 
-class NexusException(Exception):
+class NexusException(h5fs.FileSystemException):
     """
     Base class for generic Nexus exceptions.
     """
@@ -577,7 +577,16 @@ class _NXdata(_NXPath):
                 if name:
                     return self[name]
                 else:
-                    raise NexusFormatException('NXdata does not have a signal')
+                    return None
+    
+    @property
+    def signal_shape(self):
+        signal = self.signal
+        if signal is None:
+            return ()
+        else:
+            with signal.open(mode='r') as dset:
+                return dset.shape
     
     @property
     def signals(self):
@@ -603,7 +612,25 @@ class _NXdata(_NXPath):
             createparams(dict)
         """
         with self._verify():
-            # TODO: check dimensions
+            # Check dimensions
+            ashape = self.axes_shape
+            if not ashape:
+                ashape = self.signal_shape
+            if ashape:
+                if 'shape' in createparams:
+                    dshape = createparams['shape']
+                elif 'data' in createparams:
+                    dshape = createparams['data'].shape
+                else:
+                    if path is None:
+                        spath = self[name]
+                    else:
+                        spath = path
+                    with spath.open(mode='r') as dset:
+                        dshape = dset.shape
+                if dshape!=ashape:
+                    raise NexusFormatException('Data dimensions {} do not match axes dimensions {}'
+                                               .format(dshape,ashape))
             
             # Create the signal dataset
             if path:
@@ -704,15 +731,12 @@ class _NXdata(_NXPath):
                 axes,positioners = self._axes_parse(axes)
 
                 # Check dimensions
-                signal = node.attrs.get('signal',None)
-                if signal:
-                    signal = node.get(signal,None)
-                if signal:
-                    shaped = signal.shape
-                    shapea = tuple(self._axis_size(name,value,positioners) for name,value,_ in axes)
-                    if shaped!=shapea:
+                dshape = self.signal_shape
+                if dshape:
+                    ashape = tuple(self._axis_size(name,value,positioners) for name,value,_ in axes)
+                    if dshape!=ashape:
                         raise NexusFormatException('Axes dimensions {} do not match signal dimensions {}'
-                                                   .format(shapea,shaped))
+                                                   .format(ashape,dshape))
 
                 # Create axes if needed
                 names = []
@@ -748,7 +772,7 @@ class _NXdata(_NXPath):
         elif value:
             return len(value)
         else:
-            return len(positioners.get_axis(name))
+            return positioners.axis_size(name)
             
     @property
     def axes(self):
@@ -759,6 +783,16 @@ class _NXdata(_NXPath):
                     with self[name].open(mode='r') as axis:
                         ret.append(self._axis_astuple(name,axis))
                 return ret
+
+    @property
+    def axes_shape(self):
+        with self._verify():
+            with self.open() as node:
+                ret = []
+                for name in node.attrs.get('axes',[]):
+                    with self[name].open(mode='r') as axis:
+                        ret.append(axis.size)
+                return tuple(ret)
 
     def _axis_astuple(self,name,axis):
         attrs = {'title':axis.attrs.get('long_name',None),
@@ -819,6 +853,14 @@ class _NXcollection(_NXPath):
                     values = units.Quantity(values,u)
                 return values
     
+    def axis_size(self,name):
+        with self._verify():
+            axis = self[name]
+            if axis.exists:
+                with axis.open(mode='r') as node:
+                    return node.size
+            return None
+            
     def _axis_equal(self,axis1,axis2):
         if isinstance(axis1,h5fs.Path):
             with axis1.open(mode='r') as node1:

@@ -30,6 +30,13 @@ import os
 from . import fs
 from . import localfs
 
+class FileSystemException(fs.FileSystemException):
+    """
+    Base class for generic HDF5 file system exceptions.
+    """
+    pass
+
+
 class h5File(localfs.Path):
 
     def __init__(self,path,mode='a',**kwargs):

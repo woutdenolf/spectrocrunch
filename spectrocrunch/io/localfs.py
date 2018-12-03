@@ -30,6 +30,12 @@ from datetime import datetime
 
 from . import fs
 
+class FileSystemException(fs.FileSystemException):
+    """
+    Base class for generic local file system exceptions.
+    """
+    pass
+
 class Path(fs.Path):
 
     def __init__(self,path,mode='a',**kwargs):
