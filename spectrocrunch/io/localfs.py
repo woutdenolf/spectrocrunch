@@ -104,9 +104,10 @@ class Path(fs.Path):
         return self.factory(os.path.dirname(self.path))
     
     def listdir(self):
-        for k in os.listdir(self.path):
-            yield self.factory(self.join(self.path,k))
-
+        if self.isdir:
+            for k in os.listdir(self.path):
+                yield self.factory(self.join(self.path,k))
+        
     @property
     def sep(self):
         return os.sep

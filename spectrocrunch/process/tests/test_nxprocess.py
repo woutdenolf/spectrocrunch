@@ -50,7 +50,7 @@ class test_nxprocess(unittest.TestCase):
         h5filename = os.path.join(self.dir.path,'test.h5')
         root = nxfs.Path('/',h5file=h5filename).nxroot()
         entry = root.new_nxentry()
-        nxprocess,new = entry.nxprocess('fromraw',parameters={'a':1,'b':2},previous=None)
+        nxprocess,new = entry.nxprocess('fromraw',parameters={'a':1,'b':2},dependencies=None)
         info = {}
         
         shape = (2,10,13)
@@ -148,19 +148,32 @@ class test_nxprocess(unittest.TestCase):
             self._check_grid(grid)
     
     def _run_task(self,parameters,proc1):
-        previous = nxwrap.Task(proc1)
-        task = nxtask.newtask(previous=previous,**parameters)
-        task.run()
-        proc2 = task.output
+        previoustask = nxtask.nxprocesstotask(proc1)
+        self.assertTrue(previoustask.done)
+        
+        # Check run and re-run
+        newtask = nxtask.newtask(dependencies=previoustask,**parameters)
+        self.assertFalse(newtask.done)
+        newtask.run()
+        self.assertTrue(newtask.done)
+        proc2 = newtask.output
+        newtask.run()
+        proc3 = newtask.output
+        self.assertEqual(proc2,proc3)
+        task = nxtask.newtask(dependencies=previoustask,**parameters)
         self.assertTrue(task.done)
         task.run()
         proc3 = task.output
         self.assertEqual(proc2,proc3)
-        task = nxtask.newtask(previous=previous,**parameters)
+        
+        # Check reconstructed task from output
+        task = nxtask.nxprocesstotask(proc2)
+        self.assertEqual(type(task),type(newtask))
         self.assertTrue(task.done)
         task.run()
         proc3 = task.output
         self.assertEqual(proc2,proc3)
+        
         return proc2
         
     def test_crop(self):
