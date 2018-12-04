@@ -26,12 +26,11 @@ import ast
 import collections
 import numbers
 import numpy as np
-from six import string_types
 import uncertainties.core
 from ..patch.pint import ureg
 
 def isstring(x):
-    return isinstance(x, string_types)
+    return isinstance(x, basestring)
 
 def isboollist(lst):
     try:

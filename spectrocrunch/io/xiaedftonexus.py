@@ -40,8 +40,7 @@ logger = logging.getLogger(__name__)
 class Converter(object):
     
     def __init__(self, h5file=None, nxentry=None, include_counters=None,
-                 exclude_counters=None, diodeI0=None, diodeIt=None, 
-                 soft=False, mcasum=True, **parameters):
+                 exclude_counters=None, diodeI0=None, diodeIt=None, mcasum=True, **parameters):
         if nxentry:
             if not isinstance(nxentry,nxfs.Path):
                 if h5file is None:
@@ -54,11 +53,11 @@ class Converter(object):
         self._nxentry = nxentry
         self._parameters = parameters
         if include_counters:
-            self.includefuncs = [self._rematch_func(redict) for redict in include_counters]
+            self.includefuncs = include_counters
         else:
             self.includefuncs = []
         if exclude_counters:
-            self.excludefuncs = [self._rematch_func(redict) for redict in exclude_counters]
+            self.excludefuncs = exclude_counters
         else:
             self.excludefuncs = []
         if diodeI0:
@@ -70,7 +69,6 @@ class Converter(object):
         else:
             self._diodeIt = 'It'
         self._mcasum = mcasum
-        self._soft = soft
         self._reset()
     
     def _reset(self):
@@ -220,7 +218,7 @@ class Converter(object):
         for k in ['i0','it']:
             path = self._counter_paths['counters'][k]
             if path is not None:
-                application[k].link(path,soft=self._soft)
+                application[k].link(path)
         
         self.nxmonochromator.energy = self.energy
         measurement.updated()
@@ -235,16 +233,6 @@ class Converter(object):
         else:
             binclude = True
         return not binclude or bexclude
-    
-    @staticmethod
-    def _rematch_func(redict):
-        method = redict.get('method','regex')
-        if method=='regex':
-            return lambda ctrname:re.match(redict['pattern'],ctrname)
-        elif method=='equal':
-            return lambda ctrname:redict['value'] == ctrname
-        else:
-            return lambda ctrname:False
 
     def _parse_positioners(self):
         positioners = self.positioners
@@ -288,8 +276,8 @@ class Converter(object):
                     rt.update_stats(units=u)
                     
             nxgroup = application[mcaname].mkdir()
-            nxgroup['live_time'].link(lt,soft=self._soft)
-            nxgroup['elapsed_time'].link(rt,soft=self._soft)
+            nxgroup['live_time'].link(lt)
+            nxgroup['elapsed_time'].link(rt)
             nxgroup['preset_time'].mkfile(data=preset_time)
         
         measurement.updated()
@@ -372,7 +360,7 @@ class Converter(object):
             path,mcasum = self._copy_mca(nxdetector)
             # Add link in application subentry
             nxgroup = application[mcaname].mkdir()
-            nxgroup['counts'].link(path,soft=self._soft)
+            nxgroup['counts'].link(path)
             # Add MCA sum signal
             if mcasum is not None:
                 path = measurement['mca_sum'].mkfile(data=mcasum)

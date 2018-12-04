@@ -78,7 +78,10 @@ class h5File(localfs.Path):
 class Path(fs.Path):
 
     def __init__(self,path,h5file=None,**kwargs):
-        h5file,self.path = self._split_path(str(path),device=h5file)
+        h5file,path = self._split_path(str(path),device=h5file)
+        if not path.startswith(self.sep):
+            path = self.sep+path
+        self.path = path
         if not isinstance(h5file,h5File):
             if not h5file:
                 raise ValueError('Specify HDF5 file as Path("h5file:/...") or Path("/...",h5file=...)')
@@ -109,7 +112,10 @@ class Path(fs.Path):
                     else:
                         if isinstance(node,h5py.Dataset):
                             raise fs.NotADirectory(self.location)
-                    del f[self.path]
+                    try:
+                        del f[self.path]
+                    except KeyError:
+                        pass
                     node = None
                 # r,r+,a: nothing to do
                 
@@ -239,9 +245,11 @@ class Path(fs.Path):
             f.create_group(self.path)
             return self
             
-    def move(self, dest, force=True):
+    def move(self, dest, force=False):
         with self.h5open() as f:
             dest = self._copy_move_prepare(dest, force=force)
+            if dest.exists and force:
+                dest.remove(recursive=True)
             if self.device==dest.device:
                 try:
                     f.move(self.path,dest.path)
@@ -265,9 +273,11 @@ class Path(fs.Path):
                 self.remove()
                 self.link(dest[source.relpath(linkdest.path)])
 
-    def copy(self, dest, force=True, follow=False, dereference=False):
+    def copy(self, dest, force=False, follow=False, dereference=False):
         with self.h5open() as fsource:
             dest = self._copy_move_prepare(dest, force=force)
+            if dest.exists and force:
+                dest.remove(recursive=True)
             if self.islink and not follow:
                 # just copy the link
                 dest.link(self.linkdest)
@@ -332,7 +342,7 @@ class Path(fs.Path):
             base = self.parent
             lnkname = self.name
             
-            destpath = self.factory(dest)
+            destpath = self.sibling(dest)
             if destpath.device==self.device:
                 if soft:
                     dest = base.relpath(self._getpath(dest))
@@ -353,10 +363,9 @@ class Path(fs.Path):
                 else:
                     dest = f[destpath.path]
             else:
-                dest = h5py.ExternalLink(destpath.device, destpath.path)
+                dest = h5py.ExternalLink(str(destpath.device), destpath.path)
             
             f[base.path][lnkname] = dest
-            #base.ls()
             return self.factory(self)
     
     @property
@@ -369,6 +378,8 @@ class Path(fs.Path):
             return isinstance(lnk,(h5py.SoftLink,h5py.ExternalLink))
 
     def linkdest(self,follow=False):
+        if not self.root.exists:
+            return None
         with self.h5open(mode='r') as f:
             try:
                 lnk = f.get(self.path,default=None,getlink=True)
@@ -392,11 +403,20 @@ class Path(fs.Path):
         contentinfo = ''
         if self.isfile:
             with self.open(mode='r') as node:
+                dtype = node.dtype
+                specialdtype = h5py.check_dtype(vlen=node.dtype)
                 if node.ndim==0:
-                    contentinfo = ' = {} ({})'.format(node.dtype,node[()])
+                    if specialdtype==str or specialdtype==unicode:
+                        contentinfo = ' = {}'.format(node[()])
+                    else:
+                        if specialdtype is not None:
+                            dtype = specialdtype
+                        contentinfo = ' = {} ({})'.format(node[()],dtype)
                 else:
+                    if specialdtype is not None:
+                        dtype = specialdtype
                     shape = 'x'.join(list(map(str,node.shape)))
-                    contentinfo = ' = {} ({})'.format(node.dtype,shape)
+                    contentinfo = ' = {} ({})'.format(dtype,shape)
         return contentinfo
 
     def read(self):
