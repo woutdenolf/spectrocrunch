@@ -140,7 +140,7 @@ class Path(fs.Path):
                 f.write(data)
         return self
         
-    def move(self, dest, force=True):
+    def move(self, dest, force=False):
         dest = self._copy_move_prepare(dest, force=force)
         try:
             os.rename(self.path, dest.path)
@@ -154,7 +154,7 @@ class Path(fs.Path):
     
     mv = move
     
-    def copy(self, dest, force=True, follow=False, dereference=False):
+    def copy(self, dest, force=False, follow=False, dereference=False):
         dest = self._copy_move_prepare(dest, force=force)
         
         if self.islink and not follow:
@@ -233,7 +233,7 @@ class Path(fs.Path):
             dest = self.parent.relpath(self._getpath(dest))
             os.symlink(dest, lnkname)
         else:
-            dest = self.factory(dest).path
+            dest = self.sibling(dest).path
             os.link(dest, lnkname)
         return self
         

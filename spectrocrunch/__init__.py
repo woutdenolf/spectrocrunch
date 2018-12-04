@@ -29,6 +29,8 @@ except ImportError:
     __version__ = "Local version ({})".format(os.path.dirname(os.path.abspath(__file__)))
 
 # Add default logging handlers when non present
+import argparse
+import sys
 import logging
 logger = logging.getLogger(__name__)
 
@@ -39,7 +41,6 @@ def logging_cliconfig():
         --stdout=...  Redirect stdout to a file
         --stderr=...  Redirect stderr to a file
     """
-    import argparse
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--log',default="",type=str,help="Log level")
     parser.add_argument('--logfile',default="",type=str,help="Log file")
@@ -49,7 +50,7 @@ def logging_cliconfig():
     
     hashandlers = bool(logger.handlers)
 
-    if args.log and not hashandlers:
+    if args.log:
         logger.setLevel(args.log.upper())
     if args.logfile:
         logging_filehandler(args.logfile)
@@ -71,9 +72,8 @@ def logging_addformat(handler):
     handler.setFormatter(formatter)
 
 def logging_stdhandler(error=True):
-    """Add stdout handler
+    """Add stdout or stderr handler
     """
-    import sys
     if error:
         handler = sys.stderr
     else:

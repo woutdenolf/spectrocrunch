@@ -26,6 +26,7 @@ import contextlib
 import re
 import logging
 import traceback
+from copy import deepcopy
 
 from . import nxtask
 from ..io import xiaedf
@@ -36,11 +37,7 @@ logger = logging.getLogger(__name__)
 class Task(nxtask.Task):
     """Converts XIA edf output to an NXentry
     """
-
-    @property
-    def nxroot(self):
-        return self._nxparent.nxroot()
-            
+  
     def _parameters_defaults(self):
         super(Task,self)._parameters_defaults()
         self._required_parameters('path','radix','number','instrument')
@@ -50,8 +47,9 @@ class Task(nxtask.Task):
         
     @contextlib.contextmanager
     def _atomic_context(self):
-        """This is currently not atomic!!!
+        """This is atomic if h5py.Group.move is atomic
         """
+        self.nxentry = self._nxparent.nxentry(name=self._tempname)
         try:
             yield
         except Exception:
@@ -64,13 +62,12 @@ class Task(nxtask.Task):
             self.nxentry = None
 
     def _execute(self):
-        self.nxentry = self.nxroot[self._tempname]
-        parameters = self.parameters
+        parameters = deepcopy(self.parameters)
+        parameters['include_counters'] = [self._rematch_func(redict) for redict in parameters.get('include_counters',[])]
+        parameters['exclude_counters'] = [self._rematch_func(redict) for redict in parameters.get('exclude_counters',[])]
         path,radix,number = parameters['path'],parameters['radix'],parameters['number']
         xiaimage = xiaedf.xiaimage_number(path,radix,number)
-        h5file = str(self.nxroot.device)
-        nxentry = self.nxentry.name
-        converter = xiaedftonexus.Converter(h5file=h5file,nxentry=nxentry,**parameters)
+        converter = xiaedftonexus.Converter(nxentry=self.nxentry,**parameters)
         nxentry = converter(xiaimage)
     
     @property
@@ -78,4 +75,14 @@ class Task(nxtask.Task):
         parameters = self.parameters
         radix,number = parameters['radix'],parameters['number']
         return radix+'.{}'.format(number)
-        
+    
+    @staticmethod
+    def _rematch_func(redict):
+        method = redict.get('method','regex')
+        if method=='regex':
+            return lambda ctrname:re.match(redict['pattern'],ctrname)
+        elif method=='equal':
+            return lambda ctrname:redict['value'] == ctrname
+        else:
+            return lambda ctrname:False
+    

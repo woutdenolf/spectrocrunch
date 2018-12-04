@@ -78,13 +78,6 @@ def calc_checksum(dependencies,confighash):
     return hashing.mergejhash(*hashes)
         
 class Path(h5fs.Path):
-
-    def _contentinfo(self):
-        contentinfo = super(Path,self)._contentinfo()
-        nxclass = stats.pop('NX_class',None)
-        if nxclass:
-            name = ':{}{}'.format(nxclass,contentinfo)
-        return name,stats
         
     @property
     def nxclass(self):

@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 from . import utils
 
+
 class FileSystemException(Exception):
     """
     Base class for generic file system exceptions.
@@ -230,15 +231,9 @@ class Path(File):
                         localpath = path[len(strdevice):]
                         if localpath.startswith(self.devsep):
                             localpath = localpath[len(self.devsep):]
-                    else:
+                    elif not localpath:
                         devicepath = device
                         localpath = path
-            
-            # Missing local path root:
-            # /tmp/test.h5:entry/subentry -> /tmp/test.h5:/entry/subentry
-            if devicepath is not None:
-                if not localpath.startswith(self.sep):
-                    localpath = self.sep+localpath
         else:
             devicepath,localpath = None,path
         
@@ -254,6 +249,19 @@ class Path(File):
         else:
             return self.__class__(path,**self.factory_kwargs)
     
+    def sibling(self,path):
+        if isinstance(path,Path):
+            return path
+        _device,_path = self._split_path(path,device=self.device)
+        if _device is None:
+            _device = ''
+        else:
+            _device = str(_device)
+        if str(self.device)==_device and not self.isabs(_path):
+            return self.parent[_path]
+        else:
+            return self.factory(path)
+            
     @staticmethod
     def _getpath(path):
         try:
@@ -312,12 +320,12 @@ class Path(File):
     def __getitem__(self,value):
         return self.factory(self.join(self.path,value))
 
+    def __call__(self,*value):
+        return self.__getitem__(value)
+        
     def __iter__(self):
         for path in self.listdir():
             yield path
-    
-    def __call__(self,*value):
-        return self.factory(self.join(self.path,*value))
 
     def append(self,value):
         self += value
@@ -344,8 +352,10 @@ class Path(File):
                 return ret
         return ret
     
-    def _copy_move_prepare(self, dest, force=True):
-        dest = self.factory(dest)
+    def _copy_move_prepare(self, dest, force=False):
+        dest = self.sibling(dest)
+        if dest.isdir:
+            dest = dest[self.name]
         if dest.exists and not force:
             raise AlreadyExists(dest.location)
             
@@ -449,6 +459,12 @@ class Path(File):
             path = os.path.relpath(path,self.path)
         return self._sep_out(path)
 
+    def isabs(self,path):
+        """absolute or relative path
+        """
+        path = self._sep_in(path)
+        return os.path.isabs(path)
+    
     @property
     def name(self):
         return os.path.basename(self._sep_in(self.path))
@@ -498,7 +514,7 @@ class Path(File):
         lines = self._str_tree(tree,stats=stats)
         return '\n'.join(lines)
         
-    def ls(self,recursive=True,depth=0,files=True,stats=False):
+    def ls(self,recursive=False,depth=0,files=True,stats=False):
         tree = self.strtree(recursive=recursive,depth=depth,files=files,stats=stats)
         print(tree)
 
@@ -525,18 +541,21 @@ class Path(File):
                 nodename = '{} -{}-> '.format(nodename,sep)
                 
                 if path.device == lnkdest.device:
-                    lnkdest = path.parent.relpath(lnkdest.path)
+                    lnkdeststr = path.parent.relpath(lnkdest.path)
                     lst = None
                 else:
-                    lnkdest = lnkdest.location
+                    lnkdeststr = lnkdest.location
                     _padding += ' '*(len(nodename)-4)
                     
-                nodename += lnkdest
-
-            # Content info
-            if stats:
-                nodename += self._contentinfo()
-            
+                nodename += lnkdeststr
+                if stats:
+                    nodename += lnkdest._contentinfo()
+            else:
+                if path.exists:
+                   if stats:
+                       nodename += path._contentinfo()
+                else:
+                    nodename = nodename + ' (does not exist)'
             out.append(nodename)
 
             # Add stats
@@ -597,7 +616,7 @@ class Path(File):
         pass
         
     @abstractmethod
-    def move(self, dest, force=True):
+    def move(self, dest, force=False):
         pass
 
     mv = move
@@ -606,7 +625,7 @@ class Path(File):
         return self.move(dest, force=False)
         
     @abstractmethod
-    def copy(self, dest, force=True, follow=False, dereference=False):
+    def copy(self, dest, force=False, follow=False, dereference=False):
         pass
 
     cp = copy
@@ -658,3 +677,18 @@ class Path(File):
             else:
                 lnkdest = lnkdest.location
         return lnkdest
+
+    @contextlib.contextmanager
+    def temp(self,name=None,**kwargs):
+        path = self[utils.randomstring(**kwargs)]
+        try:
+            yield path
+        except Exception as e:
+            path.remove(recursive=True)
+            raise e
+        finally:
+            if name:
+                path.move(name)
+            else:
+                path.remove(recursive=True)
+                
