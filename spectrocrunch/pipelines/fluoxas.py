@@ -126,7 +126,7 @@ def xrfparameters(**parameters):
             "outbase": scanname[0],
             "outdatapath": os.path.join(destpath,scanname[0]+"_data"),
             "outfitpath": os.path.join(destpath,scanname[0]+"_fit"),
-            "nxentry": nxentry
+            "nxparent": nxentry
     }
     
     return config,instrument
