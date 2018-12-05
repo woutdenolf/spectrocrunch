@@ -75,11 +75,8 @@ class Path(fs.Path):
         self._openparams = value
     
     def _openparams_defaults(self,openparams):
-        defaultopenparams = self.openparams
-        for k,v in defaultopenparams.items():
-            if k not in openparams:
-                openparams[k] = v
-        defaultmode = defaultopenparams['mode']
+        super(Path,self)._openparams_defaults(openparams)
+        defaultmode = self.openparams['mode']
         mode = openparams['mode']
         if defaultmode=='r':
             # read-only
@@ -97,7 +94,6 @@ class Path(fs.Path):
         
     @contextlib.contextmanager
     def _fopen(self,**openparams):
-        self._openparams_defaults(openparams)
         try:
             with open(self.path,**openparams) as f:
                 yield f

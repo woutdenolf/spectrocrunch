@@ -63,14 +63,24 @@ class h5File(localfs.Path):
         with h5py.File(self.path,**openparams) as f:
             yield f
 
-    @property
-    def openparams(self):
-        return self._openparams
-    
-    @openparams.setter
-    def openparams(self,value):
-        self._openparams = value
-    
+    def _openparams_defaults(self,openparams):
+        super(h5File,self)._openparams_defaults(openparams)
+        defaultmode = self.openparams['mode']
+        mode = openparams['mode']
+        if defaultmode=='r':
+            # read-only
+            mode = defaultmode
+        elif defaultmode=='r+' and mode not in ['r','r+']:
+            # deny new nodes
+            mode = defaultmode
+        elif defaultmode in ['x','w-'] and mode not in ['r','x','w-']:
+            # allow new nodes (do not overwrite)
+            mode = defaultmode
+        elif defaultmode=='w' and mode not in ['r','w']:
+            # allow new nodes (overwrite)
+            mode = defaultmode
+        openparams['mode'] = mode
+        
     @fs.onclose
     def remove(self,**kwargs):
         super(h5File,self).remove(**kwargs)
@@ -95,34 +105,37 @@ class Path(fs.Path):
         
     @property
     def openparams(self):
-        return self._h5file.openparams
+        return self.device.openparams
 
-    def _openparams_defaults(self,openparams):
-        defaultopenparams = self.openparams
-        for k,v in defaultopenparams.items():
-            if k not in openparams:
-                openparams[k] = v
-        defaultmode = defaultopenparams['mode']
-        mode = openparams['mode']
-        if defaultmode=='r':
-            # read-only
-            mode = defaultmode
-        elif defaultmode=='r+' and mode not in ['r','r+']:
-            # deny new nodes
-            mode = defaultmode
-        elif defaultmode in ['x','w-'] and mode not in ['r','x','w-']:
-            # allow new nodes (do not overwrite)
-            mode = defaultmode
-        elif defaultmode=='w' and mode not in ['r','w']:
-            # allow new nodes (overwrite)
-            mode = defaultmode
-        openparams['mode'] = mode
+    @openparams.setter
+    def openparams(self, value):
+        self.device.openparams = value
         
+    def _openparams_defaults(self,openparams):
+        pass # this will be done in the HDF5 proxy
+    
+    @property
+    def current_openparams(self):
+        return self.device.current_openparams
+        
+    @current_openparams.setter
+    def current_openparams(self,value):
+        pass # this will be done in the HDF5 proxy
+    
     @contextlib.contextmanager
     def _fopen(self,**createparams):
-        openparams = {k:createparams.pop(k) for k in self.openparams}
-        self._openparams_defaults(openparams)
-        mode = openparams['mode']
+        openparams = {k:createparams.pop(k)
+                      for k in self.openparams 
+                      if k in createparams}
+
+        # when device exists: do not truncate or raise error
+        mode = openparams.get('mode',self.openparams['mode'])
+        if mode in ['w','x','w-']:
+            openparams['mode'] = 'a'
+        else:
+            # r,r+,x/w-,a
+            openparams['mode'] = mode
+
         with self.h5open(**openparams) as f:
             node = f.get(self.path,default=None)
             if node:
@@ -138,6 +151,7 @@ class Path(fs.Path):
                     try:
                         del f[self.path]
                     except KeyError:
+                        print 'keyerror'
                         pass
                     node = None
                 # r,r+,a: nothing to do
@@ -156,22 +170,17 @@ class Path(fs.Path):
 
     @contextlib.contextmanager
     def h5open(self,**openparams):
-        # Do not truncate (w) or exclusive create (x/w-)
-        mode = openparams.get('mode',self.openparams.get('mode','a'))
-        if mode.startswith('w') or mode=='x':
-            mode = 'a'
-        openparams['mode'] = mode
-        with self._h5file.open(**openparams) as f:
+        with self.device.open(**openparams) as f:
             yield f
     
     def h5remove(self):
-        self._h5file.remove()
+        self.device.remove()
 
     def factory(self,path):
         if isinstance(path,self.__class__):
             return path
         else:
-            device,path = self._split_path(path,device=self._h5file)
+            device,path = self._split_path(path,device=self.device)
             return self.__class__(path,h5file=device,**self.factory_kwargs)
 
     @property

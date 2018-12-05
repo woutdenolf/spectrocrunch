@@ -96,22 +96,29 @@ class File(with_metaclass(ABCMeta,object)):
     
     def __init__(self,**kwargs):
         self._handle = None
+        self.current_openparams = {}
         self._onclose_callbacks = []
         super(File,self).__init__()
 
     @contextlib.contextmanager
     def open(self,**openparams):
         if self._handle is None:
-            kwargs = dict(self.openparams)
-            kwargs.update(openparams)
+            self._openparams_defaults(openparams)
             with self._closectx():
-                with self._fopen(**kwargs) as self._handle:
+                with self._fopen(**openparams) as self._handle:
                     try:
+                        self.current_openparams = openparams
                         yield self._handle
                     finally:
                         self._handle = None
+                        self.current_openparams = {}
         else:
             yield self._handle
+
+    def _openparams_defaults(self,openparams):
+        for k,v in self.openparams.items():
+            if k not in openparams:
+                openparams[k] = v
 
     @contextlib.contextmanager
     @abstractmethod

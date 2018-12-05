@@ -76,7 +76,7 @@ def ffparameters(**parameters):
         "rebin":rebin,
 
         # Output
-        "nxentry": nxentry,
+        "nxparent": nxentry,
         }
         
     return config
