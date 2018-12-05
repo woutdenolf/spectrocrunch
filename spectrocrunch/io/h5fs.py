@@ -38,7 +38,9 @@ class FileSystemException(fs.FileSystemException):
 
 
 class h5File(localfs.Path):
-
+    """Proxy to HDF5 file
+    """
+    
     def __init__(self,path,mode='a',**kwargs):
         """
         Args:
@@ -76,7 +78,9 @@ class h5File(localfs.Path):
 
 
 class Path(fs.Path):
-
+    """Proxy to HDF5 path
+    """
+    
     def __init__(self,path,h5file=None,**kwargs):
         h5file,path = self._split_path(str(path),device=h5file)
         if not path.startswith(self.sep):
@@ -93,18 +97,37 @@ class Path(fs.Path):
     def openparams(self):
         return self._h5file.openparams
 
+    def _openparams_defaults(self,openparams):
+        defaultopenparams = self.openparams
+        for k,v in defaultopenparams.items():
+            if k not in openparams:
+                openparams[k] = v
+        defaultmode = defaultopenparams['mode']
+        mode = openparams['mode']
+        if defaultmode=='r':
+            # read-only
+            mode = defaultmode
+        elif defaultmode=='r+' and mode not in ['r','r+']:
+            # deny new nodes
+            mode = defaultmode
+        elif defaultmode in ['x','w-'] and mode not in ['r','x','w-']:
+            # allow new nodes (do not overwrite)
+            mode = defaultmode
+        elif defaultmode=='w' and mode not in ['r','w']:
+            # allow new nodes (overwrite)
+            mode = defaultmode
+        openparams['mode'] = mode
+        
     @contextlib.contextmanager
     def _fopen(self,**createparams):
-        keys = (set(self.openparams.keys()) & set(createparams.keys()))
-        openparams = {k:createparams.pop(k) for k in keys}
-        mode = openparams.get('mode',self.openparams.get('mode','a'))
-
+        openparams = {k:createparams.pop(k) for k in self.openparams}
+        self._openparams_defaults(openparams)
+        mode = openparams['mode']
         with self.h5open(**openparams) as f:
             node = f.get(self.path,default=None)
             if node:
                 if mode=='w-' or mode=='x':
                     raise fs.AlreadyExists(self.location)
-            
                 if mode=='w':
                     if createparams:
                         if isinstance(node,h5py.Group):
@@ -118,7 +141,6 @@ class Path(fs.Path):
                         pass
                     node = None
                 # r,r+,a: nothing to do
-                
             if node:
                 if createparams:
                     raise fs.AlreadyExists(self.location)

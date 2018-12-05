@@ -120,7 +120,7 @@ class Converter(object):
     
     @property
     def application(self):
-        return self.nxentry.application_xrf('xrf')
+        return self.nxentry.application('xrf',definition='NXxrf')
     
     @property
     def instrument(self):

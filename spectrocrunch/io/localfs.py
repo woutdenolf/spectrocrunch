@@ -37,8 +37,10 @@ class FileSystemException(fs.FileSystemException):
     pass
 
 class Path(fs.Path):
-
-    def __init__(self,path,mode='a',**kwargs):
+    """Proxy to local path
+    """
+    
+    def __init__(self,path,mode='a+',**kwargs):
         """
         Args:
             path(str):
@@ -71,9 +73,31 @@ class Path(fs.Path):
     @openparams.setter
     def openparams(self,value):
         self._openparams = value
-            
+    
+    def _openparams_defaults(self,openparams):
+        defaultopenparams = self.openparams
+        for k,v in defaultopenparams.items():
+            if k not in openparams:
+                openparams[k] = v
+        defaultmode = defaultopenparams['mode']
+        mode = openparams['mode']
+        if defaultmode=='r':
+            # read-only
+            mode = defaultmode
+        elif defaultmode=='r+' and mode not in ['r','r+']:
+            # deny new files
+            mode = defaultmode
+        elif defaultmode in ['x','x+'] and mode not in ['r','x','x+']:
+            # allow new files (do not overwrite)
+            mode = defaultmode
+        elif defaultmode in ['w','w+'] and mode not in ['r','w','w+']:
+            # allow new files (overwrite)
+            mode = defaultmode
+        openparams['mode'] = mode
+        
     @contextlib.contextmanager
     def _fopen(self,**openparams):
+        self._openparams_defaults(openparams)
         try:
             with open(self.path,**openparams) as f:
                 yield f
