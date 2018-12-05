@@ -95,22 +95,26 @@ class Path(h5fs.Path):
                 path['date'].write(mode='w',data=tm)
             self.nxroot().update_stats(file_update_time=tm)
     
-    def _init_nxclass(self,path,nxclass,attrgen=None,filesgen=None,**openparams):
+    def _init_nxclass(self,path,nxclass,nxattributes=None,nxfiles=None,**openparams):
         with self.h5open(**openparams):
             path = path.mkdir()
             with path.open() as node:
                 nxclassattr = node.attrs.get('NX_class',None)
-                
                 if nxclassattr:
                     if nxclassattr!=nxclass:
-                        raise NexusFormatException('NX_class=={} (should be {})'
-                                                   .format(nxclassattr,nxclass))
+                        raise NexusFormatException('{} already exists with the wrong class ({} instead of {})'
+                                                   .format(path.name,nxclassattr,nxclass))
                 else:
-                    node.attrs["NX_class"] = nxclass
-                    if attrgen:
-                        node.attrs.update(**attrgen())
-                    if filesgen:
-                        for name,data in filesgen().items():
+                    node.attrs['NX_class'] = nxclass
+                    if nxattributes:
+                        if instance.iscallable(nxattributes):
+                            nxattributes = nxattributes()
+                        nxattributes.pop('NX_class',None)
+                        node.attrs.update(**nxattributes)
+                    if nxfiles:
+                        if instance.iscallable(nxfiles):
+                            nxfiles = nxfiles()
+                        for name,data in nxfiles.items():
                             path[name].mkfile(data=data,**openparams)
                             
                     path.updated()
@@ -173,10 +177,10 @@ class Path(h5fs.Path):
         
     def nxroot(self,**openparams):
         return self._init_nxclass(self.root,'NXroot',
-                                  attrgen=self._attrgen_nxroot,
+                                  nxattributes=self._nxattributes_nxroot,
                                   **openparams)
     
-    def _attrgen_nxroot(self):
+    def _nxattributes_nxroot(self):
         return {'file_name':textarray(self._h5file.path),
                 'file_time':timestamp(),
                 'HDF5_Version':textarray(h5py.version.hdf5_version),
@@ -195,7 +199,7 @@ class Path(h5fs.Path):
             raise NexusException('Could not find NXentry')
         path._raise_ifnot_class('NXroot')
         return self._init_nxclass(path[name],'NXentry',
-                                  filesgen=self._filesgen_nxentry,
+                                  nxfiles=self._nxfiles_nxentry,
                                   **openparams)
 
     def last_nxentry(self):
@@ -224,14 +228,11 @@ class Path(h5fs.Path):
     def nxsubentry(self,name,**openparams):
         self._raise_ifnot_class('NXentry','NXsubentry')
         return self._init_nxclass(self[name],'NXsubentry',
-                                  filesgen=self._filesgen_nxentry,
+                                  nxfiles=self._nxfiles_nxentry,
                                   **openparams)
     
-    def _filesgen_nxentry(self):
+    def _nxfiles_nxentry(self):
         return {'start_time':timestamp()}
-
-    def _filesgen_nxxrf(self):
-        return {'definition':'NXxrf'}
         
     def nxdata(self,name,**openparams):
         self._raise_if_class('NXroot')
@@ -240,10 +241,10 @@ class Path(h5fs.Path):
     def nxnote(self,name,**openparams):
         self._raise_if_class('NXroot')
         return self._init_nxclass(self[name],'NXnote',
-                                  filesgen=self._filesgen_nxnote,
+                                  nxfiles=self._nxfiles_nxnote,
                                   **openparams)
     
-    def _filesgen_nxnote(self):
+    def _nxfiles_nxnote(self):
         return {'date':timestamp()}
         
     def nxprocess(self,name,parameters=None,dependencies=None,**openparams):
@@ -258,7 +259,7 @@ class Path(h5fs.Path):
             return process,exists
         else:
             process = self._init_nxclass(process,'NXprocess',
-                                         filesgen=self._filesgen_nxprocess,
+                                         nxfiles=self._nxfiles_nxprocess,
                                          **openparams)
             process.set_config(parameters,dependencies=dependencies)
             return process,False
@@ -318,7 +319,7 @@ class Path(h5fs.Path):
 
             return process
     
-    def _filesgen_nxprocess(self):
+    def _nxfiles_nxprocess(self):
         return {'program':textarray(PROGRAM_NAME),
                 'version':textarray(__version__),
                 'date':timestamp()}
@@ -341,23 +342,30 @@ class Path(h5fs.Path):
             raise NexusException('Could not find measurement or NXentry')
         return self._init_nxclass(path['measurement'],'NXcollection',**openparams)
         
-    def nxcollection(self,name,**openparams):
+    def nxcollection(self,name,nxattributes=None,nxfiles=None,**openparams):
         self._raise_if_class('NXroot')
-        return self._init_nxclass(self[name],'NXcollection',**openparams)
+        return self._init_nxclass(self[name],'NXcollection',
+               nxattributes=nxattributes,nxfiles=nxfiles,**openparams)
 
-    def nxdetector(self,name,**openparams):
+    def nxdetector(self,name,nxattributes=None,nxfiles=None,**openparams):
         instrument = self.nxinstrument(**openparams)
-        return self._init_nxclass(instrument[name],'NXdetector',**openparams)
+        return self._init_nxclass(instrument[name],'NXdetector',
+               nxattributes=nxattributes,nxfiles=nxfiles,**openparams)
 
-    def nxmonochromator(self,name='monochromator',**openparams):
+    def nxmonochromator(self,name='monochromator',nxattributes=None,nxfiles=None,**openparams):
         instrument = self.nxinstrument(**openparams)
-        return self._init_nxclass(instrument[name],'NXmonochromator',**openparams)
+        return self._init_nxclass(instrument[name],'NXmonochromator',
+               nxattributes=nxattributes,nxfiles=nxfiles,**openparams)
 
-    def application_xrf(self,name,**openparams):
+    def application(self,name,definition=None,nxattributes=None,nxfiles=None,**openparams):
         entry = self.nxentry(**openparams)
+        if definition is None:
+            definition = name
+        if nxfiles is None:
+            nxfiles = {}
+        nxfiles['definition'] = nxfiles.get('definition',definition)
         return self._init_nxclass(self[name],'NXsubentry',
-                                  filesgen=self._filesgen_nxxrf,
-                                  **openparams)
+               nxattributes=nxattributes,nxfiles=nxfiles,**openparams)
 
     def positioners(self,**openparams):
         path = self.findfirstup_is_nxclass('NXprocess')
@@ -415,7 +423,7 @@ class Path(h5fs.Path):
             default = path.get_stat('default',default=None)
         return path
     
-    def mkfile(self,data=None,units=None,**params):
+    def mkfile(self,data=None,units=None,attributes=None,**params):
         if instance.isquantity(data):
             units = '{:~}'.format(data.units)
             data = data.magnitude
@@ -424,6 +432,9 @@ class Path(h5fs.Path):
         with self.open(**params) as dset:
             if units is not None:
                 dset.attrs['units'] = dataprepare(units)
+            if attributes is not None:
+                for k,v in attributes.items():
+                    dset.attrs[k] = dataprepare(v)
         return self
     
     def update_stats(self,**stats):

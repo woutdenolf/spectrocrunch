@@ -88,10 +88,12 @@ class DirectoryIsNotEmpty(FileSystemException):
     a directory is not empty.
     """
     pass
-    
+
 
 class File(with_metaclass(ABCMeta,object)):
-
+    """Proxy to file
+    """
+    
     def __init__(self,**kwargs):
         self._handle = None
         self._onclose_callbacks = []
@@ -154,7 +156,9 @@ def onclose(func):
 
 
 class Path(File):
-
+    """Proxy to file system path
+    """
+    
     @property
     def path(self):
         return self._path
