@@ -621,7 +621,7 @@ class _NXdata(_NXPath):
                 ashape = self.signal_shape
             if ashape:
                 if 'shape' in createparams:
-                    dshape = createparams['shape']
+                    dshape = tuple(createparams['shape'])
                 elif 'data' in createparams:
                     dshape = createparams['data'].shape
                 else:

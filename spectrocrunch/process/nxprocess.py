@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 
 import logging
-import contextlib
+from contextlib import contextmanager
 import traceback
 
 from . import nxutils
@@ -64,7 +64,7 @@ class Task(nxtask.Task):
     def default(self):
         return self.parameters.get('default',None)
 
-    @contextlib.contextmanager
+    @contextmanager
     def _atomic_context(self):
         """This is atomic if h5py.Group.move is atomic
         """

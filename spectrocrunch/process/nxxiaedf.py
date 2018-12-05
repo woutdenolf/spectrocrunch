@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import contextlib
+from contextlib import contextmanager
 import re
 import logging
 import traceback
@@ -45,7 +45,7 @@ class Task(nxtask.Task):
     def _parameters_filter(self):
         return []
         
-    @contextlib.contextmanager
+    @contextmanager
     def _atomic_context(self):
         """This is atomic if h5py.Group.move is atomic
         """

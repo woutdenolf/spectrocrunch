@@ -26,7 +26,7 @@ import numpy as np
 from collections import OrderedDict
 import logging
 
-from . import nxtask
+from . import nxprocess
 from . import nxresult
 from . import nxlazy
 from . import axis
@@ -40,7 +40,7 @@ from ..xrf.fit import PerformBatchFit
 
 logger = logging.getLogger(__name__)
 
-class Task(nxtask.Task):
+class Task(nxprocess.Task):
     
     DEFAULT_STACKDIM = 0
 

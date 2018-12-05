@@ -23,11 +23,11 @@
 # THE SOFTWARE.
 
 import numpy as np
-from . import nxtask
+from . import nxprocess
 from ..io.nxfs import textarray
 from ..fullfield import import_id21
 
-class Task(nxtask.Task):
+class Task(nxprocess.Task):
     
     DEFAULT_STACKDIM = 0
     
