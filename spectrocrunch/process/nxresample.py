@@ -24,7 +24,7 @@
 
 import numpy as np
 import logging
-import contextlib
+from contextlib import contextmanager
 import itertools
 try:
     from contextlib import ExitStack
@@ -83,7 +83,7 @@ class Task(nxregulargrid.Task):
     def _process_axes(self):
         return self.axes
 
-    @contextlib.contextmanager
+    @contextmanager
     def _context_encoders(self):
         with ExitStack() as stack:
             self.encoder_datasets = [stack.enter_context(signal.open())

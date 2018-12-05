@@ -26,7 +26,7 @@ from copy import deepcopy
 from abc import ABCMeta,abstractmethod
 from future.utils import with_metaclass
 import logging
-import contextlib
+from contextlib import contextmanager
 
 from ..utils import instance
 from ..utils import timing
@@ -170,8 +170,13 @@ class Task(with_metaclass(ABCMeta,object)):
     @abstractmethod
     def _execute(self):
         pass
-
-
+    
+    @abstractmethod
+    @contextmanager
+    def _atomic_context(self):
+        pass
+        
+    
 def task(**parameters):
     method = parameters.get('method',None)
     if method=='crop':

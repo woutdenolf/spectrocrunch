@@ -25,7 +25,7 @@
 import pandas as pd
 from abc import ABCMeta, abstractmethod, abstractproperty
 from future.utils import with_metaclass
-import contextlib
+from contextlib import contextmanager
 import numpy as np
 
 try:
@@ -102,7 +102,7 @@ class RegularGrid(object):
         
         return shape,indexgen
     
-    @contextlib.contextmanager
+    @contextmanager
     def open(self,**openparams):
         yield self.data
 
@@ -163,7 +163,7 @@ class NXSignalRegularGrid(RegularGrid):
         self.signal = signal
         super(NXSignalRegularGrid,self).__init__(axes,None,stackdim=stackdim)
     
-    @contextlib.contextmanager
+    @contextmanager
     def open(self,**openparams):
         with self.signal.open(**openparams) as dset:
             yield dset
@@ -186,12 +186,12 @@ class NXRegularGrid(RegularGrid):
         self.nxentry = nxgroup.nxentry()
         super(NXRegularGrid,self).__init__(axes,None,stackdim=stackdim)
 
-    @contextlib.contextmanager
+    @contextmanager
     def open(self,**openparams):
         with self.nxentry.open(**openparams) as group:
             yield group
 
-    @contextlib.contextmanager
+    @contextmanager
     def open_signals(self,**openparams):
         with ExitStack() as stack:
             yield [stack.enter_context(signal.open(**openparams)) for signal in self.signals]

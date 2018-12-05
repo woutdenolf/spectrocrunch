@@ -26,7 +26,7 @@ import unittest
 import numpy as np
 from testfixtures import TempDirectory
 import os
-import contextlib
+from contextlib import contextmanager
 import itertools
 
 from .. import regulargrid
@@ -45,7 +45,7 @@ class test_nxprocess(unittest.TestCase):
     def tearDown(self):
         self.dir.cleanup()
      
-    @contextlib.contextmanager
+    @contextmanager
     def _nxprocess(self,method=None):
         h5filename = os.path.join(self.dir.path,'test.h5')
         root = nxfs.Path('/',h5file=h5filename).nxroot()
