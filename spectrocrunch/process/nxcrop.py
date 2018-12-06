@@ -24,7 +24,7 @@
 
 import numpy as np
 from . import nxregulargrid
-from . import nxtask
+from . import basetask
 from . import axis
 
 class Task(nxregulargrid.Task):
@@ -33,7 +33,7 @@ class Task(nxregulargrid.Task):
         super(Task,self)._parameters_defaults()
         self._required_parameters('reference')
         if all(p not in self.parameters for p in ['roi','nanval']):
-            raise nxtask.MissingParameter('Specify either "nanval" or "roi"')
+            raise basetask.MissingParameter('Specify either "nanval" or "roi"')
 
     def _parameters_filter(self):
         return super(Task,self)._parameters_filter()+['roi','nanval','reference']

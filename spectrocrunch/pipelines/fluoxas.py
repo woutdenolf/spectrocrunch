@@ -23,17 +23,18 @@
 # THE SOFTWARE.
 
 import os
+import numpy as np
 from ..utils import instance
-from ..process import nxtask
+from ..process import basetask
 from ..io import nxfs
 from ..instruments.configuration import getinstrument
 
 def xrfparameters(**parameters):
     sourcepath = parameters["sourcepath"]
-    destpath = parameters["destpath"]
     scanname = parameters["scanname"]
     scannumbers = parameters["scannumbers"]
     cfgfiles = parameters["cfgfiles"]
+    nxentry = parameters["nxentry"]
     
     instrument = getinstrument(parameters)
     dtcor = parameters.get("dtcor",True)
@@ -50,7 +51,6 @@ def xrfparameters(**parameters):
     fluxid = parameters.get("fluxid","I0")
     transmissionid = parameters.get("transmissionid","It")
     #dtcorcounters = all(k in instrument.counterdict for k in ["xrficr","xrfocr"])
-    nxentry = parameters.get("nxentry",None)
     
     if noxia:
         cfgfiles = None
@@ -79,11 +79,8 @@ def xrfparameters(**parameters):
     counters = instrument.counters(exclude=lst)
     counters.extend(parameters.get("counters",[]))
     
-    h5file = os.path.join(destpath,scanname[0]+".h5")
-    if nxentry:
-        nxentry = nxfs.Path('/',h5file=h5file).nxentry(name=nxentry)
-    else:
-        nxentry = nxfs.Path('/',h5file=h5file).new_nxentry()
+    outputparent = nxfs.Path(str(nxentry))
+    outputparent = outputparent.parent[outputparent.name+'.1']
     
     edffields1 = ('speclabel','slowlabel','fastlabel','energylabel','timelabel')
     edffields2 = ('speclabel','slowlabel','fastlabel','stackvalue','time')
@@ -122,11 +119,7 @@ def xrfparameters(**parameters):
             "include_detectors": include_detectors,
 
             # Output directories
-            "destpath": destpath,
-            "outbase": scanname[0],
-            "outdatapath": os.path.join(destpath,scanname[0]+"_data"),
-            "outfitpath": os.path.join(destpath,scanname[0]+"_fit"),
-            "nxparent": nxentry
+            "outputparent": outputparent
     }
     
     return config,instrument
@@ -144,7 +137,7 @@ def tasks(**parameters):
     # Image stacks (counters + result of XRF fitting)
     xrfparams,instrument = xrfparameters(**parameters)
     xrfparams.update(commonparams)
-    task = nxtask.task(method='xrf',**xrfparams)
+    task = basetask.task(method='pymca',name='process:pymca',**xrfparams)
     tasks.append(task)
     
     # Normalization
@@ -165,7 +158,7 @@ def tasks(**parameters):
         else:
             expression = "{{}}/{{{}}}".format(prealignnormcounter)
 
-        task = nxtask.task(dependencies=task,method='expression',name='normalize',
+        task = basetask.task(dependencies=task,method='expression',name='process:normalize',
                               expression=expression,copy=copy,**commonparams)
         tasks.append(task)
         
@@ -173,7 +166,7 @@ def tasks(**parameters):
     encodercor = parameters.get("encodercor",False)
     if encodercor and instrument.encoderresolution:
         encoders = instrument.encoderinfo
-        task = nxtask.task(dependencies=task,method='resample',
+        task = basetask.task(dependencies=task,method='resample',name='process:resample',
                               encoders=encoders,**commonparams)
         tasks.append(task)
             
@@ -184,7 +177,7 @@ def tasks(**parameters):
         refimageindex = parameters.get("refimageindex",-1)
         roi = parameters.get("roialign",None)
         plot = parameters.get("plot",False)
-        task = nxtask.task(dependencies=task,method='align',alignmethod=alignmethod,
+        task = basetask.task(dependencies=task,method='align',name='process:align',alignmethod=alignmethod,
                               reference=alignreference,refimageindex=refimageindex,
                               crop=False,roi=roi,plot=plot,**commonparams)
         tasks.append(task)
@@ -196,21 +189,21 @@ def tasks(**parameters):
                 for prefix in instrument.counterdict["counters"]]
         
         expression = "{{}}/{{{}}}".format(postalignnormcounter)
-        task  = nxtask.task(dependencies=task,method='expression',name='postnormalize',
+        task  = basetask.task(dependencies=task,method='expression',name='process:postnormalize',
                                expression=expression,copy=copy,**commonparams)
         tasks.append(task)
         
     # Remove NaN's
     replacenan = parameters.get("replacenan",False)
     if replacenan:
-        tmp = nxtask.task(dependencies=task,method='replace',
+        tmp = basetask.task(dependencies=task,method='replace',name='process:replace',
                              org=np.nan,new=0,**commonparams)
         tasks.append(tmp)
                                             
     # Crop
     cropafter = parameters.get("crop",False)
     if cropafter:
-        tmp = nxtask.task(dependencies=task,method='crop',nanval=np.nan,
+        tmp = basetask.task(dependencies=task,method='crop',name='process:crop',nanval=np.nan,
                              reference=alignreference,**commonparams)
         tasks.append(tmp)
                                             

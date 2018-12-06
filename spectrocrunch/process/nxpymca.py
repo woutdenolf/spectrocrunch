@@ -71,12 +71,7 @@ class Task(nxprocess.Task):
                         "fit",
                         "fastfitting",
                         "exclude_detectors",
-                        "include_detectors",
-                        # Output directories (non hdf5 output)
-                        "destpath",
-                        "outbase",
-                        "outdatapath",
-                        "outfitpath",
+                        "include_detectors"
                         ]
         self._required_parameters(*self.allparams)
         parameters = self.parameters
@@ -88,6 +83,7 @@ class Task(nxprocess.Task):
 
         # TODO: temporary measure until pickleable
         self.qxrfgeometry = parameters.pop('qxrfgeometry')
+        parameters['qxrfgeometry'] = self.qxrfgeometry is not None
         self.units = parameters.pop('units')
     
     def _parameters_filter(self):
@@ -164,7 +160,17 @@ class Task(nxprocess.Task):
             self.outimgdim = [0,2]
         else:
             self.outimgdim = [0,1]
-        
+    
+    @property
+    def outdatapath(self):
+        nxentry = self.outputparent
+        return nxentry.device.parent[nxentry.name+'_data']
+    
+    @property
+    def outfitpath(self):
+        nxentry = self.outputparent
+        return nxentry.device.parent[nxentry.name+'_fit']
+    
     def _prepare_adddetector(self):
         # Detector include/exclude
         self.xiastackraw.exclude_detectors = self.parameters["exclude_detectors"]
@@ -288,8 +294,7 @@ class Task(nxprocess.Task):
             else:
                 radix = self.parameters["scanname"]
             
-            outpath = localfs.Path(self.parameters["outdatapath"])
-            self.xiastackproc = xiaedf.xiastack_mapnumbers(outpath.path,radix,self.parameters["scannumbers"])
+            self.xiastackproc = xiaedf.xiastack_mapnumbers(self.outdatapath.path,radix,self.parameters["scannumbers"])
             shape = self.xiastackproc.dshape
             if shape:
                 create = shape[:-1]!=self.xiastackraw.dshape[:-1]
@@ -476,7 +481,7 @@ class Task(nxprocess.Task):
         logger.info("Fit XRF spectra ...")
 
         # not necessary but clean in case of re-runs
-        outpath = localfs.Path(self.parameters["outfitpath"])
+        outpath = self.outfitpath
         outpath.remove(recursive=True)
 
         if len(self.parameters["detectorcfg"])==1:

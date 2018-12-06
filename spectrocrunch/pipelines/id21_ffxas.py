@@ -24,13 +24,12 @@
 
 import os
 from ..utils import instance
-from ..process import nxtask
+from ..process import basetask
 from ..io import nxfs
 
 def ffparameters(**parameters):
     sourcepath = parameters["sourcepath"]
     radix = parameters["radix"]
-    destpath = parameters["destpath"]
 
     rebin = parameters.get("rebin",(1,1))
     roiraw = parameters.get("roiraw",None)
@@ -45,11 +44,8 @@ def ffparameters(**parameters):
     if not instance.isarray(radix):
         radix = [radix]
 
-    h5file = os.path.join(destpath,radix[0]+".h5")
-    if nxentry:
-        nxentry = nxfs.Path('/',h5file=h5file).nxentry(name=nxentry)
-    else:
-        nxentry = nxfs.Path('/',h5file=h5file).new_nxentry()
+    outputparent = nxfs.Path(str(nxentry))
+    outputparent = outputparent.parent[outputparent.name+'.1']
 
     config = {
         # EDF header
@@ -76,7 +72,7 @@ def ffparameters(**parameters):
         "rebin":rebin,
 
         # Output
-        "nxparent": nxentry,
+        "outputparent": outputparent,
         }
         
     return config
@@ -92,7 +88,7 @@ def tasks(**parameters):
     # Image stacks (fullfield)
     ffparams = ffparameters(**parameters)
     ffparams.update(commonparams)
-    task = nxtask.task(method='fullfield',**ffparams)
+    task = basetask.task(method='fullfield',name='process:fullfield',**ffparams)
     tasks.append(task)
     
     # Normalization
@@ -105,7 +101,7 @@ def tasks(**parameters):
             expression = "-ln(2*{}/({flat1}+{flat2}))"
         else:
             expression = "-ln({}/{flat1})"
-        task = nxtask.task(dependencies=task,method='expression',name='normalize',
+        task = basetask.task(dependencies=task,method='expression',name='process:normalize',
                               expression=expression,skip=skip,**commonparams)
         tasks.append(task)
     
@@ -116,7 +112,7 @@ def tasks(**parameters):
         refimageindex = parameters.get("refimageindex",-1)
         roi = parameters.get("roialign",None)
         plot = parameters.get("plot",False)
-        task = nxtask.task(dependencies=task,method='align',alignmethod=alignmethod,
+        task = basetask.task(dependencies=task,method='align',name='process:align',alignmethod=alignmethod,
                               reference=alignreference,refimageindex=refimageindex,
                               crop=False,roi=roi,plot=plot,**commonparams)
         tasks.append(task)
@@ -124,7 +120,7 @@ def tasks(**parameters):
     # Crop
     roiresult = parameters.get("roiresult",None)
     if roiresult:
-        tmp = nxtask.task(dependencies=task,method='crop',name='roi',roi=roiresult,
+        tmp = basetask.task(dependencies=task,method='crop',name='process:roi',roi=roiresult,
                              reference=alignreference,**commonparams)
         tasks.append(tmp)
 

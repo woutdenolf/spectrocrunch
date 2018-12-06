@@ -32,7 +32,7 @@ import itertools
 from .. import regulargrid
 from ...io import nxfs
 from ...utils.tests import genindexing
-from .. import nxtask
+from .. import basetask
 from .. import nxwrap
 from .. import axis
 from ...utils import units
@@ -148,11 +148,11 @@ class test_nxprocess(unittest.TestCase):
             self._check_grid(grid)
     
     def _run_task(self,parameters,proc1):
-        previoustask = nxtask.nxpathtotask(proc1)
+        previoustask = basetask.nxpathtotask(proc1)
         self.assertTrue(previoustask.done)
         
         # Check run and re-run
-        newtask = nxtask.task(dependencies=previoustask,**parameters)
+        newtask = basetask.task(dependencies=previoustask,**parameters)
         self.assertFalse(newtask.done)
         newtask.run()
         self.assertTrue(newtask.done)
@@ -160,14 +160,14 @@ class test_nxprocess(unittest.TestCase):
         newtask.run()
         proc3 = newtask.output
         self.assertEqual(proc2,proc3)
-        task = nxtask.task(dependencies=previoustask,**parameters)
+        task = basetask.task(dependencies=previoustask,**parameters)
         self.assertTrue(task.done)
         task.run()
         proc3 = task.output
         self.assertEqual(proc2,proc3)
         
         # Check reconstructed task from output
-        task = nxtask.nxpathtotask(proc2)
+        task = basetask.nxpathtotask(proc2)
         self.assertEqual(type(task),type(newtask))
         self.assertTrue(task.done)
         task.run()

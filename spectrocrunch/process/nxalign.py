@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 
 from . import nxregulargrid
-from . import nxtask
+from . import basetask
 from ..utils import instance
 from ..io import fs
 
@@ -54,7 +54,7 @@ class Task(nxregulargrid.Task):
         elif alignmethod=="max":
             from ..align.alignSimple import alignMax as alignclass
         else:
-            raise nxtask.ParameterError('Unknown alignmethod {}'.format(repr(alignmethod)))
+            raise basetask.ParameterError('Unknown alignmethod {}'.format(repr(alignmethod)))
         self.alignclass = alignclass
     
     def _parameters_filter(self):
@@ -115,7 +115,7 @@ class Task(nxregulargrid.Task):
             elif refimageindex=='middle':
                 refimageindex = refgrid.shape[refgrid.stackdim]//2
             else:
-                raise nxtask.ParameterError('Unknown refimageindex {}'.format(repr(refimageindex)))
+                raise basetask.ParameterError('Unknown refimageindex {}'.format(repr(refimageindex)))
         elif instance.isinteger(refimageindex):
             pass
         elif refimageindex is None:

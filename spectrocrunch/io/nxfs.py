@@ -53,6 +53,12 @@ class NexusFormatException(NexusException):
     """
     pass
 
+class NexusProcessWrongHash(NexusException):
+    """
+    Raised when the NXprocess exists with a different hash
+    """
+    pass
+
 if sys.version_info < (3,):
     text_dtype = h5py.special_dtype(vlen=unicode)
 else:
@@ -208,14 +214,21 @@ class Path(h5fs.Path):
             pass
         return entry
         
-    def new_nxentry(self):
-        entry = self.last_nxentry()
+    def new_nxentry(self,entry=None):
+        if entry is None:
+            entry = self.findfirstup_is_nxclass('NXentry')
+            if entry is None:
+                entry = self.last_nxentry()
         if entry:
-            entry = entry.name
-        name = self._new_nxentryname(entry)
+            name = entry.name
+            while entry.exists:
+                name = self._nxentry_incrementname(name)
+                entry = entry.parent[name]
+        else:
+            name = self._nxentry_incrementname()
         return self.nxentry(name=name)
 
-    def _new_nxentryname(self,name):
+    def _nxentry_incrementname(self,name=None):
         if name:
             for m in re.finditer("[0-9]+",name):
                 pos,num = m.start(), m.group()
@@ -270,7 +283,9 @@ class Path(h5fs.Path):
             process(Path): full path
             exists(bool): process with same name and parameters exists
         """
-        entry = self.nxentry(**openparams)
+        entry = self.findfirstup_is_nxclass('NXentry')
+        if entry is None:
+            return None,False
         
         # Return existing process (verify hash when parameters are given)
         if parameters is None:
@@ -285,7 +300,7 @@ class Path(h5fs.Path):
             if process.exists:
                 logger.debug('Process {} already exists.\n parameters = {}\n new parameters = {}'
                               .format(repr(name),process.config.read(),parameters))
-                raise ValueError('Process {} already exists with a different hash. Use a different name.'.format(repr(name)))
+                raise NexusProcessWrongHash(name)
 
         return process,False
     
@@ -488,17 +503,16 @@ class _NXprocess(_NXPath):
 
             # Links to dependencies
             if dependencies:
-                for dependency in dependencies:
-                    dependency._raise_ifnot_class(self.NX_CLASS)
-                    if self.parent!=dependency.parent:
-                        raise ValueError('{} and {} should be in the same entry'.format(self,dependencies))
-                        
+                #for dependency in dependencies:
+                #    dependency._raise_ifnot_class(self.NX_CLASS)
+                #    if self.parent!=dependency.parent:
+                #        raise ValueError('{} and {} should be in the same entry'.format(self,dependencies))
                 for dependency in dependencies:
                     dependency = self.dependencies[dependency.name].link(dependency)
 
             # Other info
             self['sequence_index'].write(data=self.sequence_index)
-            self.results['checksum'].write(data=self.checksum)
+            self.configpath.update_stats(checksum=self.checksum)
 
             self.updated()
             
@@ -508,12 +522,11 @@ class _NXprocess(_NXPath):
     @property
     def checksum(self):
         with self._verify():
-            path = self.resultspath['checksum']
-            if path.exists:
-                return path.read()
-            else:
-                return calc_checksum(self.dependencies,self.confighash)
-    
+            checksum = self.configpath.get_stat('checksum')
+            if checksum is None:
+                checksum = calc_checksum(self.dependencies,self.confighash)
+            return checksum
+                
     @property
     def confighash(self):
         if self.configpath.exists:
