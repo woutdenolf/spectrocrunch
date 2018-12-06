@@ -23,55 +23,64 @@
 # THE SOFTWARE.
 import os
 import numpy as np
-import h5py
 import logging
 
 from . import batch
-from .fluoxas import process
-from ..xrf import create_hdf5_imagestacks
+from .run import run_sequential
+from .fluoxas import tasks as fluoxas_tasks
+from ..process import nxresult 
 from ..utils import instance
+from ..instruments.configuration import getinstrument
+from ..io.edf import saveedf
 
 logger = logging.getLogger(__name__)
 
 def fluoxas(samplename,datasetname,scannumbers,mapnumbers,cfgfiles,**parameters):
     if len(scannumbers)!=len(mapnumbers):
         raise RuntimeError("fluoXAS map numbers must be equal to the mapnumbers")
-    jobname = batch.jobname("multi",(samplename,datasetname,scannumbers,mapnumbers,cfgfiles),parameters)
+    jobname = batch.jobname("fluoxas",(samplename,datasetname,scannumbers,mapnumbers,cfgfiles),parameters)
     
-    instrument = create_hdf5_imagestacks.getinstrument(parameters)
+    instrument = getinstrument(parameters)
     radix,subdir = instrument.xrflocation(samplename,datasetname,type="dynamic")
 
     sourcepath = [os.path.join(parameters["proposaldir"],subdir,"{}_fluoXAS_{}".format(radix,nr)) for nr in scannumbers]
     scanname = ["{}_fluoXAS_{}".format(radix,nr) for nr in scannumbers]
-    out =  "{}_fmap{}".format(radix,scannumbers[0])
 
-    processdata(jobname,sourcepath,scanname,mapnumbers,cfgfiles,out,fluoxas=True,**parameters)
+    if len(scannumbers)>1:
+        nxentry =  "{}.fluoxas{}_{}".format(radix,scannumbers[0])
+    else:
+        nxentry =  "{}.fluoxas{}".format(radix,scannumbers[0],scannumbers[-1])
+    nxentry = os.path.join(parameters.get('resultsdir',''),radix,radix+'.h5')+':/'+nxentry
+    
+    processdata(jobname,sourcepath,scanname,mapnumbers,cfgfiles,nxentry,fluoxas=True,**parameters)
 
 def multi(samplename,datasetname,mapnumbers,cfgfiles,**parameters):
     jobname = batch.jobname("multi",(samplename,datasetname,mapnumbers,cfgfiles),parameters)
     
-    instrument = create_hdf5_imagestacks.getinstrument(parameters)
+    instrument = getinstrument(parameters)
     radix,subdir = instrument.xrflocation(samplename,datasetname,type="dynamic")
     sourcepath = [os.path.join(parameters["proposaldir"],subdir)]
 
     scanname = [radix]
     scannumbers = [mapnumbers]
-    out =  "{}_map{}_{}".format(radix,mapnumbers[0],mapnumbers[-1])
-
-    processdata(jobname,sourcepath,scanname,scannumbers,cfgfiles,out,multi=True,**parameters)
+    nxentry =  "{}.sixes{}_{}".format(radix,mapnumbers[0],mapnumbers[-1])
+    nxentry = os.path.join(parameters.get('resultsdir',''),radix,radix+'.h5')+':/'+nxentry
+    
+    processdata(jobname,sourcepath,scanname,scannumbers,cfgfiles,nxentry,multi=True,**parameters)
 
 def single(samplename,datasetname,mapnumber,cfgfiles,**parameters):
     jobname = batch.jobname("single",(samplename,datasetname,mapnumber,cfgfiles),parameters)
     
-    instrument = create_hdf5_imagestacks.getinstrument(parameters)
+    instrument = getinstrument(parameters)
     radix,subdir = instrument.xrflocation(samplename,datasetname,type="dynamic")
     sourcepath = [os.path.join(parameters["proposaldir"],subdir)]
 
     scanname = [radix]
     scannumbers = [[mapnumber]]
-    out =  "{}_map{}".format(radix,mapnumber)
-
-    processdata(jobname,sourcepath,scanname,scannumbers,cfgfiles,out,**parameters)
+    nxentry =  "{}.map{}".format(radix,mapnumber)
+    nxentry = os.path.join(parameters.get('resultsdir',''),radix,radix+'.h5')+':/'+nxentry
+    
+    processdata(jobname,sourcepath,scanname,scannumbers,cfgfiles,nxentry,**parameters)
     
 def processdata(jobname,*args,**kwargs):
     if "jobs" in kwargs:
@@ -79,18 +88,20 @@ def processdata(jobname,*args,**kwargs):
     else:
         processdata_exec(*args,**kwargs)
         
-def processdata_exec(sourcepath,scanname,scannumbers,cfgfiles,out,
-                    fluoxas=False,multi=False,geometry=None,resultsdir=None,
-                    resultssubdir='crunched',refimageindex=None,**kwargs):
+def processdata_exec(sourcepath,scanname,scannumbers,cfgfiles,nxentry,
+                    fluoxas=False,multi=False,geometry=None,
+                    resultsdir=None,edfexport=False,**kwargs):
     parameters = dict(kwargs)
 
     # Basic input
     parameters['sourcepath'] = sourcepath
     parameters['scanname'] = scanname
     parameters['scannumbers'] = scannumbers
-    parameters['destpath'] = os.path.join(resultsdir,resultssubdir,out)
+    parameters['nxentry'] = nxentry
     if not instance.isarray(cfgfiles):
         cfgfiles = [cfgfiles]
+    if not resultsdir:
+        resultsdir = ''
     parameters['cfgfiles'] = [os.path.join(resultsdir,cfg) for cfg in cfgfiles]
     
     # Quantification
@@ -99,78 +110,43 @@ def processdata_exec(sourcepath,scanname,scannumbers,cfgfiles,out,
     # Image aligment
     if not fluoxas and not multi:
          parameters['alignmethod'] = None
-    if instance.isstring(refimageindex):
-        if refimageindex=='first':
-            refimageindex = 0
-        elif refimageindex=='middle':
-            refimageindex = len(list(listtools.flatten(scannumbers)))/2
-        elif refimageindex=='last':
-            refimageindex = -1
-        else:
-            refimageindex = None # pair-wise
-    elif instance.isnumber(refimageindex):
-        if not instance.isinteger(refimageindex):
-            refimageindex = max(0,min(refimageindex,1))
-            refimageindex = int((len(list(listtools.flatten(scannumbers)))-1)*refimageindex)
-    else:
-        refimageindex = None # pair-wise
-    parameters['refimageindex'] = refimageindex
 
     # Process
-    h5filelast = process(**parameters)
-    
-    # Create EDF's for a single maps
-    if not fluoxas:
-        exportedf(h5filelast,**parameters)
-
-def exportedf(h5name,**parameters):
-    logger.info("EDF export {}:".format(h5name))
-    
-    instrument = create_hdf5_imagestacks.getinstrument(parameters)
-
-    path = os.path.basename(h5name)
-    n = 0
-    while len(path)!=n:
-        n = len(path)
-        path = os.path.splitext(path)[0]
-    path = os.path.join(os.path.dirname(h5name),"{}_results".format(path))
-    
-    # not necessary but clean in case of reruns
-    if os.path.isdir(path):
-        shutil.rmtree(path)
-            
-    filename = os.path.splitext(os.path.basename(h5name))[0]
-
-    stacks, axes, procinfo = get_hdf5_imagestacks(h5name,instrument.h5stackgroups)
-    counters = instrument.counters()
-
-    ndet = sum(1 for k in stacks if k.name.startswith("detector"))
-
-    with h5py.File(h5name) as hdf5FileObject:
-        for g in stacks:
-            if ndet==1:
-                outpath = path
-            else:
-                outpath = os.path.join(path,g)
-            
-            if not os.path.exists(outpath):
-                os.makedirs(outpath)
+    tasks = fluoxas_tasks(**parameters)
+    if edfexport:
+        edfoutput = not fluoxas and not tasks[-1].done
+    else:
+        edfoutput = False
+    if run_sequential(tasks):
+        if edfoutput:
+            exportedf(tasks[-1].output)
+    else:
+        unfinished = [task for task in tasks if not task.done]
+        raise RuntimeError('The following tasks are not finished: {}'.format(unfinished))
         
-            for s in stacks[g]:
-                if s in counters:
-                    continue
-                energy = hdf5FileObject[g][s][instrument.edfheaderkeys["energylabel"]]
-                n = len(energy)
-                for i in range(n):
-                    outfile = s.split("/")[-1]
-                    outfile = outfile.replace("-","_")
-                    outfile = outfile.replace("(","")
-                    outfile = outfile.replace(")","")
-                    if n==1:
-                        outfile = os.path.join(outpath,"{}.edf".format(outfile))
-                    else:
-                        outfile = os.path.join(outpath,"{}_{}{}.edf".format(outfile,energy[i],instrument.edfheaderkeys["energyunit"]))
+def exportedf(nxprocess):
+    outdir = nxprocess.device.parent[nxprocess.device.name+'_edfresults']
+    logger.info("EDF export:\n Input: {}\n Output: {}".format(nxprocess,outdir))
+    outdir.remove(recursive=True)
+    outdir.mkdir()
 
-                    logger.info(outfile)
-                    edf.saveedf(outfile,np.squeeze(hdf5FileObject[g][s]["data"][...,i]),{'Title': s},overwrite=True)
-                    
+    stackdim = nxprocess.config.read()['stackdim']
+    groups,axes = nxresult.regulargriddata(nxprocess)
+    stackaxes = axes[stackdim]
+    for group,paths in groups.items():
+        if group.isdetector:
+            for path in paths:
+                with path.open(mode='r') as dset:
+                    shape = dset.shape
+                    index = [slice(None)]*dset.ndim
+                    if shape[stackdim]==1:
+                        filename = group.xialabel+'_'+path.name+'.edf'
+                    else:
+                        filename = group.xialabel+'_'+path.name+'_{}keV.edf'
+                    for i in range(shape[stackdim]):
+                        index[stackdim] = i
+                        image = dset[tuple(index)]
+                        name = filename.format(stackaxes[i])
+                        title = '{}@{}keV'.format(group.xialabel,stackaxes[i])
+                        logger.info(' saving {}'.format(filename))
+                        saveedf(outdir[name].path,image,{'Title': title},overwrite=True)

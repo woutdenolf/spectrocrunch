@@ -110,7 +110,8 @@ class test_ffxas(unittest.TestCase):
 
         # Raw data
         parameters["sourcepath"] = self._datainfo['sourcepath']
-        parameters["radix"] = self._datainfo['radix']
+        radix = self._datainfo['radix']
+        parameters["radix"] = radix
         parameters["rebin"] = (1,1)
         parameters["stackdim"] = stackdim
 
@@ -128,7 +129,7 @@ class test_ffxas(unittest.TestCase):
         parameters["roiresult"] = None
         
         with self._destpath_context() as destpath:
-            parameters["destpath"] = destpath.path
+            parameters["nxentry"] = os.path.join(destpath.path,radix+'.h5')+':/'+radix
             for repeat in range(2):
                 logger.debug('Process parameters\n'+'\n'.join(['{}:{}'.format(k,v) for k,v in parameters.items()]))
             

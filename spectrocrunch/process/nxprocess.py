@@ -27,11 +27,12 @@ from contextlib import contextmanager
 import traceback
 
 from . import nxutils
-from . import nxtask
+from . import basetask
+from ..io import nxfs
 
 logger = logging.getLogger(__name__)
 
-class Task(nxtask.Task):
+class Task(basetask.Task):
     """Task who's output is a single NXprocess
     """
     
@@ -40,22 +41,19 @@ class Task(nxtask.Task):
         self.nxprocess = None
 
     @property
-    def output(self):
-        return self.nxentry[self.name]
+    def exists(self):
+        _,exists = self.outputparent.nxprocess_exists(self.name,
+                                        parameters=self.parameters,
+                                        dependencies=self.dependencies)
+        return exists
     
     @property
-    def done(self):
-        """A task is done when
-            - the dependencies exist
-            - the output exists
-            - the parameters have the expected hash
-        """
-        if not super(Task,self).done:
-            return False
-        _,exists = self.nxentry.nxprocess_exists(self.name,
-                                    parameters=self.parameters,
-                                    dependencies=self.dependencies)
-        return exists
+    def _run_alreadydone(self):
+        try:
+            return self.exists
+        except nxfs.NexusProcessWrongHash:
+            self.outputparent = self.outputparent.new_nxentry()
+            return self.exists
         
     def _parameters_filter(self):
         return super(Task,self)._parameters_filter()+['default']
@@ -68,7 +66,7 @@ class Task(nxtask.Task):
     def _atomic_context(self):
         """This is atomic if h5py.Group.move is atomic
         """
-        self.nxprocess,_ = self.nxentry.nxprocess(self._tempname,
+        self.nxprocess,_ = self.outputparent.nxprocess(self._tempname,
                                     parameters=self.parameters,
                                     dependencies=list(self.previous_outputs))
         try:
@@ -85,12 +83,13 @@ class Task(nxtask.Task):
             self.nxprocess = None
     
     @property
-    def nxentry(self):
-        return self.nxparent.nxentry()
-            
-    @property
     def nxresults(self):
         if self.nxprocess is None:
             return None
         else:
             return self.nxprocess.results
+
+    def _ensure_outputparent(self):
+        super(Task,self)._ensure_outputparent()
+        outputparent = self.outputparent
+        self.outputparent = outputparent.nxentry(name=outputparent.name)

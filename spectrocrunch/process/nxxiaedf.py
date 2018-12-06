@@ -28,13 +28,13 @@ import logging
 import traceback
 from copy import deepcopy
 
-from . import nxtask
+from . import basetask
 from ..io import xiaedf
 from ..io import xiaedftonexus
 
 logger = logging.getLogger(__name__)
 
-class Task(nxtask.Task):
+class Task(basetask.Task):
     """Converts XIA edf output to an NXentry
     """
   
@@ -49,7 +49,7 @@ class Task(nxtask.Task):
     def _atomic_context(self):
         """This is atomic if h5py.Group.move is atomic
         """
-        self.nxentry = self._nxparent.nxentry(name=self._tempname)
+        self.nxentry = self.outputparent.nxentry(name=self._tempname)
         try:
             yield
         except Exception:

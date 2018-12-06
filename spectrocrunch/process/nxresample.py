@@ -32,7 +32,6 @@ except ImportError:
     from contextlib2 import ExitStack
     
 from . import nxregulargrid
-from . import nxtask
 from ..math.interpolate import interpolate_irregular
 from ..utils import units
 from . import axis

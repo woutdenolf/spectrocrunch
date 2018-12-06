@@ -48,55 +48,67 @@ class Task(with_metaclass(ABCMeta,object)):
     """Task who's output is a single Nexus HDF5 path
     """
     
-    def __init__(self,dependencies=None,nxparent=None,**parameters):
+    def __init__(self,dependencies=None,outputparent=None,**parameters):
         """
         Args:
             dependencies(Optional(Task|Path))
-            nxparent(Optional(Path))
+            outputparent(Optional(Path))
         """
         self._tempname = randomstring()
         self.parameters = parameters
         self.dependencies = dependencies
-        self._nxparent = nxparent
-        if not self.dependencies and not nxparent:
-            raise ValueError('Specify "nxparent" when task does not have dependencies')
+        self.outputparent = outputparent
+        if not self.hasdependencies and self.outputparent is None:
+            raise ValueError('Specify "outputparent" when task does not have dependencies')
     
     def __str__(self):
         return "Task '{}'".format(self.name)
+    
+    def __repr__(self):
+        return self.__str__()
     
     def run(self):
         """Creates the output atomically
         """
         with timing.timeit_logger(logger,name=str(self)):
-            if self.done:
-                logger.info('{} already done'.format(self))
+            if self.dependencies_done:
+                self._ensure_outputparent()
+                if self._run_alreadydone:
+                    logger.info('{} already done'.format(self))
+                else:
+                    logger.info('{} started ...'.format(self))
+                    with self._atomic_context():
+                        self._execute()
             else:
-                logger.info('{} started ...'.format(self))
-                
-                # Make sure dependencies are done
-                for task in self.dependencies:
-                    if not task.done:
-                        return
-                
-                # Process and create result atomically
-                with self._atomic_context():
-                    self._execute()
+                logger.warning('{} not executed (missing dependencies)'.format(self))
 
     @property
     def output(self):
-        return self.nxparent[self.name]
+        return self.outputparent[self.name]
+    
+    @property
+    def dependencies_done(self):
+        for dependency in self.dependencies:
+            if hasattr(dependency,'output'):
+                if not dependency.done:
+                    return False
+            else:
+                if not dependency.exists:
+                    return False
+        return True
+    
+    @property
+    def exists(self):
+        return self.output.exists
+    
+    @property
+    def _run_alreadydone(self):
+        return self.exists
     
     @property
     def done(self):
-        """A task is done when
-            - the dependencies exist
-            - the output exists
-        """
-        for output in self.previous_outputs:
-            if not output.exists:
-                return False
-        return self.output.exists
-    
+        return self.dependencies_done and self.exists
+        
     @property
     def checksum(self):
         hashes = [dependency.checksum for dependency in self.dependencies]
@@ -139,6 +151,10 @@ class Task(with_metaclass(ABCMeta,object)):
                 ret.append(dependency)
         return ret
 
+    @property
+    def hasdependencies(self):
+        return bool([x for x in self.dependencies])
+
     def _parameters_defaults(self):
         self._required_parameters('method')
         self.parameters['name'] = self.parameters.get('name',self.method)
@@ -161,12 +177,22 @@ class Task(with_metaclass(ABCMeta,object)):
         return self.parameters.get('method',None)
 
     @property
-    def nxparent(self):
-        if self.dependencies:
-            return self.previous_outputs[-1].parent
-        else:
-            return self._nxparent
-        
+    def outputparent(self):
+        if self._outputparent is None:
+            previous = self.previous_outputs
+            if previous:
+                self._outputparent = previous[-1].parent
+        return self._outputparent
+    
+    @outputparent.setter
+    def outputparent(self,value):
+        self._outputparent = value
+    
+    def _ensure_outputparent(self):
+        device = self.output.device
+        if device:
+            device.parent.mkdir()
+    
     @abstractmethod
     def _execute(self):
         pass
@@ -191,8 +217,8 @@ def task(**parameters):
         from .nxexpression import Task
     elif method=='resample':
         from .nxresample import Task
-    elif method=='xrf':
-        from .nxxrf import Task
+    elif method=='pymca':
+        from .nxpymca import Task
     elif method=='fullfield':
         from .nxfullfield import Task
     elif method=='xiaedftonx':
@@ -215,6 +241,6 @@ def nxpathtotask(path):
             parameters['path'] = path
     else:
         parameters = {'path':path}
-    nxparent = path.parent
+    outputparent = path.parent
     dependencies = [path for path in path.dependencies]
-    return task(dependencies=dependencies,nxparent=nxparent,**parameters)
+    return task(dependencies=dependencies,outputparent=outputparent,**parameters)

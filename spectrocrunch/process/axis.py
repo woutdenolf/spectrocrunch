@@ -590,8 +590,6 @@ class AxisSegments(Axis):
         values = []
         for i in range(len(nsteps)):
             start,end = func(limits[i]),func(limits[i+1])
-            if start >= end:
-                raise ValueError("Limits must be strictly increasing")
             nspt = func(nsteps[i])
             inc = (end-start)/float(nspt)
             values += (start+inc*np.arange(nspt)).tolist()
