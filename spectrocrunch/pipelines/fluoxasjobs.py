@@ -84,7 +84,7 @@ def single(samplename,datasetname,mapnumber,cfgfiles,**parameters):
     processdata(jobname,sourcepath,scanname,scannumbers,cfgfiles,nxentry,**parameters)
 
 def manualselection(sourcepath,scanname,scannumbers,cfgfiles,outname=None,outsuffix=None,**parameters):
-    jobname = batch.jobname("manual",(sourcepath,scanname,scannumbers,cfgfiles),parameters)
+    jobname = batch.jobname("manualselection",(sourcepath,scanname,scannumbers,cfgfiles),parameters)
     
     if outname is None:
         outname = scanname[0]
@@ -129,7 +129,7 @@ def processdata_exec(sourcepath,scanname,scannumbers,cfgfiles,nxentry,
         edfoutput = not fluoxas and not tasks[-1].done
     else:
         edfoutput = False
-    if run_sequential(tasks):
+    if run_sequential(tasks,name='fluoxas'):
         if edfoutput:
             exportedf(tasks[-1].output)
     else:

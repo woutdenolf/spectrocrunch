@@ -27,11 +27,13 @@ from abc import ABCMeta,abstractmethod
 from future.utils import with_metaclass
 import logging
 from contextlib import contextmanager
+import traceback
 
 from ..utils import instance
 from ..utils import timing
 from ..utils import hashing
 from ..io.utils import randomstring
+from ..utils.signalhandling import DelaySignalsContext
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +83,18 @@ class Task(with_metaclass(ABCMeta,object)):
                         self._execute()
         else:
             logger.warning('{} not executed (missing dependencies)'.format(self))
+
+    def _atomic_context(self):
+        return DelaySignalsContext(setup=self._atomic_context_enter,
+                                   teardown=self._atomic_context_exit)
+
+    def _atomic_context_enter(self):
+        pass
+
+    def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
+        if exc_type:
+            logger.error(''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
+        return 1 # Exception is handled (do not raise it)
 
     @property
     def output(self):
@@ -196,12 +210,7 @@ class Task(with_metaclass(ABCMeta,object)):
     @abstractmethod
     def _execute(self):
         pass
-    
-    @abstractmethod
-    @contextmanager
-    def _atomic_context(self):
-        pass
-        
+
     
 def task(**parameters):
     method = parameters.get('method',None)

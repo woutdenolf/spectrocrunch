@@ -23,7 +23,6 @@
 # THE SOFTWARE.
 
 import logging
-from contextlib import contextmanager
 import traceback
 
 from . import nxutils
@@ -31,6 +30,7 @@ from . import basetask
 from ..io import nxfs
 
 logger = logging.getLogger(__name__)
+
 
 class Task(basetask.Task):
     """Task who's output is a single NXprocess
@@ -62,26 +62,25 @@ class Task(basetask.Task):
     def default(self):
         return self.parameters.get('default',None)
 
-    @contextmanager
-    def _atomic_context(self):
+    def _atomic_context_enter(self):
         """This is atomic if h5py.Group.move is atomic
         """
         self.nxprocess,_ = self.outputparent.nxprocess(self._tempname,
                                     parameters=self.parameters,
                                     dependencies=list(self.previous_outputs))
-        try:
-            yield
-        except Exception:
-            logger.error(traceback.format_exc())
+
+    def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
+        if exc_type:
+            logger.error(''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
             self.nxprocess.remove(recursive=True)
         else:
             self.nxprocess = self.nxprocess.rename(self.output)
             if self.default:
                 nxutils.set_default(self.nxprocess,self.default)
             self.nxprocess.updated()
-        finally:
-            self.nxprocess = None
-    
+        self.nxprocess = None
+        return 1 # Exception is handled (do not raise it)
+
     @property
     def nxresults(self):
         if self.nxprocess is None:

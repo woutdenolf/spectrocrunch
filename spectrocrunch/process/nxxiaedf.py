@@ -22,7 +22,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from contextlib import contextmanager
 import re
 import logging
 import traceback
@@ -44,22 +43,21 @@ class Task(basetask.Task):
         
     def _parameters_filter(self):
         return []
-        
-    @contextmanager
-    def _atomic_context(self):
+    
+    def _atomic_context_enter(self):
         """This is atomic if h5py.Group.move is atomic
         """
         self.nxentry = self.outputparent.nxentry(name=self._tempname)
-        try:
-            yield
-        except Exception:
-            logger.error(traceback.format_exc())
+
+    def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
+        if exc_type:
+            logger.error(''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
             self.nxentry.remove(recursive=True)
         else:
             self.nxentry = self.nxentry.rename(self.output)
             self.nxentry.updated()
-        finally:
-            self.nxentry = None
+        self.nxprocess = None
+        return 1 # Exception is handled (do not raise it)
 
     def _execute(self):
         parameters = deepcopy(self.parameters)

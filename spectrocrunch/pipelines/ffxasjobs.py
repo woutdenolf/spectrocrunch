@@ -57,7 +57,7 @@ def processdata_exec(sourcepath,radix,nxentry,**kwargs):
     parameters['radix'] = radix
     parameters['nxentry'] = nxentry
     tasks = ffxas_tasks(**parameters)
-    if run_sequential(tasks):
+    if run_sequential(tasks,name='fullfield'):
         pass
     else:
         unfinished = [task for task in tasks if not task.done]

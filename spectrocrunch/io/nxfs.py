@@ -288,20 +288,19 @@ class Path(h5fs.Path):
             return None,False
         
         # Return existing process (verify hash when parameters are given)
+        process = entry[name]
         if parameters is None:
-            process = entry[name]
             return process,process.exists
         else:
-            checksum = calc_checksum(dependencies,hashing.calcjhash(parameters))
-            for process in entry.iter_is_nxclass('NXprocess'):
+            if process.is_nxclass('NXprocess'):
+                checksum = calc_checksum(dependencies,hashing.calcjhash(parameters))
                 if process.verify_checksum(checksum):
                     return process,True
-            process = entry[name]
+                if process.exists:
+                    logger.debug('HDF5 path {} already exists.\n parameters = {}\n new parameters = {}'
+                                  .format(repr(name),process.config.read(),parameters))
             if process.exists:
-                logger.debug('Process {} already exists.\n parameters = {}\n new parameters = {}'
-                              .format(repr(name),process.config.read(),parameters))
                 raise NexusProcessWrongHash(name)
-
         return process,False
     
     def last_nxprocess(self,**openparams):

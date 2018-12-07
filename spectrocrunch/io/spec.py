@@ -409,7 +409,7 @@ class edfheader_parser(object):
     def __call__(self,cmd):
         return self.parse(cmd)
         
-    def parse(self,header):
+    def parse(self,header,defaultdims=None):
         out = {}
         if self.speclabel:
             try:
@@ -443,8 +443,10 @@ class edfheader_parser(object):
         # EDF: row-first ordering
         # data.shape == (Dim_2,Dim_1) == (slow,fast)
         axes = []
-        axes.append(self._extract_axis('Dim_2',header,out,fast=False))
-        axes.append(self._extract_axis('Dim_1',header,out,fast=True))
+        if not defaultdims:
+            defaultdims = (None, None)
+        axes.append(self._extract_axis(header,out,'Dim_2',ndefault=defaultdims[0],fast=False))
+        axes.append(self._extract_axis(header,out,'Dim_1',ndefault=defaultdims[1],fast=True))
         out['axes'] = axes
         
         if 'name' not in out:
@@ -464,7 +466,7 @@ class edfheader_parser(object):
                     if k not in out:
                         out[k] = ureg.Quantity(np.nan,u)
 
-    def _extract_axis(self,dimkey,header,out,fast=True):
+    def _extract_axis(self,header,out,dimkey,ndefault=None,fast=True):
         if fast:
             label = 'fast'
             nlabel = 'npixels'
@@ -491,7 +493,9 @@ class edfheader_parser(object):
                 return axis.ascan(start,end,n,name=name)
         except KeyError:
             name = label
-            nsteps = int(header[dimkey])-1
+            if not ndefault:
+                ndefault = int(header[dimkey])
+            nsteps = ndefault-1
             if fast:
                 return axis.AxisRegular(0.5,nsteps+0.5,nsteps,name=name)
             else:
