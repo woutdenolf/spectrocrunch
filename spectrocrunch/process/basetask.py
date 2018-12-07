@@ -70,17 +70,17 @@ class Task(with_metaclass(ABCMeta,object)):
     def run(self):
         """Creates the output atomically
         """
-        with timing.timeit_logger(logger,name=str(self)):
-            if self.dependencies_done:
-                self._ensure_outputparent()
-                if self._run_alreadydone:
-                    logger.info('{} already done'.format(self))
-                else:
-                    logger.info('{} started ...'.format(self))
+        if self.dependencies_done:
+            self._ensure_outputparent()
+            if self._run_alreadydone:
+                logger.info('{} already done'.format(self))
+            else:
+                logger.info('{} started ...'.format(self))
+                with timing.timeit_logger(logger,name=str(self)):
                     with self._atomic_context():
                         self._execute()
-            else:
-                logger.warning('{} not executed (missing dependencies)'.format(self))
+        else:
+            logger.warning('{} not executed (missing dependencies)'.format(self))
 
     @property
     def output(self):

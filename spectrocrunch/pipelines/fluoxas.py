@@ -144,7 +144,7 @@ def tasks(**parameters):
     prealignnormcounter = parameters.get("prealignnormcounter",None)
     dtcor = False # No longer needed
     if dtcor or prealignnormcounter is not None:
-        copy = [{'method':'regexparent','pattern':prefix}
+        copy = [{'method':'regex','pattern':prefix}
                 for prefix in instrument.counterdict["counters"]]
 
         # Create normalization expression

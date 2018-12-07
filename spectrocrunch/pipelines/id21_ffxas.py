@@ -34,7 +34,7 @@ def ffparameters(**parameters):
     rebin = parameters.get("rebin",(1,1))
     roiraw = parameters.get("roiraw",None)
     stackdim = parameters.get("stackdim",2)
-    normalize = parameters.get("normalize",False)
+    normalize = parameters.get("normalize",True)
     normalizeonload = parameters.get("normalizeonload",True)
     flatbeforeafter = parameters.get("flatbeforeafter",True)
     nxentry = parameters.get("nxentry",None)
