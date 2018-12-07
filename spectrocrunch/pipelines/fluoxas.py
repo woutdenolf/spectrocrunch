@@ -78,7 +78,7 @@ def xrfparameters(**parameters):
         lst.extend(["motors"])
     counters = instrument.counters(exclude=lst)
     counters.extend(parameters.get("counters",[]))
-    
+
     outputparent = nxfs.Path(str(nxentry))
     outputparent = outputparent.parent[outputparent.name+'.1']
     
@@ -87,7 +87,7 @@ def xrfparameters(**parameters):
     edfheader = {k2:instrument.edfheaderkeys[k1] for k1,k2 in zip(edffields1,edffields2)}
     edfheader['axesnamemap'] = instrument.imagemotors
     edfheader['compensationmotors'] = instrument.compensationmotors
-    
+
     config = {
             # Input
             "sourcepath": sourcepath,

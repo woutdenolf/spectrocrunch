@@ -328,7 +328,6 @@ class Task(nxprocess.Task):
         # Check counters
         countersfound = set(self.xiastackraw.counterbasenames())
         counters = countersfound.intersection(self.parameters['counters'])
-
         if self.parameters['metadata']=='xia':
             metacounters = 'xia'
         else:
@@ -421,8 +420,15 @@ class Task(nxprocess.Task):
     def _getscanparameters(self,header):
         """Get scan dimensions from header
         """
-        o = spec.edfheader_parser(units=self.units,**self.parameters['edfheader'])
-        return o.parse(header)
+        parameters = self.parameters
+        o = spec.edfheader_parser(units=self.units,**parameters['edfheader'])
+        metadata = parameters['metadata']
+        if metadata and metadata!='xia':
+            defaultdims = None
+        else:
+            shape = self.xiastackraw.dshape
+            defaultdims = shape[1],shape[2]
+        return o.parse(header,defaultdims=defaultdims)
 
     def _prepare_xrffit(self):
         self.fit = self.parameters["fit"]
