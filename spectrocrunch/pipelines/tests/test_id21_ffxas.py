@@ -153,18 +153,18 @@ class test_ffxas(unittest.TestCase):
         shape = tuple(shape)
         
         # Check nxprocess groups
-        groups = ['fullfield']
+        groups = ['process:fullfield']
         if parameters["normalize"] and not parameters["normalizeonload"]:
-            groups.append('normalize')
+            groups.append('process:normalize')
         if parameters["alignmethod"]:
-            groups.append('align')
+            groups.append('process:align')
         if parameters["roiresult"]:
-            groups.append('roi')
+            groups.append('process:roi')
         entry = tasks[-1].output.nxentry()
         self.assertEqual(set(groups),set([g.name for g in entry.iter_is_nxclass('NXprocess')]))
 
         # Check axes
-        nxprocess = entry['fullfield']
+        nxprocess = entry['process:fullfield']
         positioners = nxprocess.positioners()
         np.testing.assert_allclose(params["energy"],positioners.get_axis('energy'))
         np.testing.assert_array_equal(range(params["n1"]),positioners.get_axis('row'))
@@ -173,9 +173,9 @@ class test_ffxas(unittest.TestCase):
         # Check transmission
         if parameters["normalize"]:
             if parameters["normalizeonload"]:
-                nxprocess = entry['fullfield']
+                nxprocess = entry['process:fullfield']
             else:
-                nxprocess = entry['normalize']
+                nxprocess = entry['process:normalize']
             fdata = regulargrid.NXSignalRegularGrid(nxprocess.results['detector0'].signal)
             self.assertEqual(shape,fdata.shape)
             index = [slice(None)]*fdata.ndim
@@ -188,7 +188,7 @@ class test_ffxas(unittest.TestCase):
                 
         # Check aligned results
         if parameters["alignmethod"]:
-            nxprocess = entry['align']
+            nxprocess = entry['process:align']
             fdata = regulargrid.NXSignalRegularGrid(nxprocess.results['detector0'].signal)
 
             i = parameters["refimageindex"]

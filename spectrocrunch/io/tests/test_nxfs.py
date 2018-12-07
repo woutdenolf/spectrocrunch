@@ -100,7 +100,7 @@ class test_nxfs(unittest.TestCase):
         self.assertEqual(process2.config.read(),None)
         self.assertEqual(next(iter(process2.dependencies)).linkdest(),process1)
 
-        self.assertRaises(ValueError,entry.nxprocess,'align',parameters={'wrong':1},dependencies=[process1])
+        self.assertRaises(nxfs.NexusProcessWrongHash,entry.nxprocess,'align',parameters={'wrong':1},dependencies=[process1])
         
     def _check_nxdata(self,data1):
         y = 'y',range(2),{'units':'um','title':'vertical'}
