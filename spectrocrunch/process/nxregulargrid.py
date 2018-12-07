@@ -45,7 +45,6 @@ class Task(nxprocess.Task):
         parameters['skip'] = parameters.get('skip',[])
         parameters['sliced'] = parameters.get('sliced',False)
         parameters['stackdim'] = parameters.get('stackdim',self.DEFAULT_STACKDIM)
-        logger.info('Skip signals: {}'.format(parameters['skip']))
         # Not all processes need a reference
     
     def _parameters_filter(self):
@@ -58,6 +57,7 @@ class Task(nxprocess.Task):
         """
         if len(self.dependencies)!=1:
             raise RuntimeError('nxregulargrid.Task can only depend on exactly one previous task')
+        logger.info('Skip signals: {}'.format(self.parameters['skip']))
         self.grid = regulargrid.NXRegularGrid(self.previous_outputs[0])
         self._prepare_process()
         self._execute_grid()

@@ -45,17 +45,18 @@ class Task(nxregulargrid.Task):
         self._required_parameters('expression')
         parameters = self.parameters
         parameters['copy'] = parameters.get('copy',[])
-        logger.info('Copy signals: {}'.format(parameters['copy']))
-        logger.info('Expression: {}'.format(parameters['expression']))
-
+        
     def _parameters_filter(self):
         return super(Task,self)._parameters_filter()+['expression','copy']
         
     def _prepare_process(self):
         super(Task,self)._prepare_process()
-        self.copyfuncs = [self._rematch_func(redict) for redict in self.parameters['copy']]
+        parameters = self.parameters
+        self.copyfuncs = [self._rematch_func(redict) for redict in parameters['copy']]
         self.mathparser = MathParser()
         self._parse_expression()
+        logger.info('Copy signals: {}'.format(parameters['copy']))
+        logger.info('Expression: {}'.format(parameters['expression']))
 
     def _process_data(self,data):
         if self.variables:

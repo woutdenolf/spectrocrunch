@@ -21,6 +21,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+
 import os
 import numpy as np
 import logging
@@ -81,7 +82,18 @@ def single(samplename,datasetname,mapnumber,cfgfiles,**parameters):
     nxentry = os.path.join(parameters.get('resultsdir',''),radix,radix+'.h5')+':/'+nxentry
     
     processdata(jobname,sourcepath,scanname,scannumbers,cfgfiles,nxentry,**parameters)
+
+def manualselection(sourcepath,scanname,scannumbers,cfgfiles,outname=None,outsuffix=None,**parameters):
+    jobname = batch.jobname("manual",(sourcepath,scanname,scannumbers,cfgfiles),parameters)
     
+    if outname is None:
+        outname = scanname[0]
+    if outsuffix is None:
+        outsuffix = '.map{}'.format(scannumbers[0][0])
+    nxentry = os.path.join(parameters.get('resultsdir',''),outname,outname+'.h5')+':/'+outname+outsuffix
+    
+    processdata(jobname,sourcepath,scanname,scannumbers,cfgfiles,nxentry,**parameters)
+
 def processdata(jobname,*args,**kwargs):
     if "jobs" in kwargs:
         kwargs["jobs"].append((jobname,processdata_exec,args,kwargs))
