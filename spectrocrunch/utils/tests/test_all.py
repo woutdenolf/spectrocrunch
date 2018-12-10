@@ -37,7 +37,7 @@ def test_suite():
     testSuite.addTest(test_classfactory.test_suite())
     testSuite.addTest(test_indexing.test_suite())
     testSuite.addTest(test_hashing.test_suite())
-    testSuite.addTest(signalhandling.test_suite())
+    testSuite.addTest(test_signalhandling.test_suite())
     return testSuite
     
 if __name__ == '__main__':
