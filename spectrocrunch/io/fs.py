@@ -363,9 +363,9 @@ class Path(File):
                 return ret
         return ret
     
-    def _copy_move_prepare(self, dest, force=False):
+    def _copy_move_prepare(self, dest, force=False, rename=False):
         dest = self.sibling(dest)
-        if dest.isdir:
+        if dest.isdir and not rename:
             dest = dest[self.name]
         if dest.exists and not force:
             raise AlreadyExists(dest.location)
@@ -627,13 +627,13 @@ class Path(File):
         pass
         
     @abstractmethod
-    def move(self, dest, force=False):
+    def move(self, dest, force=False, rename=False):
         pass
 
     mv = move
 
-    def rename(self, dest):
-        return self.move(dest, force=False)
+    def rename(self, dest, force=False):
+        return self.move(dest, force=force, rename=True)
         
     @abstractmethod
     def copy(self, dest, force=False, follow=False, dereference=False):
@@ -690,7 +690,10 @@ class Path(File):
         return lnkdest
 
     @contextlib.contextmanager
-    def temp(self,name=None,**kwargs):
+    def temp(self,name=None,force=False,**kwargs):
+        """Context manager which creates a temporary path that will be 
+        removed or renamed on exit.
+        """
         path = self[utils.randomstring(**kwargs)]
         try:
             yield path
@@ -699,7 +702,15 @@ class Path(File):
             raise e
         finally:
             if name:
-                path.move(name)
+                path.renameremove(name,force=force)
             else:
                 path.remove(recursive=True)
-                
+    
+    def renameremove(self,dest,force=False):
+        """Rename or remove if the destination already exists (unless force=True)
+        """
+        try:
+            return self.rename(dest,force=force)
+        except AlreadyExists:
+            self.remove(recursive=True)
+            return self

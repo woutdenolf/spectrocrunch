@@ -276,9 +276,9 @@ class Path(fs.Path):
             f.create_group(self.path)
             return self
             
-    def move(self, dest, force=False):
+    def move(self, dest, force=False, rename=False):
         with self.h5open() as f:
-            dest = self._copy_move_prepare(dest, force=force)
+            dest = self._copy_move_prepare(dest, force=force, rename=rename)
             if dest.exists and force:
                 dest.remove(recursive=True)
             if self.device==dest.device:
