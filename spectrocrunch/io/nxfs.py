@@ -37,7 +37,9 @@ from ..utils import units
 from ..utils import instance
 from ..utils import hashing
 from .. import __version__
+
 PROGRAM_NAME = 'spectrocrunch'
+DEFAULT_PLOT_NAME = 'plot:default'
 
 logger = logging.getLogger(__name__)
 
@@ -544,7 +546,7 @@ class _NXprocess(_NXPath):
     @property
     def plotselect(self):
         with self._verify():
-            return self.nxdata('plotselect')
+            return self.nxdata(DEFAULT_PLOT_NAME)
     
     def set_config(self,parameters,dependencies=None):
         with self._verify():
@@ -871,7 +873,7 @@ class _NXdata(_NXPath):
         super(_NXdata,self).mark_default()
         entry = self.nxentry()
         if self.parent!=entry:
-            plotselect = entry['plotselect']
+            plotselect = entry[DEFAULT_PLOT_NAME]
             if plotselect.islink:
                 plotselect.remove()
             plotselect = plotselect.link(self)

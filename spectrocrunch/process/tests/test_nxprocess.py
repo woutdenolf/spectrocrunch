@@ -447,15 +447,15 @@ class test_nxprocess(unittest.TestCase):
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    #testSuite.addTest(test_nxprocess("test_grid"))
-    #testSuite.addTest(test_nxprocess("test_copy"))
-    #testSuite.addTest(test_nxprocess("test_concurrency"))
+    testSuite.addTest(test_nxprocess("test_grid"))
+    testSuite.addTest(test_nxprocess("test_copy"))
+    testSuite.addTest(test_nxprocess("test_concurrency"))
     testSuite.addTest(test_nxprocess("test_crop"))
-    #testSuite.addTest(test_nxprocess("test_replace"))
-    #testSuite.addTest(test_nxprocess("test_minlog"))
-    #testSuite.addTest(test_nxprocess("test_align"))
-    #testSuite.addTest(test_nxprocess("test_expression"))
-    #testSuite.addTest(test_nxprocess("test_resample"))
+    testSuite.addTest(test_nxprocess("test_replace"))
+    testSuite.addTest(test_nxprocess("test_minlog"))
+    testSuite.addTest(test_nxprocess("test_align"))
+    testSuite.addTest(test_nxprocess("test_expression"))
+    testSuite.addTest(test_nxprocess("test_resample"))
     return testSuite
     
 if __name__ == '__main__':

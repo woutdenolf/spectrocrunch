@@ -114,7 +114,7 @@ class Task(with_metaclass(ABCMeta,object)):
     @property
     def exists(self):
         return self.output.exists
-    
+            
     @property
     def done(self):
         return self.dependencies_done and self.exists
@@ -217,7 +217,7 @@ class Task(with_metaclass(ABCMeta,object)):
         self._outputparent = value
 
     def _ensure_outputdeviceparent(self):
-        device = self.output.device
+        device = self.outputparent.device
         if device:
             device.parent.mkdir()
     
