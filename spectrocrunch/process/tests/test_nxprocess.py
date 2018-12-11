@@ -28,6 +28,7 @@ from testfixtures import TempDirectory
 import os
 from contextlib import contextmanager
 import itertools
+import threading
 
 from .. import regulargrid
 from ...io import nxfs
@@ -50,7 +51,7 @@ class test_nxprocess(unittest.TestCase):
         h5filename = os.path.join(self.dir.path,'test.h5')
         root = nxfs.Path('/',h5file=h5filename).nxroot()
         entry = root.new_nxentry()
-        nxprocess,new = entry.nxprocess('fromraw',parameters={'a':1,'b':2},dependencies=None)
+        nxprocess = entry.nxprocess('fromraw.3',parameters={'name':'fromraw','a':1,'b':2},dependencies=None)
         info = {}
         
         shape = (2,10,13)
@@ -115,8 +116,8 @@ class test_nxprocess(unittest.TestCase):
                     data[:,-2:,:] = np.nan
                     data[:,:,0:2] = np.nan
                     data[:,:,-1] = np.nan
-                    info['y_crop'] = y[1][1:-2]
-                    info['x_crop'] = x[1][2:-1]
+                    info['y'] = y[1][1:-2]
+                    info['x'] = x[1][2:-1]
                 elif method=='replace':
                     data[index] = -1
                 elif method=='minlog':
@@ -195,6 +196,7 @@ class test_nxprocess(unittest.TestCase):
                              set([sig.name for sig in grid2.signals]))
             self.assertFalse(np.isnan(grid2.values).any())
             np.testing.assert_array_equal(grid2.values,grid3.values)
+            
             for k,v in info.items():
                 for ax in grid2.axes:
                     if ax.name==k:
@@ -383,6 +385,38 @@ class test_nxprocess(unittest.TestCase):
                 index[grid2.stackdim] = s2
                 index2 = grid2.locate(index)
                 np.testing.assert_array_equal(grid1[index1],grid2[index2])
+    
+    def test_concurrency(self):
+        return # h5py does not support this, only with MPI
+        
+        with self._nxprocess(method='copy') as proc1:
+            proc1,info = proc1
+            copy = [{'method':'regex','pattern':name} for name in info['copy']]
+            skip = [{'method':'regex','pattern':name} for name in info['skip']]
+            parameters = {'method':'expression','expression':info['expression'],
+                          'copy':copy,'skip':skip,'sliced':False}
+
+            previoustask = basetask.nxpathtotask(proc1)
+            
+            tasks = []
+            threads = []
+            nthreads = 5
+            for i in range(nthreads):
+                newtask = basetask.task(dependencies=previoustask,**parameters)
+                tasks.append(newtask)
+                t = threading.Thread(target=newtask.run)
+                threads.append(t)
+                
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            output = tasks[0].output
+            for task in tasks:
+                self.assertFalse(newtask.done)
+                self.assertEqual(newtask.output,output)
+            
+            proc1.root.ls(recursive=True)
             
     def _check_axes(self,grid1,grid2):
         for ax1,ax2 in zip(grid1.axes,grid2.axes):
@@ -413,14 +447,15 @@ class test_nxprocess(unittest.TestCase):
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_nxprocess("test_grid"))
+    #testSuite.addTest(test_nxprocess("test_grid"))
+    #testSuite.addTest(test_nxprocess("test_copy"))
+    #testSuite.addTest(test_nxprocess("test_concurrency"))
     testSuite.addTest(test_nxprocess("test_crop"))
-    testSuite.addTest(test_nxprocess("test_replace"))
-    testSuite.addTest(test_nxprocess("test_minlog"))
-    testSuite.addTest(test_nxprocess("test_align"))
-    testSuite.addTest(test_nxprocess("test_expression"))
-    testSuite.addTest(test_nxprocess("test_resample"))
-    testSuite.addTest(test_nxprocess("test_copy"))
+    #testSuite.addTest(test_nxprocess("test_replace"))
+    #testSuite.addTest(test_nxprocess("test_minlog"))
+    #testSuite.addTest(test_nxprocess("test_align"))
+    #testSuite.addTest(test_nxprocess("test_expression"))
+    #testSuite.addTest(test_nxprocess("test_resample"))
     return testSuite
     
 if __name__ == '__main__':

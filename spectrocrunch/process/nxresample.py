@@ -108,10 +108,10 @@ class Task(nxregulargrid.Task):
 
             for signalin in self.grid.signals:
                 # Create new NXdata if needed
-                nxdata = self.nxresults[signalin.parent.name]
+                nxdata = self.temp_nxresults[signalin.parent.name]
                 bnew = not nxdata.exists
                 if bnew:
-                    nxdata = self.nxresults.nxdata(name=signalin.parent.name)
+                    nxdata = self.temp_nxresults.nxdata(name=signalin.parent.name)
 
                 with signalin.open() as dsetin:
                     # Calculate new signal from old signal
@@ -125,7 +125,7 @@ class Task(nxregulargrid.Task):
                 if bnew: 
                     nxdata.set_axes(*axes)
             
-            self.nxresults['encoder_offset'].write(data=self.offsets)
+            self.temp_nxresults['encoder_offset'].write(data=self.offsets)
             
     def _process_indices(self):
         shape = self.signalin_shape

@@ -64,7 +64,7 @@ class Task(nxprocess.Task):
         self._sort()
 
     def _sort(self):
-        it = self.nxresults.iter_is_nxclass('NXdata')
+        it = self.temp_nxresults.iter_is_nxclass('NXdata')
         previous_results = self.previous_outputs[0].results
         for nxdata in it:
             if nxdata.islink:
@@ -91,7 +91,7 @@ class Task(nxprocess.Task):
     
     @property
     def positioners(self):
-        return self.nxprocess.positioners()
+        return self.temp_nxprocess.positioners()
 
     def _execute_grid(self):
         """
@@ -107,10 +107,10 @@ class Task(nxprocess.Task):
                 continue
             
             # Create new NXdata if needed
-            nxdata = self.nxresults[signalin.parent.name]
+            nxdata = self.temp_nxresults[signalin.parent.name]
             bnew = not nxdata.exists
             if bnew:
-                nxdata = self.nxresults.nxdata(name=signalin.parent.name)
+                nxdata = self.temp_nxresults.nxdata(name=signalin.parent.name)
 
             with signalin.open() as dsetin:
                 # Calculate new signal from old signal
@@ -128,7 +128,7 @@ class Task(nxprocess.Task):
                     signalout = nxdata.add_signal(name=signalin.name,data=data,
                                                   chunks=True)
         
-            if bnew: 
+            if bnew:
                 nxdata.set_axes(*axes)
 
     def _prepare_process(self):
@@ -203,7 +203,8 @@ class Task(nxprocess.Task):
         return axes
 
     def _new_axis(self,newvalues,axold):
-        name = '{}_{}'.format(axold.name,self.name)
+        #name = '{}_{}'.format(axold.name,self.outputname)
+        name = axold.name
         if not isinstance(newvalues,axis.Axis):
             newvalues = units.Quantity(newvalues,units=axold.units)
         return axis.factory(newvalues,name=name,title=axold.title)

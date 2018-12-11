@@ -67,13 +67,13 @@ class Task(nxprocess.Task):
         data,flat1,flat2,keyindices,stackaxes = import_id21.dataflatlibrary(parameters)
 
         # Save stack axes values
-        positioners = self.nxresults.positioners()
+        positioners = self.temp_nxresults.positioners()
         for ax in stackaxes:
             positioners.add_axis(ax['name'],ax['data'])
         axes = [ax['name'] for ax in stackaxes]
         
         # Create NXdata groups for transmission and flat-field stacks
-        nxdata = self.nxresults.nxdata('detector0')
+        nxdata = self.temp_nxresults.nxdata('detector0')
         signaldata = 'sample'
         signalflat1 = None
         signalflat2 = None
@@ -139,7 +139,7 @@ class Task(nxprocess.Task):
                             dsetflat2[index] = imgflat2
 
             # Save additional processing info
-            info = self.nxresults.nxcollection('info')
+            info = self.temp_nxresults.nxcollection('info')
             if parameters["normalize"]:
                 info["sample units"].mkfile(data=textarray("dimensionless"))
             else:

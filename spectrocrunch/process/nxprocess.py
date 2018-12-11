@@ -28,33 +28,36 @@ import traceback
 from . import nxutils
 from . import basetask
 from ..io import nxfs
+from ..io import fs
 
 logger = logging.getLogger(__name__)
 
-
 class Task(basetask.Task):
-    """Task who's output is a single NXprocess
+    """Task who's output is a single self.temp_nxprocess
     """
-    
+
     def __init__(self,**kwargs):
         super(Task,self).__init__(**kwargs)
-        self.nxprocess = None
-
-    @property
-    def exists(self):
-        _,exists = self.outputparent.nxprocess_exists(self.name,
-                                        parameters=self.parameters,
-                                        dependencies=self.dependencies)
-        return exists
+        self.temp_nxprocess = None
+        self._outputcounter = 0
     
     @property
-    def _run_alreadydone(self):
-        try:
-            return self.exists
-        except nxfs.NexusProcessWrongHash:
-            self.outputparent = self.outputparent.new_nxentry()
-            return self.exists
-        
+    def output(self):
+        return self.outputparent.get_nxprocess(self.outputname,parameters=self.parameters,
+                                                dependencies=self.dependencies,allentries=False)
+    
+    @property
+    def outputname(self):
+        # Add a counter when needed:
+        #   'align' -> 'align.1'
+        #   'align0001' -> 'align0001'
+        name = self.parameters['name']
+        fmt,num,nonumber = nxfs.nxprocess_fmtname(name)
+        if nonumber:
+            num += 1
+        num +=self._outputcounter
+        return fmt.format(num)
+
     def _parameters_filter(self):
         return super(Task,self)._parameters_filter()+['default']
 
@@ -65,30 +68,34 @@ class Task(basetask.Task):
     def _atomic_context_enter(self):
         """This is atomic if h5py.Group.move is atomic
         """
-        self.nxprocess,_ = self.outputparent.nxprocess(self._tempname,
-                                    parameters=self.parameters,
-                                    dependencies=list(self.previous_outputs))
-
+        self._outputcounter = 0
+        self.temp_nxprocess = self.output.parent.nxprocess(self._tempname,
+                                                        parameters=self.parameters,
+                                                        dependencies=list(self.previous_outputs))
+        
     def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
         if exc_type:
             logger.error(''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
-            self.nxprocess.remove(recursive=True)
+            self.temp_nxprocess.remove(recursive=True)
         else:
-            self.nxprocess = self.nxprocess.rename(self.output)
+            while self.temp_nxprocess.exists:
+                checksum = self.temp_nxprocess.checksum
+                try:
+                    self.temp_nxprocess.rename(self.output)
+                except fs.AlreadyExists:
+                    if self.output.checksum==checksum:
+                        self.temp_nxprocess.remove(recursive=True)
+                    else:
+                        self._outputcounter += 1
             if self.default:
-                nxutils.set_default(self.nxprocess,self.default)
-            self.nxprocess.updated()
-        self.nxprocess = None
+                nxutils.set_default(self.output,self.default)
+            self.output.updated()
+        self.temp_nxprocess = None
         return 1 # Exception is handled (do not raise it)
 
     @property
-    def nxresults(self):
-        if self.nxprocess is None:
+    def temp_nxresults(self):
+        if self.temp_nxprocess is None:
             return None
         else:
-            return self.nxprocess.results
-
-    def _ensure_outputparent(self):
-        super(Task,self)._ensure_outputparent()
-        outputparent = self.outputparent
-        self.outputparent = outputparent.nxentry(name=outputparent.name)
+            return self.temp_nxprocess.results

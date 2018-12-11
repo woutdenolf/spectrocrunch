@@ -57,14 +57,14 @@ class Task(with_metaclass(ABCMeta,object)):
             outputparent(Optional(Path))
         """
         self._tempname = randomstring()
-        self.parameters = parameters
-        self.dependencies = dependencies
         self.outputparent = outputparent
+        self.dependencies = dependencies
+        self.parameters = parameters
         if not self.hasdependencies and self.outputparent is None:
             raise ValueError('Specify "outputparent" when task does not have dependencies')
-    
+        
     def __str__(self):
-        return "Task '{}'".format(self.name)
+        return "Task '{}'".format(self.outputname)
     
     def __repr__(self):
         return self.__str__()
@@ -73,8 +73,8 @@ class Task(with_metaclass(ABCMeta,object)):
         """Creates the output atomically
         """
         if self.dependencies_done:
-            self._ensure_outputparent()
-            if self._run_alreadydone:
+            self._ensure_outputdeviceparent()
+            if self.exists:
                 logger.info('{} already done'.format(self))
             else:
                 logger.info('{} started ...'.format(self))
@@ -98,7 +98,7 @@ class Task(with_metaclass(ABCMeta,object)):
 
     @property
     def output(self):
-        return self.outputparent[self.name]
+        return self.outputparent[self.outputname]
     
     @property
     def dependencies_done(self):
@@ -114,10 +114,6 @@ class Task(with_metaclass(ABCMeta,object)):
     @property
     def exists(self):
         return self.output.exists
-    
-    @property
-    def _run_alreadydone(self):
-        return self.exists
     
     @property
     def done(self):
@@ -154,7 +150,26 @@ class Task(with_metaclass(ABCMeta,object)):
                 self._dependencies = []
             else:
                 self._dependencies = [value]
-                
+        self.default_outputparent = None
+    
+    @property
+    def default_outputparent(self):
+        if self._default_outputparent is None:
+            try:
+                previous = self.previous_outputs
+            except AttributeError:
+                pass
+            else:
+                if previous:
+                    self._default_outputparent = previous[-1].parent
+                else:
+                    self._default_outputparent = None
+        return self._default_outputparent
+        
+    @default_outputparent.setter
+    def default_outputparent(self,value):
+        self._default_outputparent = value
+    
     @property
     def previous_outputs(self):
         ret = []
@@ -183,26 +198,25 @@ class Task(with_metaclass(ABCMeta,object)):
         return ['name','method']
     
     @property
-    def name(self):
-        return self.parameters['name']
-        
-    @property
     def method(self):
-        return self.parameters.get('method',None)
+        return self.parameters['method']
+
+    @property
+    def outputname(self):
+        return self.parameters['name']
 
     @property
     def outputparent(self):
         if self._outputparent is None:
-            previous = self.previous_outputs
-            if previous:
-                self._outputparent = previous[-1].parent
-        return self._outputparent
+            return self.default_outputparent
+        else:
+            return self._outputparent
     
     @outputparent.setter
     def outputparent(self,value):
         self._outputparent = value
-    
-    def _ensure_outputparent(self):
+
+    def _ensure_outputdeviceparent(self):
         device = self.output.device
         if device:
             device.parent.mkdir()
@@ -233,13 +247,9 @@ def task(**parameters):
     elif method=='xiaedftonx':
         from .nxxiaedf import Task
     else:
-        path = parameters.get('path',None)
-        if path is None:
-            raise TaskException('Unknown task {}'.format(repr(method)))
-        if path.is_nxclass('NXprocess'):
-            from .nxprocesswrap import Task
-        else:
-            from .nxwrap import Task
+        Task = parameters.pop('_task',None)
+        if Task is None:
+            raise TaskException('Unknown task defined by parameters {}'.format(parameters))
     return Task(**parameters)
 
 
@@ -247,9 +257,11 @@ def nxpathtotask(path):
     if path.is_nxclass('NXprocess'):
         parameters = path.config.read()
         if 'method' not in parameters and 'name' not in parameters:
-            parameters['path'] = path
+            parameters['name'] = path.name
+        from .nxprocesswrap import Task
     else:
+        from .nxwrap import Task
         parameters = {'path':path}
     outputparent = path.parent
     dependencies = [path for path in path.dependencies]
-    return task(dependencies=dependencies,outputparent=outputparent,**parameters)
+    return task(dependencies=dependencies,outputparent=outputparent,_task=Task,**parameters)

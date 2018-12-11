@@ -112,17 +112,17 @@ class Task(nxprocess.Task):
 
     def _processstacks(self):
         # NXdata positioners   
-        positioners = self.nxresults.positioners()
+        positioners = self.temp_nxresults.positioners()
         for ax in self.axes.values():
             positioners.add_axis(ax.name,ax.values,title=ax.title)
 
         # Processing info
-        info = self.nxresults.nxcollection('info')
+        info = self.temp_nxresults.nxcollection('info')
         for k,v in self.procinfo.items():
             info[k].mkfile(data=v)
 
         # Processing axes
-        positioners = self.nxresults.nxcollection('stackaxes')
+        positioners = self.temp_nxresults.nxcollection('stackaxes')
         for ax in self.infoaxes.values():
             positioners.add_axis(ax.name,ax.values,title=ax.title)
 
@@ -294,7 +294,13 @@ class Task(nxprocess.Task):
             else:
                 radix = self.parameters["scanname"]
             
-            self.xiastackproc = xiaedf.xiastack_mapnumbers(self.outdatapath.path,radix,self.parameters["scannumbers"])
+            # Raises error when it already exists
+            outdatapath = self.outdatapath
+            outdatapath.mkdir(force=False)
+            
+            self.xiastackproc = xiaedf.xiastack_mapnumbers(outdatapath.path,radix,self.parameters["scannumbers"])
+            
+            # Handle existing data: will not be the case as long as we keep outdatapath.mkdir(force=False)
             shape = self.xiastackproc.dshape
             if shape:
                 create = shape[:-1]!=self.xiastackraw.dshape[:-1]
@@ -452,7 +458,7 @@ class Task(nxprocess.Task):
                 if "calc_flux0" not in self.stacks[name]:
                     self.stacks[name]["calc_flux0"] = [None]*self.nstack
                 o = nxlazy.LazyStackSlice(func=op)
-                o.appendarg_h5dataset(self.nxresults[str(name)][self.parameters["fluxcounter"]])
+                o.appendarg_h5dataset(self.temp_nxresults[str(name)][self.parameters["fluxcounter"]])
                 self.stacks[name]["calc_flux0"][imageindex] = o
                 self.infoaxes["i0_to_flux_offset"][imageindex] = op.b
                 self.infoaxes["i0_to_flux_factor"][imageindex] = op.m
@@ -465,18 +471,18 @@ class Task(nxprocess.Task):
                     self.stacks[name]["calc_absorbance"] = [None]*self.nstack
                 
                 o = nxlazy.LazyStackSlice(func=op)
-                o.appendarg_h5dataset(self.nxresults[str(name)][self.parameters["transmissioncounter"]])
+                o.appendarg_h5dataset(self.temp_nxresults[str(name)][self.parameters["transmissioncounter"]])
                 self.stacks[name]["calc_fluxt"][imageindex] = o
                 self.infoaxes["it_to_flux_offset"][imageindex] = op.b
                 self.infoaxes["it_to_flux_factor"][imageindex] = op.m
                                
                 o = nxlazy.LazyStackSlice(func=nxlazy.transmission_func)
-                o.appendarg_h5dataset(self.nxresults[str(name)]["calc_fluxt"])
-                o.appendarg_h5dataset(self.nxresults[str(name)]["calc_flux0"])
+                o.appendarg_h5dataset(self.temp_nxresults[str(name)]["calc_fluxt"])
+                o.appendarg_h5dataset(self.temp_nxresults[str(name)]["calc_flux0"])
                 self.stacks[name]["calc_transmission"][imageindex] = o
                 
                 o = nxlazy.LazyStackSlice(func=nxlazy.absorbance_func)
-                o.appendarg_h5dataset(self.nxresults[str(name)]["calc_transmission"])
+                o.appendarg_h5dataset(self.temp_nxresults[str(name)]["calc_transmission"])
                 self.stacks[name]["calc_absorbance"][imageindex] = o
         
     def _stack_add_xrffit(self):
@@ -486,9 +492,9 @@ class Task(nxprocess.Task):
             
         logger.info("Fit XRF spectra ...")
 
-        # not necessary but clean in case of re-runs
+        # Raises an error when the directory already exists
         outpath = self.outfitpath
-        outpath.remove(recursive=True)
+        outpath.mkdir(force=False)
 
         if len(self.parameters["detectorcfg"])==1:
             fitcfg = self.parameters["detectorcfg"]*self.ndetfit
@@ -607,7 +613,7 @@ class Task(nxprocess.Task):
                     # arguments: xrf,flux,fluxref,xiaimage
                     self.stacks[k1][k2][imageindex].appendarg(arg)
                     if fluxnorm:
-                        self.stacks[k1][k2][imageindex].appendarg_h5dataset(self.nxresults[str(normname)]["calc_flux0"])
+                        self.stacks[k1][k2][imageindex].appendarg_h5dataset(self.temp_nxresults[str(normname)]["calc_flux0"])
                         self.stacks[k1][k2][imageindex].appendarg(self.infoaxes["refflux"][imageindex])
                     else:
                         self.stacks[k1][k2][imageindex].appendarg(None)
@@ -638,7 +644,7 @@ class Task(nxprocess.Task):
         """
         outshape = None
         for k1 in self.stacks: # detector or counter group
-            nxdata = self.nxresults.nxdata(str(k1))
+            nxdata = self.temp_nxresults.nxdata(str(k1))
             for k2 in self.stacks[k1]: # stack subgroup (Al-K, S-K, xmap_x1c, ...)
                 signal = nxdata[str(k2)]
                 for imageindex,slicedata in enumerate(self.stacks[k1][k2]):

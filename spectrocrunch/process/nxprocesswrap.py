@@ -25,18 +25,9 @@
 from . import nxprocess
 
 class Task(nxprocess.Task):
-    """Used to wrap an NXprocess which is not produced by a NXtask
+    """Used to wrap an NXprocess which is produced by nxprocess.Task
     """
     
-    def __init__(self,path=None,**kwargs):
-        super(Task,self).__init__(**kwargs)
-        if 'name' in self.parameters:
-            self.nxprocess = self.nxentry[self.parameters['name']]
-        else:
-            if path is None:
-                raise ValueError('Provide "path" to the wrapper task')
-            self.nxprocess = path
-
     def _parameters_defaults(self):
         pass
     
@@ -45,7 +36,3 @@ class Task(nxprocess.Task):
         
     def _execute(self):
         pass
-
-    @property
-    def name(self):
-        return self.nxprocess.name
