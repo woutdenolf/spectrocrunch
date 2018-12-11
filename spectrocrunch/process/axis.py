@@ -40,10 +40,8 @@ class Axis(object):
             #temporal: date/time
             
         self.type = type
-        if name is None:
-            name = title
-        if title is None:
-            title = name
+        self.name = name
+        self.title = title
         self.name = name
         self.title = title
         self.values = params
@@ -83,7 +81,32 @@ class Axis(object):
         if self.type!='quantitative':
             raise RuntimeError('{} axis has no units'.format(self.type))
         self.values.ito(value)
+    
+    @property
+    def name(self):
+        if self._name:
+            return self._name
+        else:
+            return self.__class__.__name__
         
+    @name.setter
+    def name(self,value):
+        self._name = value
+        
+    @property
+    def title(self):
+        if self._title:
+            title = self._title
+        else:
+            title = self.name
+        if self.units:
+            title = '{} ({:~})'.format(title,self.units)
+        return title
+    
+    @title.setter
+    def title(self,value):
+        self._title = value
+    
     @property
     def magnitude(self):
         """np.ndarray or pandas.Index
@@ -147,10 +170,7 @@ class Axis(object):
         return self.size
 
     def __str__(self):
-        if self.units:
-            return "{} ({:~})".format(self.title,self.units)
-        else:
-            return "{}".format(self.title)
+        return self.title
 
     def __repr__(self):
         return "{}({})".format(self.name,len(self))

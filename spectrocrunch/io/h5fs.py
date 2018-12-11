@@ -127,14 +127,8 @@ class Path(fs.Path):
         openparams = {k:createparams.pop(k)
                       for k in self.openparams 
                       if k in createparams}
-
-        # when device exists: do not truncate or raise error
-        mode = openparams.get('mode',self.openparams['mode'])
-        if mode in ['w','x','w-']:
-            openparams['mode'] = 'a'
-        else:
-            # r,r+,x/w-,a
-            openparams['mode'] = mode
+        mode = openparams.pop('mode',self.openparams['mode'])
+        openparams['mode'] = 'a'
 
         with self.h5open(**openparams) as f:
             node = f.get(self.path,default=None)
@@ -151,7 +145,6 @@ class Path(fs.Path):
                     try:
                         del f[self.path]
                     except KeyError:
-                        print 'keyerror'
                         pass
                     node = None
                 # r,r+,a: nothing to do
@@ -187,7 +180,7 @@ class Path(fs.Path):
     def exists(self):
         # For links: destination exists
         try:
-            with self.h5open(mode='r') as f:
+            with self.h5open() as f:
                 if self.islink:
                     return self.linkdest().exists
                 else:
@@ -199,7 +192,7 @@ class Path(fs.Path):
     def lexists(self):
         # For links: link exists
         try:
-            with self.h5open(mode='r') as f:
+            with self.h5open() as f:
                 return self.path in f
         except IOError:
             return False
@@ -207,7 +200,7 @@ class Path(fs.Path):
     @property
     def isdir(self):
         try:
-            with self.h5open(mode='r') as f:
+            with self.h5open() as f:
                 node = f.get(self.path,default=None)
                 return isinstance(node,h5py.Group)
         except IOError:
@@ -216,7 +209,7 @@ class Path(fs.Path):
     @property
     def isfile(self):
         try:
-            with self.h5open(mode='r') as f:
+            with self.h5open() as f:
                 node = f.get(self.path,default=None)
                 return isinstance(node,h5py.Dataset)
         except IOError:
@@ -247,7 +240,7 @@ class Path(fs.Path):
         #return path.split(self.devsep)
              
     def listdir(self,recursive=False,depth=0):
-        with self.h5open(mode='r') as f:
+        with self.h5open() as f:
             root = f.get(self.path,default=None)
             if isinstance(root,h5py.Group):
                 for k in root.keys():
@@ -401,7 +394,7 @@ class Path(fs.Path):
     
     @property
     def islink(self):
-        with self.h5open(mode='r') as f:
+        with self.h5open() as f:
             try:
                 lnk = f.get(self.path,default=None,getlink=True)
             except KeyError:
@@ -411,7 +404,7 @@ class Path(fs.Path):
     def linkdest(self,follow=False):
         if not self.root.exists:
             return None
-        with self.h5open(mode='r') as f:
+        with self.h5open() as f:
             try:
                 lnk = f.get(self.path,default=None,getlink=True)
             except KeyError:

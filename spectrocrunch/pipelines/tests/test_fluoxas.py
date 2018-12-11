@@ -362,12 +362,12 @@ class test_fluoxas(unittest.TestCase):
         expectedgroups_result = set(expectedgroups_result)
         
         # Processes
-        expected_nxprocess = ['process:pymca']
+        expected_nxprocess = ['process:pymca.1']
         if prealignnormcounter is not None:
-            expected_nxprocess.append('process:normalize')
+            expected_nxprocess.append('process:normalize.1')
         if alignmethod is not None and alignreference is not None:
-            expected_nxprocess.append('process:align')
-            expected_nxprocess.append('process:crop')
+            expected_nxprocess.append('process:align.1')
+            expected_nxprocess.append('process:crop.1')
         
         with self._destpath_context() as destpath:
             for repeat in range(2):

@@ -153,18 +153,18 @@ class test_ffxas(unittest.TestCase):
         shape = tuple(shape)
         
         # Check nxprocess groups
-        groups = ['process:fullfield']
+        groups = ['process:fullfield.1']
         if parameters["normalize"] and not parameters["normalizeonload"]:
-            groups.append('process:normalize')
+            groups.append('process:normalize.1')
         if parameters["alignmethod"]:
-            groups.append('process:align')
+            groups.append('process:align.1')
         if parameters["roiresult"]:
-            groups.append('process:roi')
+            groups.append('process:roi.1')
         entry = tasks[-1].output.nxentry()
         self.assertEqual(set(groups),set([g.name for g in entry.iter_is_nxclass('NXprocess')]))
 
         # Check axes
-        nxprocess = entry['process:fullfield']
+        nxprocess = entry['process:fullfield.1']
         positioners = nxprocess.positioners()
         np.testing.assert_allclose(params["energy"],positioners.get_axis('energy'))
         np.testing.assert_array_equal(range(params["n1"]),positioners.get_axis('row'))
@@ -173,9 +173,9 @@ class test_ffxas(unittest.TestCase):
         # Check transmission
         if parameters["normalize"]:
             if parameters["normalizeonload"]:
-                nxprocess = entry['process:fullfield']
+                nxprocess = entry['process:fullfield.1']
             else:
-                nxprocess = entry['process:normalize']
+                nxprocess = entry['process:normalize.1']
             fdata = regulargrid.NXSignalRegularGrid(nxprocess.results['detector0'].signal)
             self.assertEqual(shape,fdata.shape)
             index = [slice(None)]*fdata.ndim
@@ -188,7 +188,7 @@ class test_ffxas(unittest.TestCase):
                 
         # Check aligned results
         if parameters["alignmethod"]:
-            nxprocess = entry['process:align']
+            nxprocess = entry['process:align.1']
             fdata = regulargrid.NXSignalRegularGrid(nxprocess.results['detector0'].signal)
 
             i = parameters["refimageindex"]

@@ -47,7 +47,7 @@ def replace_handlers(newhandler,signals=None):
     for signum in signals:
         try:
             oldhander = signal.signal(signum,newhandler)
-        except (OSError,RuntimeError):
+        except (OSError,RuntimeError,ValueError):
             pass
         else:
             oldhandlers[signum] = oldhander

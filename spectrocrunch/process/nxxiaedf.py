@@ -30,13 +30,18 @@ from copy import deepcopy
 from . import basetask
 from ..io import xiaedf
 from ..io import xiaedftonexus
+from ..io import fs
 
 logger = logging.getLogger(__name__)
 
 class Task(basetask.Task):
     """Converts XIA edf output to an NXentry
     """
-  
+
+    def __init__(self,**kwargs):
+        super(Task,self).__init__(**kwargs)
+        self.temp_nxentry = None
+
     def _parameters_defaults(self):
         super(Task,self)._parameters_defaults()
         self._required_parameters('path','radix','number','instrument')
@@ -47,16 +52,16 @@ class Task(basetask.Task):
     def _atomic_context_enter(self):
         """This is atomic if h5py.Group.move is atomic
         """
-        self.nxentry = self.outputparent.nxentry(name=self._tempname)
+        self.temp_nxentry = self.outputparent.nxentry(name=self._tempname)
 
     def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
         if exc_type:
             logger.error(''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
-            self.nxentry.remove(recursive=True)
+            self.temp_nxentry.remove(recursive=True)
         else:
-            self.nxentry = self.nxentry.rename(self.output)
-            self.nxentry.updated()
-        self.nxprocess = None
+            self.temp_nxentry = self.temp_nxentry.renameremove(self.output)
+            self.temp_nxentry.updated()
+        self.temp_nxentry = None
         return 1 # Exception is handled (do not raise it)
 
     def _execute(self):
@@ -65,7 +70,7 @@ class Task(basetask.Task):
         parameters['exclude_counters'] = [self._rematch_func(redict) for redict in parameters.get('exclude_counters',[])]
         path,radix,number = parameters['path'],parameters['radix'],parameters['number']
         xiaimage = xiaedf.xiaimage_number(path,radix,number)
-        converter = xiaedftonexus.Converter(nxentry=self.nxentry,**parameters)
+        converter = xiaedftonexus.Converter(nxentry=self.temp_nxentry,**parameters)
         nxentry = converter(xiaimage)
     
     @property
