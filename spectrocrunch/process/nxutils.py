@@ -22,8 +22,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from ..io import nxfs
+
 def set_default(nxprocess,default):
-    plotselect = nxprocess.results['plotselect']
+    plotselect = nxprocess.results[nxfs.DEFAULT_PLOT_NAME]
     plotselect.remove()
     it = nxprocess.results.iter_is_nxclass('NXdata')
 

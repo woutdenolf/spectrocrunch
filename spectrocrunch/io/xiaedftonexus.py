@@ -369,7 +369,7 @@ class Converter(object):
         nxinstrument.updated()
 
     def _add_plots(self):
-        nxdata = self.nxentry.nxdata('plotselect')
+        nxdata = self.nxentry.nxdata(nxfs.DEFAULT_PLOT_NAME)
         axes = [ax.name for ax in self.header['axes']]
         nxdata.set_axes(*axes)
         for path in self.measurement:
