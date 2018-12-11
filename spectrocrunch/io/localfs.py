@@ -160,8 +160,8 @@ class Path(fs.Path):
                 f.write(data)
         return self
         
-    def move(self, dest, force=False):
-        dest = self._copy_move_prepare(dest, force=force)
+    def move(self, dest, force=False, rename=False):
+        dest = self._copy_move_prepare(dest, force=force, rename=rename)
         try:
             os.rename(self.path, dest.path)
         except OSError as err:
