@@ -26,6 +26,7 @@ from ..utils.Enum import Enum
 from ..utils import instance
 
 import ast
+import errno
 import numpy as np
 import pandas as pd
 import scipy.stats
@@ -68,17 +69,17 @@ class DataFrame(object):
     critereatypes = Enum(['between','notbetween','condition','colorscale'])
     priorities = Enum(['row','column'])
     
-    def __init__(self,writer=None,sheet_name="Sheet1",priority="row",df=None,rowlevels=None,columnlevels=None,**kwargs):
+    def __init__(self,writer=None,sheet_name="Sheet1",priority="row",df=None,
+                    rowlevels=None,columnlevels=None,columnwidth=15,**kwargs):
         self.writer = writer
         self.sheet_name = sheet_name
         self.priority = self.priorities(priority)
-        
-        if rowlevels:
-            kwargs["index"] = pd.MultiIndex.from_tuples([], names=rowlevels)
-        if columnlevels:
-            kwargs["index"] = pd.MultiIndex.from_tuples([], names=columnlevels)
-        
+
         if df is None:
+            if rowlevels:
+                kwargs["index"] = pd.MultiIndex.from_tuples([], names=rowlevels)
+            if columnlevels:
+                kwargs["columns"] = pd.MultiIndex.from_tuples([], names=columnlevels)
             self.df = pd.DataFrame(**kwargs)
         else:
             self.df = df
@@ -91,14 +92,18 @@ class DataFrame(object):
         self.formulae_row = OrderedDict()
         self.formulae_cell = OrderedDict()
         self.headerfmt = {"bold":True,"bg_color":'#ffffff',"font_color":"#000000"}
+        self.columnwidth = columnwidth
     
     @classmethod
-    def fromexcel(cls,filename,sheet_name=None):
-        data = pd.read_excel(filename,sheet_name=sheet_name)
-        if sheet_name is None:
-            return [cls(df=df,sheet_name=sheet_name) for sheet_name,df in data.items()]
-        else:
-            return [cls(df=data,sheet_name=sheet_name)]
+    def fromexcel(cls,filename,sheet_name=None,**kwargs):
+        try:
+            data = pd.read_excel(filename,sheet_name=sheet_name,**kwargs)
+        except IOError as err:
+            if err.errno==errno.ENOENT:
+                return {}
+            else:
+                raise
+        return {sheet_name:cls(df=df,sheet_name=sheet_name) for sheet_name,df in data.items()}
     
     def addvalue(self,row,column,data):
         self._remove_formulae(row=row,column=column)
@@ -395,8 +400,7 @@ class DataFrame(object):
         r0,c0 = self._xls_rowoff,self._xls_coloff
         
         # Width of index columns:
-        width = 15
-        
+        width = self.columnwidth
         for c in range(c0):
             if c0==1:
                 width = max(width,max(len(rowindex) for rowindex in self.df.index))
@@ -405,15 +409,14 @@ class DataFrame(object):
             hname = self.df.index.names[c]
             if hname:
                 width = max(width,len(hname))
-                        
             worksheet.set_column(c,c,width)
 
         # Width of data columns:
         for i,colindex in enumerate(self.df.columns,c0):
             if r0==1:
-                width = max(len(colindex),15)
+                width = max(len(colindex),self.columnwidth)
             else:
-                width = max(max(len(c) for c in colindex),15)
+                width = max(max(len(c) for c in colindex),self.columnwidth)
             worksheet.set_column(i,i,width)
         
         # Freeze index and column names:
