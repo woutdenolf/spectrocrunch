@@ -33,7 +33,7 @@ from ..io.spec import spec
 from ..xrf.parse_xia import parse_xia_esrf
 from ..xrf.fit import PerformFit as fitter
 from ..xrf.fit import PerformRoi as roisummer
-from ..utils.timing import progress
+from ..utils.timing import ProgressLogger
 
 import pylab
 import logging
@@ -91,7 +91,7 @@ def processNotSynchronized(specfile,specnumbers,destpath,detectorcfg,\
     else:
         parsename = "copy"
     logger = logging.getLogger(__name__)
-    prog = progress(logger)
+    prog = ProgressLogger(logger)
     if not hasattr(detectorcfg,"__iter__"):
         detectorcfg = [detectorcfg]
     if isinstance(rois,dict):
@@ -277,7 +277,7 @@ def processEnergySynchronized(specfile,specnumbers,destpath,pymcacfg,mlines={},r
     nrepeats = [len(l) for l in specnumbers]
     nxasspectraT = sum(nrepeats)
     logger = logging.getLogger(__name__)
-    prog = progress(logger)
+    prog = ProgressLogger(logger)
     if not os.path.exists(destpath):
         os.makedirs(destpath)
     if counters is None:

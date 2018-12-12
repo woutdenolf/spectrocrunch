@@ -24,8 +24,8 @@
 
 import datetime
 import sys
-import contextlib
 import time
+from contextlib import contextmanager
 
 def taketimestamp():
     return datetime.datetime.now()
@@ -46,7 +46,7 @@ def printtimeelapsed(T0,logger,text="Elapsed time"):
     hours,min,sec = hms((datetime.datetime.now()-T0).seconds)
     logger.info("  %s: %dh %dm %ds" % (text,hours,min,sec))
 
-class progress(object):
+class ProgressLogger(object):
     def __init__(self,logger):
         self.logger = logger
         self.setn(1)
@@ -89,8 +89,8 @@ class progress(object):
 
         self.logger.info("  Elapsed: %dh %dm %ds (%d%%)  Left: %dh %dm %ds (%d%%)" % (hours,min,sec,pdone,hours2,min2,sec2,100-pdone))
         sys.stdout.flush()
-
-@contextlib.contextmanager
+            
+@contextmanager
 def timeit(name=""):
     t0 = time.time()
     yield
@@ -98,7 +98,7 @@ def timeit(name=""):
 
     print("Execution time ({}): {}".format(name,t1-t0))
 
-@contextlib.contextmanager
+@contextmanager
 def timeit_logger(logger,name=""):
     T0 = taketimestamp()
     yield
