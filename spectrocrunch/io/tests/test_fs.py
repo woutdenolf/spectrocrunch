@@ -235,9 +235,9 @@ class test_fs(unittest.TestCase):
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_fs("test_local"))
+    #testSuite.addTest(test_fs("test_local"))
     testSuite.addTest(test_fs("test_h5"))
-    testSuite.addTest(test_fs("test_nx"))
+    #testSuite.addTest(test_fs("test_nx"))
     return testSuite
     
 if __name__ == '__main__':

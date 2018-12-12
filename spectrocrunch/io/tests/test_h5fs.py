@@ -96,33 +96,33 @@ class test_h5fs(unittest.TestCase):
         return str(''.join(words))
 
     def _check_w(self,filename,word):
-        with h5fs.h5File(filename,mode='w').open() as f:
+        with h5fs.h5Device(filename,mode='w').open() as f:
             self._write(f,word)
             self.assertEqual(word,self._read(f))
     
     def _check_x(self,filename,word):
-        with h5fs.h5File(filename,mode='x').open() as f:
+        with h5fs.h5Device(filename,mode='x').open() as f:
             self._write(f,word)
             self.assertEqual(word,self._read(f))
     
     def _check_a(self,filename,word):
-        with h5fs.h5File(filename,mode='a').open() as f:
+        with h5fs.h5Device(filename,mode='a').open() as f:
             self._write(f,word)
             self.assertEqual(word,self._read(f,-1))
     
     def _check_r(self,filename,word):
-        with h5fs.h5File(filename,mode='r').open() as f:
+        with h5fs.h5Device(filename,mode='r').open() as f:
             self.assertRaises(ValueError, self._write, f, word)
             self._read(f)
             
     def _check_rp(self,filename,word):
-        with h5fs.h5File(filename,mode='r+').open() as f:
+        with h5fs.h5Device(filename,mode='r+').open() as f:
             self._write(f,word)
                   
     def _check_content(self,filename,word): 
         filename = str(filename)  
         if os.path.isfile(filename):
-            with h5fs.h5File(filename,mode='r').open() as f:
+            with h5fs.h5Device(filename,mode='r').open() as f:
                 b = self._read(f)==word
         else:
             b = None==word

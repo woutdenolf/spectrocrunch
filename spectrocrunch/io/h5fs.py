@@ -26,6 +26,9 @@ import re
 import h5py
 import contextlib
 import os
+import errno
+import re
+from time import sleep
 
 from . import fs
 from . import localfs
@@ -36,8 +39,59 @@ class FileSystemException(fs.FileSystemException):
     """
     pass
 
+class LockedError(FileSystemException):
+    """
+    Device has been locked by someone else.
+    """
 
-class h5File(localfs.Path):
+def h5py_errno(err):
+    if errno.errorcode.get(err.errno,None):
+        m = re.search('errno = ([0-9]+)',err.message)
+        if m:
+            return int(m.groups()[0])
+    else:
+        return err.errno
+
+class h5FileIO(object):
+    
+    def __init__(self,path,retries=25,backoff_factor=0.4,**openparams):
+        self._handle = None
+        self.path = path
+        self.retries = retries
+        self.backoff_factor = backoff_factor
+        self.openparams = openparams
+    
+    def _open(self):
+        path = self.path
+        for _ in range(self.retries):
+            try:
+                return h5py.File(path,**self.openparams)
+            except IOError as err:
+                code = h5py_errno(err)
+                if code == errno.ENOENT:
+                    raise fs.Missing(path)
+                elif code == errno.EISDIR:
+                    raise fs.NotAFile(path)
+                elif code == errno.EAGAIN:
+                    pass
+                elif code == errno.EEXIST:
+                    if self.openparams['mode'] in ['x','w-']:
+                        raise
+                else:
+                    raise
+            sleep(self.backoff_factor)
+        raise LockedError(path)
+
+    def __enter__(self):
+        self._handle = self._open()
+        return self._handle
+
+    def __exit__(self,*args):
+        if self._handle:
+            self._handle.close()
+            self._handle = None
+
+class h5Device(localfs.Path):
     """Proxy to HDF5 file
     """
     
@@ -56,34 +110,37 @@ class h5File(localfs.Path):
             raise ValueError('Invalid mode {}'.format(repr(mode)))
         self.openparams = kwargs
         self.openparams['mode'] = mode
-        super(h5File,self).__init__(path,**kwargs)
+        super(h5Device,self).__init__(path,**kwargs)
     
     @contextlib.contextmanager
     def _fopen(self,**openparams):
-        with h5py.File(self.path,**openparams) as f:
+        with h5FileIO(self.path,**openparams) as f:
             yield f
-
+            
     def _openparams_defaults(self,openparams):
-        super(h5File,self)._openparams_defaults(openparams)
+        super(h5Device,self)._openparams_defaults(openparams)
         defaultmode = self.openparams['mode']
         mode = openparams['mode']
         if defaultmode=='r':
             # read-only
             mode = defaultmode
         elif defaultmode=='r+' and mode not in ['r','r+']:
-            # deny new nodes
+            # deny new device
             mode = defaultmode
         elif defaultmode in ['x','w-'] and mode not in ['r','x','w-']:
-            # allow new nodes (do not overwrite)
+            # allow new device (error when existing)
             mode = defaultmode
-        elif defaultmode=='w' and mode not in ['r','w']:
-            # allow new nodes (overwrite)
+        elif defaultmode=='w' and mode not in ['r','w','a']:
+            # allow new device (overwrite when existing)
+            mode = defaultmode
+        elif defaultmode=='a' and mode not in ['r','a']:
+            # allow new device (append when existing)
             mode = defaultmode
         openparams['mode'] = mode
         
     @fs.onclose
     def remove(self,**kwargs):
-        super(h5File,self).remove(**kwargs)
+        super(h5Device,self).remove(**kwargs)
     rm = remove
 
 
@@ -96,10 +153,10 @@ class Path(fs.Path):
         if not path.startswith(self.sep):
             path = self.sep+path
         self.path = path
-        if not isinstance(h5file,h5File):
+        if not isinstance(h5file,h5Device):
             if not h5file:
                 raise ValueError('Specify HDF5 file as Path("h5file:/...") or Path("/...",h5file=...)')
-            h5file = h5File(h5file,**kwargs)
+            h5file = h5Device(h5file,**kwargs)
         self._h5file = h5file
         super(Path,self).__init__(**kwargs)
         
@@ -111,31 +168,30 @@ class Path(fs.Path):
     def openparams(self, value):
         self.device.openparams = value
         
-    def _openparams_defaults(self,openparams):
-        pass # this will be done in the HDF5 proxy
-    
-    @property
-    def current_openparams(self):
-        return self.device.current_openparams
-        
-    @current_openparams.setter
-    def current_openparams(self,value):
-        pass # this will be done in the HDF5 proxy
+    def _openparams_defaults(self,createparams):
+        super(Path,self)._openparams_defaults(createparams)
+        defaultmode = self.openparams['mode']
+        mode = createparams['mode']
+        if defaultmode=='w':
+            # Truncate files but not device
+            createparams['mode'] = 'a'
+        else:
+            createparams['mode'] = defaultmode
+        createparams['nodemode'] = mode
     
     @contextlib.contextmanager
     def _fopen(self,**createparams):
         openparams = {k:createparams.pop(k)
                       for k in self.openparams 
                       if k in createparams}
-        mode = openparams.pop('mode',self.openparams['mode'])
-        openparams['mode'] = 'a'
+        nodemode = createparams.pop('nodemode')
 
         with self.h5open(**openparams) as f:
             node = f.get(self.path,default=None)
             if node:
-                if mode=='w-' or mode=='x':
+                if nodemode=='w-' or nodemode=='x':
                     raise fs.AlreadyExists(self.location)
-                if mode=='w':
+                if nodemode=='w':
                     if createparams:
                         if isinstance(node,h5py.Group):
                             raise fs.NotAFile(self.location)
@@ -152,7 +208,7 @@ class Path(fs.Path):
                 if createparams:
                     raise fs.AlreadyExists(self.location)
             else:
-                if mode.startswith('r'):
+                if nodemode.startswith('r'):
                     raise fs.Missing(self.location)
                 parent = self.parent
                 node = f.get(parent.path,default=None)
@@ -180,7 +236,7 @@ class Path(fs.Path):
     def exists(self):
         # For links: destination exists
         try:
-            with self.h5open() as f:
+            with self.h5open(mode='r') as f:
                 if self.islink:
                     return self.linkdest().exists
                 else:
@@ -192,7 +248,7 @@ class Path(fs.Path):
     def lexists(self):
         # For links: link exists
         try:
-            with self.h5open() as f:
+            with self.h5open(mode='r') as f:
                 return self.path in f
         except IOError:
             return False
@@ -200,7 +256,7 @@ class Path(fs.Path):
     @property
     def isdir(self):
         try:
-            with self.h5open() as f:
+            with self.h5open(mode='r') as f:
                 node = f.get(self.path,default=None)
                 return isinstance(node,h5py.Group)
         except IOError:
@@ -209,7 +265,7 @@ class Path(fs.Path):
     @property
     def isfile(self):
         try:
-            with self.h5open() as f:
+            with self.h5open(mode='r') as f:
                 node = f.get(self.path,default=None)
                 return isinstance(node,h5py.Dataset)
         except IOError:
@@ -240,7 +296,7 @@ class Path(fs.Path):
         #return path.split(self.devsep)
              
     def listdir(self,recursive=False,depth=0):
-        with self.h5open() as f:
+        with self.h5open(mode='r') as f:
             root = f.get(self.path,default=None)
             if isinstance(root,h5py.Group):
                 for k in root.keys():
@@ -394,7 +450,7 @@ class Path(fs.Path):
     
     @property
     def islink(self):
-        with self.h5open() as f:
+        with self.h5open(mode='r') as f:
             try:
                 lnk = f.get(self.path,default=None,getlink=True)
             except KeyError:
@@ -404,7 +460,7 @@ class Path(fs.Path):
     def linkdest(self,follow=False):
         if not self.root.exists:
             return None
-        with self.h5open() as f:
+        with self.h5open(mode='r') as f:
             try:
                 lnk = f.get(self.path,default=None,getlink=True)
             except KeyError:
