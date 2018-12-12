@@ -96,7 +96,6 @@ class File(with_metaclass(ABCMeta,object)):
     
     def __init__(self,**kwargs):
         self._handle = None
-        self.current_openparams = {}
         self._onclose_callbacks = []
         super(File,self).__init__()
 
@@ -107,11 +106,9 @@ class File(with_metaclass(ABCMeta,object)):
             with self._closectx():
                 with self._fopen(**openparams) as self._handle:
                     try:
-                        self.current_openparams = openparams
                         yield self._handle
                     finally:
                         self._handle = None
-                        self.current_openparams = {}
         else:
             yield self._handle
 

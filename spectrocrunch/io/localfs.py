@@ -84,11 +84,14 @@ class Path(fs.Path):
         elif defaultmode=='r+' and mode not in ['r','r+']:
             # deny new files
             mode = defaultmode
-        elif defaultmode in ['x','x+'] and mode not in ['r','x','x+']:
-            # allow new files (do not overwrite)
+        elif defaultmode in ['x','x+'] and mode not in ['w','w+']:
+            # allow new files (error when existing)
             mode = defaultmode
         elif defaultmode in ['w','w+'] and mode not in ['r','w','w+']:
-            # allow new files (overwrite)
+            # allow new files (overwrite when existing)
+            mode = defaultmode
+        elif defaultmode in ['a','a+'] and mode not in ['r','a','a+']:
+            # allow new files (append when existing)
             mode = defaultmode
         openparams['mode'] = mode
         
