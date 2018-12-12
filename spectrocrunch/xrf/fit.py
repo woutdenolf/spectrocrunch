@@ -297,7 +297,7 @@ def PerformFit(filelist,cfgfile,energies,mlines={},norm=None,fast=False,prog=Non
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
         norm(Optional(np.array)): normalization array
         fast(Optional(bool)): fast fitting (linear)
-        prog(Optional(timing.progress)): progress object
+        prog(Optional(timing.ProgessLogger)): progress object
         plot(Optional(bool))
     Returns:
         dict: {label:nenergies x nfiles,...}

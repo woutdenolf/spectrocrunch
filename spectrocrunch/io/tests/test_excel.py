@@ -84,7 +84,7 @@ class test_excel(unittest.TestCase):
         with excel.Writer(filename) as writer:
             df1 = self._generate_df(writer=writer)
             df1.save()
-        df2 = excel.DataFrame.fromexcel(filename)[0]
+        df2 = excel.DataFrame.fromexcel(filename).values()[0]
         np.testing.assert_array_almost_equal(df1.df.values,df2.df.values)
     
     def test_dataframe(self):
