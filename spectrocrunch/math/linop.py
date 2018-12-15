@@ -36,7 +36,7 @@ class Operator(object):
     """
     
     def __init__(self):
-        self._opright = None # equivalent to the identity
+        self._opright = None  # equivalent to the identity
 
     @property
     def _op_name(self):
@@ -233,7 +233,10 @@ class ClipOperator(CommutativeOperator):
         vmax = self._valid_limit(cmax)
         
         if vmin and vmax:
-            v = self.cmin<=self.cmax
+            try:
+                v = self.cmin<=self.cmax
+            except TypeError:
+                v = False
         else:
             v = True
         
@@ -384,7 +387,7 @@ class LinearOperator(Operator):
                 ret = self.__class__(0,1)
             else:
                 ret = self.__class__(self.m,self.b)
-                for i in range(1,p):
+                for _ in range(1,p):
                     ret *= self.__class__(self.m,self.b)
             
             return ret

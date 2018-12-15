@@ -242,7 +242,7 @@ classifiers = [get_devstatus(),
 install_requires = ["setuptools","numpy", "future", "scipy", "h5py", "fabio", "silx",\
                     "pyparsing", "PyMca5", "shapely", "matplotlib",\
                     "uncertainties", "pint", "pandas", "scikit-image",\
-                    "xlsxwriter", "xlrd", "python-dateutil"]
+                    "xlsxwriter", "xlrd", "python-dateutil", "jsonpickle"]
 extras_require = {"physics":["xraylib", "cctbx", "fdmnes","PyTMM"],\
                   "elastix":["SimpleITK"]\
                   }

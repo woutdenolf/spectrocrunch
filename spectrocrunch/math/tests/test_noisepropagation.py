@@ -169,15 +169,15 @@ class test_noisepropagation(unittest.TestCase):
         
         Z = X+Y
         XX = noisepropagation.reverse_add(Z,Y2)
-        self._RVequal(X,XX)
+        self._RValmostequal(X,XX)
         
         Z = X-Y
         XX = noisepropagation.reverse_sub(Z,Y2)
-        self._RVequal(X,XX)
+        self._RValmostequal(X,XX)
         
         Z = X*Y
         XX = noisepropagation.reverse_mult(Z,Y2)
-        self._RVequal(X,XX)
+        self._RValmostequal(X,XX)
         
         Z = X/Y
         XX = noisepropagation.reverse_div(Z,Y2)

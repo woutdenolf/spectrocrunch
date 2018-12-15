@@ -30,20 +30,20 @@ import random
 
 from .. import lazy
 
+
 class test_lazy(unittest.TestCase):
 
     def _gencase(self,ncases=100,logical=False):
         ops = [(operator.mul,2),
-                    (operator.div,2),
-                    (operator.add,2),
-                    (operator.sub,2),
-                    (operator.pow,2),
-                    (operator.truediv,2),
-                    (operator.floordiv,2),
-                    (operator.mod,2),
-                    (abs,1),
-                    (operator.pos,1),
-                    (operator.neg,1)]
+                (operator.add,2),
+                (operator.sub,2),
+                (operator.pow,2),
+                (operator.truediv,2),
+                (operator.floordiv,2),
+                (operator.mod,2),
+                (abs,1),
+                (operator.pos,1),
+                (operator.neg,1)]
                     
         if logical:
             ops += [(operator.lt,2),
@@ -101,7 +101,10 @@ class test_lazy(unittest.TestCase):
                         y = op(a,y)
                     
             # Compare lazy evaluation with immediate result
-            self.assertEqual(x,y(x0))
+            if np.isnan(x):
+                self.assertTrue(np.isnan(y(x0)))
+            else:
+                self.assertEqual(x, y(x0))
 
     def test_arithm(self):
         self._test_combine(logical=False)
