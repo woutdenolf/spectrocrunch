@@ -26,9 +26,12 @@ import os
 import errno
 import shutil
 import contextlib
+import logging
 from datetime import datetime
 
 from . import fs
+
+logger = logging.getLogger(__name__)
 
 class FileSystemException(fs.FileSystemException):
     """
@@ -62,6 +65,10 @@ class Path(fs.Path):
         self.path = path
         super(Path,self).__init__(**kwargs)
     
+    @property
+    def mode(self):
+        return self.openparams['mode']
+        
     @property
     def factory_kwargs(self):
         return self.openparams
@@ -97,7 +104,9 @@ class Path(fs.Path):
         
     @contextlib.contextmanager
     def _fopen(self,**openparams):
+        #msg = '{} ({})'.format(self.path,openparams)
         try:
+            #logger.debug('Open '+msg)
             with open(self.path,**openparams) as f:
                 yield f
         except IOError as err:
@@ -107,7 +116,9 @@ class Path(fs.Path):
                 raise fs.NotAFile(self.location)
             else:
                 raise 
- 
+        #finally:
+        #    logger.debug('Close '+msg)
+            
     @property
     def exists(self):
         return os.path.exists(self.path)
@@ -175,8 +186,6 @@ class Path(fs.Path):
                 
         return dest
     
-    mv = move
-    
     def copy(self, dest, force=False, follow=False, dereference=False):
         dest = self._copy_move_prepare(dest, force=force)
         
@@ -192,8 +201,6 @@ class Path(fs.Path):
                 shutil.copy(self.path, dest.path)
                 
         return dest
-
-    cp = copy
     
     def remove(self,recursive=False):
         if self.islink:
@@ -215,8 +222,6 @@ class Path(fs.Path):
                         raise
         elif self.exists:
             os.remove(self.path)
-    
-    rm = remove
     
     def stats(self,follow=True):
         try:

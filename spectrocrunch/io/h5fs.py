@@ -29,9 +29,12 @@ import os
 import errno
 import re
 from time import sleep
+import logging
 
 from . import fs
 from . import localfs
+
+logger = logging.getLogger(__name__)
 
 class FileSystemException(fs.FileSystemException):
     """
@@ -44,16 +47,33 @@ class LockedError(FileSystemException):
     Device has been locked by someone else.
     """
 
+class Enum(dict):
+    def __getattr__(self, key):
+        return self[key]
+h5errnames = ['SIGERR','TRUNCERR','EEXIST','OPENERR']
+h5errno = Enum({k:-i for i,k in enumerate(h5errnames,1)})
+h5errcodes = {v:k for k,v in h5errno.items()}
+
 def h5py_errno(err):
     if errno.errorcode.get(err.errno,None):
-        m = re.search('errno = ([0-9]+)',err.message)
+        errmsg = err.message
+        m = re.search('errno = ([0-9]+)',errmsg)
         if m:
             return int(m.groups()[0])
-    else:
-        return err.errno
+        if 'file signature not found' in errmsg:
+            return h5errno.SIGERR
+        elif 'unable to truncate a file which is already open' in errmsg:
+            return h5errno.TRUNCERR
+        elif 'file exists' in errmsg:
+            return h5errno.EEXIST
+        elif 'file is already open for read-only' in errmsg:
+            return h5errno.OPENERR
+    return err.errno
+
 
 class h5FileIO(object):
-    
+    """Context manager to open HDF5 file with retries
+    """
     def __init__(self,path,retries=25,backoff_factor=0.4,**openparams):
         self._handle = None
         self.path = path
@@ -61,7 +81,27 @@ class h5FileIO(object):
         self.backoff_factor = backoff_factor
         self.openparams = openparams
     
+    def __enter__(self):
+        self._handle = self._open()
+        return self._handle
+
+    def __exit__(self,*args):
+        if self._handle:
+            self._handle.close()
+            self._handle = None
+            
     def _open(self):
+        # Open file which is locked by another process:
+        #   r   : OK (lock=r), EAGAIN(lock=r+/w/x/a)
+        #   r+/w: EAGAIN
+        #   x/a : EEXIST
+        # Open file which is locked by the same process (possibly another thread):
+        #   r : OK
+        #   r+: OK(lock=r+/w/x/a), OPENERR(lock=r)
+        #   w : TRUNCERR
+        #   x : EEXIST
+        #   a : EEXIST(lock=r), OK(lock=r+/w/x/a)
+
         path = self.path
         for _ in range(self.retries):
             try:
@@ -72,24 +112,16 @@ class h5FileIO(object):
                     raise fs.Missing(path)
                 elif code == errno.EISDIR:
                     raise fs.NotAFile(path)
-                elif code == errno.EAGAIN:
-                    pass
-                elif code == errno.EEXIST:
+                elif code in [errno.EAGAIN,h5errno.OPENERR,h5errno.TRUNCERR]:
+                    pass # try again
+                elif code in [errno.EEXIST,h5errno.EEXIST]:
                     if self.openparams['mode'] in ['x','w-']:
                         raise
+                    # try again
                 else:
                     raise
             sleep(self.backoff_factor)
         raise LockedError(path)
-
-    def __enter__(self):
-        self._handle = self._open()
-        return self._handle
-
-    def __exit__(self,*args):
-        if self._handle:
-            self._handle.close()
-            self._handle = None
 
 class h5Device(localfs.Path):
     """Proxy to HDF5 file
@@ -114,13 +146,19 @@ class h5Device(localfs.Path):
     
     @contextlib.contextmanager
     def _fopen(self,**openparams):
+        #msg = '{} ({})'.format(self.path,openparams)
+        #logger.debug('Open '+msg)
+        #try:
         with h5FileIO(self.path,**openparams) as f:
             yield f
+        #finally:
+        #    logger.debug('Close '+msg)
             
     def _openparams_defaults(self,openparams):
         super(h5Device,self)._openparams_defaults(openparams)
         defaultmode = self.openparams['mode']
         mode = openparams['mode']
+        
         if defaultmode=='r':
             # read-only
             mode = defaultmode
@@ -136,13 +174,16 @@ class h5Device(localfs.Path):
         elif defaultmode=='a' and mode not in ['r','a']:
             # allow new device (append when existing)
             mode = defaultmode
+        
         openparams['mode'] = mode
         
     @fs.onclose
     def remove(self,**kwargs):
         super(h5Device,self).remove(**kwargs)
-    rm = remove
 
+    @property
+    def mode(self):
+        return self.openparams['mode']
 
 class Path(fs.Path):
     """Proxy to HDF5 path
@@ -159,7 +200,14 @@ class Path(fs.Path):
             h5file = h5Device(h5file,**kwargs)
         self._h5file = h5file
         super(Path,self).__init__(**kwargs)
-        
+    
+    def factory(self,path):
+        if isinstance(path,self.__class__):
+            return path
+        else:
+            device,path = self._split_path(path,device=self.device)
+            return self.__class__(path,h5file=device,**self.factory_kwargs)
+    
     @property
     def openparams(self):
         return self.device.openparams
@@ -171,13 +219,17 @@ class Path(fs.Path):
     def _openparams_defaults(self,createparams):
         super(Path,self)._openparams_defaults(createparams)
         defaultmode = self.openparams['mode']
-        mode = createparams['mode']
+        createparams['nodemode'] = createparams['mode']
+        
+        #if createparams['nodemode']=='r':
+        #    import traceback
+        #    print ''
+        #    traceback.print_stack()
+        
+        # Device access mode (will be further restricted by h5Device)
         if defaultmode=='w':
-            # Truncate files but not device
+            # Do not truncate device when opening files
             createparams['mode'] = 'a'
-        else:
-            createparams['mode'] = defaultmode
-        createparams['nodemode'] = mode
     
     @contextlib.contextmanager
     def _fopen(self,**createparams):
@@ -222,15 +274,11 @@ class Path(fs.Path):
         with self.device.open(**openparams) as f:
             yield f
     
+    def isopen(self):
+        return self.device.isopen()
+    
     def h5remove(self):
         self.device.remove()
-
-    def factory(self,path):
-        if isinstance(path,self.__class__):
-            return path
-        else:
-            device,path = self._split_path(path,device=self.device)
-            return self.__class__(path,h5file=device,**self.factory_kwargs)
 
     @property
     def exists(self):
@@ -296,7 +344,7 @@ class Path(fs.Path):
         #return path.split(self.devsep)
              
     def listdir(self,recursive=False,depth=0):
-        with self.h5open(mode='r') as f:
+        with self.h5open() as f:
             root = f.get(self.path,default=None)
             if isinstance(root,h5py.Group):
                 for k in root.keys():
@@ -340,8 +388,6 @@ class Path(fs.Path):
             dest._move_relink(self,dest)
             return self.factory(dest)
     
-    mv = move
-    
     def _move_relink(self,source,dest):
         # Softlink in HDF5 are absolute, so relink all links below self
         # that point to a destination below self (including self)
@@ -369,8 +415,6 @@ class Path(fs.Path):
                                  expand_soft=dereference,expand_external=dereference)
             return self.factory(dest)
     
-    cp = copy
-    
     def remove(self,recursive=False):
         with self.h5open() as f:
             if self.islink:
@@ -388,8 +432,6 @@ class Path(fs.Path):
                     self.h5remove()
                 else:
                     del f[self.path]
-    
-    rm = remove
     
     def stats(self,follow=True):
         if follow==False:

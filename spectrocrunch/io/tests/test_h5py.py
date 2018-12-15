@@ -37,6 +37,12 @@ from ...io import excel
 
 logger = logging.getLogger(__name__)
 
+def checkdata(f):
+    assert(f['data'][()] == 10)
+
+def setdata(f):
+    f['data'] = 10
+
 def createHolder(Base):
     class Holder(Base):
         
@@ -85,12 +91,12 @@ def createHolder(Base):
                 if self.holdmode:
                     if self.holdmode.startswith('r'):
                         with h5py.File(self.destination,mode='w') as f:
-                            f['data'] = 10
+                            setdata(f)
                         with h5py.File(self.destination,mode=self.holdmode) as f:
                             self._sendevent()
                     else:
                         with h5py.File(self.destination,mode=self.holdmode) as f:
-                            f['data'] = 10
+                            setdata(f)
                             self._sendevent()
                 else:
                     self._sendevent()
@@ -123,7 +129,7 @@ def createClient(Base):
                 with h5py.File(self.destination,mode=mode) as f:
                     output = 'OK'
                     if mode=='r':
-                        assert(f['a'] == 10)
+                        checkdata(f)
             except IOError as err:
                 output = errno.errorcode.get(err.errno,None)
                 if output is None:
@@ -168,7 +174,7 @@ def updatedata(info,value):
     data = excel.DataFrame.fromexcel(filename,index_col=[0,1])
     df = data.get(sheet_name,None)
     if df is None:
-        df = excel.DataFrame(sheet_name=sheet_name,rowlevels=('Existing','Opened'))
+        df = excel.DataFrame(sheet_name=sheet_name,rowlevels=('Existing','Lock mode'))
         data[sheet_name] = df
     df.addvalue(row,column,str(value))
     with excel.Writer(filename) as writer:
@@ -183,12 +189,12 @@ def run(Base,Event,destination,filename,sheet_name):
 
     filemode = [None,'r','r+','w','w+','a','a+']
     dirmode = [None]
-    hdf5mode = [None,'r','r+','w','x','a']
+    lockmode = [None,'r','r+','w','x','a']
     nonemode = [None]
     clientmode = ['r','r+','w','x','a']
     
-    desttypes = ['file']*len(filemode) + ['dir']*len(dirmode) + ['hdf5']*len(hdf5mode) + ['None']*len(nonemode)
-    holdmodes = filemode + dirmode + hdf5mode + nonemode
+    desttypes = ['file']*len(filemode) + ['dir']*len(dirmode) + ['hdf5']*len(lockmode) + ['None']*len(nonemode)
+    holdmodes = filemode + dirmode + lockmode + nonemode
     
     startevent = Event()
     exitevent = Event()
@@ -200,7 +206,7 @@ def run(Base,Event,destination,filename,sheet_name):
             holder.start()
             startevent.wait()
             
-            output['sheet_name'] = sheet_name+'_1'
+            output['sheet_name'] = sheet_name+'_locked'
             client = Client(destination,mode,output)
             client.start()
             client.join()
@@ -210,7 +216,7 @@ def run(Base,Event,destination,filename,sheet_name):
             startevent.clear()
             exitevent.clear()
             
-            output['sheet_name'] = sheet_name+'_2'
+            output['sheet_name'] = sheet_name+'_unlocked'
             client = Client(destination,mode,output)
             client.start()
             client.join()

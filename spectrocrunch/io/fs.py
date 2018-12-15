@@ -30,9 +30,9 @@ import operator
 import logging
 import functools
 
-logger = logging.getLogger(__name__)
-
 from . import utils
+
+logger = logging.getLogger(__name__)
 
 
 class FileSystemException(Exception):
@@ -148,7 +148,6 @@ class File(with_metaclass(ABCMeta,object)):
     def __repr__(self):
         pass
 
-
 def onclose(func):
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
@@ -256,6 +255,13 @@ class Path(File):
             return path
         else:
             return self.__class__(path,**self.factory_kwargs)
+    
+    def detach(self,**kwargs):
+        return self.__class__(self.location,**kwargs)
+    
+    def readonly(self,**kwargs):
+        kwargs['mode'] = 'r'
+        self.detach(**kwargs)
     
     def sibling(self,path):
         if isinstance(path,Path):
@@ -627,7 +633,8 @@ class Path(File):
     def move(self, dest, force=False, rename=False):
         pass
 
-    mv = move
+    def mv(self,*args,**kwargs):
+        return self.move(*args,**kwargs)
 
     def rename(self, dest, force=False):
         return self.move(dest, force=force, rename=True)
@@ -636,7 +643,8 @@ class Path(File):
     def copy(self, dest, force=False, follow=False, dereference=False):
         pass
 
-    cp = copy
+    def cp(self,*args,**kwargs):
+        return self.copy(*args,**kwargs)
 
     @abstractmethod
     def stats(self,follow=True):
@@ -662,7 +670,8 @@ class Path(File):
     def remove(self,recursive=False):
         pass
     
-    rm = remove
+    def rm(self,*args,**kwargs):
+        return self.remove(*args,**kwargs)
     
     def rmdir(self):
         if self.isdir:

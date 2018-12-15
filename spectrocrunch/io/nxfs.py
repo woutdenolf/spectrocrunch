@@ -30,6 +30,8 @@ from datetime import datetime
 import json
 import re
 import logging
+import dateutil.tz
+import dateutil.parser
 
 from . import fs
 from . import h5fs
@@ -73,9 +75,18 @@ def dataprepare(data):
     if instance.isstring(data):
         data = textarray(data)
     return data
-    
+
+tzlocal = dateutil.tz.tzlocal()
+
 def timestamp():
-    return textarray(datetime.now().isoformat())
+    return textarray(datetime.now(tzlocal).isoformat())
+
+def parse_timestamp(tm):
+    try:
+        return dateutil.parser.parse(tm)
+    except ValueError:
+        pass
+    return tm
 
 def calc_checksum(dependencies,confighash):
     if dependencies:
@@ -173,9 +184,29 @@ class Path(h5fs.Path):
                 path['date'].write(mode='w',data=tm)
             self.nxroot().update_stats(file_update_time=tm)
     
+    def _read_time(self,name,*nxclasses):
+        path = self.findfirstup_is_nxclass(*nxclasses)
+        if path.is_nxclass(*nxclasses) and name in path:
+            return parse_timestamp(path[name].read())
+        else:
+            return None
+            
+    @property
+    def end_time(self):
+        return self._read_time('end_time','NXentry','NXsubentry')
+
+    @property
+    def start_time(self):
+        return self._read_time('start_time','NXentry','NXsubentry')
+    
+    @property
+    def date(self):
+        return self._read_time('date','NXprocess','NXnote')
+        
     def _init_nxclass(self,path,nxclass,nxattributes=None,nxfiles=None,**openparams):
         with self.h5open(**openparams):
-            path = path.mkdir()
+            if not path.exists:
+                path = path.mkdir()
             with path.open() as node:
                 nxclassattr = node.attrs.get('NX_class',None)
                 if nxclassattr:
