@@ -30,6 +30,7 @@ import itertools
 from . import instance
 from . import listtools
 
+
 def isadvanced(index):
     """Check for advanced indexing
 
@@ -39,11 +40,9 @@ def isadvanced(index):
     Returns:
         bool
     """
-
-    if isinstance(index,tuple):
+    if isinstance(index, tuple):
         return any(isadvanced(ind) for ind in index)
-
-    return isinstance(index,list)
+    return instance.islist(index)
 
 def lengthadvanced(index,shape):
     """Length after advanced indexing
@@ -65,7 +64,7 @@ def lengthadvanced(index,shape):
         if tmp.count(tmp[0])!=len(tmp):
             raise IndexError("shape mismatch: indexing arrays could not be broadcast together with shapes {}".format(tmp))
         return tmp[0]
-    elif isinstance(index,list):
+    elif instance.islist(index):
         if instance.isboollist(index):
             return sum(index)
         else:
@@ -98,7 +97,7 @@ def nadvanced(index):
         num: length of the list indexing
     """
 
-    return indexcount(index,list)
+    return indexcount(index,instance.listtypes)
 
 def nsingleton(index):
     """Number of singleton dimensions
@@ -119,11 +118,12 @@ def isdimchanging(index):
     Returns:
         array or num
     """
-
     if isinstance(index,tuple):
         return [isdimchanging(ind) for ind in index]
     else:
-        return isinstance(index,list) or isinstance(index,numbers.Number) or index is np.newaxis
+        return instance.islist(index) or\
+               isinstance(index,numbers.Number) or\
+               index is np.newaxis
 
 def replace_dimnonchanging(index):
     if isinstance(index,tuple):
@@ -223,8 +223,8 @@ def extract_newaxis(index):
     bnew = [ind is np.newaxis for ind in index]
 
     if any(bnew):
-        indexwithnew,indexwithoutnew,bindexwithoutnew = zip(*replace_nonnewaxis(index))
-        indexwithoutnew = listtools.listadvanced_bool(indexwithoutnew,bindexwithoutnew)
+        indexwithnew, indexwithoutnew, bindexwithoutnew = zip(*replace_nonnewaxis(index))
+        indexwithoutnew = tuple(listtools.listadvanced_bool(indexwithoutnew, bindexwithoutnew))
 
         s = (3,)*len(indexwithoutnew)
         s1 = np.empty(s)[indexwithnew].shape
@@ -232,7 +232,7 @@ def extract_newaxis(index):
         # 2 -> destination axis of advanced indexing
         # 3 -> any other dimension which is not squeezed
 
-        s1b = [i for i in s1 if i!=1]
+        s1b = [i for i in s1 if i != 1]
         if len(s)==0:
             s2 = ()
         else:
@@ -333,9 +333,9 @@ def shape_afterindexing(shape,index,ndim=None):
     # Expected shape after indexing
     s2 = [0]*len(axes)
     for i,iaxes in enumerate(axes):
-        if iaxes < 0:
+        if instance.isnumber(iaxes) and iaxes < 0:
             s2[i] = 1
-        elif isinstance(iaxes,list):
+        elif instance.islist(iaxes):
             s2[i] = lengthadvanced(indexnonew,shape)
         else:
             ind = indexnonew[iaxes]
@@ -481,7 +481,6 @@ def replacefull_transform(index,fullaxes,ndim,restoreadvanced=True):
     Returns:
         list,operators
     """
-
     # Index after replacing
     fullaxes = [positiveaxis(axis,ndim) for axis in fullaxes]
     indexfull = replacefull(index,ndim,fullaxes)
@@ -491,7 +490,7 @@ def replacefull_transform(index,fullaxes,ndim,restoreadvanced=True):
     axes2,_ = axesorder_afterindexing(indexfull,ndim)
 
     # Advanced indexing dimensions
-    i1list = listtools.where(axes1,lambda x:isinstance(x, list))
+    i1list = listtools.where(axes1,lambda x:instance.islist(x))
     if len(i1list)==0:
         laxes1 = []
     else:
@@ -530,7 +529,7 @@ def replacefull_transform(index,fullaxes,ndim,restoreadvanced=True):
     
     # Transpose data after indexfull to match data after index
     ind = [axes2.index(a) for a in axes1 if a in axes2]
-    if ind!=range(len(ind)) and sorted(ind)==range(len(ind)):
+    if ind!=list(range(len(ind))) and sorted(ind)==list(range(len(ind))):
         postindexfull = op_transpose(ind)
         axes2 = listtools.listadvanced_int(axes2,ind)
     else:
@@ -538,7 +537,7 @@ def replacefull_transform(index,fullaxes,ndim,restoreadvanced=True):
     
     # For extracting particular indices along the full dimensions
     selaxes = [axes2.index(a) for a in fullaxes]
-        
+    
     singletonindex = op_singletonindex(selaxes,restore)
     
     return indexfull,postindexfull,singletonindex
@@ -568,14 +567,14 @@ def nonchanging(index,shape=None):
         return True
     elif index is np.newaxis: # adds a dimension
         return False
-    elif isinstance(index,list):
+    elif instance.islist(index):
         if shape is None:
             return False # could be True, but we can't know when shape is not given
         else:
             if instance.isboollist(index):
                 return all(index)
             else:
-                return index==range(shape)
+                return index==list(range(shape))
     else:
         return False
 
@@ -599,7 +598,7 @@ def nonchangingdims(index,ndim,axes,shape=None):
 
     axesorder,_ = axesorder_afterindexing(index,ndim)
 
-    i = listtools.where(axesorder,lambda x:isinstance(x, list))
+    i = listtools.where(axesorder,lambda x:instance.islist(x))
     if len(i)==1:
         i = i[0]
         if len(axesorder[i])==1:
@@ -759,7 +758,7 @@ class operators(object):
         self.ops = []
 
     def append(self,op):
-        if isinstance(op,list):
+        if instance.islist(op):
             self.ops += op
         elif isinstance(op,operators):
             self.ops += op.ops
@@ -793,8 +792,7 @@ def move_axis(ndim,i1,i2):
     """
     if i1==i2:
         return None
-    axes = range(ndim)
-
+    axes = list(range(ndim))
     axes.insert(i2,axes.pop(i1))
     return axes
 
@@ -860,7 +858,7 @@ def decompose_listindexing(index,nlist):
     tpl = [0]*nindex
     for j in range(nlist):
         for i,ind in enumerate(index):
-            if isinstance(ind,list):
+            if instance.islist(ind):
                 tpl[i] = ind[j]
             else:
                 tpl[i] = ind
