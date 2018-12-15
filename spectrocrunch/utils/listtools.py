@@ -59,7 +59,7 @@ def listadvanced_bool(lst,barr,bnot=False):
         list
     """
     if bnot:
-        barr = itertools.imap(operator.not_,barr)
+        barr = map(operator.not_,barr)
     return list(itertools.compress(lst,barr))
 
 def listadvanced_int(lst,ind):
@@ -107,7 +107,7 @@ def sort2lists(list1, list2):
     Returns:
         list,list
     """
-    return tuple(list(t) for t in itertools.izip( *sorted(itertools.izip(list1, list2),key=operator.itemgetter(0)) ))
+    return tuple(list(t) for t in zip( *sorted(zip(list1, list2),key=operator.itemgetter(0)) ))
 
 def sumrepeats(labels, counts):
     """
@@ -119,7 +119,7 @@ def sumrepeats(labels, counts):
         list,list
     """
     c = collections.Counter()
-    for l,cnt in itertools.izip(labels,counts):
+    for l,cnt in zip(labels,counts):
         c.update({l:cnt})
     return c.keys(),c.values()
 

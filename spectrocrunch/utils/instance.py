@@ -29,6 +29,11 @@ import numpy as np
 import uncertainties.core
 from ..patch.pint import ureg
 
+if type(range)==type:
+    listtypes = (list, range)
+else:
+    listtypes = (list, xrange)
+
 def isstring(x):
     try:
         return isinstance(x, basestring)
@@ -42,7 +47,10 @@ def isboollist(lst):
         return False
         
 def isarray(x):
-    return isinstance(x, (list, set, frozenset, tuple, np.ndarray))
+    return isinstance(x, (set, frozenset, tuple, np.ndarray)+listtypes)
+
+def islist(x):
+    return isinstance(x, listtypes)
 
 def isarray0(x):
     """Check for numpy 0-d array
@@ -74,7 +82,7 @@ def isiterable(x):
 
 def iscallable(x):
     return isinstance(x, collections.Callable)
-    
+
 def isquantity(x):
     return isinstance(x, ureg.Quantity)
     
@@ -149,4 +157,3 @@ def arrayit(x):
         return x
     else:
         return [x]
-        

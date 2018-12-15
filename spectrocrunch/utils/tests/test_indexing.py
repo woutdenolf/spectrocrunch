@@ -23,14 +23,14 @@
 # THE SOFTWARE.
 
 import unittest
+import itertools
+import numpy as np
 
 from . import genindexing
 from .. import indexing
 from .. import listtools
+from .. import instance
 
-import numpy as np
-
-import itertools
 
 class test_indexing(unittest.TestCase):
 
@@ -255,19 +255,18 @@ class test_indexing(unittest.TestCase):
                             p = [range(r)]*nlist + [0]*nsingleton + [slice(None)]*nother + [np.newaxis]*nnew
                             for index in itertools.permutations(p):
                                 for n in range(1,ndim):
-                                    
                                     for fullaxes in itertools.combinations(range(ndim),n):
                                         indexfull,postindexfull,singletonindex = indexing.replacefull_transform(index,fullaxes,ndim,restoreadvanced=False)
- 
+                                        
                                         ind1 = indexing.expand(index,ndim)
                                         ind2 = indexfull
                                         ind3 = [i for i in ind1 if i is not np.newaxis]
-                                        b1 = [isinstance(i, list) for i in ind1]
-                                        b2 = [not isinstance(i, list) for i in ind2]
+                                        b1 = [instance.islist(i) for i in ind1]
+                                        b2 = [not instance.islist(i) for i in ind2]
                                         bseladv = np.logical_and(b1,b2)
 
                                         if any(bseladv):
-                                            selind = [[ i if isinstance(ind3[axis],list) else 0 for axis in fullaxes] for i in range(r)]
+                                            selind = [[ i if instance.islist(ind3[axis]) else 0 for axis in fullaxes] for i in range(r)]
                                         else:
                                             selind = [[0]*n]
          
@@ -288,11 +287,11 @@ class test_indexing(unittest.TestCase):
                                             d = np.stack(d,axis=b.shape.index(r))
                                         else:
                                             d = d[0]
-                                        
-                                        self.assertTrue(b.ndim,d.ndim)
+                                            
+                                        self.assertEqual(b.ndim,d.ndim)
 
                                         # Index fullaxes after normal indexing
-                                        selaxes = np.logical_and( np.asarray(d.shape)==1,np.asarray(b.shape)!=1 )
+                                        selaxes = np.logical_and(np.asarray(d.shape)==1, np.asarray(b.shape)!=1)
                                         if any(selaxes):
                                             selaxes = np.arange(b.ndim)[selaxes]
                                             restore = [True]*len(selaxes)
@@ -392,18 +391,18 @@ class test_indexing(unittest.TestCase):
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_indexing("test_list"))
-    testSuite.addTest(test_indexing("test_numpy"))
-    testSuite.addTest(test_indexing("test_replacefull"))
-    testSuite.addTest(test_indexing("test_expand"))
-    testSuite.addTest(test_indexing("test_axisindex"))
-    testSuite.addTest(test_indexing("test_nonchangingdims"))
-    testSuite.addTest(test_indexing("test_extract_dimnonchanging"))
-    testSuite.addTest(test_indexing("test_extract_newaxis"))
-    testSuite.addTest(test_indexing("test_shape_afterindexing"))
-    testSuite.addTest(test_indexing("test_replacefull_transform"))
+    #testSuite.addTest(test_indexing("test_list"))
+    #testSuite.addTest(test_indexing("test_numpy"))
+    #testSuite.addTest(test_indexing("test_replacefull"))
+    #testSuite.addTest(test_indexing("test_expand"))
+    #testSuite.addTest(test_indexing("test_axisindex"))
+    #testSuite.addTest(test_indexing("test_nonchangingdims"))
+    #testSuite.addTest(test_indexing("test_extract_dimnonchanging"))
+    #testSuite.addTest(test_indexing("test_extract_newaxis"))
+    #testSuite.addTest(test_indexing("test_shape_afterindexing"))
+    #testSuite.addTest(test_indexing("test_replacefull_transform"))
     testSuite.addTest(test_indexing("test_getitem"))
-    testSuite.addTest(test_indexing("test_setitem"))
+    #testSuite.addTest(test_indexing("test_setitem"))
     return testSuite
     
 if __name__ == '__main__':

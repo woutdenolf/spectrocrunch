@@ -40,7 +40,7 @@ def phash(x):
     return dhash(pickle.dumps(x))
 
 def jhash(x):
-    return dhash(json.dumps(x))
+    return dhash(json.dumps(x).encode('utf-8'))
     
 def _isiterable(x):
     return isinstance(x,collections.Iterable) and not isinstance(x, string_types)

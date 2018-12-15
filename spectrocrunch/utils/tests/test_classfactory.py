@@ -71,8 +71,8 @@ class test_classfactory(unittest.TestCase):
                 self.kw12a = kw12a
                 super(class12a, self).__init__(arg0=arg0,arg1=arg1,arg2=arg2,**kwargs)
         
-        self.assertEqual(class1.clsregistry.keys(),['class1', 'class1a', 'class1b', 'class12a'])
-        self.assertEqual(class2.clsregistry.keys(),['class2', 'class12a'])
+        self.assertEqual(set(class1.clsregistry.keys()),set(['class1', 'class1a', 'class1b', 'class12a']))
+        self.assertEqual(set(class2.clsregistry.keys()),set(['class2', 'class12a']))
         
         o = factory1("class1","0","1",kw0="k0",kw1="k1")
         self.assertEqual((o.arg0,o.arg1,o.kw0,o.kw1),("0","1","k0","k1"))
