@@ -30,7 +30,10 @@ import uncertainties.core
 from ..patch.pint import ureg
 
 def isstring(x):
-    return isinstance(x, basestring)
+    try:
+        return isinstance(x, basestring)
+    except NameError:
+        return isinstance(x, str)
 
 def isboollist(lst):
     try:
