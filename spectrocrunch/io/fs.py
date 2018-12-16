@@ -441,12 +441,15 @@ class Path(File):
         if os.sep==self.sep:
             return path
         else:
-            return path.replace(self.sep,op.sep)
+            return path.replace(self.sep,os.sep)
 
     def _sep_out(self,path):
         if os.sep==self.sep:
             return path
         else:
+            osroot = os.path.abspath(os.sep)
+            if path.startswith(osroot):
+                path = os.sep + path[len(osroot):]
             return path.replace(os.sep,self.sep)
             
     def join(self,*args):
@@ -456,7 +459,7 @@ class Path(File):
     def norm(self,path):
         """remove redundant separators
            remove references '.' and '..'
-           make and absolute path
+           make path absolute
         """
         path = self._sep_in(path)
         path = os.path.abspath(os.path.normpath(path))

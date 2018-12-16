@@ -352,7 +352,6 @@ def xiadetectorselect_numbers(detectors,exclude_detectors,include_detectors):
     Returns:
         list(str)
     """
-
     if len(detectors)==0:
         return detectors
 
@@ -383,7 +382,6 @@ def xiagroupkey(filename):
     Returns:
         tuple: sort key
     """
-
     o = xianameparser.parse(filename)
     return o.radix,o.mapnum,o.linenum,filename
 
@@ -399,20 +397,15 @@ def xiagroup(files):
     Returns:
         OrderedDict(OrderedDict(OrderedDict(list(str)))): ret[radix][mapnum][linenum] = ["...xia00...","...xia01...",...]
     """
-
     files.sort(key=xiasortkey)
-
     keys = [xiagroupkey(f) for f in files]
-
     ret = collections.OrderedDict()
-    
     for radix, v0 in itertools.groupby(keys, operator.itemgetter(0)):
         xiagroupinit(ret,radix)
         for mapnum, v1 in itertools.groupby(v0, operator.itemgetter(1)):
             xiagroupinit(ret[radix],mapnum)
             for linenum, v2 in itertools.groupby(v1, operator.itemgetter(2)):
                 ret[radix][mapnum][linenum] = [v[-1] for v in v2]
-
     return ret
 
 def xiagroupdetectorskey(filename):
@@ -425,7 +418,6 @@ def xiagroupdetectorskey(filename):
     Returns:
         tuple: sort key
     """
-
     o = xianameparser.parse(filename)
     return o.detector,o.baselabel,filename
     
@@ -437,18 +429,13 @@ def xiagroupdetectors(files):
     Returns:
         OrderedDict(OrderedDict(list(str))): ret[detector][baselabel] = ["...xmap_x1c_00...","...xmap_x1c_00...",...]
     """
-    
     files.sort(key=xiasortkey)
-
     keys = [xiagroupdetectorskey(f) for f in files]
-
     ret = collections.OrderedDict()
-    
     for detector, v0 in itertools.groupby(keys, operator.itemgetter(0)):
         xiagroupinit(ret,detector)
         for baselabel, v1 in itertools.groupby(v0, operator.itemgetter(1)):
             ret[detector][baselabel] = [v[-1] for v in v1]
-
     return ret
 
 def xiagroupmaps2(files):
@@ -459,20 +446,15 @@ def xiagroupmaps2(files):
     Returns:
         OrderedDict(OrderedDict(OrderedDict(list(str)))): ret[radix_mapnum][linenum] = ["...xia00...","...xia01...",...]
     """
-
     files.sort(key=xiasortkey)
-
     keys = [xiagroupkey(f) for f in files]
-
     ret = collections.OrderedDict()
-    
     for radix, v0 in itertools.groupby(keys, operator.itemgetter(0)):
         for mapnum, v1 in itertools.groupby(v0, operator.itemgetter(1)):
             k = "{}_{}".format(radix,mapnum)
             xiagroupinit(ret,k)
             for linenum, v2 in itertools.groupby(v1, operator.itemgetter(2)):
                 ret[k][linenum] = [v[-1] for v in v2]
-
     return ret
 
 def xiagroupmapskey(filename):
@@ -485,7 +467,6 @@ def xiagroupmapskey(filename):
     Returns:
         tuple: sort key
     """
-
     o = xianameparser.parse(filename)
     return o.mapnum,o.linenum,filename
 
@@ -497,18 +478,13 @@ def xiagroupmaps(files):
     Returns:
         OrderedDict(OrderedDict(list(str))): ret[mapnum][linenum] = ["...xia00...","...xia01...",...]
     """
-
     files.sort(key=xiasortkey)
-
     keys = [xiagroupmapskey(f) for f in files]
-
     ret = collections.OrderedDict()
-    
     for mapnum, v0 in itertools.groupby(keys, operator.itemgetter(0)):
         xiagroupinit(ret,mapnum)
         for linenum, v1 in itertools.groupby(v0, operator.itemgetter(1)):
             ret[mapnum][linenum] = [v[-1] for v in v1]
-
     return ret
 
 def xiagrouplineskey(filename):
@@ -521,7 +497,6 @@ def xiagrouplineskey(filename):
     Returns:
         tuple: sort key
     """
-
     o = xianameparser.parse(filename)
     return o.linenum,filename
 
@@ -534,16 +509,11 @@ def xiagrouplines(files):
         OrderedDict(list(str)): ret[linenum] = ["...xia00...","...xia01...",...]
                                 ret[-1] = ["...ctr1...","...ctr2...",...]
     """
-
     files.sort(key=xiasortkey)
-
     keys = [xiagrouplineskey(f) for f in files]
-
     ret = collections.OrderedDict()
-    
     for linenum, v0 in itertools.groupby(keys, operator.itemgetter(0)):
         ret[linenum] = [v[-1] for v in v0]
-
     return ret
 
 def xiagroupnxiafiles(files):
@@ -1251,6 +1221,7 @@ class xiadata(object):
                             s3[i] = min(a,b)
                             s4[i] = s3[i]
                             ind[i] = slice(0,s3[i])
+                    ind = tuple(ind)
                     data = data[ind].reshape(s3)
                     cor = cor[ind].reshape(s4)
                 
@@ -2242,7 +2213,7 @@ class xiaimage_files(xiaimage):
             self._ctrfiles = files[-1]
             filename = self._ctrfiles[0]
         else:
-            filename = files.values()[0][0]
+            filename = next(iter(files.values()))[0]
         o = xianameparser.parse(filename) 
         self.radix, self.mapnum = o.radix, o.mapnum
         self.path = os.path.dirname(filename)
@@ -2281,7 +2252,7 @@ class xiaimage_number(xiaimage):
         files = xiasearch(self.path,radix=self.radix,mapnum=self.mapnum,ctrs=False)
         if len(files)!=0:
             files = xiagrouplines(files)
-            n = xiagroupnxiafiles(files.values()[0]) # number of files in the first map
+            n = xiagroupnxiafiles(next(iter(files.values()))) # number of files in the first map
             self._items = [xialine_files(f,**self.linekwargs) for linenum,f in files.items() if xiagroupnxiafiles(f) == n]
         
         self.ctrsearch()
@@ -2364,7 +2335,7 @@ class xiastack_radix(xiastack):
             
         files = xiagroupmaps2(files)
 
-        n = xiagroupnxiafiles(files.values()[0]) # number of files in the first map
+        n = xiagroupnxiafiles(next(iter(files.values()))) # number of files in the first map
         self._items = [xiaimage_files(fmap,**self.imagekwargs) for radix_mapnum,fmap in files.items() if xiagroupnxiafiles(fmap)==n]
     
 

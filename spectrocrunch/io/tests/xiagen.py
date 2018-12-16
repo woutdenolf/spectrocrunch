@@ -54,8 +54,8 @@ def data(nspec,nchan,ndet,concentration=None,flux=None):
             
     # Spectrum
     spectrum0 = np.zeros(nchan,dtype=cortype)
-    for k in range(npeaks):
-        spectrum0 += peak(x,p[k])
+    for k in p:
+        spectrum0 += peak(x,k)
         
     # Pixel intensity
     if concentration is None:

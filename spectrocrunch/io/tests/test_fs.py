@@ -58,13 +58,13 @@ class test_fs(unittest.TestCase):
         
     def _check_h5(self,cls):
         h5filename1 = os.path.join(self.dir.path,'test.h5')
-        root1 = cls('/',h5file=h5filename1)
-        root2 = cls(h5filename1+':/')
+        root1 = cls('',h5file=h5filename1)
+        root2 = cls(h5filename1)
         self.assertEqual(root1,h5filename1+':/')
         self.assertEqual(root1,root2)
         
         h5filename2 = os.path.join(self.dir.path,'ext.h5')
-        root2 = cls(h5filename2+':/')
+        root2 = cls(h5filename2)
         #self._check_path(root1,root2,shape=(2,3),dtype=int)
         self._check_link(root1)
         

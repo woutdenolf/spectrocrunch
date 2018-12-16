@@ -71,16 +71,16 @@ def get_version():
 
 def get_devstatus():
     ## # The development status is derived from the SpectroCrunch release level
-    mapping = {"dev":2,"alpha":3,"beta":4,"rc":5,"final":6}
-    cycle = {1:"Planning",2:"Pre-Alpha",3:"Alpha",4:"Beta",5:"Production/Stable",6:"Mature",7:"Inactive"}
+    mapping = {'dev':2,'alpha':3,'beta':4,'rc':5,'final':6}
+    cycle = {1:'Planning',2:'Pre-Alpha',3:'Alpha',4:'Beta',5:'Production/Stable',6:'Mature',7:'Inactive'}
 
     status = mapping[_version.version_info.releaselevel]
     
-    return "Development Status :: %d - %s"%(status,cycle[status])
+    return 'Development Status :: %d - %s'%(status,cycle[status])
 
 def get_readme():
     dirname = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(dirname, "README.rst"), "r") as fp:
+    with open(os.path.join(dirname, 'README.rst'), 'r') as fp:
         long_description = fp.read()
     return long_description
 
@@ -93,7 +93,7 @@ cmdclass = {}
 class DisabledCommand(Command):
     user_options = []
 
-    _MSG = "Command is disabled."
+    _MSG = 'Command is disabled.'
 
     def initialize_options(self):
         pass
@@ -119,7 +119,7 @@ class VersionOfAllPackages(Command):
         pass
     
     def run(self):
-        print("This version of {} is {}".format(PROJECT,_version.version))
+        print('This version of {} is {}'.format(PROJECT,_version.version))
 cmdclass['version'] = VersionOfAllPackages
 
 
@@ -134,7 +134,7 @@ class BuildWithVersion(build_py):
     
     def find_package_modules(self, package, package_dir):
         modules = build_py.find_package_modules(self, package, package_dir)
-        if "." not in package:
+        if '.' not in package:
             modules.append((package, '_version', '_version.py'))
         return modules
 
@@ -180,8 +180,8 @@ class CleanCommand(Command):
     def finalize_options(self):
         pass
     def run(self):
-        shutil.rmtree("./build",True)
-        shutil.rmtree("./dist",True)
+        shutil.rmtree('./build',True)
+        shutil.rmtree('./dist',True)
         
         patterns = ['*.egg-info']
         for pattern in patterns:
@@ -217,36 +217,37 @@ cmdclass['name'] = NameCommand
 ## Trove classifiers ## 
 #######################
 classifiers = [get_devstatus(),
-               "Environment :: Console",
-               ## "Environment :: MacOS X",
-               ## "Environment :: Win32 (MS Windows)",
-               ## "Environment :: X11 Applications :: Qt",
-               "Intended Audience :: Science/Research",
-               "License :: OSI Approved :: MIT License",
-               "Natural Language :: English",
-               ## "Operating System :: Microsoft :: Windows",
-               "Operating System :: POSIX :: Linux",
-               ## "Operating System :: MacOS :: MacOS X",
-               "Programming Language :: Python :: 2.7",
-               ## "Programming Language :: Python :: 3.4",
-               ## "Programming Language :: Python :: 3.5",
-               "Topic :: Documentation :: Sphinx",
-               "Topic :: Scientific/Engineering :: Physics",
-               "Topic :: Software Development :: Libraries :: Python Modules"
+               'Environment :: Console',
+               ## 'Environment :: MacOS X',
+               ## 'Environment :: Win32 (MS Windows)',
+               ## 'Environment :: X11 Applications :: Qt',
+               'Intended Audience :: Science/Research',
+               'License :: OSI Approved :: MIT License',
+               'Natural Language :: English',
+               ## 'Operating System :: Microsoft :: Windows',
+               'Operating System :: POSIX :: Linux',
+               ## 'Operating System :: MacOS :: MacOS X',
+               'Programming Language :: Python :: 2.7',
+               ## 'Programming Language :: Python :: 3.4',
+               ## 'Programming Language :: Python :: 3.5',
+               'Topic :: Documentation :: Sphinx',
+               'Topic :: Scientific/Engineering :: Physics',
+               'Topic :: Software Development :: Libraries :: Python Modules'
                ]
 
 
 ##################
 ## Requirements ## 
 ##################
-install_requires = ["setuptools","numpy", "future", "scipy", "h5py", "fabio", "silx",\
-                    "pyparsing", "PyMca5", "shapely", "matplotlib",\
-                    "uncertainties", "pint", "pandas", "scikit-image",\
-                    "xlsxwriter", "xlrd", "python-dateutil", "jsonpickle"]
-extras_require = {"physics":["xraylib", "cctbx", "fdmnes","PyTMM"],\
-                  "elastix":["SimpleITK"]\
+install_requires = ['setuptools','numpy', 'future', 'scipy', 'h5py', 'fabio', 'silx',\
+                    'pyparsing', 'PyMca5', 'shapely', 'matplotlib',\
+                    'uncertainties', 'pint', 'pandas', 'scikit-image',\
+                    'xlsxwriter', 'xlrd', 'python-dateutil', 'jsonpickle',\
+                    'testfixtures']
+extras_require = {'physics':['xraylib', 'cctbx', 'fdmnes','PyTMM'],\
+                  'elastix':['SimpleITK']\
                   }
-setup_requires = ["setuptools","testfixtures"]
+setup_requires = ['setuptools','testfixtures']
 
 
 ###################
@@ -254,18 +255,18 @@ setup_requires = ["setuptools","testfixtures"]
 ###################
 setup(name=PROJECT,
       version=get_version(),
-      url="https://github.com/woutdenolf/spectrocrunch",
-      author="Wout De Nolf",
-      author_email="woutdenolf@users.sf.net",
+      url='https://github.com/woutdenolf/spectrocrunch',
+      author='Wout De Nolf',
+      author_email='woutdenolf@users.sf.net',
       classifiers = classifiers,
-      description="Spectroscopic imaging library (XRF/XAS)",
+      description='Spectroscopic imaging library (XRF/XAS)',
       long_description=get_readme(),
       install_requires=install_requires,
       extras_require=extras_require,
       setup_requires=setup_requires,
       packages=find_packages(),
       package_data={'spectrocrunch.resources': ['*/*.*']},
-      license="MIT",
+      license='MIT',
       cmdclass=cmdclass,
-      test_suite="{}.tests.test_all.test_suite".format(PROJECT)
+      test_suite='{}.tests.test_all.test_suite'.format(PROJECT)
       )

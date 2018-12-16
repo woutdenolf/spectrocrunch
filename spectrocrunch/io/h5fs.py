@@ -56,7 +56,7 @@ h5errcodes = {v:k for k,v in h5errno.items()}
 
 def h5py_errno(err):
     if errno.errorcode.get(err.errno,None):
-        errmsg = err.message
+        errmsg = str(err)
         m = re.search('errno = ([0-9]+)',errmsg)
         if m:
             return int(m.groups()[0])
