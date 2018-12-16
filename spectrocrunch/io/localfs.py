@@ -216,7 +216,7 @@ class Path(fs.Path):
                 try:
                     os.rmdir(self.path)
                 except OSError as err:
-                    if err.errno==errno.ENOTEMPTY:
+                    if err.errno == errno.ENOTEMPTY:
                         raise fs.DirectoryIsNotEmpty(self.location)
                     else:
                         raise

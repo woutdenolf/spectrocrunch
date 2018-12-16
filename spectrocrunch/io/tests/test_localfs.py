@@ -23,6 +23,7 @@
 # THE SOFTWARE.
 
 import os
+import io
 import unittest
 from testfixtures import TempDirectory
 
@@ -146,10 +147,16 @@ class test_localfs(unittest.TestCase):
 
     def _check_ap(self,filename,word):
         with localfs.Path(filename,mode='a+').open() as f:
-            f.write(word)
+            fptr = f.tell()
             n = len(word)
-            f.seek(-n,1)
-            self.assertEqual(word,f.read(n))
+            f.write(word)
+            try:
+                # Python 2: seek from current
+                f.seek(-n,1)
+            except io.UnsupportedOperation:
+                # Python 3: seek from beginning
+                f.seek(fptr, 0)
+            self.assertEqual(word, f.read(n))
     
     def _check_r(self,filename,word):
         with localfs.Path(filename,mode='r').open() as f:
