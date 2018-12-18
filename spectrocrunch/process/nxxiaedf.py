@@ -60,6 +60,7 @@ class Task(basetask.Task):
             self.temp_nxentry.remove(recursive=True)
         else:
             self.temp_nxentry = self.temp_nxentry.renameremove(self.output)
+            self.temp_nxentry.mark_default()
             self.temp_nxentry.updated()
         self.temp_nxentry = None
         return 1 # Exception is handled (do not raise it)

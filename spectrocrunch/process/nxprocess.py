@@ -89,6 +89,8 @@ class Task(basetask.Task):
                         self._outputcounter += 1
             if self.default:
                 nxutils.set_default(self.output,self.default)
+            else:
+                self.output.mark_default()
             self.output.updated()
         self.temp_nxprocess = None
         return 1 # Exception is handled (do not raise it)
