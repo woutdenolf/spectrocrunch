@@ -25,6 +25,7 @@
 import datetime
 import sys
 import time
+import logging
 from contextlib import contextmanager
 
 def taketimestamp():
@@ -47,7 +48,9 @@ def printtimeelapsed(T0,logger,text="Elapsed time"):
     logger.info("  %s: %dh %dm %ds" % (text,hours,min,sec))
 
 class ProgressLogger(object):
-    def __init__(self,logger):
+    def __init__(self,logger=None):
+        if logger is None:
+            logger = logging.getLogger(__name__)
         self.logger = logger
         self.setn(1)
         self.start()
@@ -75,18 +78,12 @@ class ProgressLogger(object):
         # Ttot = Telapsed + Tleft
         # Telapsed/Ttot = ncurrent/nmax = pdone
         # Tleft = Ttot - Telapsed = Telapsed*(1/pdone - 1) 
-
         nmax = self.nmax*self.nmaxfine
         ncurrent = self.ncurrent*self.nmaxfine + self.ncurrentfine
-
         Telapsed = (datetime.datetime.now()-self.T0).seconds
-        
         hours,min,sec = hms(Telapsed)
-
         hours2,min2,sec2 = hms(Telapsed*(nmax/float(ncurrent)-1))
-
         pdone = int(ncurrent/float(nmax)*100)
-
         self.logger.info("  Elapsed: %dh %dm %ds (%d%%)  Left: %dh %dm %ds (%d%%)" % (hours,min,sec,pdone,hours2,min2,sec2,100-pdone))
         sys.stdout.flush()
             
