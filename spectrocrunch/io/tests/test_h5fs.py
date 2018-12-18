@@ -129,44 +129,70 @@ class test_h5fs(unittest.TestCase):
         self.assertTrue(b)
     
     def test_path_splitting(self):
-        path = h5fs.Path('test.h5')
-        cwd = os.getcwd()
-        self.assertEqual(path.device,os.path.join(cwd,'test.h5'))
+        cwd = self.dir.path
+        func = lambda *args: os.path.join(cwd,*args)
+        
+        path = h5fs.Path(func('test.h5'))
+        
+        self.assertEqual(path.device,func('test.h5'))
         self.assertEqual(path.path,'/')
         
-        path = h5fs.Path('test.h5:entry')
-        self.assertEqual(path.device,os.path.join(cwd,'test.h5'))
+        path = h5fs.Path(func('test.h5:entry'))
+        self.assertEqual(path.device,func('test.h5'))
         self.assertEqual(path.path,'/entry')
         
-        path = h5fs.Path('test.h5:/entry/abs:def')
-        self.assertEqual(path.device,os.path.join(cwd,'test.h5'))
+        path = h5fs.Path(func('test.h5:/entry/abs:def'))
+        self.assertEqual(path.device,func('test.h5'))
         self.assertEqual(path.path,'/entry/abs:def')
         
-        path = h5fs.Path('../test.h5:/entry/abs:def')
-        self.assertEqual(path.device,os.path.abspath(os.path.join(cwd,'..','test.h5')))
+        path = h5fs.Path(func('.','test.h5:/entry/abs:def'))
+        self.assertEqual(path.device,os.path.abspath(func('.','test.h5')))
         self.assertEqual(path.path,'/entry/abs:def')
         
-        path = h5fs.Path('../te:st.h5:/entry/abs:def')
-        self.assertEqual(path.device,os.path.abspath(os.path.join(cwd,'..','te:st.h5')))
+        path = h5fs.Path(func('.','te:st.h5:/entry/abs:def'))
+        self.assertEqual(path.device,os.path.abspath(func('.','te:st.h5')))
         self.assertEqual(path.path,'/entry/abs:def')
         
-        path = h5fs.Path('../te:st:/entry/abs:def')
-        self.assertEqual(path.device,os.path.abspath(os.path.join(cwd,'../te:st:/entry/abs:def')))
+        path = h5fs.Path(func('.','te:st:/entry/abs:def'))
+        self.assertEqual(path.device,os.path.abspath(func('.','te:st:','entry','abs:def')))
         self.assertEqual(path.path,'/')
         
-        path = h5fs.Path('../te:st:::/entry/abs:def',h5file='../te:st')
-        self.assertEqual(path.device,os.path.abspath(os.path.join(cwd,'..','te:st')))
+        path = h5fs.Path(func('.','te:st:::/entry/abs:def'),h5file=func('.','te:st'))
+        self.assertEqual(path.device,os.path.abspath(func('.','te:st')))
         self.assertEqual(path.path,'/::/entry/abs:def')
         
-        path = h5fs.Path('../te:st:::/entry/abs:def',h5file='../te:st:')
-        self.assertEqual(path.device,os.path.abspath(os.path.join(cwd,'..','te:st:')))
+        path = h5fs.Path(func('.','te:st:::/entry/abs:def'),h5file=func('.','te:st:'))
+        self.assertEqual(path.device,os.path.abspath(func('.','te:st:')))
         self.assertEqual(path.path,'/:/entry/abs:def')
+    
+    def test_link_mixing(self):
+        cwd = self.dir.path
+        func = lambda *args: os.path.join(cwd,*args)
         
+        roota = h5fs.Path(func('a.h5'))
+        rootb = h5fs.Path(func('b.h5'))
+        rootc = h5fs.Path(func('c.h5'))
+        
+        rootc['dir'].mkdir()
+        fl = rootc['file.txt'].write(data=10)
+        dest = rootc['dir']['file.txt'].link(fl)
+        a = roota['a'].link(rootb['b'])
+        b = rootb['b'].link(dest)
+        for f in [dest,a,b]:
+            self.assertEqual(f.read(),10)
+        
+        self.assertEqual(a.linkdest(),b)
+        self.assertEqual(a.linkdest(follow=True),fl)
+        self.assertEqual(b.linkdest(),dest)
+        self.assertEqual(b.linkdest(follow=True),fl)
+        self.assertEqual(dest.linkdest(),fl)
+
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_h5fs("test_mode"))
     testSuite.addTest(test_h5fs("test_path_splitting"))
+    testSuite.addTest(test_h5fs("test_link_mixing"))
     return testSuite
     
 if __name__ == '__main__':

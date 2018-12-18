@@ -36,16 +36,101 @@ from . import localfs
 
 logger = logging.getLogger(__name__)
 
+
 class FileSystemException(fs.FileSystemException):
     """
     Base class for generic HDF5 file system exceptions.
     """
     pass
 
+
 class LockedError(FileSystemException):
     """
     Device has been locked by someone else.
     """
+
+
+def is_link(fileobj,path):
+    """Check whether node is h5py.SoftLink or h5py.ExternalLink
+    
+    Args:
+        fileobj(File)
+        path(str)
+    Returns:
+        bool
+    """
+    try:
+        lnk = fileobj.get(path,default=None,getlink=True)
+    except KeyError:
+        return False
+    else:
+        return isinstance(lnk,(h5py.SoftLink,h5py.ExternalLink))
+
+
+def dereference_link(fileobj,path):
+    """Dereference h5py.SoftLink or h5py.ExternalLink
+    Args:
+        fileobj(File)
+        path(str)
+    Returns:
+        device(str)
+        path(str)
+    """
+    try:
+        lnk = fileobj.get(path,default=None,getlink=True)
+    except KeyError:
+        return None,None
+    else:
+        if isinstance(lnk,h5py.SoftLink):
+            #device = fileobj[path].file.filename
+            device = fileobj.filename
+            dest = lnk.path # this can be relative to "path"
+        elif isinstance(lnk,h5py.ExternalLink):
+            device = lnk.filename
+            dest = lnk.path
+        else:
+            device,dest = None,None
+        return device,dest
+        
+        
+def is_reference(fileobj,path):
+    """Check whether node is h5py.Reference
+    
+    Args:
+        fileobj(File)
+        path(str)
+    Returns:
+        bool
+    """
+    try:
+        lnk = fileobj.get(path,default=None)
+    except KeyError:
+        return False
+    else:
+        try:
+            return h5py.check_dtype(ref=lnk.dtype) == h5py.Reference and lnk.ndim==0
+        except AttributeError:
+            return False
+
+
+def dereference(fileobj,path):
+    """Dereference an h5py.Reference
+    
+    Args:
+        fileobj(File)
+        path(str)
+    Returns:
+        device(str)
+        path(str)
+    """
+    if is_reference(fileobj,path):
+        ref = fileobj[path][()]
+        dest = fileobj[ref]
+        return dest.file.filename,dest.name
+    else:
+        return None,None
+
+
 
 class Enum(dict):
     def __getattr__(self, key):
@@ -405,11 +490,11 @@ class Path(fs.Path):
             if dest.exists and force:
                 dest.remove(recursive=True)
             if self.islink and not follow:
-                # just copy the link
-                dest.link(self.linkdest)
+                # just copy the link itself
+                dest.link(self.linkdest())
             else:
-                # TODO: missing option: expand softlinks when pointing outside
-                #       the tree being copied.
+                # TODO: missing option: expand SoftLink and Reference when
+                #       pointing outside the tree being copied.
                 with dest.h5open() as fdest:
                     fsource.copy(self.path,fdest[dest.parent.path],name=dest.name,
                                  expand_soft=dereference,expand_external=dereference)
@@ -486,40 +571,33 @@ class Path(fs.Path):
                     dest = f[destpath.path]
             else:
                 dest = h5py.ExternalLink(str(destpath.device), destpath.path)
-            
             f[base.path][lnkname] = dest
             return self.factory(self)
     
     @property
     def islink(self):
         with self.h5open(mode='r') as f:
-            try:
-                lnk = f.get(self.path,default=None,getlink=True)
-            except KeyError:
-                lnk = None
-            return isinstance(lnk,(h5py.SoftLink,h5py.ExternalLink))
+            if is_link(f,self.path):
+                return True
+            else:
+                return is_reference(f,self.path)
 
     def linkdest(self,follow=False):
         if not self.root.exists:
             return None
         with self.h5open(mode='r') as f:
-            try:
-                lnk = f.get(self.path,default=None,getlink=True)
-            except KeyError:
-                lnk = None
+            device,path = dereference_link(f,self.path)
+            if path is None:
+                device,path = dereference(f,self.path)
+            if path and device==self.device:
+                dest = self.factory(self.abspath(path))
+            elif path and device:
+                dest = self.factory(device+self.devsep+path)
             else:
-                if isinstance(lnk,h5py.SoftLink):
-                    # TODO: h5py.SoftLink does not contain information on the file
-                    #       which can cause problems when some of the parents are
-                    #       external links. Should check for that here.
-                    lnk = self.factory(self.abspath(lnk.path))
-                elif isinstance(lnk,h5py.ExternalLink):
-                    lnk = self.factory("{}{}{}".format(lnk.filename,self.devsep,lnk.path))
-                else:
-                    lnk = None
+                dest = None
             if follow:
-                lnk = self._link_follow(lnk)
-            return lnk
+                dest = self._link_follow(dest)
+            return dest
     
     def _contentinfo(self):
         contentinfo = ''
@@ -544,7 +622,30 @@ class Path(fs.Path):
     def read(self):
         with self.open(mode='r') as node:
             return node[()]
-    
+                
     def write(self,**kwargs):
         return self.mkfile(**kwargs)
+        
+    @property
+    def dtype(self):
+        with self.open(mode='r') as node:
+            try:
+                return node.dtype
+            except AttributeError:
+                return None
     
+    @property
+    def shape(self):
+        with self.open(mode='r') as node:
+            try:
+                return node.shape
+            except AttributeError:
+                return None
+
+    @property
+    def ndim(self):
+        with self.open(mode='r') as node:
+            try:
+                return node.ndim
+            except AttributeError:
+                return None
