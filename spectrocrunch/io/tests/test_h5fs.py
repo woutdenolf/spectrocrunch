@@ -133,37 +133,40 @@ class test_h5fs(unittest.TestCase):
         func = lambda *args: os.path.join(cwd,*args)
         
         path = h5fs.Path(func('test.h5'))
+        devsep = path.devsep
         
         self.assertEqual(path.device,func('test.h5'))
         self.assertEqual(path.path,'/')
         
-        path = h5fs.Path(func('test.h5:entry'))
+        path = h5fs.Path(func('test.h5{}entry'.format(devsep)))
         self.assertEqual(path.device,func('test.h5'))
         self.assertEqual(path.path,'/entry')
         
-        path = h5fs.Path(func('test.h5:/entry/abs:def'))
+        path = h5fs.Path(func('test.h5{}/entry/abs{}def'.format(devsep,devsep)))
         self.assertEqual(path.device,func('test.h5'))
-        self.assertEqual(path.path,'/entry/abs:def')
+        self.assertEqual(path.path,'/entry/abs{}def'.format(devsep))
         
-        path = h5fs.Path(func('.','test.h5:/entry/abs:def'))
+        path = h5fs.Path(func('.','test.h5{}/entry/abs{}def'.format(devsep,devsep)))
         self.assertEqual(path.device,os.path.abspath(func('.','test.h5')))
-        self.assertEqual(path.path,'/entry/abs:def')
+        self.assertEqual(path.path,'/entry/abs{}def'.format(devsep))
         
-        path = h5fs.Path(func('.','te:st.h5:/entry/abs:def'))
-        self.assertEqual(path.device,os.path.abspath(func('.','te:st.h5')))
-        self.assertEqual(path.path,'/entry/abs:def')
+        path = h5fs.Path(func('.','te{}st.h5{}/entry/abs{}def'.format(devsep,devsep,devsep)))
+        self.assertEqual(path.device,os.path.abspath(func('.','te{}st.h5'.format(devsep))))
+        self.assertEqual(path.path,'/entry/abs{}def'.format(devsep))
         
-        path = h5fs.Path(func('.','te:st:/entry/abs:def'))
-        self.assertEqual(path.device,os.path.abspath(func('.','te:st:','entry','abs:def')))
+        path = h5fs.Path(func('.','te{}st{}/entry/abs{}def'.format(devsep,devsep,devsep)))
+        self.assertEqual(path.device,os.path.abspath(func('.','te{}st{}'.format(devsep,devsep),'entry','abs{}def'.format(devsep))))
         self.assertEqual(path.path,'/')
         
-        path = h5fs.Path(func('.','te:st:::/entry/abs:def'),h5file=func('.','te:st'))
-        self.assertEqual(path.device,os.path.abspath(func('.','te:st')))
-        self.assertEqual(path.path,'/::/entry/abs:def')
+        path = h5fs.Path(func('.','te{}st{}{}{}/entry/abs{}def'.format(devsep,devsep,devsep,devsep,devsep)),
+                         h5file=func('.','te{}st'.format(devsep)))
+        self.assertEqual(path.device,os.path.abspath(func('.','te{}st'.format(devsep))))
+        self.assertEqual(path.path,'/{}{}/entry/abs{}def'.format(devsep,devsep,devsep))
         
-        path = h5fs.Path(func('.','te:st:::/entry/abs:def'),h5file=func('.','te:st:'))
-        self.assertEqual(path.device,os.path.abspath(func('.','te:st:')))
-        self.assertEqual(path.path,'/:/entry/abs:def')
+        path = h5fs.Path(func('.','te{}st{}{}{}/entry/abs{}def'.format(devsep,devsep,devsep,devsep,devsep)),
+                         h5file=func('.','te{}st{}'.format(devsep,devsep)))
+        self.assertEqual(path.device,os.path.abspath(func('.','te{}st{}'.format(devsep,devsep))))
+        self.assertEqual(path.path,'/{}/entry/abs{}def'.format(devsep,devsep))
     
     def test_link_mixing(self):
         cwd = self.dir.path

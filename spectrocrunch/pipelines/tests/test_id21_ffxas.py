@@ -129,7 +129,7 @@ class test_ffxas(unittest.TestCase):
         parameters["roiresult"] = None
         
         with self._destpath_context() as destpath:
-            parameters["nxentry"] = os.path.join(destpath.path,radix+'.h5')+':/'+radix
+            parameters["nxentry"] = os.path.join(destpath.path,radix+'.h5')+'::/'+radix
             for repeat in range(2):
                 logger.debug('Process parameters\n'+'\n'.join(['{}:{}'.format(k,v) for k,v in parameters.items()]))
             

@@ -51,7 +51,7 @@ def fluoxas(samplename,datasetname,scannumbers,mapnumbers,cfgfiles,**parameters)
         nxentry =  "{}.fluoxas{}_{}".format(radix,scannumbers[0])
     else:
         nxentry =  "{}.fluoxas{}".format(radix,scannumbers[0],scannumbers[-1])
-    nxentry = os.path.join(parameters.get('resultsdir',''),radix,radix+'.h5')+':/'+nxentry
+    nxentry = os.path.join(parameters.get('resultsdir',''),radix+'.h5')+'::/'+nxentry
     
     processdata(jobname,sourcepath,scanname,mapnumbers,cfgfiles,nxentry,fluoxas=True,**parameters)
 
@@ -65,7 +65,7 @@ def multi(samplename,datasetname,mapnumbers,cfgfiles,**parameters):
     scanname = [radix]
     scannumbers = [mapnumbers]
     nxentry =  "{}.sixes{}_{}".format(radix,mapnumbers[0],mapnumbers[-1])
-    nxentry = os.path.join(parameters.get('resultsdir',''),radix,radix+'.h5')+':/'+nxentry
+    nxentry = os.path.join(parameters.get('resultsdir',''),radix+'.h5')+'::/'+nxentry
     
     processdata(jobname,sourcepath,scanname,scannumbers,cfgfiles,nxentry,multi=True,**parameters)
 
@@ -79,7 +79,7 @@ def single(samplename,datasetname,mapnumber,cfgfiles,**parameters):
     scanname = [radix]
     scannumbers = [[mapnumber]]
     nxentry =  "{}.map{}".format(radix,mapnumber)
-    nxentry = os.path.join(parameters.get('resultsdir',''),radix,radix+'.h5')+':/'+nxentry
+    nxentry = os.path.join(parameters.get('resultsdir',''),radix+'.h5')+'::/'+nxentry
     
     processdata(jobname,sourcepath,scanname,scannumbers,cfgfiles,nxentry,**parameters)
 
@@ -90,7 +90,7 @@ def manualselection(sourcepath,scanname,scannumbers,cfgfiles,outname=None,outsuf
         outname = scanname[0]
     if outsuffix is None:
         outsuffix = '.map{}'.format(scannumbers[0][0])
-    nxentry = os.path.join(parameters.get('resultsdir',''),outname,outname+'.h5')+':/'+outname+outsuffix
+    nxentry = os.path.join(parameters.get('resultsdir',''),outname,outname+'.h5')+'::/'+outname+outsuffix
     
     processdata(jobname,sourcepath,scanname,scannumbers,cfgfiles,nxentry,**parameters)
 

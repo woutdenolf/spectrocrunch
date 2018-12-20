@@ -384,7 +384,7 @@ class test_fluoxas(unittest.TestCase):
                 logger.debug("newspectra = {}".format(newspectra))
                 
                 parameters = {}
-                parameters["nxentry"] = os.path.join(destpath.path,radix+'.h5')+':/'+radix
+                parameters["nxentry"] = os.path.join(destpath.path,radix+'.h5')+'::/'+radix
                 parameters["sourcepath"] = sourcepath
                 parameters["scanname"] = radix
                 parameters["scannumbers"] = scannumbers
@@ -443,7 +443,8 @@ class test_fluoxas(unittest.TestCase):
                                                                     for det in expectedgroups_data\
                                                                     for mapnum in range(nmaps)\
                                                                     for linenum in range(nlines)]
-                    destpath.compare(sorted(expected),path="{}.1_data".format(radix),files_only=True,recursive=False)
+                    xrfspectra_subdir = os.path.join('external','{}_process:pymca.1'.format(radix),'xrfspectra')
+                    destpath.compare(sorted(expected),path=xrfspectra_subdir,files_only=True,recursive=False)
                 else:
                     radixout = radix
                     
@@ -465,14 +466,13 @@ class test_fluoxas(unittest.TestCase):
                         expected.extend(["{}_xia{}_{:04d}_0000.cfg".format(radixout,det,mapnum,label)\
                                                                         for det in expectedgroups_data\
                                                                         for mapnum in range(nmaps)])
-                    destpath.compare(sorted(expected),path="{}.1_fit".format(radix),files_only=True,recursive=False)
+                    fitresults_subdir = os.path.join('external','{}_process:pymca.1'.format(radix),'fitresults')
+                    destpath.compare(sorted(expected),path=fitresults_subdir,files_only=True,recursive=False)
 
                 # Check top-level output directory (h5 files)
                 expected = []
-                if cfgfiles:
-                    expected.append("{}.1_fit".format(radix))
-                if newspectra:
-                    expected.append("{}.1_data".format(radix))
+                if cfgfiles or newspectra:
+                    expected.append('external')
                 h5file = "{}.h5".format(radix)
                 expected.append(h5file)
                 destpath.compare(sorted(expected),files_only=True,recursive=False)
@@ -521,7 +521,7 @@ class test_fluoxas(unittest.TestCase):
                         data0 = data0[...,alldetectors]
                          
                     # Saved spectra
-                    stack = xiaedf.xiastack_radix(os.path.join(destpath.path,"{}.1_data".format(radix)),radixout)
+                    stack = xiaedf.xiastack_radix(os.path.join(destpath.path,xrfspectra_subdir),radixout)
                     data2 = stack.data
                     
                     # Check spectra are equal

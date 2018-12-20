@@ -72,21 +72,20 @@ class Task(basetask.Task):
         self.temp_nxprocess = self.output.parent.nxprocess(self._tempname,
                                                         parameters=self.parameters,
                                                         dependencies=list(self.previous_outputs))
-        
+    
+    @property
+    def temp_nxresults(self):
+        if self.temp_nxprocess is None:
+            return None
+        else:
+            return self.temp_nxprocess.results
+            
     def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
         if exc_type:
             logger.error(''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
-            self.temp_nxprocess.remove(recursive=True)
+            self.removeoutput()
         else:
-            while self.temp_nxprocess.exists:
-                checksum = self.temp_nxprocess.checksum
-                try:
-                    self.temp_nxprocess.rename(self.output)
-                except fs.AlreadyExists:
-                    if self.output.checksum==checksum:
-                        self.temp_nxprocess.remove(recursive=True)
-                    else:
-                        self._outputcounter += 1
+            self.renameoutput()
             if self.default:
                 nxutils.set_default(self.output,self.default)
             else:
@@ -95,9 +94,18 @@ class Task(basetask.Task):
         self.temp_nxprocess = None
         return 1 # Exception is handled (do not raise it)
 
-    @property
-    def temp_nxresults(self):
-        if self.temp_nxprocess is None:
-            return None
-        else:
-            return self.temp_nxprocess.results
+    def removeoutput(self):
+        self.temp_nxprocess.remove(recursive=True)
+    
+    def renameoutput(self):
+        while self.temp_nxprocess.exists:
+            checksum = self.temp_nxprocess.checksum
+            try:
+                self.temp_nxprocess.rename(self.output)
+            except fs.AlreadyExists:
+                if self.output.checksum==checksum:
+                    # Already done by someone else
+                    self.removeoutput()
+                else:
+                    # Different process with same name exists
+                    self._outputcounter += 1

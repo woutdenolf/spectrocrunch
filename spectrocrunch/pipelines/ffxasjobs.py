@@ -42,7 +42,7 @@ def staticscan(samplename,datasetname,radix,**parameters):
         nxentry = '{}_{}'.format(mradix,radix[0],radix[-1])
     else:
         nxentry = '{}_{}'.format(mradix,radix[0])
-    nxentry = os.path.join(parameters.get('resultsdir',''),mradix,mradix+'.h5')+':/'+nxentry
+    nxentry = os.path.join(parameters.get('resultsdir',''),mradix+'.h5')+'::/'+nxentry
     processdata(jobname,sourcepath,radix,nxentry,**parameters)
     
 def processdata(jobname,*args,**kwargs):

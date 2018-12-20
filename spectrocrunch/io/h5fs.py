@@ -371,7 +371,11 @@ class Path(fs.Path):
         try:
             with self.h5open(mode='r') as f:
                 if self.islink:
-                    return self.linkdest().exists
+                    dest = self.linkdest()
+                    if dest is None:
+                        return False
+                    else:
+                        return dest.exists
                 else:
                     return self.path in f
         except IOError:
@@ -410,7 +414,7 @@ class Path(fs.Path):
     
     @property
     def devsep(self):
-        return ':'
+        return '::'
         
     def devsplit(self,path):
         n = len(self.devsep)
@@ -433,7 +437,7 @@ class Path(fs.Path):
             root = f.get(self.path,default=None)
             if isinstance(root,h5py.Group):
                 for k in root.keys():
-                    yield self.factory(self.join(self.path,k))
+                    yield self[k]
                 
     @property
     def sep(self):
@@ -647,5 +651,13 @@ class Path(fs.Path):
         with self.open(mode='r') as node:
             try:
                 return node.ndim
+            except AttributeError:
+                return None
+
+    @property
+    def size(self):
+        with self.open(mode='r') as node:
+            try:
+                return node.size
             except AttributeError:
                 return None

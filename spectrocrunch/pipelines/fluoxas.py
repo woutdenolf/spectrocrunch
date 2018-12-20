@@ -79,9 +79,6 @@ def xrfparameters(**parameters):
     counters = instrument.counters(exclude=lst)
     counters.extend(parameters.get("counters",[]))
 
-    outputparent = nxfs.Path(str(nxentry))
-    outputparent = outputparent.parent[outputparent.name+'.1']
-    
     edffields1 = ('speclabel','slowlabel','fastlabel','energylabel','timelabel')
     edffields2 = ('speclabel','slowlabel','fastlabel','stackvalue','time')
     edfheader = {k2:instrument.edfheaderkeys[k1] for k1,k2 in zip(edffields1,edffields2)}
@@ -119,7 +116,7 @@ def xrfparameters(**parameters):
             "include_detectors": include_detectors,
 
             # Output directories
-            "outputparent": outputparent
+            "outputparent": nxfs.Path(str(nxentry))
     }
     
     return config,instrument

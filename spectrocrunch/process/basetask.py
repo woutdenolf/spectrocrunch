@@ -64,7 +64,7 @@ class Task(with_metaclass(ABCMeta,object)):
             raise ValueError('Specify "outputparent" when task does not have dependencies')
         
     def __str__(self):
-        return "Task '{}'".format(self.outputname)
+        return "Task '{}'".format(self.output.name)
     
     def __repr__(self):
         return self.__str__()
