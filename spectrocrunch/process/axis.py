@@ -100,7 +100,9 @@ class Axis(object):
         else:
             title = self.name
         if self.units:
-            title = '{} ({:~})'.format(title,self.units)
+            suffix = '({:~})'.format(self.units)
+            if suffix not in title:
+                title = '{} {}'.format(title,suffix)
         return title
     
     @title.setter

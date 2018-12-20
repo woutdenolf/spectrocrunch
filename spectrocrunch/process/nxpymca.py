@@ -163,13 +163,23 @@ class Task(nxprocess.Task):
     
     @property
     def outdatapath(self):
-        nxentry = self.outputparent
-        return nxentry.device.parent[nxentry.name+'_data']
+        return self.output.device.parent['external'][self._tempname]['xrfspectra']
     
     @property
     def outfitpath(self):
-        nxentry = self.outputparent
-        return nxentry.device.parent[nxentry.name+'_fit']
+        return self.output.device.parent['external'][self._tempname]['fitresults']
+    
+    def removeoutput(self):
+        super(Task,self).removeoutput()
+        self.outdatapath.parent.remove(recursive=True)
+        self.outfitpath.remove(recursive=True)
+    
+    def renameoutput(self):
+        super(Task,self).renameoutput()
+        path = self.outdatapath.parent
+        if path.exists:
+            name = self.outputparent.name + '_' + self.output.name
+            path.move(name)
     
     def _prepare_adddetector(self):
         # Detector include/exclude

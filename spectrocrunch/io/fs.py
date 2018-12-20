@@ -332,7 +332,7 @@ class Path(File):
         self.path += other
         
     def __getitem__(self,value):
-        return self.factory(self.join(self.path,value))
+        return self.factory(self.join(self.location,value))
 
     def __call__(self,*value):
         return self.__getitem__(value)

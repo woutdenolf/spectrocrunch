@@ -60,7 +60,7 @@ class test_fs(unittest.TestCase):
         h5filename1 = os.path.join(self.dir.path,'test.h5')
         root1 = cls('',h5file=h5filename1)
         root2 = cls(h5filename1)
-        self.assertEqual(root1,h5filename1+':/')
+        self.assertEqual(root1,h5filename1+root1.devsep+root1.sep)
         self.assertEqual(root1,root2)
         
         h5filename2 = os.path.join(self.dir.path,'ext.h5')

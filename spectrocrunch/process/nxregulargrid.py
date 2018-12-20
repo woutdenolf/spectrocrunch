@@ -203,7 +203,7 @@ class Task(nxprocess.Task):
         return axes
 
     def _new_axis(self,newvalues,axold):
-        #name = '{}_{}'.format(axold.name,self.outputname)
+        #name = '{}_{}'.format(axold.name,self.output.name)
         name = axold.name
         if not isinstance(newvalues,axis.Axis):
             newvalues = units.Quantity(newvalues,units=axold.units)

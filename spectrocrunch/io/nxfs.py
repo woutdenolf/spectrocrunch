@@ -32,6 +32,7 @@ import re
 import logging
 import dateutil.tz
 import dateutil.parser
+import traceback
 
 from . import fs
 from . import h5fs
@@ -78,8 +79,11 @@ def dataprepare(data):
 
 tzlocal = dateutil.tz.tzlocal()
 
+def now():
+    return datetime.now(tzlocal)
+    
 def timestamp():
-    return textarray(datetime.now(tzlocal).isoformat())
+    return textarray(now().isoformat())
 
 def parse_timestamp(tm):
     try:
@@ -171,9 +175,12 @@ class Path(h5fs.Path):
     @property
     def nxclass(self):
         if self.exists:
-            return self.get_stat('NX_class',default=None)
-        else:
-            return None
+            try:
+                return self.get_stat('NX_class',default=None)
+            except Exception:
+                logger.warning('Corrupted '+str(self))
+                logger.warning(traceback.format_exc())
+        return None
             
     def updated(self):
         with self.h5open():
