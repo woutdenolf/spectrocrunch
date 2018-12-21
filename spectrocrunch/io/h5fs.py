@@ -61,7 +61,7 @@ def is_link(fileobj,path):
     """
     try:
         lnk = fileobj.get(path,default=None,getlink=True)
-    except KeyError:
+    except (KeyError,RuntimeError):
         return False
     else:
         return isinstance(lnk,(h5py.SoftLink,h5py.ExternalLink))
@@ -78,7 +78,7 @@ def dereference_link(fileobj,path):
     """
     try:
         lnk = fileobj.get(path,default=None,getlink=True)
-    except KeyError:
+    except (KeyError,RuntimeError):
         return None,None
     else:
         if isinstance(lnk,h5py.SoftLink):
@@ -104,7 +104,7 @@ def is_reference(fileobj,path):
     """
     try:
         lnk = fileobj.get(path,default=None)
-    except KeyError:
+    except (KeyError,RuntimeError):
         return False
     else:
         try:
