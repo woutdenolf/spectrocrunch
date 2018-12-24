@@ -33,7 +33,7 @@ from ...materials import scintillators
 from ...materials import lenses
 from ...materials import emspectrum
 from ...math import noisepropagation
-from ...materials.compoundfromname import compoundfromname as compoundname
+from ...materials import compoundfromname
 from ...utils.instance import isarray
 from ...patch.pint import ureg
 
@@ -133,7 +133,8 @@ class test_objects(unittest.TestCase):
         geometry = flatarea.factory("perpendicular",detector=detector,source=src)
 
         self._checkprop(detector,tframe=2,nframe=10,vis=True)
-        
+    
+    @unittest.skipIf(lenses.visirlib.PyTMM is None,"PyTMM is not installed")
     def test_lenses(self):
         self.assertRaises(RuntimeError, lenses.factory, "noclassname")
 
@@ -142,7 +143,8 @@ class test_objects(unittest.TestCase):
         
         o = lenses.factory("Mitutoyo ID21 10x")
         self._checkprop(o,nrefrac=1.1,vis=True)
-        
+    
+    @unittest.skipIf(compoundfromname.xraylib is None,"xraylib is not installed")
     def test_scintillators(self):
         self.assertRaises(RuntimeError, scintillators.factory, "noclassname")
         for cname in scintillators.classes:
@@ -165,7 +167,7 @@ class test_objects(unittest.TestCase):
         #plt.plot(energy,o.transmission(energy))
         #plt.show()
 
-    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
+    @unittest.skipIf(compoundfromname.xraylib is None,"xraylib not installed")
     def test_materials(self):
         self.assertRaises(RuntimeError, multilayer.factory, "noclassname")
         
@@ -173,7 +175,8 @@ class test_objects(unittest.TestCase):
         src = xraysources.factory("synchrotron")
         geometry = flatarea.factory("perpendicular",detector=detector,source=src)
 
-        o = multilayer.Multilayer(material=compoundname("ultralene"),thickness=4e-4,geometry=geometry)
+        o = multilayer.Multilayer(material=compoundfromname.compoundfromname("ultralene"),
+                                  thickness=4e-4,geometry=geometry)
         self._checkprop(o)
 
     def test_diodes(self):

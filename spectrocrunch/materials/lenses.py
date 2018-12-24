@@ -25,7 +25,7 @@
 from ..simulation.classfactory import with_metaclass
 from ..math import noisepropagation
 from ..utils import instance
-from .visirlib import Material
+from . import visirlib
 
 import numpy as np
 
@@ -142,7 +142,8 @@ class mitutoyoid21_10x(Lens):
     aliases = ["Mitutoyo ID21 10x"]
 
     def __init__(self):
-        super(mitutoyoid21_10x, self).__init__(magnification=10, NA=0.42, thickness=8., material=Material("glass","BK7","SCHOTT"), lightyieldcor = 0.1)
+        super(mitutoyoid21_10x, self).__init__(magnification=10, NA=0.42,
+        thickness=8., material=visirlib.Material("glass","BK7","SCHOTT"), lightyieldcor = 0.1)
 
 class mitutoyoid21_20x(Lens):
     """
@@ -151,7 +152,8 @@ class mitutoyoid21_20x(Lens):
     aliases = ["Mitutoyo ID21 20x"]
 
     def __init__(self):
-        super(mitutoyoid21_20x, self).__init__(magnification=20, NA=0.42, thickness=7.5, material=Material("glass","BK7","SCHOTT"), lightyieldcor = 0.1)
+        super(mitutoyoid21_20x, self).__init__(magnification=20, NA=0.42,
+        thickness=7.5, material=visirlib.Material("glass","BK7","SCHOTT"), lightyieldcor = 0.1)
 
 classes = Lens.clsregistry
 aliases = Lens.aliasregistry

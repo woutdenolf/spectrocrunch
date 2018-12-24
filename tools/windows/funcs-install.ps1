@@ -41,6 +41,7 @@ function install_any($filename,$argdict) {
     }
 }
 
+
 function _addBinPath([string]$path,[string]$target,[bool]$prepend=$false) {
     $envpath = [Environment]::GetEnvironmentVariable("Path", $target)
     if (!($envpath.contains($path))) {
@@ -52,6 +53,9 @@ function _addBinPath([string]$path,[string]$target,[bool]$prepend=$false) {
     }
 }
 
+
+# ============appendBinPath============
+# Description: add to user/machine + process environment
 function appendBinPath($path) {
     if ((install_systemwide)) {
         _addBinPath $path "Machine" $false
@@ -61,6 +65,9 @@ function appendBinPath($path) {
     _addBinPath $path "Process" $false
 }
 
+
+# ============prependBinPath============
+# Description: add to user/machine + process environment
 function prependBinPath($path) {
     if ((install_systemwide)) {
         _addBinPath $path "Machine" $true
@@ -70,20 +77,11 @@ function prependBinPath($path) {
     _addBinPath $path "Process" $true
 }
 
+
+# ============updateBinPath============
+# Description: update path environement variable
 function updateBinPath() {
     $pathmachine = [Environment]::GetEnvironmentVariable("Path", "Machine")
     $pathuser = [Environment]::GetEnvironmentVariable("Path", "User")
     [Environment]::SetEnvironmentVariable("Path", "$pathmachine;$pathuser;$env:path", "Process")
-}
-
-function defaultTargetDir() {
-    if ((install_systemwide)) {
-        if ((install_arch) -eq 64){
-            return $env:programfiles
-        } else {
-            return "$env:programfiles(x86)"
-        }
-    } else {
-        return "$env:localappdata"
-    }
 }
