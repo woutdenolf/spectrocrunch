@@ -91,7 +91,7 @@ class test_interpolate(unittest.TestCase):
                 axnew = ([0,3,5],[1,3])
             data2 = interp(data1,meshgrid(axes),axnew,degree=degree,asgrid=asgrid)
             if asgrid:
-                axnew = np.meshgrid(*axnew, indexing='ij')
+                axnew = tuple(np.meshgrid(*axnew, indexing='ij'))
             data3 = data1[axnew]
             np.testing.assert_allclose(data2,data3,rtol=rtol)
             
@@ -103,7 +103,7 @@ class test_interpolate(unittest.TestCase):
                 axnew = ([0,3,5],[1,3],[2,7])
             data2 = interp(data1,meshgrid(axes),axnew,degree=degree,asgrid=asgrid)
             if asgrid:
-                axnew = np.meshgrid(*axnew, indexing='ij')
+                axnew = tuple(np.meshgrid(*axnew, indexing='ij'))
             data3 = data1[axnew]
             np.testing.assert_allclose(data2,data3,rtol=rtol)
 

@@ -80,6 +80,7 @@ function main()
         require_python $global:ARG_PYTHONV
         require_pip
     }
+    install_arch reset $(python_arch)
 
     python_info 
     pip_info

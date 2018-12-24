@@ -271,7 +271,22 @@ function download_file([string]$url, [string]$output) {
 # ============ThrowIfFailed============
 # Description: throw an error when failed
 function ThrowIfFailed() {
-    if( -not $? ) {
+    if ( -not $? ) {
         throw $args
+    }
+}
+
+
+# ============project_prefix============
+# Description: target directory for installations
+function project_prefix() {
+    if ((install_systemwide)) {
+        if ((install_arch) -eq 64){
+            return $env:programfiles
+        } else {
+            return "$env:programfiles(x86)"
+        }
+    } else {
+        return "$env:localappdata"
     }
 }

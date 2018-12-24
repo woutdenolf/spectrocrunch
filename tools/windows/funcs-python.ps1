@@ -4,6 +4,7 @@
 
 . $PSScriptRoot\funcs.ps1
 . $PSScriptRoot\funcs-install.ps1
+. $PSScriptRoot\funcs-msc.ps1
 
 function python_bin()
 {
@@ -147,7 +148,7 @@ function python_lib()
 
 function python_pkg()
 {
-    python_get "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib());"
+    return python_get "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib());"
 }
 
 
@@ -275,6 +276,7 @@ function python_install_fromsource([AllowNull()][string]$version)
             $arguments["exe"] += "InstallLauncherAllUsers=$local:systemwide"
 
             install_any $local:installer.Name $local:arguments
+            updateBinPath
         }
     } else {
         cerror "Could not find python $global:PYTHONVREQUEST"
@@ -338,7 +340,7 @@ function python_download([string]$version)
     foreach ($line in $local:content) {
         $local:m = [regex]::match($line,$local:pattern)
         if ($local:m.Success) {
-            $local:filename = $($m.Groups[1].Value)
+            $local:filename = $m.Groups[1].Value
             download_file "$(python_url)/$version/$local:filename"  "$(Get-Location)\$local:filename"
             return
         }
@@ -370,4 +372,50 @@ function pip_ensure()
             }
         }
     }
+}
+
+
+function python_compiler()
+{
+    $local:s = python_get "import sys;print(sys.version)"
+    $local:m = [regex]::match($local:s,"\[(.+?)\]")
+    if ($local:m.Success) {
+        $local:m = [regex]::match($m.Groups[1].Value,"v\.([\d]+)")
+        if ($local:m.Success) {
+            return [int]($m.Groups[1].Value)
+        }
+    }
+    
+}
+
+
+function python_arch()
+{
+    $local:s = python_get "import sys;print(sys.version)"
+    $local:m = [regex]::match($local:s,"\[(.+?)\]")
+    if ($local:m.Success) {
+        $local:m = [regex]::match($m.Groups[1].Value,"64 bit")
+        if ($local:m.Success) {
+            return 64
+        } else {
+            return 32
+        }
+    }
+}
+
+
+function python_init_compiler()
+{
+    $local:msccompiler = python_compiler
+    $local:mscinfo = msc_info $local:msccompiler
+
+    if (!(Test-Path $local:mscinfo["vcvarsall"] -pathType leaf)) {
+        cerror "MSC compiler v.$local:msccompiler not installed"
+        return
+    }
+
+    $local:vcvarsall = $local:mscinfo["vcvarsall"]
+    $local:vcvarsall_args = $local:mscinfo[$(python_arch)]
+    Invoke-Expression """$local:vcvarsall"" $local:vcvarsall_args"
+    cprint $?
 }

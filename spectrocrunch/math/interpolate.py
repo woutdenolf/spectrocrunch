@@ -132,7 +132,7 @@ def _ravel(ax):
 def _ravel_reshape(ax,i,ndim):
     ind = [np.newaxis]*ndim
     ind[i] = slice(None)
-    return _ravel(ax)[ind]
+    return _ravel(ax)[tuple(ind)]
     
 def interpolate_irregular(data,axold,axnew,cval=np.nan,degree=1,asgrid=True):
     """Irregular data
