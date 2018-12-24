@@ -22,12 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import xraylib
-import fdmnes
-
 import numpy as np
-import os
-import tempfile
 
 # compounds in mixture:
 #

@@ -39,6 +39,7 @@ class test_element(unittest.TestCase):
     def _linesequal(self,lines1,lines2):
         self.assertEqual(sorted(lines1),sorted(lines2))
 
+    @unittest.skipIf(xraylib.XRayInit is None,"xraylib not installed")
     def test_fluoline(self):
     
         #print [xrayspectrum.FluoLine.getlinename(code) for code in  sorted([xrayspectrum.FluoLine.getlinecode(name) for name in xrayspectrum.FluoLine.decompose("L2P23")])]
@@ -92,7 +93,8 @@ class test_element(unittest.TestCase):
         lines = [xraylib.KA2_LINE,xraylib.KA3_LINE]
         linestest = [xrayspectrum.FluoLine(line) for line in lines]
         self._linesequal(xrayspectrum.FluoLine.factory(shells="K",fluolines=fluolines,energybounds=energybounds),linestest)
-        
+    
+    @unittest.skipIf(xraylib.XRayInit is None,"xraylib not installed")
     def test_shell(self):
         Z = 50
         for shell in ['K','L1','L2','L3','M1','M2','M3','M4','M5']:
@@ -107,6 +109,7 @@ class test_element(unittest.TestCase):
         self.assertEqual(len(xrayspectrum.Shell(xraylib.K_SHELL,fluolines=[xraylib.LA_LINE]).radrate(26)),0)
         self.assertEqual(len(xrayspectrum.Shell(xraylib.L3_SHELL,fluolines=[xraylib.LA1_LINE,xraylib.KA_LINE]).radrate(26)),1)
 
+    @unittest.skipIf(xraylib.XRayInit is None,"xraylib not installed")
     def test_fluo(self):
         e = element.Element("Sn")
 
@@ -183,13 +186,15 @@ class test_element(unittest.TestCase):
         #plt.plot(energy,mu1)
         #plt.plot(energy,mu2)
         #plt.show()
-        
+    
+    @unittest.skipIf(xraylib.XRayInit is None,"xraylib not installed")
     def test_comparable(self):
         self.assertEqual(element.Element("Ca"),element.Element("Ca"))
         self.assertNotEqual(element.Element("Ca"),element.Element("C"))
         self.assertEqual(element.Element("Ca"),"Ca")
         self.assertNotEqual(element.Element("Ca"),"C")
     
+    @unittest.skipIf(xraylib.XRayInit is None,"xraylib not installed")
     def test_diffcs_elastic(self):
         e = element.Element("Fe")
 
@@ -208,6 +213,7 @@ class test_element(unittest.TestCase):
             diffcsint = [integrate.dblquad(integrand(E), polar[0], polar[1], azimuth[0], azimuth[1])[0] for E in energy]
             np.testing.assert_allclose(cs,diffcsint,rtol=2e-2)
 
+    @unittest.skipIf(xraylib.XRayInit is None,"xraylib not installed")
     def test_diffcs_inelastic(self):
         e = element.Element("Fe")
         
@@ -225,7 +231,8 @@ class test_element(unittest.TestCase):
             azimuth = lambda polar:0, lambda polar:2*np.pi
             diffcsint = [integrate.dblquad(integrand(E), polar[0], polar[1], azimuth[0], azimuth[1])[0] for E in energy]
             np.testing.assert_allclose(cs,diffcsint,rtol=2e-2)
-            
+    
+    @unittest.skipIf(xraylib.XRayInit is None,"xraylib not installed")
     def test_formfact(self):
         e = element.Element("Fe")
 
@@ -242,6 +249,7 @@ class test_element(unittest.TestCase):
         theta = np.radians(45)
         np.testing.assert_allclose(xraylib.FF_Rayl(e.Z,xraylib.MomentTransf(energy,theta)),e.scatfact_classic_real(energy,theta=theta),rtol=1e-5)
     
+    @unittest.skipIf(xraylib.XRayInit is None,"xraylib not installed")
     def test_serialize(self):
         e1 = element.Element("Fe")
         e1.markabsorber("Fe",shells=['K'],fluolines=['KA'])

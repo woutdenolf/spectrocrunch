@@ -3,6 +3,7 @@
 # 
 
 . $PSScriptRoot\funcs.ps1
+. $PSScriptRoot\funcs-install.ps1
 
 function python_bin()
 {
@@ -81,9 +82,15 @@ function python_hasmodule([string]$module)
 
 function python_get([string]$prog)
 {
-    if ((cmdexists $(python_bin).split()[0])) {
+    if ((python_exists)) {
         Invoke-Expression "$(python_bin) -c ""$prog"""
     }
+}
+
+
+function python_exists()
+{
+    return cmdexists $(python_bin).split()[0]
 }
 
 
@@ -203,6 +210,138 @@ function require_python([AllowNull()][string]$version)
         cprint "Verify python (no specific version requested) ..."
     } else {
         cprint "Verify python $global:PYTHONVREQUEST ..."
+    }
+
+    # Check version
+    if (!(require_new_version_strict $(python_full_version) $global:PYTHONVREQUEST)) {
+        cprint "Python version $(python_full_version) is used"
+        return
+    }
+
+    # Install from source
+    python_install_fromsource $global:PYTHONVREQUEST
+
+    # Check version
+    if (!(require_new_version_strict $(python_full_version) $global:PYTHONVREQUEST)) {
+        cprint "Python version $(python_full_version) is used"
+    } else {
+        if ((python_exists)) {
+            cerror "Python version $(python_full_version) is used but $global:PYTHONVREQUEST is required"
+        } else {
+            cerror "Python is not installed"
+        }
+    }
+}
+
+
+function python_install_fromsource([AllowNull()][string]$version)
+{
+    $local:restorewd = Get-Location
+
+    cprint "Download python ..."
+    mkdir python -Force
+    cd python
+
+    $local:version=$(get_local_version_strict $version)
+    if ($local:version -eq $null) {
+        require_web_essentials
+        $local:version=python_latest
+    }
+
+    $local:installerprefix = "python-$local:version"
+    $local:installer = Get-ChildItem "$local:installerprefix*.*"
+    if ( !(dryrun) -and $local:installer -eq $null ) {
+        python_download $local:version
+        $local:installer = Get-ChildItem "$local:installerprefix*.*"
+    }
+
+    if ($local:installer -ne $null) {
+        cprint "Install python $local:installer ..."
+        if (!(dryrun)) {
+            $local:arguments = @{}
+            $arguments["msi"] = @()
+            $arguments["exe"] = @()
+
+            $arguments["msi"] += "/passive"
+            $arguments["exe"] += "/passive"
+
+            $local:systemwide = [int]$(install_systemwide)
+            $arguments["msi"] += "ALLUSERS=""$local:systemwide"""
+            $arguments["exe"] += "InstallAllUsers=$local:systemwide"
+
+            $arguments["exe"] += "Include_test=0"
+            $arguments["exe"] += "PrependPath=1"
+            $arguments["exe"] += "Include_launcher=1"
+            $arguments["exe"] += "InstallLauncherAllUsers=$local:systemwide"
+
+            install_any $local:installer.Name $local:arguments
+        }
+    } else {
+        cerror "Could not find python $global:PYTHONVREQUEST"
+    }
+
+    cd $local:restorewd
+}
+
+
+function python_url()
+{
+    echo "https://www.python.org/ftp/python/"
+}
+
+
+function python_latest() {
+    $local:pattern = "href=""([\d\.]+[\d])"
+    if ($global:PYTHONVREQUEST -ne $null) {
+        $local:pattern = "href=""($global:PYTHONVREQUEST[\d\.]*)"
+    }
+
+    $local:mversion = (0,0,0)
+    $local:version = $null
+    $local:content = Invoke-WebRequest $(python_url)
+    foreach ($line in $local:content) {
+        $local:m = [regex]::match($line,$local:pattern)
+        if ($local:m.Success) {
+            $local:tmp = $m.Groups[1].Value.split('.')
+            if (($local:tmp.Length) -lt 3) {
+                $local:tmp += (0,$null)*(3-($local:tmp.Length))
+            }
+            if ($local:tmp[0] -gt $local:mversion[0]) {
+                $local:mversion = $local:tmp
+                $local:version = $m.Groups[1].Value
+            } elseif ($local:tmp[0] -eq $local:mversion[0]) {
+                if ($local:tmp[1] -gt $local:mversion[1]) {
+                    $local:mversion = $local:tmp
+                    $local:version = $m.Groups[1].Value
+                } elseif ($local:tmp[1] -eq $local:mversion[1]) {
+                    if ($local:tmp[2] -gt $local:mversion[2]) {
+                        $local:mversion = $local:tmp
+                        $local:version = $m.Groups[1].Value
+                    }
+                }
+            }
+        }
+    }
+
+    return $local:version
+}
+
+
+function python_download([string]$version)
+{
+    $local:pattern = "href=""(python-$version.[exmsi]{3})"
+    if ((install_arch) -eq 64){
+        $local:pattern = "href=""(python-$version[-.]amd64.[exmsi]{3})"
+    }
+    
+    $local:content = Invoke-WebRequest "$(python_url)/$version/"
+    foreach ($line in $local:content) {
+        $local:m = [regex]::match($line,$local:pattern)
+        if ($local:m.Success) {
+            $local:filename = $($m.Groups[1].Value)
+            download_file "$(python_url)/$version/$local:filename"  "$(Get-Location)\$local:filename"
+            return
+        }
     }
 }
 

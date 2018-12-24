@@ -33,16 +33,24 @@ from .. import types
 from ...patch.pint import ureg
 from ...patch import jsonpickle
 
+import numpy as np
+import warnings
 try:
     import iotbx.cif as iotbxcif
 except ImportError:
     iotbxcif = None
+    warnings.warn("cctbx is not installed", ImportWarning)
 
-import numpy as np
-import xraylib
+try:
+    import xraylib
+except ImportError:
+    xraylib = None
+    warnings.warn("xraylib is not installed", ImportWarning)
+
 
 class test_compound(unittest.TestCase):
 
+    @unittest.skipIf(xraylib is None,"xraylib not installed")
     def test_comparable(self):
         c1 = compoundfromformula.CompoundFromFormula("C6H2(NO2)3CH3",1.2,name="compound")
         c2 = compoundfromformula.CompoundFromFormula("C6H2(NO2)3CH3",1.2,name="compound")
@@ -54,6 +62,7 @@ class test_compound(unittest.TestCase):
         self.assertNotEqual(c1,c4)
         self.assertEqual(c1,c5) # this is by design but may be unwanted?
 
+    @unittest.skipIf(xraylib is None,"xraylib not installed")
     def test_formula(self):
         elements = ["C","N","O","H"]
         a = [7,3,6,5]
@@ -66,6 +75,7 @@ class test_compound(unittest.TestCase):
 
         self.assertEqual(c.density,density)
 
+    @unittest.skipIf(xraylib is None,"xraylib not installed")
     def test_list(self):
         elements = ["Fe","S","O"]
         a = [1,1,4.]
@@ -83,10 +93,8 @@ class test_compound(unittest.TestCase):
         for i in range(len(elements)):
             self.assertAlmostEqual(wfrac[elements[i]],a[i]/float(sum(a)))
 
+    @unittest.skipIf(iotbxcif is None,"cctbx not installed")
     def test_cif(self):
-        if iotbxcif is None:
-            raise unittest.SkipTest("cctbx not available")
-
         elements = ["Ca","C","O"]
         a = [6,6,18.] # unit cell content
         c = compoundfromcif.CompoundFromCif("cif/calcite.cif",name="calcite") 
@@ -95,6 +103,7 @@ class test_compound(unittest.TestCase):
         for i in range(len(elements)):
             self.assertEqual(elements2[elements[i]],a[i])
 
+    @unittest.skipIf(xraylib is None,"xraylib not installed")
     def test_addelements(self):
         c1 = compoundraw.Compound(["Fe","O"],[2,3],types.fraction.mole,density=1)
         c2 = compoundraw.Compound(["Fe"],[2],types.fraction.mole,density=1)
@@ -118,6 +127,7 @@ class test_compound(unittest.TestCase):
         self.assertEqual(c.molarmass(),0)
         self.assertEqual(c.density,0)
 
+    @unittest.skipIf(xraylib is None,"xraylib not installed")
     def test_name(self):
         c = compoundfromname.compoundfromname("vacuum")
         self.assertEqual(len(c.elements),0)
@@ -131,6 +141,7 @@ class test_compound(unittest.TestCase):
         with self.assertRaises(KeyError) as context:
             c = compoundfromname.compoundfromname("linseed oill")
 
+    @unittest.skipIf(xraylib is None,"xraylib not installed")
     def test_refractiveindex(self):
         density = 2.328
         c = compoundfromformula.CompoundFromFormula("Si",density,name="silicon")
@@ -173,6 +184,7 @@ class test_compound(unittest.TestCase):
         np.testing.assert_allclose(n_re2,n_re0)
         np.testing.assert_allclose(n_im2,n_im1c,rtol=1e-6)
     
+    @unittest.skipIf(xraylib is None,"xraylib not installed")
     def test_refractiveindex2(self):
         density = 5.3
         c = compoundfromformula.CompoundFromFormula("Fe2O3",5.3,name="test")
@@ -187,6 +199,7 @@ class test_compound(unittest.TestCase):
         m = (2*np.pi/(ureg.classical_electron_radius*wavelength**2*ureg.avogadro_number/ureg.Quantity(c.molarmasseff(),"g/mol")*c.Zeff)).to("g/cm^3").magnitude
         np.testing.assert_allclose(delta*m,c.density,rtol=1e-2)
     
+    @unittest.skipIf(xraylib is None,"xraylib not installed")
     def test_serialize(self):
         c1 = compoundfromformula.CompoundFromFormula("Fe2O3",5.3,name="test")
         c2 = jsonpickle.decode(jsonpickle.encode(c1))

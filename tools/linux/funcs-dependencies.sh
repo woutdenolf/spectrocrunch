@@ -45,7 +45,6 @@ function install_system_dependencies_dev()
 
     if [[ $(dryrun) == false ]]; then
         require_web_access
-
         mapt-get install pandoc # nbsphinx
     fi
 }

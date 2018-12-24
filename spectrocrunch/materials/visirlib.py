@@ -23,46 +23,52 @@
 # THE SOFTWARE.
 
 import os
-import PyTMM.refractiveIndex
+import warnings
+try:
+    import PyTMM
+    import PyTMM.refractiveIndex
+except ImportError:
+    PyTMM = None
+    warnings.warn("PyTMM is not installed", ImportWarning)
+else:
+    from ..utils.instance import isarray
+    from ..patch.pint import ureg
 
-from ..utils.instance import isarray
-from ..patch.pint import ureg
+    db = PyTMM.refractiveIndex.RefractiveIndex(os.path.join(os.path.dirname(PyTMM.__file__),"visirlib"))
 
-db = PyTMM.refractiveIndex.RefractiveIndex(os.path.join(os.path.dirname(PyTMM.__file__),"visirlib"))
 
-class Material(PyTMM.refractiveIndex.Material):
+    class Material(PyTMM.refractiveIndex.Material):
 
-    def __init__(self,shelf, book, page):
-        filename = db.getMaterialFilename(shelf.lower(), book, page)
-        PyTMM.refractiveIndex.Material.__init__(self,filename)
+        def __init__(self,shelf, book, page):
+            filename = db.getMaterialFilename(shelf.lower(), book, page)
+            PyTMM.refractiveIndex.Material.__init__(self,filename)
 
-    def linear_attenuation_coefficient(self,lines):
-        """Linear absorption coefficient (1/cm)
+        def linear_attenuation_coefficient(self,lines):
+            """Linear absorption coefficient (1/cm)
 
-        Args:
-            lines(ureg.Quantity): keV, nm, ...
+            Args:
+                lines(ureg.Quantity): keV, nm, ...
 
-        Returns:
-            num|array
-        """
-        wl = lines.to("nm","spectroscopy").magnitude
-        if isarray(wl):
-            return [self.getExtinctionCoefficient(l) for l in wl]
-        else:
-            return self.getExtinctionCoefficient(wl)
-    
-    def refractive_index(self,lines):
-        """Refractive index
+            Returns:
+                num|array
+            """
+            wl = lines.to("nm","spectroscopy").magnitude
+            if isarray(wl):
+                return [self.getExtinctionCoefficient(l) for l in wl]
+            else:
+                return self.getExtinctionCoefficient(wl)
+        
+        def refractive_index(self,lines):
+            """Refractive index
 
-        Args:
-            lines(array(lines)): keV, nm, ...
-            
-        Returns:
-            num|array
-        """
-        wl = lines.to("nm","spectroscopy").magnitude
-        if isarray(wl):
-            return [self.getRefractiveIndex(l) for l in wl]
-        else:
-            return self.getRefractiveIndex(wl)
-            
+            Args:
+                lines(array(lines)): keV, nm, ...
+                
+            Returns:
+                num|array
+            """
+            wl = lines.to("nm","spectroscopy").magnitude
+            if isarray(wl):
+                return [self.getRefractiveIndex(l) for l in wl]
+            else:
+                return self.getRefractiveIndex(wl)

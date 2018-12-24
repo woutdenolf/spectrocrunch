@@ -53,10 +53,7 @@ from ...materials import types
 from ...materials import multilayer
 from ...materials import pymca
 
-try:
-    logger = logging.getLogger(__loader__.fullname)
-except NameError:
-    logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
     
 class test_fluoxas(unittest.TestCase):
 
@@ -260,7 +257,8 @@ class test_fluoxas(unittest.TestCase):
         stack.save(data,xialabels,stats=stats,ctrs=np.stack(ctrs.values(),axis=-1),ctrnames=ctrs.keys(),ctrheaders=ctrheaders)
 
         self._data = path,radix,data,stats,ctrs,qxrfgeometry
-                              
+
+    @unittest.skipIf(compoundfromname.xraylib is None,"xraylib not installed")
     def test_process(self):
         self._data_generate()
         

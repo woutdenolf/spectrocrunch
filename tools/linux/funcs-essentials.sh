@@ -1,5 +1,7 @@
 #!/bin/bash
 #
+# Essentials for installation and downloading
+#
 
 function require_build_essentials()
 {

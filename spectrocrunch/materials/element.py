@@ -39,12 +39,18 @@ from . import xrayspectrum
 
 import numpy as np
 from scipy import interpolate
-try:
-    import iotbx.cif
-except:
-    pass
-import fdmnes
+import warnings
 import fisx
+try:
+    import fdmnes
+except ImportError:
+    fdmnes = None
+    warnings.warn("fdmnes is not installed", ImportWarning)
+try:
+    import iotbx.cif as iotbxcif
+except ImportError:
+    iotbxcif = None
+    warnings.warn("cctbx is not installed", ImportWarning)
 
 def elementParse(symb):
     if instance.isstring(symb):

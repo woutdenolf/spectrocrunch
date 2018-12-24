@@ -277,10 +277,10 @@ class test_parameters(unittest.TestCase):
         rootB.reset_state(recursive=True)
         
         random.choice(nodes)["param"]["change"] = True
-        print ""
-        print rootA.tree()
-        print ""
-        print rootB.tree()
+        print('')
+        print(rootA.tree())
+        print('')
+        print(rootB.tree())
     
     def debug2(self):
         root = parameters.Node(name="root")
@@ -298,7 +298,7 @@ class test_parameters(unittest.TestCase):
         node["fit"] = {}
         node["fit"]["linear"] = False
         #node2["fit"]["test"]['a'] = 2
-        print root.tree()
+        print(root.tree())
         
         #print node1
 

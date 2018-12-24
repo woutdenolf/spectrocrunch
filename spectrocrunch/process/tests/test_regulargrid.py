@@ -67,7 +67,7 @@ class test_regulargrid(unittest.TestCase):
                 data = grid.interpolate(['Fe-K','S-K','Ce-L'],[0,2,3],degree=degree,asgrid=asgrid)
                 ind = [0,3,4],[0,2,3]
                 if asgrid:
-                    ind = np.meshgrid(*ind, indexing='ij')
+                    ind = tuple(np.meshgrid(*ind, indexing='ij'))
                 np.testing.assert_allclose(grid.data[ind],data,rtol=rtol)
                 
                 # 3D
@@ -77,7 +77,7 @@ class test_regulargrid(unittest.TestCase):
                 data = grid.interpolate([1,3,4],['Fe-K','S-K','Ce-L'],[0,2,3],degree=degree,asgrid=asgrid)
                 ind = [1,3,4],[0,3,4],[0,2,3]
                 if asgrid:
-                    ind = np.meshgrid(*ind, indexing='ij')
+                    ind = tuple(np.meshgrid(*ind, indexing='ij'))
                 np.testing.assert_allclose(grid.data[ind],data,rtol=rtol)
                 
     def _check_grid(self,grid):

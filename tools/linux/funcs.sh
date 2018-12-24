@@ -48,6 +48,7 @@ function cprintstart()
     cprint "======================"
 }
 
+
 # ============cprintend============
 # Description: output to stdout in color
 # Usage: cprintend
@@ -85,15 +86,16 @@ function install_systemwide()
         else
             INSTALL_SYSTEMWIDE=${2}
         fi
-        return 
+        if [[ "$1" == "reset" ]];then
+            return
+        fi
     fi
 
     if [[ $(system_privileges) == false ]]; then
         echo false
-        return
+    else
+        echo ${INSTALL_SYSTEMWIDE}
     fi
-
-    echo ${INSTALL_SYSTEMWIDE}
 }
 
 
@@ -109,7 +111,9 @@ function dryrun()
         else
             DRYRUN=${2}
         fi
-        return
+        if [[ "$1" == "reset" ]];then
+            return
+        fi
     fi
 
     echo ${DRYRUN}
@@ -198,7 +202,7 @@ function mapt-get()
 
 
 # ============require_new_version============
-# Description: we require a new version when current < required
+# Description: a new version is required when current < required
 # Usage: [[ $(require_new_version currentversion requiredversion) ]]
 function require_new_version()
 {
@@ -225,7 +229,7 @@ function require_new_version()
 
 
 # ============require_new_version_strict============
-# Description: 
+# Description: a new version is required when current != required (common depth)
 # Usage: [[ $(require_new_version_strict currentversion requiredversion) ]]
 function require_new_version_strict()
 {
@@ -541,7 +545,7 @@ function project_userbase()
 
 
 # ============timer============
-# Description: 
+# Description: start and stop timer
 function timer()
 {
     if [[ -z ${START_TIME} || "$1" == "reset" ]]; then
@@ -607,3 +611,8 @@ function install_info()
     cprint "Resource file: $(project_resource)"
 }
 
+# ============make-link============
+# Description: 
+function make-link($target,$link) {
+    New-Item -ItemType SymbolicLink -Name $link -Target $target
+}

@@ -165,6 +165,7 @@ class test_objects(unittest.TestCase):
         #plt.plot(energy,o.transmission(energy))
         #plt.show()
 
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
     def test_materials(self):
         self.assertRaises(RuntimeError, multilayer.factory, "noclassname")
         
