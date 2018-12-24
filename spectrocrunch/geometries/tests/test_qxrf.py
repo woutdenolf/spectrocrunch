@@ -51,7 +51,8 @@ class test_qxrf(unittest.TestCase):
         geometryinstance.setreferenceflux(1e9)
         geometryinstance.setdefaulttime(0.1)
         return geometryinstance
-        
+    
+    @unittest.skipIf(qxrf.xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
     def test_flux(self):
         geometryinstance = self.geometryinstance()
 

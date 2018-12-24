@@ -64,6 +64,7 @@ class test_diode(unittest.TestCase):
         ph_calib  = ph_factor * ph_PTB
         return ph_I / (ph_E * constants.elementary_charge * np.exp(-ph_coeff * PH_DIST) * ph_calib)
 
+    @unittest.skipIf(diode.compoundfromname.xraylib is None,"xraylib not installed")
     def test_calibrateddiode(self):
         gain = 8
         I = np.arange(5,8)*ureg.Quantity(1e5,"1/s")
@@ -106,6 +107,7 @@ class test_diode(unittest.TestCase):
                 else:
                     np.testing.assert_allclose(flux1,flux2,rtol=0.03) # 3% difference with spec
 
+    @unittest.skipIf(diode.compoundfromname.xraylib is None,"xraylib not installed")
     def test_noncalibrateddiode(self):
         for simplecalibration in [True,False]:
             for caliboption in ["solidangle","thickness","optics"]:

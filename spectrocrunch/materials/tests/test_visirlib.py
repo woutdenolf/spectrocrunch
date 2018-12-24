@@ -31,6 +31,7 @@ import numpy as np
 
 class test_visirlib(unittest.TestCase):
 
+    @unittest.skipIf(visirlib.PyTMM is None,"PyTMM not installed")
     def test_linatt(self):
         mat = visirlib.Material("main","Al","Rakic")
         linatt = mat.linear_attenuation_coefficient(ureg.Quantity([1.0332,10.332],'micrometer'))

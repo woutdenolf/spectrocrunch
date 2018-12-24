@@ -24,8 +24,8 @@
 
 import unittest
 
-from ..alignElastix import alignElastix
-from ..alignSift import alignSift
+from .. import alignElastix
+from .. import alignSift
 from ..alignFFT import alignFFT
 from ..alignSimple import alignMin
 from ..alignSimple import alignMax
@@ -45,9 +45,9 @@ class test_align(unittest.TestCase):
             np.testing.assert_almost_equal(cofrelcalc,cofrel,decimal=2,err_msg=msg)
 
     def try_alignment(self,alignclass,transfotype,realistic=False,subpixel=True):
-
         if transfotype==transformationType.translation and\
-            alignclass!=alignSift and alignclass!=alignElastix:
+                        alignclass!=alignSift.alignSift and\
+                        alignclass!=alignElastix.alignElastix:
             lst = [False,True]
         else:
             lst = [False]
@@ -146,17 +146,19 @@ class test_align(unittest.TestCase):
 
         np.testing.assert_almost_equal(M,o._transform.getnumpyhomography(),decimal=1)
 
+    @unittest.skipIf("SimpleElastix is not installed",alignElastix.sitk is None)
     def test_elastix(self):
         types = [transformationType.translation]
         for t in types:
-            self.try_alignment(alignElastix,t)
+            self.try_alignment(alignElastix.alignElastix,t)
 
+    @unittest.skipIf("pyopencl is not installed",alignSift.pyopencl is None)
     def test_sift(self):
         types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine]
         #TODO: the others are not that precise
         types = [transformationType.translation]
         for t in types:
-            self.try_alignment(alignSift,t)
+            self.try_alignment(alignSift.alignSift,t)
 
     def test_fft(self):
         types = [transformationType.translation]

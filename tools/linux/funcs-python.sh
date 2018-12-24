@@ -64,7 +64,6 @@ function python_include()
 function python_lib()
 {
     python_get "import distutils.sysconfig,os; print(os.path.join(distutils.sysconfig.get_config_var('LIBDIR'),distutils.sysconfig.get_config_var('LDLIBRARY')));"
-
 }
 
 
@@ -147,6 +146,7 @@ function python_hasmodule()
 function python_info()
 {
     cprint "Python version: $(python_full_version)"
+    cprint "Python virtual environment: $(python_virtualenv_active)"
     cprint "Python location: $(python_full_bin)"
     cprint "Python package directory: $(python_pkg)"
     cprint "Python include: $(python_include)"
@@ -168,7 +168,7 @@ function pip_source()
 
 function pip_info()
 {
-    cprint "Pip:$(pip_source)"
+    cprint "Pip: $(pip_source)"
 }
 
 
@@ -198,11 +198,6 @@ function pip_bin()
 
 function python_virtualenv_active()
 {
-    #if [[ "$VIRTUAL_ENV" != "" ]]; then
-    #    echo true
-    #else
-    #    echo false
-    #fi
     if [[ $(python_get "import sys;print(hasattr(sys, 'real_prefix'))") == 'True' ]];then
         echo true
     else
@@ -279,11 +274,7 @@ function pip_ensure()
     if [[ $(python_hasmodule pip) == false ]]; then
         if [[ $(python_hasmodule ensurepip) == true ]]; then
             if [[ $(python_virtualenv_active) == true ]]; then
-                if [[ $(install_systemwide) == true ]]; then
-                    $(python_bin) -m ensurepip
-                else
-                    $(python_bin) -m ensurepip --user
-                fi
+                $(python_bin) -m ensurepip
             else
                 if [[ $(install_systemwide) == true ]]; then
                     $(python_bin) -m ensurepip
@@ -435,12 +426,11 @@ function require_python()
     if [[ $(require_new_version_strict $(python_full_version) ${PYTHONVREQUEST}) == false ]]; then
         cprint "Python version $(python_full_version) is used"
     else
-        if [[ $(cmdexists python) == false ]]; then
+        if [[ $(cmdexists $(python_bin)) == false ]]; then
             cerror "Python is not installed"
         else
             cerror "Python version $(python_full_version) is used but ${PYTHONVREQUEST} is required"
         fi
-        return 1
     fi
 }
 

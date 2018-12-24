@@ -147,11 +147,11 @@ class test_xrfdet(unittest.TestCase):
                                     a = np.max(y1)*0.1
                                     #print wpeak,wstail,wltail,wstep
                                     #self.plot(x,y2,y3)
-                                    np.testing.assert_allclose(y1+a,y2+a)
-                                    np.testing.assert_allclose(y2+a,y3+a)
+                                    rtol = 1e-6
+                                    np.testing.assert_allclose(y1+a,y2+a,rtol=rtol)
+                                    np.testing.assert_allclose(y2+a,y3+a,rtol=rtol)
                                     
                                     # Check unit area
-                                    
                                     if voigt:
                                         linewidth = 0.010
                                         rtol = 1e-3

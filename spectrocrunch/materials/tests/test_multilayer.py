@@ -40,7 +40,6 @@ from ...utils import listtools
 import numpy as np
 import scipy.integrate
 import scipy.special
-import xraylib
 
 class test_multilayer(unittest.TestCase):
 
@@ -97,7 +96,8 @@ class test_multilayer(unittest.TestCase):
                                                 thickness=[1e-4],\
                                                 detector = detector)
         return o
-        
+    
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
     def test_attenuationinfo(self):
         src = xraysources.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
@@ -168,6 +168,7 @@ class test_multilayer(unittest.TestCase):
         for k in spectrum1:
             np.testing.assert_allclose(spectrum1[k],spectrum2[k],rtol=rtol)
 
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
     def test_primary_simple(self):
         # Define setup: single layer
         compound1 = compoundfromformula.CompoundFromFormula("Mn1Fe2Ca3O4",density=7.)
@@ -227,6 +228,7 @@ class test_multilayer(unittest.TestCase):
                 self.assertSpectrumEqual(spectrum1,spectrum2) # 0.00001% deviation
                 self.assertSpectrumEqual(spectrum1,spectrum3,rtol=2e-02,compfisx=True) # 2% deviation
 
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
     def test_primary_complex(self):
         compound1 = compoundfromformula.CompoundFromFormula("MnFe",density=6.)
         

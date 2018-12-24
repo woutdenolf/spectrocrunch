@@ -475,7 +475,7 @@ class Item(Hashable,Geometry2D):
     
     def selectscene(self,s):
         try:
-            self._sceneindex = self._scenes.keys().index(s)
+            self._sceneindex = list(self._scenes.keys()).index(s)
         except:
             raise RuntimeError("This object is not registered with scene {}".format(s))
             
@@ -483,7 +483,7 @@ class Item(Hashable,Geometry2D):
     def scene(self):
         if len(self._scenes)==0:
             raise RuntimeError("This object is not registered with any scene")
-        return self._scenes.keys()[self._sceneindex]
+        return list(self._scenes.keys())[self._sceneindex]
     
     def addscene(self,s):
         if s not in self._scenes:

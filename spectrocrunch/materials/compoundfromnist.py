@@ -26,7 +26,15 @@ from . import compound
 from . import types
 from ..utils import instance
 
-import xraylib
+import warnings
+try:
+    import xraylib
+    registry = xraylib.GetCompoundDataNISTList()
+except ImportError:
+    xraylib = None
+    warnings.warn("xraylib is not installed", ImportWarning)
+    registry = []
+
 
 class CompoundFromNist(compound.Compound):
     """Interface to a compound defined by a list of elements
@@ -42,9 +50,8 @@ class CompoundFromNist(compound.Compound):
         data = xraylib.GetCompoundDataNISTByName(nistname)
         if name is None:
             name = data["name"]
-        super(CompoundFromNist,self).__init__(data["Elements"],data["massFractions"],types.fraction.mass,data["density"],name=name)
-
-registry = xraylib.GetCompoundDataNISTList()
+        super(CompoundFromNist,self).__init__(data["Elements"],data["massFractions"],
+                                        types.fraction.mass,data["density"],name=name)
 
 def factory(name):
     return CompoundFromNist(name)

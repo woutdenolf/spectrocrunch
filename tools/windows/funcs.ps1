@@ -17,7 +17,7 @@ function cprint()
 # ============cerror============
 # Description: output to stdout in color
 # Usage: cerror "..."
-function cprint_error()
+function cerror()
 {
     Write-Host -ForegroundColor Red $args
 }
@@ -130,7 +130,7 @@ function install_arch([string]$reset,[AllowNull()][int]$resetvalue)
 {
     if ($global:INSTALL_ARCH -eq $null -or $reset -eq "reset") {
         if ($resetvalue -eq $null) {
-            $global:INSTALL_ARCH = -1
+            $global:INSTALL_ARCH = 0
         } else {
             $global:INSTALL_ARCH = $resetvalue
         }
@@ -139,15 +139,15 @@ function install_arch([string]$reset,[AllowNull()][int]$resetvalue)
         }
     }
 
-    if ($global:INSTALL_ARCH -eq -1) {
+    if ($global:INSTALL_ARCH -eq 0) {
         if ([Environment]::Is64BitOperatingSystem) {
-            $global:ARG_ARCH = 64
+            $global:INSTALL_ARCH = 64
         } else {
-            $global:ARG_ARCH = 32
+            $global:INSTALL_ARCH = 32
         }
     }
 
-    return $global:ARG_ARCH
+    return $global:INSTALL_ARCH
 }
 
 
@@ -185,4 +185,93 @@ function install_info()
     #cprint "Prefix for dependencies: $(project_prefix)"
     #cprint "Opt directory: $(project_opt)"
     #cprint "Resource file: $(project_resource)"
+}
+
+
+# ============require_new_version============
+# Description: a new version is required when current < required
+function require_new_version([AllowNull()][string]$currentversion,[AllowNull()][string]$requiredversion)
+{
+    if ($currentversion -eq $null) {
+        # not version not exists
+        return $true
+    }
+
+    if ($requiredversion -eq $null) {
+        # no specific version required
+        return $false
+    }
+
+    $local:currentv = $currentversion.split(".")
+    $local:requiredv = $requiredversion.split(".")
+    $local:ncurrentv = $local:currentv.Length
+    $local:nrequiredv = $local:requiredv.Length
+    $local:n = [math]::min($local:ncurrentv,$local:nrequiredv)
+    if ($local:ncurrentv -lt $local:n) {
+        $local:currentv += (0,$null)*($local:n-$local:ncurrentv)
+    }
+    if ($local:nrequiredv -lt $local:n) {
+        $local:requiredv += (0,$null)*($local:n-$local:nrequiredv)
+    }
+    $local:currentv = -join($local:currentv)
+    $local:requiredv = -join($local:requiredv)
+    return [int]$local:currentv -lt [int]$local:requiredv
+}
+
+
+# ============require_new_version_strict============
+# Description: a new version is required when current != required (common depth)
+function require_new_version_strict([AllowNull()][string]$currentversion,[AllowNull()][string]$requiredversion)
+{
+    if ($currentversion -eq $null) {
+        # not version not exists
+        return $true
+    }
+
+    if ($requiredversion -eq $null) {
+        # no specific version required
+        return $false
+    }
+
+    $local:currentv = $currentversion.split(".")
+    $local:requiredv = $requiredversion.split(".")
+    $local:n = [math]::min($local:currentv.Length,$local:requiredv.Length)-1
+    $local:currentv = -join($local:currentv[0..$local:n])
+    $local:requiredv = -join($local:requiredv[0..$local:n])
+    return $local:currentv -ne $local:requiredv
+}
+
+# ============get_local_version_strict============
+# Description: 
+function get_local_version_strict([AllowNull()][string]$requiredv)
+{
+    foreach ($path in Get-ChildItem) {
+        if ($path.Attributes -ne "Directory") {
+            $local:m = [regex]::match($path.Name,"[\d\.]+[\d]")
+            if ($local:m.Success) {
+                if (!(require_new_version_strict $local:m.Groups[0].Value $requiredv)) {
+                    return $local:m.Groups[0].Value
+                }
+            }
+        }
+    }
+}
+
+# ============download_file============
+# Description: 
+$webclient = New-Object System.Net.WebClient
+function download_file([string]$url, [string]$output) {
+	# Downloads a file if it doesn't already exist
+	if (!(Test-Path $output -pathType leaf)){
+        cprint "Downloading $url to $output ..."
+		$webclient.DownloadFile($url, $output)
+	}
+}
+
+# ============ThrowIfFailed============
+# Description: throw an error when failed
+function ThrowIfFailed() {
+    if( -not $? ) {
+        throw $args
+    }
 }

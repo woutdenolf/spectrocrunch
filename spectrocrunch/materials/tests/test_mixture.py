@@ -38,6 +38,7 @@ import numpy as np
 
 class test_mixture(unittest.TestCase):
 
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
     def test_molefractions(self):
         compound1 = compoundfromformula.CompoundFromFormula("La2O3",0)
         compound2 = compoundfromformula.CompoundFromFormula("SrO",0)
@@ -65,7 +66,8 @@ class test_mixture(unittest.TestCase):
         labels = ["Sr","Co","Fe","O","La"]
         for i in range(len(labels)):
             self.assertAlmostEqual(nfrac1[labels[i]],nfrac2[i])
-        
+    
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
     def test_addcompound(self):
         c1 = compoundfromformula.CompoundFromFormula("Co2O3",1.5)
         c2 = compoundfromformula.CompoundFromFormula("Fe2O3",1.6)
@@ -77,6 +79,7 @@ class test_mixture(unittest.TestCase):
         n2 = m2.molefractions(total=True)
         self.assertEqual(n1,n2)
 
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
     def test_tocompound(self):
         c1 = compoundfromformula.CompoundFromFormula("Co2O3",1.5)
         c2 = compoundfromformula.CompoundFromFormula("Fe2O3",1.6)
@@ -115,6 +118,7 @@ class test_mixture(unittest.TestCase):
         for k in spectrum1:
             np.testing.assert_allclose(spectrum1[k],spectrum2[k])
     
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
     def test_cross_sections(self):
         c = [compoundfromformula.CompoundFromFormula("Co2O3",1.5),compoundfromformula.CompoundFromFormula("Fe2O3",1.6)]
         rhoc = np.array([x.density for x in c])
@@ -144,6 +148,7 @@ class test_mixture(unittest.TestCase):
         self._spectrum_equal(spectrum3,spectrum4)
         self._spectrum_equal(spectrum,spectrum3)
     
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
     def test_refractiveindex(self):
         c1 = compoundfromformula.CompoundFromFormula("Co2O3",1.5)
         c2 = compoundfromformula.CompoundFromFormula("Fe2O3",1.6)
@@ -159,6 +164,7 @@ class test_mixture(unittest.TestCase):
         m = (2*np.pi/(ureg.classical_electron_radius*wavelength**2*ureg.avogadro_number/ureg.Quantity(c.molarmasseff(),"g/mol")*c.Zeff)).to("g/cm^3").magnitude
         np.testing.assert_allclose(delta*m,c.density,rtol=1e-2)
     
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
     def test_serialize(self):
         c1 = compoundfromformula.CompoundFromFormula("Co2O3",1.5)
         c2 = compoundfromformula.CompoundFromFormula("Fe2O3",1.6)

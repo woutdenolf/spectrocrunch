@@ -46,6 +46,7 @@ class test_pymca(unittest.TestCase):
     def tearDown(self):
         self.dir.cleanup()
 
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
     def test_loadcfg(self):
         cfgfile = os.path.join(self.dir.path,"mca.cfg")
 
@@ -62,6 +63,7 @@ class test_pymca(unittest.TestCase):
         h2.loadfrompymca(cfgfile)
         np.testing.assert_allclose(h1.mca(),h2.mca())
 
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
     def test_rates(self):
         h = xrf_setup.simple(energy=self.energy,escape=0,snip=False,continuum=1)
         
@@ -161,7 +163,8 @@ class test_pymca(unittest.TestCase):
         ax.set_ylabel("Intensity (cts)")
         plt.legend(loc='best')
         #plt.show()
-        
+    
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,"xraylib not installed")
     def test_spectrum(self):
         h = xrf_setup.complex(energy=self.energy,escape=0,flux=1e10,time=1,
                               scatter=np.zeros_like(self.energy),linear=1,emin=2,emax=7.4)

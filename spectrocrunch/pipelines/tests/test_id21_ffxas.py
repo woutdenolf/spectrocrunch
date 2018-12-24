@@ -36,10 +36,7 @@ from ..run import run_sequential
 from ...io.edf import saveedf
 from ...process import regulargrid
 
-try:
-    logger = logging.getLogger(__loader__.fullname)
-except NameError:
-    logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 class test_ffxas(unittest.TestCase):
 

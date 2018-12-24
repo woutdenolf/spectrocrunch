@@ -21,7 +21,15 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
+import warnings
+import os
+import numpy as np
+import logging
+try:
+    import pyopencl
+except ImportError:
+    pyopencl = None
+    warnings.warn("pyopencl is not installed", ImportWarning)
 
 from .align import align
 from .types import transformationType
@@ -30,11 +38,7 @@ from ..math.fit1d import lstsq
 from silx.image import sift
 from silx.opencl import ocl
 from silx.opencl.utils import get_opencl_code
-import pyopencl
 
-import os
-import numpy as np
-import logging
 
 class alignSift(align):
 

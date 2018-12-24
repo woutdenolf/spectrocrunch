@@ -115,7 +115,7 @@ def interpolate_regular(data,axold,axnew,cval=np.nan,degree=1,asgrid=True):
             shape = tuple([len(ax) for ax in axnew])
             post = lambda x:x.reshape(shape)
             axnew = np.meshgrid(*axnew, indexing='ij')
-            axnew = [ax.flat for ax in axnew]
+            axnew = tuple([ax.flat for ax in axnew])
         args = (np.array(list(zip(*axnew))),)
 
     ret = interp(*args,**kwargs)

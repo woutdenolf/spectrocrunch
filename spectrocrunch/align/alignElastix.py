@@ -21,14 +21,19 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
+import logging
+import warnings
+import numpy as np
+try:
+    import SimpleITK as sitk
+except ImportError:
+    sitk = None
+    warnings.warn("SimpleElastix is not installed", ImportWarning)
 
 from .align import align
-import SimpleITK as sitk
-import numpy as np
 from ..utils.stdout import stdout_redirect
 from .types import transformationType
-import logging
+
 
 class alignElastix(align):
 
