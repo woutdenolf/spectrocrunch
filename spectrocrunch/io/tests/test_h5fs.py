@@ -27,6 +27,7 @@ import unittest
 from testfixtures import TempDirectory
 
 from .. import h5fs
+from .. import fs
 from ..utils import TemporaryFilename
 
 class test_h5fs(unittest.TestCase):
@@ -49,7 +50,7 @@ class test_h5fs(unittest.TestCase):
         
         with TemporaryFilename(self.dir.path,suffix='.txt') as filename:
             # Doesn't exist
-            self.assertRaises(IOError, self._check_r, filename,'123')
+            self.assertRaises((IOError,fs.Missing), self._check_r, filename,'123')
             self._check_w(filename,'123')
             # Exist
             self._check_r(filename,'456')
@@ -57,7 +58,7 @@ class test_h5fs(unittest.TestCase):
             
         with TemporaryFilename(self.dir.path,suffix='.txt') as filename:
             # Doesn't exist
-            self.assertRaises(IOError, self._check_rp, filename,'123')
+            self.assertRaises((IOError,fs.Missing), self._check_rp, filename,'123')
             self._check_w(filename,'123')
             # Exist
             self._check_rp(filename,'456')
@@ -155,8 +156,12 @@ class test_h5fs(unittest.TestCase):
         self.assertEqual(path.path,'/entry/abs{}def'.format(devsep))
         
         path = h5fs.Path(func('.','te{}st{}/entry/abs{}def'.format(devsep,devsep,devsep)))
-        self.assertEqual(path.device,os.path.abspath(func('.','te{}st{}'.format(devsep,devsep),'entry','abs{}def'.format(devsep))))
-        self.assertEqual(path.path,'/')
+        if path.sep==os.sep:
+            self.assertEqual(path.device,os.path.abspath(func('.','te{}st{}/entry/abs{}def'.format(devsep,devsep,devsep))))
+            self.assertEqual(path.path,'/')
+        else:
+            self.assertEqual(path.device,os.path.abspath(func('.','te{}st'.format(devsep))))
+            self.assertEqual(path.path,'/entry/abs{}def'.format(devsep))
         
         path = h5fs.Path(func('.','te{}st{}{}{}/entry/abs{}def'.format(devsep,devsep,devsep,devsep,devsep)),
                          h5file=func('.','te{}st'.format(devsep)))

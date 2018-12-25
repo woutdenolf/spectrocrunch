@@ -45,7 +45,7 @@ class test_nxfs(unittest.TestCase):
         root = nxfs.Path('/',h5file=h5filename)
         
         nxroot = root.nxroot()
-        
+
         self.assertRaises(ValueError,nxroot.nxentry,'entry0001',mode='r')
         entry1 = nxroot.nxentry('entry0001')
         self.assertEqual(entry1,root['entry0001'])

@@ -332,7 +332,11 @@ class Path(File):
         self.path += other
         
     def __getitem__(self,value):
-        return self.factory(self.join(self.location,value))
+        # Do not use self.location in self.join
+        path = self.join(self.path,value)
+        if self.device:
+            path = "{}{}{}".format(self.device,self.devsep,path)
+        return self.factory(path)
 
     def __call__(self,*value):
         return self.__getitem__(value)
