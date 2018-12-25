@@ -22,6 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 import os
+import sys
 import errno
 import h5py
 import logging
@@ -258,6 +259,7 @@ class test_h5py(unittest.TestCase):
         datainit(self.outfilename)
         run(threading.Thread,threading.Event,self.h5filename,self.outfilename,'thread')
 
+    @unittest.skipIf(sys.platform.startswith("win"), "Does not work under Windows")
     def test_process(self):
         datainit(self.outfilename)
         run(multiprocessing.Process,multiprocessing.Event,self.h5filename,self.outfilename,'process')
@@ -266,8 +268,7 @@ def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_h5py("test_thread"))
-    #TODO: does not work under Windows:
-    #testSuite.addTest(test_h5py("test_process"))
+    testSuite.addTest(test_h5py("test_process"))
     return testSuite
     
 if __name__ == '__main__':

@@ -140,7 +140,7 @@ h5errno = Enum({k:-i for i,k in enumerate(h5errnames,1)})
 h5errcodes = {v:k for k,v in h5errno.items()}
 
 def h5py_errno(err):
-    if errno.errorcode.get(err.errno,None):
+    if not errno.errorcode.get(err.errno,None):
         errmsg = str(err)
         m = re.search('errno = ([0-9]+)',errmsg)
         if m:
@@ -378,7 +378,7 @@ class Path(fs.Path):
                         return dest.exists
                 else:
                     return self.path in f
-        except IOError:
+        except (IOError,fs.FileSystemException):
             return False
             
     @property
