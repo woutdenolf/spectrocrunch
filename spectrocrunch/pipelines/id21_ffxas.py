@@ -49,30 +49,30 @@ def ffparameters(**parameters):
 
     config = {
         # EDF header
-        "frametimelabel" : "exposure_time",
-        "frametimedefault" : 0.,
-        "roilabel" : "roi",
-        "nbframeslabel" : "nb_frames",
-        "stacklabel" : "energy",
+        "frametimelabel": "exposure_time",
+        "frametimedefault": 0.,
+        "roilabel": "roi",
+        "nbframeslabel": "nb_frames",
+        "stacklabel": "energy",
 
         # Defaults
         "dtype": "np.float32", # must be floating point!
-        "darkcurrentzero" : 90.,
-        "darkcurrentgain" : 1.,
-        "stackdim" : stackdim,
+        "darkcurrentzero": 90.,
+        "darkcurrentgain": 1.,
+        "stackdim": stackdim,
 
         # Data
-        "darklist" : map(lambda xy: os.path.join(xy[0],xy[1]+"*_dark_*.edf"),zip(sourcepath,radix)),
-        "datalist" : map(lambda xy: os.path.join(xy[0],xy[1]+"*_data_*.edf"),zip(sourcepath,radix)),
-        "flatlist" : map(lambda xy: os.path.join(xy[0],xy[1]+"*_ref_*.edf"),zip(sourcepath,radix)),
-        "flatbeforeafter" : flatbeforeafter, # split up flat fields in before and after (same number of images)
+        "darklist": list(map(lambda xy: os.path.join(xy[0],xy[1]+"*_dark_*.edf"),zip(sourcepath,radix))),
+        "datalist": list(map(lambda xy: os.path.join(xy[0],xy[1]+"*_data_*.edf"),zip(sourcepath,radix))),
+        "flatlist": list(map(lambda xy: os.path.join(xy[0],xy[1]+"*_ref_*.edf"),zip(sourcepath,radix))),
+        "flatbeforeafter": flatbeforeafter, # split up flat fields in before and after (same number of images)
         "normalize": normalize and normalizeonload,
         "keepflat": normalize and not normalizeonload,
         "roi": roiraw,
-        "rebin":rebin,
+        "rebin": rebin,
 
         # Output
-        "outputparent": outputparent,
+        "outputparent": outputparent
         }
         
     return config

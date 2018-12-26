@@ -84,7 +84,7 @@ class Task(nxprocess.Task):
         needflat = parameters['keepflat'] or parameters['normalize']
         
         # Save/normalize image per image
-        keys = data.keys()
+        keys = list(data.keys())
         dtype = eval(parameters["dtype"])
         dim = [0]*3
         stackdim = parameters["stackdim"]

@@ -53,8 +53,14 @@ def _calchash_ndarray(x,hashfunc,numpylarge=False):
     else:
         if numpylarge:
             keep,x.flags.writeable = x.flags.writeable,False
-            ret = hashfunc(x.data)
-            x.flags.writeable = keep
+            try:
+                ret = hashfunc(x.data)
+            except ValueError:
+                ret = hashfunc(x.data.tobytes())
+            except Exception:
+                raise
+            finally:
+                x.flags.writeable = keep
             return ret
         else:
             return _calchash(tuple(x),hashfunc,numpylarge=numpylarge)

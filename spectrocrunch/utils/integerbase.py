@@ -39,7 +39,7 @@ class integerbase:
         digits = []
         while x:
             digits.append(self.digs[x % self.base])
-            x /= self.base
+            x //= self.base
         if sign < 0:
             digits.append('-')
         digits.reverse()

@@ -63,9 +63,6 @@ class Group(Hashable):
         self.name = name
         self.number = number
         self.category = category
-            
-    def _stringrepr(self):
-        return self.name
 
     @property
     def isdetector(self):
@@ -91,6 +88,12 @@ class Group(Hashable):
         else:
             return None
 
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name
+
     def __eq__(self,other):
         if isinstance(other,self.__class__):
             return self.name==other.name
@@ -100,6 +103,9 @@ class Group(Hashable):
     def __ne__(self,other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        return hash(repr(self))
+        
 def regulargriddata(nxgroup):
     """
     Args:

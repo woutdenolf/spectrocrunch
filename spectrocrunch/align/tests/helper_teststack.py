@@ -267,7 +267,7 @@ def data(transfotype,\
         npeaks = sum(ind)
         sx = random(sx*0.8,sx*1.2,npeaks)
         A = random(1,5,npeaks)
-        data = zip(x0,sx,A)
+        data = tuple(zip(x0,sx,A))
 
         # Plot full images
         if False:
@@ -347,7 +347,7 @@ def data(transfotype,\
         sy = random(sxy*0.8,sxy*1.2,npeaks)
         rho = random(0,0.2,npeaks)
         A = random(1,5,npeaks)
-        data = zip(x0,y0,sx,sy,rho,A)
+        data = tuple(zip(x0,y0,sx,sy,rho,A))
 
         # Plot full images
         if False:

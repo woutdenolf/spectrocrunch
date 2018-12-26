@@ -130,11 +130,8 @@ function travis_build_project()
 
     if [[ $(dryrun) == false ]]; then
         $(python_bin) setup.py build_py --build-lib=$(travis_pybuild_folder)/build/lib -f
-
         $(python_bin) setup.py build_doc --build-dir=$(travis_pybuild_folder)/build/doc
-
         $(python_bin) setup.py sdist --dist-dir=$(travis_pybuild_folder)/dist
-
         $(python_bin) setup.py bdist_wheel --dist-dir=$(travis_pybuild_folder)/dist
     fi
 
@@ -193,7 +190,3 @@ function travis_pack_prebuild()
 
     cd ${restorewd}
 }
-
-
-
-

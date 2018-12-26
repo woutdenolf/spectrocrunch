@@ -69,7 +69,7 @@ def send_signals(signals,handlers=None):
                 pass
 
 def signalname(signum):
-    return next(v for v, k in signal.__dict__.iteritems() if k == signum)
+    return next(v for v, k in signal.__dict__.items() if k == signum)
 
 class DelaySignalsContext(object):
     """Context manager which allows for tear-down on exceptions and signals (SIGTERM, SIGINT,...)

@@ -122,7 +122,7 @@ function python_full_version()
     $local:tmp="import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)"
     $local:tmp=python_get $local:tmp
     if ($local:tmp -eq $null) {
-        $local:tmp=-1
+        $local:tmp = -1
     }
     return $local:tmp
 }
@@ -243,12 +243,16 @@ function python_install_fromsource([AllowNull()][string]$version)
     mkdir python -Force
     cd python
 
-    $local:version=$(get_local_version_strict $version)
-    if ($local:version -eq $null) {
-        require_web_essentials
-        $local:version=python_latest
+    # Local or latest version that matches the requested version
+    $local:lversion = $(get_local_version_strict $version)
+    require_web_essentials
+    if ($local:lversion -eq $null) {
+        $local:version = python_latest $local:version
+    } else {
+        $local:version = $local:lversion
     }
 
+    # Download the installer
     $local:installerprefix = "python-$local:version"
     $local:installer = Get-ChildItem "$local:installerprefix*.*"
     if ( !(dryrun) -and $local:installer -eq $null ) {
@@ -256,6 +260,7 @@ function python_install_fromsource([AllowNull()][string]$version)
         $local:installer = Get-ChildItem "$local:installerprefix*.*"
     }
 
+    # Run the installer
     if ($local:installer -ne $null) {
         cprint "Install python $local:installer ..."
         if (!(dryrun)) {
@@ -292,21 +297,31 @@ function python_url()
 }
 
 
-function python_latest() {
-    $local:pattern = "href=""([\d\.]+[\d])"
-    if ($global:PYTHONVREQUEST -ne $null) {
-        $local:pattern = "href=""($global:PYTHONVREQUEST[\d\.]*)"
+function python_latest($local:rversion) {
+    $local:pattern = "(\d\.\d\.\d)"
+    if ($local:rversion -ne $null) {
+        $local:pattern = $local:rversion.split('.')
+        if ($local:pattern.Length -lt 3) {
+            $local:pattern += @("\d")*(3-$local:pattern.Length)
+        } else {
+            $local:pattern = $local:pattern[0..2]
+        }
+        $local:pattern = [string]::Join("\.",$local:pattern)
+        $local:pattern = "($local:pattern)"
     }
 
     $local:mversion = (0,0,0)
     $local:version = $null
     $local:content = Invoke-WebRequest $(python_url)
-    foreach ($line in $local:content) {
-        $local:m = [regex]::match($line,$local:pattern)
+    foreach ($link in $local:content.Links) {
+        $local:m = [regex]::match($link.href,$local:pattern)
         if ($local:m.Success) {
+            if ((python_download_info $m.Groups[1].Value) -eq $null) {
+                continue
+            }
             $local:tmp = $m.Groups[1].Value.split('.')
             if (($local:tmp.Length) -lt 3) {
-                $local:tmp += (0,$null)*(3-($local:tmp.Length))
+                $local:tmp += @(0)*(3-($local:tmp.Length))
             }
             if ($local:tmp[0] -gt $local:mversion[0]) {
                 $local:mversion = $local:tmp
@@ -329,21 +344,28 @@ function python_latest() {
 }
 
 
-function python_download([string]$version)
+function python_download_info([string]$version)
 {
-    $local:pattern = "href=""(python-$version.[exmsi]{3})"
+    $local:pattern = "(python-$version.[exmsi]{3})"
     if ((install_arch) -eq 64){
-        $local:pattern = "href=""(python-$version[-.]amd64.[exmsi]{3})"
+        $local:pattern = "(python-$version[-.]amd64.[exmsi]{3})"
     }
-    
+
     $local:content = Invoke-WebRequest "$(python_url)/$version/"
-    foreach ($line in $local:content) {
-        $local:m = [regex]::match($line,$local:pattern)
+    foreach ($link in $local:content.Links) {
+        $local:m = [regex]::match($link.href,$local:pattern)
         if ($local:m.Success) {
             $local:filename = $m.Groups[1].Value
-            download_file "$(python_url)/$version/$local:filename"  "$(Get-Location)\$local:filename"
-            return
+            return ("$(python_url)/$version/$local:filename","$(Get-Location)\$local:filename")
         }
+    }
+}
+
+function python_download([string]$version)
+{
+    $local:arr = python_download_info($version)
+    if ($local:arr -ne $null) {
+        download_file $local:arr[0] $local:arr[1]
     }
 }
 
