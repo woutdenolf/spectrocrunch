@@ -1,6 +1,6 @@
 version: "{build}"
 shallow_clone: true
-build: false
+#build: false
 
 cache:
   - '%LOCALAPPDATA%\pip\Cache'
@@ -77,7 +77,7 @@ test_script:
     cd $HOME
     python -m $PROJECTNAME.tests.test_all --log=error
 
-after_test:
+on_finish:
   # Remove virtualenv
   - ps: |
     & .\$VENV_NAME\Scripts\deactivate.bat
