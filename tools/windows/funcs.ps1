@@ -208,19 +208,19 @@ function require_new_version([AllowNull()][string]$currentversion,[AllowNull()][
     $local:nrequiredv = $local:requiredv.Length
     $local:n = [math]::min($local:ncurrentv,$local:nrequiredv)
     if ($local:ncurrentv -lt $local:n) {
-        $local:currentv += (0,$null)*($local:n-$local:ncurrentv)
+        $local:currentv += @(0)*($local:n-$local:ncurrentv)
     }
     if ($local:nrequiredv -lt $local:n) {
-        $local:requiredv += (0,$null)*($local:n-$local:nrequiredv)
+        $local:requiredv += @(0)*($local:n-$local:nrequiredv)
     }
-    $local:currentv = -join($local:currentv)
-    $local:requiredv = -join($local:requiredv)
+    $local:currentv = [string]::Join("",$local:currentv)
+    $local:requiredv = [string]::Join("",$local:requiredv)
     return [int]$local:currentv -lt [int]$local:requiredv
 }
 
 
 # ============require_new_version_strict============
-# Description: a new version is required when current != required (common depth)
+# Description: a new version is required when current != required (up to a common depth)
 function require_new_version_strict([AllowNull()][string]$currentversion,[AllowNull()][string]$requiredversion)
 {
     if ($currentversion -eq $null) {
@@ -236,13 +236,13 @@ function require_new_version_strict([AllowNull()][string]$currentversion,[AllowN
     $local:currentv = $currentversion.split(".")
     $local:requiredv = $requiredversion.split(".")
     $local:n = [math]::min($local:currentv.Length,$local:requiredv.Length)-1
-    $local:currentv = -join($local:currentv[0..$local:n])
-    $local:requiredv = -join($local:requiredv[0..$local:n])
+    $local:currentv = [string]::Join("",$local:currentv[0..$local:n])
+    $local:requiredv = [string]::Join("",$local:requiredv[0..$local:n])
     return $local:currentv -ne $local:requiredv
 }
 
 # ============get_local_version_strict============
-# Description: 
+# Description: returns a local version when it matches a requested version (up to a common depth)
 function get_local_version_strict([AllowNull()][string]$requiredv)
 {
     foreach ($path in Get-ChildItem) {

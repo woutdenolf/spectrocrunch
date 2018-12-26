@@ -343,7 +343,7 @@ class test_nxprocess(unittest.TestCase):
                         index[1] = slice(None)
                     else:
                         index[2] = slice(None)
-                    encvalues = encvalues[index]
+                    encvalues = encvalues[tuple(index)]
                     
                     # Handle nan's
                     if not crop:

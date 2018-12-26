@@ -275,9 +275,9 @@ def dataflatlibrary(parameters):
         raise IOError("No data files found ({})".format(parameters["datalist"][0]))
 
     # Remove entries with missing images
-    #ndata = map(lambda x:len(data[x]),data)
+    #ndata = list(map(lambda x:len(data[x]),data))
     #ndatafiles = max(ndata,key=ndata.count)
-    #nflat = map(lambda x:len(flat[x]),flat)
+    #nflat = list(map(lambda x:len(flat[x]),flat))
     #nflatfiles = max(nflat,key=nflat.count)
     #tmp1 = {k:data[k] for k in data if len(data[k])==ndatafiles and len(flat[k])==nflatfiles}
     #tmp2 = {k:flat[k] for k in flat if len(data[k])==ndatafiles and len(flat[k])==nflatfiles}
@@ -302,7 +302,7 @@ def dataflatlibrary(parameters):
         flat2 = None
 
     # Axes
-    stackvalues = np.array(map(lambda x:np.float32(x),data.keys()))
+    stackvalues = np.array(list(map(lambda x:np.float32(x),data.keys())))
     keyindices = np.argsort(stackvalues)
     stackvalues = stackvalues[keyindices]
     row,col = axesvalues(roi,parameters)

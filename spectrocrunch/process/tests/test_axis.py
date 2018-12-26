@@ -70,7 +70,7 @@ class test_axis(unittest.TestCase):
         np.testing.assert_array_equal(ax.locate([2,5]),[2,5])
         self.assertEqual(ax.locate(-10),0)
         ax2 = axis.factory(units.Quantity((np.arange(10)+5)/1000.,units='mm'))
-        self.assertEqual(ax.locate(ax2),range(5,10)+[9]*5)
+        self.assertEqual(ax.locate(ax2),list(range(5,10))+[9]*5)
         
         ax = axis.factory(['a','b','c'],type='nominal')
         self.assertEqual(ax.locate('b'),1)

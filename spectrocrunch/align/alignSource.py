@@ -125,7 +125,6 @@ class alignSource(object):
                 data = self.datasets[datasetindex][:,imageindex,:]
             else:
                 data = self.datasets[datasetindex][...,imageindex]
-
         elif self.sourcetype==dataType.singlefile:
             data = fabio.open(self.datasets[datasetindex][imageindex]).data
         else:

@@ -97,9 +97,8 @@ class test_align(unittest.TestCase):
                     o.align(refdatasetindex,onraw = False,pad = pad,crop = crop,roi=roi)
                     self.compare_relativecof(o.absolute_cofs(homography=True),cofrel,msg=msg)
    
+    @unittest.skip("TODO")
     def test_fft_internals(self):
-        return # TODO: not working
-
          # Initialize alignFFT (not important)
         inputstack = [np.zeros((2,2,2),dtype=np.float32)]*5
         outputstack = [np.zeros(1,dtype=np.float32)]*5
@@ -180,7 +179,7 @@ class test_align(unittest.TestCase):
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_align("test_fft_internals")) # not working for now
+    testSuite.addTest(test_align("test_fft_internals"))
     testSuite.addTest(test_align("test_min"))
     testSuite.addTest(test_align("test_max"))
     testSuite.addTest(test_align("test_centroid"))
