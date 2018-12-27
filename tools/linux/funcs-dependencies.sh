@@ -20,19 +20,12 @@ function install_system_dependencies()
 
     if [[ $(dryrun) == false ]]; then
         require_web_access
-
         pip_install numpy # silx
-
         pip_install cython # xraylib
-
         mapt-get install libhdf5-serial-dev libhdf5-dev # h5py
-
         require_pyopencl # silx
-
         require_pyopengl # pymca
-
         require_pyqt # pymca
-
         #mapt-get install libgeos-dev # shapely
     fi
 }
@@ -63,7 +56,8 @@ function install_pypi_dependencies()
     cprint "Installing pypi requirements ..."
     if [[ $(dryrun) == false ]]; then
         require_web_access
-        pip_install -r $(project_folder)/requirements.txt
+        cprint "$(project_folder)\\requirements.txt"
+        pip_install -r "$(project_folder)\\requirements.txt"
         pip_install install pymca
     fi
 }
@@ -75,7 +69,8 @@ function install_pypi_dependencies_dev()
     cprint "Installing pypi requirements (dev) ..."
     if [[ $(dryrun) == false ]]; then
         require_web_access
-        pip_install -r $(project_folder)/requirements-dev.txt
+        cprint "$(project_folder)\\requirements-dev.txt"
+        pip_install -r "$(project_folder)\\requirements-dev.txt"
     fi
 }
 

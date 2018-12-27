@@ -2,25 +2,9 @@
 # Helper functions.
 # 
 
+. $PSScriptRoot\funcs-init.ps1
 . $PSScriptRoot\funcs-string.ps1
 . $PSScriptRoot\funcs-essentials.ps1
-
-# ============cprint============
-# Description: output to stdout in color
-# Usage: cprint "..."
-function cprint() 
-{
-    Write-Host -ForegroundColor Magenta $args
-}
-
-
-# ============cerror============
-# Description: output to stdout in color
-# Usage: cerror "..."
-function cerror()
-{
-    Write-Host -ForegroundColor Red $args
-}
 
 
 # ============cprintstart============
@@ -151,14 +135,6 @@ function install_arch([string]$reset,[AllowNull()][int]$resetvalue)
 }
 
 
-# ============cmdexists============
-# Description: 
-function cmdexists([string]$cmd)
-{
-    return (Get-Command $cmd -errorAction SilentlyContinue) -ne $null
-}
-
-
 # ============project_folder============
 # Description: Project folder
 function project_folder()
@@ -192,12 +168,12 @@ function install_info()
 # Description: a new version is required when current < required
 function require_new_version([AllowNull()][string]$currentversion,[AllowNull()][string]$requiredversion)
 {
-    if ($currentversion -eq $null) {
+    if ($currentversion -eq $null -or $currentversion -eq "") {
         # not version not exists
         return $true
     }
 
-    if ($requiredversion -eq $null) {
+    if ($requiredversion -eq $null -or $requiredversion -eq "") {
         # no specific version required
         return $false
     }
@@ -223,12 +199,12 @@ function require_new_version([AllowNull()][string]$currentversion,[AllowNull()][
 # Description: a new version is required when current != required (up to a common depth)
 function require_new_version_strict([AllowNull()][string]$currentversion,[AllowNull()][string]$requiredversion)
 {
-    if ($currentversion -eq $null) {
-        # not version not exists
+    if ($currentversion -eq $null -or $currentversion -eq "") {
+        # no version exists
         return $true
     }
 
-    if ($requiredversion -eq $null) {
+    if ($requiredversion -eq $null -or $requiredversion -eq "") {
         # no specific version required
         return $false
     }
@@ -257,16 +233,14 @@ function get_local_version_strict([AllowNull()][string]$requiredv)
     }
 }
 
-# ============download_file============
+
+# ============cmdexists============
 # Description: 
-$webclient = New-Object System.Net.WebClient
-function download_file([string]$url, [string]$output) {
-	# Downloads a file if it doesn't already exist
-	if (!(Test-Path $output -pathType leaf)){
-        cprint "Downloading $url to $output ..."
-		$webclient.DownloadFile($url, $output)
-	}
+function cmdexists([string]$cmd)
+{
+    return (Get-Command $cmd -errorAction SilentlyContinue) -ne $null
 }
+
 
 # ============ThrowIfFailed============
 # Description: throw an error when failed
@@ -290,3 +264,6 @@ function project_prefix() {
         return "$env:localappdata"
     }
 }
+
+
+

@@ -228,8 +228,9 @@ classifiers = [get_devstatus(),
                'Operating System :: POSIX :: Linux',
                ## 'Operating System :: MacOS :: MacOS X',
                'Programming Language :: Python :: 2.7',
-               ## 'Programming Language :: Python :: 3.4',
-               ## 'Programming Language :: Python :: 3.5',
+               'Programming Language :: Python :: 3.5',
+               'Programming Language :: Python :: 3.6',
+               'Programming Language :: Python :: 3.7',
                'Topic :: Documentation :: Sphinx',
                'Topic :: Scientific/Engineering :: Physics',
                'Topic :: Software Development :: Libraries :: Python Modules'
@@ -239,8 +240,8 @@ classifiers = [get_devstatus(),
 ##################
 ## Requirements ## 
 ##################
-install_requires = ['setuptools','numpy', 'future', 'scipy', 'h5py', 'fabio', 'silx',\
-                    'pyparsing', 'PyMca5', 'shapely', 'matplotlib',\
+install_requires = ['setuptools', 'numpy', 'future', 'scipy', 'h5py', 'fabio', 'silx',\
+                    'pyparsing', 'shapely', 'matplotlib',\
                     'uncertainties', 'pint', 'pandas', 'scikit-image',\
                     'xlsxwriter', 'xlrd', 'python-dateutil', 'jsonpickle',\
                     'testfixtures']
