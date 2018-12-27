@@ -16,9 +16,11 @@ uncertainties
 pint
 jsonpickle
 Mako
-pyopencl==2015.1; python_version < '3.6'
-pyopencl==2018.1; python_version >= '3.6'
+pyopencl
+#pyopencl==2015.1; python_version < '3.6'
+#pyopencl==2018.1; python_version >= '3.6'
 PyMca5
+fisx
 contextlib2; python_version < '3'
 psutil
 python-dateutil

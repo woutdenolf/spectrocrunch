@@ -293,7 +293,7 @@ function python_install_fromsource([AllowNull()][string]$version)
 
 function python_url()
 {
-    echo "https://www.python.org/ftp/python/"
+    return "https://www.python.org/ftp/python/"
 }
 
 
