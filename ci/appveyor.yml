@@ -38,7 +38,7 @@ init:
   # before_install
   - ps: |
     Write-Host "Build worker environment variables:" -ForegroundColor Magenta
-    Get-ChildItem Env: | %{"{0}={1}" -f $_.Name,$_.Value}
+    Get-ChildItem env:
     mkdir $CACHED_FOLDER -Force
     cd $CACHED_FOLDER
     if ($OS -eq "Windows_NT") {

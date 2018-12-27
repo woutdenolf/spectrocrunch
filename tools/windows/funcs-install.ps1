@@ -4,38 +4,60 @@
 
 . $PSScriptRoot\funcs.ps1
 
+# ============run_new_process============
+# Description:
+function run_in_new_process($execname,$arguments,[AllowNull()][boolean]$asadmin) {
+    if ($asadmin -eq $true) {
+        if ($arguments.length -gt 0) {
+            $process = Start-Process "$execname" -ArgumentList $arguments -PassThru -Verb runas
+        } else {
+            $process = Start-Process "$execname" -PassThru -Verb runas
+        }
+        while ($process.HandleCount -ne $null) {
+            $tmp = Get-Process -InputObject $process
+            sleep 1
+        }
+    } else {
+        if ($arguments.length -gt 0) {
+            $process = Start-Process "$execname" -ArgumentList $arguments -PassThru
+        } else {
+            $process = Start-Process "$execname" -PassThru
+        }
+        Wait-Process -InputObject $process
+    }
+    if ($process.ExitCode -ne 0 -and $process.ExitCode -ne $null) {
+        cerror "Process running ""$execname"" failed"
+    }
+    return $process.ExitCode
+}
+
+
 # ============install_msi============
 # Description: Install a Microsoft installer package
-function install_msi($filename,$arguments) {
+function install_msi($filename,$arguments,[AllowNull()][boolean]$asadmin) {
     
     $msiarguments = @()
     $msiarguments += "/i"
-    $msiarguments += "`"$filename`""
+    $msiarguments += """$filename"""
     $msiarguments += $arguments
-	Start-Process "msiexec.exe" -ArgumentList $msiarguments -Wait
-    ThrowIfFailed "Failed to install $filename"
+    run_in_new_process "msiexec.exe" $msiarguments $asadmin
 }
 
 
 # ============install_exe============
 # Description: Install an executable
-function install_exe($execname,$arguments) {
-    if ($arguments.length -gt 0) {
-	    Start-Process $execname -ArgumentList $arguments -Wait
-    } else {
-        Start-Process $execname -Wait
-    }
-    ThrowIfFailed "Failed to install $execname"
+function install_exe($filename,$arguments,[AllowNull()][boolean]$asadmin) {
+    run_in_new_process $filename $arguments $asadmin
 }
 
 
 # ============install_any============
 # Description: Install an package or executable
-function install_any($filename,$argdict) {
+function install_any($filename,$argdict,[AllowNull()][boolean]$asadmin) {
     if ($filename.endswith(".msi")) {
-        install_msi $filename $argdict["msi"]
+        install_msi $filename $argdict["msi"] $asadmin
     } elseif ($filename.endswith(".exe")) {
-        install_exe $filename $argdict["exe"]
+        install_exe $filename $argdict["exe"] $asadmin
     } else {
         throw "Don't know how to install $filename"
     }

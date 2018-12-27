@@ -3,137 +3,224 @@
 #
 
 . $PSScriptRoot\funcs.ps1
+. $PSScriptRoot\funcs-install.ps1
+
+function require_vssetup()
+{
+    cprint "Checking VSSetup ..."
+
+    if (cmdexists Get-VSSetupInstance) {
+        cprint "VSSetup is installed"
+        return
+    }
+
+    cprint "Install VSSetup ..."
+    if (!(dryrun)) {
+        require_web_access
+
+        if (cmdexists Install-Module) {
+            Install-Module VSSetup -Scope CurrentUser
+        } else {
+            $local:filename = download_git_release "Microsoft" "vssetup.powershell" ".zip"
+            if ($local:filename -ne $null) {
+                Unzip $local:filename "$([Environment]::GetFolderPath("MyDocuments"))\WindowsPowerShell\Modules\VSSetup"
+            }
+        }
+    
+        if (cmdexists Get-VSSetupInstance) {
+            cprint "VSSetup is installed"
+        } else {
+            cerror "VSSetup is not installed"
+        }
+    }
+}
 
 function msc_versions()
 {
     $versions = @{}
 
     $tmp = @{}
+    $tmp["msc_ver"] = 1200
     $tmp["version"] = "6.0"
     $tmp["name"] = "Visual Studio 6.0"
-    $versions[1200] = $tmp
+    $versions[$tmp["msc_ver"]] = $tmp
 
     $tmp = @{}
+    $tmp["msc_ver"] = 1300
     $tmp["version"] = "7.0"
     $tmp["name"] = "Visual Studio .NET 2002"
-    $versions[1300] = $tmp
+    $versions[$tmp["msc_ver"]] = $tmp
 
     $tmp = @{}
+    $tmp["msc_ver"] = 1310
     $tmp["version"] = "7.1"
     $tmp["name"] = "Visual Studio .NET 2003"
-    $versions[1310] = $tmp
+    $versions[$tmp["msc_ver"]] = $tmp
 
     $tmp = @{}
+    $tmp["msc_ver"] = 1400
     $tmp["version"] = "8.0"
     $tmp["name"] = "Visual Studio 2005"
-    $versions[1400] = $tmp
+    $versions[$tmp["msc_ver"]] = $tmp
 
     # python 2.7
     $tmp = @{}
+    $tmp["msc_ver"] = 1500
     $tmp["version"] = "9.0"
     $tmp["name"] = "Visual Studio 2008"
+    $tmp["vcvarsall"] = "Common Files\Microsoft\Visual C++ for Python\9.0\vcvarsall.bat"
+    $tmp[32] = "x86"
+    $tmp[64] = "amd64"
     $tmp["link"] = "https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi"
+    $tmp["filename"] = "VCForPython27.msi"
     $tmp["install_args"] = @()
-    $versions[1500] = $tmp
+    $tmp["install_args"] += "/quiet"
+    $tmp["install_args"] += "/passive"
+    $local:systemwide = [int]$(install_systemwide)
+    $tmp["install_args"] += "ALLUSERS=""$local:systemwide"""
+    $versions[$tmp["msc_ver"]] = $tmp
 
     # python 3.4
     $tmp = @{}
+    $tmp["msc_ver"] = 1600
     $tmp["version"] = "10.0"
     $tmp["name"] = "Visual Studio 2010"
-    $versions[1600] = $tmp
+    $versions[$tmp["msc_ver"]] = $tmp
 
     $tmp = @{}
+    $tmp["msc_ver"] = 1700
     $tmp["version"] = "11.0"
     $tmp["name"] = "Visual Studio 2012"
-    $versions[1700] = $tmp
+    $versions[$tmp["msc_ver"]] = $tmp
 
     $tmp = @{}
+    $tmp["msc_ver"] = 1800
     $tmp["version"] = "12.0"
     $tmp["name"] = "Visual Studio 2013"
-    $versions[1800] = $tmp
+    $versions[$tmp["msc_ver"]] = $tmp
+
+    #https://docs.microsoft.com/en-us/visualstudio/install/workload-component-id-vs-build-tools?view=vs-2017
+    $vs_buildtools = "https://download.visualstudio.microsoft.com/download/pr/a46d2db7-bd7b-43ee-bd7b-12624297e4ec/11b9c9bd44ec2b475f6da3d1802b3d00/vs_buildtools.exe"
 
     # python 3.5, 3.6
     $tmp = @{}
+    $tmp["msc_ver"] = 1900
     $tmp["version"] = "14.0"
     $tmp["name"] = "Visual Studio 2015"
-    $tmp["vcvarsall"] = "C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
+    $tmp["manager"] = "vssetup"
+    $tmp["installer"] = "Microsoft Visual Studio\Installer\vs_installershell.exe"
+    $tmp["toolset"] = "Microsoft.VisualStudio.Component.VC.140"
+    $tmp["vcvarsall"] = "VC\Auxiliary\Build\vcvarsall.bat"
     $tmp[32] = "x86 -vcvars_ver=14.0"
     $tmp[64] = "x64 -vcvars_ver=14.0"
-    $tmp["link"] = "https://www.visualstudio.com/thank-you-downloading-visual-studio/?sku=BuildTools&rel=15#"
+    $tmp["link"] = $vs_buildtools
+    $tmp["filename"] = "vs_buildtools.exe"
     $tmp["install_args"] = @()
-    $tmp["arguments"] += "--add Microsoft.VisualStudio.Component.VC.140"
-    $versions[1900] = $tmp
+    $tmp["install_args"] += "--quiet"
+    $versions[$tmp["msc_ver"]] = $tmp
 
     $tmp = @{}
+    $tmp["msc_ver"] = 1910
     $tmp["version"] = "15.0"
     $tmp["name"] = "Visual Studio 2017"
-    $tmp["vcvarsall"] = "C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-    $tmp[32] = "x86 -vcvars_ver=15.0"
-    $tmp[64] = "x64 -vcvars_ver=15.0"
-    $tmp["link"] = "https://www.visualstudio.com/thank-you-downloading-visual-studio/?sku=BuildTools&rel=15#"
-    $tmp["install_args"] = @()
-    $versions[1910] = $tmp
+    $versions[$tmp["msc_ver"]] = $tmp
 
     $tmp = @{}
+    $tmp["msc_ver"] = 1911
     $tmp["version"] = "15.3"
     $tmp["name"] = "Visual Studio 2017"
-    $tmp["vcvarsall"] = "C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-    $tmp[32] = "x86 -vcvars_ver=15.3"
-    $tmp[64] = "x64 -vcvars_ver=15.3"
-    $tmp["link"] = "https://www.visualstudio.com/thank-you-downloading-visual-studio/?sku=BuildTools&rel=15#"
+    $tmp["manager"] = "vssetup"
+    $tmp["installer"] = "Microsoft Visual Studio\Installer\vs_installershell.exe"
+    $tmp["toolset"] = "Microsoft.VisualStudio.Component.VC.Tools.14.11"
+    $tmp["vcvarsall"] = "VC\Auxiliary\Build\vcvarsall.bat"
+    $tmp[32] = "x86 -vcvars_ver=14.11"
+    $tmp[64] = "x64 -vcvars_ver=14.11"
+    $tmp["link"] = $vs_buildtools
+    $tmp["filename"] = "vs_buildtools.exe"
     $tmp["install_args"] = @()
-    $versions[1911] = $tmp
+    $tmp["install_args"] += "--quiet"
+    $versions[$tmp["msc_ver"]] = $tmp
 
     $tmp = @{}
+    $tmp["msc_ver"] = 1912
     $tmp["version"] = "15.5"
     $tmp["name"] = "Visual Studio 2017"
-    $tmp["vcvarsall"] = "C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-    $tmp[32] = "x86 -vcvars_ver=15.5"
-    $tmp[64] = "x64 -vcvars_ver=15.5"
-    $tmp["link"] = "https://www.visualstudio.com/thank-you-downloading-visual-studio/?sku=BuildTools&rel=15#"
+    $tmp["manager"] = "vssetup"
+    $tmp["installer"] = "Microsoft Visual Studio\Installer\vs_installershell.exe"
+    $tmp["toolset"] = "Microsoft.VisualStudio.Component.VC.Tools.14.12"
+    $tmp["vcvarsall"] = "VC\Auxiliary\Build\vcvarsall.bat"
+    $tmp[32] = "x86 -vcvars_ver=14.12"
+    $tmp[64] = "x64 -vcvars_ver=14.12"
+    $tmp["link"] = $vs_buildtools
+    $tmp["filename"] = "vs_buildtools.exe"
     $tmp["install_args"] = @()
-    $versions[1912] = $tmp
+    $tmp["install_args"] += "--quiet"
+    $versions[$tmp["msc_ver"]] = $tmp
 
     $tmp = @{}
+    $tmp["msc_ver"] = 1913
     $tmp["version"] = "15.6"
     $tmp["name"] = "Visual Studio 2017"
-    $tmp["vcvarsall"] = "C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-    $tmp[32] = "x86 -vcvars_ver=15.6"
-    $tmp[64] = "x64 -vcvars_ver=15.6"
-    $tmp["link"] = "https://www.visualstudio.com/thank-you-downloading-visual-studio/?sku=BuildTools&rel=15#"
+    $tmp["manager"] = "vssetup"
+    $tmp["installer"] = "Microsoft Visual Studio\Installer\vs_installershell.exe"
+    $tmp["toolset"] = "Microsoft.VisualStudio.Component.VC.Tools.14.13"
+    $tmp["vcvarsall"] = "VC\Auxiliary\Build\vcvarsall.bat"
+    $tmp[32] = "x86 -vcvars_ver=14.13"
+    $tmp[64] = "x64 -vcvars_ver=14.13"
+    $tmp["link"] = $vs_buildtools
+    $tmp["filename"] = "vs_buildtools.exe"
     $tmp["install_args"] = @()
-    $versions[1913] = $tmp
+    $tmp["install_args"] += "--quiet"
+    $versions[$tmp["msc_ver"]] = $tmp
 
     $tmp = @{}
+    $tmp["msc_ver"] = 1914
     $tmp["version"] = "15.7"
     $tmp["name"] = "Visual Studio 2017"
-    $tmp["vcvarsall"] = "C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-    $tmp[32] = "x86 -vcvars_ver=15.7"
-    $tmp[64] = "x64 -vcvars_ver=15.7"
-    $tmp["link"] = "https://www.visualstudio.com/thank-you-downloading-visual-studio/?sku=BuildTools&rel=15#"
+    $tmp["manager"] = "vssetup"
+    $tmp["installer"] = "Microsoft Visual Studio\Installer\vs_installershell.exe"
+    $tmp["toolset"] = "Microsoft.VisualStudio.Component.VC.Tools.14.14"
+    $tmp["vcvarsall"] = "VC\Auxiliary\Build\vcvarsall.bat"
+    $tmp[32] = "x86 -vcvars_ver=14.14"
+    $tmp[64] = "x64 -vcvars_ver=14.14"
+    $tmp["link"] = $vs_buildtools
+    $tmp["filename"] = "vs_buildtools.exe"
     $tmp["install_args"] = @()
-    $versions[1914] = $tmp
+    $tmp["install_args"] += "--quiet"
+    $versions[$tmp["msc_ver"]] = $tmp
 
     $tmp = @{}
+    $tmp["msc_ver"] = 1915
     $tmp["version"] = "15.8"
     $tmp["name"] = "Visual Studio 2017"
-    $tmp["vcvarsall"] = "C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-    $tmp[32] = "x86 -vcvars_ver=15.8"
-    $tmp[64] = "x64 -vcvars_ver=15.8"
-    $tmp["link"] = "https://www.visualstudio.com/thank-you-downloading-visual-studio/?sku=BuildTools&rel=15#"
+    $tmp["manager"] = "vssetup"
+    $tmp["installer"] = "Microsoft Visual Studio\Installer\vs_installershell.exe"
+    $tmp["toolset"] = "Microsoft.VisualStudio.Component.VC.Tools.14.15"
+    $tmp["vcvarsall"] = "VC\Auxiliary\Build\vcvarsall.bat"
+    $tmp[32] = "x86 -vcvars_ver=14.15"
+    $tmp[64] = "x64 -vcvars_ver=14.15"
+    $tmp["link"] = $vs_buildtools
+    $tmp["filename"] = "vs_buildtools.exe"
     $tmp["install_args"] = @()
-    $versions[1915] = $tmp
+    $tmp["install_args"] += "--quiet"
+    $versions[$tmp["msc_ver"]] = $tmp
 
     # python 3.7
     $tmp = @{}
+    $tmp["msc_ver"] = 1916
     $tmp["version"] = "15.9"
     $tmp["name"] = "Visual Studio 2017"
-    $tmp["vcvarsall"] = "C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-    $tmp[32] = "x86 -vcvars_ver=15.9"
-    $tmp[64] = "x64 -vcvars_ver=15.9"
-    $tmp["link"] = "https://www.visualstudio.com/thank-you-downloading-visual-studio/?sku=BuildTools&rel=15#"
+    $tmp["manager"] = "vssetup"
+    $tmp["installer"] = "Microsoft Visual Studio\Installer\vs_installershell.exe"
+    $tmp["toolset"] = "Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+    $tmp["vcvarsall"] = "VC\Auxiliary\Build\vcvarsall.bat"
+    $tmp[32] = "x86"
+    $tmp[64] = "x64"
+    $tmp["link"] = $vs_buildtools
+    $tmp["filename"] = "vs_buildtools.exe"
     $tmp["install_args"] = @()
-    $versions[1916] = $tmp
+    $tmp["install_args"] += "--quiet"
+    $versions[$tmp["msc_ver"]] = $tmp
 
     return $versions
 }
@@ -143,27 +230,215 @@ function msc_info([int]$msc_ver)
     return $(msc_versions)[$msc_ver]
 }
 
-function require_msc([int]$msc_ver,[int]$arch)
+function init_msc([int]$msc_ver,[int]$msc_arch)
 {
+    # Check whether msc_ver is known
     $local:mscinfo = msc_info $msc_ver
-    if (Test-Path $local:mscinfo["vcvarsall"] -pathType leaf) {
-        install_msc $local:mscinfo
+    if ($local:mscinfo -eq $null) {
+        cerror "MSC version $msc_ver is unknown"
+        return
     }
 
-    if (Test-Path $local:mscinfo["vcvarsall"] -pathType leaf) {
-        cerror "$local:mscinfo[""name""] ($local:mscinfo[""version""], $msc_ver) not installed"
+    # Compiler is already in environment
+    if ((current_msc_ver) -eq $msc_ver) {
+        cprint "MSC version $msc_ver is initialized"
+        return
+    }
+
+    # Install compiler
+    require_msc $msc_ver $msc_arch
+
+    # Initialize environment
+    $local:vcvarsall = get_vcvarsall $local:mscinfo
+    if ($local:vcvarsall -ne $null) {
+        $local:errorcode = Invoke-CmdScript $local:vcvarsall $local:mscinfo[$msc_arch]
+    }
+
+    # Check compiler version
+    if ((current_msc_ver) -eq $msc_ver) {
+        cprint "MSC version $msc_ver is initialized"
     } else {
-        $local:vcvarsall = $local:mscinfo["vcvarsall"]
-        $local:vcvarsall_args = $local:mscinfo[$arch]
-        Invoke-Expression """$local:vcvarsall"" $local:vcvarsall_args"
-        if ($?) {
-            cerror "$local:mscinfo[""name""] ($local:mscinfo[""version""], $msc_ver) not installed"
+        cerror "MSC version $msc_ver is not initialized"
+    }
+}
+
+function current_msc_ver()
+{
+    if (cmdexists cl) {
+        $local:tmp = & cmd /c "cl 2>&1"
+        $local:m = [regex]::match($local:tmp,"([\.\d]+)")
+        if ($local:m.Success) {
+            return [int][string]::Join("",$m.Groups[1].Value.split('.')[0..1])
+        }
+    }
+    return 0
+}
+
+
+function require_msc([int]$msc_ver,[int]$msc_arch)
+{
+    $local:mscinfo = msc_info $msc_ver
+    if ($local:mscinfo -eq $null) {
+        cerror "MSC version $msc_ver is unknown"
+        return
+    }
+
+    $local:vcvarsall = get_vcvarsall $local:mscinfo
+
+    if ($local:vcvarsall -eq $null) {
+        if ($local:mscinfo["manager"] -eq "vssetup") {
+            require_msc_vssetup $local:mscinfo
+        } else {
+            require_msc_default $local:mscinfo
+        }
+        $local:vcvarsall = get_vcvarsall $local:mscinfo
+    }
+
+    if ($local:vcvarsall -eq $null) {
+        cerror "MSC version $msc_ver is not installed"
+    } else {
+        cprint "MSC version $msc_ver is installed"
+    }
+}
+
+
+function require_msc_vssetup($mscinfo)
+{
+    # Make sure the Visual Studio installer is installed
+    require_vsinstaller $local:mscinfo
+
+    # Check Visual Studio installer
+    $local:vsinstaller = Get-VSSetupInstance
+    if ($local:vsinstaller -eq $null) {
+        cerror "Visual Studio installer not installed"
+        return
+    } else {
+        vscomponents_list
+    }
+    
+    # Make sure the requested compiler toolset is installed
+    require_vstoolset $local:mscinfo
+}
+
+
+function require_msc_default($mscinfo)
+{
+    if ($local:mscinfo["link"] -eq $null) {
+        cerror "No download link specified for MSC version $($local:mscinfo["$msc_ver"])"
+        return
+    }
+    cprint "Download and install MSC ..."
+    if (!(dryrun)) {
+        $local:filename = joinPath (Get-Location).Path $local:mscinfo["filename"]
+        download_file $local:mscinfo["link"] $local:filename
+        install_msi $local:filename $local:mscinfo["install_args"]
+    }
+}
+
+
+function require_vsinstaller($mscinfo)
+{
+    require_vssetup
+
+    if ((Get-VSSetupInstance) -eq $null) {
+        $local:filename = joinPath (Get-Location).Path $mscinfo["filename"]
+        
+        cprint "Download Visual Studio installer ..."
+        if (!(dryrun)) {
+            download_file $mscinfo["link"] $local:filename
+        }
+
+        cprint "Install Visual Studio installer ..."
+        if (!(dryrun)) {
+            install_exe $local:filename $mscinfo["install_args"]
         }
     }
 }
 
-function install_msc($mscinfo)
+
+function require_vstoolset($mscinfo)
 {
-    vs_buildtools.exe --update --quiet --wait
-    vs_enterprise.exe update --wait --passive --norestart
+    $local:toolset = $mscinfo["toolset"]
+    if (!(vscomponent_installed $local:toolset)) {
+        $local:vsmanager = Get-VSSetupInstance
+
+        cprint "Install compiler toolset $local:toolset ..."
+        $local:installer = vsinstaller $mscinfo
+        if ($local:installer -eq $null) {
+            cerror "Visual studio installer not found"
+        } else {
+            if (!(dryrun)) {
+                $local:args = @()
+                $local:args += "modify"
+                $local:args += "--installPath ""$($vsmanager.InstallationPath)"""
+                $local:args += "--add $local:toolset"
+                #$local:args += "--includeRecommended"
+                $local:args += "--passive"
+                install_exe $local:installer $local:args $true
+            }
+        }
+    }
+    
+    if ((vscomponent_installed $local:toolset)) {
+        cprint "Compiler toolset $local:toolset is installed"
+    } else {
+        cerror "Compiler toolset $local:toolset is not installed"
+    }
+}
+
+
+function vsinstaller($mscinfo)
+{
+    $local:bases = ($env:programfiles,${env:programfiles(x86)},$env:localappdata)
+    foreach ($base in $local:bases) {
+        $local:filename = joinPath $base $mscinfo["installer"]
+        if ((Test-Path $local:filename -pathType leaf)) {
+            return $local:filename
+        }
+    }
+}
+
+
+function vscomponents_list()
+{
+    foreach ($pkg in (Get-VSSetupInstance).packages) {
+        if ($pkg.type -in 'workload', 'component') {
+            cprint $pkg.type ":  " $pkg.Id
+        }
+    }
+
+}
+
+
+function vscomponent_installed([string]$component)
+{
+    foreach ($pkg in (Get-VSSetupInstance).packages) {
+        if ($pkg.Id -eq $component) {
+            return $true
+        }
+    }
+    return $false
+}
+
+
+function get_vcvarsall($mscinfo)
+{
+    if ($local:mscinfo["manager"] -eq "vssetup") {
+        $local:vsmanager = Get-VSSetupInstance
+        if ($local:vsmanager -ne $null) {
+            $local:filename = joinPath $local:vsmanager.InstallationPath $local:mscinfo["vcvarsall"]
+            cprint "get_vcvarsall:" "$local:filename"
+            if ((Test-Path $local:filename -pathType leaf)) {
+                return $local:filename
+            }
+        }
+    } else {
+        $local:bases = ($env:programfiles,${env:programfiles(x86)},$env:localappdata)
+        foreach ($base in $local:bases) {
+            $local:filename = joinPath $base $local:mscinfo["vcvarsall"]
+            if ((Test-Path $local:filename -pathType leaf)) {
+                return $local:filename
+            }
+        }
+    }
 }
