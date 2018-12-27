@@ -41,19 +41,6 @@ function system_privileges()
 
 
 # ============timer============
-# Description: prompt yes/no?
-function YesNoQuestion([string]$question)
-{
-    $local:response = Read-Host "$question ( Y / n ) "
-    Switch ($local:response) { 
-       Y {return $true} 
-       N {return $false} 
-       Default {return $true} 
-    } 
-}
-
-
-# ============timer============
 # Description: start and stop timer
 function timer([string]$reset)
 {
@@ -253,12 +240,15 @@ function ThrowIfFailed() {
 
 # ============project_prefix============
 # Description: target directory for installations
-function project_prefix() {
+function project_prefix([AllowNull()][boolean]$arch) {
     if ((install_systemwide)) {
-        if ((install_arch) -eq 64){
+        if ($arch -eq $null) {
+            $arch = install_arch
+        }
+        if ($arch -eq 64) {
             return $env:programfiles
         } else {
-            return "$env:programfiles(x86)"
+            return ${env:programfiles(x86)}
         }
     } else {
         return "$env:localappdata"

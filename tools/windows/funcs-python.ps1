@@ -61,7 +61,7 @@ function python_virtualenv_system_link($arguments)
     if ((python_virtualenv_active)) {
         $local:_pkgdir=python_pkg
         $local:_syspkgdir=python_system_pkg
-        $local:_restore=Get-Location
+        $local:_restore = (Get-Location).Path
         cd $local:_pkgdir
         foreach ($var in $arguments) {
             make-link $local:_syspkgdir/$var $var
@@ -73,7 +73,7 @@ function python_virtualenv_system_link($arguments)
 
 function python_hasmodule([string]$module)
 {
-    $local:restorewd=Get-Location
+    $local:restorewd = (Get-Location).Path
     cd c:\
     $local:ret=python_get "import sys;sys.stderr=sys.stdout;import $module"
     cd $local:restorewd
@@ -237,7 +237,7 @@ function require_python([AllowNull()][string]$version)
 
 function python_install_fromsource([AllowNull()][string]$version)
 {
-    $local:restorewd = Get-Location
+    $local:restorewd = (Get-Location).Path
 
     cprint "Download python ..."
     mkdir python -Force
@@ -252,41 +252,48 @@ function python_install_fromsource([AllowNull()][string]$version)
         $local:version = $local:lversion
     }
 
-    # Download the installer
-    $local:installerprefix = "python-$local:version"
-    $local:installer = Get-ChildItem "$local:installerprefix*.*"
-    if ( !(dryrun) -and $local:installer -eq $null ) {
-        python_download $local:version
+    if (!(dryrun))
+    {
+        $local:installerprefix = "python-$local:version"
         $local:installer = Get-ChildItem "$local:installerprefix*.*"
+
+        # Download the installer
+        if ($local:installer -eq $null ) {
+            python_download $local:version
+            $local:installer = Get-ChildItem "$local:installerprefix*.*"
+        }
     }
 
     # Run the installer
-    if ($local:installer -ne $null) {
-        cprint "Install python $local:installer ..."
-        if (!(dryrun)) {
-            $local:arguments = @{}
-            $arguments["msi"] = @()
-            $arguments["exe"] = @()
-
-            $arguments["msi"] += "/passive"
-            $arguments["exe"] += "/passive"
-
-            $local:systemwide = [int]$(install_systemwide)
-            $arguments["msi"] += "ALLUSERS=""$local:systemwide"""
-            $arguments["exe"] += "InstallAllUsers=$local:systemwide"
-
-            $arguments["exe"] += "Include_test=0"
-            $arguments["exe"] += "PrependPath=1"
-            $arguments["exe"] += "Include_launcher=1"
-            $arguments["exe"] += "InstallLauncherAllUsers=$local:systemwide"
-
-            install_any $local:installer.Name $local:arguments
-            updateBinPath
+    cprint "Install python $local:version ..."
+    if (!(dryrun))
+    {
+        if ($local:installer -ne $null) {
+            if (!(dryrun)) {
+                $local:arguments = @{}
+                $arguments["msi"] = @()
+                $arguments["exe"] = @()
+    
+                $arguments["msi"] += "/passive"
+                $arguments["exe"] += "/passive"
+    
+                $local:systemwide = [int]$(install_systemwide)
+                $arguments["msi"] += "ALLUSERS=""$local:systemwide"""
+                $arguments["exe"] += "InstallAllUsers=$local:systemwide"
+    
+                $arguments["exe"] += "Include_test=0"
+                $arguments["exe"] += "PrependPath=1"
+                $arguments["exe"] += "Include_launcher=1"
+                $arguments["exe"] += "InstallLauncherAllUsers=$local:systemwide"
+    
+                install_any $local:installer.Name $local:arguments
+                updateBinPath
+            }
+        } else {
+            cerror "Could not find python $global:PYTHONVREQUEST"
         }
-    } else {
-        cerror "Could not find python $global:PYTHONVREQUEST"
     }
-
+    
     cd $local:restorewd
 }
 
@@ -356,7 +363,7 @@ function python_download_info([string]$version)
         $local:m = [regex]::match($link.href,$local:pattern)
         if ($local:m.Success) {
             $local:filename = $m.Groups[1].Value
-            return ("$(python_url)/$version/$local:filename","$(Get-Location)\$local:filename")
+            return ("$(python_url)/$version/$local:filename",$(joinPath (Get-Location).Path $local:filename))
         }
     }
 }
@@ -428,16 +435,7 @@ function python_arch()
 
 function python_init_compiler()
 {
-    $local:msccompiler = python_compiler
-    $local:mscinfo = msc_info $local:msccompiler
-
-    if (!(Test-Path $local:mscinfo["vcvarsall"] -pathType leaf)) {
-        cerror "MSC compiler v.$local:msccompiler not installed"
-        return
-    }
-
-    $local:vcvarsall = $local:mscinfo["vcvarsall"]
-    $local:vcvarsall_args = $local:mscinfo[$(python_arch)]
-    Invoke-Expression """$local:vcvarsall"" $local:vcvarsall_args"
-    cprint $?
+    $local:msc_ver = python_compiler
+    $local:msc_arch = python_arch
+    init_msc $local:msc_ver $local:msc_arch
 }

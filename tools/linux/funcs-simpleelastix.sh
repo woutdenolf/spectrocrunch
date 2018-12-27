@@ -33,6 +33,9 @@ function simpleelastix_install_fromsource()
     mkdir -p simpleelastix
     cd simpleelastix
     if [[ $(dryrun) == false && ! -d SimpleElastix ]]; then
+        if [[ ${ARG_SKIPLONG} == true ]]; then
+            return
+        fi
         require_web_access
         git clone https://github.com/kaspermarstal/SimpleElastix SimpleElastix
     fi
