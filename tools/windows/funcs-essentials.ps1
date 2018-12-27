@@ -131,3 +131,10 @@ function Invoke-CmdScript([string]$scriptName) {
 
     return $LASTEXITCODE
 }
+
+
+# ============make-link============
+# Description: 
+function make-link($target,$link) {
+    New-Item -ItemType SymbolicLink -Name $link -Target $target
+}
