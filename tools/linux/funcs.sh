@@ -610,9 +610,3 @@ function install_info()
     cprint "Opt directory: $(project_opt)"
     cprint "Resource file: $(project_resource)"
 }
-
-# ============make-link============
-# Description: 
-function make-link($target,$link) {
-    New-Item -ItemType SymbolicLink -Name $link -Target $target
-}

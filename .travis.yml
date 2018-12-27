@@ -33,7 +33,7 @@ before_install:
   - mkdir -p $CACHED_FOLDER
   - cd $CACHED_FOLDER
   - |
-    if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then
+    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
         source $TRAVIS_BUILD_DIR/ci/travis-linux-prepare.sh
     fi
 
@@ -41,26 +41,31 @@ install:
   # Install general build dependencies
   - cd $CACHED_FOLDER
   - |
-    if [ ${TRAVIS_OS_NAME:-'linux'} = 'linux' ]; then
+    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
         source $TRAVIS_BUILD_DIR/tools/linux-install-deps.sh -y -u -x
+    else
+        # Does not install non-pypi libraries
+        # Tests involved will be skipped
+        python -m pip install -r requirements.txt
+        python -m pip install -r requirements-dev.txt
     fi
 
   # Print Python info
-  - "python $TRAVIS_BUILD_DIR/ci/info_platform.py"
-  - "python -m pip list"
+  - python $TRAVIS_BUILD_DIR/ci/info_platform.py
+  - python -m pip list
 
   # Build package
   - cd $TRAVIS_BUILD_DIR
-  - "python setup.py build"
-  - "python setup.py sdist bdist_wheel"
-  - "python setup.py build_doc"
+  - python setup.py build
+  - python setup.py sdist bdist_wheel
+  - python setup.py build_doc
   
   # Install package
   - PROJECTNAME=`python setup.py name|tail -1`
-  - "pip install --pre --no-index --find-links=dist/ ${PROJECTNAME}"
+  - pip install --pre --no-index --find-links=dist/ ${PROJECTNAME}
 
 script:
   # Test the installed package
   - cd $HOME
-  - "python -m ${PROJECTNAME}.tests.test_all --log=error"
+  - python -m ${PROJECTNAME}.tests.test_all --log=error
 
