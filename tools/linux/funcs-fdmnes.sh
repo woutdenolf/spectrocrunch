@@ -17,26 +17,26 @@ function fdmnes_build_dependencies()
 
 function fdmnes_install_fromsource()
 {
-    local restorewd=$(pwd)
-
     if [[ ! -d fdmnes && ${ARG_SKIPLONG} == true ]]; then
+        cprint "Skipping fdmnes installation"
         return
     fi
+
+    local restorewd=$(pwd)
 
     mkdir -p fdmnes
     cd fdmnes
 
     if [ ! -d /sware/exp/fdmnes ]; then
+        cprint "Download fdmnes ..."
+
         require_web_essentials
         local fdmneslink=$(wget -O - -q http://neel.cnrs.fr/spip.php?article3137 | grep  -o 'http://neel.cnrs.fr/IMG/zip/[^"]*')
         local fdmneszipname=$(basename ${fdmneslink})
 
-        cprint "Download fdmnes ..."
-        if [ ! -f ${fdmneszipname} ]; then
-            if [[ $(dryrun) == false ]]; then
-                rm -f *.zip
-                curl -O ${fdmneslink}
-            fi
+        if [[ ! -f ${fdmneszipname} && $(dryrun) == false ]]; then
+            rm -f *.zip
+            curl -O ${fdmneslink}
         fi
     fi
 

@@ -27,11 +27,14 @@ function simpleelastix_build_dependencies()
 
 function simpleelastix_install_fromsource()
 {
-    local restorewd=$(pwd)
-
+    ls
+    
     if [[ ! -d simpleelastix && ${ARG_SKIPLONG} == true ]]; then
+        cprint "Skipping simpleelastix installation"
         return
     fi
+
+    local restorewd=$(pwd)
 
     cprint "Download SimpleElastix ..."
     mkdir -p simpleelastix

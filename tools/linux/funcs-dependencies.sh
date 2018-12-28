@@ -57,7 +57,7 @@ function install_pypi_dependencies()
     if [[ $(dryrun) == false ]]; then
         require_web_access
         pip_install -r "$(project_folder)/requirements.txt"
-        pip_install install pymca
+        pip_install pymca
     fi
 }
 

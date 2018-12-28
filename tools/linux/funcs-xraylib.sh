@@ -39,11 +39,12 @@ function xraylib_download()
 
 function xraylib_install_fromsource()
 {
-    local restorewd=$(pwd)
-
     if [[ ! -d xraylib && ${ARG_SKIPLONG} == true ]]; then
+        cprint "Skipping xraylib installation"
         return
     fi
+
+    local restorewd=$(pwd)
 
     cprint "Download xraylib ..."
     mkdir -p xraylib
