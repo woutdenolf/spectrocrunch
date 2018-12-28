@@ -42,7 +42,7 @@ install:
   - cd $CACHED_FOLDER
   - |
     if [ "$TRAVIS_OS_NAME" == "linux" ]; then
-        source $TRAVIS_BUILD_DIR/tools/linux-install-deps.sh -y -u -x
+        source $TRAVIS_BUILD_DIR/tools/linux-install-deps.sh -y -u -x -s
     else
         # Does not install non-pypi libraries
         # Tests involved will be skipped

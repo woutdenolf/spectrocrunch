@@ -50,7 +50,7 @@ install:
   - ps: |
     cd $CACHED_FOLDER
     if ($OS -eq "Windows_NT") {
-      $APPVEYOR_BUILD_FOLDER/tools/windows-install-deps.ps1 -y -u -x
+      $APPVEYOR_BUILD_FOLDER/tools/windows-install-deps.ps1 -y -u -x -s
     }
   
   # Print Python info

@@ -19,7 +19,11 @@ function require_web_access()
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     
     if ((Get-WmiObject Win32_ComputerSystem).Domain -eq "esrf.fr") {
-        netsh winhttp set proxy "http://proxy.esrf.fr:3128"
+        $global:http_proxy = "http://proxy.esrf.fr:3128"
+        netsh winhttp set proxy $global:http_proxy
+        $global:https_proxy = $global:http_proxy
+        [Environment]::SetEnvironmentVariable("http_proxy", $global:http_proxy, "User")
+        [Environment]::SetEnvironmentVariable("https_proxy", $global:http_proxy, "User")
         (New-Object System.Net.WebClient).Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
     }
 }
@@ -137,4 +141,18 @@ function Invoke-CmdScript([string]$scriptName) {
 # Description: 
 function make-link($target,$link) {
     New-Item -ItemType SymbolicLink -Name $link -Target $target
+}
+
+# ============registry-value============
+# Description: 
+function registry-value($key,$property) {
+    $local:keep = $ErrorActionPreference
+    $ErrorActionPreference = "stop"
+    try {
+        return (Get-ItemProperty -Path $key -Name $property).$property
+    } catch {
+        return $null
+    } finally {
+        $ErrorActionPreference = $keep
+    }
 }

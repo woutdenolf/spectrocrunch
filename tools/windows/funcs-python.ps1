@@ -286,8 +286,16 @@ function python_install_fromsource([AllowNull()][string]$version)
                 $arguments["exe"] += "Include_launcher=1"
                 $arguments["exe"] += "InstallLauncherAllUsers=$local:systemwide"
     
-                install_any $local:installer.Name $local:arguments
+                $local:tmp = install_any $local:installer.Name $local:arguments
+
+                # Add to env:path
                 updateBinPath
+                $local:tmp = version_intarray $local:version 2
+                $local:tmp = [string]::Join(".",$local:tmp)
+                $local:installpath = registry-value "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Python\PythonCore\$local:tmp\InstallPath" "(default)"
+                if ($local:installpath -ne $null) {
+                    prependBinPath $local:installpath
+                }
             }
         } else {
             cerror "Could not find python $global:PYTHONVREQUEST"
@@ -305,11 +313,11 @@ function python_url()
 
 
 function python_latest($local:rversion) {
-    $local:pattern = "(\d\.\d\.\d)"
+    $local:pattern = "([\d]+\.[\d]+\.[\d]+)"
     if ($local:rversion -ne $null) {
         $local:pattern = $local:rversion.split('.')
         if ($local:pattern.Length -lt 3) {
-            $local:pattern += @("\d")*(3-$local:pattern.Length)
+            $local:pattern += @("[\d]+")*(3-$local:pattern.Length)
         } else {
             $local:pattern = $local:pattern[0..2]
         }
@@ -326,10 +334,7 @@ function python_latest($local:rversion) {
             if ((python_download_info $m.Groups[1].Value) -eq $null) {
                 continue
             }
-            $local:tmp = $m.Groups[1].Value.split('.')
-            if (($local:tmp.Length) -lt 3) {
-                $local:tmp += @(0)*(3-($local:tmp.Length))
-            }
+            $local:tmp = version_intarray $m.Groups[1].Value 3
             if ($local:tmp[0] -gt $local:mversion[0]) {
                 $local:mversion = $local:tmp
                 $local:version = $m.Groups[1].Value
