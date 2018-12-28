@@ -26,6 +26,9 @@ function pytmm_install_fromsource()
     if [[ $(dryrun) == false ]]; then
         require_web_access
         if [[ ! -d db ]]; then
+            if [[ ${ARG_SKIPLONG} == true ]]; then
+                return
+            fi
             git clone https://github.com/polyanskiy/refractiveindex.info-database db
         fi
         if [[ ! -d PyTMM ]]; then

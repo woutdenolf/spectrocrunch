@@ -58,8 +58,11 @@ install:
   - cd $TRAVIS_BUILD_DIR
   - python setup.py build
   - python setup.py sdist bdist_wheel
-  - python setup.py build_doc
-  
+  - |
+    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+      python setup.py build_doc
+    fi
+    
   # Install package
   - PROJECTNAME=`python setup.py name|tail -1`
   - pip install --pre --no-index --find-links=dist/ ${PROJECTNAME}
