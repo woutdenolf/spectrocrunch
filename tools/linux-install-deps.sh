@@ -59,7 +59,7 @@ while getopts "v:uyhdxts" opt; do
     x)
       ARG_DEV=true
       ;;
-    x)
+    s)
       ARG_SKIPLONG=true
       ;;
     v)
