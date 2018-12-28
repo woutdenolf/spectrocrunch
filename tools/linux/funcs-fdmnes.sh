@@ -19,6 +19,10 @@ function fdmnes_install_fromsource()
 {
     local restorewd=$(pwd)
 
+    if [[ ! -d fdmnes && ${ARG_SKIPLONG} == true ]]; then
+        return
+    fi
+
     mkdir -p fdmnes
     cd fdmnes
 
@@ -27,10 +31,10 @@ function fdmnes_install_fromsource()
         local fdmneslink=$(wget -O - -q http://neel.cnrs.fr/spip.php?article3137 | grep  -o 'http://neel.cnrs.fr/IMG/zip/[^"]*')
         local fdmneszipname=$(basename ${fdmneslink})
 
+        cprint "Download fdmnes ..."
         if [ ! -f ${fdmneszipname} ]; then
-            cprint "Download fdmnes ..."
-
             if [[ $(dryrun) == false ]]; then
+                rm -f *.zip
                 curl -O ${fdmneslink}
             fi
         fi

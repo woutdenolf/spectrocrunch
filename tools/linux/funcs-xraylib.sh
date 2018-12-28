@@ -41,6 +41,10 @@ function xraylib_install_fromsource()
 {
     local restorewd=$(pwd)
 
+    if [[ ! -d xraylib && ${ARG_SKIPLONG} == true ]]; then
+        return
+    fi
+
     cprint "Download xraylib ..."
     mkdir -p xraylib
     cd xraylib
@@ -53,9 +57,6 @@ function xraylib_install_fromsource()
 
     local sourcedir=xraylib-${version}
     if [[ $(dryrun) == false && ! -d ${sourcedir} ]]; then
-        if [[ ${ARG_SKIPLONG} == true ]]; then
-            return
-        fi
         xraylib_download ${sourcedir}
         mkdir -p ${sourcedir}
         tar -xzf ${sourcedir}.tar.gz -C ${sourcedir} --strip-components=1

@@ -19,6 +19,10 @@ function pytmm_install_fromsource()
 {
     local restorewd=$(pwd)
 
+    if [[ ! -d PyTMM && ${ARG_SKIPLONG} == true ]]; then
+        return
+    fi
+
     cprint "Download PyTMM ..."
     mkdir -p PyTMM
     cd PyTMM
@@ -26,9 +30,6 @@ function pytmm_install_fromsource()
     if [[ $(dryrun) == false ]]; then
         require_web_access
         if [[ ! -d db ]]; then
-            if [[ ${ARG_SKIPLONG} == true ]]; then
-                return
-            fi
             git clone https://github.com/polyanskiy/refractiveindex.info-database db
         fi
         if [[ ! -d PyTMM ]]; then
