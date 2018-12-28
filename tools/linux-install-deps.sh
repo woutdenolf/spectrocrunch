@@ -38,7 +38,7 @@ ARG_PYTHONV=""
 ARG_DEV=false
 ARG_RET=-1
 ARG_SKIPLONG=false
-while getopts "v:uyhdxt" opt; do
+while getopts "v:uyhdxts" opt; do
   case $opt in
     h)
       show_help
