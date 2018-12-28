@@ -27,8 +27,6 @@ function simpleelastix_build_dependencies()
 
 function simpleelastix_install_fromsource()
 {
-    ls
-    
     if [[ ! -d simpleelastix && ${ARG_SKIPLONG} == true ]]; then
         cprint "Skipping simpleelastix installation"
         return

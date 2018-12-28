@@ -46,6 +46,12 @@ install:
     else
         # Does not install non-pypi libraries
         # Tests involved will be skipped
+        type python
+        python -m pip install --upgrade pip --user
+        python --version
+        pip --version
+        python -m pip install --upgrade setuptools --user
+        python -m pip install --upgrade wheel --user
         python -m pip install -r $TRAVIS_BUILD_DIR/requirements.txt --user
         python -m pip install -r $TRAVIS_BUILD_DIR/requirements-dev.txt --user
     fi
