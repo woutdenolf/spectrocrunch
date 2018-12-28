@@ -29,13 +29,14 @@ function simpleelastix_install_fromsource()
 {
     local restorewd=$(pwd)
 
+    if [[ ! -d simpleelastix && ${ARG_SKIPLONG} == true ]]; then
+        return
+    fi
+
     cprint "Download SimpleElastix ..."
     mkdir -p simpleelastix
     cd simpleelastix
     if [[ $(dryrun) == false && ! -d SimpleElastix ]]; then
-        if [[ ${ARG_SKIPLONG} == true ]]; then
-            return
-        fi
         require_web_access
         git clone https://github.com/kaspermarstal/SimpleElastix SimpleElastix
     fi
