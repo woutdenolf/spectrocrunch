@@ -46,8 +46,8 @@ install:
     else
         # Does not install non-pypi libraries
         # Tests involved will be skipped
-        python -m pip install -r $TRAVIS_BUILD_DIR/requirements.txt
-        python -m pip install -r $TRAVIS_BUILD_DIR/requirements-dev.txt
+        python -m pip install -r $TRAVIS_BUILD_DIR/requirements.txt --user
+        python -m pip install -r $TRAVIS_BUILD_DIR/requirements-dev.txt --user
     fi
 
   # Print Python info
@@ -62,7 +62,7 @@ install:
     if [ "$TRAVIS_OS_NAME" == "linux" ]; then
       python setup.py build_doc
     fi
-    
+
   # Install package
   - PROJECTNAME=`python setup.py name|tail -1`
   - pip install --pre --no-index --find-links=dist/ ${PROJECTNAME}

@@ -17,11 +17,12 @@ function pytmm_build_dependencies()
 
 function pytmm_install_fromsource()
 {
-    local restorewd=$(pwd)
-
     if [[ ! -d PyTMM && ${ARG_SKIPLONG} == true ]]; then
+        cprint "Skipping PyTMM installation"
         return
     fi
+
+    local restorewd=$(pwd)
 
     cprint "Download PyTMM ..."
     mkdir -p PyTMM
