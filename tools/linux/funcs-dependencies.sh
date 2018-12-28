@@ -56,8 +56,7 @@ function install_pypi_dependencies()
     cprint "Installing pypi requirements ..."
     if [[ $(dryrun) == false ]]; then
         require_web_access
-        cprint "$(project_folder)\\requirements.txt"
-        pip_install -r "$(project_folder)\\requirements.txt"
+        pip_install -r "$(project_folder)/requirements.txt"
         pip_install install pymca
     fi
 }
@@ -69,8 +68,7 @@ function install_pypi_dependencies_dev()
     cprint "Installing pypi requirements (dev) ..."
     if [[ $(dryrun) == false ]]; then
         require_web_access
-        cprint "$(project_folder)\\requirements-dev.txt"
-        pip_install -r "$(project_folder)\\requirements-dev.txt"
+        pip_install -r "$(project_folder)/requirements-dev.txt"
     fi
 }
 

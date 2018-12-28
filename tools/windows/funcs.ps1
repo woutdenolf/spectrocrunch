@@ -221,6 +221,23 @@ function get_local_version_strict([AllowNull()][string]$requiredv)
 }
 
 
+# ============version_intarray============
+# Description: 
+function version_intarray([string]$version,[AllowNull()][int]$n)
+{
+    $local:tmp = $version.split('.')
+    if ($n -ne $null) {
+        if (($local:tmp.Length) -lt $n) {
+            $local:tmp += @(0)*($n-($local:tmp.Length))
+        }
+        if (($local:tmp.Length) -gt $n) {
+            $local:tmp = $local:tmp[0..($n-1)]
+        }
+    }
+    return $local:tmp | % {iex $_}
+}
+
+
 # ============cmdexists============
 # Description: 
 function cmdexists([string]$cmd)

@@ -19,6 +19,8 @@ param(
     [Parameter(Mandatory=$false)]
     [switch]$x = $false,
     [Parameter(Mandatory=$false)]
+    [switch]$s = $false,
+    [Parameter(Mandatory=$false)]
     [ValidateSet(0,32,64)]
     [int]$arch = 0
 )
@@ -31,6 +33,7 @@ $global:ARG_FORCECHOICE = $y
 $global:ARG_PYTHONV = $v
 $global:ARG_DEV = $x
 $global:ARG_ARCH = $arch
+$global:ARG_SKIPLONG = $s
 $global:ARG_HELP = $h
 
 # ============Usage============
