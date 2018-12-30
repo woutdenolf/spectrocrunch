@@ -32,24 +32,29 @@ function require_web_access()
 # ============download_file============
 # Description: 
 $webclient = New-Object System.Net.WebClient
-function download_file([string]$url, [string]$output) {
+function download_file([string]$url, [AllowNull()][string]$output) {
+    if ($output -eq $null -or $output -eq "") {
+        $output = joinPath (Get-Location).Path ($url.split("/"))[-1]
+    }
 	# Downloads a file if it doesn't already exist
 	if (!(Test-Path $output -pathType leaf)){
         cprint "Downloading $url to $output ..."
 		$webclient.DownloadFile($url, $output)
-	}
+    }
+    return $output
 }
 
 
 # ============download_git_release============
-# Description: 
-function download_git_release([string]$user,[string]$project,[string]$extension,[AllowNull()][string]$output)
+# Description: download an asset that matches the extension pattern
+function download_git_release([string]$user,[string]$project,[string]$extpattern,[AllowNull()][string]$output=$null,[string]$release="latest")
 {
-    $local:link = "https://api.github.com/repos/$user/$project/releases/latest"
+    $local:link = "https://api.github.com/repos/$user/$project/releases/$release"
     $response = Invoke-RestMethod -Method 'Get' -ContentType 'application/json' -Uri $local:link
     $filename = $null
     foreach ($asset in $response.assets) {
-        if ($asset.name.endswith($extension)) {
+        $local:m = [regex]::match($asset.name,$local:extpattern)
+        if ($local:m.Success) {
             $filename = joinPath (Get-Location).Path $asset.name
             break
         }
@@ -59,7 +64,7 @@ function download_git_release([string]$user,[string]$project,[string]$extension,
         if ($output -ne $null -and $output -ne "") {
             $filename = $output
         }
-        download_file $asset.browser_download_url $filename
+        $filename = download_file $asset.browser_download_url $filename
     }
 
     return $filename

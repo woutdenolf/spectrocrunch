@@ -145,13 +145,13 @@ class test_align(unittest.TestCase):
 
         np.testing.assert_almost_equal(M,o._transform.getnumpyhomography(),decimal=1)
 
-    @unittest.skipIf("SimpleElastix is not installed",alignElastix.sitk is None)
+    @unittest.skipIf(alignElastix.sitk is None,"SimpleElastix is not installed")
     def test_elastix(self):
         types = [transformationType.translation]
         for t in types:
             self.try_alignment(alignElastix.alignElastix,t)
 
-    @unittest.skipIf("pyopencl is not installed",alignSift.pyopencl is None)
+    @unittest.skipIf(alignSift.pyopencl is None,"pyopencl is not installed")
     def test_sift(self):
         types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine]
         #TODO: the others are not that precise
@@ -185,8 +185,8 @@ def test_suite():
     testSuite.addTest(test_align("test_centroid"))
     testSuite.addTest(test_align("test_gaussmax"))
     testSuite.addTest(test_align("test_fft"))
-    testSuite.addTest(test_align("test_sift"))
     testSuite.addTest(test_align("test_elastix"))
+    testSuite.addTest(test_align("test_sift"))
     return testSuite
     
 if __name__ == '__main__':

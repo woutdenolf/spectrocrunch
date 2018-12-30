@@ -75,7 +75,7 @@ test_script:
   # Test the installed package
   - ps: |
     cd $HOME
-    python -m $PROJECTNAME.tests.test_all --log=error
+    python -m unittest -v $PROJECTNAME.tests.test_all.test_suite
 
 on_finish:
   # Remove virtualenv

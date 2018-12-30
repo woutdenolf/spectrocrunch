@@ -75,5 +75,6 @@ install:
 script:
   # Test the installed package
   - cd $HOME
-  - python -m ${PROJECTNAME}.tests.test_all --log=error
+  - #python -m ${PROJECTNAME}.tests.test_all --log=error
+  - python -m unittest -v ${PROJECTNAME}.tests.test_all.test_suite
 

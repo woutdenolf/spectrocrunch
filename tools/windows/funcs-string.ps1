@@ -17,10 +17,7 @@ function strtoint([string]$str)
     return [int](strreplace $str "," ".")
 }
 
-function joinPath($a,$b) {
-    if ($a[-1] -eq '\') {
-        return $a + $b
-    } else {
-        return $a + "\" + $b
-    }
+function joinPath([string]$a,[string]$b) {
+    #TODO: replace
+    return join-path $a $b
 }

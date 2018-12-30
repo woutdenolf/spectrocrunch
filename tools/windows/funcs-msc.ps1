@@ -16,7 +16,7 @@ function require_vssetup()
 
     cprint "Install VSSetup ..."
     if (!(dryrun)) {
-        require_web_access
+        require_web_essentials
 
         if (cmdexists Install-Module) {
             Install-Module VSSetup -Scope CurrentUser
@@ -85,6 +85,9 @@ function msc_versions()
     $tmp["msc_ver"] = 1600
     $tmp["version"] = "10.0"
     $tmp["name"] = "Visual Studio 2010"
+    $tmp["vcvarsall"] = "Common Files\Microsoft\Visual C++ for Python\10.0\vcvarsall.bat"
+    $tmp[32] = "x86"
+    $tmp[64] = "amd64"
     $versions[$tmp["msc_ver"]] = $tmp
 
     $tmp = @{}
@@ -230,6 +233,37 @@ function msc_info([int]$msc_ver)
     return $(msc_versions)[$msc_ver]
 }
 
+
+function require_msc([int]$msc_ver,[int]$msc_arch,[boolean]$strict=$true)
+{
+    if (!$strict) {
+        $msc_ver_ = current_msc_ver
+        if ($msc_ver_ -ne 0) {
+            cprint "MSC version $msc_ver_ is already initialized"
+            return
+        }
+    }
+
+    # Check whether msc_ver is known
+    $local:mscinfo = msc_info $msc_ver
+    if ($local:mscinfo -eq $null) {
+        cerror "MSC version $msc_ver is unknown"
+    }
+
+    # Compiler is already in environment
+    if ((current_msc_ver) -eq $msc_ver) {
+        cprint "MSC version $msc_ver is already initialized"
+        return
+    }
+
+    # Make sure the compiler is installed
+    ensure_msc $msc_ver $msc_arch
+
+    # Initialize the compiler env
+    init_msc $msc_ver $msc_arch
+}
+
+
 function init_msc([int]$msc_ver,[int]$msc_arch)
 {
     # Check whether msc_ver is known
@@ -245,9 +279,6 @@ function init_msc([int]$msc_ver,[int]$msc_arch)
         return
     }
 
-    # Install compiler
-    require_msc $msc_ver $msc_arch
-
     # Initialize environment
     $local:vcvarsall = get_vcvarsall $local:mscinfo
     if ($local:vcvarsall -ne $null) {
@@ -262,29 +293,18 @@ function init_msc([int]$msc_ver,[int]$msc_arch)
     }
 }
 
-function current_msc_ver()
-{
-    if (cmdexists cl) {
-        $local:tmp = & cmd /c "cl 2>&1"
-        $local:m = [regex]::match($local:tmp,"([\.\d]+)")
-        if ($local:m.Success) {
-            return [int][string]::Join("",$m.Groups[1].Value.split('.')[0..1])
-        }
-    }
-    return 0
-}
 
-
-function require_msc([int]$msc_ver,[int]$msc_arch)
+function ensure_msc([int]$msc_ver,[int]$msc_arch)
 {
+    # Check whether we know about this version
     $local:mscinfo = msc_info $msc_ver
     if ($local:mscinfo -eq $null) {
         cerror "MSC version $msc_ver is unknown"
         return
     }
 
+    # Install and check the env init script
     $local:vcvarsall = get_vcvarsall $local:mscinfo
-
     if ($local:vcvarsall -eq $null) {
         if ($local:mscinfo["manager"] -eq "vssetup") {
             require_msc_vssetup $local:mscinfo
@@ -299,6 +319,19 @@ function require_msc([int]$msc_ver,[int]$msc_arch)
     } else {
         cprint "MSC version $msc_ver is installed"
     }
+}
+
+
+function current_msc_ver()
+{
+    if (cmdexists cl) {
+        $local:tmp = & cmd /c "cl 2>&1"
+        $local:m = [regex]::match($local:tmp,"([\.\d]+)")
+        if ($local:m.Success) {
+            return [int][string]::Join("",$m.Groups[1].Value.split('.')[0..1])
+        }
+    }
+    return 0
 }
 
 

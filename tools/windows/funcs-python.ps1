@@ -244,24 +244,16 @@ function python_install_fromsource([AllowNull()][string]$version)
     cd python
 
     # Local or latest version that matches the requested version
-    $local:lversion = $(get_local_version_strict $version)
-    require_web_essentials
-    if ($local:lversion -eq $null) {
+    $local:lversion,$local:installer = get_local_version_strict $version
+    if ($local:installer -eq $null) {
+        require_web_essentials
         $local:version = python_latest $local:version
+        if (!(dryrun))
+        {
+            $local:installer = python_download $local:version
+        }
     } else {
         $local:version = $local:lversion
-    }
-
-    if (!(dryrun))
-    {
-        $local:installerprefix = "python-$local:version"
-        $local:installer = Get-ChildItem "$local:installerprefix*.*"
-
-        # Download the installer
-        if ($local:installer -eq $null ) {
-            python_download $local:version
-            $local:installer = Get-ChildItem "$local:installerprefix*.*"
-        }
     }
 
     # Run the installer
@@ -286,7 +278,7 @@ function python_install_fromsource([AllowNull()][string]$version)
                 $arguments["exe"] += "Include_launcher=1"
                 $arguments["exe"] += "InstallLauncherAllUsers=$local:systemwide"
     
-                $local:tmp = install_any $local:installer.Name $local:arguments
+                $local:tmp = install_any $local:installer $local:arguments
 
                 # Add to env:path
                 updateBinPath
@@ -294,7 +286,7 @@ function python_install_fromsource([AllowNull()][string]$version)
                 $local:tmp = [string]::Join(".",$local:tmp)
                 $local:installpath = registry-value "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Python\PythonCore\$local:tmp\InstallPath" "(default)"
                 if ($local:installpath -ne $null) {
-                    prependBinPath $local:installpath
+                    prependBinPath "$local:installpath;$local:installpath\Scripts"
                 }
             }
         } else {
@@ -313,18 +305,7 @@ function python_url()
 
 
 function python_latest($local:rversion) {
-    $local:pattern = "([\d]+\.[\d]+\.[\d]+)"
-    if ($local:rversion -ne $null) {
-        $local:pattern = $local:rversion.split('.')
-        if ($local:pattern.Length -lt 3) {
-            $local:pattern += @("[\d]+")*(3-$local:pattern.Length)
-        } else {
-            $local:pattern = $local:pattern[0..2]
-        }
-        $local:pattern = [string]::Join("\.",$local:pattern)
-        $local:pattern = "($local:pattern)"
-    }
-
+    $local:pattern = version_pattern $local:rversion 3
     $local:mversion = (0,0,0)
     $local:version = $null
     $local:content = Invoke-WebRequest $(python_url)
@@ -335,23 +316,12 @@ function python_latest($local:rversion) {
                 continue
             }
             $local:tmp = version_intarray $m.Groups[1].Value 3
-            if ($local:tmp[0] -gt $local:mversion[0]) {
+            if ((version_intarray_higher $local:mversion $local:tmp)) {
                 $local:mversion = $local:tmp
                 $local:version = $m.Groups[1].Value
-            } elseif ($local:tmp[0] -eq $local:mversion[0]) {
-                if ($local:tmp[1] -gt $local:mversion[1]) {
-                    $local:mversion = $local:tmp
-                    $local:version = $m.Groups[1].Value
-                } elseif ($local:tmp[1] -eq $local:mversion[1]) {
-                    if ($local:tmp[2] -gt $local:mversion[2]) {
-                        $local:mversion = $local:tmp
-                        $local:version = $m.Groups[1].Value
-                    }
-                }
             }
         }
     }
-
     return $local:version
 }
 
@@ -378,6 +348,7 @@ function python_download([string]$version)
     $local:arr = python_download_info($version)
     if ($local:arr -ne $null) {
         download_file $local:arr[0] $local:arr[1]
+        return $local:arr[1]
     }
 }
 
@@ -442,5 +413,5 @@ function python_init_compiler()
 {
     $local:msc_ver = python_compiler
     $local:msc_arch = python_arch
-    init_msc $local:msc_ver $local:msc_arch
+    require_msc $local:msc_ver $local:msc_arch -strict $false
 }

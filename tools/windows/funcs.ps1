@@ -5,6 +5,7 @@
 . $PSScriptRoot\funcs-init.ps1
 . $PSScriptRoot\funcs-string.ps1
 . $PSScriptRoot\funcs-essentials.ps1
+. $PSScriptRoot\funcs-versions.ps1
 
 
 # ============cprintstart============
@@ -148,93 +149,6 @@ function install_info()
     #cprint "Prefix for dependencies: $(project_prefix)"
     #cprint "Opt directory: $(project_opt)"
     #cprint "Resource file: $(project_resource)"
-}
-
-
-# ============require_new_version============
-# Description: a new version is required when current < required
-function require_new_version([AllowNull()][string]$currentversion,[AllowNull()][string]$requiredversion)
-{
-    if ($currentversion -eq $null -or $currentversion -eq "") {
-        # not version not exists
-        return $true
-    }
-
-    if ($requiredversion -eq $null -or $requiredversion -eq "") {
-        # no specific version required
-        return $false
-    }
-
-    $local:currentv = $currentversion.split(".")
-    $local:requiredv = $requiredversion.split(".")
-    $local:ncurrentv = $local:currentv.Length
-    $local:nrequiredv = $local:requiredv.Length
-    $local:n = [math]::min($local:ncurrentv,$local:nrequiredv)
-    if ($local:ncurrentv -lt $local:n) {
-        $local:currentv += @(0)*($local:n-$local:ncurrentv)
-    }
-    if ($local:nrequiredv -lt $local:n) {
-        $local:requiredv += @(0)*($local:n-$local:nrequiredv)
-    }
-    $local:currentv = [string]::Join("",$local:currentv)
-    $local:requiredv = [string]::Join("",$local:requiredv)
-    return [int]$local:currentv -lt [int]$local:requiredv
-}
-
-
-# ============require_new_version_strict============
-# Description: a new version is required when current != required (up to a common depth)
-function require_new_version_strict([AllowNull()][string]$currentversion,[AllowNull()][string]$requiredversion)
-{
-    if ($currentversion -eq $null -or $currentversion -eq "") {
-        # no version exists
-        return $true
-    }
-
-    if ($requiredversion -eq $null -or $requiredversion -eq "") {
-        # no specific version required
-        return $false
-    }
-
-    $local:currentv = $currentversion.split(".")
-    $local:requiredv = $requiredversion.split(".")
-    $local:n = [math]::min($local:currentv.Length,$local:requiredv.Length)-1
-    $local:currentv = [string]::Join("",$local:currentv[0..$local:n])
-    $local:requiredv = [string]::Join("",$local:requiredv[0..$local:n])
-    return $local:currentv -ne $local:requiredv
-}
-
-# ============get_local_version_strict============
-# Description: returns a local version when it matches a requested version (up to a common depth)
-function get_local_version_strict([AllowNull()][string]$requiredv)
-{
-    foreach ($path in Get-ChildItem) {
-        if ($path.Attributes -ne "Directory") {
-            $local:m = [regex]::match($path.Name,"[\d\.]+[\d]")
-            if ($local:m.Success) {
-                if (!(require_new_version_strict $local:m.Groups[0].Value $requiredv)) {
-                    return $local:m.Groups[0].Value
-                }
-            }
-        }
-    }
-}
-
-
-# ============version_intarray============
-# Description: 
-function version_intarray([string]$version,[AllowNull()][int]$n)
-{
-    $local:tmp = $version.split('.')
-    if ($n -ne $null) {
-        if (($local:tmp.Length) -lt $n) {
-            $local:tmp += @(0)*($n-($local:tmp.Length))
-        }
-        if (($local:tmp.Length) -gt $n) {
-            $local:tmp = $local:tmp[0..($n-1)]
-        }
-    }
-    return $local:tmp | % {iex $_}
 }
 
 
