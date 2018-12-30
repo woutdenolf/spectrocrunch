@@ -8,6 +8,7 @@
 
 function require_git()
 {
+    cprintstart
     cprint "Checking git ..."
 
     if (cmdexists git) {
@@ -27,11 +28,10 @@ function require_git()
 
     cprint "Download git ..."
     if (!(dryrun)) {
-        require_web_access
-        $local:filename = download_git_release "git-for-windows" "git" $local:extension
+        require_web_essentials
+        $local:filename = download_git_release "git-for-windows" "git" "$local:extension$"
     }
 
-    cprint $local:filename
     $local:path = joinPath (project_prefix) "Git$affix"
     cprint "Installing $name in $path ..."
     if (!(dryrun) -and $local:filename -ne $null) {
@@ -47,4 +47,6 @@ function require_git()
             cerror "Git is not installed."
         }
     }
+
+    cprintend
 }

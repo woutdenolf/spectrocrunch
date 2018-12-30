@@ -76,6 +76,22 @@ function _addBinPath([string]$path,[string]$target,[bool]$prepend=$false) {
 }
 
 
+function _cleanBinPath([string]$target) {
+    $envpath = [Environment]::GetEnvironmentVariable("Path", $target).split(";")
+    $newpath = @()
+    foreach ($p in $envpath) {
+        $pfull = [System.Environment]::ExpandEnvironmentVariables($p)
+        if ((Test-Path -Path $pfull)){
+            $newpath += $p
+        } else {
+            cprint "Removing: $p"
+        }
+    }
+    [Environment]::SetEnvironmentVariable("Path", [string]::join(";",$newpath), $target)
+}
+
+
+
 # ============appendBinPath============
 # Description: add to user/machine + process environment
 function appendBinPath($path) {
@@ -97,6 +113,18 @@ function prependBinPath($path) {
         _addBinPath $path "User" $true
     }
     _addBinPath $path "Process" $true
+}
+
+
+# ============cleanBinPath============
+# Description: remove non-existing paths from user/machine + process environment
+function cleanBinPath() {
+    if ((install_systemwide)) {
+        _cleanBinPath "Machine"
+    } else {
+        _cleanBinPath "User"
+    }
+    _cleanBinPath "Process"
 }
 
 

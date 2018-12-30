@@ -3,6 +3,7 @@
 # 
 
 . $PSScriptRoot\funcs.ps1
+. $PSScriptRoot\funcs-python.ps1
 
 
 function install_system_dependencies()
@@ -12,6 +13,7 @@ function install_system_dependencies()
 
     if (!(dryrun)) {
         require_web_access
+        python_init_compiler
         pip_install numpy # silx/pyopencl
 
         # packages from Christoph Gohlke
