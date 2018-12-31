@@ -121,24 +121,27 @@ function Restore-Env([string]$tempFile) {
 # ============Invoke-CmdScript============
 # Description: run the batch script and inherit the environment
 function Invoke-CmdScript([string]$scriptName) {
-    $cmdLine = """$scriptName"" $args & set"
+    $local:cmdLine = """$scriptName"" $args"
+    $local:sep = "-=-cut-=-"
+    $local:cmdLine = "$local:cmdLine & echo $local:sep & set"
     if ([Environment]::Is64BitProcess) {
-        & $Env:SystemRoot\SysWOW64\cmd.exe /c $cmdLine |
-            select-string '^([^=]*)=(.*)$' | foreach-object {
-            $varName = $_.Matches[0].Groups[1].Value
-            $varValue = $_.Matches[0].Groups[2].Value
-            set-item Env:$varName $varValue -force
-            }
+        $local:out = & $Env:SystemRoot\SysWOW64\cmd.exe /c $local:cmdLine | Out-String
     } else {
-        & $Env:SystemRoot\system32\cmd.exe /c $cmdLine |
-            select-string '^([^=]*)=(.*)$' | foreach-object {
+        $local:out = & $Env:SystemRoot\system32\cmd.exe /c $local:cmdLine | Out-String
+    }
+    $local:retcode = $LASTEXITCODE
+    $local:arr = $local:out -split $local:sep
+    if ($local:arr[0] -ne $null) {
+        Write-Host $local:arr[0]
+    }
+    if ($local:arr[1] -ne $null -and $local:retcode -eq 0) {
+        $local:arr[1].split([Environment]::NewLine) | select-string '^([^=]*)=(.*)$' | foreach-object {
             $varName = $_.Matches[0].Groups[1].Value
             $varValue = $_.Matches[0].Groups[2].Value
             set-item Env:$varName $varValue -force
             }
     }
-
-    return $LASTEXITCODE
+    return $local:retcode
 }
 
 

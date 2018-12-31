@@ -36,8 +36,8 @@ from .types import transformationType
 from ..math.fit1d import lstsq
 
 from silx.image import sift
-from silx.opencl import ocl
-from silx.opencl.utils import get_opencl_code
+from silx.opencl import ocl, kernel_workgroup_size
+from silx.opencl.utils import get_opencl_code, calc_size
 
 
 class alignSift(align):
@@ -74,11 +74,12 @@ class alignSift(align):
         self.kpmoving = None
         
         # Prepare transformation kernel
-        self.workgroupshape = (8, 4)
         try:
             self.transformix = pyopencl.Program(self.ctx, get_opencl_code("transform.cl")).build()
         except IOError:
             self.transformix = pyopencl.Program(self.ctx, get_opencl_code("sift/transform.cl")).build()
+        # TODO: determine with kernel_workgroup_size
+        self.workgroupshape = (8, 4)
         self.newtransformixshape()
         
         # Prepare transformation buffers
@@ -107,7 +108,7 @@ class alignSift(align):
 
     def newtransformixshape(self):
         shape = self.inshape[::-1]
-        self.transformixshape = tuple((int(i) + int(j) - 1) & ~(int(j) - 1) for i, j in zip(shape, self.workgroupshape))
+        self.transformixshape = calc_size(shape, self.workgroupshape)
 
     def changeshape(self,shape):
         """Adapt shape dependent buffers and kernels for transformation

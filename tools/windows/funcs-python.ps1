@@ -347,8 +347,7 @@ function python_download([string]$version)
 {
     $local:arr = python_download_info($version)
     if ($local:arr -ne $null) {
-        download_file $local:arr[0] $local:arr[1]
-        return $local:arr[1]
+        return download_file $local:arr[0] $local:arr[1]
     }
 }
 
@@ -409,9 +408,9 @@ function python_arch()
 }
 
 
-function python_init_compiler()
+function python_init_compiler([boolean]$strict=$true)
 {
     $local:msc_ver = python_compiler
     $local:msc_arch = python_arch
-    require_msc $local:msc_ver $local:msc_arch -strict $false
+    require_msc $local:msc_ver $local:msc_arch -strict $strict
 }

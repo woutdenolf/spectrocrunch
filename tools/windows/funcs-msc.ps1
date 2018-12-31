@@ -105,7 +105,7 @@ function msc_versions()
     #https://docs.microsoft.com/en-us/visualstudio/install/workload-component-id-vs-build-tools?view=vs-2017
     $vs_buildtools = "https://download.visualstudio.microsoft.com/download/pr/a46d2db7-bd7b-43ee-bd7b-12624297e4ec/11b9c9bd44ec2b475f6da3d1802b3d00/vs_buildtools.exe"
 
-    # python 3.5, 3.6
+    # python 3.5
     $tmp = @{}
     $tmp["msc_ver"] = 1900
     $tmp["version"] = "14.0"
@@ -208,7 +208,7 @@ function msc_versions()
     $tmp["install_args"] += "--quiet"
     $versions[$tmp["msc_ver"]] = $tmp
 
-    # python 3.7
+    # python 3.6,3.7
     $tmp = @{}
     $tmp["msc_ver"] = 1916
     $tmp["version"] = "15.9"
@@ -282,14 +282,19 @@ function init_msc([int]$msc_ver,[int]$msc_arch)
     # Initialize environment
     $local:vcvarsall = get_vcvarsall $local:mscinfo
     if ($local:vcvarsall -ne $null) {
-        $local:errorcode = Invoke-CmdScript $local:vcvarsall $local:mscinfo[$msc_arch]
+        cprint "Initializing MSC environment..."
+        # TODO: this does not add the path to cl.exe to the 
+        $local:errorcode = Invoke-CmdScript "$local:vcvarsall" $local:mscinfo[$msc_arch]
+        if ($local:errorcode -ne 0) {
+            cerror "MSC initialization failed"
+        }
     }
 
     # Check compiler version
     if ((current_msc_ver) -eq $msc_ver) {
-        cprint "MSC version $msc_ver is initialized"
+        cprint "MSC $msc_ver is initialized"
     } else {
-        cerror "MSC version $msc_ver is not initialized"
+        cerror "MSC $msc_ver is not initialized"
     }
 }
 
@@ -303,34 +308,38 @@ function ensure_msc([int]$msc_ver,[int]$msc_arch)
         return
     }
 
-    # Install and check the env init script
-    $local:vcvarsall = get_vcvarsall $local:mscinfo
-    if ($local:vcvarsall -eq $null) {
-        if ($local:mscinfo["manager"] -eq "vssetup") {
-            require_msc_vssetup $local:mscinfo
-        } else {
-            require_msc_default $local:mscinfo
-        }
-        $local:vcvarsall = get_vcvarsall $local:mscinfo
-    }
-
-    if ($local:vcvarsall -eq $null) {
-        cerror "MSC version $msc_ver is not installed"
+    # Install
+    if ($local:mscinfo["manager"] -eq "vssetup") {
+        require_msc_vssetup $local:mscinfo
     } else {
-        cprint "MSC version $msc_ver is installed"
+        require_msc_default $local:mscinfo
     }
 }
 
 
 function current_msc_ver()
 {
+    $local:clexe = @()
     if (cmdexists cl) {
-        $local:tmp = & cmd /c "cl 2>&1"
+        $local:clexe += "cl"
+    } else {
+        if (cmdexists msbuild) {
+            $local:vsmanager = Get-VSSetupInstance
+            if ($local:vsmanager -ne $null) {
+                $local:include = joinPath $local:vsmanager.InstallationPath "VC\Tools\MSVC\*\bin\*\*\cl.exe"
+                $local:clexe += Get-ChildItem -Path $local:include | % {"""$_"""}
+            }
+        }
+    }
+
+    foreach ($name in $local:clexe) {
+        $local:tmp = & cmd /c "$name 2>&1"
         $local:m = [regex]::match($local:tmp,"([\.\d]+)")
         if ($local:m.Success) {
             return [int][string]::Join("",$m.Groups[1].Value.split('.')[0..1])
         }
     }
+
     return 0
 }
 
@@ -356,14 +365,21 @@ function require_msc_vssetup($mscinfo)
 
 function require_msc_default($mscinfo)
 {
+    $local:vcvarsall = get_vcvarsall $local:mscinfo
+    if ($local:vcvarsall -ne $null) {
+        cprint "MSC is already installed..."
+        return
+    }
+
     if ($local:mscinfo["link"] -eq $null) {
         cerror "No download link specified for MSC version $($local:mscinfo["$msc_ver"])"
         return
     }
+    
     cprint "Download and install MSC ..."
     if (!(dryrun)) {
         $local:filename = joinPath (Get-Location).Path $local:mscinfo["filename"]
-        download_file $local:mscinfo["link"] $local:filename
+        $local:filename = download_file $local:mscinfo["link"] $local:filename
         install_msi $local:filename $local:mscinfo["install_args"]
     }
 }
@@ -378,12 +394,14 @@ function require_vsinstaller($mscinfo)
         
         cprint "Download Visual Studio installer ..."
         if (!(dryrun)) {
-            download_file $mscinfo["link"] $local:filename
+            require_web_essentials
+            $local:filename = download_file $mscinfo["link"] $local:filename
         }
 
         cprint "Install Visual Studio installer ..."
         if (!(dryrun)) {
-            install_exe $local:filename $mscinfo["install_args"]
+            cprint $mscinfo["install_args"]
+            $local:tmp = install_exe $local:filename $mscinfo["install_args"]
         }
     }
 }
@@ -401,13 +419,14 @@ function require_vstoolset($mscinfo)
             cerror "Visual studio installer not found"
         } else {
             if (!(dryrun)) {
+                require_web_essentials
                 $local:args = @()
                 $local:args += "modify"
                 $local:args += "--installPath ""$($vsmanager.InstallationPath)"""
                 $local:args += "--add $local:toolset"
                 #$local:args += "--includeRecommended"
                 $local:args += "--passive"
-                install_exe $local:installer $local:args $true
+                $local:tmp = install_exe $local:installer $local:args $true
             }
         }
     }
@@ -460,7 +479,6 @@ function get_vcvarsall($mscinfo)
         $local:vsmanager = Get-VSSetupInstance
         if ($local:vsmanager -ne $null) {
             $local:filename = joinPath $local:vsmanager.InstallationPath $local:mscinfo["vcvarsall"]
-            cprint "get_vcvarsall:" "$local:filename"
             if ((Test-Path $local:filename -pathType leaf)) {
                 return $local:filename
             }
