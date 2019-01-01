@@ -32,10 +32,11 @@ from ..alignSimple import alignMax
 from ..alignSimple import alignCentroid
 from ..alignSimple import alignGaussMax
 from ..types import transformationType
-
 from .import helper_teststack
 
 import numpy as np
+
+ctx = alignSift.create_context()
 
 class test_align(unittest.TestCase):
 
@@ -79,22 +80,22 @@ class test_align(unittest.TestCase):
                     roi = ((1,-3),(1,-3))
 
                 for i in range(4):
-                    pad = (i & 1)==1
-                    crop = (i & 2)==2
+                    pad = (i & 1) == 1
+                    crop = (i & 2) == 2
                     
                     # Fixed reference
                     msg = "Alignment: Pad = {}, Crop = {}, 1D = {}, transposed = {}, type = {}".format(pad,crop,vector,transposed,"fixed")
-                    o.align(refdatasetindex,refimageindex=refimageindex,pad = pad,crop = crop,roi=roi)
+                    o.align(refdatasetindex, refimageindex=refimageindex, pad = pad, crop=crop, roi=roi)
                     self.compare_relativecof(o.absolute_cofs(homography=True),cofrel,msg=msg)
  
                     # Pairwise: align on raw
                     msg = "Alignment: Pad = {}, Crop = {}, 1D = {}, transposed = {}, type = {}".format(pad,crop,vector,transposed,"pairwise/raw")
-                    o.align(refdatasetindex,onraw = True,pad = pad,crop = crop,roi=roi)
+                    o.align(refdatasetindex, onraw=True, pad=pad, crop=crop, roi=roi)
                     self.compare_relativecof(o.absolute_cofs(homography=True),cofrel,msg=msg)
 
                     # Pairwise: align on aligned
                     msg = "Alignment: Pad = {}, Crop = {}, 1D = {}, transposed = {}, type = {}".format(pad,crop,vector,transposed,"pairwise")
-                    o.align(refdatasetindex,onraw = False,pad = pad,crop = crop,roi=roi)
+                    o.align(refdatasetindex, onraw=False, pad=pad, crop=crop, roi=roi)
                     self.compare_relativecof(o.absolute_cofs(homography=True),cofrel,msg=msg)
    
     @unittest.skip("TODO")
@@ -152,6 +153,7 @@ class test_align(unittest.TestCase):
             self.try_alignment(alignElastix.alignElastix,t)
 
     @unittest.skipIf(alignSift.pyopencl is None,"pyopencl is not installed")
+    @unittest.skipIf(ctx is None,"no pyopencl device available")
     def test_sift(self):
         types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine]
         #TODO: the others are not that precise
