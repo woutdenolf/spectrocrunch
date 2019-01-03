@@ -49,11 +49,11 @@ class XiaNameParser():
     def __init__(self,counters=None):
         m1 = re.compile('(?P<name>.*?)_?(?P<detector>[0-9]+|sum|Sum|S[0-9]+)$')
         
-        self.defaultcounters = {"PUZ_arr":{"detector":None},
-                               "PUZ_xmap":{"detector":m1},
-                               "xmap":{"detector":m1},
-                               "arr":{"detector":None},
-                               "zap":{"detector":None}}
+        self.defaultcounters = collections.OrderedDict((("PUZ_arr",{"detector":None}),
+                               ("PUZ_xmap",{"detector":m1}),
+                               ("xmap",{"detector":m1}),
+                               ("arr",{"detector":None}),
+                               ("zap",{"detector":None})))
 
         number = "[0-9]{4,}"
         fnumber = "[0-9]{{4,}}"
