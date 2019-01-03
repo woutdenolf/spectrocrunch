@@ -42,7 +42,7 @@ class test_align(unittest.TestCase):
     def compare_relativecof(self,cofs,cofrel,msg=None):
         for i in range(1,cofs.shape[0]):
             cofrelcalc = np.dot(np.linalg.inv(cofs[i-1,...]),cofs[i,...])
-            np.testing.assert_almost_equal(cofrelcalc,cofrel,decimal=2,err_msg=msg)
+            np.testing.assert_almost_equal(cofrelcalc,cofrel,decimal=1,err_msg=msg)
 
     def try_alignment(self,alignclass,transfotype,realistic=False,subpixel=True):
         if transfotype==transformationType.translation and\
