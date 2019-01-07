@@ -68,6 +68,15 @@ function msc_versions()
     $tmp["msc_ver"] = 1500
     $tmp["version"] = "9.0"
     $tmp["name"] = "Visual Studio 2008"
+    $tmp["cmake"] = @{}
+    $tmp["cmake"][32] = @{}
+    $tmp["cmake"][64] = @{}
+    $tmp["cmake"][32]["generator"] = "Visual Studio 9 2008"
+    $tmp["cmake"][32]["arch"] = "Win32"
+    $tmp["cmake"][32]["toolset"] = $null
+    $tmp["cmake"][64]["generator"] = "Visual Studio 9 2008"
+    $tmp["cmake"][64]["arch"] = "x64"
+    $tmp["cmake"][64]["toolset"] = $null
     $tmp["vcvarsall"] = "Common Files\Microsoft\Visual C++ for Python\9.0\vcvarsall.bat"
     $tmp[32] = "x86"
     $tmp[64] = "amd64"
@@ -85,7 +94,16 @@ function msc_versions()
     $tmp["msc_ver"] = 1600
     $tmp["version"] = "10.0"
     $tmp["name"] = "Visual Studio 2010"
-    $tmp["vcvarsall"] = "Common Files\Microsoft\Visual C++ for Python\10.0\vcvarsall.bat"
+    $tmp["cmake"] = @{}
+    $tmp["cmake"][32] = @{}
+    $tmp["cmake"][64] = @{}
+    $tmp["cmake"][32]["generator"] = "Visual Studio 10 2010"
+    $tmp["cmake"][32]["arch"] = "Win32"
+    $tmp["cmake"][32]["toolset"] = $null
+    $tmp["cmake"][64]["generator"] = "Visual Studio 10 2010"
+    $tmp["cmake"][64]["arch"] = "x64"
+    $tmp["cmake"][64]["toolset"] = $null
+    $tmp["vcvarsall"] = "Microsoft Visual Studio 10.0\VC\vcvarsall.bat"
     $tmp[32] = "x86"
     $tmp[64] = "amd64"
     $versions[$tmp["msc_ver"]] = $tmp
@@ -94,12 +112,32 @@ function msc_versions()
     $tmp["msc_ver"] = 1700
     $tmp["version"] = "11.0"
     $tmp["name"] = "Visual Studio 2012"
+    $tmp["cmake"] = @{}
+    $tmp["cmake"][32] = @{}
+    $tmp["cmake"][64] = @{}
+    $tmp["cmake"][32]["generator"] = "Visual Studio 11 2012"
+    $tmp["cmake"][32]["arch"] = "Win32"
+    $tmp["cmake"][32]["toolset"] = $null
+    $tmp["cmake"][64]["generator"] = "Visual Studio 11 2012"
+    $tmp["cmake"][64]["arch"] = "x64"
+    $tmp["cmake"][64]["toolset"] = $null
+    $tmp["vcvarsall"] = "Microsoft Visual Studio 11.0\VC\vcvarsall.bat"
     $versions[$tmp["msc_ver"]] = $tmp
 
     $tmp = @{}
     $tmp["msc_ver"] = 1800
     $tmp["version"] = "12.0"
     $tmp["name"] = "Visual Studio 2013"
+    $tmp["cmake"] = @{}
+    $tmp["cmake"][32] = @{}
+    $tmp["cmake"][64] = @{}
+    $tmp["cmake"][32]["generator"] = "Visual Studio 12 2013"
+    $tmp["cmake"][32]["arch"] = "Win32"
+    $tmp["cmake"][32]["toolset"] = $null
+    $tmp["cmake"][64]["generator"] = "Visual Studio 12 2013"
+    $tmp["cmake"][64]["arch"] = "x64"
+    $tmp["cmake"][64]["toolset"] = $null
+    $tmp["vcvarsall"] = "Microsoft Visual Studio 12.0\VC\vcvarsall.bat"
     $versions[$tmp["msc_ver"]] = $tmp
 
     #https://docs.microsoft.com/en-us/visualstudio/install/workload-component-id-vs-build-tools?view=vs-2017
@@ -110,12 +148,21 @@ function msc_versions()
     $tmp["msc_ver"] = 1900
     $tmp["version"] = "14.0"
     $tmp["name"] = "Visual Studio 2015"
+    $tmp["cmake"] = @{}
+    $tmp["cmake"][32] = @{}
+    $tmp["cmake"][64] = @{}
+    $tmp["cmake"][32]["generator"] = "Visual Studio 14 2015"
+    $tmp["cmake"][32]["arch"] = "Win32"
+    $tmp["cmake"][32]["toolset"] = "140"
+    $tmp["cmake"][64]["generator"] = "Visual Studio 14 2015"
+    $tmp["cmake"][64]["arch"] = "x64"
+    $tmp["cmake"][64]["toolset"] = "140,host=x64"
     $tmp["manager"] = "vssetup"
     $tmp["installer"] = "Microsoft Visual Studio\Installer\vs_installershell.exe"
     $tmp["toolset"] = "Microsoft.VisualStudio.Component.VC.140"
-    $tmp["vcvarsall"] = "VC\Auxiliary\Build\vcvarsall.bat"
-    $tmp[32] = "x86 -vcvars_ver=14.0"
-    $tmp[64] = "x64 -vcvars_ver=14.0"
+    $tmp["vcvarsall"] = "Microsoft Visual Studio 14.0\VC\vcvarsall.bat"
+    $tmp[32] = "x86"
+    $tmp[64] = "x64"
     $tmp["link"] = $vs_buildtools
     $tmp["filename"] = "vs_buildtools.exe"
     $tmp["install_args"] = @()
@@ -126,12 +173,30 @@ function msc_versions()
     $tmp["msc_ver"] = 1910
     $tmp["version"] = "15.0"
     $tmp["name"] = "Visual Studio 2017"
+    $tmp["cmake"] = @{}
+    $tmp["cmake"][32] = @{}
+    $tmp["cmake"][64] = @{}
+    $tmp["cmake"][32]["generator"] = "Visual Studio 15 2017"
+    $tmp["cmake"][32]["arch"] = "Win32"
+    $tmp["cmake"][32]["toolset"] = $null
+    $tmp["cmake"][64]["generator"] = "Visual Studio 15 2017"
+    $tmp["cmake"][64]["arch"] = "x64"
+    $tmp["cmake"][64]["toolset"] = $null
     $versions[$tmp["msc_ver"]] = $tmp
 
     $tmp = @{}
     $tmp["msc_ver"] = 1911
     $tmp["version"] = "15.3"
     $tmp["name"] = "Visual Studio 2017"
+    $tmp["cmake"] = @{}
+    $tmp["cmake"][32] = @{}
+    $tmp["cmake"][64] = @{}
+    $tmp["cmake"][32]["generator"] = "Visual Studio 15 2017"
+    $tmp["cmake"][32]["arch"] = "Win32"
+    $tmp["cmake"][32]["toolset"] = "version=14.11"
+    $tmp["cmake"][64]["generator"] = "Visual Studio 15 2017"
+    $tmp["cmake"][64]["arch"] = "x64"
+    $tmp["cmake"][64]["toolset"] = "host=x64,version=14.11"
     $tmp["manager"] = "vssetup"
     $tmp["installer"] = "Microsoft Visual Studio\Installer\vs_installershell.exe"
     $tmp["toolset"] = "Microsoft.VisualStudio.Component.VC.Tools.14.11"
@@ -148,6 +213,15 @@ function msc_versions()
     $tmp["msc_ver"] = 1912
     $tmp["version"] = "15.5"
     $tmp["name"] = "Visual Studio 2017"
+    $tmp["cmake"] = @{}
+    $tmp["cmake"][32] = @{}
+    $tmp["cmake"][64] = @{}
+    $tmp["cmake"][32]["generator"] = "Visual Studio 15 2017"
+    $tmp["cmake"][32]["arch"] = "Win32"
+    $tmp["cmake"][32]["toolset"] = "version=14.12"
+    $tmp["cmake"][64]["generator"] = "Visual Studio 15 2017"
+    $tmp["cmake"][64]["arch"] = "x64"
+    $tmp["cmake"][64]["toolset"] = "host=x64,version=14.12"
     $tmp["manager"] = "vssetup"
     $tmp["installer"] = "Microsoft Visual Studio\Installer\vs_installershell.exe"
     $tmp["toolset"] = "Microsoft.VisualStudio.Component.VC.Tools.14.12"
@@ -164,6 +238,15 @@ function msc_versions()
     $tmp["msc_ver"] = 1913
     $tmp["version"] = "15.6"
     $tmp["name"] = "Visual Studio 2017"
+    $tmp["cmake"] = @{}
+    $tmp["cmake"][32] = @{}
+    $tmp["cmake"][64] = @{}
+    $tmp["cmake"][32]["generator"] = "Visual Studio 15 2017"
+    $tmp["cmake"][32]["arch"] = "Win32"
+    $tmp["cmake"][32]["toolset"] = "version=14.13"
+    $tmp["cmake"][64]["generator"] = "Visual Studio 15 2017"
+    $tmp["cmake"][64]["arch"] = "x64"
+    $tmp["cmake"][64]["toolset"] = "host=x64,version=14.13"
     $tmp["manager"] = "vssetup"
     $tmp["installer"] = "Microsoft Visual Studio\Installer\vs_installershell.exe"
     $tmp["toolset"] = "Microsoft.VisualStudio.Component.VC.Tools.14.13"
@@ -180,6 +263,15 @@ function msc_versions()
     $tmp["msc_ver"] = 1914
     $tmp["version"] = "15.7"
     $tmp["name"] = "Visual Studio 2017"
+    $tmp["cmake"] = @{}
+    $tmp["cmake"][32] = @{}
+    $tmp["cmake"][64] = @{}
+    $tmp["cmake"][32]["generator"] = "Visual Studio 15 2017"
+    $tmp["cmake"][32]["arch"] = "Win32"
+    $tmp["cmake"][32]["toolset"] = "version=14.14"
+    $tmp["cmake"][64]["generator"] = "Visual Studio 15 2017"
+    $tmp["cmake"][64]["arch"] = "x64"
+    $tmp["cmake"][64]["toolset"] = "host=x64,version=14.14"
     $tmp["manager"] = "vssetup"
     $tmp["installer"] = "Microsoft Visual Studio\Installer\vs_installershell.exe"
     $tmp["toolset"] = "Microsoft.VisualStudio.Component.VC.Tools.14.14"
@@ -196,6 +288,15 @@ function msc_versions()
     $tmp["msc_ver"] = 1915
     $tmp["version"] = "15.8"
     $tmp["name"] = "Visual Studio 2017"
+    $tmp["cmake"] = @{}
+    $tmp["cmake"][32] = @{}
+    $tmp["cmake"][64] = @{}
+    $tmp["cmake"][32]["generator"] = "Visual Studio 15 2017"
+    $tmp["cmake"][32]["arch"] = "Win32"
+    $tmp["cmake"][32]["toolset"] = "version=14.15"
+    $tmp["cmake"][64]["generator"] = "Visual Studio 15 2017"
+    $tmp["cmake"][64]["arch"] = "x64"
+    $tmp["cmake"][64]["toolset"] = "host=x64,version=14.15"
     $tmp["manager"] = "vssetup"
     $tmp["installer"] = "Microsoft Visual Studio\Installer\vs_installershell.exe"
     $tmp["toolset"] = "Microsoft.VisualStudio.Component.VC.Tools.14.15"
@@ -213,6 +314,15 @@ function msc_versions()
     $tmp["msc_ver"] = 1916
     $tmp["version"] = "15.9"
     $tmp["name"] = "Visual Studio 2017"
+    $tmp["cmake"] = @{}
+    $tmp["cmake"][32] = @{}
+    $tmp["cmake"][64] = @{}
+    $tmp["cmake"][32]["generator"] = "Visual Studio 15 2017"
+    $tmp["cmake"][32]["arch"] = "Win32"
+    $tmp["cmake"][32]["toolset"] = $null
+    $tmp["cmake"][64]["generator"] = "Visual Studio 15 2017"
+    $tmp["cmake"][64]["arch"] = "x64"
+    $tmp["cmake"][64]["toolset"] = "host=x64"
     $tmp["manager"] = "vssetup"
     $tmp["installer"] = "Microsoft Visual Studio\Installer\vs_installershell.exe"
     $tmp["toolset"] = "Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
@@ -260,11 +370,11 @@ function require_msc([int]$msc_ver,[int]$msc_arch,[boolean]$strict=$true)
     ensure_msc $msc_ver $msc_arch
 
     # Initialize the compiler env
-    init_msc $msc_ver $msc_arch
+    init_msc $msc_ver $msc_arch -force=$false
 }
 
 
-function init_msc([int]$msc_ver,[int]$msc_arch)
+function init_msc([int]$msc_ver,[int]$msc_arch,[boolean]$force=$true)
 {
     # Check whether msc_ver is known
     $local:mscinfo = msc_info $msc_ver
@@ -274,7 +384,7 @@ function init_msc([int]$msc_ver,[int]$msc_arch)
     }
 
     # Compiler is already in environment
-    if ((current_msc_ver) -eq $msc_ver) {
+    if ((current_msc_ver) -eq $msc_ver -and !$force) {
         cprint "MSC version $msc_ver is initialized"
         return
     }
@@ -344,6 +454,34 @@ function current_msc_ver()
 }
 
 
+function current_msc_arch()
+{
+    $local:clexe = @()
+    if (cmdexists cl) {
+        $local:clexe += "cl"
+    } else {
+        if (cmdexists msbuild) {
+            $local:vsmanager = Get-VSSetupInstance
+            if ($local:vsmanager -ne $null) {
+                $local:include = joinPath $local:vsmanager.InstallationPath "VC\Tools\MSVC\*\bin\*\*\cl.exe"
+                $local:clexe += Get-ChildItem -Path $local:include | % {"""$_"""}
+            }
+        }
+    }
+
+    foreach ($name in $local:clexe) {
+        $local:tmp = & cmd /c "$name 2>&1"
+        $local:m = [regex]::match($local:tmp,"for x64")
+        if ($local:m.Success) {
+            return 64
+        } else {
+            return 32
+        }
+    }
+
+    return install_arch
+}
+
 function require_msc_vssetup($mscinfo)
 {
     # Make sure the Visual Studio installer is installed
@@ -409,11 +547,22 @@ function require_vsinstaller($mscinfo)
 
 function require_vstoolset($mscinfo)
 {
-    $local:toolset = $mscinfo["toolset"]
-    if (!(vscomponent_installed $local:toolset)) {
+    require_component $mscinfo["toolset"]
+}
+
+
+function require_sdk($mscinfo)
+{
+    require_component $mscinfo["sdk"]
+}
+
+
+function require_component($component)
+{
+    if (!(vscomponent_installed $local:component)) {
         $local:vsmanager = Get-VSSetupInstance
 
-        cprint "Install compiler toolset $local:toolset ..."
+        cprint "Install component $local:component ..."
         $local:installer = vsinstaller $mscinfo
         if ($local:installer -eq $null) {
             cerror "Visual studio installer not found"
@@ -423,7 +572,7 @@ function require_vstoolset($mscinfo)
                 $local:args = @()
                 $local:args += "modify"
                 $local:args += "--installPath ""$($vsmanager.InstallationPath)"""
-                $local:args += "--add $local:toolset"
+                $local:args += "--add $local:component"
                 #$local:args += "--includeRecommended"
                 $local:args += "--passive"
                 $local:tmp = install_exe $local:installer $local:args $true
@@ -431,10 +580,10 @@ function require_vstoolset($mscinfo)
         }
     }
     
-    if ((vscomponent_installed $local:toolset)) {
-        cprint "Compiler toolset $local:toolset is installed"
+    if ((vscomponent_installed $local:component)) {
+        cprint "MSC component $local:component is installed"
     } else {
-        cerror "Compiler toolset $local:toolset is not installed"
+        cerror "MSC component $local:component is not installed"
     }
 }
 
@@ -479,17 +628,28 @@ function get_vcvarsall($mscinfo)
         $local:vsmanager = Get-VSSetupInstance
         if ($local:vsmanager -ne $null) {
             $local:filename = joinPath $local:vsmanager.InstallationPath $local:mscinfo["vcvarsall"]
-            if ((Test-Path $local:filename -pathType leaf)) {
-                return $local:filename
-            }
-        }
-    } else {
-        $local:bases = ($env:programfiles,${env:programfiles(x86)},$env:localappdata)
-        foreach ($base in $local:bases) {
-            $local:filename = joinPath $base $local:mscinfo["vcvarsall"]
-            if ((Test-Path $local:filename -pathType leaf)) {
+            if ((file_exists $local:filename)) {
                 return $local:filename
             }
         }
     }
+    
+    if ($local:mscinfo["vcvarsall"] -ne $null) {
+        $local:bases = ($env:programfiles,${env:programfiles(x86)},$env:localappdata)
+        foreach ($base in $local:bases) {
+            $local:filename = joinPath $base $local:mscinfo["vcvarsall"]
+            if (file_exists $local:filename) {
+                return $local:filename
+            }
+        }
+    }
+}
+
+
+function msc_cmake_info()
+{
+    $local:info = @{}
+    $local:msc_ver = current_msc_ver
+    $local:mscinfo = msc_info $local:msc_ver
+    return $mscinfo["cmake"][$(current_msc_arch)]
 }

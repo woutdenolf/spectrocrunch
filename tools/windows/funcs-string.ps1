@@ -19,5 +19,5 @@ function strtoint([string]$str)
 
 function joinPath([string]$a,[string]$b) {
     #TODO: replace
-    return join-path $a $b
+    return join-path "$a" "$b"
 }

@@ -187,4 +187,21 @@ function project_prefix([AllowNull()][boolean]$arch) {
 }
 
 
+function path_exists([string]$p)
+{
+    if ($p -eq "") {
+        return $false
+    } else {
+        return Test-Path -Path "$p"
+    }
+}
 
+
+function file_exists([string]$p)
+{
+    if ($p -eq "") {
+        return $false
+    } else {
+        return Test-Path -Path "$p" -PathType Leaf
+    }
+}

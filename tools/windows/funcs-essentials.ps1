@@ -118,6 +118,48 @@ function Restore-Env([string]$tempFile) {
 }
 
 
+# ============Reset-Env============
+# Description: reset environment variables
+function Reset-Env([string]$scriptName) {
+    $local:sep = "-=-cut-=-"
+    $local:cmdLine = "echo $local:sep & set"
+    if ([Environment]::Is64BitProcess) {
+        $local:out = & $Env:SystemRoot\SysWOW64\cmd.exe /c $local:cmdLine | Out-String
+    } else {
+        $local:out = & $Env:SystemRoot\system32\cmd.exe /c $local:cmdLine | Out-String
+    }
+    if ($LASTEXITCODE -ne 0) {
+        return
+    }
+
+    # Clear environment
+    Get-ChildItem env: | Foreach-Object { 
+        set-item "env:\$($_.Name)" $null -force
+    }
+
+    # Reset environment
+    $local:arr = $local:out -split $local:sep
+    if ($local:arr[0] -ne $null) {
+        Write-Host $local:arr[0]
+    }
+    if ($local:arr[1] -ne $null -and $local:retcode -eq 0) {
+        $local:arr[1].split([Environment]::NewLine) | select-string '^([^=]*)=(.*)$' | foreach-object {
+            $varName = $_.Matches[0].Groups[1].Value
+            $varValue = $_.Matches[0].Groups[2].Value
+            set-item Env:$varName $varValue -force
+            }
+    }
+}
+
+
+# ============Show-Env============
+# Description: 
+function Show-Env() 
+{
+    Get-ChildItem env:
+}
+
+
 # ============Invoke-CmdScript============
 # Description: run the batch script and inherit the environment
 function Invoke-CmdScript([string]$scriptName) {

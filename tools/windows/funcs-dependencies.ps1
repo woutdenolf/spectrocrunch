@@ -13,11 +13,10 @@ function install_system_dependencies()
 
     if (!(dryrun)) {
         require_web_access
-        python_init_compiler
         pip_install numpy # silx/pyopencl
 
         # packages from Christoph Gohlke
-        # TODO: check for compiler
+        #python_init_compiler
         pip_install pipwin
         pipwin install pyopencl # silx
         pipwin install shapely # spectrocrunch
@@ -37,7 +36,7 @@ function install_system_dependencies_dev()
 
 function install_nopypi_dependencies()
 {
-    # require...
+    require_simpleelastix
 }
 
 

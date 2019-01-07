@@ -81,12 +81,19 @@ function python_hasmodule([string]$module)
 }
 
 
-function python_get([string]$prog)
+function python_exec()
 {
     if ((python_exists)) {
-        Invoke-Expression "$(python_bin) -c ""$prog"""
+        Invoke-Expression "$(python_bin) $args"
     }
 }
+
+
+function python_get([string]$prog)
+{
+    python_exec -c """$prog"""
+}
+
 
 
 function python_exists()
