@@ -501,6 +501,7 @@ class edfheader_parser(object):
             else:
                 return axis.AxisRegular(0,nsteps,nsteps,name=name)
 
+
 class spec(SpecFileDataSource.SpecFileDataSource):
     """An interface to a spec file
     """

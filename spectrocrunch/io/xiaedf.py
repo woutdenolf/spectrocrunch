@@ -2003,10 +2003,10 @@ class xiaimage(xiacompound):
         
     def header(self,source=None,keys=None):
         if source and source!='xia':
-            files = self.ctrfilenames(ctrs=source)
+            files = self.ctrfilenames()
         else:
             files = self.statfilenames()
-            
+        
         for f in files:
             header = edf.edfimage(f).header
             if header:

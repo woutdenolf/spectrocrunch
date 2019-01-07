@@ -288,8 +288,8 @@ class Task(nxprocess.Task):
                 pos = self.infoaxes["xrfdetectorposition"][imageindex,:]
                 if np.isfinite(pos).all():
                     self.qxrfgeometry.setxrfposition(pos)
-                self.infoaxes["xrfdetectorposition"][imageindex,:] = self.qxrfgeometry.getxrfdetectorposition()
-                self.infoaxes["sampledetdistance"][imageindex,:] = self.qxrfgeometry.getxrfdistance()
+                self.infoaxes["xrfdetectorposition"][imageindex,:] = self.qxrfgeometry.getxrfdetectorposition().to('cm**2').magnitude
+                self.infoaxes["sampledetdistance"][imageindex,:] = self.qxrfgeometry.getxrfdistance().to('cm').magnitude
 
     def _process_xiastackraw(self):
         if self.dtcorbefore or self.addspectra or self.fluxnormbefore:
@@ -351,7 +351,7 @@ class Task(nxprocess.Task):
                 metacounters = next(iter(countersfound))
             else:
                 logger.warning('Metacounters for {} are not found'.format(self.xiastackraw)) 
-                metacounters = []
+                metacounters = None
         
         logger.info('Processing counters: {}'.format(counters)) 
         
