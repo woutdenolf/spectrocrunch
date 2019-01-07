@@ -131,7 +131,47 @@ function cleanBinPath() {
 # ============updateBinPath============
 # Description: update path environement variable
 function updateBinPath() {
-    $pathmachine = [Environment]::GetEnvironmentVariable("Path", "Machine")
-    $pathuser = [Environment]::GetEnvironmentVariable("Path", "User")
-    [Environment]::SetEnvironmentVariable("Path", "$pathmachine;$pathuser;$env:path", "Process")
+    $local:path = [Environment]::GetEnvironmentVariable("Process", $scope).split(";")
+    foreach ($scope in ("Machine","User")) {
+        foreach ($var in [Environment]::GetEnvironmentVariable("Path", $scope).split(";")) {
+            if (!($local:path -contains $var)) {
+                $local:path += $var
+            }
+        }
+    }
+    $local:path = [system.String]::Join(";", $local:path)
+    [Environment]::SetEnvironmentVariable("Path", $local:path, "Process")
+}
+
+
+# ============resetBinPath============
+# Description: reset environement variable Path
+function resetEnvPath() {
+    $local:path = @()
+    foreach ($scope in ("Machine","User")) {
+        foreach ($var in [Environment]::GetEnvironmentVariable("Path", $scope).split(";")) {
+            if (!($local:path -contains $var)) {
+                $local:path += $var
+            }
+        }
+    }
+    $local:path = [system.String]::Join(";", $local:path)
+    [Environment]::SetEnvironmentVariable("Path", $local:path, "Process")
+}
+    
+
+# ============resetEnv============
+# Description: reset environement variables
+function resetEnv() {
+
+    foreach ($key in [Environment]::GetEnvironmentVariables("Process").Keys) {
+        [Environment]::SetEnvironmentVariable($key, $null, "Process")
+    }
+    foreach ($scope in ("Machine","User")) {
+        $local:envvars = [Environment]::GetEnvironmentVariables($scope)
+        foreach ($key in $local:envvars.Keys) {
+            [Environment]::SetEnvironmentVariable($key, $local:envvars.Item($key), "Process")
+        }
+    }
+    resetBinPath
 }
