@@ -1155,21 +1155,24 @@ class PNdiode(with_metaclass(base.SolidState)):
         response = units.Quantity(response,default)
         try:
             response.to("Hz")
-            return self.op_cpstoflux(energy,weights=weights)
         except pinterrors.DimensionalityError:
             try:
                 response.to("dimensionless")
                 if time is None:
                     raise RuntimeError("Need exposure time to convert counts to flux.")
-                return self.op_countstoflux(energy,time,weights=weights)
             except pinterrors.DimensionalityError:
                 try:
                     response.to("A")
-                    return self.op_currenttoflux(energy,weights=weights)
                 except:
                     response.to("V")
                     return self.op_voltagetoflux(energy,weights=weights)
-
+                else:
+                    return self.op_currenttoflux(energy,weights=weights)
+            else:
+                return self.op_countstoflux(energy,time,weights=weights)
+        else:
+            return self.op_cpstoflux(energy,weights=weights)
+            
     def responsetoflux(self,energy,response,weights=None,time=None):
         """Convert diode response to flux
 

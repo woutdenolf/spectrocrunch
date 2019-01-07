@@ -207,13 +207,13 @@ class QXRFGeometry(with_metaclass(object)):
             geom.detectorposition = value
     
     def getxrfdistance(self):
-        return [geom.distance.to("cm").magnitude for geom in self.xrfgeometries]
+        return units.asqarray([geom.distance for geom in self.xrfgeometries])
 
     def getxrfdetectorposition(self):
         return [geom.detectorposition.magnitude for geom in self.xrfgeometries]
 
     def getxrfactivearea(self):
-        return [geom.detector.activearea.to("cm**2").magnitude for geom in self.xrfgeometries]
+        return units.asqarray([geom.detector.activearea for geom in self.xrfgeometries])
 
     def getxrfanglein(self):
         return [geom.anglein for geom in self.xrfgeometries]
