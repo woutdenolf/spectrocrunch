@@ -22,22 +22,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import pandas as pd
 from abc import ABCMeta, abstractmethod, abstractproperty
 from future.utils import with_metaclass
 from contextlib import contextmanager
 import numpy as np
 
-try:
-    from contextlib import ExitStack
-except ImportError:
-    from contextlib2 import ExitStack
-    
-from . import axis
-from . import nxresult
-from ..utils import indexing
-from ..io import nxfs
 from ..math.interpolate import interpolate_regular
+
 
 class RegularGrid(object):
     
@@ -153,93 +144,3 @@ class RegularGrid(object):
         axes = [axold.interpolate(axnew) for axold,axnew in zip(self.axes,axes)]
         axold,axnew = zip(*axes)
         return interpolate_regular(self,axold,axnew,**kwargs)
-        
-class NXSignalRegularGrid(RegularGrid):
-    
-    def __init__(self,signal,stackdim=None):
-        nxdata = signal.parent
-        axes = [axis.factory(values,name=name,title=attrs['title'],type='quantitative')
-                for name,values,attrs in nxdata.axes]
-        self.signal = signal
-        super(NXSignalRegularGrid,self).__init__(axes,None,stackdim=stackdim)
-    
-    @contextmanager
-    def open(self,**openparams):
-        with self.signal.open(**openparams) as dset:
-            yield dset
-            
-    @property
-    def values(self):
-        ret = np.empty(self.shape,dtype=self.dtype)
-        with self.open(mode='r') as data:
-            data.read_direct(ret)
-        return ret
-        
-class NXRegularGrid(RegularGrid):
-    
-    def __init__(self,nxgroup):
-        groups,axes = nxresult.regulargriddata(nxgroup)
-        self.signals = [signal for group in groups.values() for signal in group]
-        stackdim = 0
-        axnew = axis.factory(self.signals,type='nominal')
-        axes.insert(stackdim,axnew)
-        self.nxentry = nxgroup.nxentry()
-        super(NXRegularGrid,self).__init__(axes,None,stackdim=stackdim)
-
-    @contextmanager
-    def open(self,**openparams):
-        with self.nxentry.open(**openparams) as group:
-            yield group
-
-    @contextmanager
-    def open_signals(self,**openparams):
-        with ExitStack() as stack:
-            yield [stack.enter_context(signal.open(**openparams)) for signal in self.signals]
-
-    @property
-    def signal_names(self):
-        return [sig.name for sig in self.signals]
-
-    def __getitem__(self,index):
-        with self.open(mode='r') as group:
-            generator = lambda signal: group[self.nxentry.relpath(signal.path)]
-            return indexing.getitem(generator,self.signals,index,self.ndim,shapefull=self.shape,axis=0)
-
-    def __setitem__(self,index,value):
-        with self.open(mode='r') as group:
-            selector = lambda signal: group[self.nxentry.relpath(signal.path)]
-            indexing.setitem(selector,self.signals,index,self.ndim,value,shapefull=self.shape,axis=0,method='set')
-    
-    def __iadd__(self,value):
-        with self.open(mode='r') as group:
-            selector = lambda signal: group[self.nxentry.relpath(signal.path)]
-            indexing.setitem(selector,self.signals,(Ellipsis,),self.ndim,value,shapefull=self.shape,axis=0,method='add')
-    
-    def __isub__(self,value):
-        with self.open(mode='r') as group:
-            selector = lambda signal: group[self.nxentry.relpath(signal.path)]
-            indexing.setitem(selector,self.signals,(Ellipsis,),self.ndim,value,shapefull=self.shape,axis=0,method='sub')
-            
-    def __imul__(self,value):
-        with self.open(mode='r') as group:
-            selector = lambda signal: group[self.nxentry.relpath(signal.path)]
-            indexing.setitem(selector,self.signals,(Ellipsis,),self.ndim,value,shapefull=self.shape,axis=0,method='mul')
-    
-    def __idiv__(self,value):
-        with self.open(mode='r') as group:
-            selector = lambda signal: group[self.nxentry.relpath(signal.path)]
-            indexing.setitem(selector,self.signals,(Ellipsis,),self.ndim,value,shapefull=self.shape,axis=0,method='div')
-            
-    @property
-    def dtype(self):
-        with self.signals[0].open(mode='r') as dset:
-            return dset.dtype
-
-    @property
-    def values(self):
-        ret = np.empty(self.shape,dtype=self.dtype)
-        for i,signal in enumerate(self.signals):
-            with signal.open(mode='r') as dset:
-                dset.read_direct(ret,dest_sel=(i,Ellipsis))
-        return ret
-

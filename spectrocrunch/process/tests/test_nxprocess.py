@@ -30,7 +30,7 @@ from contextlib import contextmanager
 import itertools
 import threading
 
-from .. import regulargrid
+from .. import h5regulargrid
 from ...io import nxfs
 from ...utils.tests import genindexing
 from .. import basetask
@@ -141,11 +141,11 @@ class test_nxprocess(unittest.TestCase):
     def test_grid(self):
         with self._nxprocess() as proc:
             proc,info = proc
-            grid = regulargrid.NXRegularGrid(proc)
+            grid = h5regulargrid.NXRegularGrid(proc)
             self._check_grid(grid)
     
             nxdata = proc.results['detector00']
-            grid = regulargrid.NXSignalRegularGrid(nxdata.signal)
+            grid = h5regulargrid.NXSignalRegularGrid(nxdata.signal)
             self._check_grid(grid)
     
     def _run_task(self,parameters,proc1):
@@ -189,9 +189,9 @@ class test_nxprocess(unittest.TestCase):
             proc3 = self._run_task(parameters,proc1)
             self.assertNotEqual(proc2,proc3)
             
-            grid1 = regulargrid.NXRegularGrid(proc1)
-            grid2 = regulargrid.NXRegularGrid(proc2)
-            grid3 = regulargrid.NXRegularGrid(proc3)
+            grid1 = h5regulargrid.NXRegularGrid(proc1)
+            grid2 = h5regulargrid.NXRegularGrid(proc2)
+            grid3 = h5regulargrid.NXRegularGrid(proc3)
             self.assertEqual(set([sig.name for sig in grid1.signals]),
                              set([sig.name for sig in grid2.signals]))
             self.assertFalse(np.isnan(grid2.values).any())
@@ -219,9 +219,9 @@ class test_nxprocess(unittest.TestCase):
             proc3 = self._run_task(parameters,proc1)
             self.assertNotEqual(proc2,proc3)
             
-            grid1 = regulargrid.NXRegularGrid(proc1)
-            grid2 = regulargrid.NXRegularGrid(proc2)
-            grid3 = regulargrid.NXRegularGrid(proc3)
+            grid1 = h5regulargrid.NXRegularGrid(proc1)
+            grid2 = h5regulargrid.NXRegularGrid(proc2)
+            grid3 = h5regulargrid.NXRegularGrid(proc3)
             self.assertEqual(set([sig.name for sig in grid1.signals]),
                              set([sig.name for sig in grid2.signals]))
             np.testing.assert_array_equal(grid2.values,grid3.values)
@@ -241,9 +241,9 @@ class test_nxprocess(unittest.TestCase):
             proc3 = self._run_task(parameters,proc1)
             self.assertNotEqual(proc2,proc3)
             
-            grid1 = regulargrid.NXRegularGrid(proc1)
-            grid2 = regulargrid.NXRegularGrid(proc2)
-            grid3 = regulargrid.NXRegularGrid(proc3)
+            grid1 = h5regulargrid.NXRegularGrid(proc1)
+            grid2 = h5regulargrid.NXRegularGrid(proc2)
+            grid3 = h5regulargrid.NXRegularGrid(proc3)
             
             self.assertEqual(set([sig.name for sig in grid1.signals]),
                              set([sig.name for sig in grid2.signals]))
@@ -257,7 +257,7 @@ class test_nxprocess(unittest.TestCase):
                           'refimageindex':0,'default':'Fe-K'}
             proc2 = self._run_task(parameters,proc1)
             
-            grid2 = regulargrid.NXRegularGrid(proc2)
+            grid2 = h5regulargrid.NXRegularGrid(proc2)
             axes = grid2.axes
             axes.pop(grid2.stackdim)
             for ax1,ax2 in zip(info['axes'],axes):
@@ -275,8 +275,8 @@ class test_nxprocess(unittest.TestCase):
             proc3 = self._run_task(parameters,proc1)
             self.assertNotEqual(proc2,proc3)
 
-            grid1 = regulargrid.NXRegularGrid(proc1)
-            grid2 = regulargrid.NXRegularGrid(proc2)
+            grid1 = h5regulargrid.NXRegularGrid(proc1)
+            grid2 = h5regulargrid.NXRegularGrid(proc2)
             self._check_axes(grid1,grid2)
 
             index = grid1.locate(info['select'],None,None,None)
@@ -303,8 +303,8 @@ class test_nxprocess(unittest.TestCase):
                 parameters = {'name':'crop{}'.format(i),'method':'resample','encoders':encoders,'crop':crop}
                 proc2 = self._run_task(parameters,proc1)
 
-                grid1 = regulargrid.NXRegularGrid(proc1)
-                grid2 = regulargrid.NXRegularGrid(proc2)
+                grid1 = h5regulargrid.NXRegularGrid(proc1)
+                grid2 = h5regulargrid.NXRegularGrid(proc2)
                 
                 # Check new axes position
                 encoder_signals = {}
@@ -369,8 +369,8 @@ class test_nxprocess(unittest.TestCase):
             proc3 = self._run_task(parameters,proc1)
             self.assertNotEqual(proc2,proc3)
 
-            grid1 = regulargrid.NXRegularGrid(proc2)
-            grid2 = regulargrid.NXRegularGrid(proc2)
+            grid1 = h5regulargrid.NXRegularGrid(proc2)
+            grid2 = h5regulargrid.NXRegularGrid(proc2)
             signals1 = [s.name for s in grid1.signals if s.name not in info['skip']]
             signals2 = [s.name for s in grid2.signals]
             self.assertEqual(set(signals1),set(signals2))

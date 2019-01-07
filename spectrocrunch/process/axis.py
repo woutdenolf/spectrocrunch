@@ -494,6 +494,9 @@ class AxisRegularInc(_AxisRegular):
         self._end = self.start + self.stepsize*self.nsteps
         self._values = np.arange(self.size)*self.stepsize+self.start
 
+def arange(*args):
+    return factory(np.arange(*args))
+
 def zapscan(start,end,npixels,unit=None,**kwargs):
     pixelsize = (end-start)/float(npixels)
     if unit is None:
