@@ -28,7 +28,7 @@ import re
 import logging
 
 from . import nxprocess
-from . import regulargrid
+from . import h5regulargrid
 from . import axis
 from ..utils import instance
 from ..utils import units
@@ -58,7 +58,7 @@ class Task(nxprocess.Task):
         if len(self.dependencies)!=1:
             raise RuntimeError('nxregulargrid.Task can only depend on exactly one previous task')
         logger.info('Skip signals: {}'.format(self.parameters['skip']))
-        self.grid = regulargrid.NXRegularGrid(self.previous_outputs[0])
+        self.grid = h5regulargrid.NXRegularGrid(self.previous_outputs[0])
         self._prepare_process()
         self._execute_grid()
         self._sort()
@@ -87,7 +87,7 @@ class Task(nxprocess.Task):
     @property
     def reference_signal(self):
         ax = self.grid.axes[self.grid.stackdim][self.reference_signal_index]
-        return regulargrid.NXSignalRegularGrid(ax,stackdim=self.parameters['stackdim'])
+        return h5regulargrid.NXSignalRegularGrid(ax,stackdim=self.parameters['stackdim'])
     
     @property
     def positioners(self):
