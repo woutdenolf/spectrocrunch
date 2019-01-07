@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 class Converter(object):
     
-    def __init__(self, h5file=None, nxentry=None, include_counters=None,
+    def __init__(self, h5file=None, nxentry=None, qxrfgeometry=None, include_counters=None,
                  exclude_counters=None, diodeI0=None, diodeIt=None, mcasum=True, **parameters):
         if nxentry:
             if not isinstance(nxentry,nxfs.Path):
@@ -51,6 +51,7 @@ class Converter(object):
                 raise ValueError('Specify hdf5 file name')
             nxentry = nxfs.Path('/',h5file=h5file).new_nxentry()
         self._nxentry = nxentry
+        self._qxrfgeometry = qxrfgeometry
         self._parameters = parameters
         if include_counters:
             self.includefuncs = include_counters
@@ -246,6 +247,11 @@ class Converter(object):
         self.stats = None
         preset_time = self.preset_time
         units = self.instrument.units
+        
+        if self._qxrfgeometry is not None:
+            distance = self._qxrfgeometry.getxrfdistance().to('cm')
+            activearea = self._qxrfgeometry.getxrfactivearea().to('cm^2')
+        
         for i,detname in enumerate(self._xiaobject.detectors_used):
             mcaname = 'mca'+detname
             counter_paths = self._counter_paths[detname]
@@ -278,8 +284,19 @@ class Converter(object):
             nxgroup = application[mcaname].mkdir()
             nxgroup['live_time'].link(lt)
             nxgroup['elapsed_time'].link(rt)
+            if self._qxrfgeometry is not None:
+                energy = self.energy.to('keV').magnitude
+                op,preset_time = self._qxrfgeometry.I0op(energy,expotime=preset_time)
+                nxgroup['i0_to_flux_factor'].mkfile(data=op.m.to('Hz'))
+                nxgroup['i0_to_flux_offset'].mkfile(data=op.b.to('Hz'))
+                op,preset_time = self._qxrfgeometry.Itop(energy,expotime=preset_time)
+                nxgroup['it_to_flux_factor'].mkfile(data=op.m.to('Hz'))
+                nxgroup['it_to_flux_offset'].mkfile(data=op.b.to('Hz'))
+                nxgroup['distance'].mkfile(data=distance[i])
+                nxgroup['active area'].mkfile(data=activearea[i])
+                
             nxgroup['preset_time'].mkfile(data=preset_time)
-        
+            
         measurement.updated()
         self.stats = None
 
