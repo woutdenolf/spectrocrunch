@@ -35,7 +35,7 @@ from ..io import fs
 logger = logging.getLogger(__name__)
 
 class Task(basetask.Task):
-    """Converts XIA edf output to an NXentry
+    """Converts XIA edf to an NXentry
     """
 
     def __init__(self,**kwargs):
@@ -45,6 +45,9 @@ class Task(basetask.Task):
     def _parameters_defaults(self):
         super(Task,self)._parameters_defaults()
         self._required_parameters('path','radix','number','instrument')
+        
+        # TODO: temporary measure until pickleable
+        self.qxrfgeometry = self.parameters.pop('qxrfgeometry',None)
         
     def _parameters_filter(self):
         return []
@@ -71,7 +74,7 @@ class Task(basetask.Task):
         parameters['exclude_counters'] = [self._rematch_func(redict) for redict in parameters.get('exclude_counters',[])]
         path,radix,number = parameters['path'],parameters['radix'],parameters['number']
         xiaimage = xiaedf.xiaimage_number(path,radix,number)
-        converter = xiaedftonexus.Converter(nxentry=self.temp_nxentry,**parameters)
+        converter = xiaedftonexus.Converter(nxentry=self.temp_nxentry,qxrfgeometry=self.qxrfgeometry,**parameters)
         nxentry = converter(xiaimage)
     
     @property
