@@ -210,7 +210,7 @@ class QXRFGeometry(with_metaclass(object)):
         return units.asqarray([geom.distance for geom in self.xrfgeometries])
 
     def getxrfdetectorposition(self):
-        return [geom.detectorposition.magnitude for geom in self.xrfgeometries]
+        return units.asqarray([geom.detectorposition for geom in self.xrfgeometries])
 
     def getxrfactivearea(self):
         return units.asqarray([geom.detector.activearea for geom in self.xrfgeometries])

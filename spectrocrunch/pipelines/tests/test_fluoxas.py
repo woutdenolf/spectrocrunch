@@ -360,12 +360,12 @@ class test_fluoxas(unittest.TestCase):
         expectedgroups_result = set(expectedgroups_result)
         
         # Processes
-        expected_nxprocess = ['process:pymca.1']
+        expected_nxprocess = ['pymca.1']
         if prealignnormcounter is not None:
-            expected_nxprocess.append('process:normalize.1')
+            expected_nxprocess.append('normalize.1')
         if alignmethod is not None and alignreference is not None:
-            expected_nxprocess.append('process:align.1')
-            expected_nxprocess.append('process:crop.1')
+            expected_nxprocess.append('align.1')
+            expected_nxprocess.append('crop.1')
         
         with self._destpath_context() as destpath:
             for repeat in range(2):
@@ -441,7 +441,7 @@ class test_fluoxas(unittest.TestCase):
                                                                     for det in expectedgroups_data\
                                                                     for mapnum in range(nmaps)\
                                                                     for linenum in range(nlines)]
-                    xrfspectra_subdir = os.path.join('external','{}_process:pymca.1'.format(radix),'xrfspectra')
+                    xrfspectra_subdir = os.path.join('external','{}_pymca.1'.format(radix),'xrfspectra')
                     destpath.compare(sorted(expected),path=xrfspectra_subdir,files_only=True,recursive=False)
                 else:
                     radixout = radix
@@ -464,7 +464,7 @@ class test_fluoxas(unittest.TestCase):
                         expected.extend(["{}_xia{}_{:04d}_0000.cfg".format(radixout,det,mapnum,label)\
                                                                         for det in expectedgroups_data\
                                                                         for mapnum in range(nmaps)])
-                    fitresults_subdir = os.path.join('external','{}_process:pymca.1'.format(radix),'fitresults')
+                    fitresults_subdir = os.path.join('external','{}_pymca.1'.format(radix),'pymcaresults')
                     destpath.compare(sorted(expected),path=fitresults_subdir,files_only=True,recursive=False)
 
                 # Check top-level output directory (h5 files)

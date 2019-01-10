@@ -58,13 +58,14 @@ class Text(scene.Text):
         
 class ZapRoiMap(Image):
 
-    def __init__(self,filenames,plotparams={},**dataparams):
+    def __init__(self,filenames,plotparams=None,**dataparams):
         """
         Args:
             filename(str|list(str)): list of edf file names
         """
-
-        self.datahandle = scene_data.ZapRoiMap(filenames,**dataparams)
+        if plotparams is None:
+            plotparams = {}
+        self.datahandle = scene_data.EDFStack(filenames,**dataparams)
         
         index = plotparams.pop("channels",None)
         data,channels,labels = self.datahandle.displaydata(index=index)
@@ -81,14 +82,15 @@ class ZapRoiMap(Image):
     
 class Nexus(Image):
 
-    def __init__(self,filename,groups,plotparams={},**dataparams):
+    def __init__(self,filename,groups,plotparams=None,**dataparams):
         """
         Args:
             filename(str): h5 file name
             groups(list(dict)): {"path":str,"ind":int}
         """
-
-        self.datahandle = scene_data.Nexus(filename,groups,**dataparams)
+        if plotparams is None:
+            plotparams = {}
+        self.datahandle = scene_data.NexusStack(filename,groups,**dataparams)
         
         self.index = plotparams.pop("channels",None)
         data,channels,labels = self.datahandle.displaydata(index=self.index)
@@ -105,13 +107,14 @@ class Nexus(Image):
     
 class XanesSpec(Text):
 
-    def __init__(self,filenames,specnumbers,plotparams={},**dataparams):
+    def __init__(self,filenames,specnumbers,plotparams=None,**dataparams):
         """
         Args:
             filename(str|list(str)): list of edf file names
             specnumbers(list|list(list)): empty list of numbers => all xanes spectra
         """
-
+        if plotparams is None:
+            plotparams = {}
         self.output = dataparams.pop("output",None)
         
         self.datahandle = scene_data.XanesSpec(filenames,specnumbers,**dataparams)
@@ -148,6 +151,3 @@ class XanesSpec(Text):
                 worksheet = writer.sheets[sheet]
                 worksheet.set_column(0, len(df.columns)+1, 25)
                 worksheet.freeze_panes(1, 1)
-        
-
-

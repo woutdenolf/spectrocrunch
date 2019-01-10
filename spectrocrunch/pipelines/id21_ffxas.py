@@ -24,7 +24,7 @@
 
 import os
 from ..utils import instance
-from ..process import basetask
+from ..process.utils import create_task
 from ..io import nxfs
 
 def ffparameters(**parameters):
@@ -88,7 +88,7 @@ def tasks(**parameters):
     # Image stacks (fullfield)
     ffparams = ffparameters(**parameters)
     ffparams.update(commonparams)
-    task = basetask.task(method='fullfield',name='process:fullfield',**ffparams)
+    task = create_task(method='fullfield',name='process:fullfield',**ffparams)
     tasks.append(task)
     
     # Normalization
@@ -101,7 +101,7 @@ def tasks(**parameters):
             expression = "-ln(2*{}/({flat1}+{flat2}))"
         else:
             expression = "-ln({}/{flat1})"
-        task = basetask.task(dependencies=task,method='expression',name='process:normalize',
+        task = create_task(dependencies=task,method='expression',name='process:normalize',
                               expression=expression,skip=skip,**commonparams)
         tasks.append(task)
     
@@ -112,7 +112,7 @@ def tasks(**parameters):
         refimageindex = parameters.get("refimageindex",-1)
         roi = parameters.get("roialign",None)
         plot = parameters.get("plot",False)
-        task = basetask.task(dependencies=task,method='align',name='process:align',alignmethod=alignmethod,
+        task = create_task(dependencies=task,method='align',name='process:align',alignmethod=alignmethod,
                               reference=alignreference,refimageindex=refimageindex,
                               crop=False,roi=roi,plot=plot,**commonparams)
         tasks.append(task)
@@ -120,7 +120,7 @@ def tasks(**parameters):
     # Crop
     roiresult = parameters.get("roiresult",None)
     if roiresult:
-        tmp = basetask.task(dependencies=task,method='crop',name='process:roi',roi=roiresult,
+        tmp = create_task(dependencies=task,method='crop',name='process:roi',roi=roiresult,
                              reference=alignreference,**commonparams)
         tasks.append(tmp)
 

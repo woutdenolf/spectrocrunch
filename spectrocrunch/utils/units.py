@@ -228,3 +228,11 @@ class UnitHandler(BaseHandler):
 def jsonpickle_register_handlers():
     register(ureg.Quantity, QuantityHandler, base=True)
     register(ureg.Unit, UnitHandler, base=True)
+
+def astype(x,dtype):
+    m = x.magnitude
+    if hasattr(m,'astype'):
+        m = m.astype(dtype)
+    else:
+        m = dtype(m)
+    return Quantity(m,x.units)

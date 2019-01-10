@@ -151,14 +151,15 @@ class ESRF_ID21_SXM(InstrumentInfo):
     
     def __init__(self,**info):
         info["imagemotors"] = info.get("imagemotors",{"samy":"y","sampy":"y","samz":"z","sampz":"z"})
+        info["imageaxes"] = ('z', 'y')
         info["compensationmotors"] = info.get("compensationmotors",\
                                     {"samy":["sampy"],\
                                     "samz":["sampz"],\
                                     "sampy":["samy"],\
                                     "sampz":["samz"]})
         info["encoderinfo"] = info.get("encoderinfo",\
-                                    {"samy":{"resolution":52500,"counter":"sarr_samy"},
-                                     "samz":{"resolution":50000,"counter":"sarr_samz"}})
+                                    {"samy":{"resolution":52500,"counter":"arr_samy"},
+                                     "samz":{"resolution":50000,"counter":"arr_samz"}})
                                     
         info["edfheaderkeys"] = info.get("edfheaderkeys",\
                                     {"speclabel":"Title",\
@@ -239,6 +240,7 @@ class ESRF_ID21_MICRODIFF(InstrumentInfo):
     
     def __init__(self,**info):
         info["imagemotors"] = info.get("imagemotors",{"samh":"h","samph":"h","samv":"v","sampv":"v"})
+        info["imageaxes"] = ('v', 'h')
         info["units"] = info.get("units",\
                                     {"samh":ureg.millimeter,\
                                     "samv":ureg.millimeter,\
@@ -272,6 +274,7 @@ class ESRF_ID16B(InstrumentInfo):
     
     def __init__(self,**info):
         info["imagemotors"] = info.get("imagemotors",{"sy":"y","sz":"z","sampy":"y","sampz":"z"})
+        info["imageaxes"] = ('z', 'y')
         info["compensationmotors"] = info.get("compensationmotors",\
                                     {"sy":["sampy"],\
                                      "sz":["sampz"],\

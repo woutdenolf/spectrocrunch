@@ -32,7 +32,6 @@ import traceback
 from ..utils import instance
 from ..utils import timing
 from ..utils import hashing
-from ..io.utils import randomstring
 from ..utils.signalhandling import DelaySignalsContext
 
 logger = logging.getLogger(__name__)
@@ -56,7 +55,6 @@ class Task(with_metaclass(ABCMeta,object)):
             dependencies(Optional(Task|Path))
             outputparent(Optional(Path))
         """
-        self._tempname = randomstring()
         self.outputparent = outputparent
         self.dependencies = dependencies
         self.parameters = parameters
@@ -220,48 +218,9 @@ class Task(with_metaclass(ABCMeta,object)):
         device = self.outputparent.device
         if device:
             device.parent.mkdir()
+        else:
+            self.outputparent.mkdir()
     
     @abstractmethod
     def _execute(self):
         pass
-
-    
-def task(**parameters):
-    method = parameters.get('method',None)
-    if method=='crop':
-        from .nxcrop import Task
-    elif method=='replace':
-        from .nxreplace import Task
-    elif method=='minlog':
-        from .nxminlog import Task
-    elif method=='align':
-        from .nxalign import Task
-    elif method=='expression':
-        from .nxexpression import Task
-    elif method=='resample':
-        from .nxresample import Task
-    elif method=='pymca':
-        from .nxpymca import Task
-    elif method=='fullfield':
-        from .nxfullfield import Task
-    elif method=='xiaedftonx':
-        from .nxxiaedf import Task
-    else:
-        Task = parameters.pop('_task',None)
-        if Task is None:
-            raise TaskException('Unknown task defined by parameters {}'.format(parameters))
-    return Task(**parameters)
-
-
-def nxpathtotask(path):
-    if path.is_nxclass('NXprocess'):
-        parameters = path.config.read()
-        if 'method' not in parameters and 'name' not in parameters:
-            parameters['name'] = path.name
-        from .nxprocesswrap import Task
-    else:
-        from .nxwrap import Task
-        parameters = {'path':path}
-    outputparent = path.parent
-    dependencies = [path for path in path.dependencies]
-    return task(dependencies=dependencies,outputparent=outputparent,_task=Task,**parameters)

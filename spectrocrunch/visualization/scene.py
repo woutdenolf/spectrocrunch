@@ -705,8 +705,9 @@ class Image(Item):
                   "cnormargs":(),\
                   "datafunc":None,\
                   "legend":False,\
-                  "legendposition":"RT",\
-                  "legendspacing":2.,\
+                  "legend_position":"RT",\
+                  "legend_spacing":2.,\
+                  "legend_labels":True,\
                   "scalebar":False,\
                   "scalebar_position":"lower right",\
                   "scalebar_ratio":1/5.,\
@@ -753,12 +754,12 @@ class Image(Item):
         scene = self.scene
         settings = scene.getitemsettings(self)
         
-        if "S" in settings["legendposition"]:
+        if "S" in settings["legend_position"]:
             o = scene
         else:
             o = self
             
-        if "L" in settings["legendposition"]:
+        if "L" in settings["legend_position"]:
             x = 0
             horizontalalignment = "right"
             ox = -0.5
@@ -769,16 +770,16 @@ class Image(Item):
             ox = 0.5
             dx = 0
             
-        if "B" in settings["legendposition"]:
+        if "B" in settings["legend_position"]:
             y = 0
             verticalalignment = "bottom"
             oy = 0
-            dy = settings["legendspacing"]
+            dy = settings["legend_spacing"]
         else:
             y = 1
             verticalalignment = "top"
             oy = 0
-            dy = -settings["legendspacing"]
+            dy = -settings["legend_spacing"]
 
         x = scene.xmagnitude(o.displaylimx[x])
         y = scene.ymagnitude(o.displaylimy[y])
@@ -919,9 +920,11 @@ class Image(Item):
     def addcolorbar(self,scene,settings,items,newitems,normcb,vmin,vmax,color=None):
         visible = settings["legend"]
         
-        legend = self.labels
+        legend = []
         if settings["title"]:
-            legend = [settings["title"]]+legend
+            legend.append(settings["title"])
+        if settings["legend_labels"]:
+            legend += self.labels
 
         if settings["colorbar"]:
             # TODO: update existing color bar?
@@ -1018,7 +1021,7 @@ class Image(Item):
 
         if not astext and patches:
             bbox_to_anchor = [1,1]
-            #if "R" in settings["legendposition"]:
+            #if "R" in settings["legend_position"]:
             #    bbox_to_anchor[0] = 1.05
 
             if withpatch:
@@ -1065,7 +1068,6 @@ class Image(Item):
         mysize = ys*yfrac
 
         #TODO: handle zoom
-
         scalebar = AnchoredSizeBar(scene.ax.transData,
                            mxsize,
                            "{:~}".format(xsize),

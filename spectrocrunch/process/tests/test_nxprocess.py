@@ -33,10 +33,11 @@ import threading
 from .. import h5regulargrid
 from ...io import nxfs
 from ...utils.tests import genindexing
-from .. import basetask
+from .. import utils
 from .. import nxwrap
 from .. import axis
 from ...utils import units
+from ...utils import incremental_naming
 
 class test_nxprocess(unittest.TestCase):
 
@@ -51,7 +52,9 @@ class test_nxprocess(unittest.TestCase):
         h5filename = os.path.join(self.dir.path,'test.h5')
         root = nxfs.Path('/',h5file=h5filename).nxroot()
         entry = root.new_nxentry()
-        nxprocess = entry.nxprocess('fromraw.3',parameters={'name':'fromraw','a':1,'b':2},dependencies=None)
+        parameters={'name':'fromraw','a':1,'b':2}
+        name = incremental_naming.prepare(parameters['name'])
+        nxprocess = entry.nxprocess(name,parameters=parameters,dependencies=None)
         info = {}
         
         shape = (2,10,13)
@@ -149,11 +152,11 @@ class test_nxprocess(unittest.TestCase):
             self._check_grid(grid)
     
     def _run_task(self,parameters,proc1):
-        previoustask = basetask.nxpathtotask(proc1)
+        previoustask = utils.nxpathtotask(proc1)
         self.assertTrue(previoustask.done)
         
         # Check run and re-run
-        newtask = basetask.task(dependencies=previoustask,**parameters)
+        newtask = utils.create_task(dependencies=previoustask,**parameters)
         self.assertFalse(newtask.done)
         newtask.run()
         self.assertTrue(newtask.done)
@@ -161,14 +164,14 @@ class test_nxprocess(unittest.TestCase):
         newtask.run()
         proc3 = newtask.output
         self.assertEqual(proc2,proc3)
-        task = basetask.task(dependencies=previoustask,**parameters)
+        task = utils.create_task(dependencies=previoustask,**parameters)
         self.assertTrue(task.done)
         task.run()
         proc3 = task.output
         self.assertEqual(proc2,proc3)
         
         # Check reconstructed task from output
-        task = basetask.nxpathtotask(proc2)
+        task = utils.nxpathtotask(proc2)
         self.assertEqual(type(task),type(newtask))
         self.assertTrue(task.done)
         task.run()
@@ -185,9 +188,8 @@ class test_nxprocess(unittest.TestCase):
             proc2 = self._run_task(parameters,proc1)
             
             parameters['sliced'] = True
-            parameters['name'] = 'crop2'
             proc3 = self._run_task(parameters,proc1)
-            self.assertNotEqual(proc2,proc3)
+            self._check_reproc(proc2,proc3)
             
             grid1 = h5regulargrid.NXRegularGrid(proc1)
             grid2 = h5regulargrid.NXRegularGrid(proc2)
@@ -215,9 +217,8 @@ class test_nxprocess(unittest.TestCase):
             proc2 = self._run_task(parameters,proc1)
             
             parameters['sliced'] = True
-            parameters['name'] = 'replace2'
             proc3 = self._run_task(parameters,proc1)
-            self.assertNotEqual(proc2,proc3)
+            self._check_reproc(proc2,proc3)
             
             grid1 = h5regulargrid.NXRegularGrid(proc1)
             grid2 = h5regulargrid.NXRegularGrid(proc2)
@@ -237,9 +238,8 @@ class test_nxprocess(unittest.TestCase):
             proc2 = self._run_task(parameters,proc1)
             
             parameters['sliced'] = True
-            parameters['name'] = 'minlog2'
             proc3 = self._run_task(parameters,proc1)
-            self.assertNotEqual(proc2,proc3)
+            self._check_reproc(proc2,proc3)
             
             grid1 = h5regulargrid.NXRegularGrid(proc1)
             grid2 = h5regulargrid.NXRegularGrid(proc2)
@@ -271,9 +271,8 @@ class test_nxprocess(unittest.TestCase):
             proc2 = self._run_task(parameters,proc1)
             
             parameters['sliced'] = True
-            parameters['name'] = 'expression2'
             proc3 = self._run_task(parameters,proc1)
-            self.assertNotEqual(proc2,proc3)
+            self._check_reproc(proc2,proc3)
 
             grid1 = h5regulargrid.NXRegularGrid(proc1)
             grid2 = h5regulargrid.NXRegularGrid(proc2)
@@ -365,9 +364,8 @@ class test_nxprocess(unittest.TestCase):
             proc2 = self._run_task(parameters,proc1)
             
             parameters['sliced'] = True
-            parameters['name'] = 'expression2'
             proc3 = self._run_task(parameters,proc1)
-            self.assertNotEqual(proc2,proc3)
+            self._check_reproc(proc2,proc3)
 
             grid1 = h5regulargrid.NXRegularGrid(proc2)
             grid2 = h5regulargrid.NXRegularGrid(proc2)
@@ -385,7 +383,7 @@ class test_nxprocess(unittest.TestCase):
                 index[grid2.stackdim] = s2
                 index2 = grid2.locate(index)
                 np.testing.assert_array_equal(grid1[index1],grid2[index2])
-    
+        
     def test_concurrency(self):
         return # h5py does not support this, only with MPI
         
@@ -396,13 +394,13 @@ class test_nxprocess(unittest.TestCase):
             parameters = {'method':'expression','expression':info['expression'],
                           'copy':copy,'skip':skip,'sliced':False}
 
-            previoustask = basetask.nxpathtotask(proc1)
+            previoustask = utils.nxpathtotask(proc1)
             
             tasks = []
             threads = []
             nthreads = 5
             for i in range(nthreads):
-                newtask = basetask.task(dependencies=previoustask,**parameters)
+                newtask = utils.create_task(dependencies=previoustask,**parameters)
                 tasks.append(newtask)
                 t = threading.Thread(target=newtask.run)
                 threads.append(t)
@@ -443,6 +441,12 @@ class test_nxprocess(unittest.TestCase):
  
         for a,b in zip(grid,data):
             np.testing.assert_array_equal(a,b)
+    
+    def _check_reproc(self,proc1,proc2):
+        self.assertNotEqual(proc1,proc2)
+        self.assertEqual(proc1.name.split('.')[-1],'1')
+        self.assertEqual(proc2.name.split('.')[-1],'2')
+        
         
 def test_suite():
     """Test suite including all test suites"""

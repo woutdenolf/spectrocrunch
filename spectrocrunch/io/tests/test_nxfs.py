@@ -71,10 +71,12 @@ class test_nxfs(unittest.TestCase):
     def _check_process(self,entry):
         cfg1 = {'p1':10,'p2':[10.,20.],'p3':{'a':1},'p4':'test'}
         
-        process1 = entry.get_nxprocess('fit',parameters=cfg1)
-        self.assertFalse(process1.exists)
+        process1 = entry.find_nxprocess(parameters=cfg1)
+        self.assertIs(process1,None)
         process1 = entry.nxprocess('fit',parameters=cfg1)
         self.assertTrue(process1.exists)
+        process1 = entry.find_nxprocess(parameters=cfg1)
+        self.assertIsNot(process1,None)
         process1 = entry.nxprocess('fit',parameters=cfg1)
         self.assertTrue(process1.exists)
         
@@ -98,19 +100,18 @@ class test_nxfs(unittest.TestCase):
         self.assertEqual(process1.config.read(),cfg1)
         self.assertFalse([dep for dep in process1.dependencies])
         
-        process2 = entry.get_nxprocess('process',dependencies=[process1])
-        self.assertFalse(process2.exists)
+        process2 = entry.find_nxprocess(dependencies=[process1])
+        self.assertFalse(process2)
         process2 = entry.nxprocess('process',dependencies=[process1])
         self.assertTrue(process2.exists)
         self.assertEqual(process2.config.read(),None)
         self.assertEqual(next(iter(process2.dependencies)).linkdest(),process1)
 
-        process2b = entry.get_nxprocess('process',dependencies=[process1])
-        self.assertTrue(process2b.exists)
+        process2b = entry.find_nxprocess(dependencies=[process1])
         self.assertEqual(process2,process2b)
         
-        process2b = entry.get_nxprocess('process',dependencies=[process1],parameters={'wrong':1})
-        self.assertFalse(process2b.exists)
+        process2b = entry.find_nxprocess(dependencies=[process1],parameters={'wrong':1})
+        self.assertIs(process2b,None)
         process2b = entry.nxprocess('process',dependencies=[process1],parameters={'wrong':1})
         self.assertTrue(process2b.exists)
         self.assertNotEqual(process2,process2b)

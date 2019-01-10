@@ -25,7 +25,7 @@
 import os
 import numpy as np
 from ..utils import instance
-from ..process import basetask
+from ..process.utils import create_task
 from ..io import nxfs
 from ..instruments.configuration import getinstrument
 
@@ -45,7 +45,7 @@ def xrfparameters(**parameters):
     exclude_detectors = parameters.get("exclude_detectors",None)
     include_detectors = parameters.get("include_detectors",None)
     noxia = parameters.get("noxia",False)
-    encodercor = parameters.get("encodercor",{})
+    encodercor = parameters.get("encodercor",False)
     qxrfgeometry = parameters.get("qxrfgeometry",None)
     correctspectra = parameters.get("correctspectra",False)
     fluxid = parameters.get("fluxid","I0")
@@ -134,7 +134,7 @@ def tasks(**parameters):
     # Image stacks (counters + result of XRF fitting)
     xrfparams,instrument = xrfparameters(**parameters)
     xrfparams.update(commonparams)
-    task = basetask.task(method='pymca',name='process:pymca',**xrfparams)
+    task = create_task(method='pymca',name='pymca',**xrfparams)
     tasks.append(task)
     
     # Normalization
@@ -155,15 +155,16 @@ def tasks(**parameters):
         else:
             expression = "{{}}/{{{}}}".format(prealignnormcounter)
 
-        task = basetask.task(dependencies=task,method='expression',name='process:normalize',
+        task = create_task(dependencies=task,method='expression',name='normalize',
                               expression=expression,copy=copy,**commonparams)
         tasks.append(task)
         
     # Correct for encoder positions
     encodercor = parameters.get("encodercor",False)
-    if encodercor and instrument.encoderresolution:
+    
+    if encodercor:
         encoders = instrument.encoderinfo
-        task = basetask.task(dependencies=task,method='resample',name='process:resample',
+        task = create_task(dependencies=task,method='resample',name='resample',
                               encoders=encoders,**commonparams)
         tasks.append(task)
             
@@ -174,7 +175,7 @@ def tasks(**parameters):
         refimageindex = parameters.get("refimageindex",-1)
         roi = parameters.get("roialign",None)
         plot = parameters.get("plot",False)
-        task = basetask.task(dependencies=task,method='align',name='process:align',alignmethod=alignmethod,
+        task = create_task(dependencies=task,method='align',name='align',alignmethod=alignmethod,
                               reference=alignreference,refimageindex=refimageindex,
                               crop=False,roi=roi,plot=plot,**commonparams)
         tasks.append(task)
@@ -186,22 +187,23 @@ def tasks(**parameters):
                 for prefix in instrument.counterdict["counters"]]
         
         expression = "{{}}/{{{}}}".format(postalignnormcounter)
-        task  = basetask.task(dependencies=task,method='expression',name='process:postnormalize',
+        task  = create_task(dependencies=task,method='expression',name='postnormalize',
                                expression=expression,copy=copy,**commonparams)
         tasks.append(task)
         
     # Remove NaN's
     replacenan = parameters.get("replacenan",False)
     if replacenan:
-        tmp = basetask.task(dependencies=task,method='replace',name='process:replace',
+        tmp = create_task(dependencies=task,method='replace',name='replace',
                              org=np.nan,new=0,**commonparams)
         tasks.append(tmp)
                                             
     # Crop
     cropafter = parameters.get("crop",False)
     if cropafter:
-        tmp = basetask.task(dependencies=task,method='crop',name='process:crop',nanval=np.nan,
-                             reference=alignreference,**commonparams)
+        cropfull = parameters.get("cropfull",True)
+        tmp = create_task(dependencies=task,method='crop',name='crop',nanval=np.nan,
+                             nanfull=cropfull,reference=alignreference,**commonparams)
         tasks.append(tmp)
-                                            
+    
     return tasks
