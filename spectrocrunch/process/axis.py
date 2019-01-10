@@ -226,15 +226,24 @@ class Axis(object):
                     return lst
 
     def interpolate(self,values):
+        """Get old and new axes values for interpolation
+        """
         xold = self.magnitude
         xnew = self._extract_magnitude(values)
         
         if self.type=='quantitative':
+            if xold[1]<xold[0]:
+                # Reverse axis
+                m = np.nanmax(xold)
+                xold = m-xold
+                if xnew is not None:
+                    xnew = m-xnew
             if xnew is None:
                 return xold,xold
             else:
                 return xold,xnew
         else:
+            # Use index for interpolation
             ind = range(len(self))
             if xnew is None:
                 return ind,ind
@@ -283,7 +292,7 @@ class Axis(object):
     
     @property
     def end_stepsize(self):
-        return self[-2]-self[-1]
+        return self[-1]-self[-2]
 
     @classmethod
     def factory(cls,data,**kwargs):
@@ -311,7 +320,6 @@ class Axis(object):
             x = np.append(add.magnitude,x)
         elif nstepsadd<0:
             x = x[-nstepsadd:]
-        
         if len(x):
             return self.factory(units.Quantity(x,units=self.units))
         else:
@@ -337,14 +345,13 @@ class Axis(object):
             x = np.append(x,add.magnitude)
         elif nstepsadd<0:
             x = x[:nstepsadd]
-
         if len(x):
             return self.factory(units.Quantity(x,units=self.units))
         else:
             return None
 
     def newlimits(self,newstart,newend):
-        """Expand/crop from the start (make sure limits is included)
+        """Expand/crop from the start (make sure limits are included)
         
         Args:
             newstart(num)

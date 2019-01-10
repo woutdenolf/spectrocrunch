@@ -27,8 +27,11 @@ import traceback
 
 from . import nxutils
 from . import basetask
+from . import target
 from ..io import nxfs
 from ..io import fs
+from ..io.utils import randomstring
+from ..utils import incremental_naming
 
 logger = logging.getLogger(__name__)
 
@@ -38,26 +41,30 @@ class Task(basetask.Task):
 
     def __init__(self,**kwargs):
         super(Task,self).__init__(**kwargs)
-        self.temp_nxprocess = None
-        self._outputcounter = 0
-    
+        self._init_outputname()
+
+    def _init_outputname(self):
+        self._outputname = incremental_naming.Name(self.parameters['name'])
+        
+    def _update_output_name(self):
+        entry = self.outputparent
+        process = entry.find_nxprocess(name=self.outputname,parameters=self.parameters,
+                                       dependencies=self.dependencies,searchallentries=False)
+        if process is None:
+            while entry[self.outputname].exists:
+                self._outputname += 1
+        else:
+            self._outputname = incremental_naming.Name(process.name)
+            
     @property
     def output(self):
-        return self.outputparent.get_nxprocess(self.outputname,parameters=self.parameters,
-                                                dependencies=self.dependencies,allentries=False)
+        self._update_output_name()
+        return self.outputparent[self.outputname]
     
     @property
     def outputname(self):
-        # Add a counter when needed:
-        #   'align' -> 'align.1'
-        #   'align0001' -> 'align0001'
-        name = self.parameters['name']
-        fmt,num,nonumber = nxfs.nxprocess_fmtname(name)
-        if nonumber:
-            num += 1
-        num +=self._outputcounter
-        return fmt.format(num)
-
+        return str(self._outputname)
+        
     def _parameters_filter(self):
         return super(Task,self)._parameters_filter()+['default']
 
@@ -66,31 +73,31 @@ class Task(basetask.Task):
         return self.parameters.get('default',None)
 
     def _atomic_context_enter(self):
-        """This is atomic if h5py.Group.move is atomic
-        """
-        self._outputcounter = 0
-        self.temp_nxprocess = self.output.parent.nxprocess(self._tempname,
-                                                        parameters=self.parameters,
-                                                        dependencies=list(self.previous_outputs))
-    
+        while True:
+            try:
+                self.temp_nxprocess = self.outputparent.nxprocess(randomstring(),noincrement=True,
+                                                                parameters=self.parameters,
+                                                                dependencies=list(self.previous_outputs))
+            except fs.AlreadyExists:
+                pass # already exists
+            else:
+                break
+        
     @property
     def temp_nxresults(self):
-        if self.temp_nxprocess is None:
-            return None
-        else:
-            return self.temp_nxprocess.results
-            
+        return self.temp_nxprocess.results
+        
+    @property
+    def temp_name(self):
+        return self.temp_nxprocess.name
+        
     def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
         if exc_type:
             logger.error(''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
             self.removeoutput()
         else:
             self.renameoutput()
-            if self.default:
-                nxutils.set_default(self.output,self.default)
-            else:
-                self.output.mark_default()
-            self.output.updated()
+            nxutils.set_default(self.output,self.default)
         self.temp_nxprocess = None
         return 1 # Exception is handled (do not raise it)
 
@@ -98,14 +105,11 @@ class Task(basetask.Task):
         self.temp_nxprocess.remove(recursive=True)
     
     def renameoutput(self):
+        self._init_outputname()
         while self.temp_nxprocess.exists:
-            checksum = self.temp_nxprocess.checksum
             try:
                 self.temp_nxprocess.rename(self.output)
             except fs.AlreadyExists:
-                if self.output.checksum==checksum:
+                if self.output.exists:
                     # Already done by someone else
                     self.removeoutput()
-                else:
-                    # Different process with same name exists
-                    self._outputcounter += 1

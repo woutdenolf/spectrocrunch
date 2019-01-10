@@ -31,6 +31,7 @@ from . import basetask
 from ..io import xiaedf
 from ..io import xiaedftonexus
 from ..io import fs
+from ..io.utils import randomstring
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +54,11 @@ class Task(basetask.Task):
         return []
     
     def _atomic_context_enter(self):
-        """This is atomic if h5py.Group.move is atomic
-        """
-        self.temp_nxentry = self.outputparent.nxentry(name=self._tempname)
+        name = randomstring()
+        root = self.outputparent
+        while root[name].exists:
+            name = randomstring()
+        self.temp_nxentry = root.nxentry(name=name)
 
     def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
         if exc_type:
@@ -64,7 +67,6 @@ class Task(basetask.Task):
         else:
             self.temp_nxentry = self.temp_nxentry.renameremove(self.output)
             self.temp_nxentry.mark_default()
-            self.temp_nxentry.updated()
         self.temp_nxentry = None
         return 1 # Exception is handled (do not raise it)
 

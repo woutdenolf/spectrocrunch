@@ -176,7 +176,11 @@ class Path(File):
             return '{}{}{}'.format(self.device,self.devsep,self.path)
         else:
             return self.path
-            
+    
+    @property
+    def uri(self):
+        return self.location
+        
     @property
     def device(self):
         return ''
@@ -707,7 +711,7 @@ class Path(File):
         """Context manager which creates a temporary path that will be 
         removed or renamed on exit.
         """
-        path = self[utils.randomstring(**kwargs)]
+        path = self.randomnode(**kwargs)
         try:
             yield path
         except Exception as e:
@@ -727,3 +731,11 @@ class Path(File):
         except AlreadyExists:
             self.remove(recursive=True)
             return self
+
+    def randomnode(self,**kwargs):
+        """Non-existing node with random name
+        """
+        path = self[utils.randomstring(**kwargs)]
+        while path.exists:
+            path = self[utils.randomstring(**kwargs)]
+        return path

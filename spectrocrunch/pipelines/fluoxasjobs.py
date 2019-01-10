@@ -114,7 +114,9 @@ def processdata_exec(sourcepath,scanname,scannumbers,cfgfiles,nxentry,
         cfgfiles = [cfgfiles]
     if not resultsdir:
         resultsdir = ''
-    parameters['cfgfiles'] = [os.path.join(resultsdir,cfg) for cfg in cfgfiles]
+    
+    parameters['cfgfiles'] = [cfg if os.path.isabs(cfg) else os.path.join(resultsdir,cfg)
+                              for cfg in cfgfiles]
     
     # Quantification
     parameters["qxrfgeometry"] = geometry

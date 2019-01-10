@@ -131,15 +131,11 @@ def regulargriddata(nxgroup):
     lst = list(it)
     while lst:
         nxdata = lst.pop()
-        
         if nxdata.islink:
-            if nxdata.linkdest() in lst:
-                continue
-
+            continue
         group = Group(nxdata.name)
         if group in groups:
             raise RuntimeError('Group {} appears more than once'.format(group))
-
         axs = [axis.factory(values,name=name,title=attrs['title'],type='quantitative')
                for name,values,attrs in nxdata.axes]
         if axes:
@@ -147,7 +143,6 @@ def regulargriddata(nxgroup):
                 raise RuntimeError('{} has different axes'.format(nxdata))
         else:
             axes = axs
-
         groups[group] = list(nxdata.signals)
 
     return groups,axes

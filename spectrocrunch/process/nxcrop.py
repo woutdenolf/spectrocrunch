@@ -23,23 +23,32 @@
 # THE SOFTWARE.
 
 import numpy as np
+import logging
+
 from . import nxregulargrid
 from . import basetask
 from . import axis
+
+logger = logging.getLogger(__name__)
+
 
 class Task(nxregulargrid.Task):
     
     def _parameters_defaults(self):
         super(Task,self)._parameters_defaults()
         self._required_parameters('reference')
-        if all(p not in self.parameters for p in ['roi','nanval']):
+        parameters = self.parameters
+        if all(p not in parameters for p in ['roi','nanval']):
             raise basetask.MissingParameter('Specify either "nanval" or "roi"')
+        if 'nanval' in parameters:
+            parameters['nanfull'] = parameters.get('nanfull',True)
 
     def _parameters_filter(self):
-        return super(Task,self)._parameters_filter()+['roi','nanval','reference']
+        return super(Task,self)._parameters_filter()+['roi','nanval','nanfull','reference']
 
     def _prepare_process(self):
         super(Task,self)._prepare_process()
+        logger.info('Determine crop size ...')
         if 'nanval' in self.parameters:
             self.roi = self.calccroproi(self.reference_signal)
         elif 'roi' in self.parameters:
@@ -72,6 +81,7 @@ class Task(nxregulargrid.Task):
         """
         
         nanval = self.parameters['nanval']
+        nanfull = self.parameters['nanfull']
         
         # Mask (True = valid pixel)
         if self.sliced:
@@ -98,7 +108,12 @@ class Task(nxregulargrid.Task):
             else:
                 imask += 1
                 sumdims = tuple([i for i in range(refgrid.ndim-1) if i!=imask])
-                indvalid = np.argwhere(mask.sum(axis=sumdims))[:,0]
+                indvalid = mask.sum(axis=sumdims)
+                if nanfull:
+                    m = np.max(indvalid)
+                    if m:
+                        indvalid = indvalid == m
+                indvalid = np.argwhere(indvalid)[:,0]
                 if indvalid.size==0:
                     return None
                 iroi = indvalid[0],indvalid[-1]+1

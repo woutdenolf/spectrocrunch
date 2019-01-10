@@ -416,7 +416,7 @@ class edfheader_parser(object):
                 out = self.specparser.parse(str(header[self.speclabel]))
             except KeyError:
                 out = {}
-
+        
         if self.fastlabel:
             try:
                 out['motfast'] = str(header[self.fastlabel+"_mot"])
@@ -474,7 +474,7 @@ class edfheader_parser(object):
             label = 'slow'
             nlabel = 'nsteps'
         try:
-            name = out.pop('mot'+label)
+            name = out.get('mot'+label)
             u = self.units.get(name,'dimensionless')
             start = units.Quantity(out.pop('start'+label),units=u)
             end = units.Quantity(out.pop('end'+label),units=u)

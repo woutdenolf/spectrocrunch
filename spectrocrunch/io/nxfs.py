@@ -39,10 +39,12 @@ from . import h5fs
 from ..utils import units
 from ..utils import instance
 from ..utils import hashing
+from ..utils import incremental_naming
+from ..io.utils import randomstring
 from .. import __version__
 
 PROGRAM_NAME = 'spectrocrunch'
-DEFAULT_PLOT_NAME = 'plot:default'
+DEFAULT_PLOT_NAME = 'defaultplot'
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +77,13 @@ def textarray(arr):
 def dataprepare(data):
     if instance.isstring(data):
         data = textarray(data)
+    elif instance.isarray(data):
+        try:
+            if all(instance.isstring(v) for v in data):
+                data = textarray(data)
+        except TypeError:
+            if instance.isstring(data):
+                data = textarray(data)
     return data
 
 tzlocal = dateutil.tz.tzlocal()
@@ -83,7 +92,7 @@ def now():
     return datetime.now(tzlocal)
     
 def timestamp():
-    return textarray(now().isoformat())
+    return dataprepare(now().isoformat())
 
 def parse_timestamp(tm):
     try:
@@ -100,32 +109,6 @@ def calc_checksum(dependencies,confighash):
     hashes.append(confighash)
     return hashing.mergejhash(*hashes)
 
-def nxprocess_extract(name):
-    start,end,num = 0,0,'0'
-    for m in re.finditer("[0-9]+",name):
-        start,end,num = m.start(), m.end(), m.group()
-    return start,end,int(num),start==end
-
-def nxprocess_fmtname(name):
-    start,end,num,nonumber = nxprocess_extract(name)
-    if nonumber:
-        fmt = name+'.{:d}'
-    else:
-        fmt = name[:start]+'{{:0{}d}}'.format(end-start)+name[end:]
-    return fmt,num,nonumber
-
-def nxprocess_regex(name):
-    name = re.escape(name)
-    start,end,num,nonumber = nxprocess_extract(name)
-    if nonumber:
-        pattern = '^'+name+'(\.[0-9]+)?$'
-    else:
-        pattern = '^'+name[:start]+'[0-9]+'+name[end:]+'$'
-    return pattern
-
-def incrementname(name):
-    fmt,num,_ = nxprocess_fmtname(name)
-    return fmt.format(num+1)
 
 class Path(h5fs.Path):
        
@@ -193,10 +176,10 @@ class Path(h5fs.Path):
     
     def _read_time(self,name,*nxclasses):
         path = self.findfirstup_is_nxclass(*nxclasses)
-        if path.is_nxclass(*nxclasses) and name in path:
-            return parse_timestamp(path[name].read())
-        else:
-            return None
+        if path is not None:
+            if name in path:
+                return parse_timestamp(path[name].read())
+        return None
             
     @property
     def end_time(self):
@@ -218,8 +201,7 @@ class Path(h5fs.Path):
                 nxclassattr = node.attrs.get('NX_class',None)
                 if nxclassattr:
                     if nxclassattr!=nxclass:
-                        raise NexusFormatException('{} already exists with the wrong class ({} instead of {})'
-                                                   .format(path.name,nxclassattr,nxclass))
+                        raise fs.AlreadyExists('{} with the wrong class ({} instead of {})'.format(path,nxclassattr,nxclass))
                 else:
                     node.attrs['NX_class'] = nxclass
                     if nxattributes:
@@ -282,29 +264,31 @@ class Path(h5fs.Path):
         for entry in self.root.iter_is_nxclass('NXentry'):
             yield entry
 
-    def iter_nxprocess(self,allentries=True):
-        if allentries:
+    def iter_nxprocess(self,searchallentries=True):
+        if searchallentries:
+            entry = None
+        else:
+            entry = self.findfirstup_is_nxclass('NXentry')
+        if entry is None:
             for entry in self.iter_nxentry():
                 for process in entry.iter_is_nxclass('NXprocess'):
                     yield process
         else:
-            entry = self.findfirstup_is_nxclass('NXentry')
-            if entry.is_nxclass('NXentry'):
-                for process in entry.iter_is_nxclass('NXprocess'):
-                    yield process
+            for process in entry.iter_is_nxclass('NXprocess'):
+                yield process
             
     def findfirstup_is_nxclass(self,*nxclasses):
         path = None
         for path in self.iterup_is_nxclass(*nxclasses):
             return path
-        return self.root
+        return None
 
     def findfirstup_is_name(self,*names):
         path = None
         for path in self.iterup:
             if path.name in names:
                 return path
-        return self.root
+        return None
         
     def nxroot(self,**openparams):
         return self._init_nxclass(self.root,'NXroot',
@@ -312,74 +296,71 @@ class Path(h5fs.Path):
                                   **openparams)
     
     def _nxattributes_nxroot(self):
-        return {'file_name':textarray(self._h5file.path),
+        return {'file_name':dataprepare(self._h5file.path),
                 'file_time':timestamp(),
-                'HDF5_Version':textarray(h5py.version.hdf5_version),
-                'h5py_version':textarray(h5py.version.version),
-                'creator':textarray(PROGRAM_NAME)}
+                'HDF5_Version':dataprepare(h5py.version.hdf5_version),
+                'h5py_version':dataprepare(h5py.version.version),
+                'creator':dataprepare(PROGRAM_NAME)}
                 
     def nxentry(self,name=None,**openparams):
         """Get NXentry (first looks in parents) and create if it does not exist
         """
         path = self.findfirstup_is_nxclass('NXentry')
-        if path.is_nxclass('NXentry'):
-            if path.name==name or not name:
+        if path is not None:
+            if path.name==name or name is None:
                 return path
-        elif name is None:
-            raise NexusException('Could not find NXentry')
-        return self._init_nxclass(self.root[name],'NXentry',
+        
+        root = self.nxroot(**openparams)
+        if name is None:
+            for path in self.iterup:
+                if path.parent == root:
+                    break
+            if path==root:
+                name = self.next_nxentry_name()
+            else:
+                name = path.name
+                
+        return self._init_nxclass(root[name],'NXentry',
                                   nxfiles=self._nxfiles_nxentry,
                                   **openparams)
-
-    def get_nxentry(self,name=None,**openparams):
-        path = self.findfirstup_is_nxclass('NXentry')
-        if path.is_nxclass('NXentry'):
-            if not name:
-                return path
-            if path.name==name:
-                return path
-            path = path.parent
-        elif name is None:
-            raise NexusException('Could not find NXentry')
-        if path==self.root:
-            path = path.nxroot()
-        path._raise_ifnot_class('NXroot')
 
     def last_nxentry(self):
         entry = None
         for entry in self.root.iter_is_nxclass('NXentry'):
             pass
-        if entry:
-            return entry
-        else:
-            return self.root
+        return entry
             
     def new_nxentry(self,entry=None):
         name = self.next_nxentry_name(entry=entry)
         return self.nxentry(name=name)
 
     def next_nxentry_name(self,entry=None):
+        """New entry name based on the naming logic of a given entry
+        
+        Args:
+            entry(Optional(Path)): last entry when missing
+            
+        Returns:
+            str
+        """
         # If argument not an NXentry: find it in the parents
-        if entry is None:
-            entry = self.findfirstup_is_nxclass('NXentry')
-        elif entry.is_not_nxclass('NXentry'):
-            entry = entry.findfirstup_is_nxclass('NXentry')
+        if entry is not None:
             if entry.is_not_nxclass('NXentry'):
-                entry = self.findfirstup_is_nxclass('NXentry')
+                entry = entry.findfirstup_is_nxclass('NXentry')
 
         # Default NXentry
-        if entry.is_not_nxclass('NXentry'):
+        if entry is None:
             entry = self.last_nxentry()
 
         # Next entry name
-        if entry.is_nxclass('NXentry'):
-            name = entry.name
-            parent = entry.parent
-            while parent[name].exists:
-                name = incrementname(name)
-        else:
+        if entry is None:
             name = 'entry0001'
-        
+        else:
+            name = incremental_naming.Name(entry.name)
+            parent = entry.parent
+            while parent[str(name)].exists:
+                name += 1
+            name = str(name)
         return name
             
     def nxsubentry(self,name,**openparams):
@@ -404,32 +385,53 @@ class Path(h5fs.Path):
     def _nxfiles_nxnote(self):
         return {'date':timestamp()}
         
-    def nxprocess(self,name,parameters=None,dependencies=None,allentries=True,**openparams):
+    def nxprocess(self,name,parameters=None,dependencies=None,searchallentries=True,noincrement=False,**openparams):
         """Creates NXentry and NXprocess when needed.
         
         Args:
-            name(str):
+            name(str): only used when creating a new process
             parameters(dict):
             dependencies(list): a list of object with the "checksum" attribute
+            searchallentries(bool)
+            noincrement(bool)
             openparams(Optional(dict)): overwrite device open parameters (if allowed)
         
         Returns:
-            Path: exists and name may be incremented
+            Path: exists and matching name (not necessarily equal)
         """
-        process = self.get_nxprocess(name,parameters=parameters,dependencies=dependencies,allentries=allentries)
-        if process.exists:
+        # Existing process with matching name
+        process = self.find_nxprocess(name=name,parameters=parameters,
+                                      dependencies=dependencies,
+                                      searchallentries=searchallentries)
+        if process is not None:
             return process
-        else:
-            # Create NXentry when needed
-            entry = process.nxentry(name=process.parent.name)
-            # Create NXprocess
-            process = self._init_nxclass(process,'NXprocess',
-                                         nxfiles=self._nxfiles_nxprocess,
-                                         **openparams)
-            process.set_config(parameters,dependencies=dependencies)
-            return process
+
+        # Get/create NXentry
+        entry = self.nxentry()
+        
+        # New process path
+        path = entry[name]
+        if path.exists:
+            if path.is_nxclass('NXprocess') and not noincrement:
+                name = incremental_naming.Name(name)
+                while entry[str(name)].exists:
+                    name += 1
+                name = str(name)
+            else:
+                raise fs.AlreadyExists(path)
+        
+        # Atomically create NXprocess with its parameters
+        process = self._init_nxclass(entry.randomnode(),'NXprocess',
+                                     nxfiles=self._nxfiles_nxprocess,
+                                     **openparams)
+        process.set_config(parameters,dependencies=dependencies)
+        try:
+            return process.rename(name)
+        except fs.AlreadyExists as e:
+            process.remove(recursive=True)
+            raise e
     
-    def get_nxprocess(self,name=None,parameters=None,dependencies=None,allentries=True):
+    def find_nxprocess(self,name=None,parameters=None,dependencies=None,searchallentries=False):
         """Get the path of an NXprocess, identified by its parameters and dependencies (and optionally the name)
         
         Args:
@@ -438,58 +440,37 @@ class Path(h5fs.Path):
             dependencies(list): a list of object with the "checksum" attribute
         
         Returns:
-            Path: may not exists yet and name may be incremented
+            Path or None
         """
         if name:
-            match = re.compile(nxprocess_regex(name)).match
+            match = incremental_naming.match(name)
         else:
             match = lambda x:True
         checksum = calc_checksum(dependencies,hashing.calcjhash(parameters))
-        for process in self.iter_nxprocess(allentries=allentries):    
+        for process in self.iter_nxprocess(searchallentries=searchallentries):    
             if process.verify_checksum(checksum) and match(process.name):
                 return process
-        
-        # Determine NXentry (may not exists yet)
-        if self.exists:
-            entry = self.findfirstup_is_nxclass('NXentry')
-            if entry.is_not_nxclass('NXentry'):
-                entry = entry.next_nxentry_name()
-        else:
-            if self.root==self.parent:
-                entry = self
-            else:
-                entry = self.next_nxentry_name()
-
-        # Make sure we have a unique process name
-        if not name:
-            name = incrementname('process')
-        while entry[name].exists:
-            name = incrementname(name)
-
-        return entry[name]
+        return None
     
     def _nxfiles_nxprocess(self):
-        return {'program':textarray(PROGRAM_NAME),
-                'version':textarray(__version__),
+        return {'program':dataprepare(PROGRAM_NAME),
+                'version':dataprepare(__version__),
                 'date':timestamp()}
 
     def nxinstrument(self,**openparams):
         path = self.findfirstup_is_nxclass('NXinstrument')
-        if path.nxclass=='NXinstrument':
+        if path is not None:
             return path
-        path = self.findfirstup_is_nxclass('NXentry')
-        if path.nxclass!='NXentry':
-            raise NexusException('Could not find NXinstrument or NXentry')
-        return self._init_nxclass(path['instrument'],'NXinstrument',**openparams)
-    
-    def measurement(self,**openparams):
+        entry = self.nxentry()
+        return self._init_nxclass(entry['instrument'],'NXinstrument',**openparams)
+        
+    def measurement(self,nxclass='NXcollection',**openparams):
         path = self.findfirstup_is_name('measurement')
-        if path.name=='measurement':
-            return path
-        path = self.findfirstup_is_nxclass('NXentry')
-        if path.nxclass!='NXentry':
-            raise NexusException('Could not find measurement or NXentry')
-        return self._init_nxclass(path['measurement'],'NXcollection',**openparams)
+        if path is not None:
+            if path.nxclass:
+                return path
+        entry = self.nxentry()
+        return self._init_nxclass(entry['measurement'],nxclass,**openparams)
         
     def nxcollection(self,name,nxattributes=None,nxfiles=None,**openparams):
         self._raise_if_class('NXroot')
@@ -518,25 +499,36 @@ class Path(h5fs.Path):
 
     def positioners(self,**openparams):
         path = self.findfirstup_is_nxclass('NXprocess')
-        if path.nxclass=='NXprocess':
-            path = path.results
-        else:
+        if path is None:
             path = self.nxinstrument(**openparams)
+        else:
+            path = path.results
         return path.nxcollection('positioners',**openparams)
 
     def mark_default(self):
         path = self
-        parent = path.parent
-        while parent.nxclass:
+        nxdata = None
+        for parent in self.parent.iterup:
+            nxclass = path.nxclass
             parentnxclass = parent.nxclass
             if parentnxclass=='NXdata':
                 parent.default_signal(path.name)
-            elif parentnxclass in ['NXentry','NXsubentry','NXroot']:
+            elif parentnxclass=='NXroot' and nxclass=='NXentry':
                 parent.update_stats(default=path.name)
-            if parentnxclass=='NXroot':
-                break
+            elif parentnxclass is not None:
+                if nxclass=='NXdata':
+                    nxdata = path
+                else:
+                    if nxdata:
+                        default = parent[DEFAULT_PLOT_NAME]
+                        if default.islink:
+                            default.remove()
+                        nxdata = default.link(nxdata)
+                if nxdata:
+                    parent.update_stats(default=nxdata.name)
+                if parentnxclass=='NXroot':
+                    break
             path = parent
-            parent = path.parent
             
     @property
     def default(self):
@@ -546,7 +538,8 @@ class Path(h5fs.Path):
             path = path[default]
             default = path.get_stat('default',default=None)
         return path
-        
+
+
 class _NXPath(Path):
     
     @contextlib.contextmanager
@@ -660,15 +653,15 @@ class _NXnote(_NXPath):
     def _write(self,data,mimetype):
         with self._verify():
             with self['data'].open(data=data) as node:
-                node.attrs['type'] = textarray(mimetype)
+                node.attrs['type'] = dataprepare(mimetype)
             
     def write_text(self,text):
         with self._verify():
-            self._write(textarray(text),'text/plain')
+            self._write(dataprepare(text),'text/plain')
     
     def write_dict(self,dic):
         with self._verify():
-            self._write(textarray(json.dumps(dic)),'application/json')
+            self._write(dataprepare(json.dumps(dic)),'application/json')
 
         
 class _NXdata(_NXPath):
@@ -709,7 +702,7 @@ class _NXdata(_NXPath):
                 for name in names:
                     yield self[name]
     
-    def add_signal(self,name=None,path=None,title=None,interpretation=None,**createparams):
+    def add_signal(self,name=None,path=None,title=None,interpretation=None,units=None,**createparams):
         """
         args:
             name(str)
@@ -747,10 +740,12 @@ class _NXdata(_NXPath):
                 if title is None:
                     title = name
                 with self[name].open(**createparams) as node:
-                    node.attrs["long_name"] = textarray(title)
+                    node.attrs['long_name'] = dataprepare(title)
                     if not interpretation:
                         interpretation = self._interpretation(node)
-                    node.attrs["interpretation"] = textarray(interpretation)
+                    node.attrs['interpretation'] = dataprepare(interpretation)
+                    if units is not None:
+                        node.attrs['units'] = dataprepare(units)
             else:
                 raise ValueError('Provide either "name" or "signal"')
             
@@ -760,7 +755,7 @@ class _NXdata(_NXPath):
                                     node.attrs.get("signal",[]))
                 if signals.size:
                     node.attrs["auxiliary_signals"] = signals.astype(text_dtype)
-                node.attrs["signal"] = textarray(name)
+                node.attrs["signal"] = dataprepare(name)
             
             self.updated()
             return self[name]
@@ -784,10 +779,10 @@ class _NXdata(_NXPath):
                 if name not in signals:
                     return False
                                     
-                aux = textarray([signal for signal in signals if signal!=name])
+                aux = dataprepare([signal for signal in signals if signal!=name])
                 if aux.size:
                     node.attrs["auxiliary_signals"] = aux
-                node.attrs["signal"] = textarray(name)
+                node.attrs["signal"] = dataprepare(name)
     
             self.updated()
         return True
@@ -804,7 +799,7 @@ class _NXdata(_NXPath):
                             node.attrs["auxiliary_signals"] = aux
                         node.attrs["signal"] = signals[-1]
                     else:
-                        aux = textarray([signal for signal in signals if signal!=name])
+                        aux = dataprepare([signal for signal in signals if signal!=name])
                         if aux.size:
                             node.attrs["auxiliary_signals"] = aux
             self.updated()
@@ -820,10 +815,10 @@ class _NXdata(_NXPath):
                         return
                     signals = other_signals
 
-                aux = textarray(signals[1:])
+                aux = dataprepare(signals[1:])
                 if aux.size:
                     node.attrs["auxiliary_signals"] = aux
-                node.attrs["signal"] = textarray(signals[0])
+                node.attrs["signal"] = dataprepare(signals[0])
     
             self.updated()
 
@@ -851,7 +846,7 @@ class _NXdata(_NXPath):
                     if not self[name].exists:
                         self[name].link(axis,soft=True)
                     names.append(name)
-                node.attrs["axes"] = textarray(names)
+                node.attrs["axes"] = dataprepare(names)
                 self.updated()
                 return axes
 
@@ -907,7 +902,7 @@ class _NXdata(_NXPath):
         values = units.Quantity(values,attrs['units'])
         return name,values,attrs
     
-    def mark_default(self):
+    def default_entry_link(self):
         super(_NXdata,self).mark_default()
         entry = self.nxentry()
         if self.parent!=entry:
@@ -949,9 +944,9 @@ class _NXcollection(_NXPath):
                         else:
                             title = name
                     with axis.open(data=value) as node:
-                        node.attrs["long_name"] = textarray(title)
+                        node.attrs["long_name"] = dataprepare(title)
                         if units:
-                            node.attrs["units"] = textarray(units)
+                            node.attrs["units"] = dataprepare(units)
                 self.updated()
             return axis
     

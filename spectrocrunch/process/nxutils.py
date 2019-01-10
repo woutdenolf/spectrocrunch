@@ -25,8 +25,8 @@
 from ..io import nxfs
 
 def set_default(nxprocess,default):
-    plotselect = nxprocess.results[nxfs.DEFAULT_PLOT_NAME]
-    plotselect.remove()
+    #plotselect = nxprocess.results[nxfs.DEFAULT_PLOT_NAME]
+    #plotselect.remove()
     it = nxprocess.results.iter_is_nxclass('NXdata')
 
     # Default signal
@@ -41,5 +41,9 @@ def set_default(nxprocess,default):
 
     # Default NXdata
     if nxdataselect:
-        plotselect = plotselect.link(nxdataselect)
-        plotselect.mark_default()
+        #plotselect = plotselect.link(nxdataselect)
+        #plotselect.mark_default()
+        nxdataselect.mark_default()
+    else:
+        nxprocess.mark_default()
+    nxprocess.updated()

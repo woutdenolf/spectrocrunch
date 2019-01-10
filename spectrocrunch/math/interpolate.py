@@ -25,6 +25,9 @@
 import numpy as np
 import scipy.interpolate
 from scipy import array
+import logging
+
+logger = logging.getLogger(__name__)
 
 def extrap1d(interpolator):
     xs = interpolator.x
@@ -97,6 +100,8 @@ def interpolate_regular(data,axold,axnew,cval=np.nan,degree=1,asgrid=True):
     args = axnew
     kwargs = {}
     if ndim==1:
+        if degree>3:
+            logger.warning('interpolation degree is capped at 3 (cubic)')
         kind = ['nearest','linear','quadratic','cubic'][min(degree,3)]
         # nearest==zero, linear==slinear ???
         interp = scipy.interpolate.interp1d(axold[0],data,kind=kind,assume_sorted=False,
@@ -108,6 +113,8 @@ def interpolate_regular(data,axold,axnew,cval=np.nan,degree=1,asgrid=True):
         if degree==0:
             method = 'nearest'
         else:
+            if degree>1:
+                logger.warning('interpolation degree is capped at 1 (linear)')
             method = 'linear'
         interp = scipy.interpolate.RegularGridInterpolator(axold,data,method=method,
                                                 fill_value=cval,bounds_error=False)

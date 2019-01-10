@@ -34,7 +34,7 @@ import sys
 from .. import id21_ffxas
 from ..run import run_sequential
 from ...io.edf import saveedf
-from ...process import regulargrid
+from ...process.h5regulargrid import NXSignalRegularGrid
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +173,7 @@ class test_ffxas(unittest.TestCase):
                 nxprocess = entry['process:fullfield.1']
             else:
                 nxprocess = entry['process:normalize.1']
-            fdata = regulargrid.NXSignalRegularGrid(nxprocess.results['detector0'].signal)
+            fdata = NXSignalRegularGrid(nxprocess.results['detector0'].signal)
             self.assertEqual(shape,fdata.shape)
             index = [slice(None)]*fdata.ndim
             for i,(transmission,x,y) in enumerate(zip(params["transmission"],params["xv"],params["yv"])):
@@ -186,7 +186,7 @@ class test_ffxas(unittest.TestCase):
         # Check aligned results
         if parameters["alignmethod"]:
             nxprocess = entry['process:align.1']
-            fdata = regulargrid.NXSignalRegularGrid(nxprocess.results['detector0'].signal)
+            fdata = NXSignalRegularGrid(nxprocess.results['detector0'].signal)
 
             i = parameters["refimageindex"]
             x = params["xv"][i]

@@ -162,12 +162,22 @@ class Task(nxprocess.Task):
             self.outimgdim = [0,1]
     
     @property
+    def localfs_temppath(self):
+        return self.output.device.parent['external'][self.temp_name]
+    
+    @property
+    def localfs_path(self):
+        output = self.output
+        name = output.parent.name + '_' + output.name
+        return self.localfs_temppath.parent[name]
+            
+    @property
     def outdatapath(self):
-        return self.output.device.parent['external'][self._tempname]['xrfspectra']
+        return self.localfs_temppath['xrfspectra']
     
     @property
     def outfitpath(self):
-        return self.output.device.parent['external'][self._tempname]['fitresults']
+        return self.localfs_temppath['pymcaresults']
     
     def removeoutput(self):
         super(Task,self).removeoutput()
@@ -176,10 +186,9 @@ class Task(nxprocess.Task):
     
     def renameoutput(self):
         super(Task,self).renameoutput()
-        path = self.outdatapath.parent
+        path = self.localfs_temppath
         if path.exists:
-            name = self.outputparent.name + '_' + self.output.name
-            path.move(name)
+            path.move(self.localfs_path)
     
     def _prepare_adddetector(self):
         # Detector include/exclude
@@ -258,7 +267,7 @@ class Task(nxprocess.Task):
 
         self._add_info_axis("refflux",defaultunits='Hz')
         self._add_info_axis("refexpotime",defaultunits='s')
-        self._add_info_axis("activearea",values=tile(self.qxrfgeometry.getxrfactivearea()),defaultunits='cm**2')
+        self._add_info_axis("activearea",values=tile(self.qxrfgeometry.getxrfactivearea().to('cm**2').magnitude),defaultunits='cm**2')
         self._add_info_axis("anglein",values=tile(self.qxrfgeometry.getxrfanglein()),defaultunits='deg')
         self._add_info_axis("angleout",values=tile(self.qxrfgeometry.getxrfangleout()),defaultunits='deg')
         self._add_info_axis("sampledetdistance",values=np.full((self.nstack,self.ndetfit),np.nan,dtype=np.float32),defaultunits='cm')
@@ -288,7 +297,7 @@ class Task(nxprocess.Task):
                 pos = self.infoaxes["xrfdetectorposition"][imageindex,:]
                 if np.isfinite(pos).all():
                     self.qxrfgeometry.setxrfposition(pos)
-                self.infoaxes["xrfdetectorposition"][imageindex,:] = self.qxrfgeometry.getxrfdetectorposition().to('cm**2').magnitude
+                self.infoaxes["xrfdetectorposition"][imageindex,:] = self.qxrfgeometry.getxrfdetectorposition().to('cm').magnitude
                 self.infoaxes["sampledetdistance"][imageindex,:] = self.qxrfgeometry.getxrfdistance().to('cm').magnitude
 
     def _process_xiastackraw(self):
@@ -390,6 +399,10 @@ class Task(nxprocess.Task):
                     values = np.full((self.nstack,self.ndetfit),np.nan,dtype=np.float32)
                     self._add_info_axis('xrfdetectorposition',values=values,defaultunits='cm')
 
+                # Other scan info
+                self.procinfo[axesnames[0]] = parsedheader.get('motslow','')
+                self.procinfo[axesnames[1]] = parsedheader.get('motfast','')
+                
             # Values for stack and info axes:
             # TODO: xrfdetectorposition
             for mot,hkey in stackaxes.items():
@@ -430,7 +443,8 @@ class Task(nxprocess.Task):
     def _add_info_axis(self,name,values=None,defaultunits=None,type=None):
         if values is None:
             values = np.full(self.nstack,np.nan,dtype=np.float32)
-        values = units.Quantity(values,units=self.units.get(name,defaultunits))
+        u = self.units.get(name,defaultunits)
+        values = units.Quantity(values,units=u)
         self.infoaxes[name] = axis.Axis(values,type=type,name=name)
         
     def _getscanparameters(self,header):

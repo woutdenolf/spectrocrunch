@@ -144,7 +144,12 @@ class Task(nxprocess.Task):
         return False
         
     def _prepare_signal(self,signal):
-        return not self._skip(signal)
+        skip = self._skip(signal)
+        if skip:
+            logger.info('skip {}'.format(signal.name))
+        else:
+            logger.info('process {}'.format(signal.name))
+        return not skip
         
     def _process_axes(self):
         return self.signal_axes

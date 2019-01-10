@@ -64,10 +64,11 @@ def AdaptPyMcaConfig_energy(cfg,energy,addhigh):
     if not np.isfinite(energy):
         return
 
+    # Extract source lines
     ind = instance.asarray(cfg["fit"]["energyflag"]).astype(bool)
     norg = len(ind)
     nenergies = ind.sum()+addhigh
-            
+    
     def extract(name,default=np.nan):
         arr = cfg["fit"][name]
         if instance.isarray(arr):
@@ -91,9 +92,11 @@ def AdaptPyMcaConfig_energy(cfg,energy,addhigh):
     cfg_energyflag = extract("energyflag",default=1)
     cfg_energyscatter = extract("energyscatter",default=0)
     
+    # Modify energy
     cfg_energy = cfg_energy/cfg_energy[0]*energy
     cfg_energyweight = cfg_energyweight/cfg_energyweight[0]
     
+    # Add missing lines
     for i in range(nenergies):
         if not np.isfinite(cfg_energy[i]):
             if i==0:
@@ -106,6 +109,16 @@ def AdaptPyMcaConfig_energy(cfg,energy,addhigh):
             else:
                 cfg_energyweight[i] = 1e-10
 
+    # Remove extract line when it was already there
+    if addhigh:
+        if cfg_energyweight[-2]/cfg_energyweight[0] < 1e-5 and cfg_energy[-2]>energy:
+            nenergies -= 1
+            cfg_energy = cfg_energy[:-1]
+            cfg_energyweight = cfg_energyweight[:-1]
+            cfg_energyflag = cfg_energyflag[:-1]
+            cfg_energyscatter = cfg_energyscatter[:-1]
+    
+    # List with original size
     def reset(arr,default=0):
         arr = arr.tolist()
         if len(arr)<norg:

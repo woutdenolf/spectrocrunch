@@ -40,7 +40,8 @@ logger = logging.getLogger(__name__)
 class Converter(object):
     
     def __init__(self, h5file=None, nxentry=None, qxrfgeometry=None, include_counters=None,
-                 exclude_counters=None, diodeI0=None, diodeIt=None, mcasum=True, **parameters):
+                 exclude_counters=None, diodeI0=None, diodeIt=None, dtype=np.float32,**parameters):
+        self.dtype = dtype
         if nxentry:
             if not isinstance(nxentry,nxfs.Path):
                 if h5file is None:
@@ -69,7 +70,6 @@ class Converter(object):
             self._diodeIt = diodeIt
         else:
             self._diodeIt = 'It'
-        self._mcasum = mcasum
         self._reset()
     
     def _reset(self):
@@ -99,7 +99,8 @@ class Converter(object):
         
     @property
     def measurement(self):
-        return self.nxentry.measurement()
+        # NXdata or NXcollection
+        return self.nxentry.measurement(nxclass='NXdata')
 
     @property
     def nxinstrument(self):
@@ -121,7 +122,7 @@ class Converter(object):
     
     @property
     def application(self):
-        return self.nxentry.application('application:xrf',definition='NXxrf')
+        return self.nxentry.application('xrf',definition='NXxrf')
     
     @property
     def instrument(self):
@@ -191,11 +192,20 @@ class Converter(object):
         
     @property
     def preset_time(self):
-        return self.header['time'].to('s')
+        return self.normalize_quantity(self.header['time'],'s')
 
     @property
     def energy(self):
-        return self.header['energy']
+        return self.normalize_quantity(self.header['energy'],'keV')
+
+    def normalize_quantity(self,x,u):
+        return units.astype(x.to(u),self.dtype)
+
+    def add_measurement(self,measurement,name,data=None,units=None):
+        if measurement.is_nxclass('NXdata'):
+            return measurement.add_signal(name=name,data=data,units=units)
+        else:
+            return measurement[name].mkfile(data=data,units=units)
 
     def _parse_counters(self):
         measurement = self.measurement
@@ -210,7 +220,7 @@ class Converter(object):
             else:
                 ctrpathname = ctrname
                 detname = 'counters'
-            ctrpath = measurement[ctrpathname].mkfile(data=counters[...,i,0])
+            ctrpath = self.add_measurement(measurement,ctrpathname,data=counters[...,i,0])
             interp = interpretation.get(ctrname,None)
             if interp:
                 self._counter_paths[detname][interp] = ctrpath
@@ -239,7 +249,8 @@ class Converter(object):
         positioners = self.positioners
         axes = self.header['axes']
         for ax in axes:
-            positioners.add_axis(ax.name,ax.values,title=ax.title)
+            values = self.normalize_quantity(ax.values,ax.units)
+            positioners.add_axis(ax.name,values,title=ax.title)
         
     def _parse_xiastats(self):
         measurement = self.measurement
@@ -249,8 +260,15 @@ class Converter(object):
         units = self.instrument.units
         
         if self._qxrfgeometry is not None:
-            distance = self._qxrfgeometry.getxrfdistance().to('cm')
-            activearea = self._qxrfgeometry.getxrfactivearea().to('cm^2')
+            energy = self.energy.to('keV').magnitude
+            op,preset_time = self._qxrfgeometry.I0op(energy,expotime=preset_time)
+            application['i0_to_flux_factor'].mkfile(data=self.normalize_quantity(op.m,'Hz'))
+            application['i0_to_flux_offset'].mkfile(data=self.normalize_quantity(op.b,'Hz'))
+            op,preset_time = self._qxrfgeometry.Itop(energy,expotime=preset_time)
+            application['it_to_flux_factor'].mkfile(data=self.normalize_quantity(op.m,'Hz'))
+            application['it_to_flux_offset'].mkfile(data=self.normalize_quantity(op.b,'Hz'))
+            distance = self.normalize_quantity(self._qxrfgeometry.getxrfdistance(),'cm')
+            activearea = self.normalize_quantity(self._qxrfgeometry.getxrfactivearea(),'cm^2')
         
         for i,detname in enumerate(self._xiaobject.detectors_used):
             mcaname = 'mca'+detname
@@ -259,13 +277,13 @@ class Converter(object):
             lt = counter_paths['lt']
             rt = counter_paths['rt']
             if lt is None or rt is None:
-                events = self.stats[...,self._xiaobject.STEVT,i].astype(np.float32)
+                events = self.stats[...,self._xiaobject.STEVT,i].astype(self.dtype)
 
             if lt is None:
                 with np.errstate(divide='ignore', invalid='ignore'):
-                    lt = events/self.stats[...,self._xiaobject.STICR,i]
+                    lt = events/self.stats[...,self._xiaobject.STICR,i].astype(self.dtype)
                 lt[~np.isfinite(lt)] = 0
-                lt = measurement['live_time_'+detname].mkfile(data=lt,units='s')
+                lt = self.add_measurement(measurement,'live_time_'+detname,data=lt,units='s')
             else:
                 u = units.get(lt.name,None)
                 if u is not None:
@@ -273,28 +291,20 @@ class Converter(object):
             
             if rt is None:
                 with np.errstate(divide='ignore', invalid='ignore'):
-                    rt = events/self.stats[...,self._xiaobject.STOCR,i]
+                    rt = events/self.stats[...,self._xiaobject.STOCR,i].astype(self.dtype)
                 rt[~np.isfinite(rt)] = np.nan
-                rt = measurement['elapsed_time_'+detname].mkfile(data=rt,units='s')
+                rt = self.add_measurement(measurement,'elapsed_time_'+detname,data=rt,units='s')
             else:
                 u = units.get(rt.name,None)
                 if u is not None:
                     rt.update_stats(units=u)
                     
-            nxgroup = application[mcaname].mkdir()
+            nxgroup = application.nxcollection(mcaname)
             nxgroup['live_time'].link(lt)
             nxgroup['elapsed_time'].link(rt)
             if self._qxrfgeometry is not None:
-                energy = self.energy.to('keV').magnitude
-                op,preset_time = self._qxrfgeometry.I0op(energy,expotime=preset_time)
-                nxgroup['i0_to_flux_factor'].mkfile(data=op.m.to('Hz'))
-                nxgroup['i0_to_flux_offset'].mkfile(data=op.b.to('Hz'))
-                op,preset_time = self._qxrfgeometry.Itop(energy,expotime=preset_time)
-                nxgroup['it_to_flux_factor'].mkfile(data=op.m.to('Hz'))
-                nxgroup['it_to_flux_offset'].mkfile(data=op.b.to('Hz'))
                 nxgroup['distance'].mkfile(data=distance[i])
                 nxgroup['active area'].mkfile(data=activearea[i])
-                
             nxgroup['preset_time'].mkfile(data=preset_time)
             
         measurement.updated()
@@ -337,9 +347,7 @@ class Converter(object):
 
     def _copy_mca(self,nxdetector):
         copyindex,copymsg = self._copy_indexing()
-        
         mcasum = None
-        
         if len(copyindex)>2:
             logger.warning(copymsg)
             shape = self._xiaobject.dshape[:-1]
@@ -361,6 +369,7 @@ class Converter(object):
             nxdetector['data'].mkfile(data=mca,chunks=True)
             #mcasum = mca.sum(axis=-1)
 
+        nxdetector['data'].update_stats(interpretation='spectrum')
         nxdetector.updated()
         return nxdetector['data'],mcasum
         
@@ -377,18 +386,23 @@ class Converter(object):
             path,mcasum = self._copy_mca(nxdetector)
             # Add link in application subentry
             nxgroup = application[mcaname].mkdir()
-            nxgroup['counts'].link(path)
+            nxgroup[path.name].link(path)
             # Add MCA sum signal
             if mcasum is not None:
-                path = measurement['mca_sum'].mkfile(data=mcasum)
+                path = self.add_measurement(measurement,'mca_sum',data=mcasum)
                 if mcasum.ndim==2:
                     path.update_stats(interpretation='image')
         nxinstrument.updated()
 
     def _add_plots(self):
-        nxdata = self.nxentry.nxdata(nxfs.DEFAULT_PLOT_NAME)
+        measurement = self.measurement
+        if measurement.is_nxclass('NXdata'):
+            nxdata = measurement
+        else:
+            nxdata = self.nxentry.nxdata(nxfs.DEFAULT_PLOT_NAME)
         axes = [ax.name for ax in self.header['axes']]
         nxdata.set_axes(*axes)
-        for path in self.measurement:
-            nxdata.add_signal(path=path)
+        if nxdata!=measurement:
+            for path in self.measurement:
+                nxdata.add_signal(path=path)
         nxdata.mark_default()
