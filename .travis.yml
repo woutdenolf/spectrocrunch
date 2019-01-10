@@ -17,6 +17,8 @@ matrix:
       os: linux
     - python: 3.6
       os: linux
+    - python: 3.7
+      os: linux
     - language: generic
       os: osx
 
@@ -76,5 +78,6 @@ script:
   # Test the installed package
   - cd $HOME
   - #python -m ${PROJECTNAME}.tests.test_all --log=error
+  - PYOPENCL_COMPILER_OUTPUT=1
   - python -m unittest -v ${PROJECTNAME}.tests.test_all.test_suite
 
