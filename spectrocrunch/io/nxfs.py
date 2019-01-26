@@ -39,8 +39,7 @@ from . import h5fs
 from ..utils import units
 from ..utils import instance
 from ..utils import hashing
-from ..utils import incremental_naming
-from ..io.utils import randomstring
+from . import target
 from .. import __version__
 
 PROGRAM_NAME = 'spectrocrunch'
@@ -101,14 +100,6 @@ def parse_timestamp(tm):
         pass
     return tm
 
-def calc_checksum(dependencies,confighash):
-    if dependencies:
-        hashes = [prev.checksum for prev in dependencies]
-    else:
-        hashes = []
-    hashes.append(confighash)
-    return hashing.mergejhash(*hashes)
-
 
 class Path(h5fs.Path):
        
@@ -130,10 +121,13 @@ class Path(h5fs.Path):
         stats = {k:dataprepare(v) for k,v in stats.items()}
         super(Path,self).update_stats(**stats)
     
+    @property
+    def factorycls(self):
+        return Path
+        
     def factory(self,path):
         if not isinstance(path,h5fs.Path):
             path = super(Path,self).factory(path)
-            
         cls = None
         nxclass = path.nxclass
         if nxclass=='NXdata':
@@ -149,7 +143,6 @@ class Path(h5fs.Path):
                 cls = _Positioners
             else:
                 cls = _NXcollection
-
         if cls is None:
             return path
         else:
@@ -170,7 +163,7 @@ class Path(h5fs.Path):
             tm = timestamp()
             for path in self.iterup_is_nxclass('NXentry','NXsubentry'):
                 path['end_time'].write(mode='w',data=tm)
-            for path in self.iterup_is_nxclass('NXprocess'):
+            for path in self.iterup_is_nxclass('NXprocess','NXnote'):
                 path['date'].write(mode='w',data=tm)
             self.nxroot().update_stats(file_update_time=tm)
     
@@ -356,7 +349,7 @@ class Path(h5fs.Path):
         if entry is None:
             name = 'entry0001'
         else:
-            name = incremental_naming.Name(entry.name)
+            name = target.Name(entry.name)
             parent = entry.parent
             while parent[str(name)].exists:
                 name += 1
@@ -413,7 +406,7 @@ class Path(h5fs.Path):
         path = entry[name]
         if path.exists:
             if path.is_nxclass('NXprocess') and not noincrement:
-                name = incremental_naming.Name(name)
+                name = target.Name(name)
                 while entry[str(name)].exists:
                     name += 1
                 name = str(name)
@@ -443,13 +436,14 @@ class Path(h5fs.Path):
             Path or None
         """
         if name:
-            match = incremental_naming.match(name)
+            match = target.match(name)
         else:
             match = lambda x:True
-        checksum = calc_checksum(dependencies,hashing.calcjhash(parameters))
-        for process in self.iter_nxprocess(searchallentries=searchallentries):    
-            if process.verify_checksum(checksum) and match(process.name):
-                return process
+        checksum = target.calc_checksum(dependencies,hashing.calcjhash(parameters))
+        for process in self.iter_nxprocess(searchallentries=searchallentries):
+            if match(process.name): 
+                if process.verify_checksum(checksum):
+                    return process
         return None
     
     def _nxfiles_nxprocess(self):
@@ -607,7 +601,7 @@ class _NXprocess(_NXPath):
         with self._verify():
             checksum = self.configpath.get_stat('checksum')
             if checksum is None:
-                checksum = calc_checksum(self.dependencies,self.confighash)
+                checksum = target.calc_checksum(self.dependencies,self.confighash)
             return checksum
                 
     @property
@@ -640,28 +634,33 @@ class _NXnote(_NXPath):
     
     NX_CLASS = 'NXnote'
 
+    @property
+    def mimetype(self):
+        if self['type'].exists:
+            return self['type'].read()
+        else:
+            return 'text/plain'
+
     def read(self,parse=True):
         with self._verify():
-            with self['data'].open(mode='r') as node:
-                data = node[()]
-                if parse:
-                    mimetype = node.attrs.get('type','text/plain')
-                    if mimetype=='application/json':
-                        data = json.loads(data)
-                return data
+            data = self['data'].read()
+            if parse:
+                if self.mimetype=='application/json':
+                    data = json.loads(data)
+            return data
             
     def _write(self,data,mimetype):
         with self._verify():
-            with self['data'].open(data=data) as node:
-                node.attrs['type'] = dataprepare(mimetype)
-            
+            self['type'].mkfile(data=mimetype)
+            path = self['data'].mkfile(data=data)
+
     def write_text(self,text):
         with self._verify():
-            self._write(dataprepare(text),'text/plain')
+            self._write(text,'text/plain')
     
     def write_dict(self,dic):
         with self._verify():
-            self._write(dataprepare(json.dumps(dic)),'application/json')
+            self._write(json.dumps(dic),'application/json')
 
         
 class _NXdata(_NXPath):
@@ -678,15 +677,54 @@ class _NXdata(_NXPath):
                 else:
                     return None
     
-    @property
-    def signal_shape(self):
+    def _signal_props(self, prop, default):
         signal = self.signal
-        if signal is None:
-            return ()
-        else:
+        if signal:
             with signal.open(mode='r') as dset:
-                return dset.shape
+                if prop == 'shape':
+                    return dset.shape
+                elif prop == 'dtype':
+                    return dset.dtype
+                elif prop == 'ndim':
+                    return dset.ndim
+                elif prop == 'size':
+                    return dset.size
+                elif prop == 'interpretation':
+                    interpretation = dset.attrs.get('interpretation', None)
+                    if not interpretation:
+                        interpretation = self._interpretation(dset)
+                    return interpretation
+        return default
+
+    @property
+    def shape(self):
+        return self._signal_props('shape', ())
+
+    @property
+    def dtype(self):
+        return self._signal_props('dtype', None)
+
+    @property
+    def ndim(self):
+        return self._signal_props('ndim', None)
     
+    @property
+    def size(self):
+        return self._signal_props('size', None)
+        
+    @property
+    def interpretation(self):
+        return self._signal_props('interpretation', None)
+
+    def stackdim(self, default=None):
+        interpretation = self.interpretation
+        if interpretation == 'spectrum':
+            return self.ndim-1
+        elif interpretation == 'image':
+            return 0
+        else:
+            return default
+            
     @property
     def signals(self):
         with self._verify():
@@ -714,7 +752,7 @@ class _NXdata(_NXPath):
             # Check dimensions
             ashape = self.axes_shape
             if not ashape:
-                ashape = self.signal_shape
+                ashape = self.shape
             if ashape:
                 if 'shape' in createparams:
                     dshape = tuple(createparams['shape'])
@@ -760,7 +798,7 @@ class _NXdata(_NXPath):
             self.updated()
             return self[name]
     
-    def _interpretation(self,node):
+    def _interpretation(self, node):
         ndim = node.ndim
         if ndim==0:
             return 'scalar'
@@ -768,7 +806,7 @@ class _NXdata(_NXPath):
             return 'spectrum'
         else:
             return 'image'
-    
+
     def default_signal(self,name):
         with self._verify():
             with self.open() as node:
@@ -778,12 +816,10 @@ class _NXdata(_NXPath):
                                     node.attrs.get("auxiliary_signals",[]))
                 if name not in signals:
                     return False
-                                    
                 aux = dataprepare([signal for signal in signals if signal!=name])
                 if aux.size:
                     node.attrs["auxiliary_signals"] = aux
                 node.attrs["signal"] = dataprepare(name)
-    
             self.updated()
         return True
         
@@ -832,7 +868,7 @@ class _NXdata(_NXPath):
                 axes,positioners = self._axes_parse(axes)
 
                 # Check dimensions
-                dshape = self.signal_shape
+                dshape = self.shape
                 if dshape:
                     ashape = tuple(self._axis_size(name,value,positioners) for name,value,_ in axes)
                     if dshape!=ashape:
@@ -1012,3 +1048,6 @@ class _NXmonochromator(_NXPath):
         with self._verify():
             self['energy'].mkfile(data=units.Quantity(value,'keV'))
 
+
+def factory(path,**params):
+    return Path(path,**params).factory(path)

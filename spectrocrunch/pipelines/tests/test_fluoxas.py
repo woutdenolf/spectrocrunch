@@ -441,7 +441,7 @@ class test_fluoxas(unittest.TestCase):
                                                                     for det in expectedgroups_data\
                                                                     for mapnum in range(nmaps)\
                                                                     for linenum in range(nlines)]
-                    xrfspectra_subdir = os.path.join('external','{}_pymca.1'.format(radix),'xrfspectra')
+                    xrfspectra_subdir = os.path.join('{}_pymca.1'.format(radix),'xrfspectra')
                     destpath.compare(sorted(expected),path=xrfspectra_subdir,files_only=True,recursive=False)
                 else:
                     radixout = radix
@@ -464,13 +464,13 @@ class test_fluoxas(unittest.TestCase):
                         expected.extend(["{}_xia{}_{:04d}_0000.cfg".format(radixout,det,mapnum,label)\
                                                                         for det in expectedgroups_data\
                                                                         for mapnum in range(nmaps)])
-                    fitresults_subdir = os.path.join('external','{}_pymca.1'.format(radix),'pymcaresults')
+                    fitresults_subdir = os.path.join('{}_pymca.1'.format(radix),'pymcaresults')
                     destpath.compare(sorted(expected),path=fitresults_subdir,files_only=True,recursive=False)
 
                 # Check top-level output directory (h5 files)
                 expected = []
                 if cfgfiles or newspectra:
-                    expected.append('external')
+                    expected.append('{}_pymca.1'.format(radix))
                 h5file = "{}.h5".format(radix)
                 expected.append(h5file)
                 destpath.compare(sorted(expected),files_only=True,recursive=False)
@@ -482,7 +482,7 @@ class test_fluoxas(unittest.TestCase):
                 self.assertEqual(nxprocess.name,expected_nxprocess[-1])
 
                 # Check NXdata groups
-                groups, axes = nxresult.regulargriddata(nxprocess)
+                groups, axes, stackdim = nxresult.regulargriddata(nxprocess)
                 self.assertEqual(set(groups.keys()),expectedgroups_result)
                 for group,signals in groups.items():
                     if group == 'counters':

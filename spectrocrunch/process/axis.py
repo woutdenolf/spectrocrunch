@@ -23,11 +23,42 @@
 # THE SOFTWARE.
 
 import sys
+import difflib
 import numpy as np
 import pandas as pd
 from ..utils import units
 from ..utils import instance
 from ..utils import listtools
+
+
+def arg_closest_num(arr, value, check):
+    if check(value):
+        return value
+    else:
+        return np.argmin(np.abs(arr-value))
+
+
+def arg_closest_string(arr, value, check):
+    if check(value):
+        return value
+    else:
+        s = difflib.SequenceMatcher()
+        s.set_seq2(value)
+        j, ratio = 0, 0
+        for i,x in enumerate(arr):
+            s.set_seq1(x)
+            iratio = s.ratio()
+            if iratio > ratio:
+                j, ratio = i, iratio
+        return j
+
+
+def arg_index(arr, value, check):
+    if check(value):
+        return value
+    else:
+        return arr.index(value)
+
 
 class Axis(object):
 
@@ -38,7 +69,6 @@ class Axis(object):
             #nominal: unordered categorical
             #ordinal: ordered categorical
             #temporal: date/time
-            
         self.type = type
         self.name = name
         self.title = title
@@ -81,7 +111,14 @@ class Axis(object):
         if self.type!='quantitative':
             raise RuntimeError('{} axis has no units'.format(self.type))
         self.values.ito(value)
-    
+
+    @property
+    def unit_suffix(self):
+        if self.units:
+            return '({:~})'.format(self.units)
+        else:
+            return ''
+
     @property
     def name(self):
         if self._name:
@@ -99,8 +136,8 @@ class Axis(object):
             title = self._title
         else:
             title = self.name
-        if self.units:
-            suffix = '({:~})'.format(self.units)
+        suffix = self.unit_suffix
+        if suffix:
             if suffix not in title:
                 title = '{} {}'.format(title,suffix)
         return title
@@ -136,7 +173,11 @@ class Axis(object):
         self._values = params
         if self.type == 'quantitative':
             self._values = units.asqarray(self._values)
-                
+    
+    @property
+    def dtype(self):
+        return self.values.dtype
+    
     @property
     def start(self):
         return self.values[0]
@@ -178,7 +219,7 @@ class Axis(object):
         return "{}({})".format(self.name,len(self))
 
     def __eq__(self,other):
-        if self.size!=other.size:
+        if self.size != other.size:
             return False
         if self.type=='quantitative':
             diff = max(abs(self.magnitude-other.umagnitude(self.units)))
@@ -190,47 +231,69 @@ class Axis(object):
     def __ne__(self,other):
         return not self.__eq__(other)
 
-    def _extract_magnitude(self,values):
-        if values is None:
-            return None
-        elif instance.isquantity(values):
+    def _extract_magnitude(self, values):
+        if instance.isquantity(values):
             return units.umagnitude(values,units=self.units)
-        elif isinstance(values,Axis):
+        elif isinstance(values, Axis):
             return values.umagnitude(self.units)
         else:
             return values
             
-    def locate(self,values):
-        xnew = self._extract_magnitude(values)
-
-        if xnew is None:
+    def locate(self, values, detectindex=False):
+        """
+        Get indices of values:
+         None: entire range slice(None)
+         string: position of closest string
+         integer and detectindex==True: position of closest value when Axis are not integers
+         float: position closest value
+        
+        Args:
+            values(array or num or None):
+            detectindex(bool):
+        Returns:
+            list(int)|int: indices of values
+        """
+        if values is None:
             return slice(None)
-
+        
+        # Axis values (always an array)
         xold = self.magnitude
-        if instance.isarray(xnew):
-            if self.type=='quantitative':
-                return [np.argmin(np.abs(xold-v)) for v in iter(xnew)]
-            else:
-                return [i for v1 in iter(xnew) for i,v2 in enumerate(xold) if v1==v2]
+        if self.type == 'quantitative':
+            func = arg_closest_num
+        elif instance.isstring(xold[0]):
+            func = arg_closest_string
         else:
+            func = arg_index
+            try:
+                xold = xold.tolist()
+            except AttributeError:
+                pass
+        
+        isindex = lambda v: False
+        if detectindex:
             if self.type=='quantitative':
-                return np.argmin(np.abs(xold-xnew))
-            else:
-                lst = [i for i,v2 in enumerate(xold) if xnew==v2]
-                n = len(lst)
-                if n==0:
-                    return None
-                elif n==1:
-                    return lst[0]
-                else:
-                    return lst
+                if instance.isinteger(xold[0]):
+                    isindex = lambda v: instance.isinteger(v)
+        
+        xnew = self._extract_magnitude(values)
+        if instance.isarray(xnew):
+            if instance.isstring(xnew[0]):
+                func = arg_closest_string
+                xold = list(map(str,xold))
+            elif instance.isstring(xold[0]):
+                xnew = list(map(str,xnew))
+            return [func(xold, v, isindex) for v in xnew]
+        else:
+            if instance.isstring(xnew):
+                func = arg_closest_string
+                xold = list(map(str,xold))
+            return func(xold, xnew, isindex)
 
-    def interpolate(self,values):
+    def interpolate(self, values):
         """Get old and new axes values for interpolation
         """
         xold = self.magnitude
         xnew = self._extract_magnitude(values)
-        
         if self.type=='quantitative':
             if xold[1]<xold[0]:
                 # Reverse axis
@@ -249,13 +312,20 @@ class Axis(object):
                 return ind,ind
             else:
                 indnew = []
-                xnew = instance.asarray(xnew)
-                xold = instance.asarray(xold).tolist()
+                if not instance.isarray(xnew):
+                    xnew = [xnew]
+                if instance.isarray(xold):
+                    try:
+                        xold = xold.tolist()
+                    except AttributeError:
+                        pass
+                else:
+                    xold = [xold]
                 for x in xnew:
                     indnew.append(xold.index(x))
                 return ind,indnew
 
-    def to(self,u):
+    def to(self, u):
         if self.type!='quantitative':
             raise RuntimeError('{} axis has no units'.format(self.type))
         ret = self.__class__(*self.initargs,**self.initkwargs)
@@ -595,11 +665,11 @@ class AxisSegments(Axis):
         return self._nsteps
 
     @nsteps.setter
-    def nsteps(self,values):
+    def nsteps(self, values):
         self.values = self.limits,values
 
     @staticmethod
-    def mergeargs(limits,nsteps):
+    def mergeargs(limits, nsteps):
         nsteps = np.asarray(nsteps).tolist()+[None]
         return tuple(list(listtools.flatten(zip(limits,nsteps)))[:-1])
     
@@ -608,7 +678,7 @@ class AxisSegments(Axis):
         return len(self._nsteps)
         
     @Axis.values.setter
-    def values(self,params):
+    def values(self, params):
         limits,nsteps = params
         if len(limits)!=len(nsteps)+1:
             raise ValueError("Number of segments does not match the number of limits")

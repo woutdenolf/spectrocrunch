@@ -38,13 +38,23 @@ from ..io import nxfs
 
 class NXSignalRegularGrid(RegularGrid):
     
-    def __init__(self,signal,stackdim=None):
+    def __init__(self, signal, stackdim=None):
         nxdata = signal.parent
         axes = [axis.factory(values,name=name,title=attrs['title'],type='quantitative')
                 for name,values,attrs in nxdata.axes]
         self.signal = signal
-        super(NXSignalRegularGrid,self).__init__(axes,None,stackdim=stackdim)
+        super(NXSignalRegularGrid,self).__init__(axes, None, stackdim=stackdim)
+        
+        stackdim_prev = nxdata.stackdim(default=self.DEFAULT_STACKDIM)
+        stackdim = self.stackdim
+        if stackdim<=stackdim_prev:
+            stackdim_prev += 1
+        self._stack_dims = [self.stackdim, stackdim_prev]
     
+    @property
+    def stack_dims(self):
+        return self._stack_dims
+        
     @contextmanager
     def open(self,**openparams):
         with self.signal.open(**openparams) as dset:
@@ -60,14 +70,26 @@ class NXSignalRegularGrid(RegularGrid):
         
 class NXRegularGrid(RegularGrid):
     
-    def __init__(self,nxgroup):
-        groups,axes = nxresult.regulargriddata(nxgroup)
+    def __init__(self, nxgroup, stackdim=None):
+        """
+        Args:
+            nxgroup(nxfs.Path): NXdata or NXprocess
+        """
+        groups, axes, stackdim_prev = nxresult.regulargriddata(nxgroup)
         self.signals = [signal for group in groups.values() for signal in group]
-        stackdim = 0
         axnew = axis.factory(self.signals,type='nominal')
-        axes.insert(stackdim,axnew)
+        if stackdim is None:
+            stackdim = stackdim_prev
+        axes.insert(stackdim, axnew)
         self.nxentry = nxgroup.nxentry()
         super(NXRegularGrid,self).__init__(axes,None,stackdim=stackdim)
+        if stackdim<=stackdim_prev:
+            stackdim_prev += 1
+        self._stack_dims = [stackdim, stackdim_prev]
+
+    @property
+    def stack_dims(self):
+        return self._stack_dims
 
     @contextmanager
     def open(self,**openparams):

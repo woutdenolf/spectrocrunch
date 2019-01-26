@@ -27,11 +27,8 @@ import numpy as np
 import pandas as pd
 import logging
 import os
-import traceback
-import json
 
-from . import basetask
-from . import target
+from . import nxprocess
 from ..visualization import scene
 from ..visualization import scene_view
 from ..visualization import defaultsettings
@@ -130,6 +127,11 @@ def specfilename(info):
     filename = os.path.join(info['sample'],radix,'{}.dat'.format(radix))
     return os.path.join(info['root'],filename)
 
+def h5path(info):
+    root = os.path.join(info["root"],info["sample"]+'.h5')
+    entry = "_".join((info["sample"],info["dataset"]))+'.'+info["scan"]
+    return "{}::/{}/{}".format(root, entry, info["process"])
+    
 def createscene(parameters,output=None):
     parameters = parameters.copy()
     objects = parameters.pop('objects')
@@ -159,20 +161,19 @@ def createscene(parameters,output=None):
         pmin = plotparams.pop('lo',[])
         pmax = plotparams.pop('hi',[])
         
-        if 'h5' in info:
-            filename = h5name(info)
-            groups = h5groups(info)
-            item = scene_view.Nexus(filename,groups,\
+        if 'process' in info:
+            uri = h5path(info)
+            item = scene_view.Nexus(uri,info.get('items',None),
                         plotparams=plotparams,**dataparams)
             
         elif 'spec' in info:
             filename = specname(info)
-            item = scene_view.XanesSpec(filename,info.get('items',None),\
+            item = scene_view.XanesSpec(filename,info.get('items',None),
                         plotparams=plotparams,**dataparams)
 
         elif 'sample' in info:
             filenames = ctrfilenames(info)
-            item = scene_view.ZapRoiMap(filenames,\
+            item = scene_view.ZapRoiMap(filenames,info.get('items',None),
                         plotparams=plotparams,**dataparams)
 
         else:
@@ -210,33 +211,10 @@ def createscene(parameters,output=None):
     closefigures()
 
 
-class Task(basetask.Task):
+class Task(nxprocess.Task):
     """Create scene image
     """
     
-    def __init__(self,**kwargs):
-        super(Task,self).__init__(**kwargs)
-        self._final_output = target.TargetFSArray(self.outputparent,self.outputname,['.png','.json'])
-        self._temp_output = None
-        
-    @property
-    def output(self):
-        return self._final_output
-    
-    def _atomic_context_enter(self):
-        self._temp_output = {ext:self.outputparent[self._tempname+ext] for ext in ['.png','.json']}
-
-    def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
-        if exc_type:
-            logger.error(''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
-            for path in self._temp_output.values():
-                path.remove(recursive=True)
-        else:
-            for ext,path in self._temp_output.items():
-                path.renameremove(self._final_output[ext])
-        self._temp_output = None
-        return 1 # Exception is handled (do not raise it)
-        
     def _parameters_defaults(self):
         super(Task,self)._parameters_defaults()
         self._required_parameters('objects')
@@ -245,8 +223,14 @@ class Task(basetask.Task):
         return []
         
     def _execute(self):
-        parameters = self.parameters
-        createscene(parameters,self._temp_output['.png'].path)
-        with self._temp_output['.json'].open(mode='w') as outfile:
-            json.dump(parameters, outfile)
+        createscene(self.parameters,self.temp_localpath.path)
+    
+    @property
+    def temp_localpath(self):
+        path = super(Task,self).temp_localpath
+        return path.parent[path.name+'.png']
         
+    @property
+    def output_localpath(self):
+        path = super(Task,self).output_localpath
+        return path.parent[path.name+'.png']

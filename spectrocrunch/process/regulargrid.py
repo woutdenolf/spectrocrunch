@@ -144,3 +144,11 @@ class RegularGrid(object):
         axes = [axold.interpolate(axnew) for axold,axnew in zip(self.axes,axes)]
         axold,axnew = zip(*axes)
         return interpolate_regular(self,axold,axnew,**kwargs)
+
+    @property
+    def stack_dims(self):
+        return [self.stackdim]
+
+    @property
+    def other_dims(self):
+        return [i for i in range(self.ndim) if i not in self.stack_dims]

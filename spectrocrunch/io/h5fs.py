@@ -287,11 +287,12 @@ class Path(fs.Path):
         super(Path,self).__init__(**kwargs)
     
     def factory(self,path):
-        if isinstance(path,self.__class__):
+        cls = self.factorycls
+        if isinstance(path,cls):
             return path
         else:
             device,path = self._split_path(path,device=self.device)
-            return self.__class__(path,h5file=device,**self.factory_kwargs)
+            return cls(path,h5file=device,**self.factory_kwargs)
     
     @property
     def openparams(self):

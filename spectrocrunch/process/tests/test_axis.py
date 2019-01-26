@@ -65,18 +65,18 @@ class test_axis(unittest.TestCase):
         np.testing.assert_array_equal(ax5.limits,ax7.limits)
     
     def test_locate(self):
-        ax = axis.factory(units.Quantity(np.arange(10),units='um'))
-        self.assertEqual(ax.locate(2),2)
-        np.testing.assert_array_equal(ax.locate([2,5]),[2,5])
+        ax = axis.factory(units.Quantity(np.arange(10)+1,units='um'))
+        self.assertEqual(ax.locate(2),1)
+        np.testing.assert_array_equal(ax.locate([2,5]),[1,4])
         self.assertEqual(ax.locate(-10),0)
-        ax2 = axis.factory(units.Quantity((np.arange(10)+5)/1000.,units='mm'))
+        ax2 = axis.factory(units.Quantity((np.arange(10)+6)/1000.,units='mm'))
         self.assertEqual(ax.locate(ax2),list(range(5,10))+[9]*5)
         
-        ax = axis.factory(['a','b','c'],type='nominal')
-        self.assertEqual(ax.locate('b'),1)
-        self.assertEqual(ax.locate(['b','a']),[1,0])
-        self.assertEqual(ax.locate('d'),None)
-        self.assertEqual(ax.locate(['d','e']),[])
+        ax = axis.factory(['list','tuple','set'],type='nominal')
+        self.assertEqual(ax.locate('tuple'),1)
+        self.assertEqual(ax.locate(['tuple','list']),[1,0])
+        self.assertEqual(ax.locate('se'),2)
+        self.assertEqual(ax.locate(['se','ist']),[2,0])
 
     def test_interpolate(self):
         ax = axis.factory(units.Quantity(np.arange(10),units='um'))

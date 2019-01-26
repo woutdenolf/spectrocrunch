@@ -24,6 +24,7 @@
 
 from . import scene
 from . import scene_data
+from ..io import nxfs
 
 import collections
 import pandas as pd
@@ -54,18 +55,18 @@ class Text(scene.Text):
 
         super(Text,self).updatedata(self.datahandle.coordinates0,\
                                 self.datahandle.coordinates1,**params)
-        
-        
+
+
 class ZapRoiMap(Image):
 
-    def __init__(self,filenames,plotparams=None,**dataparams):
+    def __init__(self, filenames, items, plotparams=None, **dataparams):
         """
         Args:
             filename(str|list(str)): list of edf file names
         """
         if plotparams is None:
             plotparams = {}
-        self.datahandle = scene_data.EDFStack(filenames,**dataparams)
+        self.datahandle = scene_data.EDFStack(filenames, items, **dataparams)
         
         index = plotparams.pop("channels",None)
         data,channels,labels = self.datahandle.displaydata(index=index)
@@ -78,19 +79,19 @@ class ZapRoiMap(Image):
         super(ZapRoiMap,self).__init__(data,lim0=self.datahandle.axis0values[[0,-1]],\
                                             lim1=self.datahandle.axis1values[[0,-1]],\
                                             **plotparams)
-    
-    
+
+
 class Nexus(Image):
 
-    def __init__(self,filename,groups,plotparams=None,**dataparams):
+    def __init__(self, nxgroup, items, plotparams=None, **dataparams):
         """
         Args:
-            filename(str): h5 file name
-            groups(list(dict)): {"path":str,"ind":int}
+            nxgroup(str): NXdata or NXprocess
+            items: list(str)
         """
         if plotparams is None:
             plotparams = {}
-        self.datahandle = scene_data.NexusStack(filename,groups,**dataparams)
+        self.datahandle = scene_data.NexusStack(nxfs.factory(nxgroup), items, **dataparams)
         
         self.index = plotparams.pop("channels",None)
         data,channels,labels = self.datahandle.displaydata(index=self.index)
@@ -101,10 +102,10 @@ class Nexus(Image):
         plotparams["axis1name"] = plotparams.get("axis1name",self.datahandle.axis1name)
 
         super(Nexus,self).__init__(data,lim0=self.datahandle.axis0values[[0,-1]],\
-                                            lim1=self.datahandle.axis1values[[0,-1]],\
-                                            **plotparams)
-    
-    
+                                        lim1=self.datahandle.axis1values[[0,-1]],\
+                                        **plotparams)
+
+
 class XanesSpec(Text):
 
     def __init__(self,filenames,specnumbers,plotparams=None,**dataparams):

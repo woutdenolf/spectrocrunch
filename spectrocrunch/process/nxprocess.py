@@ -27,43 +27,16 @@ import traceback
 
 from . import nxutils
 from . import basetask
-from . import target
+from ..io import target
 from ..io import nxfs
 from ..io import fs
 from ..io.utils import randomstring
-from ..utils import incremental_naming
 
 logger = logging.getLogger(__name__)
 
 class Task(basetask.Task):
     """Task who's output is a single self.temp_nxprocess
     """
-
-    def __init__(self,**kwargs):
-        super(Task,self).__init__(**kwargs)
-        self._init_outputname()
-
-    def _init_outputname(self):
-        self._outputname = incremental_naming.Name(self.parameters['name'])
-        
-    def _update_output_name(self):
-        entry = self.outputparent
-        process = entry.find_nxprocess(name=self.outputname,parameters=self.parameters,
-                                       dependencies=self.dependencies,searchallentries=False)
-        if process is None:
-            while entry[self.outputname].exists:
-                self._outputname += 1
-        else:
-            self._outputname = incremental_naming.Name(process.name)
-            
-    @property
-    def output(self):
-        self._update_output_name()
-        return self.outputparent[self.outputname]
-    
-    @property
-    def outputname(self):
-        return str(self._outputname)
         
     def _parameters_filter(self):
         return super(Task,self)._parameters_filter()+['default']
@@ -82,15 +55,43 @@ class Task(basetask.Task):
                 pass # already exists
             else:
                 break
+    
+    @property
+    def outputname(self):
+        outputname = target.Name(self.parameters['name'])
+        entry = self.outputparent
+        if not entry.exists:
+            return str(outputname)
+        process = entry.find_nxprocess(name=str(outputname),parameters=self.parameters,
+                                       dependencies=self.dependencies,searchallentries=False)
+        if process is None:
+            while entry[str(outputname)].exists:
+                outputname += 1
+        else:
+            outputname = target.Name(process.name)
+        return str(outputname)
         
     @property
     def temp_nxresults(self):
         return self.temp_nxprocess.results
         
     @property
-    def temp_name(self):
+    def temp_outputname(self):
         return self.temp_nxprocess.name
+    
+    @property
+    def localpath(self):
+        return self.outputparent.device.parent
         
+    @property
+    def temp_localpath(self):
+        return self.localpath[self.temp_outputname]
+    
+    @property
+    def output_localpath(self):
+        name = self.outputparent.name + '_' + self.outputname
+        return self.localpath[name]
+    
     def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
         if exc_type:
             logger.error(''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
@@ -103,13 +104,22 @@ class Task(basetask.Task):
 
     def removeoutput(self):
         self.temp_nxprocess.remove(recursive=True)
+        self.temp_localpath.remove(recursive=True)
     
     def renameoutput(self):
-        self._init_outputname()
         while self.temp_nxprocess.exists:
             try:
-                self.temp_nxprocess.rename(self.output)
+                old, new = self.temp_nxprocess, self.output
+                old.rename(new)
             except fs.AlreadyExists:
                 if self.output.exists:
                     # Already done by someone else
                     self.removeoutput()
+            else:
+                logger.info('Rename {} to {}'.format(old, new))
+        old = self.temp_localpath
+        if old.exists:
+            new = self.output_localpath
+            old.move(new, force=True)
+            logger.info('Rename {} to {}'.format(old, new))
+            
