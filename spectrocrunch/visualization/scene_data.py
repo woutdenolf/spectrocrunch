@@ -25,13 +25,14 @@
 from ..io import spec
 from ..io import nexus
 from ..io import edf
+from ..io import fs
 from ..patch.pint import ureg
 from ..utils import instance
 from ..utils import units
 from ..utils import listtools
 from ..instruments import configuration
 from ..process.edfregulargrid import EDFRegularGrid
-from ..process.nxresult import regulargriddata
+from ..process.h5regulargrid import NXRegularGrid
 
 import numpy as np
 import warnings
@@ -96,35 +97,71 @@ class PointBase(Base):
         
 class ImageBase(Base):
 
-    def __init__(self,grid,**kwargs):
+    def __init__(self, grid, items=None, **kwargs):
         self.instrument = configuration.getinstrument(kwargs)
         self.grid = grid
-        axis0name = self.grid.axes[1].name
-        axis1name = self.grid.axes[2].name
-        if self.transpose:
-            axis0name,axis1name = axis1name,axis0name
+        self.set_items(items)
+        axis0name, axis1name = [ax.name for ax in self._grid_image_axes]
         kwargs['axis0name'] = kwargs.get('kwargs',axis0name).upper()
         kwargs['axis1name'] = kwargs.get('kwargs',axis1name).upper()
         kwargs['instrument'] = self.instrument
         super(ImageBase,self).__init__(**kwargs)
     
-    @property
-    def transpose(self):
-        ax0 = self.grid.axes[0][0]
-        if ax0 not in self.instrument.imageaxes:
-            return False
+    def set_items(self, items):
+        idxgrid = [slice(None)]*self.grid.ndim
+        stackdim = self.grid.stackdim
+        stackaxis = self.grid.axes[stackdim]
+        suffix = stackaxis.unit_suffix
+        stack_dims = self.grid.stack_dims
+        item_indices = []
+        item_labels = []
+        if items is None:
+            for i, label in enumerate(stackaxis):
+                idxgrid[stackdim] = i
+                item_indices.append(tuple(idxgrid))
+                item_labels.append(str(label)+suffix)
         else:
-            return self.grid.axes[0][0] != self.instrument.imageaxes[0]
+            for item in items:
+                if not instance.isarray(item):
+                    item = (item,)
+                item = item + (-1,)*max(len(stack_dims)-len(item),0)
+                for i,v in zip(stack_dims,item):
+                    j = self.grid.axes[i].locate(v, detectindex=True)
+                    idxgrid[i] = j
+                    if i==stackdim:
+                        label = self.grid.axes[i][j]
+                        if isinstance(label, fs.Path):
+                            label = label.name
+                item_indices.append(tuple(idxgrid))
+                item_labels.append(str(label)+suffix)
+        self.item_indices = item_indices
+        self.item_labels = item_labels
+
+    @property
+    def _grid_image_axes(self):
+        axes = [self.grid.axes[i] for i in self.grid.other_dims]
+        if self.transpose:
+            return axes[::-1]
+        else:
+            return axes
     
     @property
+    def transpose(self):
+        ax0name = self.grid.axes[self.grid.other_dims[0]].name
+        if ax0name in self.instrument.imageaxes:
+            return ax0name != self.instrument.imageaxes[0]
+        else:
+            return False
+
+    @property
     def axis0values(self):
-        return self.transfo0(self.grid.axes[1].values)
+        return self.transfo0(self._grid_image_axes[0].values)
 
     @property
     def axis1values(self):
-        return self.transfo1(self.grid.axes[2].values)
+        return self.transfo1(self._grid_image_axes[1].values)
 
-    def displaydata(self,index=None):
+    def displaydata(self, index=None):
         """
         Args:
             index(Optional(list)): e.g. [5,None,1]
@@ -135,26 +172,32 @@ class ImageBase(Base):
             labels: e.g. ["group5","group1"]
         """
         if index is None:
-            index = range(len(self))
+            it = zip(self.item_labels, self.item_indices)
+            nimages = nout = len(self.item_indices)
         else:
-            index = instance.asarray(index).tolist()
-        nimages = len(index)-index.count(None)
-        
-        data = np.zeros(self.grid.shape[1:]+(nimages,),dtype=self.grid.dtype)
-        labels = [""]*nimages
-        channels = list(index)
-        iout = -1
-        for j,ind in enumerate(index):
-            if ind is None:
+            it = ((None, None) if i is None
+                  else (self.item_labels[i], self.item_indices[i])
+                  for i in instance.asarray(index))
+            nout = len(index)
+            nimages = nout-index.count(None)
+
+        shape = self.grid.shape
+        shape = [shape[i] for i in self.grid.other_dims] + [nimages]
+        data = np.zeros(shape, dtype=self.grid.dtype)
+        labels = ['']*nimages
+        channels = [None]*nout
+        iout = 0
+        for itemidx,(label,idxgrid) in enumerate(it):
+            if label is None:
                 continue
+            labels[iout] = label
+            data[..., iout] = self.grid[idxgrid]
+            channels[itemidx] = iout
             iout += 1
-            labels[iout] = self.grid.axes[0][ind]
-            data[...,iout] = self.grid[ind,...]
-            channels[j] = iout
-            
+
         if self.transpose:
             data = np.swapaxes(data,0,1)
-        return data,channels,labels
+        return data, channels, labels
 
     def interpolate(self,p0,p1):
         ind = list(range(len(p0)))
@@ -164,28 +207,34 @@ class ImageBase(Base):
         for label,values in zip(self.grid.axes[0].values,data):
             result[label] = values
         return result
-        
+
 
 class EDFStack(ImageBase):
 
-    def __init__(self,filenames,**kwargs):
+    def __init__(self, filenames, items, **kwargs):
         """
         Args:
             filename(str|list(str)): list of edf file names
+            items(list(str))
         """
         if instance.isstring(filenames):
             filenames = [filenames]
         grid = EDFRegularGrid(filenames,instrument=kwargs.get('instrument',None))
-        super(EDFStack,self).__init__(grid,**kwargs)
-        
-        
+        super(EDFStack,self).__init__(grid, items=items, **kwargs)
+
+
 class NexusStack(ImageBase):
 
-    def __init__(self,nxgroup,**kwargs):
-        grid = regulargriddata(nxgroup)
-        super(NexusStack,self).__init__(grid,**kwargs)
-        
-        
+    def __init__(self, nxgroup, items, **kwargs):
+        """
+        Args:
+            nxgroup(nxfs.Path): NXdata or NXprocess
+            items(list(str))
+        """
+        grid = NXRegularGrid(nxgroup)
+        super(NexusStack,self).__init__(grid, items=items, **kwargs)
+
+
 class XanesSpec(PointBase):
 
     def __init__(self,filenames,specnumbers,labels=None,**kwargs):

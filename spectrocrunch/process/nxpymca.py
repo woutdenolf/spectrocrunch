@@ -162,34 +162,13 @@ class Task(nxprocess.Task):
             self.outimgdim = [0,1]
     
     @property
-    def localfs_temppath(self):
-        return self.output.device.parent['external'][self.temp_name]
-    
-    @property
-    def localfs_path(self):
-        output = self.output
-        name = output.parent.name + '_' + output.name
-        return self.localfs_temppath.parent[name]
-            
-    @property
     def outdatapath(self):
-        return self.localfs_temppath['xrfspectra']
+        return self.temp_localpath['xrfspectra']
     
     @property
     def outfitpath(self):
-        return self.localfs_temppath['pymcaresults']
-    
-    def removeoutput(self):
-        super(Task,self).removeoutput()
-        self.outdatapath.parent.remove(recursive=True)
-        self.outfitpath.remove(recursive=True)
-    
-    def renameoutput(self):
-        super(Task,self).renameoutput()
-        path = self.localfs_temppath
-        if path.exists:
-            path.move(self.localfs_path)
-    
+        return self.temp_localpath['pymcaresults']
+
     def _prepare_adddetector(self):
         # Detector include/exclude
         self.xiastackraw.exclude_detectors = self.parameters["exclude_detectors"]

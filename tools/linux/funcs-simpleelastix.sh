@@ -87,8 +87,11 @@ function simpleelastix_install_fromsource()
 
         cprint "Build SimpleElastix ..."
         if [[ $(dryrun) == false ]]; then
-            OMP_NUM_THREADS=2
-            make -s -j2
+            #OMP_NUM_THREADS=2
+            #make -s -j2
+            mmakeinstall "simpleelastix"
+            #mmakepack "simpleelastix"
+            #dpkg -i s ...
         fi
     fi
 

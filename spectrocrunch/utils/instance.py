@@ -74,12 +74,18 @@ def isnumber(x):
 def isinteger(x):
     return isinstance(x, numbers.Integral)
 
+def dtype_is_integer(dtype):
+    return isinteger(np.array([0],dtype)[0])
+
 def isscalar(x):
     return np.isscalar(x)
 
 def isiterable(x):
     return isinstance(x, collections.Iterable)
 
+def ismapping(x):
+    return isinstance(x, collections.Mapping)
+    
 def iscallable(x):
     return isinstance(x, collections.Callable)
 

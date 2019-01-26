@@ -162,15 +162,29 @@ function mexec()
 # Usage: mmakeinstall pkgname-version
 function mmakeinstall()
 {
+    local name=${1}
+    if [[ -z ${name} ]];then
+        name=$(randomstring 6)
+    fi
     if [[ $(install_systemwide) == true ]]; then
-        local name=${1}
-        if [[ -z ${name} ]];then
-            name=$(randomstring 6)
-        fi
         sudo -E checkinstall -y --pkgname "${name}-checkinstall"
+        #Remove with "dpkg -r yourpackagename"
     else
         make install -s
     fi
+}
+
+
+# ============mmakepack============
+# Description: Execute make install
+# Usage: mmakepack pkgname-version
+function mmakepack()
+{
+    local name=${1}
+    if [[ -z ${name} ]];then
+        name=$(randomstring 6)
+    fi
+    checkinstall -y --pkgname "${name}-checkinstall" --install=no
 }
 
 

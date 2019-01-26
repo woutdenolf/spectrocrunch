@@ -24,14 +24,13 @@
 
 from collections import OrderedDict
 import logging
+import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as pltcolors
 import matplotlib.patches as pltpatches
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-import numpy as np
 
 from ..utils import listtools
 from ..utils import instance
@@ -359,10 +358,9 @@ class Scene(Hashable,Geometry2D):
     def vminmax(self):
         vmin = None
         vmax = None
-        
         tmp = [item.vminmax for item in self if hasattr(item,'vminmax')]
-        if len(tmp)==0:
-            return None,None
+        if not tmp:
+            return None, None
 
         vmin,vmax = zip(*tmp)
         vmin = [listtools.aslist(v) for v in vmin]
@@ -370,7 +368,7 @@ class Scene(Hashable,Geometry2D):
         n = max(len(v) for v in vmin)
         
         def reshape(v):
-            if len(v)!=n:
+            if len(v) != n:
                 v.extend([np.nan]*(n-len(v))) 
             return v
             
@@ -378,7 +376,7 @@ class Scene(Hashable,Geometry2D):
         vmax = np.array([reshape(v) for v in vmax])
         vmin = np.nanmin(vmin,axis=0)
         vmax = np.nanmax(vmax,axis=0)
-        return vmin,vmax
+        return vmin, vmax
     
     def scale(self,vmin=None,vmax=None):
         self.set_setting("vmin",vmin)

@@ -66,32 +66,35 @@ function python_lib()
     python_get "import distutils.sysconfig,os; print(os.path.join(distutils.sysconfig.get_config_var('LIBDIR'),distutils.sysconfig.get_config_var('LDLIBRARY')));"
 }
 
+function python_pkg_all()
+{
+    local tmp=$'\n'
+    if [[ $(python_get "import site; print(hasattr(site,'getsitepackages'))") == "False" ]];then
+        python_get "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib());"
+    else
+        python_get "import site${tmp}for p in site.getsitepackages():${tmp} print(p)"
+    fi
+}
 
 function python_pkg()
 {
-    python_get "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib());"
+    for x in $(python_pkg_all);do
+        if [[ -d ${x} ]];then
+            if [[ ! -z "$(ls -A ${x})" ]]; then
+               echo ${x}
+            fi
+        fi
+    done
 }
 
 
-function _python_system_pkg()
+function python_system_pkg()
 {
     if [[ $(python_virtualenv_active) == true ]];then
         (deactivate;python_pkg)
     else
         python_pkg
     fi
-}
-
-
-function python_system_pkg()
-{
-    local _dir=$(_python_system_pkg)
-    
-    if [[ ! -d ${_dir} ]];then
-        _dir=$(strreplace ${_dir} site-packages dist-packages)
-    fi
-    
-    echo ${_dir}
 }
 
 
@@ -148,7 +151,7 @@ function python_info()
     cprint "Python version: $(python_full_version)"
     cprint "Python virtual environment: $(python_virtualenv_active)"
     cprint "Python location: $(python_full_bin)"
-    cprint "Python package directory: $(python_pkg)"
+    cprint "Python package directories: $(python_pkg)"
     cprint "Python include: $(python_include)"
     cprint "Python library: $(python_lib)"
 }
@@ -198,11 +201,15 @@ function pip_bin()
 
 function python_virtualenv_active()
 {
-    if [[ $(python_get "import sys;print(hasattr(sys, 'real_prefix'))") == 'True' ]];then
+    if [[ $(python_get "import sys;print(sys.prefix!=getattr(sys,'base_prefix',sys.prefix))") == 'True' ]];then
         echo true
-    else
-        echo false
+        return 
     fi
+    if [[ $(python_get "import sys;print(sys.prefix!=getattr(sys,'real_prefix',sys.prefix))") == 'True' ]];then
+        echo true
+        return 
+    fi
+    echo false
 }
 
 
@@ -217,12 +224,19 @@ function python_virtualenv_deactivate()
 function python_virtualenv_system_link()
 {
     if [[ $(python_virtualenv_active) == true ]]; then
-        local _pkgdir=$(python_pkg)
-        local _syspkgdir=$(python_system_pkg)
         local _restore=$(pwd)
-        cd ${_pkgdir}
-        for var in "$@";do
-            ln -s ${_syspkgdir}/${var} ${var}
+        local _target=""
+        for _pkgdir in $(python_pkg); do
+            for _syspkgdir in $(python_system_pkg); do
+                cd ${_pkgdir}
+                for var in "$@";do
+                    for _target in ${_syspkgdir}/${var}; do
+                        if [[ -e ${_target} || -d ${_target} ]];then
+                            ln -s ${_target}
+                        fi
+                    done
+                done
+            done
         done
         cd ${_restore}
     fi
@@ -456,7 +470,7 @@ function require_pyqt4()
         mapt-get install $(python_apt)-qt4
     fi
     if [[ $(python_hasmodule "PyQt4") == false ]]; then
-        python_virtualenv_system_link PyQt4 sip.so sipconfig.py
+        python_virtualenv_system_link PyQt4 sip*.so sipconfig*.py
     fi
     
     if [[ $(python_hasmodule "PyQt4") == true ]]; then
@@ -471,6 +485,9 @@ function require_pyqt5()
 {
     if [[ $(python_hasmodule "PyQt5") == false ]]; then
         pip_install pyqt5
+    fi
+    if [[ $(python_hasmodule "PyQt5") == false ]]; then
+        python_virtualenv_system_link PyQt5 sip*.so sipconfig*.py
     fi
     
     if [[ $(python_hasmodule "PyQt5") == true ]]; then

@@ -37,7 +37,7 @@ from .. import utils
 from .. import nxwrap
 from .. import axis
 from ...utils import units
-from ...utils import incremental_naming
+from ...io import target
 
 class test_nxprocess(unittest.TestCase):
 
@@ -53,7 +53,7 @@ class test_nxprocess(unittest.TestCase):
         root = nxfs.Path('/',h5file=h5filename).nxroot()
         entry = root.new_nxentry()
         parameters={'name':'fromraw','a':1,'b':2}
-        name = incremental_naming.prepare(parameters['name'])
+        name = target.prepare(parameters['name'])
         nxprocess = entry.nxprocess(name,parameters=parameters,dependencies=None)
         info = {}
         
@@ -379,9 +379,9 @@ class test_nxprocess(unittest.TestCase):
                     if s1.name==s2.name and s1.parent.name==s2.parent.name:
                         break
                 index[grid1.stackdim] = s1
-                index1 = grid1.locate(index)
+                index1 = grid1.locate(*index)
                 index[grid2.stackdim] = s2
-                index2 = grid2.locate(index)
+                index2 = grid2.locate(*index)
                 np.testing.assert_array_equal(grid1[index1],grid2[index2])
         
     def test_concurrency(self):

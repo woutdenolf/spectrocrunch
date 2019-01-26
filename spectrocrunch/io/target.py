@@ -24,6 +24,8 @@
 
 import re
 
+from ..utils import hashing
+
 def locate_number(name):
     start,end,num = 0,0,'0'
     for m in re.finditer('[0-9]+',name):
@@ -95,3 +97,15 @@ class Name(object):
 
     def __add__(self,x):
         return self.__class__(self.fmt.format(self.num+1))
+
+    @property
+    def matchfunc(self):
+        return match(str(str))
+        
+def calc_checksum(dependencies,confighash):
+    if dependencies:
+        hashes = [prev.checksum for prev in dependencies]
+    else:
+        hashes = []
+    hashes.append(confighash)
+    return hashing.mergejhash(*hashes)

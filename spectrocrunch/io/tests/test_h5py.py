@@ -192,6 +192,9 @@ def updatedata(info,value):
             df.save()
         
 def run(Base,Event,destination,filename,sheet_name):
+    locking = os.environ.get("HDF5_USE_FILE_LOCKING",None)
+    os.environ["HDF5_USE_FILE_LOCKING"] = 'FALSE'
+    
     Holder = createHolder(Base)
     Client = createClient(Base)
 
@@ -229,6 +232,9 @@ def run(Base,Event,destination,filename,sheet_name):
             client.start()
             client.join()
 
+    if locking:
+        os.environ["HDF5_USE_FILE_LOCKING"] = locking
+    
 def main(path=None):
     if path is None:
         path = TempDirectory().path
@@ -243,7 +249,7 @@ class test_h5py(unittest.TestCase):
 
     def setUp(self):
         self.dir = TempDirectory()
-    
+        
     def tearDown(self):
         self.dir.cleanup()
 

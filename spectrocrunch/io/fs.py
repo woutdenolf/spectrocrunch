@@ -29,8 +29,10 @@ from future.utils import with_metaclass
 import operator
 import logging
 import functools
+import re
 
 from . import utils
+from ..utils import instance
 
 logger = logging.getLogger(__name__)
 
@@ -254,14 +256,19 @@ class Path(File):
     def factory_kwargs(self):
         return {}
 
+    @property
+    def factorycls(self):
+        return self.__class__
+
     def factory(self,path):
-        if isinstance(path,self.__class__):
+        cls = self.factorycls
+        if isinstance(path,cls):
             return path
         else:
-            return self.__class__(path,**self.factory_kwargs)
+            return cls(path,**self.factory_kwargs)
     
     def detach(self,**kwargs):
-        return self.__class__(self.location,**kwargs)
+        return self.factorycls(self.location,**kwargs)
     
     def readonly(self,**kwargs):
         kwargs['mode'] = 'r'
@@ -739,3 +746,20 @@ class Path(File):
         while path.exists:
             path = self[utils.randomstring(**kwargs)]
         return path
+
+    def find(self,match,recursive=False,files=True,depth=0,_level=0):
+        """Find files/directories
+        
+        Args:
+            match(str|callable): regex when str
+        """
+        if not instance.iscallable(match):
+            match = re.compile(regex(match)).match
+        for path in self:
+            if path.isfile and not files:
+                continue
+            if match(path):
+                yield path
+            if recursive and path.isdir and _level>depth:
+                for sub in path.find(match,recursive=True,depth=depth,_level=_level+1):
+                    yield sub

@@ -105,7 +105,8 @@ class Group(Hashable):
 
     def __hash__(self):
         return hash(repr(self))
-        
+
+
 def regulargriddata(nxgroup):
     """
     Args:
@@ -114,25 +115,29 @@ def regulargriddata(nxgroup):
     Returns:
         groups(dict): Group:list(nxfs.Path)
         axes(list(Axis)):
+        stackdim(int):
     """
     axes = []
     groups = {}
         
     if nxgroup.nxclass=='NXdata':
         it = [nxgroup]
+        stackdim = None
     elif nxgroup.nxclass=='NXprocess':
         progname = nxgroup['program'].read()
-        if progname!=nxfs.PROGRAM_NAME:
+        if progname == nxfs.PROGRAM_NAME:
+            stackdim = nxgroup.config.read().get('stackdim', None)
+        else:
             raise ValueError('NXprocess from program "{}" is not known'.format(progname))
         it = nxgroup.results.iter_is_nxclass('NXdata')
     else:
         raise ValueError('{} should be an NXdata or NXprocess group'.format(nxgroup))
 
-    lst = list(it)
-    while lst:
-        nxdata = lst.pop()
+    for nxdata in it:
         if nxdata.islink:
             continue
+        if stackdim is None:
+            stackdim = nxdata.stackdim()
         group = Group(nxdata.name)
         if group in groups:
             raise RuntimeError('Group {} appears more than once'.format(group))
@@ -145,4 +150,4 @@ def regulargriddata(nxgroup):
             axes = axs
         groups[group] = list(nxdata.signals)
 
-    return groups,axes
+    return groups, axes, stackdim
