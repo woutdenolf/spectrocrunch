@@ -49,6 +49,7 @@ function xraylib_install_fromsource()
     cprint "Download xraylib ..."
     mkdir -p xraylib
     cd xraylib
+    ls -all
 
     local version=$(get_local_version)
     if [[ -z ${version} ]]; then
