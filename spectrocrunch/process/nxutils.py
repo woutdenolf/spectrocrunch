@@ -24,11 +24,8 @@
 
 from ..io import nxfs
 
-def set_default(nxprocess,default):
-    #plotselect = nxprocess.results[nxfs.DEFAULT_PLOT_NAME]
-    #plotselect.remove()
+def set_default(nxprocess, default):
     it = nxprocess.results.iter_is_nxclass('NXdata')
-
     # Default signal
     nxdataselect = None
     for nxdata in it:
@@ -38,11 +35,8 @@ def set_default(nxprocess,default):
         else:
             if nxdata.default_signal(default):
                 nxdataselect = nxdata
-
     # Default NXdata
     if nxdataselect:
-        #plotselect = plotselect.link(nxdataselect)
-        #plotselect.mark_default()
         nxdataselect.mark_default()
     else:
         nxprocess.mark_default()

@@ -92,7 +92,7 @@ class test_ffxas(unittest.TestCase):
             filename = os.path.join(path,"{}_ref_0000_{:04d}_{:04d}.edf".format(radix,c,1))
             saveedf(filename,flat2,hflat)
         
-        self._datainfo =  {"sourcepath":path,"radix":radix,"energy":energy,
+        self._datainfo =  {"sourcepaths":path,"radix":radix,"energy":energy,
                             "intensity":intensity,"transmission":transmission,
                             "xv":xv,"yv":yv,"n1":n1,"n2":n2,"n":n}
     
@@ -106,7 +106,7 @@ class test_ffxas(unittest.TestCase):
         parameters = {'nxentry':'entry_0001'}
 
         # Raw data
-        parameters["sourcepath"] = self._datainfo['sourcepath']
+        parameters["sourcepaths"] = self._datainfo['sourcepaths']
         radix = self._datainfo['radix']
         parameters["radix"] = radix
         parameters["rebin"] = (1,1)
@@ -200,9 +200,9 @@ class test_ffxas(unittest.TestCase):
 
             
     def test_process(self):
-        sourcepath = self.dir.path
+        sourcepaths = self.dir.path
         radix = "ff"
-        self._data_generate(sourcepath,radix)
+        self._data_generate(sourcepaths,radix)
         
         parameters = [(True,False),(None,((3,-3),(4,-4))),(True,False),[0,]]
 

@@ -25,11 +25,13 @@
 import os
 import errno
 import shutil
-import contextlib
+from contextlib import contextmanager
 import logging
+import tempfile
 from datetime import datetime
 
 from . import fs
+from . import utils
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +104,7 @@ class Path(fs.Path):
             mode = defaultmode
         openparams['mode'] = mode
         
-    @contextlib.contextmanager
+    @contextmanager
     def _fopen(self,**openparams):
         #msg = '{} ({})'.format(self.path,openparams)
         try:
@@ -282,3 +284,15 @@ class Path(fs.Path):
         with self.open(**openparams) as f:
             f.write(content)
         return self
+
+@contextmanager
+def temp(**kwargs):
+    """
+    Context manager which creates a non-existing temporary path that will be 
+    removed or renamed on exit.
+    
+    Args:
+        \**kwargs: see localfs.Path.temp
+    """
+    with Path(tempfile.gettempdir()).temp(**kwargs) as path:
+        yield path

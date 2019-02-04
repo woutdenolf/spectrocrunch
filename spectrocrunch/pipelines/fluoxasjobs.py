@@ -44,8 +44,8 @@ def fluoxas(samplename,datasetname,scannumbers,mapnumbers,cfgfiles,**parameters)
     instrument = getinstrument(parameters)
     radix,subdir = instrument.xrflocation(samplename,datasetname,type="dynamic")
 
-    sourcepath = [os.path.join(parameters["proposaldir"],subdir,"{}_fluoXAS_{}".format(radix,nr)) for nr in scannumbers]
-    scanname = ["{}_fluoXAS_{}".format(radix,nr) for nr in scannumbers]
+    sourcepaths = [os.path.join(parameters["proposaldir"],subdir,"{}_fluoXAS_{}".format(radix,nr)) for nr in scannumbers]
+    scannames = ["{}_fluoXAS_{}".format(radix,nr) for nr in scannumbers]
 
     if len(scannumbers)>1:
         nxentry =  "{}.fluoxas{}_{}".format(radix,scannumbers[0])
@@ -53,46 +53,46 @@ def fluoxas(samplename,datasetname,scannumbers,mapnumbers,cfgfiles,**parameters)
         nxentry =  "{}.fluoxas{}".format(radix,scannumbers[0],scannumbers[-1])
     nxentry = os.path.join(parameters.get('resultsdir',''),samplename+'.h5')+'::/'+nxentry
     
-    processdata(jobname,sourcepath,scanname,mapnumbers,cfgfiles,nxentry,fluoxas=True,**parameters)
+    processdata(jobname,sourcepaths,scannames,mapnumbers,cfgfiles,nxentry,fluoxas=True,**parameters)
 
 def multi(samplename,datasetname,mapnumbers,cfgfiles,**parameters):
     jobname = batch.jobname("multi",(samplename,datasetname,mapnumbers,cfgfiles),parameters)
     
     instrument = getinstrument(parameters)
     radix,subdir = instrument.xrflocation(samplename,datasetname,type="dynamic")
-    sourcepath = [os.path.join(parameters["proposaldir"],subdir)]
+    sourcepaths = [os.path.join(parameters["proposaldir"],subdir)]
 
-    scanname = [radix]
+    scannames = [radix]
     scannumbers = [mapnumbers]
     nxentry =  "{}.sixes{}_{}".format(radix,mapnumbers[0],mapnumbers[-1])
     nxentry = os.path.join(parameters.get('resultsdir',''),samplename+'.h5')+'::/'+nxentry
     
-    processdata(jobname,sourcepath,scanname,scannumbers,cfgfiles,nxentry,multi=True,**parameters)
+    processdata(jobname,sourcepaths,scannames,scannumbers,cfgfiles,nxentry,multi=True,**parameters)
 
 def single(samplename,datasetname,mapnumber,cfgfiles,**parameters):
     jobname = batch.jobname("single",(samplename,datasetname,mapnumber,cfgfiles),parameters)
     
     instrument = getinstrument(parameters)
     radix,subdir = instrument.xrflocation(samplename,datasetname,type="dynamic")
-    sourcepath = [os.path.join(parameters["proposaldir"],subdir)]
+    sourcepaths = [os.path.join(parameters["proposaldir"],subdir)]
 
-    scanname = [radix]
+    scannames = [radix]
     scannumbers = [[mapnumber]]
     nxentry =  "{}.map{}".format(radix,mapnumber)
     nxentry = os.path.join(parameters.get('resultsdir',''),samplename+'.h5')+'::/'+nxentry
     
-    processdata(jobname,sourcepath,scanname,scannumbers,cfgfiles,nxentry,**parameters)
+    processdata(jobname,sourcepaths,scannames,scannumbers,cfgfiles,nxentry,**parameters)
 
-def manualselection(sourcepath,scanname,scannumbers,cfgfiles,outname=None,outsuffix=None,**parameters):
-    jobname = batch.jobname("manualselection",(sourcepath,scanname,scannumbers,cfgfiles),parameters)
+def manualselection(sourcepaths,scannames,scannumbers,cfgfiles,outname=None,outsuffix=None,**parameters):
+    jobname = batch.jobname("manualselection",(sourcepaths,scannames,scannumbers,cfgfiles),parameters)
     
     if outname is None:
-        outname = scanname[0]
+        outname = scannames[0]
     if outsuffix is None:
         outsuffix = '.map{}'.format(scannumbers[0][0])
     nxentry = os.path.join(parameters.get('resultsdir',''),outname,outname+'.h5')+'::/'+outname+outsuffix
     
-    processdata(jobname,sourcepath,scanname,scannumbers,cfgfiles,nxentry,**parameters)
+    processdata(jobname,sourcepaths,scannames,scannumbers,cfgfiles,nxentry,**parameters)
 
 def processdata(jobname,*args,**kwargs):
     if "jobs" in kwargs:
@@ -100,14 +100,14 @@ def processdata(jobname,*args,**kwargs):
     else:
         processdata_exec(*args,**kwargs)
         
-def processdata_exec(sourcepath,scanname,scannumbers,cfgfiles,nxentry,
+def processdata_exec(sourcepaths,scannames,scannumbers,cfgfiles,nxentry,
                     fluoxas=False,multi=False,geometry=None,
                     resultsdir=None,edfexport=False,**kwargs):
     parameters = dict(kwargs)
 
     # Basic input
-    parameters['sourcepath'] = sourcepath
-    parameters['scanname'] = scanname
+    parameters['sourcepaths'] = sourcepaths
+    parameters['scannames'] = scannames
     parameters['scannumbers'] = scannumbers
     parameters['nxentry'] = nxentry
     if not instance.isarray(cfgfiles):

@@ -840,14 +840,19 @@ class Spectrum(dict):
             lineinfo = collections.OrderedDict(sorted(lineinfo.items(), key=lambda x: x[1]["energy"]))
             
         return lineinfo
-        
+    
+    @staticmethod
+    def _lineinfo_values(lineinfo, key):
+        return listtools.numpy_flatten(v[key] for v in lineinfo.values())
+
     def peakprofiles(self,x,lineinfo,voigt=False,**kwargs):
         if self.geometry is None:
             return None
 
-        energies = np.asarray([v["energy"] for v in lineinfo.values()])
+        listtools.flatten
+        energies = self._lineinfo_values(lineinfo, 'energy')
         if voigt:
-            linewidths = np.asarray([v["natwidth"] for v in lineinfo.values()])
+            linewidths = self._lineinfo_values(lineinfo, 'natwidth')
         else:
             linewidths = np.zeros_like(energies)
 
@@ -860,10 +865,10 @@ class Spectrum(dict):
         if not instance.isarray(lines):
             lines = [lines]
         
-        energies = np.asarray([v["energy"] for v in lineinfo.values()])
-        areas = np.asarray([v["area"] for v in lineinfo.values()])
+        energies = self._lineinfo_values(lineinfo, 'energy')
+        areas = self._lineinfo_values(lineinfo, 'area')
         if voigt:
-            linewidths = np.asarray([v["natwidth"] for v in lineinfo.values()])
+            linewidths = self._lineinfo_values(lineinfo, 'natwidth')
         else:
             linewidths = np.zeros_like(energies)
         
@@ -970,7 +975,7 @@ class Spectrum(dict):
             
         # Real profiles: incoming photons and histogram
         _,ylabel = self.scaleprofiles(convert=convert,fluxtime=fluxtime,histogram=histogram,lineinfo=lineinfo)
-        areas = np.asarray([v["area"] for v in lineinfo.values()])
+        areas = self._lineinfo_values(lineinfo, 'area')
         profiles *= areas[np.newaxis,:]
         
         return energies,profiles,ylabel,lineinfo

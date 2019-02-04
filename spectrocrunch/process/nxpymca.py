@@ -5,7 +5,7 @@
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
+# of this software and associated documentation files (the 'Software'), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
@@ -14,7 +14,7 @@
 # The above copyright notice and this permission notice shall be included in
 # all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -22,23 +22,36 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import numpy as np
-from collections import OrderedDict
-import logging
-
 from . import nxprocess
 from . import nxresult
 from . import nxlazy
 from . import axis
 from ..io import spec
 from ..io import xiaedf
-from ..io import localfs
 from ..utils import listtools
 from ..utils import instance
 from ..utils import units
 from ..xrf.fit import PerformBatchFit
 
+import numpy as np
+from collections import OrderedDict
+import logging
+from PyMca5.PyMcaIO import ConfigDict
+
+
 logger = logging.getLogger(__name__)
+
+
+def pymcaJsonDict(x):
+    if isinstance(x, dict):
+        return {k: pymcaJsonDict(v) for k,v in x.items()}
+    elif instance.isarray(x):
+        return list(map(pymcaJsonDict, x))
+    elif isinstance(x, np.generic):
+        return x.item()
+    else:
+        return x
+
 
 class Task(nxprocess.Task):
     
@@ -48,38 +61,52 @@ class Task(nxprocess.Task):
         super(Task,self)._parameters_defaults()
         self.allparams = [
                         # Input
-                        "sourcepath",
-                        "counter_reldir",
-                        "scanname",
-                        "scannumbers",
-                        "counters",
-                        "fluxcounter",
-                        "transmissioncounter",
+                        'sourcepaths',
+                        'counter_reldir',
+                        'scannames',
+                        'scannumbers',
+                        'counters',
+                        'fluxcounter',
+                        'transmissioncounter',
                         # Meta data
-                        "metadata",
-                        "edfheader",
-                        "units",
+                        'metadata',
+                        'edfheader',
+                        'units',
                         # Data correction
-                        "dtcor",
-                        "correctspectra",
-                        "adddetectors",
-                        "addbeforefit",
-                        "qxrfgeometry",
+                        'dtcor',
+                        'correctspectra',
+                        'adddetectors',
+                        'addbeforefit',
+                        'qxrfgeometry',
                         # Configuration for fitting
-                        "detectorcfg",
-                        "mlines",
-                        "fit",
-                        "fastfitting",
-                        "exclude_detectors",
-                        "include_detectors"
+                        'pymcacfg',
+                        'mlines',
+                        'fit',
+                        'fastfitting',
+                        'exclude_detectors',
+                        'include_detectors'
                         ]
         self._required_parameters(*self.allparams)
+
         parameters = self.parameters
         parameters['stackdim'] = parameters.get('stackdim',self.DEFAULT_STACKDIM)
-        edffields = ('speclabel','slowlabel','fastlabel','stackvalue','time','axesnamemap','compensationmotors')
-        defaults = (None,None,None,None,None,{},{})
+
+        edffields = ('speclabel', 'slowlabel', 'fastlabel',
+                     'stackvalue', 'time', 'axesnamemap',
+                     'compensationmotors')
+        defaults = (None, None, None, 
+                    None, None, {},
+                    {})
         edfheader = parameters['edfheader']
-        parameters['edfheader'] = {k:edfheader.get(k,default) for k,default in zip(edffields,defaults)}
+        parameters['edfheader'] = {k:edfheader.get(k,default)
+                                   for k,default in zip(edffields,defaults)}
+
+        pymcacfg = parameters['pymcacfg']
+        pymcacfg = [ConfigDict.ConfigDict(filelist=cfg)
+                    if instance.isstring(cfg) else cfg
+                    for cfg in pymcacfg]
+        self.pymcacfg = pymcacfg
+        parameters['pymcacfg'] = pymcaJsonDict(pymcacfg)
 
         # TODO: temporary measure until pickleable
         self.qxrfgeometry = parameters.pop('qxrfgeometry')
@@ -131,16 +158,16 @@ class Task(nxprocess.Task):
 
     def _prepare_input(self):
         # Check data
-        npaths = len(self.parameters["sourcepath"])
-        if npaths != len(self.parameters["scanname"]):
-            raise ValueError("Number of scan names must be the same as number of source paths.")
-        if npaths != len(self.parameters["scannumbers"]):
-            raise ValueError("Number of scan numbers must be the same as number of source paths.")
+        npaths = len(self.parameters['sourcepaths'])
+        if npaths != len(self.parameters['scannames']):
+            raise ValueError('Number of scan names must be the same as number of source paths.')
+        if npaths != len(self.parameters['scannumbers']):
+            raise ValueError('Number of scan numbers must be the same as number of source paths.')
         
         # Get image stack
-        self.xiastackraw = xiaedf.xiastack_mapnumbers(self.parameters["sourcepath"],self.parameters["scanname"],self.parameters["scannumbers"])
+        self.xiastackraw = xiaedf.xiastack_mapnumbers(self.parameters['sourcepaths'],self.parameters['scannames'],self.parameters['scannumbers'])
         if self.xiastackraw.isempty:
-            raise IOError("Cannot find data: {}".format(self.xiastackraw.filedescription))
+            raise IOError('Cannot find data: {}'.format(self.xiastackraw.filedescription))
 
         dshape = self.xiastackraw.dshape #nstack, nrow, ncol, nchan, ndet 
         self.ndetorg = dshape[-1] # xia00, xia01, xiaS0, ...
@@ -153,7 +180,7 @@ class Task(nxprocess.Task):
         self.procinfo = {}
         self.infoaxes = {}
         
-        self.outstackdim = self.parameters["stackdim"]
+        self.outstackdim = self.parameters['stackdim']
         if self.outstackdim == 0:
             self.outimgdim = [1,2]
         elif self.outstackdim == 1:
@@ -171,26 +198,26 @@ class Task(nxprocess.Task):
 
     def _prepare_adddetector(self):
         # Detector include/exclude
-        self.xiastackraw.exclude_detectors = self.parameters["exclude_detectors"]
-        include_detectors = list(listtools.flatten(self.parameters["include_detectors"]))
+        self.xiastackraw.exclude_detectors = self.parameters['exclude_detectors']
+        include_detectors = list(listtools.flatten(self.parameters['include_detectors']))
         self.xiastackraw.include_detectors = include_detectors
         dshape = self.xiastackraw.dshape
         self.ndet = dshape[-1]
 
         # Do we need to add all detectors?
-        adddetectors = (self.ndet>1) and self.parameters["adddetectors"]
+        adddetectors = (self.ndet>1) and self.parameters['adddetectors']
 
         # Do we need to add detector groups?
-        if any(len(instance.asarray(lst))>1 for lst in instance.asarray(self.parameters["include_detectors"])):
+        if any(len(instance.asarray(lst))>1 for lst in instance.asarray(self.parameters['include_detectors'])):
             self._include_detectors = {nxresult.Group('S{:d}'.format(i)):instance.asarray(singledets)
-                                       for i,singledets in enumerate(self.parameters["include_detectors"],1)}
+                                       for i,singledets in enumerate(self.parameters['include_detectors'],1)}
         else:
             # These are not necessarily all detector!
             self._include_detectors = {nxresult.Group('S1'):include_detectors}
         adddetectorgroups = len(self._include_detectors)>1
 
         # Do we need to add spectra (all or in groups)?
-        self.addspectra = (adddetectors or adddetectorgroups) and self.parameters["addbeforefit"]
+        self.addspectra = (adddetectors or adddetectorgroups) and self.parameters['addbeforefit']
         self.xiastackraw.detectorsum(self.addspectra)
         
         # How many detectors need to be fitted?
@@ -223,80 +250,80 @@ class Task(nxprocess.Task):
                 self._detectors_sumto[nxresult.Group(det)] = dest
 
     def _prepare_dtcor(self):
-        dtcor = self.parameters["dtcor"] 
-        self.dtcorbefore = dtcor and (self.parameters["correctspectra"] or self.addspectra)
+        dtcor = self.parameters['dtcor'] 
+        self.dtcorbefore = dtcor and (self.parameters['correctspectra'] or self.addspectra)
         self.dtcorafter = dtcor and not self.dtcorbefore
-        self.procinfo["dtneeded"] = False
+        self.procinfo['dtneeded'] = False
         self.xiastackraw.dtcor(self.dtcorbefore)
 
     def _prepare_fluxnorm(self):
         self.fluxnorm = self.qxrfgeometry is not None
-        self.fluxnormbefore = self.fluxnorm and self.parameters["correctspectra"]
+        self.fluxnormbefore = self.fluxnorm and self.parameters['correctspectra']
         self.fluxnormafter = self.fluxnorm and not self.fluxnormbefore
-        self.procinfo["fluxnorm"] = self.fluxnorm
+        self.procinfo['fluxnorm'] = self.fluxnorm
 
     def _prepare_xrfquant(self):  
         if not self.fluxnorm:
             return 
         ngeometries = len(self.qxrfgeometry.xrfgeometries)
         if ngeometries!=self.ndetfit:
-            raise RuntimeError("You need {} detector geometries, {} provides.".format(self.ndetfit,ngeometries))
+            raise RuntimeError('You need {} detector geometries, {} provides.'.format(self.ndetfit,ngeometries))
         
         tile = lambda x: np.tile(np.array(x)[np.newaxis,:],(self.nstack,1))
 
-        self._add_info_axis("refflux",defaultunits='Hz')
-        self._add_info_axis("refexpotime",defaultunits='s')
-        self._add_info_axis("activearea",values=tile(self.qxrfgeometry.getxrfactivearea().to('cm**2').magnitude),defaultunits='cm**2')
-        self._add_info_axis("anglein",values=tile(self.qxrfgeometry.getxrfanglein()),defaultunits='deg')
-        self._add_info_axis("angleout",values=tile(self.qxrfgeometry.getxrfangleout()),defaultunits='deg')
-        self._add_info_axis("sampledetdistance",values=np.full((self.nstack,self.ndetfit),np.nan,dtype=np.float32),defaultunits='cm')
+        self._add_info_axis('refflux',defaultunits='Hz')
+        self._add_info_axis('refexpotime',defaultunits='s')
+        self._add_info_axis('activearea',values=tile(self.qxrfgeometry.getxrfactivearea().to('cm**2').magnitude),defaultunits='cm**2')
+        self._add_info_axis('anglein',values=tile(self.qxrfgeometry.getxrfanglein()),defaultunits='deg')
+        self._add_info_axis('angleout',values=tile(self.qxrfgeometry.getxrfangleout()),defaultunits='deg')
+        self._add_info_axis('sampledetdistance',values=np.full((self.nstack,self.ndetfit),np.nan,dtype=np.float32),defaultunits='cm')
         
         if self.fluxnormbefore:
-            self._add_info_axis("i0_to_norm_offset")
-            self._add_info_axis("i0_to_norm_factor")
+            self._add_info_axis('i0_to_norm_offset')
+            self._add_info_axis('i0_to_norm_factor')
         
         for imageindex,xiaimage in enumerate(self.xiastackraw):
             energy = self.axes[self.axes_names[self.outstackdim]][imageindex].magnitude
             if not np.isnan(energy):
-                time = self.infoaxes["expotime"][imageindex].magnitude
+                time = self.infoaxes['expotime'][imageindex].magnitude
                 if np.isnan(time):
                     time = None
                     
                 xrfnormop,\
-                self.infoaxes["refflux"][imageindex],\
-                self.infoaxes["refexpotime"][imageindex],\
-                self.infoaxes["expotime"][imageindex]\
+                self.infoaxes['refflux'][imageindex],\
+                self.infoaxes['refexpotime'][imageindex],\
+                self.infoaxes['expotime'][imageindex]\
                  =self.qxrfgeometry.xrfnormop(energy,expotime=time)
                 
                 if self.fluxnormbefore:
-                    xiaimage.localnorm(self.parameters["fluxcounter"],func=xrfnormop)
-                    self.infoaxes["i0_to_norm_offset"][imageindex] = xrfnormop.b
-                    self.infoaxes["i0_to_norm_factor"][imageindex] = xrfnormop.m
+                    xiaimage.localnorm(self.parameters['fluxcounter'],func=xrfnormop)
+                    self.infoaxes['i0_to_norm_offset'][imageindex] = xrfnormop.b
+                    self.infoaxes['i0_to_norm_factor'][imageindex] = xrfnormop.m
                     
-                pos = self.infoaxes["xrfdetectorposition"][imageindex,:]
+                pos = self.infoaxes['xrfdetectorposition'][imageindex,:]
                 if np.isfinite(pos).all():
                     self.qxrfgeometry.setxrfposition(pos)
-                self.infoaxes["xrfdetectorposition"][imageindex,:] = self.qxrfgeometry.getxrfdetectorposition().to('cm').magnitude
-                self.infoaxes["sampledetdistance"][imageindex,:] = self.qxrfgeometry.getxrfdistance().to('cm').magnitude
+                self.infoaxes['xrfdetectorposition'][imageindex,:] = self.qxrfgeometry.getxrfdetectorposition().to('cm').magnitude
+                self.infoaxes['sampledetdistance'][imageindex,:] = self.qxrfgeometry.getxrfdistance().to('cm').magnitude
 
     def _process_xiastackraw(self):
         if self.dtcorbefore or self.addspectra or self.fluxnormbefore:
-            label = ""
+            label = ''
             if self.dtcorbefore:
-                label = label+"dt"
+                label = label+'dt'
             if self.fluxnormbefore:
-                label = label+"fl"
+                label = label+'fl'
             if label:
-                label = label+"cor"
-                radix = ["{}_{}".format(radix,label) for radix in self.parameters["scanname"]]
+                label = label+'cor'
+                radix = ['{}_{}'.format(radix,label) for radix in self.parameters['scannames']]
             else:
-                radix = self.parameters["scanname"]
+                radix = self.parameters['scannames']
             
             # Raises error when it already exists
             outdatapath = self.outdatapath
             outdatapath.mkdir(force=False)
             
-            self.xiastackproc = xiaedf.xiastack_mapnumbers(outdatapath.path,radix,self.parameters["scannumbers"])
+            self.xiastackproc = xiaedf.xiastack_mapnumbers(outdatapath.path,radix,self.parameters['scannumbers'])
             
             # Handle existing data: will not be the case as long as we keep outdatapath.mkdir(force=False)
             shape = self.xiastackproc.dshape
@@ -308,13 +335,13 @@ class Task(nxprocess.Task):
                 # Only spectra, not counters (more efficient that way)
                 self.xiastackproc.overwrite(True)
                 if self.addspectra:
-                    logger.info("Creating corrected XRF spectra: {}".format(list(self._include_detectors.keys())))
+                    logger.info('Creating corrected XRF spectra: {}'.format(list(self._include_detectors.keys())))
                     for det,singledets in self._include_detectors.items():
                         self.xiastackraw.include_detectors = singledets
                         self.xiastackproc.save(self.xiastackraw,xialabels=[det.xialabel])
                 else:
                     xialabels = self.xiastackraw.xialabels_used
-                    logger.info("Creating corrected XRF spectra: {}".format(xialabels))
+                    logger.info('Creating corrected XRF spectra: {}'.format(xialabels))
                     self.xiastackproc.save(self.xiastackraw,xialabels=xialabels)
             else:
                 logger.info('Corrected XRF spectra already exist')
@@ -440,95 +467,97 @@ class Task(nxprocess.Task):
         return o.parse(header,defaultdims=defaultdims)
 
     def _prepare_xrffit(self):
-        self.fit = self.parameters["fit"]
+        self.fit = self.parameters['fit']
         
     def _stack_add_flux(self): 
-        if not self.fluxnorm or ("fluxcounter" not in self.parameters and "transmissioncounter" not in self.parameters):
+        if not self.fluxnorm or ('fluxcounter' not in self.parameters and 'transmissioncounter' not in self.parameters):
             return
         
-        self._add_info_axis("i0_to_flux_offset",defaultunits='Hz')
-        self._add_info_axis("i0_to_flux_factor",defaultunits='Hz')
-        self._add_info_axis("it_to_flux_offset",defaultunits='Hz')
-        self._add_info_axis("it_to_flux_factor",defaultunits='Hz')
+        self._add_info_axis('i0_to_flux_offset',defaultunits='Hz')
+        self._add_info_axis('i0_to_flux_factor',defaultunits='Hz')
+        self._add_info_axis('it_to_flux_offset',defaultunits='Hz')
+        self._add_info_axis('it_to_flux_factor',defaultunits='Hz')
         
         name = nxresult.Group(None)
         for imageindex in range(self.nstack):
             energy = self.axes[self.axes_names[self.outstackdim]][imageindex].magnitude
-            time = self.infoaxes["refexpotime"][imageindex]
+            time = self.infoaxes['refexpotime'][imageindex]
             
-            if "fluxcounter" in self.parameters:
+            if 'fluxcounter' in self.parameters:
                 op,_ = self.qxrfgeometry.I0op(energy,expotime=time,removebeamfilters=False)
-                if "calc_flux0" not in self.stacks[name]:
-                    self.stacks[name]["calc_flux0"] = [None]*self.nstack
+                if 'calc_flux0' not in self.stacks[name]:
+                    self.stacks[name]['calc_flux0'] = [None]*self.nstack
                 o = nxlazy.LazyStackSlice(func=op)
-                o.appendarg_h5dataset(self.temp_nxresults[str(name)][self.parameters["fluxcounter"]])
-                self.stacks[name]["calc_flux0"][imageindex] = o
-                self.infoaxes["i0_to_flux_offset"][imageindex] = op.b
-                self.infoaxes["i0_to_flux_factor"][imageindex] = op.m
+                o.appendarg_h5dataset(self.temp_nxresults[str(name)][self.parameters['fluxcounter']])
+                self.stacks[name]['calc_flux0'][imageindex] = o
+                self.infoaxes['i0_to_flux_offset'][imageindex] = op.b
+                self.infoaxes['i0_to_flux_factor'][imageindex] = op.m
                 
-            if "transmissioncounter" in self.parameters:
+            if 'transmissioncounter' in self.parameters:
                 op,_ = self.qxrfgeometry.Itop(energy,expotime=time,removebeamfilters=True)
-                if "calc_fluxt" not in self.stacks[name]:
-                    self.stacks[name]["calc_fluxt"] = [None]*self.nstack
-                    self.stacks[name]["calc_transmission"] = [None]*self.nstack
-                    self.stacks[name]["calc_absorbance"] = [None]*self.nstack
+                if 'calc_fluxt' not in self.stacks[name]:
+                    self.stacks[name]['calc_fluxt'] = [None]*self.nstack
+                    self.stacks[name]['calc_transmission'] = [None]*self.nstack
+                    self.stacks[name]['calc_absorbance'] = [None]*self.nstack
                 
                 o = nxlazy.LazyStackSlice(func=op)
-                o.appendarg_h5dataset(self.temp_nxresults[str(name)][self.parameters["transmissioncounter"]])
-                self.stacks[name]["calc_fluxt"][imageindex] = o
-                self.infoaxes["it_to_flux_offset"][imageindex] = op.b
-                self.infoaxes["it_to_flux_factor"][imageindex] = op.m
+                o.appendarg_h5dataset(self.temp_nxresults[str(name)][self.parameters['transmissioncounter']])
+                self.stacks[name]['calc_fluxt'][imageindex] = o
+                self.infoaxes['it_to_flux_offset'][imageindex] = op.b
+                self.infoaxes['it_to_flux_factor'][imageindex] = op.m
                                
                 o = nxlazy.LazyStackSlice(func=nxlazy.transmission_func)
-                o.appendarg_h5dataset(self.temp_nxresults[str(name)]["calc_fluxt"])
-                o.appendarg_h5dataset(self.temp_nxresults[str(name)]["calc_flux0"])
-                self.stacks[name]["calc_transmission"][imageindex] = o
+                o.appendarg_h5dataset(self.temp_nxresults[str(name)]['calc_fluxt'])
+                o.appendarg_h5dataset(self.temp_nxresults[str(name)]['calc_flux0'])
+                self.stacks[name]['calc_transmission'][imageindex] = o
                 
                 o = nxlazy.LazyStackSlice(func=nxlazy.absorbance_func)
-                o.appendarg_h5dataset(self.temp_nxresults[str(name)]["calc_transmission"])
-                self.stacks[name]["calc_absorbance"][imageindex] = o
+                o.appendarg_h5dataset(self.temp_nxresults[str(name)]['calc_transmission'])
+                self.stacks[name]['calc_absorbance'][imageindex] = o
         
     def _stack_add_xrffit(self):
         # Fit data and add elemental maps
         if not self.fit:
             return
             
-        logger.info("Fit XRF spectra ...")
+        logger.info('Fit XRF spectra ...')
 
         # Raises an error when the directory already exists
         outpath = self.outfitpath
         outpath.mkdir(force=False)
 
-        if len(self.parameters["detectorcfg"])==1:
-            fitcfg = self.parameters["detectorcfg"]*self.ndetfit
+        if len(self.pymcacfg)==1:
+            pymcacfg = self.pymcacfg*self.ndetfit
         else:
-            fitcfg = self.parameters["detectorcfg"]
-            if len(fitcfg)!=self.ndetfit:
-                raise RuntimeError("You need {} configuration files, {} provides.".format(self.ndetfit,len(fitcfg)))
+            pymcacfg = self.pymcacfg
+            if len(pymcacfg)!=self.ndetfit:
+                raise RuntimeError('You need {} configuration files, {} provides.'.format(self.ndetfit,len(pymcacfg)))
         
         for imageindex,xiaimage in enumerate(self.xiastackproc):
             if self.fluxnorm:
-                quants = [{"time":self.infoaxes["refexpotime"][imageindex].to('s').magnitude,\
-                           "flux":self.infoaxes["refflux"][imageindex].to('Hz').magnitude,\
-                           "area":self.infoaxes["activearea"][imageindex,i].to('cm**2').magnitude,\
-                           "anglein":self.infoaxes["anglein"][imageindex,i].to('deg').magnitude,\
-                           "angleout":self.infoaxes["angleout"][imageindex,i].to('deg').magnitude,\
-                           "distance":self.infoaxes["sampledetdistance"][imageindex,i].to('cm').magnitude} for i in range(self.ndetfit)]
+                quants = [{'time':self.infoaxes['refexpotime'][imageindex].to('s').magnitude,\
+                           'flux':self.infoaxes['refflux'][imageindex].to('Hz').magnitude,\
+                           'area':self.infoaxes['activearea'][imageindex,i].to('cm**2').magnitude,\
+                           'anglein':self.infoaxes['anglein'][imageindex,i].to('deg').magnitude,\
+                           'angleout':self.infoaxes['angleout'][imageindex,i].to('deg').magnitude,\
+                           'distance':self.infoaxes['sampledetdistance'][imageindex,i].to('cm').magnitude} for i in range(self.ndetfit)]
             else:
                 quants = [{}]*self.ndetfit
 
             filestofit = xiaimage.datafilenames_used()
             filestofit = xiaedf.xiagroupdetectors(filestofit)
-            for detector,cfg,quant in zip(filestofit,fitcfg,quants):
-                logger.info('Pymca fit "detector{}" with "{}" ...'.format(detector,cfg))
+            for detector,cfg,quant in zip(filestofit,pymcacfg,quants):
+                logger.info('Pymca fit \'detector{}\' ...'.format(detector))
                 
                 # Fit
-                outname = "{}_xia{}_{:04d}_0000".format(xiaimage.radix,detector,xiaimage.mapnum)
+                outname = '{}_xia{}_{:04d}_0000'.format(xiaimage.radix,detector,xiaimage.mapnum)
                 energy = self.axes[self.axes_names[self.outstackdim]][imageindex].magnitude
 
-                files, labels = PerformBatchFit(filestofit[detector]["xia"],
-                                       outpath.path,outname,cfg,energy,
-                                       fast=self.parameters["fastfitting"],mlines=self.parameters["mlines"],quant=quant)
+                files, labels = PerformBatchFit(filestofit[detector]['xia'],
+                                                outpath.path,outname,cfg,energy,
+                                                fast=self.parameters['fastfitting'],
+                                                mlines=self.parameters['mlines'],
+                                                quant=quant)
                 
                 # Prepare list of files    
                 name = nxresult.Group(detector)
@@ -575,7 +604,7 @@ class Task(nxprocess.Task):
             
             for k2 in self.stacks[k1]:
                 if k2 in fixedgroups[sumdest]:
-                    logger.debug('Do not add {}["{}"] to {}'.format(k1,k2,sumdest))
+                    logger.debug('Do not add {}[\'{}\'] to {}'.format(k1,k2,sumdest))
                     continue
                 if k2 not in self.stacks[sumdest]:
                     func = self._group_add_detectors(k2)
@@ -616,8 +645,8 @@ class Task(nxprocess.Task):
                     # arguments: xrf,flux,fluxref,xiaimage
                     self.stacks[k1][k2][imageindex].appendarg(arg)
                     if fluxnorm:
-                        self.stacks[k1][k2][imageindex].appendarg_h5dataset(self.temp_nxresults[str(normname)]["calc_flux0"])
-                        self.stacks[k1][k2][imageindex].appendarg(self.infoaxes["refflux"][imageindex])
+                        self.stacks[k1][k2][imageindex].appendarg_h5dataset(self.temp_nxresults[str(normname)]['calc_flux0'])
+                        self.stacks[k1][k2][imageindex].appendarg(self.infoaxes['refflux'][imageindex])
                     else:
                         self.stacks[k1][k2][imageindex].appendarg(None)
                         self.stacks[k1][k2][imageindex].appendarg(None)
@@ -652,8 +681,8 @@ class Task(nxprocess.Task):
                 signal = nxdata[str(k2)]
                 for imageindex,slicedata in enumerate(self.stacks[k1][k2]):
                     if not signal.exists:
-                        logger.info("saving {}/{}".format(k1,k2))
-                    logger.debug("Slice generator (index {}): {}".format(imageindex,slicedata))
+                        logger.info('saving {}/{}'.format(k1,k2))
+                    logger.debug('Slice generator (index {}): {}'.format(imageindex,slicedata))
                     
                     data = slicedata.data(imageindex,self.outstackdim)
                     

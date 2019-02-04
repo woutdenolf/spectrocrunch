@@ -49,6 +49,9 @@ def flatten(l):
     else:
         yield l
 
+def numpy_flatten(l):
+    return np.asarray(list(flatten(l)))
+
 def listadvanced_bool(lst,barr,bnot=False):
     """Advanced list indexing: boolean array
 
