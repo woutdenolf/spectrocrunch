@@ -150,6 +150,7 @@ class test_fluoxas(unittest.TestCase):
         self.procinfo['labels'] = labels
         
         # check detector sum/average
+        farr = lambda x: listtools.numpy_flatten(x)
         for seldetectors,detector in detectors.items():
             for i in range(len(energy)):
                 for j in range(2):
@@ -157,14 +158,14 @@ class test_fluoxas(unittest.TestCase):
                     b = detector['mca'][i][j]
                     np.testing.assert_allclose(a,b)
                     
-                    a = sum(np.array(detectors[(k,)]['peakareas'][i][j].values())
+                    a = sum(farr(detectors[(k,)]['peakareas'][i][j].values())
                             for k in seldetectors)
-                    b = np.array(detector['peakareas'][i][j].values())
+                    b = farr(detector['peakareas'][i][j].values())
                     np.testing.assert_allclose(a,b)
                     
-                    a = sum(np.array(detectors[(k,)]['massfractions'][i][j].values())
+                    a = sum(farr(detectors[(k,)]['massfractions'][i][j].values())
                             for k in seldetectors)
-                    b = np.array(detector['massfractions'][i][j].values())
+                    b = farr(detector['massfractions'][i][j].values())
                     np.testing.assert_allclose(a/len(seldetectors),b)
 
     def _data_generate(self,applyflux=True,applydt=True):
@@ -281,7 +282,7 @@ class test_fluoxas(unittest.TestCase):
         if not cfgfileuse and alignmethod is not None:
             return
         
-        sourcepath,radix,data,stats,ctrs,qxrfgeometry = self._data
+        sourcepaths,radix,data,stats,ctrs,qxrfgeometry = self._data
         nmaps,nlines,nspec,nchan,ndet = data.shape
         scannumbers = [range(nmaps)]
 
@@ -383,8 +384,8 @@ class test_fluoxas(unittest.TestCase):
                 
                 parameters = {}
                 parameters["nxentry"] = os.path.join(destpath.path,radix+'.h5')+'::/'+radix
-                parameters["sourcepath"] = sourcepath
-                parameters["scanname"] = radix
+                parameters["sourcepaths"] = sourcepaths
+                parameters["scannames"] = radix
                 parameters["scannumbers"] = scannumbers
                 parameters["cfgfiles"] = cfgfiles
                 parameters["alignmethod"] = alignmethod

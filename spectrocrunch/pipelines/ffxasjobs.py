@@ -36,14 +36,14 @@ def staticscan(samplename,datasetname,radix,**parameters):
     mradix,subdir = instrument.fflocation(samplename,datasetname,type="static")
     if not instance.isarray(radix):
         radix = [radix]
-    sourcepath = [os.path.join(parameters["proposaldir"],subdir,rdx) for rdx in radix]
+    sourcepaths = [os.path.join(parameters["proposaldir"],subdir,rdx) for rdx in radix]
     
     if len(radix)>1:
         nxentry = '{}_{}'.format(mradix,radix[0],radix[-1])
     else:
         nxentry = '{}_{}'.format(mradix,radix[0])
     nxentry = os.path.join(parameters.get('resultsdir',''),samplename+'.h5')+'::/'+nxentry
-    processdata(jobname,sourcepath,radix,nxentry,**parameters)
+    processdata(jobname,sourcepaths,radix,nxentry,**parameters)
     
 def processdata(jobname,*args,**kwargs):
     if "jobs" in kwargs:
@@ -51,9 +51,9 @@ def processdata(jobname,*args,**kwargs):
     else:
         processdata_exec(*args,**kwargs)
         
-def processdata_exec(sourcepath,radix,nxentry,**kwargs):
+def processdata_exec(sourcepaths,radix,nxentry,**kwargs):
     parameters = dict(kwargs)
-    parameters['sourcepath'] = sourcepath
+    parameters['sourcepaths'] = sourcepaths
     parameters['radix'] = radix
     parameters['nxentry'] = nxentry
     tasks = ffxas_tasks(**parameters)

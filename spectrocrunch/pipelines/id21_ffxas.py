@@ -28,7 +28,7 @@ from ..process.utils import create_task
 from ..io import nxfs
 
 def ffparameters(**parameters):
-    sourcepath = parameters["sourcepath"]
+    sourcepaths = parameters["sourcepaths"]
     radix = parameters["radix"]
 
     rebin = parameters.get("rebin",(1,1))
@@ -39,8 +39,8 @@ def ffparameters(**parameters):
     flatbeforeafter = parameters.get("flatbeforeafter",True)
     nxentry = parameters.get("nxentry",None)
     
-    if not instance.isarray(sourcepath):
-        sourcepath = [sourcepath]
+    if not instance.isarray(sourcepaths):
+        sourcepaths = [sourcepaths]
     if not instance.isarray(radix):
         radix = [radix]
 
@@ -62,9 +62,9 @@ def ffparameters(**parameters):
         "stackdim": stackdim,
 
         # Data
-        "darklist": list(map(lambda xy: os.path.join(xy[0],xy[1]+"*_dark_*.edf"),zip(sourcepath,radix))),
-        "datalist": list(map(lambda xy: os.path.join(xy[0],xy[1]+"*_data_*.edf"),zip(sourcepath,radix))),
-        "flatlist": list(map(lambda xy: os.path.join(xy[0],xy[1]+"*_ref_*.edf"),zip(sourcepath,radix))),
+        "darklist": list(map(lambda xy: os.path.join(xy[0],xy[1]+"*_dark_*.edf"),zip(sourcepaths,radix))),
+        "datalist": list(map(lambda xy: os.path.join(xy[0],xy[1]+"*_data_*.edf"),zip(sourcepaths,radix))),
+        "flatlist": list(map(lambda xy: os.path.join(xy[0],xy[1]+"*_ref_*.edf"),zip(sourcepaths,radix))),
         "flatbeforeafter": flatbeforeafter, # split up flat fields in before and after (same number of images)
         "normalize": normalize and normalizeonload,
         "keepflat": normalize and not normalizeonload,
