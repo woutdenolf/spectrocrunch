@@ -715,7 +715,7 @@ class Path(File):
 
     @contextlib.contextmanager
     def temp(self,name=None,force=False,**kwargs):
-        """Context manager which creates a temporary path that will be 
+        """Context manager which creates a non-existing temporary path that will be 
         removed or renamed on exit.
         """
         path = self.randomnode(**kwargs)
@@ -726,7 +726,8 @@ class Path(File):
             raise e
         finally:
             if name:
-                path.renameremove(name,force=force)
+                if path.exists:
+                    path.renameremove(name,force=force)
             else:
                 path.remove(recursive=True)
     
@@ -739,12 +740,12 @@ class Path(File):
             self.remove(recursive=True)
             return self
 
-    def randomnode(self,**kwargs):
+    def randomnode(self,prefix='',suffix='',**kwargs):
         """Non-existing node with random name
         """
-        path = self[utils.randomstring(**kwargs)]
+        path = self[prefix+utils.randomstring(**kwargs)+suffix]
         while path.exists:
-            path = self[utils.randomstring(**kwargs)]
+            path = self[prefix+utils.randomstring(**kwargs)+suffix]
         return path
 
     def find(self,match,recursive=False,files=True,depth=0,_level=0):

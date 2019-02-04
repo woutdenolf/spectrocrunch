@@ -167,8 +167,12 @@ function mmakeinstall()
         name=$(randomstring 6)
     fi
     if [[ $(install_systemwide) == true ]]; then
-        sudo -E checkinstall -y --pkgname "${name}-checkinstall"
-        #Remove with "dpkg -r yourpackagename"
+        if [[ $(cmdexists "checkinstall") == true ]]; then    
+            sudo -E checkinstall -y --pkgname "${name}-checkinstall"
+            #Remove with "dpkg -r yourpackagename"
+        else
+            sudo -E make install -s
+        fi
     else
         make install -s
     fi
@@ -211,6 +215,34 @@ function mapt-get()
         sudo -E ${pkgmgr} "$@"
     else
         echo "Skip ${pkgmgr} $@ (no system priviliges)"
+    fi
+}
+
+
+# ============mdpkg_install============
+# Description: dpkg without prompt
+# Usage: mdpkg_install package.deb ${prefix}
+function mdpkg_install()
+{
+    local package="$1"
+    local extension=${package: -4}
+    if [[ ${extension} == ".deb" ]]; then
+        if [[ $(install_systemwide) == true ]]; then
+            sudo -E dpkg -i ${package}
+        else
+            dpkg -x ${package}
+        fi
+    elif [[ ${extension} == ".rpm" ]]; then
+        if [[ $(install_systemwide) == true ]]; then
+            sudo -E rpm -i ${package}
+        else
+            local restorewd=$(pwd)
+            cd ${prefix}
+            rpm2cpio "${restorewd}/${package}" | cpio -id
+            cd ${restorewd}
+        fi
+    else
+        echo "Skip ${package} installation (unknown package extension)"
     fi
 }
 

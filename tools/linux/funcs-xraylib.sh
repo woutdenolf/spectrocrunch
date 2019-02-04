@@ -101,6 +101,8 @@ function xraylib_install_fromsource()
     if [[ $(dryrun) == false ]]; then
         pip_install -r requirements.txt
         mmakeinstall xraylib-${version}
+        #mmakepack xraylib-${version}
+        #mdpkg_install *.deb ${prefix}
 
         addProfile $(project_resource) "# Installed xraylib: ${prefixstr}"
         addBinPath ${prefix}/bin

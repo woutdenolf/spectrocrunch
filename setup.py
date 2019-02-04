@@ -248,7 +248,7 @@ install_requires = ['setuptools', 'numpy', 'future', 'scipy', 'h5py', 'fabio', '
 extras_require = {'physics':['xraylib', 'cctbx', 'fdmnes','PyTMM'],\
                   'elastix':['SimpleITK']\
                   }
-setup_requires = ['setuptools','testfixtures']
+setup_requires = ['setuptools', 'testfixtures']
 
 
 ###################
