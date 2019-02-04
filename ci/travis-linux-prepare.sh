@@ -51,7 +51,8 @@ function main()
 
     # Display when needed
     export DISPLAY=:99.0
-    ls /etc/init.d/xvfb
+    sudo -E apt-get install xvfb
+    sudo -E chmod +x /etc/init.d/xvfb
     sudo -E /etc/init.d/xvfb start
 
     # Add package repositories
