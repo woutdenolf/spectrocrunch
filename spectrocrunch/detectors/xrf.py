@@ -34,6 +34,7 @@ from ..math import linalg
 import scipy.special
 import numpy as np
 
+
 class XRFDetector(with_metaclass(base.CentricCone)):
 
     def __init__(self,mcazero=None,mcagain=None,mcanoise=None,mcafano=None,\
@@ -376,7 +377,6 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         #     peak and tail have a fixed area ratio
         #     peak and step have a fixed height ratio
         #     area include only peak
-        
         x = instance.asarray(x)[:,np.newaxis]
         u = instance.asarray(u)[np.newaxis,:] 
 

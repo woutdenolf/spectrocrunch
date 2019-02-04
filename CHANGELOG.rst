@@ -6,6 +6,8 @@ Change Log
 
 * Noise propagation for fullfield XANES and micro-XANES (fluo and transmission)
 * Alignment of XRF maps on raw spectrum (integrated with dead time correction, flux normalization and detector summing)
+* HDF5 based job pipelines
+* File system proxies
 
 
 `0.0.1-alpha2`_ (unreleased)

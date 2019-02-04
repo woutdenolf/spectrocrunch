@@ -59,16 +59,12 @@ class test_excel(unittest.TestCase):
     
     def _generate_df(self,writer=None):
         data = np.random.random(self.nrow*self.ncol).reshape((self.nrow,self.ncol))
-
         priority = random.choice(list(excel.DataFrame.priorities))
-        
         df = excel.DataFrame(writer=writer,data=data,columns=self.columns(),index=self.rows(),priority=priority)
-        
         for i in range(5):
             m = random.choice([0,1,2])
             rows = self.rows(4)
             columns = self.columns(4)
-
             if m==2:
                 df.addrow_formula(rows[0],"({}+{}+{})/3.",rows[1:])
             elif m==1:
@@ -84,7 +80,7 @@ class test_excel(unittest.TestCase):
         with excel.Writer(filename) as writer:
             df1 = self._generate_df(writer=writer)
             df1.save()
-        df2 = next(iter(excel.DataFrame.fromexcel(filename).values()))
+        df2 = next(iter(excel.DataFrame.fromexcel(filename,index_col=0).values()))
         np.testing.assert_array_almost_equal(df1.df.values,df2.df.values)
     
     def test_dataframe(self):
