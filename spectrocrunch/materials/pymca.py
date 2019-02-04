@@ -110,6 +110,14 @@ class PymcaBaseHandle(object):
         self.mcafit.estimate()
         fitresult,digestedresult = self.mcafit.startfit(digest=1)
 
+        yback = digestedresult.pop('continuum') # polynomial + snip
+        if self.mcafit.STRIP:
+            ysnip = np.ravel(self.mcafit.zz)
+        else:
+            ysnip = 0
+        digestedresult['yback'] = yback
+        digestedresult['ysnip'] = ysnip
+
         # Load parameters from fit
         if loadfromfit:
             self.loadfrompymca(config=self.configfromfitresult(digestedresult))
@@ -317,7 +325,8 @@ class PymcaBaseHandle(object):
                 parameters[nglobal+i] = 0.
         ymatrix = self.mcafit.mcatheory(parameters,digestedresult['xdata'])
 
-        yback = digestedresult["continuum"]
+        yback = digestedresult["yback"] # polynomial + snip
+        ysnip = digestedresult["ysnip"] 
         
         interpol = lambda x,spectrum:scipy.interpolate.interp1d(x,spectrum,\
                     kind="nearest",bounds_error=False,fill_value=(spectrum[0],spectrum[-1]))
@@ -334,7 +343,7 @@ class PymcaBaseHandle(object):
         out["interpol_energy"] = interpol_energy
         out["interpol_channel"] = interpol_channel
         out["ypileup"] = digestedresult["pileup"]
-        out["ymatrix"] = ymatrix+yback # TODO: continuum is already in ymatrix, snip not
+        out["ymatrix"] = ymatrix+ysnip # polynomial is already in ymatrix, snip not
         
         def _plot():
             plt.plot(out["energy"],out["y"],'+',label='data')
