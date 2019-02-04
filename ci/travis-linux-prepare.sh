@@ -51,7 +51,8 @@ function main()
 
     # Display when needed
     export DISPLAY=:99.0
-    sh -e /etc/init.d/xvfb start
+    ls /etc/init.d/xvfb
+    sudo -E /etc/init.d/xvfb start
 
     # Add package repositories
     sudo -E add-apt-repository universe
