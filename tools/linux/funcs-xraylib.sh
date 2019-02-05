@@ -49,13 +49,15 @@ function xraylib_install_fromsource()
     cprint "Download xraylib ..."
     mkdir -p xraylib
     cd xraylib
-    ls -all
 
     local version=$(get_local_version)
+    cprint "version: ${version} ..."
     if [[ -z ${version} ]]; then
+        cprint "version: latest ..."
         require_web_essentials
         version=$(xraylib_latest)
     fi
+    cprint "version: ${version} ..."
 
     local sourcedir=xraylib-${version}
     if [[ $(dryrun) == false && ! -d ${sourcedir} ]]; then

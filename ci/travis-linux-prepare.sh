@@ -45,20 +45,42 @@ function travis_download_prebuild()
     fi
 }
 
+function virtualdisplay()
+{
+    export DISPLAY=:99.0
+    sudo -E apt-get install xvfb
+    if [[ -f /etc/init.d/xvfb ]];then
+        sudo -E chmod +x /etc/init.d/xvfb
+        sudo -E /etc/init.d/xvfb start
+    else
+        local filename="/etc/systemd/system/xvfb.service"
+        if [[ ! -f ${filename} ]];then
+            sudo -E echo "[Unit]" > ${filename}
+            sudo -E echo "Description=X Virtual Frame Buffer Service" >> ${filename}
+            sudo -E echo "After=network.target" >> ${filename}
+            sudo -E echo "" >> ${filename}
+            sudo -E echo "[Service]" >> ${filename}
+            sudo -E echo "ExecStart=/usr/bin/Xvfb ${DISPLAY} -screen 0 1024x768x24" >> ${filename}
+            sudo -E echo "" >> ${filename}
+            sudo -E echo "[Install]" >> ${filename}
+            sudo -E echo "WantedBy=multi-user.target" >> ${filename}
+        fi
+        sudo -E systemctl enable ${filename}
+        sudo -E service xvfb start
+    fi
+}
+
 function main()
 {
     travis_download_prebuild
 
-    # Display when needed
-    export DISPLAY=:99.0
-    sudo -E apt-get install xvfb
-    sudo -E chmod +x /etc/init.d/xvfb
-    sudo -E /etc/init.d/xvfb start
-
+    # Display
+    virtualdisplay
+    
     # Add package repositories
-    sudo -E add-apt-repository universe
-    sudo -E apt-key update
-    sudo -E apt-get update
+    #sudo -E add-apt-repository universe
+    #sudo -E apt-key update
+    #sudo -E apt-get update
 }
 
 main
