@@ -143,10 +143,9 @@ class test_compound(unittest.TestCase):
 
     @unittest.skipIf(xraylib is None,"xraylib not installed")
     def test_refractiveindex(self):
-        density = 2.328
+        density = float(2.328)
         c = compoundfromformula.CompoundFromFormula("Si",density,name="silicon")
-        energy = np.asarray([5,10])
-        
+        energy = np.asarray([5,10], dtype=float)
         Z = 14
         
         # Xraylib (TODO: n_im sign is wrong!)

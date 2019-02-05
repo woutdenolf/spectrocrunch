@@ -33,7 +33,7 @@ class ElementBase(object):
         E = instance.asarray(E)
         if emax is None:
             emax = np.max(E)
-        self.markabsorber(energybounds=[emin,emax])
+        self.markabsorber(energybounds=(emin,emax))
         
         spectrum = xrayspectrum.Spectrum()
 
