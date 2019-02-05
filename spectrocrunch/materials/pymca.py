@@ -633,7 +633,6 @@ class PymcaHandle(PymcaBaseHandle):
             self.sample.addtopymca(self,config)
             self.addtopymca_strategy(config)
         self.addtopymca_custom(config)
-        
         self.mcafit.configure(config)
 
     def configurepymca(self,**kwargs):

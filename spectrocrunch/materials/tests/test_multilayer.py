@@ -188,9 +188,13 @@ class test_multilayer(unittest.TestCase):
             
             for energy0,weights in [[8,1],[[8,9],[1,1]]]:
                 sourceweights = np.squeeze(np.asarray(weights,dtype=float)/np.sum(weights))
+                if isinstance(energy0, list):
+                    emax = max(energy0)
+                else:
+                    emax = energy0
                 
                 # Simple spectrum generation (1 layer, 1 interaction)
-                gen = dict(compound1.xrayspectrum(energy0,emin=2,emax=energy0).probabilities) # 1/cm
+                gen = dict(compound1.xrayspectrum(energy0,emin=2,emax=emax).probabilities) # 1/cm
 
                 mu0 = compound1.mass_att_coeff(energy0)
                 for k in gen:
@@ -211,18 +215,18 @@ class test_multilayer(unittest.TestCase):
                         
                 spectrumRef = xrayspectrum.Spectrum()
                 spectrumRef.update(gen)
-                spectrumRef.xlim = [2,energy0]
+                spectrumRef.xlim = [2,emax]
                 spectrumRef.density = 1
                 spectrumRef.title = str(self)
                 spectrumRef.type = spectrumRef.TYPES.rate
 
                 # Compare with different methods
                 #with timing.timeit("analytical"):
-                spectrum1 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,method="analytical",ninteractions=1)
+                spectrum1 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=emax,method="analytical",ninteractions=1)
                 #with timing.timeit("numerical"):
-                spectrum2 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,method="numerical",ninteractions=1)
+                spectrum2 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=emax,method="numerical",ninteractions=1)
                 #with timing.timeit("fisx"):
-                spectrum3 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,method="fisx",ninteractions=1)
+                spectrum3 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=emax,method="fisx",ninteractions=1)
 
                 self.assertSpectrumEqual(spectrum1,spectrumRef,rtol=1e-06) # 0.0001% deviation
                 self.assertSpectrumEqual(spectrum1,spectrum2) # 0.00001% deviation
@@ -247,12 +251,16 @@ class test_multilayer(unittest.TestCase):
         for anglesign in [1,-1]:
             detector.geometry.angleout = anglesign*abs(geometry.angleout)
             for energy0,weights in [[8,1],[[8,9],[1.,2.]]]:
+                if isinstance(energy0, list):
+                    emax = max(energy0)
+                else:
+                    emax = energy0
                 #with timing.timeit("analytical"):
-                spectrum1 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,method="analytical",ninteractions=1)
+                spectrum1 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=emax,method="analytical",ninteractions=1)
                 #with timing.timeit("numerical"):
-                spectrum2 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,method="numerical",ninteractions=1)
+                spectrum2 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=emax,method="numerical",ninteractions=1)
                 #with timing.timeit("fisx"):
-                spectrum3 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=energy0,method="fisx",ninteractions=1)
+                spectrum3 = o.xrayspectrum(energy0,weights=weights,emin=2,emax=emax,method="fisx",ninteractions=1)
                 
                 self.assertSpectrumEqual(spectrum1,spectrum2,rtol=1e-04) # 0.001% deviation
                 self.assertSpectrumEqual(spectrum1,spectrum3,rtol=2e-02,compfisx=True) # 2% deviation

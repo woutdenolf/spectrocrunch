@@ -763,9 +763,8 @@ class Element(hashable.Hashable,elementbase.ElementBase):
 
     def topymca(self,cfg,defaultthickness=1e-4):
         r = self.massfractions()
-        massfractions = r.values()
+        massfractions = list(r.values())
         names = ['{}1'.format(e) for e in r]
-        
         matname = self.pymcaname
         cfg["materials"][matname] = {'Comment': self.pymcacomment,
                                     'CompoundFraction': massfractions,
@@ -776,18 +775,15 @@ class Element(hashable.Hashable,elementbase.ElementBase):
     
     def tofisx(self,cfg,defaultthickness=1e-4):
         r = self.massfractions()
-        massfractions = r.values()
+        massfractions = list(r.values())
         names = ['{}1'.format(e) for e in r]
-        
         matname = self.pymcaname
         o = fisx.Material(matname, self.density, defaultthickness, self.pymcacomment)
         o.setCompositionFromLists(names,massfractions)
         cfg.addMaterial(o,errorOnReplace=False)
-        
         return matname
 
     @classmethod
     def fluozgroup(cls,symb):
         ele,group = re.split('[-_ ]+',symb)
         return xrayspectrum.FluoZGroup(cls(ele),group)
-        

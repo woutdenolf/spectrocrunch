@@ -810,10 +810,10 @@ class Spectrum(dict):
         for group,lines in groups.items():        
                 bscat = group=="Compton" or group=="Rayleigh"
                 if bscat:
-                    lines,intensities = lines.items()[0]
+                    lines,intensities = next(iter(lines.items()))
                     lines = lines.split()
                 else:
-                    intensities = lines.values()
+                    intensities = list(lines.values())
                 
                 imax = np.argmax(intensities)
                 
@@ -873,7 +873,7 @@ class Spectrum(dict):
             linewidths = np.zeros_like(energies)
         
         # Indices of peaks in/out
-        lineinfok = lineinfo.keys()
+        lineinfok = list(lineinfo.keys())
         indin = [lineinfok.index(k) for k in lines]
         indout = [k for k in range(len(lineinfo)) if k not in indin]
         info = {"indin":indin,"indout":indout}
