@@ -25,9 +25,14 @@ matrix:
 
 cache:
   timeout: 1000
+  apt: true
+  pip: true
   directories:
-  - $HOME/.cache/pip
   - $CACHED_FOLDER
+
+addons:
+  apt_packages:
+    - pandoc
 
 before_install:
   - export
