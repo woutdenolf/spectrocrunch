@@ -27,8 +27,8 @@ cache:
   timeout: 1000
   apt: true
   pip: true
-  directories:
-  - $CACHED_FOLDER
+  #directories:
+  #- $CACHED_FOLDER
 
 addons:
   apt_packages:

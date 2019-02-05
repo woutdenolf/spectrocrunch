@@ -73,14 +73,14 @@ class Compound(multielementbase.MultiElementBase):
         # Compound density
         if density==0 or density is None:
             if len(self._elements)==1:
-                self.density = self._elements.keys()[0].density
+                self.density = next(iter(self._elements.keys())).density
             else:
                 #rho = [e.density for e in self._elements]
                 #self.density = np.mean(rho) # not based on anything, just a value
                 if len(self._elements)==0:
                     self.density = 0.
                 else:
-                    self.density = 1. # approx. density of water
+                    self.density = 1.  # approx. density of water
         else:
             self.density = float(density)
             

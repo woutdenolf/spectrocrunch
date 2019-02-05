@@ -89,8 +89,7 @@ function xraylib_install_fromsource()
                         --disable-idl \
                         --disable-perl \
                         --disable-fortran2003 \
-                        PYTHON="$(python_bin)" \
-                        PYTHON_VERSION="$(python_version)"
+                        PYTHON="$(python_full_bin)"
             $(pip_bin) freeze | grep numpy > requirements.txt
         fi
 
