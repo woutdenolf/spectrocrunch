@@ -27,11 +27,13 @@ function xraylib_latest()
 {
     local link=""
     if [[ -z ${GITHUB_TOKEN} ]];then
+        echo "with"
         link="https://api.github.com/repos/tschoonj/xraylib/tags?access_token=${GITHUB_TOKEN}"
     else
+        echo "without"
         link="https://api.github.com/repos/tschoonj/xraylib/tags"
     fi
-    curl --silent "https://api.github.com/repos/tschoonj/xraylib/tags" | grep -o -E "xraylib-[0-9\.]+" | head -1 | grep -E -o "[0-9\.]+"
+    curl --silent ${link} | grep -o -E "xraylib-[0-9\.]+" | head -1 | grep -E -o "[0-9\.]+"
 }
 
 
