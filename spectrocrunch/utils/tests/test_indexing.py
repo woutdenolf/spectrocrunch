@@ -319,7 +319,7 @@ class test_indexing(unittest.TestCase):
 
         ndim = 4
         for index,axis in special:
-            data = np.stack(map(self._slicegen,args),axis=axis)
+            data = np.stack(list(map(self._slicegen,args)),axis=axis)
             shapefull = data.shape
             data2 = indexing.getitem(self._slicegen,args,index,ndim,shapefull=shapefull,axis=axis)
             np.testing.assert_array_equal(data[index],data2)
@@ -359,7 +359,7 @@ class test_indexing(unittest.TestCase):
                             p = [range(r)]*nlist + [0]*nsingleton + [slice(None)]*nother + [np.newaxis]*nnew
                             for index in itertools.permutations(p):
                                 for axis in range(-ndim,ndim):
-                                    data = np.stack(map(generator,args),axis=axis)
+                                    data = np.stack(list(map(generator,args)),axis=axis)
                                     shapefull = data.shape
                                     data2 = indexing.getitem(generator,args,index,ndim,shapefull=shapefull,axis=axis)
                                     np.testing.assert_array_equal(data[index],data2)

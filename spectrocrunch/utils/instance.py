@@ -101,7 +101,7 @@ def israndomvariable(x):
 
 def asscalar(x):
     try:
-        x = np.asscalar(x)
+        x = x.item()
     except:
         pass
     return x

@@ -26,6 +26,11 @@ from __future__ import absolute_import
 import warnings
 
 try:
+    import xraylib_np
+except ImportError:
+    xraylib_np = None
+
+try:
     from xraylib import *
 except ImportError:
     XRayInit = None
@@ -73,4 +78,3 @@ else:
                 rcomposites[l].sort()
             else:
                 rcomposites[l] = [k]
-            

@@ -57,7 +57,9 @@ class Scintillator(with_metaclass()):
         
     @staticmethod
     def doping(material,dopants,ftype):
-        material.addelements(dopants.keys(),dopants.values(),ftype)
+        material.addelements(list(dopants.keys()),
+                             list(dopants.values()),
+                             ftype)
 
     def absorption(self,energy):
         return 1-np.exp(-self.material.density*self.thickness*1e-4*self.material.mass_abs_coeff(energy))

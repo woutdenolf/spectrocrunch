@@ -220,7 +220,7 @@ class test_fluoxas(unittest.TestCase):
             np.testing.assert_allclose(flux[i,...],op(ctrs["arr_idet"][i,...]))
 
         # Deadtime corrected counters
-        a = nchan/2
+        a = nchan//2
         b = a+100
         for i in range(ndet):
             ctrs["xmap_x1c_{:02d}".format(i)] = data[...,a:b,i].sum(axis=-1)
@@ -255,8 +255,10 @@ class test_fluoxas(unittest.TestCase):
         radix = "test"
         stack = xiaedf.xiastack_radix(path,radix)
         xialabels = ["xia{:02d}".format(i) for i in range(ndet)]
-        stack.save(data,xialabels,stats=stats,ctrs=np.stack(ctrs.values(),axis=-1),ctrnames=ctrs.keys(),ctrheaders=ctrheaders)
-
+        stack.save(data, xialabels, stats=stats,
+                   ctrs=np.stack(tuple(ctrs.values()),axis=-1),
+                   ctrnames=ctrs.keys(),
+                   ctrheaders=ctrheaders)
         self._data = path,radix,data,stats,ctrs,qxrfgeometry
 
     @unittest.skipIf(compoundfromname.xraylib is None,"xraylib not installed")
@@ -284,7 +286,7 @@ class test_fluoxas(unittest.TestCase):
         
         sourcepaths,radix,data,stats,ctrs,qxrfgeometry = self._data
         nmaps,nlines,nspec,nchan,ndet = data.shape
-        scannumbers = [range(nmaps)]
+        scannumbers = [list(range(nmaps))]
 
         if include_detectors_p:
             include_detectors = include_detectors_p
