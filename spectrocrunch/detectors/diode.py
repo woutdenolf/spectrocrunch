@@ -415,10 +415,10 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Generated current per radiative power
 
         Args:
-            energy(num|array): keV
+            energy(num or array): keV
 
         Returns:
-            num|array: A/W or e/eV
+            num or array: A/W or e/eV
         """
         return self.attenuation(energy)*self._spectral_responsivity_infthick()
 
@@ -487,10 +487,10 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Charge generated per photon absorbed by the diode: spectral responsivity multiplied by the energy
 
         Args:
-            energy(num|array): keV
+            energy(num or array): keV
 
         Returns:
-            num|array: C/ph
+            num or array: C/ph
         """
         return (self.spectral_responsivity(energy)*units.Quantity(energy,"keV")).to("coulomb")
     
@@ -578,20 +578,27 @@ class PNdiode(with_metaclass(base.SolidState)):
         return energy,wY
     
     def _parse_source(self,energy,weights=None):
-        energy = instance.asarray(energy)
+        """
+        Args:
+            energy(num or array): source energies
+            weights(Optional(num or array): source line weights
+        Returns:
+            tuple: energy(array),weights(array)
+        """
+        energy = instance.asarray(energy).astype(float)
         if weights is None:
             weights = np.ones_like(energy)
         else:
             weights = instance.asarray(weights)
-        weights /= weights.sum() # make sure those are fractions
+        weights /= weights.sum()
         return energy,weights
         
     def _chargepersamplephoton(self,energy,weights=None):
         """Charge generated per photon reaching the sample
 
         Args:
-            energy(num|array): source energies in keV (dims: nE)
-            weights(num|array): source line weights (dims: nE)
+            energy(num or array): source energies in keV (dims: nE)
+            weights(num or array): source line weights (dims: nE)
 
         Returns:
             num: C/ph
@@ -624,9 +631,9 @@ class PNdiode(with_metaclass(base.SolidState)):
     def _calibrate_chargepersamplephoton(self,energy,Cscalib,weights=None,caliboption="optics",bound=False):
         """
         Args:
-            energy(num|array): source energies in keV (dims: nE)
+            energy(num or array): source energies in keV (dims: nE)
             Cscalib(num): new charge-per-sample-photon (C)
-            weights(num|array): source line weights (dims: nE)
+            weights(num or array): source line weights (dims: nE)
             caliboption(str): "optics", "solidangle" or "thickness"
             
         Returns:
@@ -756,11 +763,11 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Source weights after transmission
         
         Args:
-            energy(num|array): source energies in keV (dims: nE)
-            weights(num|array): source line weights (dims: nE)
+            energy(num or array): source energies in keV (dims: nE)
+            weights(num or array): source line weights (dims: nE)
 
         Returns:
-            weights(num|array): source line weights at the sample position
+            weights(num or array): source line weights at the sample position
         """
         
         # Parse input
@@ -802,8 +809,8 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert flux to current
 
         Args:
-            energy(num|array): keV
-            weights(Optional(num|array)): line fractions
+            energy(num or array): keV
+            weights(Optional(num or array)): line fractions
 
         Returns:
             callable: slope (C/ph), intercept(C/s)
@@ -814,8 +821,8 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert current to flux
 
         Args:
-            energy(num|array): keV
-            weights(Optional(num|array)): line fractions
+            energy(num or array): keV
+            weights(Optional(num or array)): line fractions
 
         Returns:
             callable: slope (ph/C), intercept(ph/s)
@@ -892,8 +899,8 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert counts-per-second to flux
 
         Args:
-            energy(num|array): keV
-            weights(Optional(num|array)): line fractions
+            energy(num or array): keV
+            weights(Optional(num or array)): line fractions
 
         Returns:
             callable: slope (ph/cps), intercept(ph/s)
@@ -904,8 +911,8 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert flux to counts-per-second 
 
         Args:
-            energy(num|array): keV
-            weights(Optional(num|array)): line fractions
+            energy(num or array): keV
+            weights(Optional(num or array)): line fractions
 
         Returns:
             callable: slope (cps/ph), intercept(cps)
@@ -919,9 +926,9 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert counts to flux
 
         Args:
-            energy(num|array): keV
+            energy(num or array): keV
             time(num): sec
-            weights(Optional(num|array)): line fractions
+            weights(Optional(num or array)): line fractions
 
         Returns:
             callable: slope (ph/cts), intercept(ph/s)
@@ -932,8 +939,8 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert voltage to flux
 
         Args:
-            energy(num|array): keV
-            weights(Optional(num|array)): line fractions
+            energy(num or array): keV
+            weights(Optional(num or array)): line fractions
 
         Returns:
             callable: slope (ph/s/V), intercept(ph/s)
@@ -944,8 +951,8 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert flux to voltage
 
         Args:
-            energy(num|array): keV
-            weights(Optional(num|array)): line fractions
+            energy(num or array): keV
+            weights(Optional(num or array)): line fractions
 
         Returns:
             callable: slope (V.s/ph), intercept(V)
@@ -955,12 +962,12 @@ class PNdiode(with_metaclass(base.SolidState)):
     def fluxtocurrent(self,energy,flux,weights=None):
         """
         Args:
-            energy(num|array): keV
-            flux(num|array): ph/s
-            weights(Optional(num|array)): line fractions
+            energy(num or array): keV
+            flux(num or array): ph/s
+            weights(Optional(num or array)): line fractions
             
         Returns:
-            num|array: current (A)
+            num or array: current (A)
         """
 
         op = self.op_fluxtocurrent(energy,weights=weights)
@@ -969,12 +976,12 @@ class PNdiode(with_metaclass(base.SolidState)):
     def currenttoflux(self,energy,current,weights=None):
         """
         Args:
-            energy(num|array): keV
-            current(num|array): A
-            weights(Optional(num|array)): line fractions
+            energy(num or array): keV
+            current(num or array): A
+            weights(Optional(num or array)): line fractions
 
         Returns:
-            num|array: flux (ph/s)
+            num or array: flux (ph/s)
         """
 
         op = self.op_currenttoflux(energy,weights=weights)
@@ -983,12 +990,12 @@ class PNdiode(with_metaclass(base.SolidState)):
     def cpstoflux(self,energy,cps,weights=None):
         """
         Args:
-            energy(num|array): keV
-            cps(num|array): cts/s
-            weights(Optional(num|array)): line fractions
+            energy(num or array): keV
+            cps(num or array): cts/s
+            weights(Optional(num or array)): line fractions
 
         Returns:
-            num|array: flux (ph/s)
+            num or array: flux (ph/s)
         """
         op = self.op_cpstoflux(energy,weights=weights)
         return op(units.Quantity(cps,"hertz")).to("hertz")
@@ -996,13 +1003,13 @@ class PNdiode(with_metaclass(base.SolidState)):
     def countstoflux(self,energy,time,counts,weights=None):
         """
         Args:
-            energy(num|array): keV
+            energy(num or array): keV
             time(num): s
-            cps(num|array): cts/s
-            weights(Optional(num|array)): line fractions
+            cps(num or array): cts/s
+            weights(Optional(num or array)): line fractions
 
         Returns:
-            num|array: flux (ph/s)
+            num or array: flux (ph/s)
         """
         op = self.op_countstoflux(energy,time,weights=weights)
         return op(units.Quantity(counts,"dimensionless")).to("hertz")
@@ -1010,12 +1017,12 @@ class PNdiode(with_metaclass(base.SolidState)):
     def fluxtocps(self,energy,flux,weights=None):
         """
         Args:
-            energy(num|array): keV
-            flux(num|array): ph/s
-            weights(Optional(num|array)): line fractions
+            energy(num or array): keV
+            flux(num or array): ph/s
+            weights(Optional(num or array)): line fractions
 
         Returns:
-            num|array: cps (cts/s)
+            num or array: cps (cts/s)
         """
         op = self.op_fluxtocps(energy,weights=weights)
         return op(units.Quantity(flux,"hertz")).to("hertz")
@@ -1023,10 +1030,10 @@ class PNdiode(with_metaclass(base.SolidState)):
     def currenttocps(self,current):
         """
         Args:
-            current(num|array): A
+            current(num or array): A
 
         Returns:
-            num|array: cps (cts/s)
+            num or array: cps (cts/s)
         """
         op = self.op_currenttocps()
         return op(units.Quantity(current,"ampere")).to("hertz")
@@ -1034,10 +1041,10 @@ class PNdiode(with_metaclass(base.SolidState)):
     def cpstocurrent(self,cps):
         """
         Args:
-            cps(num|array): cts/s
+            cps(num or array): cts/s
 
         Returns:
-            num|array: current (A)
+            num or array: current (A)
         """
         op = self.op_cpstocurrent()
         return op(units.Quantity(cps,"hertz")).to("ampere")
@@ -1045,10 +1052,10 @@ class PNdiode(with_metaclass(base.SolidState)):
     def countstocurrent(self,time,counts):
         """
         Args:
-            counts(num|array): cts
+            counts(num or array): cts
 
         Returns:
-            num|array: current (A)
+            num or array: current (A)
         """
         op = self.op_countstocurrent(time)
         return op(units.Quantity(counts,"dimensionless")).to("ampere")
@@ -1056,10 +1063,10 @@ class PNdiode(with_metaclass(base.SolidState)):
     def voltagetocps(self,voltage):
         """
         Args:
-            voltage(num|array): V
+            voltage(num or array): V
 
         Returns:
-            num|array: cps (cts/s)
+            num or array: cps (cts/s)
         """
         op = self.op_voltagetocps()
         return op(units.Quantity(voltage,"volt")).to("hertz")
@@ -1067,10 +1074,10 @@ class PNdiode(with_metaclass(base.SolidState)):
     def cpstovoltage(self,cps):
         """
         Args:
-            cps(num|array): cts/s
+            cps(num or array): cts/s
 
         Returns:
-            num|array: voltage (V)
+            num or array: voltage (V)
         """
         op = self.op_cpstovoltage()
         return op(units.Quantity(cps,"hertz")).to("volt")
@@ -1078,10 +1085,10 @@ class PNdiode(with_metaclass(base.SolidState)):
     def countstocps(self,time,counts):
         """
         Args:
-            counts(num|array): cts
+            counts(num or array): cts
 
         Returns:
-            num|array: voltage (cps)
+            num or array: voltage (cps)
         """
         op = self.op_countstocps(time)
         return op(units.Quantity(counts,"dimensionless")).to("Hz")
@@ -1089,10 +1096,10 @@ class PNdiode(with_metaclass(base.SolidState)):
     def countstovoltage(self,time,counts):
         """
         Args:
-            cps(num|array): cts
+            cps(num or array): cts
 
         Returns:
-            num|array: voltage (V)
+            num or array: voltage (V)
         """
         op = self.op_cpstovoltage(time)
         return op(units.Quantity(counts,"dimensionless")).to("volt")
@@ -1100,12 +1107,12 @@ class PNdiode(with_metaclass(base.SolidState)):
     def voltagetoflux(self,energy,voltage,weights=None):
         """
         Args:
-            energy(num|array): keV
-            voltage(num|array): V
-            weights(Optional(num|array)): line fractions
+            energy(num or array): keV
+            voltage(num or array): V
+            weights(Optional(num or array)): line fractions
 
         Returns:
-            num|array: flux (ph/s)
+            num or array: flux (ph/s)
         """
         op = self.op_voltagetoflux(energy,weights=weights)
         return op(units.Quantity(voltage,"volt")).to("hertz")
@@ -1113,12 +1120,12 @@ class PNdiode(with_metaclass(base.SolidState)):
     def fluxtovoltage(self,energy,flux,weights=None):
         """
         Args:
-            energy(num|array): keV
-            cps(num|array): ph/s
-            weights(Optional(num|array)): line fractions
+            energy(num or array): keV
+            cps(num or array): ph/s
+            weights(Optional(num or array)): line fractions
 
         Returns:
-            num|array: voltage (V)
+            num or array: voltage (V)
         """
         op = self.op_fluxtovoltage(energy,weights=weights)
         return op(units.Quantity(flux,"hertz")).to("volt")
@@ -1126,10 +1133,10 @@ class PNdiode(with_metaclass(base.SolidState)):
     def currenttovoltage(self,current):
         """
         Args:
-            cps(num|array): A
+            cps(num or array): A
 
         Returns:
-            num|array: voltage (V)
+            num or array: voltage (V)
         """
         op = self.op_currenttovoltage()
         return op(units.Quantity(current,"A")).to("volt")
@@ -1138,9 +1145,9 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert diode response flux.
         
         Args:
-            energy(num|array): keV
-            response(num|array): example of a response
-            weights(Optional(num|array)): line fractions
+            energy(num or array): keV
+            response(num or array): example of a response
+            weights(Optional(num or array)): line fractions
             time(Optional(num)): sec
             
         Returns:
@@ -1177,13 +1184,13 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Convert diode response to flux
 
         Args:
-            energy(num|array): keV
-            response(num|array): cts (default when time given), cps (default when time not given), A or V
-            weights(Optional(num|array)): line fractions
+            energy(num or array): keV
+            response(num or array): cts (default when time given), cps (default when time not given), A or V
+            weights(Optional(num or array)): line fractions
             time(Optional(num)): sec
 
         Returns:
-            num|array: flux (ph/s)
+            num or array: flux (ph/s)
         """
 
         if time is None:
@@ -1212,8 +1219,8 @@ class PNdiode(with_metaclass(base.SolidState)):
         Args:
             response_after(num): diode response after gain application (cts, cps)
             response_before(num): diode response before gain application (A, V, ph/s)
-            energy(Optional(num|array)): keV
-            weights(Optional(num|array)): line fractions
+            energy(Optional(num or array)): keV
+            weights(Optional(num or array)): line fractions
             time(Optional(num)): sec
 
         Returns:
@@ -1279,11 +1286,11 @@ class PNdiode(with_metaclass(base.SolidState)):
             Fref = round_sig(cpstoflux(Idioderef/t),2)
     
         Args:
-            energy(num|array): source lines (keV)
+            energy(num or array): source lines (keV)
             expotime(num): sec
             reference(num): iodet (counts) or flux (photons/sec) to which the data should be normalized
             referencetime(Optional(num)): time to which the data should be normalized
-            weights(Optional(num|array)): source line weights
+            weights(Optional(num or array)): source line weights
             
         Returns:
             op(linop): raw diode conversion operator
@@ -1323,7 +1330,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Dark current from response
         
         Args:
-            darkresponse(num|array): measured dark (cts, cps, A)
+            darkresponse(num or array): measured dark (cts, cps, A)
 
         Returns:
             None
@@ -1355,7 +1362,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         """F0 from response
         
         Args:
-            darkresponse(num|array): measured dark (cts, cps)
+            darkresponse(num or array): measured dark (cts, cps)
 
         Returns:
             None
@@ -1440,10 +1447,10 @@ class CalibratedPNdiode(PNdiode):
     def spectral_responsivity(self,energy):
         """
         Args:
-            energy(num|array): keV
+            energy(num or array): keV
 
         Returns:
-            num|array: A/W
+            num or array: A/W
         """
         if self.model:
             r = super(CalibratedPNdiode,self).spectral_responsivity(energy)
@@ -1469,8 +1476,8 @@ class NonCalibratedPNdiode(PNdiode):
         Args:
             response(array): count rate (Hz) or current (A) measured by this diode 
             sampleflux(array): flux measured at the sample position (Hz)
-            energy(num|array): source lines (keV)
-            weights(Optional(num|array)): source line weights
+            energy(num or array): source lines (keV)
+            weights(Optional(num or array)): source line weights
             caliboption(str): "optics", "solidangle" or "thickness"
             fixdark(Optional(num)): fix dark current
             

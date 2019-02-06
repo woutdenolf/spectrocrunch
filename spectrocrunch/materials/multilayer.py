@@ -383,10 +383,7 @@ class Multilayer(with_metaclass(cache.Cache)):
         """
         layerinfo = self.getcache("layerinfo")
         ret = np.digitize(z, layerinfo["cumul_thickness"], right=True)
-        try:
-            return np.asscalar(ret)
-        except:
-            return ret
+        return instance.asscalar(ret)
 
     def _cache_attenuationinfo(self, energy):
         energy = np.unique(instance.asarray(energy))
