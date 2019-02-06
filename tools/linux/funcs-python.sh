@@ -6,6 +6,10 @@
 SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source ${SCRIPT_ROOT}/funcs.sh
 
+if [[ -z ${PYTHONVREQUEST} ]];then
+    PYTHONVREQUEST=""
+fi
+
 
 function python_get()
 {
@@ -102,11 +106,12 @@ function python_bin()
 {
     if [[ -z ${PYTHONVREQUEST} ]]; then
         if [[ $(cmdexists python) == true ]]; then
-            # Don't try python3 here because of virtual envs
+            local tmp="import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)"
+            PYTHONVREQUEST=$(python -c "$tmp")
             echo "python"
             return
         else
-            PYTHONVREQUEST=3
+            PYTHONVREQUEST="3"
         fi
     fi
 
@@ -227,11 +232,14 @@ function python_virtualenv_system_link()
         local _restore=$(pwd)
         local _target=""
         for _pkgdir in $(python_pkg); do
+            cd ${_pkgdir}
             for _syspkgdir in $(python_system_pkg); do
-                cd ${_pkgdir}
+                echo "Look in ${_syspkgdir} ..."
                 for var in "$@";do
+                    echo "Look for ${_syspkgdir}/${var} ..."
                     for _target in ${_syspkgdir}/${var}; do
                         if [[ -e ${_target} || -d ${_target} ]];then
+                            echo "$(pwd): create soft link ${_target}"
                             ln -s ${_target}
                         fi
                     done

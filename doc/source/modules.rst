@@ -21,7 +21,6 @@ API Reference
     spectrocrunch.resources
     spectrocrunch.simulation
     spectrocrunch.sources
-    spectrocrunch.tests
     spectrocrunch.utils
     spectrocrunch.visualization
     spectrocrunch.xrf
