@@ -225,12 +225,13 @@ function mapt-get()
 function mdpkg_install()
 {
     local package="$1"
+    local prefix="$2"
     local extension=${package: -4}
     if [[ ${extension} == ".deb" ]]; then
         if [[ $(install_systemwide) == true ]]; then
             sudo -E dpkg -i ${package}
         else
-            dpkg -x ${package}
+            dpkg -x ${package} ${prefix}
         fi
     elif [[ ${extension} == ".rpm" ]]; then
         if [[ $(install_systemwide) == true ]]; then
