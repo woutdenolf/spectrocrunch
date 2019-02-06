@@ -94,6 +94,7 @@ pygments_style = 'sphinx'
 todo_include_todos = True
 
 autosummary_generate = True
+autodoc_default_flags = ['members', 'undoc-members', 'show-inheritance', 'imported_members']
 
 # -- Options for HTML output ----------------------------------------------
 

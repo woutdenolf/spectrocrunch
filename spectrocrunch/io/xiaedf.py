@@ -1540,7 +1540,7 @@ class xiacompound(xiadata):
                 selfitem.save(data[i,...],xialabels=xialabels,stats=statsi)
 
         if bctrsave:
-            ctrheaders = ctrheaders.item()
+            ctrheaders = instance.asscalar(ctrheaders)
             ctrs = np.moveaxis(ctrs, -1, 0)
             nctrs = ctrs.shape[0]
             if ctrnames is None:
@@ -1580,7 +1580,7 @@ class xiacompound(xiadata):
                     selfitem.save(oitems[i],xialabels=xialabels,stats=stats)
 
             if bctrsave:
-                ctrheaders = ctrheaders.item()
+                ctrheaders = instance.asscalar(ctrheaders)
                 counters = data.counterbasenames()
                 if not ctrnames:
                     ctrnames = counters

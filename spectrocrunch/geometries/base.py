@@ -46,7 +46,7 @@ class Base(object):
     
     def __getattr__(self,attr):
         try:
-            return getattr(self.detector,attr)
+            return getattr(self._detector,attr)
         except AttributeError:
             try:
                 return getattr(self.source,attr)
