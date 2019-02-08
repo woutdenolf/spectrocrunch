@@ -41,6 +41,7 @@ try:
 except ImportError:
     sphinx = None
 
+
 PROJECT = 'spectrocrunch'
 
 ########################################
@@ -147,6 +148,7 @@ cmdclass['build_py'] = BuildWithVersion
 #########################
 if sphinx is not None:
     class BuildDocCommand(BuildDoc):
+        description = 'Build documentation from source'
 
         def run(self):
             # Make sure the python path is pointing to the newly built

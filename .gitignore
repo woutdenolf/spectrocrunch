@@ -4,7 +4,7 @@
 build
 dist
 *.egg*
-doc/source/_autosummary
+doc/source/apidocs
 
 # Temporary files
 *~
