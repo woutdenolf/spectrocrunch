@@ -8,13 +8,13 @@ The spectrocrunch library aims at combining different python libraries for spect
    :hidden:
 
    tutorials/index
-   modules
+   apidocs
    changelog
 
 :doc:`tutorials/index`
     Some examples on how to use the library
     
-:doc:`modules`
+:doc:`apidocs`
     API documentation of the packages included in *spectrocrunch*
 
 :doc:`changelog`

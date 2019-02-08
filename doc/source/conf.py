@@ -47,7 +47,7 @@ templates_path = ['_templates']
 #
 # source_suffix = ['.rst', '.md']
 source_suffix = '.rst'
-exclude_patterns = ['_build','_templates','_autosummary','.ipynb_checkpoints']
+exclude_patterns = ['_build', '_templates', 'apidocs', '.ipynb_checkpoints']
 
 # The master toctree document.
 master_doc = 'index'
