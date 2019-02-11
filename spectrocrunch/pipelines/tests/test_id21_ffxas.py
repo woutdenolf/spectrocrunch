@@ -203,25 +203,27 @@ class test_ffxas(unittest.TestCase):
         sourcepaths = self.dir.path
         radix = "ff"
         self._data_generate(sourcepaths,radix)
-        
         parameters = [(True,False),(None,((3,-3),(4,-4))),(True,False),[0,]]
-
         if hasattr(self,'subTest'):
             for i,combination in enumerate(itertools.product(*parameters)):
                 with self.subTest(i=i):
                     self._process(*combination)
+                    sys.stdout.write('.')
+                    sys.stdout.flush()
         else:
             for i,combination in enumerate(itertools.product(*parameters)):
                 self._process(*combination)
                 sys.stdout.write('.')
                 sys.stdout.flush()
 
+
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_ffxas("test_process"))
     return testSuite
-    
+
+
 if __name__ == '__main__':
     import sys
 
