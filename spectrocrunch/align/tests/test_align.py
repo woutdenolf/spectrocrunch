@@ -36,7 +36,7 @@ from .import helper_teststack
 
 import numpy as np
 
-ctx = alignSift.create_context()
+siftctx = alignSift.create_context()
 
 class test_align(unittest.TestCase):
 
@@ -153,7 +153,8 @@ class test_align(unittest.TestCase):
             self.try_alignment(alignElastix.alignElastix,t)
 
     @unittest.skipIf(alignSift.pyopencl is None,"pyopencl is not installed")
-    @unittest.skipIf(ctx is None,"no pyopencl device available")
+    @unittest.skipIf(siftctx is None,"no pyopencl device available")
+    @unittest.skipIf(True,"temporary disable")
     def test_sift(self):
         types = [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine]
         #TODO: the others are not that precise
