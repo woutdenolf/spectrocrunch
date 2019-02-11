@@ -264,20 +264,27 @@ class test_fluoxas(unittest.TestCase):
     @unittest.skipIf(compoundfromname.xraylib is None,"xraylib not installed")
     def test_process(self):
         self._data_generate()
-        
-        parameters = [(None,),(True,False),self.procinfo['include_detectors'],(True,False),
-                      (False,True),(True,False),(True,False),(0,),(False,True)]
-        
+        parameters = [(None,),
+                      (True,False),
+                      self.procinfo['include_detectors'],
+                      (True,False),
+                      (False,True),
+                      True,False),
+                      (True,False),
+                      (0,),
+                      (False,True)]
         if hasattr(self,'subTest'):
             for i,combination in enumerate(itertools.product(*parameters)):
                 with self.subTest(i=i):
                     self._process(*combination)
+                    sys.stdout.write('.')
+                    sys.stdout.flush()
         else:
             for i,combination in enumerate(itertools.product(*parameters)):
                 self._process(*combination)
                 sys.stdout.write('.')
                 sys.stdout.flush()
-                    
+
     def _process(self,alignmethod,cfgfileuse,include_detectors_p,adddetectors_p,\
                       addbeforefit,quant,dtcor,stackdim,correctspectra):
 
