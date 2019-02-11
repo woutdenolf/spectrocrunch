@@ -26,7 +26,7 @@ function xraylib_build_dependencies()
 function xraylib_latest()
 {
     local header=""
-    if [[ -z ${GITHUB_TOKEN} ]];then
+    if [[ ! -z ${GITHUB_TOKEN} ]];then
         header="Authorization: token ${GITHUB_TOKEN}"
     fi
     curl -H "${header}" --silent "https://api.github.com/repos/tschoonj/xraylib/tags" | grep -o -E "xraylib-[0-9\.]+" | head -1 | grep -E -o "[0-9\.]+"
