@@ -269,7 +269,7 @@ class test_fluoxas(unittest.TestCase):
                       self.procinfo['include_detectors'],
                       (True,False),
                       (False,True),
-                      True,False),
+                      (True,False),
                       (True,False),
                       (0,),
                       (False,True)]
