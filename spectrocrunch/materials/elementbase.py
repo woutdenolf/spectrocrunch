@@ -57,7 +57,7 @@ class ElementBase(object):
         
         return spectrum
         
-    def fisxgroups(self,emin=0,emax=np.inf):
+    def fisxgroups(self, emin=0, emax=np.inf):
         self.markabsorber(energybounds=[emin,emax])
         return {el:el.shells for el in self.elements}
     

@@ -254,76 +254,62 @@ class Mixture(multielementbase.MultiElementBase):
         return ret
         
     def _crosssection(self,method,E,fine=False,decomposed=False,**kwargs):
-        """Calculate compound cross-sections
+        """Calculate mixture cross-sections
         """
-        
         bscat = self._cs_scattering(method)
         if bscat and not self.hasscatterers:
             if decomposed:
                 return {}
             else:
                 return E*0.
-
         c_wfrac = self.massfractions()
         if decomposed:
             ret = {}
             for c in c_wfrac:
                 if bscat and not c.isscatterer:
                     continue
-                
-                ret[c] = {"w":c_wfrac[c],"cs":{}}
-                
-                if hasattr(c,'structure') and fine:
+                ret[c] = {"w": c_wfrac[c], "cs": {}}
+                if hasattr(c, 'structure') and fine:
                     environ = c
                 else:
                     environ = None
-
-                e_wfrac = c.massfractions()
-                for e in e_wfrac:
-                    ret[c]["cs"][e] = {"w":e_wfrac[e],"cs":getattr(e,method)(E,environ=environ,**kwargs)}
+                for e, w in c.massfractions().items():
+                    cs = getattr(e,method)(E,environ=environ,**kwargs)
+                    ret[c]["cs"][e] = {"w": w, "cs": cs}
         else:
             if self._cs_dict(method):
                 ret = {}
-                
                 for c in c_wfrac:
                     if self._cs_scattering(method) and not c.isscatterer:
                         continue
-                        
-                    if hasattr(c,'structure') and fine:
+                    if hasattr(c, 'structure') and fine:
                         environ = c
                     else:
                         environ = None
-
                     e_wfrac = c.massfractions()
                     for e in c.elements:
                         cs = getattr(e,method)(E,environ=environ,**kwargs)
                         if not cs:
                             continue
-                            
                         w = c_wfrac[c]*e_wfrac[e]
                         for k,v in cs.items():
-                            if k in ret:
-                                ret[k] += w*v
-                            else:
-                                ret[k] = w*v
+                            ret[k] = ret.get(k, 0) + w*v
             else:
                 ret = None
                 for c in c_wfrac:
                     if self._cs_scattering(method) and not c.isscatterer:
                         continue
-                        
-                    if hasattr(c,'structure') and fine:
+                    if hasattr(c, 'structure') and fine:
                         environ = c
                     else:
                         environ = None
-
                     e_wfrac = c.massfractions()
-                    eret = sum(c_wfrac[c]*e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs) for e in c.elements)
+                    eret = sum(c_wfrac[c]*e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
+                               for e in c.elements)
                     if ret is None:
                         ret = eret
                     else:
                         ret += eret
-                        
         return ret
 
     def refractive_index_delta(self,E,fine=False,decomposed=False,**kwargs):

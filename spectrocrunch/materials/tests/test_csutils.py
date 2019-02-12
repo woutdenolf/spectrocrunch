@@ -23,27 +23,43 @@
 # THE SOFTWARE.
 
 import unittest
-from . import test_stoichiometry
-from . import test_csutils
-from . import test_compound
-from . import test_mixture
-from . import test_element
-from . import test_visirlib
-from . import test_multilayer
-from . import test_emspectrum
-from . import test_pymca
+
+from ..import csutils
+import numpy as np
+
+
+class test_csutils(unittest.TestCase):
+
+    def test_shape(self):
+        keep = csutils.xraylib.xraylib_np
+        csutils.xraylib.xraylib_np = None
+        try:
+            self.assert_shape()
+        finally:
+            csutils.xraylib.xraylib_np = keep
+    
+    @unittest.skipIf(csutils.xraylib.xraylib_np is None,
+                     "xraylib_np not installed")
+    def test_shape_np(self):
+        self.assert_shape()
+
+    def assert_shape(self):
+        method = 'CS_Total_Kissel'
+        Z, E = 1, 7
+        result = csutils.eval(method, Z, E)
+        self.assertTrue(isinstance(result, float))
+        Z, E = 1, np.linspace(7, 7.5, 5)
+        result = csutils.eval(method, Z, E)
+        self.assertEqual(result.shape, (5, ))
+        result, postfunc = csutils.eval(method, Z, E, applypost=False)
+        self.assertEqual(result.shape, (1, 5))
+        
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_stoichiometry.test_suite())
-    testSuite.addTest(test_csutils.test_suite())
-    testSuite.addTest(test_element.test_suite())
-    testSuite.addTest(test_compound.test_suite())
-    testSuite.addTest(test_mixture.test_suite())
-    testSuite.addTest(test_visirlib.test_suite())
-    testSuite.addTest(test_multilayer.test_suite())
-    testSuite.addTest(test_pymca.test_suite())
+    testSuite.addTest(test_csutils("test_shape"))
+    testSuite.addTest(test_csutils("test_shape_np"))
     return testSuite
     
 if __name__ == '__main__':

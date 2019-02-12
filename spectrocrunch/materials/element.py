@@ -36,6 +36,7 @@ from ..utils import hashable
 from ..utils import instance
 from ..math import lazy
 from . import xrayspectrum
+from . import csutils
 
 import numpy as np
 from scipy import interpolate
@@ -245,14 +246,10 @@ class Element(hashable.Hashable,elementbase.ElementBase):
         return 1
         
     def _xraylib_method(self,method,E):
-        method = getattr(xraylib,method)
-        E,func = instance.asarrayf(E)
-        ret = np.vectorize(lambda en: method(self.Z,np.float64(en)))(E)
-        return E,ret,func
+        return csutils.eval(method, self.Z, E, applypost=False)
     
     def _xraylib_method_full(self,method,E):
-        _,ret,func = self._xraylib_method(method,E)
-        return func(ret)
+        return csutils.eval(method, self.Z, E, applypost=True)
         
     def mass_att_coeff(self,E,environ=None,decimals=6,refresh=False,**kwargs):
         """Mass attenuation coefficient (cm^2/g, E in keV). Use for transmission XAS.
@@ -268,11 +265,9 @@ class Element(hashable.Hashable,elementbase.ElementBase):
         """
         
         # Total
-        E,cs,func = self._xraylib_method("CS_Total_Kissel",E)
-        
+        cs,func = self._xraylib_method("CS_Total_Kissel",E)
         # Replace part by simulation
         cs = self._replace_partial_mass_abs_coeff(cs,E,environ=environ,decimals=decimals,refresh=refresh)
-
         return func(cs)
 
     def mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False,**kwargs):
@@ -287,31 +282,26 @@ class Element(hashable.Hashable,elementbase.ElementBase):
         Returns:
             num or np.array
         """
-        
         # Total
-        E,cs,func = self._xraylib_method("CS_Photo_Total",E)
-        
+        cs,func = self._xraylib_method("CS_Photo_Total",E)
         # Replace part by simulation
         cs = self._replace_partial_mass_abs_coeff(cs,E,environ=environ,decimals=decimals,refresh=refresh)
-
         return func(cs)
 
     def _replace_partial_mass_abs_coeff(self,cs,E,environ=None,decimals=6,refresh=False,**kwargs):
         """
         """
         if environ is not None:
+            E = np.atleast_1d(E)
             # Subtract partial cross-sections (summed over selected shells)
             cs -= sum(self._CS_Photo_Partial_DB(E).values())
-
             ind = np.argwhere(cs<0)
             if len(ind)>0:
                 ind2 = np.argwhere(cs>=0)
                 f = interpolate.interp1d(E[ind2].flatten(),cs[ind2].flatten(),bounds_error=False)
                 cs[ind] = f(E[ind])
-
             # Add partial cross-sections (summed over selected shells)
             cs += sum(self._CS_Photo_Partial_SIM(E,environ,decimals=decimals,refresh=refresh).values())
-
         return cs
 
     def partial_mass_abs_coeff(self,E,environ=None,decimals=6,refresh=False,**kwargs):
@@ -340,63 +330,55 @@ class Element(hashable.Hashable,elementbase.ElementBase):
         cs = sum(cs.values())
         return func(cs)
 
-    def fluorescence_cross_section(self,E,environ=None,decimals=6,refresh=False,decomposed=False,**kwargs):
+    def fluorescence_cross_section(self, E, environ=None, decomposed=False, **kwargs):
         """XRF cross section for the selected shells and lines (cm^2/g, E in keV). Use for fluorescence XAS.
 
         Args:
             E(num or array-like): energy (keV)
             environ(dict): chemical environment of this element
-            decimals(Optional(num)): precision of energy in keV
-            refresh(Optional(bool)): force re-simulation if used
-            decomposed(Optional(bool)): output as dictionary
+            decomposed(Optional(bool)): output as dataframe
+            \**kwargs: see _CS_Photo_Partial_SIM
 
         Returns:
             num or np.array: sum_{S}[tau(E,S)*fluoyield(S)*sum_{L}[radrate(S,L)]]
             dict: S:tau(E,S)
         """
         E,func = instance.asarrayf(E)
-
-        if not self.isabsorber:
-            return func(np.zeros(len(E),dtype=np.float64))
-
-        if environ is None:
-            cs = self._CS_Photo_Partial_DB(E)
+        if self.isabsorber:
+            if environ is None:
+                cs = self._CS_Photo_Partial_DB(E)
+            else:
+                cs = self._CS_Photo_Partial_SIM(E,environ, **kwargs)
+            if not decomposed:
+                # weighted sum over selected shells, weight is the total fluoyield of the selected lines belonging to the shell
+                cs = sum([shellcs*shell.partial_fluoyield(self.Z) for shell,shellcs in cs.items()])
+                cs = func(cs)
         else:
-            cs = self._CS_Photo_Partial_SIM(E,environ,decimals=decimals,refresh=refresh)
+            if decomposed:
+                cs = {}
+            else:
+                cs = func(np.zeros(len(E),dtype=np.float64))
+        return cs
 
-        if decomposed:
-            return {shell:func(shellcs) for shell,shellcs in cs.items()}
-        else:
-            # sum over selected shells, weighted but the total fluoyield of the selected lines
-            cs = sum([shellcs*shell.partial_fluoyield(self.Z) for shell,shellcs in cs.items()])
-            return func(cs)
-
-    def fluorescence_cross_section_lines(self,E,environ=None,decimals=6,refresh=False,**kwargs):
+    def fluorescence_cross_section_lines(self, E, **kwargs):
         """XRF cross sections per line (cm^2/g, E in keV). Use for XRF.
 
         Args:
             E(num or array-like): energy (keV)
-            environ(dict): chemical environment of this element
-            decimals(Optional(num)): precision of energy in keV
-            refresh(Optional(bool)): force re-simulation if used
+            \**kwargs: see fluorescence_cross_section
 
         Returns:
-            dict: {S:tau(E,S)*fluoyield(S)*sum_{L}[radrate(S,L)]}
-            dict: {L:tau(E,S)*fluoyield(S)*radrate(S,L)}
+            dict: L:tau(E,S)*fluoyield(S)*radrate(S,L)
         """
-        
-        # No fluorescence when not an absorber
-        if not self.isabsorber:
-            return {}
-
-        # Get the shell ionization cross section
-        cs = self.fluorescence_cross_section(E,environ=environ,decimals=decimals,refresh=refresh,decomposed=True)
-
-        cs = {xrayspectrum.FluoZLine(self,line):shellcs*fluoyield\
-                   for shell,shellcs in cs.items()\
-                   for line,fluoyield in shell.partial_fluoyield(self.Z,decomposed=True).items()}
-                       #if line.energy(self.Z)>0
-
+        if self.isabsorber:
+            # Get the shell ionization cross section
+            kwargs['decomposed'] = True
+            cs = self.fluorescence_cross_section(E,**kwargs)
+            cs = {xrayspectrum.FluoZLine(self,line):shellcs*fluoyield\
+                    for shell,shellcs in cs.items()\
+                    for line,fluoyield in shell.partial_fluoyield(self.Z,decomposed=True).items()}
+        else:
+            cs = {}
         return cs
 
     def diff_fluorescence_cross_section(self,E,**kwargs):
@@ -542,7 +524,6 @@ class Element(hashable.Hashable,elementbase.ElementBase):
         cs = {}
         for shell in self.shells:
             cs[shell] = np.vectorize(lambda en: shell.partial_photo(self.Z,en))(E)
-
         return cs
 
     def _CS_Photo_Partial_SIM(self,E,environ,decimals=6,refresh=False,fluo=True):

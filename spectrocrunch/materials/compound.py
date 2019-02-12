@@ -294,41 +294,33 @@ class Compound(multielementbase.MultiElementBase):
     def _crosssection(self, method, E, fine=False, decomposed=False, **kwargs):
         """Calculate compound cross-sections
         """
-
         if self._cs_scattering(method) and not self.isscatterer:
             if decomposed:
                 return {}
             else:
                 return np.zeros_like(E, dtype=float)
-
+        e_wfrac = self.massfractions()
         if hasattr(self, 'structure') and fine:
             environ = self
         else:
             environ = None
-
-        e_wfrac = self.massfractions()
         if decomposed:
             ret = {}
-            for e in e_wfrac:
-                ret[e] = {"w": e_wfrac[e], "cs": getattr(
-                    e, method)(E, environ=environ, **kwargs)}
+            for e, w in e_wfrac.items():
+                cs = getattr(e, method)(E, environ=environ, **kwargs)
+                ret[e] = {"w": w, "cs": cs}
         else:
             if self._cs_dict(method):
                 ret = {}
-                for e in e_wfrac:
+                for e, w in e_wfrac.items():
                     cs = getattr(e, method)(E, environ=environ, **kwargs)
                     if not cs:
                         continue
-                    w = e_wfrac[e]
                     for k, v in cs.items():
-                        if k in ret:
-                            ret[k] += w*v
-                        else:
-                            ret[k] = w*v
+                        ret[k] = ret.get(k, 0) + w*v
             else:
-                ret = sum(e_wfrac[e]*getattr(e, method)
-                          (E, environ=environ, **kwargs) for e in e_wfrac)
-
+                ret = sum(w*getattr(e, method)(E, environ=environ, **kwargs)
+                          for e, w in e_wfrac.items())
         return ret
 
     def refractive_index_delta(self, E, fine=False, decomposed=False, **kwargs):
