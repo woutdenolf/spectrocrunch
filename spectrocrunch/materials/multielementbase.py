@@ -176,7 +176,7 @@ class MultiElementBase(Hashable,elementbase.ElementBase):
 
     @classmethod
     def cs_type(cls,cs):
-        # 0. cs = [...]                -> element cs
+        # 0. cs = [...]                -> pure element cs
         # 1. cs = {'w':0.1,'cs':[...]} -> element w+cs
         # 2. cs = {'A':{},'B':{}}      -> compound or mixture 
         if isinstance(cs,dict):

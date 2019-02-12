@@ -66,7 +66,9 @@ class Layer(object):
         self.ml = ml
 
     def __getstate__(self):
-        return {'material': self.material, 'thickness': self.thickness, 'fixed': self.fixed}
+        return {'material': self.material,
+                'thickness': self.thickness,
+                'fixed': self.fixed}
 
     def __setstate__(self, state):
         self.material = state['material']
