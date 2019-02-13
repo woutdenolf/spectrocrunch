@@ -22,13 +22,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from operator import itemgetter
 from scipy import interpolate
 import numpy as np
 
 from . import instance
 from . import units
-from ..patch.pint import ureg
+from . import listtools
+
 
 class LUT(object):
 
@@ -38,24 +38,29 @@ class LUT(object):
 
     def __getstate__(self):
         return {'kind': self.kind,
-                '_tbl': self._tbl,
-                '_xunits': self._xunits,
-                '_yunits': self._yunits,
+                '_x': self.x,
+                '_y': self.y,
                 '_default': self._default}
 
     def __setstate__(self, state):
         self.kind = state['kind']
         self.clear(default=state['_default'])
-        self._tbl = state['_tbl']
-        self._xunits = state['_xunits']
-        self._yunits = state['_yunits']
+        self.x = state['_x']
+        self.y = state['_y']
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
+            if (self.x is None) ^ (other.x is None):
+                return False
+            if (self.y is None) ^ (other.y is None):
+                return False
+            if self.x is not None:
+                if not (self.x == other.x).all():
+                    return False
+            if self.y is not None:
+                if not (self.y == other.y).all():
+                    return False
             return self.kind == other.kind and \
-                   self._tbl == other._tbl and \
-                   self._xunits == other._xunits and \
-                   self._yunits == other._yunits and \
                    self._default == other._default
         else:
             return False
@@ -64,47 +69,59 @@ class LUT(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        s = '\n '.join("{}: {}".format(k,v) for k,v in self.table())
+        s = '\n '.join("{:~}: {:~}".format(k,v)
+                       for k,v in zip(self.x, self.y))
         if s:
             return "Lookup table:\n {}".format(s)
         else:
             return "Lookup table: {}".format(self(None))
             
-    def clear(self,default=None):
-        self._tbl = {}
+    def clear(self, default=None):
+        self.x = None
+        self.y = None
         self._func = lambda x: default
         self._default = default
-        self._xunits = ureg.dimensionless
-        self._yunits = ureg.dimensionless
-        
-    def __call__(self,x):
-        x = units.asqarray(x).to(self._xunits).magnitude
-        y = self._func(x)
-        if self._yunits != ureg.dimensionless:
-            y = units.Quantity(y,units=self._yunits)
-        return y
-        
-    def table(self):
-        return sorted(self._tbl.items(), key=itemgetter(0))
     
-    def isempty(self):
-        return not bool(self._tbl)
+    @property
+    def xunits(self):
+        if self.x is None:
+            return units.ureg.dimensionless
+        else:
+            return self.x.units
     
-    def add(self,x,y):
-        x = instance.asarray(x)
-        y = instance.asarray(y)
-        self._tbl.update(dict(zip(x,y)))
+    @property
+    def yunits(self):
+        if self.y is None:
+            return units.ureg.dimensionless
+        else:
+            return self.y.units
 
-        (x,y) = zip(*self.table())
+    def __call__(self, x):
+        x = units.asqarray(x).to(self.xunits).magnitude
+        y = self._func(x)
+        y = units.Quantity(y, units=self.yunits)
+        return y
+
+    def add(self, x, y):
         x = units.asqarray(x)
         y = units.asqarray(y)
-        self._xunits = x.units
-        self._yunits = y.units
-            
+        if self.x is None:
+            self.x = x
+            self.y = y
+            x = x.magnitude
+            y = y.magnitude
+        else:
+            x = x.to(self.xunits).magnitude
+            y = y.to(self.yunits).magnitude
+            x = np.append(self.x.magnitude, x)
+            y = np.append(self.y.magnitude, y)
+        x, y = listtools.sort2lists(x, y)
+        self.x = units.Quantity(x, self.xunits)
+        self.y = units.Quantity(y, self.yunits)
+
         if len(x)==1:
-            y = y[0].magnitude
+            y = y[0]
             self._func = lambda x: y
         else:
             # units get lost
             self._func = interpolate.interp1d(x,y,bounds_error=False,fill_value=(y[0],y[-1]),kind=self.kind)
-

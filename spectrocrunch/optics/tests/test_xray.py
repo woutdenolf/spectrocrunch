@@ -23,15 +23,26 @@
 # THE SOFTWARE.
 
 import unittest
-from . import test_base
-from . import test_xray
+
+from ..import xray
+from ...patch import jsonpickle
+
+
+class test_xray(unittest.TestCase):
+
+    def test_serialize(self):
+        exclude = ()
+        for name, cls in xray.XrayOptics.clsregistry.items():
+            if name not in exclude:
+                g1 = cls()
+                g2 = jsonpickle.decode(jsonpickle.encode(g1))
+                self.assertEqual(g1, g2)
 
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_base.test_suite())
-    testSuite.addTest(test_xray.test_suite())
+    testSuite.addTest(test_xray("test_serialize"))
     return testSuite
 
 

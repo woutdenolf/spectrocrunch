@@ -29,6 +29,7 @@ from . import test_classfactory
 from . import test_indexing
 from . import test_hashing
 from . import test_signalhandling
+from . import test_lut
 
 def test_suite():
     """Test suite including all test suites"""
@@ -38,6 +39,7 @@ def test_suite():
     testSuite.addTest(test_indexing.test_suite())
     testSuite.addTest(test_hashing.test_suite())
     testSuite.addTest(test_signalhandling.test_suite())
+    testSuite.addTest(test_lut.test_suite())
     return testSuite
     
 if __name__ == '__main__':

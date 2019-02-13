@@ -23,37 +23,58 @@
 # THE SOFTWARE.
 
 from ..utils import lut
+from ..patch.pint import ureg
+
 
 class Optics(object):
 
-    def __init__(self,default=1,**kwargs):
-        self.lut = lut.LUT(default=default,**kwargs)
-    
+    def __init__(self, default=1, **kwargs):
+        self.lut = lut.LUT(default=default, **kwargs)
+
+    def __getstate__(self):
+        if self.haslut:
+            return {'lut': self.lut}
+        else:
+            return {}
+
+    def __setstate__(self, state):
+        if 'lut' in state:
+            self.lut = state['lut']
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.lut == other.lut
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __str__(self):
         name = type(self).__name__
-        s = '\n '.join("{} keV: {} %".format(k,v*100) for k,v in self.lut.table())
+        s = '\n '.join("{} keV: {} %".format(k, v*100)
+                       for k, v in self.lut.table())
         if s:
-            return "{}:\n transmission:\n {}".format(name,s)
+            return "{}:\n transmission:\n {}".format(name, s)
         else:
             return "{}:\n transmission: 100%".format(name)
-    
+
     def reset_transmission(self):
         if self.haslut():
             self.lut.clear(1)
-      
-    def transmission(self,energy):
+
+    def transmission(self, energy):
         self.checklut()
-        return self.lut(energy)
-    
-    def set_transmission(self,energy,transmission):
+        return self.lut(energy).to(ureg.Dimensionless).magnitude
+
+    def set_transmission(self, energy, transmission):
         self.checklut()
-        self.lut.add(energy,transmission)
+        self.lut.add(energy, transmission)
 
     def haslut(self):
-        return hasattr(self,"lut")
-    
+        return hasattr(self, "lut")
+
     def checklut(self):
         if not self.haslut():
-            raise RuntimeError("{} has no transmission lookup table.".format(type(self).__name__))
-            
-            
+            raise RuntimeError(
+                "{} has no transmission lookup table.".format(type(self).__name__))
