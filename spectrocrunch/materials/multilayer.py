@@ -75,6 +75,17 @@ class Layer(object):
         self.thickness = state['thickness']
         self.fixed = state['fixed']
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.material == other.material and \
+                self.thickness == other.thickness and \
+                self.fixed == other.fixed
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __getattr__(self, attr):
         return getattr(self.material, attr)
 
@@ -164,6 +175,16 @@ class Multilayer(with_metaclass(cache.Cache)):
         for layer in self.layers:
             layer.ml = self
         self.geometry = state['geometry']
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.layers == other.layers and \
+                self.geometry == other.geometry
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __len__(self):
         return len(self.layers)
@@ -702,6 +723,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             return scipy.integrate.quad(path, za, zb)[0]
 
         n = (zb-za)/min(self.thickness)*100
+
         def numintegratefast(path, za, zb):
             x = np.linspace(za, zb, n)
             y = path(x)

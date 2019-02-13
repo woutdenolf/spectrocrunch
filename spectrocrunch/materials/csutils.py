@@ -62,9 +62,9 @@ def eval(method, Z, E, applypost=True, dataframe=False):
         if is_arr_Z and is_arr_E:
             postfunc = identity
         elif is_arr_Z:
-            postfunc = lambda x: x[:, 0]
+            def postfunc(x): return x[:, 0]
         else:
-            postfunc = lambda x: x[0, :]
+            def postfunc(x): return x[0, :]
     else:
         method = getattr(xraylib, method)
         result = method(Z, E)
