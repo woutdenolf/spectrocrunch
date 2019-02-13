@@ -23,11 +23,35 @@
 # THE SOFTWARE.
 
 from __future__ import absolute_import
-
-from jsonpickle import encode,decode
-
+from jsonpickle import encode, decode
 import jsonpickle.ext.numpy as jsonpickle_numpy
-jsonpickle_numpy.register_handlers()
+from jsonpickle.handlers import BaseHandler, register
+from .pint import ureg
 
-from ..utils import units
-units.jsonpickle_register_handlers()
+
+class QuantityHandler(BaseHandler):
+    
+    def flatten(self, quantity, data):
+        # enocde for np.ndarray
+        data['magnitude'] = encode(quantity.magnitude)
+        data['units'] = str(quantity.units)
+        return data
+    
+    def restore(self, data):
+        return ureg.Quantity(decode(data['magnitude']),
+                             units=data['units'])
+
+
+class UnitHandler(BaseHandler):
+    
+    def flatten(self, unit, data):
+        data['units'] = str(unit)
+        return data
+    
+    def restore(self, data):
+        return ureg.Unit(data['units'])
+
+
+jsonpickle_numpy.register_handlers()
+register(ureg.Quantity, QuantityHandler, base=True)
+register(ureg.Unit, UnitHandler, base=True)
