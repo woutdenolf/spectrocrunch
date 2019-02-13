@@ -28,7 +28,6 @@ from . import instance
 from . import listtools
 
 import numpy as np
-from jsonpickle.handlers import BaseHandler,register
 
 def Quantity(x,units=None,forcequantity=True):
     """Quantity with given units when not present
@@ -205,29 +204,6 @@ def binary_operator(a,b,op):
         op(a,b)
     """
     return op(Quantity(a,forcequantity=False),quantity_like(b,a,forcequantity=False))
-
-class QuantityHandler(BaseHandler):
-    
-    def flatten(self, quantity, data):
-        data['magnitude'] = quantity.magnitude
-        data['units'] = str(quantity.units)
-        return data
-    
-    def restore(self, data):
-        return ureg.Quantity(data['magnitude'],units=data['units'])
-
-class UnitHandler(BaseHandler):
-    
-    def flatten(self, unit, data):
-        data['units'] = str(unit)
-        return data
-    
-    def restore(self, data):
-        return ureg.Unit(data['units'])
-
-def jsonpickle_register_handlers():
-    register(ureg.Quantity, QuantityHandler, base=True)
-    register(ureg.Unit, UnitHandler, base=True)
 
 def astype(x,dtype):
     m = x.magnitude

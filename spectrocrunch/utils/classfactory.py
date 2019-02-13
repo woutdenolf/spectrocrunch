@@ -61,7 +61,7 @@ def clsfactory(cls, name):
         raise RuntimeError("Class {} is not known:\n registered classes: {}\n aliases: {}".format(name,cls.clsregistry.keys(),cls.aliasregistry.keys()))
         
         
-def factory(cls, name, *args,**kwargs):
+def factory(cls, name, *args, **kwargs):
     """
     Args:
         cls(class): factory base class

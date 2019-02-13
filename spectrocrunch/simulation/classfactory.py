@@ -28,21 +28,8 @@ from ..utils import instance
 import future.utils
 import numpy as np
 
+
 class SimulClass(object):
-    
-    @staticmethod
-    def raiseabstract():
-        raise NotImplementedError("SimulClass is an abstract class and shouldn't be instantiated.")  
-        
-    @classmethod
-    def required(cls,arg,strarg):
-        if arg is None:
-            raise RuntimeError("{} not defined for {}".format(strarg.capitalize(),cls.__name__))
-    
-    @staticmethod
-    def defined(func,var,strvar):
-        if var is None:
-            raise RuntimeError("{} not defined for {}".format(strvar,func.__name__))
 
     @staticmethod
     def propagate_broadcast(N,*args):
@@ -54,7 +41,6 @@ class SimulClass(object):
         Returns:
             unumpy.uarray: len(energy) x len(N)
         """
-        
         if instance.isarray(N) or instance.isarray(args[0]):        
             nN = np.asarray(N).shape
             if len(nN)==2:
@@ -62,12 +48,10 @@ class SimulClass(object):
             else:
                 nN = int(np.product(nN))
             nenergy = np.asarray(args[0]).size
-
             N = np.broadcast_to(N,[nenergy,nN])
-
             args = tuple(np.broadcast_to(arg,[nN,nenergy]).T for arg in args)
-            
         return (N,)+args
+
 
 def with_metaclass(bases=None):
     if bases is None:
@@ -76,4 +60,4 @@ def with_metaclass(bases=None):
         if not instance.isarray(bases):
             bases = (bases,)
         return future.utils.with_metaclass(FactoryMeta,SimulClass,*bases)
-        
+

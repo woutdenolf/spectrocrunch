@@ -36,6 +36,33 @@ class LUT(object):
         self.clear(default=default)
         self.kind = interpolation
 
+    def __getstate__(self):
+        return {'kind': self.kind,
+                '_tbl': self._tbl,
+                '_xunits': self._xunits,
+                '_yunits': self._yunits,
+                '_default': self._default}
+
+    def __setstate__(self, state):
+        self.kind = state['kind']
+        self.clear(default=state['_default'])
+        self._tbl = state['_tbl']
+        self._xunits = state['_xunits']
+        self._yunits = state['_yunits']
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.kind == other.kind and \
+                   self._tbl == other._tbl and \
+                   self._xunits == other._xunits and \
+                   self._yunits == other._yunits and \
+                   self._default == other._default
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __str__(self):
         s = '\n '.join("{}: {}".format(k,v) for k,v in self.table())
         if s:
@@ -46,6 +73,7 @@ class LUT(object):
     def clear(self,default=None):
         self._tbl = {}
         self._func = lambda x: default
+        self._default = default
         self._xunits = ureg.dimensionless
         self._yunits = ureg.dimensionless
         
