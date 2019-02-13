@@ -24,5 +24,4 @@
 
 from ..utils.Enum import Enum
 
-fraction = Enum(['mole','mass','volume'])
-
+fraction = Enum(['mole', 'mass', 'volume'])

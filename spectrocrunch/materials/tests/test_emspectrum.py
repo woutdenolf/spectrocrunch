@@ -23,27 +23,36 @@
 # THE SOFTWARE.
 
 import unittest
+import numpy as np
 
 from .. import emspectrum
 from ...patch.pint import ureg
+from ...patch import jsonpickle
 
-import numpy as np
 
 class test_emspectrum(unittest.TestCase):
 
     def test_discrete(self):
-        s1 = emspectrum.discrete(ureg.Quantity([100,300],'nm'))
-        s2 = emspectrum.discrete(ureg.Quantity(200,'nm'))
+        s1 = emspectrum.discrete(ureg.Quantity([100, 300], 'nm'))
+        s2 = emspectrum.discrete(ureg.Quantity(200, 'nm'))
         s3 = s1+s2
-        np.testing.assert_array_equal(s3.energies,ureg.Quantity([100,200,300],'nm').to('keV','spectroscopy'))
-        
+        np.testing.assert_array_equal(s3.energies, ureg.Quantity(
+            [100, 200, 300], 'nm').to('keV', 'spectroscopy'))
+
+    def test_serialize(self):
+        s1 = emspectrum.discrete(ureg.Quantity([100, 300], 'nm'))
+        s2 = jsonpickle.decode(jsonpickle.encode(s1))
+        self.assertEqual(s1, s2)
+
+
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_emspectrum("test_discrete"))
-
+    testSuite.addTest(test_emspectrum("test_serialize"))
     return testSuite
-    
+
+
 if __name__ == '__main__':
     import sys
 

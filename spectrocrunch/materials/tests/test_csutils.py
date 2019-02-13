@@ -37,7 +37,7 @@ class test_csutils(unittest.TestCase):
             self.assert_shape()
         finally:
             csutils.xraylib.xraylib_np = keep
-    
+
     @unittest.skipIf(csutils.xraylib.xraylib_np is None,
                      "xraylib_np not installed")
     def test_shape_np(self):
@@ -53,7 +53,7 @@ class test_csutils(unittest.TestCase):
         self.assertEqual(result.shape, (5, ))
         result, postfunc = csutils.eval(method, Z, E, applypost=False)
         self.assertEqual(result.shape, (1, 5))
-        
+
 
 def test_suite():
     """Test suite including all test suites"""
@@ -61,7 +61,8 @@ def test_suite():
     testSuite.addTest(test_csutils("test_shape"))
     testSuite.addTest(test_csutils("test_shape_np"))
     return testSuite
-    
+
+
 if __name__ == '__main__':
     import sys
 

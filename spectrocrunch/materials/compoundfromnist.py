@@ -40,7 +40,7 @@ class CompoundFromNist(compound.Compound):
     """Interface to a compound defined by a list of elements
     """
 
-    def __init__(self,nistname,name=None):
+    def __init__(self, nistname, name=None):
         """
         Args:
             nistname(str): NIST name
@@ -50,24 +50,26 @@ class CompoundFromNist(compound.Compound):
         data = xraylib.GetCompoundDataNISTByName(nistname)
         if name is None:
             name = data["name"]
-        super(CompoundFromNist,self).__init__(data["Elements"],data["massFractions"],
-                                        types.fraction.mass,data["density"],name=name)
+        super(CompoundFromNist, self).__init__(data["Elements"], data["massFractions"],
+                                               types.fraction.mass, data["density"], name=name)
+
 
 def factory(name):
     return CompoundFromNist(name)
 
+
 def search(name):
     name = name.lower()
     ret = [k for k in registry if name in k.lower()]
-    if len(ret)>1:
+    if len(ret) > 1:
         ret2 = [k for k in registry if name == k.lower()]
         if ret2:
-            ret  = ret2
+            ret = ret2
     if ret:
         return ret[0]
     else:
         return None
 
+
 def compoundfromnist(name):
     return factory(name)
-    

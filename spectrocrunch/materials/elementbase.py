@@ -27,43 +27,50 @@ from ..utils import instance
 
 import numpy as np
 
+
 class ElementBase(object):
 
-    def xrayspectrum(self,E,source=None,weights=None,emin=0,emax=None,**kwargs):
+    def xrayspectrum(self, E, source=None, weights=None, emin=0, emax=None, **kwargs):
         E = instance.asarray(E)
         if emax is None:
             emax = np.max(E)
-        self.markabsorber(energybounds=(emin,emax))
-        
+        self.markabsorber(energybounds=(emin, emax))
+
         spectrum = xrayspectrum.Spectrum()
 
         if source is None:
-            spectrum.update(self.fluorescence_cross_section_lines(E,decomposed=False,**kwargs))
-            spectrum[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(E,decomposed=False,**kwargs)
-            spectrum[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(E,decomposed=False,**kwargs)
+            spectrum.update(self.fluorescence_cross_section_lines(
+                E, decomposed=False, **kwargs))
+            spectrum[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(
+                E, decomposed=False, **kwargs)
+            spectrum[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(
+                E, decomposed=False, **kwargs)
             spectrum.type = spectrum.TYPES.crosssection
         else:
             spectrum.density = self.density
-            spectrum.update(self.diff_fluorescence_cross_section(E,decomposed=False,**kwargs))
-            spectrum[xrayspectrum.RayleighLine(E)] = self.diff_rayleigh_cross_section(E,source=source,decomposed=False,**kwargs)
-            spectrum[xrayspectrum.ComptonLine(E)] = self.diff_compton_cross_section(E,source=source,decomposed=False,**kwargs)
+            spectrum.update(self.diff_fluorescence_cross_section(
+                E, decomposed=False, **kwargs))
+            spectrum[xrayspectrum.RayleighLine(E)] = self.diff_rayleigh_cross_section(
+                E, source=source, decomposed=False, **kwargs)
+            spectrum[xrayspectrum.ComptonLine(E)] = self.diff_compton_cross_section(
+                E, source=source, decomposed=False, **kwargs)
             spectrum.type = spectrum.TYPES.diffcrosssection
 
         spectrum.apply_weights(weights)
         spectrum.density = self.density
-        spectrum.xlim = [emin,emax]
+        spectrum.xlim = [emin, emax]
         spectrum.title = str(self)
         spectrum.geomkwargs = kwargs
-        
+
         return spectrum
-        
+
     def fisxgroups(self, emin=0, emax=np.inf):
-        self.markabsorber(energybounds=[emin,emax])
-        return {el:el.shells for el in self.elements}
-    
+        self.markabsorber(energybounds=[emin, emax])
+        return {el: el.shells for el in self.elements}
+
     pymcamaterial_prefix = "Material_"
     pymcacomment_prefix = "From spectrocrunch: "
-    
+
     @property
     def pymcaname(self):
         return self.pymcamaterial_prefix+self.name
@@ -71,11 +78,10 @@ class ElementBase(object):
     @property
     def pymcacomment(self):
         return self.pymcacomment_prefix+self.name
-    
+
     @classmethod
-    def namefrompymca(cls,string):
-        for prefix in [cls.pymcamaterial_prefix,cls.pymcacomment_prefix]:
+    def namefrompymca(cls, string):
+        for prefix in [cls.pymcamaterial_prefix, cls.pymcacomment_prefix]:
             if string.startswith(prefix):
                 return string[len(prefix):]
         return string
-            

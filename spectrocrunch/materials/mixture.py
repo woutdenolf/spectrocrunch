@@ -32,9 +32,10 @@ from ..utils import instance
 import numpy as np
 import fisx
 
+
 class Mixture(multielementbase.MultiElementBase):
 
-    def __init__(self,compounds,frac,fractype=None,name=None):
+    def __init__(self, compounds, frac, fractype=None, name=None):
         """
         Args:
             compounds(list[obj]): list of compound objects
@@ -42,13 +43,13 @@ class Mixture(multielementbase.MultiElementBase):
             fractype(types.fraction): compound fraction type
             name(Optional[str]): compound name
         """
-        
+
         # Mixture name
         if name is None:
             self.name = str(id(self))
         else:
             self.name = name
-        
+
         # Compound mole fractions
         fractions = np.asarray(frac)
         if fractype == types.fraction.mole:
@@ -56,17 +57,17 @@ class Mixture(multielementbase.MultiElementBase):
         elif fractype == types.fraction.volume:
             MM = np.asarray([c.molarmass() for c in compounds])
             rho = np.asarray([c.density for c in compounds])
-            nfrac = stoichiometry.frac_volume_to_mole(fractions,rho,MM)
+            nfrac = stoichiometry.frac_volume_to_mole(fractions, rho, MM)
         else:
             MM = np.asarray([c.molarmass() for c in compounds])
-            nfrac = stoichiometry.frac_weight_to_mole(fractions,MM)
+            nfrac = stoichiometry.frac_weight_to_mole(fractions, MM)
 
         # Compounds (no duplicates)
-        self._compose_compounds(compounds,nfrac)
+        self._compose_compounds(compounds, nfrac)
 
-    def _compose_compounds(self,compounds,nfrac):
+    def _compose_compounds(self, compounds, nfrac):
         self.compounds = {}
-        for c,n in zip(compounds,nfrac):
+        for c, n in zip(compounds, nfrac):
             if c in self.compounds:
                 self.compounds[c] += float(n)
             else:
@@ -76,8 +77,8 @@ class Mixture(multielementbase.MultiElementBase):
         return {'name': self.name,
                 'compounds_keys': list(self.compounds.keys()),
                 'compounds_values': list(self.compounds.values())}
-    
-    def __setstate__(self,state):
+
+    def __setstate__(self, state):
         self.name = state['name']
         self.compounds = dict(zip(state['compounds_keys'],
                                   state['compounds_values']))
@@ -86,40 +87,40 @@ class Mixture(multielementbase.MultiElementBase):
     def parts(self):
         return self.compounds
 
-    def addcompound(self,c,frac,fractype):
+    def addcompound(self, c, frac, fractype):
         """Add a compound to the mixture
 
         Args:
             c(compounds): compound
             frac(num): compound fraction
             fractype(types.fraction): compound fraction type
-        
+
         """
         if fractype == types.fraction.mole:
             nfrac = np.asarray(list(self.molefractions().values()))
-            if nfrac.sum()==1:
-                nfrac = stoichiometry.add_frac(nfrac,frac)
+            if nfrac.sum() == 1:
+                nfrac = stoichiometry.add_frac(nfrac, frac)
             else:
-                nfrac = np.append(nfrac,frac)
+                nfrac = np.append(nfrac, frac)
             compounds = list(self.compounds.keys())+[c]
         elif fractype == types.fraction.volume:
             vfrac = np.asarray(list(self.volumefractions().values()))
-            vfrac = stoichiometry.add_frac(vfrac,frac)
+            vfrac = stoichiometry.add_frac(vfrac, frac)
             compounds = list(self.compounds.keys())+[c]
             MM = np.asarray([c.molarmass() for c in compounds])
             rho = np.asarray([c.density for c in compounds])
-            nfrac = stoichiometry.frac_volume_to_mole(vfrac,rho,MM)
+            nfrac = stoichiometry.frac_volume_to_mole(vfrac, rho, MM)
         else:
             wfrac = np.asarray(list(self.massfractions().values()))
-            wfrac = stoichiometry.add_frac(wfrac,frac)
+            wfrac = stoichiometry.add_frac(wfrac, frac)
             compounds = list(self.compounds.keys())+[c]
             MM = np.asarray([c.molarmass() for c in compounds])
-            nfrac = stoichiometry.frac_weight_to_mole(wfrac,MM)
+            nfrac = stoichiometry.frac_weight_to_mole(wfrac, MM)
 
         # Compounds (no duplicates)
-        self._compose_compounds(compounds,nfrac)
+        self._compose_compounds(compounds, nfrac)
 
-    def change_fractions(self,dfrac,fractype):
+    def change_fractions(self, dfrac, fractype):
         """Change the compound fractions
 
         Args:
@@ -128,20 +129,20 @@ class Mixture(multielementbase.MultiElementBase):
         """
         compounds = list(dfrac.keys())
         fractions = np.asarray(list(dfrac.values()))
-        
+
         if fractype == types.fraction.mole:
             nfrac = fractions
         elif fractype == types.fraction.volume:
             MM = np.asarray([c.molarmass() for c in compounds])
             rho = np.asarray([c.density for c in compounds])
-            nfrac = stoichiometry.frac_volume_to_mole(fractions,rho,MM)
+            nfrac = stoichiometry.frac_volume_to_mole(fractions, rho, MM)
         else:
             MM = np.asarray([c.molarmass() for c in compounds])
-            nfrac = stoichiometry.frac_weight_to_mole(fractions,MM)
-            
-        self._compose_compounds(compounds,nfrac)
+            nfrac = stoichiometry.frac_weight_to_mole(fractions, MM)
 
-    def tocompound(self,name=None):
+        self._compose_compounds(compounds, nfrac)
+
+    def tocompound(self, name=None):
         if not name:
             name = self.name
         tmp = self.elemental_molefractions()
@@ -154,16 +155,16 @@ class Mixture(multielementbase.MultiElementBase):
     def __str__(self):
         ws = self.massfractions()
         return ' + '.join("{:.02f} wt% {}".format(s[1]*100, s[0])
-                                                  for s in ws.items())
+                          for s in ws.items())
 
-    def __getitem__(self,compound):
+    def __getitem__(self, compound):
         return self.compounds[compound]
 
     @property
     def elements(self):
         return list(set(e for c in self.compounds for e in c.elements))
 
-    def molarmass(self,total=True):
+    def molarmass(self, total=True):
         # equivalent to using molefractions when total=True
         # not equivalent to using molefractions when total=False
         nfrac = self.elemental_molefractions(total=total)
@@ -182,28 +183,30 @@ class Mixture(multielementbase.MultiElementBase):
         nfrac = np.asarray(list(nfrac.values()))
         return (Z*nfrac).sum()
 
-    def molefractions(self,total=True):
+    def molefractions(self, total=True):
         if total:
             return dict(self.compounds)
         else:
             nfrac = np.asarray(list(self.compounds.values()))
             nfrac /= nfrac.sum()
-            return dict(zip(self.compounds.keys(),nfrac))
+            return dict(zip(self.compounds.keys(), nfrac))
 
     def massfractions(self):
         nfrac = self.molefractions()
         MM = np.asarray([c.molarmass() for c in nfrac])
-        wfrac = stoichiometry.frac_mole_to_weight(np.asarray(list(nfrac.values())),MM)
-        return dict(zip(nfrac.keys(),wfrac))
+        wfrac = stoichiometry.frac_mole_to_weight(
+            np.asarray(list(nfrac.values())), MM)
+        return dict(zip(nfrac.keys(), wfrac))
 
     def volumefractions(self):
         nfrac = self.molefractions()
         MM = np.asarray([c.molarmass() for c in nfrac])
         rho = np.asarray([c.density for c in nfrac])
-        wfrac = stoichiometry.frac_mole_to_volume(np.asarray(list(nfrac.values())),rho,MM)
-        return dict(zip(nfrac.keys(),wfrac))
+        wfrac = stoichiometry.frac_mole_to_volume(
+            np.asarray(list(nfrac.values())), rho, MM)
+        return dict(zip(nfrac.keys(), wfrac))
 
-    def fractions(self,fractype):
+    def fractions(self, fractype):
         if fractype == types.fraction.mole:
             return self.molefractions()
         elif fractype == types.fraction.volume:
@@ -214,20 +217,20 @@ class Mixture(multielementbase.MultiElementBase):
     @property
     def nelements(self):
         return sum(c.nelements for c in self.compounds)
-    
+
     @property
     def ncompounds(self):
         return len(self.compounds)
-                
+
     @property
     def density(self):
         nfrac = self.molefractions()
         MM = np.asarray([c.molarmass() for c in nfrac])
         rho = np.asarray([c.density for c in nfrac])
         nfrac = np.asarray(list(nfrac.values()))
-        return stoichiometry.density_from_molefrac(nfrac,rho,MM)
+        return stoichiometry.density_from_molefrac(nfrac, rho, MM)
 
-    def elemental_molefractions(self,total=True):
+    def elemental_molefractions(self, total=True):
         ret = {}
 
         c_nfrac = self.molefractions(total=total)
@@ -252,8 +255,8 @@ class Mixture(multielementbase.MultiElementBase):
                 else:
                     ret[e] = c_wfrac[c]*e_wfrac[e]
         return ret
-        
-    def _crosssection(self,method,E,fine=False,decomposed=False,**kwargs):
+
+    def _crosssection(self, method, E, fine=False, decomposed=False, **kwargs):
         """Calculate mixture cross-sections
         """
         bscat = self._cs_scattering(method)
@@ -274,7 +277,7 @@ class Mixture(multielementbase.MultiElementBase):
                 else:
                     environ = None
                 for e, w in c.massfractions().items():
-                    cs = getattr(e,method)(E,environ=environ,**kwargs)
+                    cs = getattr(e, method)(E, environ=environ, **kwargs)
                     ret[c]["cs"][e] = {"w": w, "cs": cs}
         else:
             if self._cs_dict(method):
@@ -288,11 +291,11 @@ class Mixture(multielementbase.MultiElementBase):
                         environ = None
                     e_wfrac = c.massfractions()
                     for e in c.elements:
-                        cs = getattr(e,method)(E,environ=environ,**kwargs)
+                        cs = getattr(e, method)(E, environ=environ, **kwargs)
                         if not cs:
                             continue
                         w = c_wfrac[c]*e_wfrac[e]
-                        for k,v in cs.items():
+                        for k, v in cs.items():
                             ret[k] = ret.get(k, 0) + w*v
             else:
                 ret = None
@@ -304,7 +307,7 @@ class Mixture(multielementbase.MultiElementBase):
                     else:
                         environ = None
                     e_wfrac = c.massfractions()
-                    eret = sum(c_wfrac[c]*e_wfrac[e]*getattr(e,method)(E,environ=environ,**kwargs)
+                    eret = sum(c_wfrac[c]*e_wfrac[e]*getattr(e, method)(E, environ=environ, **kwargs)
                                for e in c.elements)
                     if ret is None:
                         ret = eret
@@ -312,34 +315,35 @@ class Mixture(multielementbase.MultiElementBase):
                         ret += eret
         return ret
 
-    def refractive_index_delta(self,E,fine=False,decomposed=False,**kwargs):
-        return self.refractive_index_delta_calc(E,self.elemental_massfractions(),self.density,environ=None,**kwargs)
-    
-    def refractive_index_beta(self,E,fine=False,decomposed=False,**kwargs):
-        return self.refractive_index_beta_calc(E,self.elemental_massfractions(),self.density,environ=None,**kwargs)
+    def refractive_index_delta(self, E, fine=False, decomposed=False, **kwargs):
+        return self.refractive_index_delta_calc(E, self.elemental_massfractions(), self.density, environ=None, **kwargs)
+
+    def refractive_index_beta(self, E, fine=False, decomposed=False, **kwargs):
+        return self.refractive_index_beta_calc(E, self.elemental_massfractions(), self.density, environ=None, **kwargs)
 
     def markinfo(self):
         yield "{}".format(self.name)
         for c in self.compounds:
             for s in c.markinfo():
                 yield " {}".format(s)
-        
-    def markabsorber(self,symb=None,shells=None,fluolines=None,energybounds=None):
+
+    def markabsorber(self, symb=None, shells=None, fluolines=None, energybounds=None):
         """
         Args:
             symb(str): element symbol
         """
         for c in self.compounds:
-            c.markabsorber(symb,shells=shells,fluolines=fluolines,energybounds=energybounds)
+            c.markabsorber(symb, shells=shells,
+                           fluolines=fluolines, energybounds=energybounds)
 
     def unmarkabsorber(self):
         for c in self.compounds:
             c.unmarkabsorber()
-            
+
     def hasabsorbers(self):
         return any([c.hasabsorbers() for c in self.compounds])
-        
-    def markscatterer(self,name=None):
+
+    def markscatterer(self, name=None):
         """
         Args:
             name(str): compound name
@@ -353,38 +357,40 @@ class Mixture(multielementbase.MultiElementBase):
 
     def hasscatterers(self):
         return any([c.isscatterer() for c in self.compounds])
-            
-    def get_energy(self,energyrange,defaultinc=1):
+
+    def get_energy(self, energyrange, defaultinc=1):
         """Get absolute energies (keV) from a relative energy range (eV)
         """
         for c in self.compounds:
-            ret = c.get_energy(energyrange,defaultinc=defaultinc)
+            ret = c.get_energy(energyrange, defaultinc=defaultinc)
             if ret is not None:
                 return ret
         return None
 
-    def topymca(self,cfg,defaultthickness=1e-4):
+    def topymca(self, cfg, defaultthickness=1e-4):
         r = self.massfractions()
         massfractions = list(r.values())
-        names = [mat.topymca(cfg,defaultthickness=defaultthickness) for mat in r]
-        
+        names = [mat.topymca(cfg, defaultthickness=defaultthickness)
+                 for mat in r]
+
         matname = self.pymcaname
         cfg["materials"][matname] = {'Comment': self.pymcacomment,
-                                    'CompoundFraction': massfractions,
-                                    'Thickness': defaultthickness,
-                                    'Density': self.density,
-                                    'CompoundList': names}
+                                     'CompoundFraction': massfractions,
+                                     'Thickness': defaultthickness,
+                                     'Density': self.density,
+                                     'CompoundList': names}
         return matname
 
-    def tofisx(self,cfg,defaultthickness=1e-4):
+    def tofisx(self, cfg, defaultthickness=1e-4):
         r = self.massfractions()
         massfractions = list(r.values())
-        names = [mat.tofisx(cfg,defaultthickness=defaultthickness) for mat in r]
-        
+        names = [mat.tofisx(cfg, defaultthickness=defaultthickness)
+                 for mat in r]
+
         matname = self.pymcaname
-        o = fisx.Material(matname, self.density, defaultthickness, self.pymcacomment)
-        o.setCompositionFromLists(names,massfractions)
-        cfg.addMaterial(o,errorOnReplace=False)
+        o = fisx.Material(matname, self.density,
+                          defaultthickness, self.pymcacomment)
+        o.setCompositionFromLists(names, massfractions)
+        cfg.addMaterial(o, errorOnReplace=False)
 
         return matname
-

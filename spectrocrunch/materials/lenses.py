@@ -29,12 +29,14 @@ from . import visirlib
 
 import numpy as np
 
+
 class Lens(with_metaclass()):
     """
     Class representing a lens
     """
 
-    def __init__(self, magnification=None, NA=None, thickness=None, material=None, lightyieldcor=1):
+    def __init__(self, magnification=None, NA=None, thickness=None,
+                 material=None, lightyieldcor=1):
         """
         Args:
             magnification(num): magnification
@@ -42,41 +44,65 @@ class Lens(with_metaclass()):
             thickness(num): in cm
             transmission(Material): transmission
         """
-        self.required(magnification,"magnification")
-        self.required(NA,"NA")
-        self.required(thickness,"thickness")
-        self.required(material,"material")
-        
-        self.magnification = float(magnification)
-        self.NA = float(NA)
-        self.thickness = float(thickness)
+        self.magnification = magnification
+        self.NA = NA
+        self.thickness = thickness
         self.material = material
         self.lightyieldcor = lightyieldcor
 
-    def transmission(self,visspectrum):
-        linatt = np.asarray(self.material.linear_attenuation_coefficient(visspectrum.lines))
+    def __getstate__(self):
+        return {'magnification': self.magnification,
+                'NA': self.NA,
+                'thickness': self.thickness,
+                'material': self.material,
+                'lightyieldcor': self.lightyieldcor}
+
+    def __setstate__(self, state):
+        self.magnification = state['magnification']
+        self.NA = state['NA']
+        self.thickness = state['thickness']
+        self.material = state['material']
+        self.lightyieldcor = state['lightyieldcor']
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.magnification == other.magnification and \
+                self.NA == other.NA and \
+                self.thickness == other.thickness and \
+                self.material == other.material and \
+                self.lightyieldcor == other.lightyieldcor
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def transmission(self, visspectrum):
+        linatt = np.asarray(
+            self.material.linear_attenuation_coefficient(visspectrum.lines))
         ratios = visspectrum.ratios
         return np.sum(ratios * np.exp(-linatt*self.thickness))
-    
-    def lightyield(self,nrefrac,source="point"):
+
+    def lightyield(self, nrefrac, source="point"):
         #air = visirlib.Material("other","air","Ciddor")
         #nmedium = np.mean(air.refractive_index(visspectrum.energies))
-        nmedium = 1 # vacuum
+        nmedium = 1  # vacuum
 
-        if source=="point":
-            k = np.tan(np.arcsin(self.NA/nmedium)) # == 1/(2.F#)
+        if source == "point":
+            k = np.tan(np.arcsin(self.NA/nmedium))  # == 1/(2.F#)
             yld = k**2*self.magnification**2/(2*(self.magnification+1.))**2
-        elif source=="lambertian":
-            k = np.tan(np.arcsin(self.NA/nmedium)) # == 1/(2.F#)
-            yld = self.magnification**2/(((self.magnification+1.)/k)**2+self.magnification**2)
+        elif source == "lambertian":
+            k = np.tan(np.arcsin(self.NA/nmedium))  # == 1/(2.F#)
+            yld = self.magnification**2 / \
+                (((self.magnification+1.)/k)**2+self.magnification**2)
         else:
-            yld = self.NA**2/4. # approximation to point source
-        
+            yld = self.NA**2/4.  # approximation to point source
+
         return yld*self.lightyieldcor
-        
-    def propagate(self,N,visspectrum,nrefrac=None,source="point",forward=True):
+
+    def propagate(self, N, visspectrum, nrefrac=None, source="point", forward=True):
         """Error propagation of a number of photons.
-               
+
         Args:
             N(unumpy.uarray): incomming number of photons with uncertainties
             visspectrum(emspectrum): visible light spectrum
@@ -110,13 +136,9 @@ class Lens(with_metaclass()):
         #   M = geometrical maginification
         #   d = lens diameter
         #   nmedium = refractive index of air
-        
         probsuccess = self.transmission(visspectrum)
-        
-        N,probsuccess = self.propagate_broadcast(N,probsuccess)
-        
-        lightyield = self.lightyield(nrefrac,source=source)
-        
+        N, probsuccess = self.propagate_broadcast(N, probsuccess)
+        lightyield = self.lightyield(nrefrac, source=source)
         if instance.israndomvariable(N):
             if forward:
                 proc1 = noisepropagation.bernouilli(probsuccess)
@@ -124,16 +146,15 @@ class Lens(with_metaclass()):
             else:
                 proc2 = noisepropagation.bernouilli(probsuccess)
                 proc1 = noisepropagation.poisson(lightyield)
-
-            Nout = noisepropagation.compound(N,proc1,forward=forward)
-            Nout = noisepropagation.compound(Nout,proc2,forward=forward)
+            Nout = noisepropagation.compound(N, proc1, forward=forward)
+            Nout = noisepropagation.compound(Nout, proc2, forward=forward)
         else:
             if forward:
                 Nout = N*(probsuccess*lightyield)
             else:
                 Nout = N/(probsuccess*lightyield)
-                
         return Nout
+
 
 class mitutoyoid21_10x(Lens):
     """
@@ -142,8 +163,13 @@ class mitutoyoid21_10x(Lens):
     aliases = ["Mitutoyo ID21 10x"]
 
     def __init__(self):
-        super(mitutoyoid21_10x, self).__init__(magnification=10, NA=0.42,
-        thickness=8., material=visirlib.Material("glass","BK7","SCHOTT"), lightyieldcor = 0.1)
+        glass = visirlib.Material("glass", "BK7", "SCHOTT")
+        super(mitutoyoid21_10x, self).__init__(magnification=10,
+                                               NA=0.42,
+                                               thickness=8.,
+                                               material=glass,
+                                               lightyieldcor=0.1)
+
 
 class mitutoyoid21_20x(Lens):
     """
@@ -152,10 +178,12 @@ class mitutoyoid21_20x(Lens):
     aliases = ["Mitutoyo ID21 20x"]
 
     def __init__(self):
-        super(mitutoyoid21_20x, self).__init__(magnification=20, NA=0.42,
-        thickness=7.5, material=visirlib.Material("glass","BK7","SCHOTT"), lightyieldcor = 0.1)
+        glass = visirlib.Material("glass", "BK7", "SCHOTT")
+        super(mitutoyoid21_20x, self).__init__(magnification=20,
+                                               NA=0.42,
+                                               thickness=7.5,
+                                               material=glass,
+                                               lightyieldcor=0.1)
 
-classes = Lens.clsregistry
-aliases = Lens.aliasregistry
+
 factory = Lens.factory
-

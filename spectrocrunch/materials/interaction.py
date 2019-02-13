@@ -30,9 +30,10 @@ from . import element
 
 import numpy as np
 
+
 class Interaction(Hashable):
 
-    def __init__(self,name,energy,prob):
+    def __init__(self, name, energy, prob):
         self._name = name
         self._energy = energy
         self._prob = prob
@@ -40,67 +41,70 @@ class Interaction(Hashable):
     @property
     def energy(self):
         return self._energy
-        
+
     def _cmpkey(self):
         """For comparing
         """
         return str(self)
-        
+
     def _sortkey(self):
         """For sorting
         """
         return self.energy
-        
+
     def _stringrepr(self):
         """Unique representation of an instance
         """
         return self._name
 
+
 class InteractionSource(Interaction):
 
-    def __init__(self,energy,index):
+    def __init__(self, energy, index):
         name = "Source-{}".format(index)
         prob = 1
-        super(InteractionSource,self).__init__(name,energy,prob)
+        super(InteractionSource, self).__init__(name, energy, prob)
+
 
 class InteractionFluo(Interaction):
 
-    def __init__(self,el,shell,line):
+    def __init__(self, el, shell, line):
         """
         Args:
             el(element or num or str):
             shell(Shell):
             line(FluoLine):
         """
-        if not isinstance(el,element.Element):
+        if not isinstance(el, element.Element):
             el = element.Element(el)
-        name = "{}-{}".format(el,line)
+        name = "{}-{}".format(el, line)
         energy = line.energy(el.Z)
         prob = shell.fluoyield(el.Z)*line.radrate(el.Z)
-        
-        super(InteractionFluo,self).__init__(name,energy,prob)
+
+        super(InteractionFluo, self).__init__(name, energy, prob)
+
 
 class InteractionElScat(Interaction):
 
-    def __init__(self,source):
+    def __init__(self, source):
         name = "RScat({})".format(source)
         prob = 1
-        super(InteractionElScat,self).__init__(name,source.energy,prob)
-        
+        super(InteractionElScat, self).__init__(name, source.energy, prob)
+
+
 class InteractionInelScat(Interaction):
-        
-    def __init__(self,source,theta):
+
+    def __init__(self, source, theta):
         name = "CScat({})".format(source)
         prob = 1
-        self.theta = theta # scattering angle
-        
-        super(InteractionInelScat,self).__init__(name,source.energy,prob)
+        self.theta = theta  # scattering angle
+
+        super(InteractionInelScat, self).__init__(name, source.energy, prob)
 
     @property
     def energy(self):
-        if self.theta==0:
+        if self.theta == 0:
             return self.energy
-        delta = ureg.Quantity(1-np.cos(np.radians(self.theta)),"1/(m_e*c^2)").to("1/keV","spectroscopy").magnitude
+        delta = ureg.Quantity(1-np.cos(np.radians(self.theta)),
+                              "1/(m_e*c^2)").to("1/keV", "spectroscopy").magnitude
         return self._energy/(1+self._energy*delta)
-        
-

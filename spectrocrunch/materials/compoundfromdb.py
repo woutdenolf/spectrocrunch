@@ -29,12 +29,15 @@ from . import compoundfromformula
 import collections
 import itertools
 
-db = collections.OrderedDict([("name",compoundfromname),("nist",compoundfromnist),("formula",compoundfromformula)])
+db = collections.OrderedDict(
+    [("name", compoundfromname), ("nist", compoundfromnist), ("formula", compoundfromformula)])
 
-registry = itertools.chain(compoundfromname.registry,compoundfromnist.registry)
+registry = itertools.chain(compoundfromname.registry,
+                           compoundfromnist.registry)
+
 
 def factory(name):
-    for dbname,mod in db.items():
+    for dbname, mod in db.items():
         match = mod.search(name)
         if match:
             return mod.factory(match)

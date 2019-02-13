@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -22,20 +22,35 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from . import element
+import unittest
+
+from ..import scintillators
+from ...utils import units
+from ...patch import jsonpickle
 
 
-def elemental_crosssections(dictin, dictout=None, w=1):
-    if dictout is None:
-        dictout = {}
+class test_scintillators(unittest.TestCase):
 
-    for k, v in dictin.items():
-        if isinstance(v["cs"], dict):
-            elemental_crosssections(v["cs"], w=v["w"], dictout=dictout)
-        else:
-            if k in dictout:
-                dictout[k] += w*v["w"]*v["cs"]
-            else:
-                dictout[k] = w*v["w"]*v["cs"]
+    def test_serialize(self):
+        exclude = ()
+        for name, cls in scintillators.Scintillator.clsregistry.items():
+            if name not in exclude:
+                s1 = cls()
+                s2 = jsonpickle.decode(jsonpickle.encode(s1))
+                self.assertEqual(s1, s2)
 
-    return dictout
+
+def test_suite():
+    """Test suite including all test suites"""
+    testSuite = unittest.TestSuite()
+    testSuite.addTest(test_scintillators("test_serialize"))
+    return testSuite
+
+
+if __name__ == '__main__':
+    import sys
+
+    mysuite = test_suite()
+    runner = unittest.TextTestRunner()
+    if not runner.run(mysuite).wasSuccessful():
+        sys.exit(1)
