@@ -32,9 +32,9 @@ from . import listtools
 
 class LUT(object):
 
-    def __init__(self,default=None,interpolation="linear"):
+    def __init__(self,default=None,kind="linear"):
         self.clear(default=default)
-        self.kind = interpolation
+        self.kind = kind
 
     def __getstate__(self):
         return {'kind': self.kind,
@@ -69,8 +69,8 @@ class LUT(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        s = '\n '.join("{:~}: {:~}".format(k,v)
-                       for k,v in zip(self.x, self.y))
+        s = '\n '.join("{:~}: {:~}".format(*xy)
+                       for xy in zip(self.x, self.y))
         if s:
             return "Lookup table:\n {}".format(s)
         else:
@@ -82,6 +82,9 @@ class LUT(object):
         self._func = lambda x: default
         self._default = default
     
+    def isempty(self):
+        return self.x is None
+
     @property
     def xunits(self):
         if self.x is None:
@@ -96,11 +99,26 @@ class LUT(object):
         else:
             return self.y.units
 
+    def zip(self, xunits, yunits):
+        x, y = self.x, self.y
+        if x is None:
+            return zip([], [])
+        if xunits:
+            x = x.to(xunits)
+        else:
+            x = x.magnitude
+        if yunits:
+            y = y.to(yunits)
+        else:
+            y = y.magnitude
+        return zip(x, y)
+
     def __call__(self, x):
-        x = units.asqarray(x).to(self.xunits).magnitude
+        x, func = units.asqarrayf(x)
+        x = x.to(self.xunits).magnitude
         y = self._func(x)
         y = units.Quantity(y, units=self.yunits)
-        return y
+        return func(y)
 
     def add(self, x, y):
         x = units.asqarray(x)

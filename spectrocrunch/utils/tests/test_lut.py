@@ -23,6 +23,7 @@
 # THE SOFTWARE.
 
 import unittest
+import numpy as np
 
 from ..import lut
 from .. import units
@@ -49,6 +50,16 @@ class test_lut(unittest.TestCase):
         self.assertEqual(l1.x.units, units.ureg.Unit('cm'))
         self.assertEqual(l1.y.units, units.ureg.Unit('keV'))
 
+    def test_interpolate(self):
+        l1 = lut.LUT(kind='linear')
+        l1.add(units.Quantity(7,'keV'), units.Quantity(10,'mm'))
+        l1.add(units.Quantity(7400,'eV'), units.Quantity(2,'cm'))
+        func = lambda x: l1(units.Quantity(x,'keV')).to('mm').magnitude
+        self.assertEqual(func(7.2), 15)
+        np.testing.assert_allclose(func([7.2]), [15])
+        np.testing.assert_allclose(func([7.1, 7.2, 7.3]),
+                                   [12.5, 15, 17.5])
+
     def test_serialize(self):
         l1 = lut.LUT()
         l2 = jsonpickle.decode(jsonpickle.encode(l1))
@@ -66,6 +77,7 @@ def test_suite():
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_lut("test_sort"))
     testSuite.addTest(test_lut("test_units"))
+    testSuite.addTest(test_lut("test_interpolate"))
     testSuite.addTest(test_lut("test_serialize"))
     return testSuite
 

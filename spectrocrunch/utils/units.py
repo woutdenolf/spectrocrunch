@@ -115,19 +115,14 @@ def asqarray(x,forcequantity=True,**kwargs):
     Returns:
         x(Quantity|array):
     """
-    
     u = next(listtools.flatten(units(x)))
-    
     if instance.isarraynot0(x):
         x = [magnitude(y,units=u) for y in x]
     else:
         x = magnitude(x,u)
-
     x = instance.asarray(x,**kwargs)
-    
     if forcequantity or u is not None:
         x = Quantity(x,units=u)
-
     return x
     
 def asqarrayf(x,**kwargs):
@@ -141,11 +136,12 @@ def asqarrayf(x,**kwargs):
         func(callable): apply to x to restore scalars
     """
     if instance.isarray(x):
-        func = lambda x:x[0]
-    else:
         func = lambda x:x
-
-    return asqarray(x,**kwargs),func
+    elif instance.isqarray(x):
+        func = lambda x:x
+    else:
+        func = lambda x:x[0]
+    return asqarray(x,**kwargs), func
 
 def quantity_like(x,y,forcequantity=True):
     """Quantity with units of y
