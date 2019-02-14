@@ -91,7 +91,13 @@ def iscallable(x):
 
 def isquantity(x):
     return isinstance(x, ureg.Quantity)
-    
+
+def isqarray(x):
+    if isquantity(x):
+        if isarray(x.magnitude):
+            return True
+    return False
+
 def israndomvariable(x):
     # do not use asscalar!!!
     if isarray(x):
