@@ -31,8 +31,10 @@ from . import listtools
 
 
 class LUT(object):
+    """Lookup table with units
+    """
 
-    def __init__(self,default=None,kind="linear"):
+    def __init__(self,default=np.nan,kind="linear"):
         self.clear(default=default)
         self.kind = kind
 
@@ -60,8 +62,12 @@ class LUT(object):
             if self.y is not None:
                 if not (self.y == other.y).all():
                     return False
-            return self.kind == other.kind and \
-                   self._default == other._default
+            if np.isnan(self._default) ^ np.isnan(other._default):
+                return False
+            if not np.isnan(self._default):
+                if self._default != other._default:
+                    return False
+            return self.kind == other.kind
         else:
             return False
 
@@ -69,8 +75,8 @@ class LUT(object):
         return not self.__eq__(other)
 
     def __str__(self):
-        s = '\n '.join("{:~}: {:~}".format(*xy)
-                       for xy in zip(self.x, self.y))
+        s = '\n '.join(["{:~}: {:~}".format(*xy)
+                       for xy in self.zip(self.xunits, self.yunits)])
         if s:
             return "Lookup table:\n {}".format(s)
         else:
@@ -79,9 +85,9 @@ class LUT(object):
     def clear(self, default=None):
         self.x = None
         self.y = None
-        self._func = lambda x: default
-        self._default = default
-    
+        self._func = None
+        self._default = units.Quantity(default, units.ureg.dimensionless)
+
     def isempty(self):
         return self.x is None
 
@@ -115,15 +121,20 @@ class LUT(object):
 
     def __call__(self, x):
         x, func = units.asqarrayf(x)
-        x = x.to(self.xunits).magnitude
-        y = self._func(x)
-        y = units.Quantity(y, units=self.yunits)
+        if self.isempty():
+            y = [self._default.magnitude]*len(x)
+            yunits = self._default.units
+        else:
+            x = x.to(self.xunits).magnitude
+            y = self._func(x)
+            yunits = self.yunits
+        y = units.Quantity(y, units=yunits)
         return func(y)
 
     def add(self, x, y):
         x = units.asqarray(x)
         y = units.asqarray(y)
-        if self.x is None:
+        if self.isempty():
             self.x = x
             self.y = y
             x = x.magnitude
@@ -131,15 +142,16 @@ class LUT(object):
         else:
             x = x.to(self.xunits).magnitude
             y = y.to(self.yunits).magnitude
-            x = np.append(self.x.magnitude, x)
-            y = np.append(self.y.magnitude, y)
+            x = np.append(x, self.x.magnitude)
+            y = np.append(y, self.y.magnitude)
+        x, y = listtools.unique2lists(x, y)
         x, y = listtools.sort2lists(x, y)
         self.x = units.Quantity(x, self.xunits)
         self.y = units.Quantity(y, self.yunits)
-
-        if len(x)==1:
-            y = y[0]
-            self._func = lambda x: y
+        if len(x) == 1:
+            y = [y[0]]
+            self._func = lambda x: y*len(x)
         else:
-            # units get lost
-            self._func = interpolate.interp1d(x,y,bounds_error=False,fill_value=(y[0],y[-1]),kind=self.kind)
+            self._func = interpolate.interp1d(x, y, bounds_error=False,
+                                              fill_value=(y[0], y[-1]),
+                                              kind=self.kind)

@@ -23,12 +23,14 @@
 # THE SOFTWARE.
 
 import unittest
+from . import test_base
 from . import test_diode
 from . import test_xrf
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
+    testSuite.addTest(test_base.test_suite())
     testSuite.addTest(test_diode.test_suite())
     testSuite.addTest(test_xrf.test_suite())
     return testSuite

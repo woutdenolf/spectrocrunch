@@ -110,7 +110,23 @@ def sort2lists(list1, list2):
     Returns:
         list,list
     """
-    return tuple(list(t) for t in zip( *sorted(zip(list1, list2),key=operator.itemgetter(0)) ))
+    return tuple(list(t) for t in zip(*sorted(zip(list1, list2),
+                                      key=operator.itemgetter(0))))
+
+def unique2lists(list1, list2):
+    """Unique list1 and list2 based on list1
+
+    Args:
+        list1(list):
+        list2(list):
+    Returns:
+        list,list
+    """
+    seen = set()
+    seen_add = seen.add
+    list1, list2 = list(zip(*[[x1,x2] for x1, x2 in zip(list1, list2)
+                            if not (x1 in seen or seen_add(x1))]))
+    return list(list1), list(list2)
 
 def sumrepeats(labels, counts):
     """

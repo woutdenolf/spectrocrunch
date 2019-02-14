@@ -29,6 +29,10 @@ from . import listtools
 
 import numpy as np
 
+
+dimensionless = ureg.dimensionless
+
+
 def Quantity(x,units=None,forcequantity=True):
     """Quantity with given units when not present
     
@@ -61,7 +65,7 @@ def magnitude(x,units=None):
         DimensionalityError
     """
     if units is None:
-        units = ureg.dimensionless
+        units = dimensionless
     
     if instance.isquantity(x):
         return x.to(units).magnitude
@@ -71,7 +75,7 @@ def magnitude(x,units=None):
         #TODO: not sure why this fails:
         #return np.vectorize(lambda y: magnitude(y,units=units))(x) 
     else:
-        if units != ureg.dimensionless:
+        if units != dimensionless:
             raise pinterrors.DimensionalityError(None,units)
         return x
 
@@ -162,7 +166,7 @@ def quantity_like(x,y,forcequantity=True):
         return magnitude(x,units=None)
     else:
         if u is None:
-            u = ureg.dimensionless
+            u = dimensionless
         return Quantity(x,units=u).to(u)
     
 def unitsto(x,units):
