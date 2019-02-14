@@ -38,13 +38,28 @@ class Material(object):
 
     def __init__(self,attenuators=None):
         #TODO: separate attenuators, beamfilters and detector material
-        
         if attenuators is None:
             attenuators = {}
         self.attenuators = attenuators
 
+    def __getstate__(self):
+        return {'attenuators': self.attenuators}
+
+    def __setstate__(self, state):
+        self.attenuators = state['attenuators']
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.attenuators == other.attenuators
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def addattenuator(self,name,material,thickness):
-        self._attenuators[name] = {"material":material,"thickness":thickness}
+        self._attenuators[name] = {"material": material,
+                                   "thickness": thickness}
 
     def removeattenuator(self,name):
         self._attenuators.pop(name,None)
@@ -222,11 +237,36 @@ class Material(object):
 class SolidState(Material):
 
     def __init__(self,ehole=None,**kwargs):
-        if ehole is None:
-            self.ehole = None
-        else:
-            self.ehole = units.Quantity(ehole,"eV")
+        self.ehole = ehole
         super(SolidState,self).__init__(**kwargs)
+
+    @property
+    def ehole(self):
+        return self._ehole
+        
+    @ehole.setter
+    def ehole(self,value):
+        if value is None:
+            self._ehole = None
+        else:
+            self._ehole = units.Quantity(value,"eV")
+
+    def __getstate__(self):
+        state = super(SolidState,self).__getstate__()
+        state['ehole'] = self.ehole
+        return state
+
+    def __setstate__(self, state):
+        super(SolidState,self).__setstate__(state)
+        self.ehole = state['ehole']
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            if not (super(SolidState,self).__eq__(other)):
+                return False
+            return self.ehole == other.ehole
+        else:
+            return False
 
     def __str__(self):
         return " Ionization energy = {:~}\n{}".format(self.ehole,super(SolidState,self).__str__())
@@ -238,8 +278,26 @@ class CentricCone(SolidState):
         self.activearea = activearea # cm^2
         super(CentricCone,self).__init__(**kwargs)
 
+    def __getstate__(self):
+        state = super(CentricCone,self).__getstate__()
+        state['activearea'] = self.activearea
+        return state
+
+    def __setstate__(self, state):
+        super(CentricCone,self).__setstate__(state)
+        self.activearea = state['activearea']
+    
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            if not (super(CentricCone,self).__eq__(other)):
+                return False
+            return self.activearea == other.activearea
+        else:
+            return False
+
     def __str__(self):
-        return " Active area = {:~}\n{}".format(self.activearea,super(CentricCone,self).__str__())
+        return " Active area = {:~}\n{}".format(
+                self.activearea,super(CentricCone,self).__str__())
 
     @property
     def activearea_rv(self):
@@ -282,10 +340,9 @@ class CentricCone(SolidState):
             mat = self.geometry.atmosphere
             d = self.geometry.distance
             if mat and d:
-                self.addattenuator("Atmosphere",mat,units.umagnitude(d,"cm"))
+                self.addattenuator("Atmosphere", mat, units.umagnitude(d,"cm"))
         except AttributeError:
             pass
-
         return self._attenuators
 
     def addtofisx(self,setup,cfg):

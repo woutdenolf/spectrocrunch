@@ -118,29 +118,39 @@ class GainRounder(object):
     def __init__(self,m=None,base=None):
         self.m = m
         self.base = base
-        
-    def __call__(self,x):
+    
+    def __getstate__(self):
+        return {'m': self.m,
+                'base': self.base}
+
+    def __setstate__(self, state):
+        self.m = state['m']
+        self.base = state['base']
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.m == other.m and self.base == other.base
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __call__(self, x):
         if self.m is None and self.base is None:
             return x
-        
         gain = x.magnitude
         u = x.units
-        
         if self.m is not None:
             gain = gain/self.m
-        
         if self.base is not None:
             gain = math.log(gain,self.base)
-        
         gain = int(round(gain))
-        
         if self.base is not None:
             gain = self.base**gain
-        
         if self.m is not None:
             gain = self.m*gain
-            
-        return units.Quantity(gain,u)
+        return units.Quantity(gain, u)
 
 
 class Oscillator(object):
@@ -157,7 +167,28 @@ class Oscillator(object):
         self.Fmax = Fmax
         self.F0 = F0
         self.Vmax = Vmax
-    
+
+    def __getstate__(self):
+        return {'Fmax': self.Fmax,
+                'F0': self.F0,
+                'Vmax': self.Vmax}
+
+    def __setstate__(self, state):
+        self.Fmax = state['Fmax']
+        self.F0 = state['F0']
+        self.Vmax = state['Vmax']
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.Fmax == other.Fmax and \
+                   self.F0 == other.F0 and \
+                   self.Vmax == other.Vmax
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     @property
     def Fmax(self):
         return self._Fmax
@@ -182,11 +213,11 @@ class Oscillator(object):
     
     @Vmax.setter
     def Vmax(self,value):
-        value = units.Quantity(value,"volt")
+        value = units.Quantity(value, "volt")
         self._Vmax = value.to("volt")
         
     def tojson(self):
-        kwargs =  {"Fmax":self.Fmax,"F0":self.F0,"Vmax":self.Vmax}
+        kwargs = {"Fmax":self.Fmax,"F0":self.F0,"Vmax":self.Vmax}
         return {"classname":self.__class__.__name__,"kwargs":kwargs}
 
     def __str__(self):
@@ -218,11 +249,11 @@ class Oscillator(object):
 class PNdiode(with_metaclass(base.SolidState)):
 
     ELCHARGE = ureg.Quantity(1,ureg.elementary_charge)
-    #ELCHARGE = ureg.Quantity(1.6e-19,ureg.coulomb) # approx. in spec
+    #ureg.Quantity(1.6e-19,ureg.coulomb) # approximation used in spec
 
-    def __init__(self, gain=None, gainrounder=None, darkcurrent=None, oscillator=None,\
-                    secondarytarget=None, simplecalibration=False, optics=None, Vmax=None,\
-                    beforesample=None,**kwargs):
+    def __init__(self, gain=None, gainrounder=None, darkcurrent=None,
+                 oscillator=None, secondarytarget=None, simplecalibration=False,
+                 optics=None, Vmax=None, beforesample=None, **kwargs):
         """
         Args:
             gain(num): V/A (default) or A
@@ -231,29 +262,83 @@ class PNdiode(with_metaclass(base.SolidState)):
             oscillator(Oscillator): 
             secondarytarget(multilayer): optional secondary target
             simplecalibration(bool): simplify
+            optics:
+            Vmax: when oscillator is missing
         """
-        
+        if Vmax is None and oscillator is not None:
+            Vmax = oscillator.Vmax
+        self.Vmax = Vmax
         self.oscillator = oscillator
-        if gainrounder is None:
-            gainrounder = GainRounder()
         self.gainrounder = gainrounder
         self.gain = gain
         self.darkcurrent = darkcurrent
-        
         self.beforesample = beforesample
         self.optics = optics
         self.secondarytarget = secondarytarget
-
-        self._simplecalibration = simplecalibration
+        self.simplecalibration = simplecalibration
         self._lut_chargepersamplephoton = lut.LUT()
-
-        self.Vmax = Vmax
-
         super(PNdiode,self).__init__(**kwargs)
     
-    def generator(self):
-        kwargs =  {"gain":self.gain,"F0":self.F0,"Vmax":self.Vmax}
-        return {"classname":self.__class__.__name__,"kwargs":kwargs}
+    def __getstate__(self):
+        state = super(PNdiode, self).__getstate__()
+        state['oscillator'] = self.oscillator
+        state['Vmax'] = self.Vmax
+        state['gainrounder'] = self.gainrounder
+        state['gain'] = self.gain
+        state['darkcurrent'] = self.darkcurrent
+        state['beforesample'] = self.beforesample
+        state['optics'] = self.optics
+        state['secondarytarget'] = self.secondarytarget
+        state['simplecalibration'] = self.simplecalibration
+        state['_lut_chargepersamplephoton'] = self._lut_chargepersamplephoton
+        return state
+
+    def __setstate__(self, state):
+        super(PNdiode, self).__setstate__(state)
+        self.oscillator = state['oscillator']
+        self.Vmax = state['Vmax']
+        self.gainrounder = state['gainrounder']
+        self.gain = state['gain']
+        self.darkcurrent = state['darkcurrent']
+        self.beforesample = state['beforesample']
+        self.optics = state['optics']
+        self.secondarytarget = state['secondarytarget']
+        self.simplecalibration = state['simplecalibration']
+        self._lut_chargepersamplephoton = state['_lut_chargepersamplephoton']
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            if not (super(PNdiode, self).__eq__(other)):
+                return False
+            if not self._eq_secondarytarget(other):
+                return False
+            return self.oscillator == other.oscillator and \
+                   self.Vmax == other.Vmax and \
+                   self.gainrounder == other.gainrounder and \
+                   self.gain == other.gain and \
+                   self.darkcurrent == other.darkcurrent and \
+                   self.beforesample == other.beforesample and \
+                   self.optics == other.optics and \
+                   self.simplecalibration == other.simplecalibration and \
+                   self._lut_chargepersamplephoton == other._lut_chargepersamplephoton
+        else:
+            return False
+
+    def _eq_secondarytarget(self, other):
+        if (self.secondarytarget is None) ^ \
+            (other.secondarytarget is None):
+            return False
+        if self.secondarytarget is not None:
+            # Circular reference: 
+            gself = self.secondarytarget.geometry.detector
+            gother = other.secondarytarget.geometry.detector
+            self.secondarytarget.geometry.detector = None
+            other.secondarytarget.geometry.detector = None
+            eqtarget = self.secondarytarget == other.secondarytarget
+            self.secondarytarget.geometry.detector = gself
+            other.secondarytarget.geometry.detector = gother
+            return eqtarget
+        return True
 
     @property
     def optics(self):
@@ -279,9 +364,9 @@ class PNdiode(with_metaclass(base.SolidState)):
     @property
     def caliboptic(self):
         for dev in self.optics:
-            if dev.haslut():
+            if dev.uselut:
                 return dev
-        raise RuntimeError("No optics with calibratable transmission")
+        raise RuntimeError("No optics with calibratable transmission (with LUT)")
         
     @property
     def simplecalibration(self):
@@ -292,15 +377,14 @@ class PNdiode(with_metaclass(base.SolidState)):
         self._simplecalibration = value
     
     @property
-    def Vmax(self):
-        if self._Vmax:
-            return self._Vmax
-        else:
-            return self.oscillator.Vmax
+    def gainrounder(self):
+        return self._gainrounder
     
-    @Vmax.setter
-    def Vmax(self,value):
-        self._Vmax = value
+    @gainrounder.setter
+    def gainrounder(self, value):
+        if value is None:
+            value = GainRounder()
+        self._gainrounder = value
     
     @property
     def Rout(self):
@@ -343,14 +427,14 @@ class PNdiode(with_metaclass(base.SolidState)):
     @gain.setter
     def gain(self,value):
         if hasattr(self,"_gain"):
-            value = units.Quantity(value,self.gainunits)
-            self._gain = value.to(self.gainunits)
+            u = self.gainunits
+            gain = units.Quantity(value, u).to(u)
         else:
             try:
-                self._gain = value.to("V/A")
+                gain = value.to("V/A")
             except pinterrors.DimensionalityError:
-                self._gain = value.to("A")
-        self._gain = self.gainrounder(self._gain)
+                gain = value.to("A")
+        self._gain = self.gainrounder(gain)
         
     @property
     def gainunits(self):
@@ -365,32 +449,40 @@ class PNdiode(with_metaclass(base.SolidState)):
         self._darkcurrent = units.Quantity(value,"A")
 
     def __str__(self):
+        fmt = "PN-diode:\n{}\n"
+        args = [super(PNdiode,self).__str__()]
+        fmt += "Ammeter:\n Gain = {:~e}\n "
+        args.append(self.gain)
+        fmt += "Dark current = {:~}\n "
+        args.append(self.darkcurrent.to("e/s"))
+        if self.Vmax is not None:
+            fmt += "Output voltage = {:~}\n "
+            args.append(self.Vmax)
         if self.simplecalibration:
-            fmt = "PN-diode:\n{}\n"\
-                  "Ammeter:\n Gain = {:~e}\n "\
-                  "Dark current = {:~}\n "\
-                  "Output voltage = {:~}\n"\
-                  "LUT (e-/sample photon):\n {}\n"\
-                  "Voltage-to-Frequency:\n {}"
-            s = '\n '.join("{} keV: {:~}".format(k,v.to("e")) for k,v in self._lut_chargepersamplephoton.table())
-            return fmt.format(super(PNdiode,self).__str__(),\
-                    self.gain,self.darkcurrent.to("e/s"),self.Vmax,s,self.oscillator)    
+            fmt += "LUT (e-/sample photon):\n {}"
+            lut = self._lut_chargepersamplephoton.zip('keV', 'e')
+            lut = '\n '.join("{:~}: {:~}".format(*xy) for xy in lut)
+            if lut:
+                lut += "\n"
+            args.append(lut)
         else:
-            optics = "\n".join([str(dev) for dev in self.optics])
+            fmt += "Secondary target:\n  {}"
+            target = str(self.secondarytarget)
+            target = '\n  '.join(target.split('\n'))
+            if target:
+                target += "\n "
+            args.append(target)
+            fmt += '{} '
+            optics = '\n'.join(str(dev) for dev in self.optics)
+            optics = '\n '.join(optics.split('\n'))
             if optics:
                 optics += "\n"
-                
-            fmt = "PN-diode:\n{}\n"\
-                  "Ammeter:\n Gain = {:~e}\n "\
-                  "Dark current = {:~}\n "\
-                  "Output voltage = {:~}\n"\
-                  "Secondary target:\n {}\n"\
-                  "{}"\
-                  "Before sample: {}\n"\
-                  "Voltage-to-Frequency:\n {}"
-            return fmt.format(super(PNdiode,self).__str__(),\
-                    self.gain,self.darkcurrent.to("e/s"),self.Vmax,self.secondarytarget,\
-                    optics,self.beforesample,self.oscillator) 
+            args.append(optics)
+            fmt += "Before sample: {}\n"
+            args.append(self.beforesample)
+        fmt += "Voltage-to-Frequency:\n {}"
+        args.append(self.oscillator)
+        return fmt.format(*args)
                     
     def _diode_absorbance(self,energy,thickness):
         # list self.absorbance but with customn thickness
@@ -438,7 +530,6 @@ class PNdiode(with_metaclass(base.SolidState)):
         Returns:
             None
         """
-
         #with warnings.catch_warnings():
         #    warnings.simplefilter("ignore")
         #    ehole = 1/np.max(response)
@@ -446,16 +537,13 @@ class PNdiode(with_metaclass(base.SolidState)):
         #    thickness = -np.log(1-(response*ehole).magnitude)/muL
         #    thickness = np.median(thickness[np.isfinite(thickness)])
         #    ehole = ehole.magnitude
-            
         ehole = self.ehole.to('eV').magnitude
         thickness = self.thickness
-
         try:
             p, cov_matrix = fit.leastsq(self.model_spectral_responsivity, energy, response, [thickness,ehole])
         except:
             logger.debug("Could not fit spectral response of {}".format(self.__class__.__name__))
             return
-            
         self.thickness = p[0] # "cm"
         self.ehole = units.Quantity(p[1],"eV") # eV
 
@@ -603,14 +691,13 @@ class PNdiode(with_metaclass(base.SolidState)):
         Returns:
             num: C/ph
         """
-        
         # Parse input
         energy,weights = self._parse_source(energy,weights=weights)
-        
         if self.simplecalibration:
             # I(A)  = Is(ph/s) . Cs(C) + D(A)
             # Cs(C) = SUM_i [wi.LUTj]
-            return np.sum(instance.asarray(self._lut_chargepersamplephoton(energy))*weights)
+            LUTj = self._lut_chargepersamplephoton(units.Quantity(energy, 'keV'))
+            return np.sum(LUTj*weights)
         else:
             # Transmission, rates and charge-per-diode-photon
             Ts = self._source_transmission(energy) # nE
@@ -646,7 +733,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             # Cs = SUM_i [SUM_j[wi.Yij.Cj]] / SUM_k [wk.Tks]
             #    = SUM_i [wi . Csi]
             energy,weights = self._parse_source(energy,weights=weights)
-            self._lut_chargepersamplephoton.add(energy,Cscalib/weights)
+            self._lut_chargepersamplephoton.add(units.Quantity(energy,'keV'),Cscalib/weights)
             Cscalc = self._chargepersamplephoton(energy,weights=weights)
         else:
             # Propagate correction to one of the components of Cs:
@@ -659,33 +746,25 @@ class PNdiode(with_metaclass(base.SolidState)):
             #  Yij: rate of line j due to line i (including solid angle but not diode attenuation)
             #  Cj (C/ph): charge per photon hitting the diode
             #  Cs (C/ph): charge per photon hitting the sample
-
             if caliboption not in ["solidangle","thickness","optics"]:
                 raise RuntimeError('caliboption must be "optics", "solidangle" or "thickness"')
-
             if caliboption=="solidangle":
                 Cs = self._chargepersamplephoton(energy,weights=weights)
-                
                 # solidangle' = solidangle*Cs'/Cs
                 sa = self.geometry.solidangle * units.magnitude(Cscalib/Cs,"dimensionless")
                 if sa<=0 or sa>(2*np.pi):
                     logger.warning("Diode solid angle of 4*pi*{} srad is not valid but will be accepted anyway".format(sa/(4*np.pi)))
-                
                 self.geometry.solidangle = sa
                 Cscalc = self._chargepersamplephoton(energy,weights=weights)
-     
-            else: # No analytical solution (in general): diode thickness or optics transmission
-                
+            else:
+                # No analytical solution (in general): diode thickness or optics transmission
                 # Fluorescence does not change (expensive to calculate)
                 energy,weights = self._parse_source(energy,weights=weights)
                 energy2,wiYij = self._detection_rates(energy,weights) # nE2, nE x nE2
-                
                 # Solve: Cscalib-Cs(x) = 0
                 Cs,xorg,x0 = self._calibrate_init(energy,caliboption=caliboption,bound=bound)
-
                 # Solve: 1/Cscalib - 1/Cs(x) = 0  (inverse because Cs are small values)
                 func = lambda x: (1./Cscalib-1./Cs(x,energy,weights,energy2,wiYij)).to("1/coulomb").magnitude
-
                 if bound:
                     x,info = scipy.optimize.bisect(func,x0[0],x0[-1], full_output=True, disp=False)
                     if not info.converged:
@@ -694,12 +773,9 @@ class PNdiode(with_metaclass(base.SolidState)):
                     x,infodict,ier,emsg = scipy.optimize.fsolve(func, x0=x0, full_output=True)
                     if ier!=1:
                         x = np.nan
-                        
                 x = self._calibrate_apply(energy,x,xorg,caliboption=caliboption)
-                
                 Cscalc = Cs(x,energy,weights,energy2,wiYij)
-   
-        return Cscalc,Cscalib
+        return Cscalc, Cscalib
 
     def _calibrate_init(self,energy,caliboption="optics",bound=False):
         if caliboption=="thickness":
@@ -719,20 +795,18 @@ class PNdiode(with_metaclass(base.SolidState)):
             if len(energy)>1:
                 bound = False
             if bound:
-                x0 = (0.,1.)
+                x0 = 0., 1.
             else:
                 x0 = xorg
             Cs = self._calibrate_optics
         else:
             raise RuntimeError('caliboption must be "optics" or "thickness"')
-            
         return Cs,xorg,x0
 
     def _calibrate_apply(self,energy,x,xorg,caliboption="optics"):
         if np.isnan(x):
             logger.error("Diode calibration not succesfull")
             x = xorg
-
         if caliboption=="thickness":
             x = instance.asscalar(x)
             if x<=0:
@@ -744,7 +818,6 @@ class PNdiode(with_metaclass(base.SolidState)):
             self.caliboptic.set_transmission(energy,x)
         else:
             raise RuntimeError('caliboption must be "optics" or "thickness"')
-            
         return x
         
     def _calibrate_thickness(self,x,energy,weights,energy2,wiYij):
@@ -769,17 +842,14 @@ class PNdiode(with_metaclass(base.SolidState)):
         Returns:
             weights(num or array): source line weights at the sample position
         """
-        
         # Parse input
         energy,weights = self._parse_source(energy,weights=weights)
-            
         if self.simplecalibration or not self.beforesample:
             return weights
         else:
             # wis = Iis/sum_i[Iis] = wi.Tis / sum_i[wi.Tis]
             weights *= self._source_transmission(energy)
             weights /= weights.sum()
-            
             return weights
 
     def op_currenttovoltage(self):
@@ -1409,15 +1479,12 @@ class PNdiode(with_metaclass(base.SolidState)):
         Returns:
             uncertainties.core.Variable or numpy.array(uncertainties.core.Variable): detector signal in DU
         """
-
         if tframe is None:
             ValueError("Frame exposure time not specified.")
         if nframe is None:
             ValueError("Number of frames not specified.")
-
         # TODO:
         Nout = None 
-        
         return Nout # units: DU
 
 
@@ -1434,16 +1501,49 @@ class CalibratedPNdiode(PNdiode):
             fitresponse(Optional(bool)): modify thickness and Ehole to response
         """
         super(CalibratedPNdiode,self).__init__(**kwargs)
-
         self.model = model
-        
         self.menergy = energy
-        response = response.to("A/W") # or e/eV
-        if fitresponse:
-            self.fit_spectral_responsivity(energy,response)
+        self.mresponse = response
+        self.fitresponse = fitresponse
+        self._init_response()
 
-        self.finterpol = scipy.interpolate.interp1d(energy,response,bounds_error=False,fill_value=np.nan)
-        
+    def _init_response(self):
+        energy = self.menergy
+        response = self.mresponse.to("A/W") # or e/eV
+        if self.fitresponse:
+            self.fit_spectral_responsivity(energy,response)
+        self.finterpol = scipy.interpolate.interp1d(energy,
+                                                    response,
+                                                    bounds_error=False,
+                                                    fill_value=np.nan)
+
+    def __getstate__(self):
+        state = super(CalibratedPNdiode,self).__getstate__()
+        state['model'] = self.model
+        state['menergy'] = self.menergy
+        state['mresponse'] = self.mresponse
+        state['fitresponse'] = self.fitresponse
+        return state
+
+    def __setstate__(self, state):
+        super(CalibratedPNdiode,self).__setstate__(state)
+        self.model = state['model']
+        self.menergy = state['menergy']
+        self.mresponse = state['mresponse']
+        self.fitresponse = state['fitresponse']
+        self._init_response()
+    
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            if not (super(CalibratedPNdiode,self).__eq__(other)):
+                return False
+            return self.model == other.model and \
+                   np.array_equal(self.menergy, other.menergy) and \
+                   np.array_equal(self.mresponse, other.mresponse) and \
+                   self.fitresponse == other.fitresponse
+        else:
+            return False
+
     def spectral_responsivity(self,energy):
         """
         Args:
@@ -1474,10 +1574,10 @@ class NonCalibratedPNdiode(PNdiode):
         """Calibrate with another diode measuring the flux at the sample position
 
         Args:
-            response(array): count rate (Hz) or current (A) measured by this diode 
-            sampleflux(array): flux measured at the sample position (Hz)
-            energy(num or array): source lines (keV)
-            weights(Optional(num or array)): source line weights
+            response(array): count rate (Hz) or current (A) measured by this diode (nResponse)
+            sampleflux(array): flux measured at the sample position (Hz, nResponse)
+            energy(num or array): source lines (keV, nLines)
+            weights(Optional(num or array)): source line weights (nLines)
             caliboption(str): "optics", "solidangle" or "thickness"
             fixdark(Optional(num)): fix dark current
             
@@ -1567,7 +1667,7 @@ class SXM_PTB(CalibratedPNdiode):
                         gain=ureg.Quantity(1e5,"volt/ampere"),\
                         gainrounder=GainRounder(base=10),\
                         darkcurrent=ureg.Quantity(0,"ampere"),\
-                        energy=energy,response=response,\
+                        energy=energy,response=response,fitresponse=True,\
                         beforesample=False,**kwargs)
 
 
@@ -1581,7 +1681,6 @@ class SXM_IDET(CalibratedPNdiode):
     aliases = ["idet"]
     
     def __init__(self,**kwargs):
-    
         kwargs["attenuators"] = {}
         kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":300e-4}
         kwargs["ehole"] = constants.eholepair_si()
@@ -1605,8 +1704,8 @@ class SXM_IDET(CalibratedPNdiode):
         response = responseratio*absdiode.spectral_responsivity(energy)
 
         vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
-                        F0=ureg.Quantity(0,"Hz"),\
-                        Vmax=ureg.Quantity(10,"volt"))
+                          F0=ureg.Quantity(0,"Hz"),\
+                          Vmax=ureg.Quantity(10,"volt"))
                         
         super(SXM_IDET,self).__init__(\
                         gain=ureg.Quantity(1e5,"volt/ampere"),\
@@ -1615,7 +1714,7 @@ class SXM_IDET(CalibratedPNdiode):
                         energy=energy,response=response,fitresponse=False,\
                         beforesample=False,oscillator=vtof,**kwargs)
 
-class SXM_FDET(CalibratedPNdiode):
+class SXM_FDET(NonCalibratedPNdiode):
     """
     Keithley K428 (10V max analog output)
     NOVA N101VTF voltage-to-frequency converter (Fmax=1e6Hz, F0=0Hz, Vmax=10V)
@@ -1625,21 +1724,22 @@ class SXM_FDET(CalibratedPNdiode):
     aliases = ["fdet"]
     
     def __init__(self,**kwargs):
-    
         kwargs["attenuators"] = {}
-        kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":300e-4}
+        kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":0.1}
         kwargs["ehole"] = constants.eholepair_si()
-
+        
         vtof = Oscillator(Fmax=ureg.Quantity(1e6,"Hz"),\
-                        F0=ureg.Quantity(0,"Hz"),\
-                        Vmax=ureg.Quantity(10,"volt"))
+                          F0=ureg.Quantity(0,"Hz"),\
+                          Vmax=ureg.Quantity(10,"volt"))
                         
         super(SXM_FDET,self).__init__(\
-                        gain=ureg.Quantity(1e5,"volt/ampere"),\
-                        gainrounder=GainRounder(base=10),\
-                        darkcurrent=ureg.Quantity(0,"ampere"),\
-                        energy=energy,response=response,fitresponse=False,\
-                        beforesample=False,oscillator=vtof,**kwargs)
+                            gain=ureg.Quantity(1e5,"volt/ampere"),\
+                            gainrounder=GainRounder(base=10),\
+                            darkcurrent=ureg.Quantity(0,"ampere"),\
+                            oscillator=vtof,\
+                            beforesample=False,
+                            **kwargs)
+
 
 class SXM_IODET1(NonCalibratedPNdiode):
     """International Radiation Detectors (IRD), AXUV-PS1-S
@@ -1650,12 +1750,7 @@ class SXM_IODET1(NonCalibratedPNdiode):
     aliases = ["iodet1"]
 
     def __init__(self,**kwargs):
-
         kwargs2 = {}
-        kwargs2["anglein"] = kwargs.pop("anglein",90)
-        kwargs2["angleout"] = kwargs.pop("angleout",70)
-        kwargs2["azimuth"] = kwargs.pop("azimuth",0)
-        kwargs2["solidangle"] = kwargs.pop("solidangle",4*np.pi*0.4)
         if "source" in kwargs:
             kwargs2["source"] = kwargs.pop("source")
         else:
@@ -1663,7 +1758,7 @@ class SXM_IODET1(NonCalibratedPNdiode):
         if instance.isstring(kwargs2["source"]):
             kwargs2["source"] = xraysources.factory(kwargs2["source"])
         kwargs2["detector"] = self
-        geometry = diodegeometries.factory("DiodeGeometry",**kwargs2)
+        geometry = diodegeometries.factory("sxm_iodet1",**kwargs2)
 
         kwargs["attenuators"] = {}
         kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":0.1}
@@ -1683,8 +1778,9 @@ class SXM_IODET1(NonCalibratedPNdiode):
                             darkcurrent=ureg.Quantity(0,"ampere"),\
                             oscillator=vtof,\
                             secondarytarget=secondarytarget,\
-                            beforesample=True,**kwargs)
-                            
+                            beforesample=True,
+                            **kwargs)
+
 
 class SXM_IODET2(NonCalibratedPNdiode):
     """International Radiation Detectors (IRD), AXUV-PS1-S
@@ -1696,12 +1792,7 @@ class SXM_IODET2(NonCalibratedPNdiode):
     aliases = ["iodet2"]
 
     def __init__(self,**kwargs):
-    
         kwargs2 = {}
-        kwargs2["anglein"] = kwargs.pop("anglein",90)
-        kwargs2["angleout"] = kwargs.pop("angleout",70)
-        kwargs2["azimuth"] = kwargs.pop("azimuth",0)
-        kwargs2["solidangle"] = kwargs.pop("solidangle",4*np.pi*0.4)
         if "source" in kwargs:
             kwargs2["source"] = kwargs.pop("source")
         else:
@@ -1709,7 +1800,7 @@ class SXM_IODET2(NonCalibratedPNdiode):
         if instance.isstring(kwargs2["source"]):
             kwargs2["source"] = xraysources.factory(kwargs2["source"])
         kwargs2["detector"] = self
-        geometry = diodegeometries.factory("DiodeGeometry",**kwargs2)
+        geometry = diodegeometries.factory("sxm_iodet2",**kwargs2)
         
         kwargs["attenuators"] = {}
         kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":0.1}
@@ -1731,16 +1822,13 @@ class SXM_IODET2(NonCalibratedPNdiode):
                             beforesample=True,**kwargs)
                             
 
-
 class XRD_IDET(NonCalibratedPNdiode):
     aliases = ["microdiff_pico1"]
     
     def __init__(self,**kwargs):
-    
         kwargs["attenuators"] = {}
         kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":0.1}
         kwargs["ehole"] = constants.eholepair_si()
-
         super(XRD_IDET,self).__init__(\
                                 gain = ureg.Quantity(2.1e-6,"ampere"),\
                                 gainrounder = GainRounder(base=10,m=2.1),\
@@ -1793,12 +1881,12 @@ class ID16B_I0(NonCalibratedPNdiode):
         kwargs["ehole"] = constants.eholepair_si()
 
         vtof = Oscillator(Fmax=ureg.Quantity(50e6,"Hz"),\
-                        F0=ureg.Quantity(0,"Hz"),\
-                        Vmax=ureg.Quantity(2.5,"volt"))
+                          F0=ureg.Quantity(0,"Hz"),\
+                          Vmax=ureg.Quantity(2.5,"volt"))
                         
-        super(ID16B_IT,self).__init__(\
-                        gain = ureg.Quantity(2.1e-6,"ampere"),\
-                        gainrounder = GainRounder(base=10,m=2.1),\
+        super(ID16B_I0,self).__init__(\
+                        gain=ureg.Quantity(2.1e-6,"ampere"),\
+                        gainrounder=GainRounder(base=10,m=2.1),\
                         darkcurrent=ureg.Quantity(0,"ampere"),\
                         oscillator=vtof,\
                         Vmax=ureg.Quantity(2.1,"volt"),\
@@ -1815,12 +1903,7 @@ class ID16B_IC(NonCalibratedPNdiode):
     aliases = ["id16b_IC"]
 
     def __init__(self,**kwargs):
-    
         kwargs2 = {}
-        kwargs2["anglein"] = kwargs.pop("anglein",90)
-        kwargs2["angleout"] = kwargs.pop("angleout",70)
-        kwargs2["azimuth"] = kwargs.pop("azimuth",0)
-        kwargs2["solidangle"] = kwargs.pop("solidangle",4*np.pi*0.4)
         if "source" in kwargs:
             kwargs2["source"] = kwargs.pop("source")
         else:
@@ -1828,7 +1911,7 @@ class ID16B_IC(NonCalibratedPNdiode):
         if instance.isstring(kwargs2["source"]):
             kwargs2["source"] = xraysources.factory(kwargs2["source"])
         kwargs2["detector"] = self
-        geometry = diodegeometries.factory("DiodeGeometry",**kwargs2)
+        geometry = diodegeometries.factory("id16b_ic",**kwargs2)
         
         kwargs["attenuators"] = {}
         kwargs["attenuators"]["Detector"] = {"material":element.Element('Si'),"thickness":500e-4}
@@ -1849,9 +1932,5 @@ class ID16B_IC(NonCalibratedPNdiode):
                             Vmax=ureg.Quantity(2.1,"volt"),\
                             secondarytarget=secondarytarget,\
                             beforesample=True,**kwargs)
-                            
-classes = PNdiode.clsregistry
-aliases = PNdiode.aliasregistry
-factory = PNdiode.factory
-clsfactory = PNdiode.clsfactory
 
+factory = PNdiode.factory
