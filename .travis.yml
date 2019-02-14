@@ -14,15 +14,29 @@ matrix:
   include:
     - python: 2.7
       os: linux
+      env:
+        - TRAVISRUN="unit"
     #- python: 3.5
     #  os: linux
+    #env:
+    #    - TRAVISRUN="unit"
     - python: 3.6
       os: linux
+      env:
+        - TRAVISRUN="unit"
     #- python: 3.7
     #  dist: xenial
     #  os: linux
+    #env:
+    #    - TRAVISRUN="unit"
     #- language: generic
     #  os: osx
+    #env:
+    #    - TRAVISRUN="unit"
+    #- python: 3.6
+    #  os: linux
+    #  env:
+    #    - TRAVISRUN="style"
 
 cache:
   timeout: 1000
@@ -37,54 +51,10 @@ addons:
 
 before_install:
   - export
-  - mkdir -p $CACHED_FOLDER
-  - cd $CACHED_FOLDER
-  - |
-    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
-        source $TRAVIS_BUILD_DIR/ci/travis-linux-prepare.sh
-    fi
+  - source $TRAVIS_BUILD_DIR/ci/travis-before-install.sh
 
 install:
-  # Install general build dependencies
-  - cd $CACHED_FOLDER
-  - |
-    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
-        source $TRAVIS_BUILD_DIR/tools/linux-install-deps.sh -y -u -x -s
-    else
-        # Does not install non-pypi libraries
-        # Tests involved will be skipped
-        type python
-        python -m pip install --upgrade pip --user
-        python --version
-        pip --version
-        python -m pip install --upgrade setuptools --user
-        python -m pip install --upgrade wheel --user
-        python -m pip install pybind11 --user
-        python -m pip install -r $TRAVIS_BUILD_DIR/requirements.txt --user
-        python -m pip install -r $TRAVIS_BUILD_DIR/requirements-dev.txt --user
-    fi
-
-  # Print Python info
-  - python $TRAVIS_BUILD_DIR/ci/info_platform.py
-  - python -m pip list
-
-  # Build package
-  - cd $TRAVIS_BUILD_DIR
-  - python setup.py build
-  - python setup.py sdist bdist_wheel
-  - |
-    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
-      python setup.py build_doc
-    fi
-
-  # Install package
-  - PROJECTNAME=`python setup.py name|tail -1`
-  - pip install --pre --no-index --find-links=dist/ ${PROJECTNAME}
+  - source $TRAVIS_BUILD_DIR/ci/travis-install.sh
 
 script:
-  # Test the installed package
-  - cd $HOME
-  - #python -m ${PROJECTNAME}.tests.test_all --log=error
-  - PYOPENCL_COMPILER_OUTPUT=1
-  - python -m unittest -v ${PROJECTNAME}.tests.test_all.test_suite
-
+  - source $TRAVIS_BUILD_DIR/ci/travis-test.sh
