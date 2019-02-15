@@ -49,7 +49,7 @@ class Filter(XrayOptics):
         self.multilayer = multilayer.Multilayer(material=material,
                                                 thickness=thickness,
                                                 geometry=geom)
-        super(Filter, self).__init__()
+        super(Filter, self).__init__(uselut=False)
 
     def __getstate__(self):
         state = super(Filter, self).__getstate__()

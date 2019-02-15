@@ -23,25 +23,38 @@
 # THE SOFTWARE.
 
 import unittest
+import numpy as np
 
 from ..import xray
+from ...utils import units
 from ...patch import jsonpickle
 
 
 class test_xray(unittest.TestCase):
 
+    def test_interpolate(self):
+        o1 = xray.KB(kind='linear')
+        o1.set_transmission(7, 0.2)
+        o1.set_transmission(units.Quantity(7400, 'eV'), 0.8)
+        def transmission(x): return o1.transmission(units.Quantity(x, 'keV'))
+        self.assertEqual(transmission(7.2), 0.5)
+        np.testing.assert_allclose(transmission([7.2]), [0.5])
+        np.testing.assert_allclose(transmission([7.1, 7.2, 7.3]),
+                                   [0.35, 0.5, 0.65])
+
     def test_serialize(self):
         exclude = ()
         for name, cls in xray.XrayOptics.clsregistry.items():
             if name not in exclude:
-                g1 = cls()
-                g2 = jsonpickle.decode(jsonpickle.encode(g1))
-                self.assertEqual(g1, g2)
+                o1 = cls()
+                o2 = jsonpickle.decode(jsonpickle.encode(o1))
+                self.assertEqual(o1, o2)
 
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
+    testSuite.addTest(test_xray("test_interpolate"))
     testSuite.addTest(test_xray("test_serialize"))
     return testSuite
 

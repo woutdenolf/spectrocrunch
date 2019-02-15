@@ -22,17 +22,33 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import traceback
-import warnings
-import sys
+import unittest
+from .. import area
+from ...patch import jsonpickle
 
 
-def warn_with_traceback(message, category, filename, lineno, file=None, line=None):
-    log = file if hasattr(file, 'write') else sys.stderr
-    traceback.print_stack(file=log)
-    log.write(warnings.formatwarning(
-        message, category, filename, lineno, line))
+class test_area(unittest.TestCase):
+
+    def test_serialize(self):
+        exclude = 'AreaDetector',
+        for name, cls in area.AreaDetector.clsregistry.items():
+            if name not in exclude:
+                d1 = cls()
+                d2 = jsonpickle.decode(jsonpickle.encode(d1))
+                self.assertEqual(d1, d2)
 
 
-def trace_warnings():
-    warnings.showwarning = warn_with_traceback
+def test_suite():
+    """Test suite including all test suites"""
+    testSuite = unittest.TestSuite()
+    testSuite.addTest(test_area("test_serialize"))
+    return testSuite
+
+
+if __name__ == '__main__':
+    import sys
+
+    mysuite = test_suite()
+    runner = unittest.TextTestRunner()
+    if not runner.run(mysuite).wasSuccessful():
+        sys.exit(1)

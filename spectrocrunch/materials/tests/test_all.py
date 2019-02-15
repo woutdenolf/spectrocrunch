@@ -30,7 +30,6 @@ from . import test_mixture
 from . import test_element
 from . import test_visirlib
 from . import test_multilayer
-from . import test_emspectrum
 from . import test_pymca
 from . import test_lenses
 from . import test_scintillators
@@ -47,6 +46,7 @@ def test_suite():
     testSuite.addTest(test_visirlib.test_suite())
     testSuite.addTest(test_multilayer.test_suite())
     testSuite.addTest(test_pymca.test_suite())
+    testSuite.addTest(test_lenses.test_suite())
     testSuite.addTest(test_scintillators.test_suite())
     return testSuite
 

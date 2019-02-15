@@ -23,33 +23,32 @@
 # THE SOFTWARE.
 
 import unittest
-import numpy as np
-
-from .. import emspectrum
-from ...patch.pint import ureg
-from ...patch import jsonpickle
+from .. import listtools
 
 
-class test_emspectrum(unittest.TestCase):
+class test_listtools(unittest.TestCase):
 
-    def test_discrete(self):
-        s1 = emspectrum.discrete(ureg.Quantity([100, 300], 'nm'))
-        s2 = emspectrum.discrete(ureg.Quantity(200, 'nm'))
-        s3 = s1+s2
-        np.testing.assert_array_equal(s3.energies, ureg.Quantity(
-            [100, 200, 300], 'nm').to('keV', 'spectroscopy'))
+    def test_unique(self):
+        a, b = [2, 0, 0, 1, 0, 1], [0, 1, 2, 3, 4, 5]
+        x, y = listtools.unique2lists(a, b, add=False)
+        self.assertEqual(x, [2, 0, 1])
+        self.assertEqual(y, [0, 1, 3])
+        x, y = listtools.unique2lists(a, b, add=True)
+        self.assertEqual(x, [2, 0, 1])
+        self.assertEqual(y, [0, 7, 8])
 
-    def test_serialize(self):
-        s1 = emspectrum.discrete(ureg.Quantity([100, 300], 'nm'))
-        s2 = jsonpickle.decode(jsonpickle.encode(s1))
-        self.assertEqual(s1, s2)
+    def test_sort(self):
+        a, b = [2, 0, 0, 1, 0, 1], [0, 1, 2, 3, 4, 5]
+        x, y = listtools.sort2lists(a, b)
+        self.assertEqual(x, [0, 0, 0, 1, 1, 2])
+        self.assertEqual(y, [1, 2, 4, 3, 5, 0])
 
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_emspectrum("test_discrete"))
-    testSuite.addTest(test_emspectrum("test_serialize"))
+    testSuite.addTest(test_listtools("test_unique"))
+    testSuite.addTest(test_listtools("test_sort"))
     return testSuite
 
 

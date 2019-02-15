@@ -30,6 +30,7 @@ from ...materials import compoundfromname
 from ...materials import element
 from ...materials import mixture
 
+
 class test_base(unittest.TestCase):
 
     def test_serialize(self):
@@ -37,15 +38,14 @@ class test_base(unittest.TestCase):
         calcite = compoundfromname.compoundfromname("calcite")
         hematite = compoundfromname.compoundfromname("hematite")
         goethite = compoundfromname.compoundfromname("goethite")
-        mix = mixture.Mixture([ca,hematite,goethite,calcite],
-                              [0.25,0.25,0.25,0.25],
+        mix = mixture.Mixture([ca, hematite, goethite, calcite],
+                              [0.25, 0.25, 0.25, 0.25],
                               name="iron oxides")
         attenuators = {'A': ca, 'B': calcite, 'C': mix}
 
         d1 = base.Material()
         d2 = jsonpickle.decode(jsonpickle.encode(d1))
         self.assertEqual(d1, d2)
-
         d1 = base.Material(attenuators=attenuators)
         d2 = jsonpickle.decode(jsonpickle.encode(d1))
         self.assertEqual(d1, d2)
@@ -53,7 +53,6 @@ class test_base(unittest.TestCase):
         d1 = base.SolidState()
         d2 = jsonpickle.decode(jsonpickle.encode(d1))
         self.assertEqual(d1, d2)
-
         d1 = base.SolidState(attenuators=attenuators,
                              ehole=3.6)
         d2 = jsonpickle.decode(jsonpickle.encode(d1))
@@ -62,7 +61,6 @@ class test_base(unittest.TestCase):
         d1 = base.CentricCone()
         d2 = jsonpickle.decode(jsonpickle.encode(d1))
         self.assertEqual(d1, d2)
-
         d1 = base.CentricCone(attenuators=attenuators,
                               ehole=3.6,
                               activearea=0.8)

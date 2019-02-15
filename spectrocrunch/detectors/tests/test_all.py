@@ -26,6 +26,8 @@ import unittest
 from . import test_base
 from . import test_diode
 from . import test_xrf
+from . import test_area
+
 
 def test_suite():
     """Test suite including all test suites"""
@@ -33,8 +35,10 @@ def test_suite():
     testSuite.addTest(test_base.test_suite())
     testSuite.addTest(test_diode.test_suite())
     testSuite.addTest(test_xrf.test_suite())
+    testSuite.addTest(test_area.test_suite())
     return testSuite
-    
+
+
 if __name__ == '__main__':
     import sys
 

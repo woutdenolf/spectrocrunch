@@ -25,6 +25,7 @@
 import sys
 import os
 
+
 class stdout_redirect(object):
     '''
     A context manager that redirects stdout for its scope, usage:

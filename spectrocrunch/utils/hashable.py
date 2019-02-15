@@ -24,6 +24,7 @@
 
 from .comparable import Comparable
 
+
 class Hashable(Comparable):
     """A derived class with methods _cmpkey() and _stringrepr() can be used
        as dictionary keys. Additionally, the string representations can still
@@ -31,26 +32,26 @@ class Hashable(Comparable):
     """
 
     def _compare(self, other, method):
-        if isinstance(other,str):
+        if isinstance(other, str):
             return method(str(self), other)
         else:
             try:
                 return method(self._cmpkey(), other._cmpkey())
             except:
                 return False
-                
+
     def _sort(self, other, method):
-        if isinstance(other,str):
+        if isinstance(other, str):
             return method(str(self), other)
         else:
             return method(self._sortkey(), other._sortkey())
-            
+
     def _cmpkey(self):
         return self.__str__()
 
     def _sortkey(self):
         return self.__str__()
-        
+
     def __repr__(self):
         return self.__str__()
 
@@ -59,12 +60,9 @@ class Hashable(Comparable):
             return self._stringrepr()
         except (AttributeError):
             return str(id(self))
-            
+
     def __hash__(self):
         return hash(self.__str__())
 
-    def encode(self,*args,**kwargs):
-        return self.__str__().encode(*args,**kwargs)
-
-
-
+    def encode(self, *args, **kwargs):
+        return self.__str__().encode(*args, **kwargs)

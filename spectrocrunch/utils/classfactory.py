@@ -28,7 +28,7 @@ from . import instance
 
 import future.utils
 
-#https://blog.ionelmc.ro/2015/02/09/understanding-python-metaclasses/
+# https://blog.ionelmc.ro/2015/02/09/understanding-python-metaclasses/
 #
 # Instance creation:
 #   metaclass.__call__()
@@ -52,15 +52,16 @@ def clsfactory(cls, name):
     Returns:
         class
     """
-    
+
     if name in cls.clsregistry:
         return cls.clsregistry[name]
     elif name in cls.aliasregistry:
         return cls.aliasregistry[name]
     else:
-        raise RuntimeError("Class {} is not known:\n registered classes: {}\n aliases: {}".format(name,cls.clsregistry.keys(),cls.aliasregistry.keys()))
-        
-        
+        raise RuntimeError("Class {} is not known:\n registered classes: {}\n aliases: {}".format(
+            name, cls.clsregistry.keys(), cls.aliasregistry.keys()))
+
+
 def factory(cls, name, *args, **kwargs):
     """
     Args:
@@ -70,7 +71,7 @@ def factory(cls, name, *args, **kwargs):
     Returns:
         class instance
     """
-    return cls.clsfactory(name)(*args,**kwargs)
+    return cls.clsfactory(name)(*args, **kwargs)
 
 
 def register(cls, regcls, name):
@@ -83,28 +84,28 @@ def register(cls, regcls, name):
     Returns:
         None
     """
-    
+
     lname = name.lower()
     cls.clsregistry[name] = regcls
-    #if lname!=name:
+    # if lname!=name:
     cls.aliasregistry[lname] = regcls
     if hasattr(regcls, "aliases"):
         for alias in regcls.aliases:
             lalias = alias.lower()
             cls.aliasregistry[alias] = regcls
-            if lalias!=alias:
+            if lalias != alias:
                 cls.aliasregistry[lalias] = regcls
-        
-        
+
+
 class FactoryMeta(type):
     """
     Metaclass used to register all classes inheriting from FactoryMeta 
     """
-    
+
     def __new__(self, name, bases, attr):
         cls = super(FactoryMeta, self).__new__(self, name, bases, attr)
-        
-        if not hasattr(cls,"register"):
+
+        if not hasattr(cls, "register"):
             cls.clsregistry = OrderedDict()
             cls.aliasregistry = OrderedDict()
             cls.clsfactory = classmethod(clsfactory)
@@ -112,12 +113,12 @@ class FactoryMeta(type):
             cls.register = classmethod(register)
 
         return cls
-        
+
     def __init__(cls, name, bases, attr):
-        cls.register(cls,name)
+        cls.register(cls, name)
         for b in bases:
-            if hasattr(b,"register"):
-                b.register(cls,name)
+            if hasattr(b, "register"):
+                b.register(cls, name)
         super(FactoryMeta, cls).__init__(name, bases, attr)
 
 
@@ -127,5 +128,4 @@ def with_metaclass(bases=None):
     else:
         if not instance.isarray(bases):
             bases = (bases,)
-        return future.utils.with_metaclass(FactoryMeta,*bases)
-        
+        return future.utils.with_metaclass(FactoryMeta, *bases)

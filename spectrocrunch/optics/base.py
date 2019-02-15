@@ -23,16 +23,18 @@
 # THE SOFTWARE.
 
 from ..utils import lut
-from ..patch.pint import ureg
+from ..utils import units
 
 
 class Optics(object):
 
-    def __init__(self, default=1, **kwargs):
-        self.lut = lut.LUT(default=default, **kwargs)
+    def __init__(self, uselut=True, default=1, **kwargs):
+        if uselut:
+            self.lut = lut.LUT(default=default, **kwargs)
+        self.uselut = uselut
 
     def __getstate__(self):
-        if self.haslut:
+        if self.uselut:
             return {'lut': self.lut}
         else:
             return {}
@@ -52,29 +54,29 @@ class Optics(object):
 
     def __str__(self):
         name = type(self).__name__
-        s = '\n '.join("{} keV: {} %".format(k, v*100)
-                       for k, v in self.lut.table())
+        s = '\n '.join("{:~}: {} %".format(k, v*100)
+                       for k, v in self.lut.zip('keV', None))
         if s:
             return "{}:\n transmission:\n {}".format(name, s)
         else:
             return "{}:\n transmission: 100%".format(name)
 
     def reset_transmission(self):
-        if self.haslut():
+        if self.uselut:
             self.lut.clear(1)
 
     def transmission(self, energy):
         self.checklut()
-        return self.lut(energy).to(ureg.Dimensionless).magnitude
+        energy = units.Quantity(energy, 'keV')
+        T = self.lut(energy)
+        return T.to(units.dimensionless).magnitude
 
     def set_transmission(self, energy, transmission):
         self.checklut()
-        self.lut.add(energy, transmission)
-
-    def haslut(self):
-        return hasattr(self, "lut")
+        self.lut.replace(units.Quantity(energy, 'keV'), transmission)
 
     def checklut(self):
-        if not self.haslut():
+        if not self.uselut:
             raise RuntimeError(
-                "{} has no transmission lookup table.".format(type(self).__name__))
+                "{} has no transmission lookup table."
+                .format(type(self).__name__))

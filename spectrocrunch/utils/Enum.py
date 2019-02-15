@@ -22,6 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+
 class Enum(set):
 
     def __getattr__(self, name):
@@ -31,4 +32,3 @@ class Enum(set):
 
     def __call__(self, name):
         return self.__getattr__(name)
-        
