@@ -22,15 +22,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+
 class defaultdict(dict):
     """Dictionary with a lambda function on the key value as default value
     """
 
-    def __init__(self,*arg,**kw):
+    def __init__(self, *arg, **kw):
         super(defaultdict, self).__init__(*arg, **kw)
         self.lambdafunc = lambda key: key
 
-    def setdefaultfactory(self,lambdafunc):
+    def setdefaultfactory(self, lambdafunc):
         self.lambdafunc = lambdafunc
 
     def __getitem__(self, key):

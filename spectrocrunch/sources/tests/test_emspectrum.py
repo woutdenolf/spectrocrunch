@@ -24,35 +24,45 @@
 
 import unittest
 import numpy as np
-from random import shuffle
-import collections
 
-from .. import hashing
+from .. import emspectrum
+from ...patch.pint import ureg
+from ...patch import jsonpickle
 
 
-class test_hashing(unittest.TestCase):
+class test_emspectrum(unittest.TestCase):
 
-    def test_compare(self):
-        eqfuncs = [hashing.hashequal, hashing.jhashequal, hashing.phashequal]
-        a = {'a': 1, 'b': [1, {'c': 2, 'd': 3}]}
-        b = {'b': [1, {'c': 2, 'd': 3}], 'a': 1}
-        for func in eqfuncs:
-            self.assertTrue(func(a, b))
+    def test_discrete(self):
+        s1 = emspectrum.Discrete(ureg.Quantity(
+            [100, 200, 300], 'nm'), [1, 1, 1])
+        s2 = emspectrum.Discrete(ureg.Quantity([200, 400], 'nm'), [1, 1])
+        s3 = s1+s2
+        def func(x): return ureg.Quantity(x, 'nm').to('keV', 'spectroscopy')
+        np.testing.assert_array_equal(s3.energies, func([100, 200, 300, 400]))
+        np.testing.assert_array_equal(s3.ratios, [0.2, 0.4, 0.2, 0.2])
+        s4 = emspectrum.Discrete(ureg.Quantity([150, 350], 'nm'), [1, 2])
+        self.assertEqual(s4.sample(s3), 1.5*1/3. + 1*2/3.)
 
-        a = {'a': 1, 'b': [1, collections.OrderedDict([('c', 2), ('d', 3)])]}
-        b = {'b': [1, collections.OrderedDict([('c', 2), ('d', 3)])], 'a': 1}
-        for func in eqfuncs:
-            self.assertTrue(func(a, b))
+    def test_dark(self):
+        s1 = emspectrum.Dark()
+        s4 = emspectrum.Discrete(ureg.Quantity([150, 350], 'nm'), [1, 2])
+        self.assertEqual(s4.sample(s1), 0)
 
-        b = {'b': [1, collections.OrderedDict([('d', 3), ('c', 2)])], 'a': 1}
-        for func in eqfuncs:
-            self.assertFalse(func(a, b))
+    def test_serialize(self):
+        s1 = emspectrum.Discrete(ureg.Quantity([100, 300], 'nm'), [1, 1])
+        s2 = jsonpickle.decode(jsonpickle.encode(s1))
+        self.assertEqual(s1, s2)
+        s1 = emspectrum.Dark()
+        s2 = jsonpickle.decode(jsonpickle.encode(s1))
+        self.assertEqual(s1, s2)
 
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_hashing("test_compare"))
+    testSuite.addTest(test_emspectrum("test_discrete"))
+    testSuite.addTest(test_emspectrum("test_dark"))
+    testSuite.addTest(test_emspectrum("test_serialize"))
     return testSuite
 
 

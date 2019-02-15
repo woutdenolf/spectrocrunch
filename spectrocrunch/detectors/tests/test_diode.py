@@ -36,9 +36,9 @@ from ...patch.pint import ureg
 from ...patch import jsonpickle
 
 
-class test_diode(unittest.TestCase):                
+class test_diode(unittest.TestCase):
 
-    def _sxm_calc_photons(self,ph_E,ph_I,ph_gain):
+    def _sxm_calc_photons(self, ph_E, ph_I, ph_gain):
         """Photon calculation in sxm
 
         Args:
@@ -50,52 +50,56 @@ class test_diode(unittest.TestCase):
         ph_coeff = 0
         ph_I = ph_I * 10.**(-5-ph_gain)
         ptb = np.loadtxt(resource_filename('id21/ptb.dat'))
-        fptb = interpolate.interp1d(ptb[:,0],ptb[:,1])
+        fptb = interpolate.interp1d(ptb[:, 0], ptb[:, 1])
         ird = np.loadtxt(resource_filename('id21/ird.dat'))
-        fird = interpolate.interp1d(ird[:,0],ird[:,1])
+        fird = interpolate.interp1d(ird[:, 0], ird[:, 1])
         ph_PTB = fptb(ph_E)
         ph_factor = fird(ph_E)
-        ph_calib  = ph_factor * ph_PTB
+        ph_calib = ph_factor * ph_PTB
         return ph_I / (ph_E * constants.elementary_charge * np.exp(-ph_coeff * PH_DIST) * ph_calib)
 
-    @unittest.skipIf(diode.compoundfromname.xraylib is None,"xraylib not installed")
+    @unittest.skipIf(diode.compoundfromname.xraylib is None, "xraylib not installed")
     def test_calibrateddiode(self):
         gain = 8
-        I = np.arange(5,8)*ureg.Quantity(1e5,"Hz")
+        I = np.arange(5, 8)*ureg.Quantity(1e5, "Hz")
         o1 = diode.SXM_IDET(model=True)
         o2 = diode.SXM_IDET(model=False)
-        self.assertAlmostEqual(o1._chargepersamplephoton(5.2).magnitude,o2._chargepersamplephoton(5.2).magnitude)
+        self.assertAlmostEqual(o1._chargepersamplephoton(
+            5.2).magnitude, o2._chargepersamplephoton(5.2).magnitude)
 
         for model in [True, False]:
             o = diode.SXM_IDET(model=model)
-            o.gain = ureg.Quantity(10**gain,'V/A')
+            o.gain = ureg.Quantity(10**gain, 'V/A')
             o2 = o.op_cpstocurrent()*o.op_currenttocps()
-            self.assertAlmostEqual(o2.m.magnitude,1.)
-            self.assertAlmostEqual(o2.b.magnitude,0.)
-            self.assertEqual(o2.m.units,ureg.dimensionless)
-            self.assertEqual(o2.b.units,ureg.ampere)
+            self.assertAlmostEqual(o2.m.magnitude, 1.)
+            self.assertAlmostEqual(o2.b.magnitude, 0.)
+            self.assertEqual(o2.m.units, ureg.dimensionless)
+            self.assertEqual(o2.b.units, ureg.ampere)
 
-            for energy in np.arange(3,7):
+            for energy in np.arange(3, 7):
                 o2 = o.op_fluxtocurrent(energy)*o.op_currenttoflux(energy)
-                self.assertAlmostEqual(o2.m,1.)
-                self.assertAlmostEqual(o2.b.magnitude,0.)
-                self.assertEqual(o2.m.units,ureg.dimensionless)
-                self.assertEqual(o2.b.units,ureg.ampere)
+                self.assertAlmostEqual(o2.m, 1.)
+                self.assertAlmostEqual(o2.b.magnitude, 0.)
+                self.assertEqual(o2.m.units, ureg.dimensionless)
+                self.assertEqual(o2.b.units, ureg.ampere)
 
                 o2 = o.op_fluxtocps(energy)*o.op_cpstoflux(energy)
-                self.assertAlmostEqual(o2.m,1.)
-                self.assertAlmostEqual(o2.b.magnitude,0.)
-                self.assertEqual(o2.m.units,ureg.dimensionless)
-                self.assertEqual(o2.b.units,ureg.hertz)
-                
-                np.testing.assert_array_almost_equal(o.fluxtocps(energy,o.cpstoflux(energy,I)),I)
-                flux1 = self._sxm_calc_photons(energy,I.magnitude,gain)
-                flux2 = o.cpstoflux(energy,I)
+                self.assertAlmostEqual(o2.m, 1.)
+                self.assertAlmostEqual(o2.b.magnitude, 0.)
+                self.assertEqual(o2.m.units, ureg.dimensionless)
+                self.assertEqual(o2.b.units, ureg.hertz)
+
+                np.testing.assert_array_almost_equal(
+                    o.fluxtocps(energy, o.cpstoflux(energy, I)), I)
+                flux1 = self._sxm_calc_photons(energy, I.magnitude, gain)
+                flux2 = o.cpstoflux(energy, I)
                 if model:
-                    for f1,f2 in zip(flux1,flux2):
-                        np.testing.assert_approx_equal(f1,f2.magnitude,significant=1)
+                    for f1, f2 in zip(flux1, flux2):
+                        np.testing.assert_approx_equal(
+                            f1, f2.magnitude, significant=1)
                 else:
-                    np.testing.assert_allclose(flux1,flux2,rtol=0.03) # 3% difference with spec
+                    # 3% difference with spec
+                    np.testing.assert_allclose(flux1, flux2, rtol=0.03)
 
     @unittest.skipIf(diode.compoundfromname.xraylib is None,
                      "xraylib not installed")
@@ -116,48 +120,58 @@ class test_diode(unittest.TestCase):
             o.thickness = 1e-4
             o.geometry.solidangle = 0.1
 
-            cps = np.linspace(1e4,1e5,10)
+            cps = np.linspace(1e4, 1e5, 10)
             energy = 7.
             energy2 = 7.2
             energy3 = 7.1
-            sampleflux = o.cpstoflux(energy,cps)
-            sampleflux2 = o.cpstoflux(energy2,cps)
-            sampleflux3 = o.cpstoflux(energy3,cps)
+            sampleflux = o.cpstoflux(energy, cps)
+            sampleflux2 = o.cpstoflux(energy2, cps)
+            sampleflux3 = o.cpstoflux(energy3, cps)
 
-            if caliboption=="solidangle":
+            if caliboption == "solidangle":
                 # Same counts but the flux is * m -> diode yield (solid angle) is / m
                 m = 2.
                 sa = o.geometry.solidangle
-                o.calibrate(cps,sampleflux*m,energy,caliboption=caliboption)
-                np.testing.assert_allclose(sampleflux*m,o.cpstoflux(energy,cps))
-                np.testing.assert_allclose(o.geometry.solidangle,sa/m)
-            elif caliboption=="optics":
+                o.calibrate(cps, sampleflux*m, energy, caliboption=caliboption)
+                np.testing.assert_allclose(
+                    sampleflux*m, o.cpstoflux(energy, cps))
+                np.testing.assert_allclose(o.geometry.solidangle, sa/m)
+            elif caliboption == "optics":
                 # Same counts but the flux is * m -> optics transmission is / m
                 m1 = 0.5
                 m2 = 0.2
                 m3 = (m1+m2)/2.
-                o.calibrate(cps,sampleflux*m1,energy,caliboption=caliboption)
-                o.calibrate(cps,sampleflux2*m2,energy2,caliboption=caliboption)
-                np.testing.assert_allclose(sampleflux*m1,o.cpstoflux(energy,cps))
-                np.testing.assert_allclose(sampleflux2*m2,o.cpstoflux(energy2,cps))
+                o.calibrate(cps, sampleflux*m1, energy,
+                            caliboption=caliboption)
+                o.calibrate(cps, sampleflux2*m2, energy2,
+                            caliboption=caliboption)
+                np.testing.assert_allclose(
+                    sampleflux*m1, o.cpstoflux(energy, cps))
+                np.testing.assert_allclose(
+                    sampleflux2*m2, o.cpstoflux(energy2, cps))
                 if simplecalibration:
-                    #TODO: should this be the case?
-                    #np.testing.assert_allclose(cps,o.fluxtocps(energy3,sampleflux3*m3))
+                    # TODO: should this be the case?
+                    # np.testing.assert_allclose(cps,o.fluxtocps(energy3,sampleflux3*m3))
                     pass
                 else:
-                    np.testing.assert_allclose(sampleflux3*m3,o.cpstoflux(energy3,cps))
+                    np.testing.assert_allclose(
+                        sampleflux3*m3, o.cpstoflux(energy3, cps))
                 if not simplecalibration:
-                    np.testing.assert_allclose(o.caliboptic.transmission(energy),m1)
-                    np.testing.assert_allclose(o.caliboptic.transmission(energy2),m2)
-                    np.testing.assert_allclose(o.caliboptic.transmission(energy3),m3)
-            elif caliboption=="thickness":
+                    np.testing.assert_allclose(
+                        o.caliboptic.transmission(energy), m1)
+                    np.testing.assert_allclose(
+                        o.caliboptic.transmission(energy2), m2)
+                    np.testing.assert_allclose(
+                        o.caliboptic.transmission(energy3), m3)
+            elif caliboption == "thickness":
                 m = 2.
-                o.calibrate(cps,sampleflux*m,energy,caliboption=caliboption)
-                np.testing.assert_allclose(sampleflux*m,o.cpstoflux(energy,cps))
+                o.calibrate(cps, sampleflux*m, energy, caliboption=caliboption)
+                np.testing.assert_allclose(
+                    sampleflux*m, o.cpstoflux(energy, cps))
 
     def test_serialize(self):
         exclude = 'PNdiode', 'CalibratedPNdiode', 'NonCalibratedPNdiode', 'SXM_PTB'
-        for name,cls in diode.PNdiode.clsregistry.items():
+        for name, cls in diode.PNdiode.clsregistry.items():
             if name not in exclude:
                 d1 = cls()
                 d2 = jsonpickle.decode(jsonpickle.encode(d1))
@@ -171,7 +185,8 @@ def test_suite():
     testSuite.addTest(test_diode("test_noncalibrateddiode"))
     testSuite.addTest(test_diode("test_serialize"))
     return testSuite
-    
+
+
 if __name__ == '__main__':
     import sys
 

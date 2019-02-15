@@ -25,7 +25,6 @@
 import unittest
 
 from ..import xray
-from ...utils import units
 from ...patch import jsonpickle
 
 

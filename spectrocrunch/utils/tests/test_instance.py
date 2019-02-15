@@ -32,21 +32,23 @@ from ...math import noisepropagation
 
 import numpy as np
 
+
 class test_instance(unittest.TestCase):
 
     def test_quantunits(self):
-        for q,arr,expand in itertools.product([True,False],repeat=3):
+        for q, arr, expand in itertools.product([True, False], repeat=3):
             if arr:
-                x = np.arange(1.,10)
+                x = np.arange(1., 10)
             else:
                 x = 10.
 
             if q:
                 unit0 = ureg.millimeter
                 if arr and expand:
-                    y = np.vectorize(lambda a:units.Quantity(a,units=unit0),otypes=[object])(x)
+                    y = np.vectorize(lambda a: units.Quantity(
+                        a, units=unit0), otypes=[object])(x)
                 else:
-                    y = units.Quantity(x,units=unit0)
+                    y = units.Quantity(x, units=unit0)
                 unit1 = ureg.meter
                 munit = 1e-3
             else:
@@ -57,62 +59,69 @@ class test_instance(unittest.TestCase):
 
             # Test bubbling up and down
             if q:
-                z = units.Quantity(x,units=unit0)
-                np.testing.assert_array_equal(instance.asarray(y),instance.asarray(z))
-                z = np.vectorize(lambda a:units.Quantity(a,units=unit0),otypes=[object])(x)
-                np.testing.assert_array_equal(units.Quantity(y),units.Quantity(z))
-                
+                z = units.Quantity(x, units=unit0)
+                np.testing.assert_array_equal(
+                    instance.asarray(y), instance.asarray(z))
+                z = np.vectorize(lambda a: units.Quantity(
+                    a, units=unit0), otypes=[object])(x)
+                np.testing.assert_array_equal(
+                    units.Quantity(y), units.Quantity(z))
+
             # Test magnitude
             a = x*munit
-            b = units.magnitude(y,unit1)
+            b = units.magnitude(y, unit1)
             if arr:
-                np.testing.assert_array_equal(a,b)
+                np.testing.assert_array_equal(a, b)
             else:
-                self.assertEqual(a,b)
+                self.assertEqual(a, b)
 
             # Test unit conversion
             if q:
-                a = units.Quantity(x,units=unit0)
-                b = units.quantity_like(y,a)
+                a = units.Quantity(x, units=unit0)
+                b = units.quantity_like(y, a)
             if arr:
-                np.testing.assert_array_equal(a,b)
+                np.testing.assert_array_equal(a, b)
             else:
-                self.assertEqual(a,b)
-    
-    def _test_asarray(self,x,checktype=True):
-        y,func = instance.asarrayf(x)
-        self.assertTrue(isinstance(y,np.ndarray))
+                self.assertEqual(a, b)
+
+    def _test_asarray(self, x, checktype=True):
+        y, func = instance.asarrayf(x)
+        self.assertTrue(isinstance(y, np.ndarray))
         y = func(y)
         if checktype:
-            self.assertEqual(type(y),type(x))
-             
+            self.assertEqual(type(y), type(x))
+
     def test_asarray(self):
         a = np.int64(0)
         b = np.int64(1)
-        nums = [a,np.array(a),[a],np.array([a]),[a,b],np.array([a,b])]
-        checktypes = [True,True,False,True,False]
-        for num,check in zip(nums,checktypes):
+        nums = [a, np.array(a), [a], np.array([a]), [a, b], np.array([a, b])]
+        checktypes = [True, True, False, True, False]
+        for num, check in zip(nums, checktypes):
             x = num
-            self._test_asarray(x,checktype=check)
-            x = units.Quantity(num,units=ureg.millimeter)
+            self._test_asarray(x, checktype=check)
+            x = units.Quantity(num, units=ureg.millimeter)
             self._test_asarray(x)
-            x = np.vectorize(lambda a:units.Quantity(a,units=ureg.millimeter),otypes=[object])(x)
-            self._test_asarray(x,checktype=False)
-            x = noisepropagation.randomvariable(num,num)
-            self._test_asarray(x,checktype=check)
-        
-        objs = ["abc",np.array("abc"),np.array(["abc"]),["abc"],("abc",1,2)]
-        checktypes = [True,True,True,False,False]
-        for o,check in zip(nums,checktypes):
-            self._test_asarray(x,checktype=check)
+            x = np.vectorize(lambda a: units.Quantity(
+                a, units=ureg.millimeter), otypes=[object])(x)
+            self._test_asarray(x, checktype=False)
+            x = noisepropagation.randomvariable(num, num)
+            self._test_asarray(x, checktype=check)
+
+        objs = ["abc", np.array("abc"), np.array(
+            ["abc"]), ["abc"], ("abc", 1, 2)]
+        checktypes = [True, True, True, False, False]
+        for o, check in zip(nums, checktypes):
+            self._test_asarray(x, checktype=check)
+
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_instance("test_asarray"))
-    #testSuite.addTest(test_instance("test_quantunits"))
+    # testSuite.addTest(test_instance("test_quantunits"))
     return testSuite
-    
+
+
 if __name__ == '__main__':
     import sys
 
@@ -120,4 +129,3 @@ if __name__ == '__main__':
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)
-        

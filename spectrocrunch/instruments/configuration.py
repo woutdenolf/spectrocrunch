@@ -349,8 +349,6 @@ class ESRF_ID16B(InstrumentInfo):
         return radix,subdir
 
 
-classes = InstrumentInfo.clsregistry
-aliases = InstrumentInfo.aliasregistry
 factory = InstrumentInfo.factory
 
 def getinstrument(parameters):

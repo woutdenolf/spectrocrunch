@@ -25,6 +25,7 @@
 import unittest
 from . import test_polarization
 from . import test_xray
+from . import test_emspectrum
 
 
 def test_suite():
@@ -32,6 +33,7 @@ def test_suite():
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_polarization.test_suite())
     testSuite.addTest(test_xray.test_suite())
+    testSuite.addTest(test_emspectrum.test_suite())
     return testSuite
 
 

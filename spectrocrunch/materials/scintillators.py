@@ -27,7 +27,7 @@ import numpy as np
 from ..patch.pint import ureg
 from . import compound
 from . import types
-from . import emspectrum
+from ..sources import emspectrum
 from ..utils import instance
 from ..simulation.classfactory import with_metaclass
 from ..math import noisepropagation
@@ -148,9 +148,8 @@ class GGG_ID21(Scintillator):
         material = compound.Compound(["Gd", "Ga", "O"], [
                                      3, 5, 12], types.fraction.mole, 7.08, nrefrac=1.8, name="GGG")
         Scintillator.doping(material, {"Eu": 0.03}, types.fraction.mass)
-
-        visspectrum = emspectrum.discrete(ureg.Quantity([595, 610, 715], "nm"))
-
+        visspectrum = emspectrum.Discrete(
+            ureg.Quantity([595, 610, 715], "nm"), [1, 1, 1])
         # http://www.esrf.eu/files/live/sites/www/files/Industry/documentation/F2_Scintillators.pdf
         super(GGG_ID21, self).__init__(thickness=thickness,
                                        material=material, nvisperkeV=32, visspectrum=visspectrum)
@@ -170,9 +169,7 @@ class LSO_ID21(Scintillator):
         material = compound.Compound(["Lu", "Si", "O"], [
                                      2, 1, 5], types.fraction.mole, 7.4, nrefrac=1.82, name="LSO")
         Scintillator.doping(material, {"Tb": 0.03}, types.fraction.mass)
-
-        visspectrum = emspectrum.discrete(ureg.Quantity(550, "nm"))
-
+        visspectrum = emspectrum.Discrete(ureg.Quantity(550, "nm"), 1)
         # http://www.esrf.eu/files/live/sites/www/files/Industry/documentation/F2_Scintillators.pdf
         super(LSO_ID21, self).__init__(thickness=thickness,
                                        material=material, nvisperkeV=40, visspectrum=visspectrum)

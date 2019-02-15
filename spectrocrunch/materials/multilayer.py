@@ -1164,6 +1164,4 @@ class Multilayer(with_metaclass(cache.Cache)):
         return Nout
 
 
-classes = Multilayer.clsregistry
-aliases = Multilayer.aliasregistry
 factory = Multilayer.factory

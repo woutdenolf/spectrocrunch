@@ -29,10 +29,11 @@ import numpy as np
 import uncertainties.core
 from ..patch.pint import ureg
 
-if type(range)==type:
+if type(range) == type:
     listtypes = (list, range)
 else:
     listtypes = (list, xrange)
+
 
 def isstring(x):
     try:
@@ -40,57 +41,71 @@ def isstring(x):
     except NameError:
         return isinstance(x, str)
 
+
 def isboollist(lst):
     try:
-        return all(isinstance(i,bool) for i in lst) and len(lst)>0
+        return all(isinstance(i, bool) for i in lst) and len(lst) > 0
     except:
         return False
-        
+
+
 def isarray(x):
     return isinstance(x, (set, frozenset, tuple, np.ndarray)+listtypes)
 
+
 def islist(x):
     return isinstance(x, listtypes)
+
 
 def isarray0(x):
     """Check for numpy 0-d array
     """
     if isarray(x):
-        if isinstance(x,np.ndarray):
-            return x.ndim==0
+        if isinstance(x, np.ndarray):
+            return x.ndim == 0
     return False
+
 
 def isarraynot0(x):
     if isarray(x):
-        if isinstance(x,np.ndarray):
-            return x.ndim!=0
+        if isinstance(x, np.ndarray):
+            return x.ndim != 0
         else:
             return True
     return False
 
+
 def isnumber(x):
     return isinstance(x, numbers.Number)
-    
+
+
 def isinteger(x):
     return isinstance(x, numbers.Integral)
 
+
 def dtype_is_integer(dtype):
-    return isinteger(np.array([0],dtype)[0])
+    return isinteger(np.array([0], dtype)[0])
+
 
 def isscalar(x):
     return np.isscalar(x)
 
+
 def isiterable(x):
     return isinstance(x, collections.Iterable)
 
+
 def ismapping(x):
     return isinstance(x, collections.Mapping)
-    
+
+
 def iscallable(x):
     return isinstance(x, collections.Callable)
 
+
 def isquantity(x):
     return isinstance(x, ureg.Quantity)
+
 
 def isqarray(x):
     if isquantity(x):
@@ -98,12 +113,14 @@ def isqarray(x):
             return True
     return False
 
+
 def israndomvariable(x):
     # do not use asscalar!!!
     if isarray(x):
         return any(israndomvariable(z) for z in x)
     else:
-        return isinstance(x,(uncertainties.core.Variable,uncertainties.core.AffineScalarFunc))
+        return isinstance(x, (uncertainties.core.Variable, uncertainties.core.AffineScalarFunc))
+
 
 def asscalar(x):
     try:
@@ -112,42 +129,47 @@ def asscalar(x):
         pass
     return x
 
+
 class _toarray(object):
-    restore = {"array": lambda x:x,\
-               "scalar": lambda x:x[0],\
-               "array0": lambda x:np.array(x[0])}
-               
-    def __call__(self,x):
+    restore = {"array": lambda x: x,
+               "scalar": lambda x: x[0],
+               "array0": lambda x: np.array(x[0])}
+
+    def __call__(self, x):
         if isarray(x):
             # Special case: numpy 0-d array
-            if isinstance(x,np.ndarray):
-                if x.ndim==0:
-                    return x[np.newaxis],self.restore["array0"]
+            if isinstance(x, np.ndarray):
+                if x.ndim == 0:
+                    return x[np.newaxis], self.restore["array0"]
             # Create number array (possibly objects needed)
             try:
                 x = np.asarray(x)
             except ValueError:
-                x = np.asarray(x,dtype=object)
-            return x,self.restore["array"]
+                x = np.asarray(x, dtype=object)
+            return x, self.restore["array"]
         elif isquantity(x):
             u = x.units
-            x,frestore = self(x.magnitude)
-            func = lambda y: ureg.Quantity(y,u)
-            x = np.vectorize(func,otypes=[object])(x)
-            func = lambda y: ureg.Quantity(frestore(y),u)
-            return x,func
+            x, frestore = self(x.magnitude)
+            def func(y): return ureg.Quantity(y, u)
+            x = np.vectorize(func, otypes=[object])(x)
+            def func(y): return ureg.Quantity(frestore(y), u)
+            return x, func
         elif isnumber(x):
-            return np.asarray([x]),self.restore["scalar"]
+            return np.asarray([x]), self.restore["scalar"]
         else:
-            return np.asarray([x],dtype=object),self.restore["scalar"]
+            return np.asarray([x], dtype=object), self.restore["scalar"]
+
 
 asarrayf = _toarray()
+
 
 def asarray(x):
     return asarrayf(x)[0]
 
+
 def aslist(x):
     return asarray(x).tolist()
+
 
 def asnumber(x):
     if isnumber(x):
@@ -163,7 +185,8 @@ def asnumber(x):
             return float(x)
         except:
             return np.nan
-                
+
+
 def arrayit(x):
     if isarray(x):
         return x
