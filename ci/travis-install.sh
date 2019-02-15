@@ -53,8 +53,8 @@ function main()
     elif [[ ${TRAVISRUN} == "style" ]]; then
         travis_styletest
     else
-        echo "No tests to be prepared"
+        echo "No tests to be installed"
     fi
 }
 
-main()
+main
