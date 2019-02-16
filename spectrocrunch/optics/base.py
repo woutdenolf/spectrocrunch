@@ -34,18 +34,24 @@ class Optics(object):
         self.uselut = uselut
 
     def __getstate__(self):
+        state = {'uselut': self.uselut}
         if self.uselut:
-            return {'lut': self.lut}
-        else:
-            return {}
-
+            state['lut'] = self.lut
+        return state
+        
     def __setstate__(self, state):
+        self.uselut = state['uselut']
         if 'lut' in state:
             self.lut = state['lut']
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return self.lut == other.lut
+            if self.uselut ^ other.uselut:
+                return False
+            if self.uselut:
+                return self.lut == other.lut
+            else:
+                return True
         else:
             return False
 
