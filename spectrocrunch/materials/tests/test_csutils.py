@@ -30,6 +30,8 @@ import numpy as np
 
 class test_csutils(unittest.TestCase):
 
+    @unittest.skipIf(csutils.xraylib.XRayInit is None,
+                     "xraylib not installed")
     def test_shape(self):
         keep = csutils.xraylib.xraylib_np
         csutils.xraylib.xraylib_np = None

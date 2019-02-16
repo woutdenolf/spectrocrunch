@@ -177,6 +177,8 @@ class test_xrf(unittest.TestCase):
             #    np.testing.assert_raises(AssertionError, np.testing.assert_allclose, area2,1,rtol=1e-7)
             #    np.testing.assert_raises(AssertionError, np.testing.assert_allclose, area3,1,rtol=rtol)
 
+    @unittest.skipIf(xrf.compoundfromname.xraylib is None,
+                     "xraylib not installed")
     def test_convert(self):
         exclude = 'XRFDetector',
         for name, cls in xrf.XRFDetector.clsregistry.items():
@@ -197,6 +199,8 @@ class test_xrf(unittest.TestCase):
                 self.assertEqual(a, b)
                 self.assertEqual(c, b)
 
+    @unittest.skipIf(xrf.compoundfromname.xraylib is None,
+                     "xraylib not installed")
     def test_serialize(self):
         exclude = 'XRFDetector',
         for name, cls in xrf.XRFDetector.clsregistry.items():

@@ -31,6 +31,8 @@ from ...patch import jsonpickle
 
 class test_scintillators(unittest.TestCase):
 
+    @unittest.skipIf(scintillators.compound.element.xraylib.XRayInit is None,
+                     "xraylib not installed")
     def test_serialize(self):
         exclude = ()
         for name, cls in scintillators.Scintillator.clsregistry.items():

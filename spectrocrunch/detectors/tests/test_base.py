@@ -33,6 +33,8 @@ from ...materials import mixture
 
 class test_base(unittest.TestCase):
 
+    @unittest.skipIf(compoundfromname.xraylib is None,
+                     "xraylib not installed")
     def test_serialize(self):
         ca = element.Element("Ca")
         calcite = compoundfromname.compoundfromname("calcite")

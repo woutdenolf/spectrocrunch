@@ -261,7 +261,8 @@ class test_multilayer(unittest.TestCase):
                 self.assertSpectrumEqual(
                     spectrum1, spectrum3, rtol=2e-02, compfisx=True)  # 2% deviation
 
-    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None, "xraylib not installed")
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,
+                     "xraylib not installed")
     def test_primary_complex(self):
         compound1 = compoundfromformula.CompoundFromFormula("MnFe", density=6.)
         compound2 = compoundfromformula.CompoundFromFormula(
@@ -325,6 +326,8 @@ class test_multilayer(unittest.TestCase):
                 self.assertSpectrumEqual(
                     spectrum2, spectrum3, rtol=1e-02, compfisx=True)  # 1% deviation
 
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,
+                     "xraylib not installed")
     def test_serialize(self):
         m1 = self._multilayer2()
         m2 = jsonpickle.decode(jsonpickle.encode(m1))
