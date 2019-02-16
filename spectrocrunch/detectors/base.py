@@ -80,22 +80,18 @@ class Material(object):
             attinfo["material"], attinfo["thickness"]) for attinfo in self.beamfilters()])
         s2 = "\n ".join(["{} = {} cm".format(
             attinfo["material"], attinfo["thickness"]) for attinfo in self.detectorfilters()])
-
         if s1:
             s1 = "Beam filters:\n {}".format(s1)
         else:
             s1 = "Beam filters: None"
-
         if s2:
             s2 = "Detector filters:\n {}".format(s2)
         else:
             s2 = "Detector filters: None"
-
         if self.hasmaterial:
             s3 = " Material = {} ({} cm)".format(self.material, self.thickness)
         else:
             s3 = " Material = None"
-
         return "\n".join([s3, s1, s2])
 
     @property

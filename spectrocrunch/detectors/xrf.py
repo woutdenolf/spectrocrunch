@@ -880,3 +880,4 @@ class ID16b_Virtual1(XRFDetector):
 
 
 factory = XRFDetector.factory
+registry = XRFDetector.clsregistry

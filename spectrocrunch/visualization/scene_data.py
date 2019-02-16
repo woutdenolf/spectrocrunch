@@ -44,7 +44,7 @@ class Base(object):
 
     def __init__(self,axis0name=None,axis1name=None,
                  transfo0=None,transfo1=None,**kwargs):
-        self.instrument = configuration.getinstrument(kwargs)
+        self.instrument = configuration.getinstrument(**kwargs)
         if axis0name is None:
             axis0name = self.instrument.imageaxes[0].upper()
         if axis1name is None:
@@ -98,7 +98,7 @@ class PointBase(Base):
 class ImageBase(Base):
 
     def __init__(self, grid, items=None, **kwargs):
-        self.instrument = configuration.getinstrument(kwargs)
+        self.instrument = configuration.getinstrument(**kwargs)
         self.grid = grid
         self.set_items(items)
         axis0name, axis1name = [ax.name for ax in self._grid_image_axes]

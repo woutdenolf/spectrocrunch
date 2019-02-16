@@ -1,20 +1,23 @@
 #!/bin/bash
 # 
-# This script will prepare Travis.
+# This script will run Travis tests.
 # 
 
 function travis_unittest()
 {
+    cd ${TRAVIS_BUILD_DIR}
+    PROJECTNAME=`python setup.py name|tail -1`
+
     cd ${HOME}
-    #python -m ${PROJECTNAME}.tests.test_all --log=error
     PYOPENCL_COMPILER_OUTPUT=1
+    #python -m ${PROJECTNAME}.tests.test_all --log=error
     python -m unittest -v ${PROJECTNAME}.tests.test_all.test_suite
 }
 
 function travis_styletest()
 {
     cd ${TRAVIS_BUILD_DIR}
-    flake8 spectrocrunch
+    python -m flake8 spectrocrunch
 }
 
 function main()
@@ -24,7 +27,7 @@ function main()
     elif [[ ${TRAVISRUN} == "style" ]]; then
         travis_styletest
     else
-        echo "No tests to be run"
+        echo "No tests to run"
     fi
 }
 

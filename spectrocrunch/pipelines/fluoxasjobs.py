@@ -41,7 +41,7 @@ def fluoxas(samplename,datasetname,scannumbers,mapnumbers,cfgfiles,**parameters)
         raise RuntimeError("fluoXAS map numbers must be equal to the mapnumbers")
     jobname = batch.jobname("fluoxas",(samplename,datasetname,scannumbers,mapnumbers,cfgfiles),parameters)
     
-    instrument = getinstrument(parameters)
+    instrument = getinstrument(**parameters)
     radix,subdir = instrument.xrflocation(samplename,datasetname,type="dynamic")
 
     sourcepaths = [os.path.join(parameters["proposaldir"],subdir,"{}_fluoXAS_{}".format(radix,nr)) for nr in scannumbers]
@@ -58,7 +58,7 @@ def fluoxas(samplename,datasetname,scannumbers,mapnumbers,cfgfiles,**parameters)
 def multi(samplename,datasetname,mapnumbers,cfgfiles,**parameters):
     jobname = batch.jobname("multi",(samplename,datasetname,mapnumbers,cfgfiles),parameters)
     
-    instrument = getinstrument(parameters)
+    instrument = getinstrument(**parameters)
     radix,subdir = instrument.xrflocation(samplename,datasetname,type="dynamic")
     sourcepaths = [os.path.join(parameters["proposaldir"],subdir)]
 
@@ -72,7 +72,7 @@ def multi(samplename,datasetname,mapnumbers,cfgfiles,**parameters):
 def single(samplename,datasetname,mapnumber,cfgfiles,**parameters):
     jobname = batch.jobname("single",(samplename,datasetname,mapnumber,cfgfiles),parameters)
     
-    instrument = getinstrument(parameters)
+    instrument = getinstrument(**parameters)
     radix,subdir = instrument.xrflocation(samplename,datasetname,type="dynamic")
     sourcepaths = [os.path.join(parameters["proposaldir"],subdir)]
 

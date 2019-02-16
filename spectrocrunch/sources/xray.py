@@ -99,3 +99,4 @@ class Tube(XraySource):
 
 
 factory = XraySource.factory
+registry = XraySource.clsregistry

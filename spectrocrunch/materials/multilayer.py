@@ -1165,3 +1165,4 @@ class Multilayer(with_metaclass(cache.Cache)):
 
 
 factory = Multilayer.factory
+registry = Multilayer.clsregistry

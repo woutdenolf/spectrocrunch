@@ -32,7 +32,7 @@ from ..instruments.configuration import getinstrument
 def staticscan(samplename,datasetname,radix,**parameters):
     jobname = batch.jobname("static",(samplename,datasetname,radix),parameters)
 
-    instrument = getinstrument(parameters)
+    instrument = getinstrument(**parameters)
     mradix,subdir = instrument.fflocation(samplename,datasetname,type="static")
     if not instance.isarray(radix):
         radix = [radix]

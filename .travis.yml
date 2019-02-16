@@ -18,7 +18,7 @@ matrix:
         - TRAVISRUN="unit"
     #- python: 3.5
     #  os: linux
-    #env:
+    #  env:
     #    - TRAVISRUN="unit"
     - python: 3.6
       os: linux
@@ -27,11 +27,11 @@ matrix:
     #- python: 3.7
     #  dist: xenial
     #  os: linux
-    #env:
+    #  env:
     #    - TRAVISRUN="unit"
     #- language: generic
     #  os: osx
-    #env:
+    #  env:
     #    - TRAVISRUN="unit"
     #- python: 3.6
     #  os: linux
@@ -42,19 +42,21 @@ cache:
   timeout: 1000
   apt: true
   pip: true
-  #directories:
-  #- $CACHED_FOLDER
+  directories:
+  - $CACHED_FOLDER
 
 addons:
   apt_packages:
-    - pandoc
+    - pandoc  # does not get install with script
 
 before_install:
-  - export
   - source $TRAVIS_BUILD_DIR/ci/travis-before-install.sh
 
 install:
-  - source $TRAVIS_BUILD_DIR/ci/travis-install.sh
+  - source $TRAVIS_BUILD_DIR/ci/travis-install-deps.sh
+
+before_script:
+  - source $TRAVIS_BUILD_DIR/ci/travis-build.sh
 
 script:
   - source $TRAVIS_BUILD_DIR/ci/travis-test.sh

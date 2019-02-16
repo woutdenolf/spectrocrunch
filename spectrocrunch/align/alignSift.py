@@ -94,6 +94,8 @@ def global_shape(problemshape, localshape):
 
 def create_context():
     ctx = None
+    if ocl is None:
+        return ctx
     platdev = ocl.select_device(type="GPU", best=True)
     if platdev is None:
         platdev = ocl.select_device(best=True)

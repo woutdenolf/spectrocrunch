@@ -36,7 +36,9 @@ from .import helper_teststack
 
 import numpy as np
 
+
 siftctx = alignSift.create_context()
+
 
 class test_align(unittest.TestCase):
 

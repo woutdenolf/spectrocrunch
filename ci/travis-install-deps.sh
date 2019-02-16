@@ -1,6 +1,6 @@
 #!/bin/bash
 # 
-# This script will prepare Travis.
+# This script will install Travis test dependencies.
 # 
 
 function travis_unittest()
@@ -10,8 +10,8 @@ function travis_unittest()
     if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
         source $TRAVIS_BUILD_DIR/tools/linux-install-deps.sh -y -u -x -s
     else
-        # Does not install non-pypi libraries
-        # tests involved will be skipped
+        # Does not install non-pypi libraries: 
+        # corresponding tests will be skipped
         type python
         python -m pip install --upgrade pip --user
         python --version
@@ -22,28 +22,12 @@ function travis_unittest()
         python -m pip install -r $TRAVIS_BUILD_DIR/requirements.txt --user
         python -m pip install -r $TRAVIS_BUILD_DIR/requirements-dev.txt --user
     fi
-
-    # Print Python info
-    python $TRAVIS_BUILD_DIR/ci/info_platform.py
-    python -m pip list
-
-    # Build package
-    cd $TRAVIS_BUILD_DIR
-    python setup.py build
-    python setup.py sdist bdist_wheel
-    if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-        python setup.py build_doc
-    fi
-
-    # Install package
-    PROJECTNAME=`python setup.py name|tail -1`
-    pip install --pre --no-index --find-links=dist/ ${PROJECTNAME}
 }
 
 function travis_styletest()
 {
-    cd ${TRAVIS_BUILD_DIR}
-    flake8 spectrocrunch
+    cd $CACHED_FOLDER
+    python -m pip install flake8
 }
 
 function main()
@@ -53,8 +37,13 @@ function main()
     elif [[ ${TRAVISRUN} == "style" ]]; then
         travis_styletest
     else
-        echo "No tests to be installed"
+        echo "No dependencies to be installed"
     fi
+
+    # Print Python info
+    echo "Python information:"
+    python $TRAVIS_BUILD_DIR/ci/info_platform.py
+    python -m pip list
 }
 
 main
