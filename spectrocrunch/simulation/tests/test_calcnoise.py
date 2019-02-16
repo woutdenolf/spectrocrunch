@@ -37,7 +37,10 @@ import numpy as np
 
 class test_calcnoise(unittest.TestCase):
 
-    @unittest.skipIf(calcnoise.lenses.visirlib.PyTMM is None, "PyTMM not installed")
+    @unittest.skipIf(calcnoise.lenses.visirlib.PyTMM is None,
+                     "PyTMM not installed")
+    @unittest.skipIf(multilayer.compoundfromdb.compoundfromname.xraylib is None,
+                     "xraylib not installed")
     def test_ffnoise(self):
         flux = 1e5
         energy = np.linspace(3, 5, 100)
@@ -59,8 +62,10 @@ class test_calcnoise(unittest.TestCase):
         o.plotxanesnoise(flux, energy, **kwargs)
         # plt.show()
 
-    @unittest.skipIf(calcnoise.lenses.visirlib.PyTMM is None, "PyTMM not installed")
-    @unittest.skipIf(multilayer.compoundfromdb.compoundfromname.xraylib is None, "xraylib not installed")
+    @unittest.skipIf(calcnoise.lenses.visirlib.PyTMM is None,
+                     "PyTMM not installed")
+    @unittest.skipIf(multilayer.compoundfromdb.compoundfromname.xraylib is None,
+                     "xraylib not installed")
     def test_reverse(self):
         flux = np.linspace(1e4, 1e5, 2)
         energy = np.linspace(3, 5, 3)
@@ -95,8 +100,10 @@ class test_calcnoise(unittest.TestCase):
                 np.testing.assert_allclose(ph1, ph2)
             Ndet2 = Ndet
 
-    @unittest.skipIf(calcnoise.lenses.visirlib.PyTMM is None, "PyTMM not installed")
-    @unittest.skipIf(multilayer.compoundfromdb.compoundfromname.xraylib is None, "xraylib not installed")
+    @unittest.skipIf(calcnoise.lenses.visirlib.PyTMM is None,
+                     "PyTMM not installed")
+    @unittest.skipIf(multilayer.compoundfromdb.compoundfromname.xraylib is None,
+                     "xraylib not installed")
     def test_totalgain(self):
         flux = np.linspace(1e4, 1e5, 10)
         energy = 5
