@@ -1,6 +1,6 @@
 version: "{build}"
 shallow_clone: true
-build: false
+#build: false
 
 cache:
   - '%LOCALAPPDATA%\pip\Cache'
@@ -24,61 +24,61 @@ environment:
 init:
   # Prepare Python
   - ps: |
-    [Environment]::SetEnvironmentVariable("Path", "$PYTHON_DIR;$PYTHON_DIR\Scripts;$Path", "Process")
-    python -m ensurepip
-    python -m pip install --upgrade setuptools
-    python -m pip install --upgrade pip
-    python -m pip install --upgrade virtualenv
-    virtualenv --clear $VENV_NAME
-    & .\$VENV_NAME\Scripts\activate.bat
+      [Environment]::SetEnvironmentVariable("Path", "$PYTHON_DIR;$PYTHON_DIR\Scripts;$Path", "Process")
+      python -m ensurepip
+      python -m pip install --upgrade setuptools
+      python -m pip install --upgrade pip
+      python -m pip install --upgrade virtualenv
+      virtualenv --clear $VENV_NAME
+      & .\$VENV_NAME\Scripts\activate.bat
 
   # before_install
   - ps: |
-    Write-Host "Build worker environment variables:" -ForegroundColor Magenta
-    Get-ChildItem env:
-    mkdir $CACHED_FOLDER -Force
-    cd $CACHED_FOLDER
-    if ($OS -eq "Windows_NT") {
-      $APPVEYOR_BUILD_FOLDER/ci/appveyor-windows-prepare.ps1
-    }
+      Write-Host "Build worker environment variables:" -ForegroundColor Magenta
+      Get-ChildItem env:
+      mkdir $CACHED_FOLDER -Force
+      cd $CACHED_FOLDER
+      if ($OS -eq "Windows_NT") {
+        $APPVEYOR_BUILD_FOLDER/ci/appveyor-windows-prepare.ps1
+      }
 
 install:
   # Install general build dependencies
   - ps: |
-    cd $CACHED_FOLDER
-    if ($OS -eq "Windows_NT") {
-      $APPVEYOR_BUILD_FOLDER/tools/windows-install-deps.ps1 -y -u -x -s
-    }
+      cd $CACHED_FOLDER
+      if ($OS -eq "Windows_NT") {
+        $APPVEYOR_BUILD_FOLDER/tools/windows-install-deps.ps1 -y -u -x -s
+      }
   
   # Print Python info
   - ps: |
-    python $APPVEYOR_BUILD_FOLDER/ci/info_platform.py
-    python -m pip list
+      python $APPVEYOR_BUILD_FOLDER/ci/info_platform.py
+      python -m pip list
 
 build_script:
   # Build package
   - ps: |
-    cd $APPVEYOR_BUILD_FOLDER
-    python setup.py build
-    python setup.py sdist bdist_wheel
-    python setup.py build_doc
+      cd $APPVEYOR_BUILD_FOLDER
+      python setup.py build
+      python setup.py sdist bdist_wheel
+      python setup.py build_doc
 
   # Install package
   - ps: |
-    $PROJECTNAME = python setup.py name | Select-Object -Last 1
-    python -m pip install --pre --no-index --find-links=dist/ $PROJECTNAME
+      $PROJECTNAME = python setup.py name | Select-Object -Last 1
+      python -m pip install --pre --no-index --find-links=dist/ $PROJECTNAME
 
 test_script:
   # Test the installed package
   - ps: |
-    cd $HOME
-    python -m unittest -v $PROJECTNAME.tests.test_all.test_suite
+      cd $HOME
+      python -m unittest -v $PROJECTNAME.tests.test_all.test_suite
 
 on_finish:
   # Remove virtualenv
   - ps: |
-    & .\$VENV_NAME\Scripts\deactivate.bat
-    rmdir $VENV_NAME
+      & .\$VENV_NAME\Scripts\deactivate.bat
+      rmdir $VENV_NAME
 
 artifacts:
   # Archive the generated wheel package in the ci.appveyor.com build report.
