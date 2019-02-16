@@ -24,6 +24,7 @@
 import numpy as np
 from scipy import interpolate
 import matplotlib.pyplot as plt
+from copy import copy
 
 from . import instance
 from . import units
@@ -197,8 +198,7 @@ class LUT(object):
         self._new_data(args, add=False)
 
     def __add__(self, xy):
-        o = self.__class__(default=self.default, kind=self.kind,
-                           x=self.x, y=self.y)
+        o = copy(self)
         o.add(xy)
         return o
 
