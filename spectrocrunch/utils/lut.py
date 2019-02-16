@@ -152,7 +152,7 @@ class LUT(object):
         y = units.Quantity(y, units=yunits)
         return func(y)
 
-    def _new_data(self, *args, add=True):
+    def _new_data(self, args, add=True):
         nargs = len(args)
         if nargs == 1:
             xy = args[0]
@@ -191,10 +191,10 @@ class LUT(object):
                                               kind=self.kind)
 
     def add(self, *args):
-        self._new_data(*args, add=True)
+        self._new_data(args, add=True)
 
     def replace(self, *args):
-        self._new_data(*args, add=False)
+        self._new_data(args, add=False)
 
     def __add__(self, xy):
         o = self.__class__(default=self.default, kind=self.kind)
