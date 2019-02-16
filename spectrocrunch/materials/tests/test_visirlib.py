@@ -33,7 +33,8 @@ import numpy as np
 
 class test_visirlib(unittest.TestCase):
 
-    @unittest.skipIf(visirlib.PyTMM is None, "PyTMM not installed")
+    @unittest.skipIf(visirlib.PyTMM is None,
+                     "PyTMM not installed")
     def test_linatt(self):
         mat = visirlib.Material("main", "Al", "Rakic")
         linatt = mat.linear_attenuation_coefficient(
@@ -46,6 +47,8 @@ class test_visirlib(unittest.TestCase):
         n2 = np.asarray([1.0003080029552, 1.0002742989071])
         np.testing.assert_allclose(n, n2)
 
+    @unittest.skipIf(visirlib.PyTMM is None,
+                     "PyTMM not installed")
     def test_serialize(self):
         m1 = visirlib.Material("main", "Al", "Rakic")
         m2 = jsonpickle.decode(jsonpickle.encode(m1))

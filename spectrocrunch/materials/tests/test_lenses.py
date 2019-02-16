@@ -31,6 +31,8 @@ from ...patch import jsonpickle
 
 class test_lenses(unittest.TestCase):
 
+    @unittest.skipIf(lenses.visirlib.PyTMM is None,
+                     "PyTMM not installed")
     def test_serialize(self):
         exclude = ()
         for name, cls in lenses.Lens.clsregistry.items():

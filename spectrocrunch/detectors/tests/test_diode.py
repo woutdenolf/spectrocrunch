@@ -169,6 +169,8 @@ class test_diode(unittest.TestCase):
                 np.testing.assert_allclose(
                     sampleflux*m, o.cpstoflux(energy, cps))
 
+    @unittest.skipIf(diode.compoundfromname.xraylib is None,
+                     "xraylib not installed")
     def test_serialize(self):
         exclude = 'PNdiode', 'CalibratedPNdiode', 'NonCalibratedPNdiode', 'SXM_PTB'
         for name, cls in diode.PNdiode.clsregistry.items():
