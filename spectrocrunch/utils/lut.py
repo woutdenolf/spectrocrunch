@@ -197,9 +197,9 @@ class LUT(object):
         self._new_data(args, add=False)
 
     def __add__(self, xy):
-        o = self.__class__(default=self.default, kind=self.kind)
+        o = self.__class__(default=self.default, kind=self.kind,
+                           x=self.x, y=self.y)
         o.add(xy)
-        o.add(self.x, self.y)
         return o
 
     def __iadd__(self, xy):
