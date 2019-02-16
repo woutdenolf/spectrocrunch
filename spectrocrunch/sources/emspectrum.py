@@ -81,7 +81,7 @@ class Discrete(lut.LUT):
             y = lut.default
         else:
             lines = self.lines
-            if lut.xunits is not None:
+            if not lut.isempty():
                 lines = lines.to(lut.xunits, 'spectroscopy')
             y = lut(lines)
             y = sum(y*self.ratios)
