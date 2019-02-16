@@ -1,6 +1,6 @@
 version: "{build}"
 shallow_clone: true
-#build: false
+build: false
 
 cache:
   - '%LOCALAPPDATA%\pip\Cache'
