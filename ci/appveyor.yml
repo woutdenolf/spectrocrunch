@@ -14,9 +14,6 @@ environment:
   matrix:
     - PYTHON_DIR: "C:\\Python27-x64"
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2013
-    - PYTHON_DIR: "C:\\Python34-x64"
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2013
-      DISTUTILS_USE_SDK: "1"
     - PYTHON_DIR: "C:\\Python35-x64"
       APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2015
     - PYTHON_DIR: "C:\\Python36-x64"
