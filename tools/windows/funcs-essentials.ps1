@@ -50,6 +50,9 @@ function download_file([string]$url, [AllowNull()][string]$output) {
 function download_git_release([string]$user,[string]$project,[string]$extpattern,[AllowNull()][string]$output=$null,[string]$release="latest")
 {
     $local:link = "https://api.github.com/repos/$user/$project/releases/$release"
+    if ($GITHUB_TOKEN -ne $null) {
+        $local:link += "?access_token=$GITHUB_TOKEN"
+    }
     $response = Invoke-RestMethod -Method 'Get' -ContentType 'application/json' -Uri $local:link
     $filename = $null
     foreach ($asset in $response.assets) {

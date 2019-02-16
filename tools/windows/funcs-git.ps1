@@ -29,7 +29,7 @@ function require_git()
     cprint "Download git ..."
     if (!(dryrun)) {
         require_web_essentials
-        $local:filename = download_git_release "git-for-windows" "git" "$local:extension$"
+        $local:filename = download_git_release "git-for-windows" "git" "$local:extension"
     }
 
     $local:path = joinPath (project_prefix) "Git$affix"

@@ -4,6 +4,10 @@
 
 . $PSScriptRoot\funcs.ps1
 . $PSScriptRoot\funcs-python.ps1
+#. $PSScriptRoot\funcs-simpleelastix.ps1
+. $PSScriptRoot\funcs-xraylib.ps1
+#. $PSScriptRoot\funcs-pytmm.ps1
+#. $PSScriptRoot\funcs-fdmnes.ps1
 
 
 function install_system_dependencies()
@@ -36,7 +40,10 @@ function install_system_dependencies_dev()
 
 function install_nopypi_dependencies()
 {
-    require_simpleelastix
+    #require_simpleelastix
+    #require_xraylib
+    #require_pytmm
+    #require_fdmnes
 }
 
 
