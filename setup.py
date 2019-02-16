@@ -194,8 +194,8 @@ class CleanCommand(Command):
             for dirname in glob.glob(pattern):
                 shutil.rmtree(dirname, True)
 
-        patterns = ['*.pyc', '*~']
-        for root, dirnames, filenames in os.walk('.'):
+        patterns = ['*.pyc']
+        for root, dirnames, filenames in os.walk(PROJECT):
             for pattern in patterns:
                 for filename in fnmatch.filter(filenames, pattern):
                     os.remove(os.path.join(root, filename))

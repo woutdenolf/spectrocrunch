@@ -216,3 +216,4 @@ class NIST612(Standard):
 
 
 factory = Standard.factory
+registry = Standard.clsregistry

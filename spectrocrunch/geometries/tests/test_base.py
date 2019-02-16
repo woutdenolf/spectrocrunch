@@ -24,10 +24,44 @@
 
 import unittest
 
+from ..import base
+from ...patch import jsonpickle
+
+
+class test_base(unittest.TestCase):
+
+    def test_serialize(self):
+        g1 = base.Base()
+        g2 = jsonpickle.decode(jsonpickle.encode(g1))
+        self.assertEqual(g1, g2)
+
+        g1 = base.SolidAngle()
+        g2 = jsonpickle.decode(jsonpickle.encode(g1))
+        self.assertEqual(g1, g2)
+        g1 = base.SolidAngle(solidangle=0.8)
+        g2 = jsonpickle.decode(jsonpickle.encode(g1))
+        self.assertEqual(g1, g2)
+
+        g1 = base.FlatSample()
+        g2 = jsonpickle.decode(jsonpickle.encode(g1))
+        self.assertEqual(g1, g2)
+        g1 = base.FlatSample(anglein=40.1, angleout=-50., azimuth=3.)
+        g2 = jsonpickle.decode(jsonpickle.encode(g1))
+        self.assertEqual(g1, g2)
+
+        g1 = base.Centric()
+        g2 = jsonpickle.decode(jsonpickle.encode(g1))
+        self.assertEqual(g1, g2)
+        g1 = base.Centric(distance=0.1, anglein=40.1,
+                          angleout=-50., azimuth=3.)
+        g2 = jsonpickle.decode(jsonpickle.encode(g1))
+        self.assertEqual(g1, g2)
+
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
+    testSuite.addTest(test_base("test_serialize"))
     return testSuite
 
 

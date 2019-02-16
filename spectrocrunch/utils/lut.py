@@ -57,8 +57,9 @@ class LUT(object):
     def __setstate__(self, state):
         self.kind = state['kind']
         self.clear(default=state['default'])
-        self.x = state['_x']
-        self.y = state['_y']
+        x, y = state['_x'], state['_y']
+        if x is not None:
+            self.add(x, y)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):

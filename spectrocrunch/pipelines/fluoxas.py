@@ -36,7 +36,7 @@ def xrfparameters(**parameters):
     cfgfiles = parameters['cfgfiles']
     nxentry = parameters['nxentry']
     
-    instrument = getinstrument(parameters)
+    instrument = getinstrument(**parameters)
     dtcor = parameters.get('dtcor',True)
     fastfitting = parameters.get('fastfitting',True)
     adddetectors = parameters.get('adddetectors',True)

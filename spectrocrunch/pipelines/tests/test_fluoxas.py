@@ -582,7 +582,7 @@ class test_fluoxas(unittest.TestCase):
         monitor = qxrf.factory("QXRFGeometry",instrument="id21",diodeI0="iodet1",diodeIt="idet",
                                 optics="KB",xrfgeometry=None,simplecalibration=True)
         monitor.setreferenceflux(self.procinfo['flux'])
-        monitor.setdefaulttime(self.procinfo['time'])
+        monitor.defaultexpotime = self.procinfo['time']
         monitor.diodeI0.gain = 1e8
         monitor.diodeIt.gain = 1e7
         

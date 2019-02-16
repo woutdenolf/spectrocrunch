@@ -192,3 +192,4 @@ class frelon2k14(AreaDetector):
 
 
 factory = AreaDetector.factory
+registry = AreaDetector.clsregistry

@@ -5,7 +5,7 @@
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
+# of this software and associated documentation files (the 'Software'), to deal
 # in the Software without restriction, including without limitation the rights
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
@@ -14,7 +14,7 @@
 # The above copyright notice and this permission notice shall be included in
 # all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -49,147 +49,215 @@ logger = logging.getLogger(__name__)
 class QXRFGeometry(with_metaclass(object)):
     """Quantitative XRF geometry with I0 and It diodes
     """
-    
-    def __init__(self,instrument=None,diodeI0=None,diodeIt=None,optics=None,\
-                xrfgeometries=None,xrfdetector=None,xrfgeometry=None,source="synchrotron",\
-                simplecalibration=True,fluxid="I0",transmissionid="It"):
-        
-        self.instrument = configuration.factory(instrument)
-        
-        if xrfgeometries is None:
-            xrfgeometries = [(xrfgeometry,xrfdetector)]
 
-        self._diodeI0 = None
-        self._diodeIt = None
-        self._xrfgeometries = []
+    def __init__(self, instrument=None, diodeI0=None, diodeIt=None,
+                 simplecalibration=True, fluxid=None, transmissionid=None,
+                 xrfgeometries=None, xrfdetector=None, xrfgeometry=None,
+                 optics=None, source=None):
+        self._prepare_update_devices()
+        self.instrument = instrument
         self.simplecalibration = simplecalibration
         self.optics = optics
+        if source is None:
+            source = 'synchrotron'
         self.source = source
+        if xrfgeometries is None:
+            xrfgeometries = [(xrfgeometry, xrfdetector)]
         self.xrfgeometries = xrfgeometries
         self.diodeI0 = diodeI0
         self.diodeIt = diodeIt
-
-        self.reference = units.Quantity(1e10,"hertz")
-        self.defaultexpotime = units.Quantity(0.1,"s")
-        self.referencetime = None
-        self._data = {}
+        self.reference = units.Quantity(
+            1e10, 'hertz')  # could be flux or counts
+        self.defaultreferencetime = None
+        self.defaultexpotime = units.Quantity(0.1, 's')
+        if fluxid is None:
+            fluxid = 'I0'
         self.fluxid = fluxid
+        if transmissionid is None:
+            transmissionid = 'It'
         self.transmissionid = transmissionid
+
+    def __getstate__(self):
+        return {'instrument': self.instrument,
+                'simplecalibration': self.simplecalibration,
+                'optics': self.optics,
+                'source': self.source,
+                'xrfgeometries': self.xrfgeometries,
+                'diodeI0': self.diodeI0,
+                'diodeIt': self.diodeIt,
+                'reference': self.reference,
+                'defaultreferencetime': self.defaultreferencetime,
+                'defaultexpotime': self.defaultexpotime,
+                'fluxid': self.fluxid,
+                'transmissionid': self.transmissionid
+                }
+
+    def __setstate__(self, state):
+        self._prepare_update_devices()
+        self.instrument = state['instrument']
+        self.simplecalibration = state['simplecalibration']
+        self.optics = state['optics']
+        self.source = state['source']
+        self.xrfgeometries = state['xrfgeometries']
+        self.diodeI0 = state['diodeI0']
+        self.diodeIt = state['diodeIt']
+        self.reference = state['reference']
+        self.defaultreferencetime = state['defaultreferencetime']
+        self.defaultexpotime = state['defaultexpotime']
+        self.fluxid = state['fluxid']
+        self.transmissionid = state['transmissionid']
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.instrument == other.instrument and \
+                self.simplecalibration == other.simplecalibration and \
+                self.optics == other.optics and \
+                self.source == other.source and \
+                self.xrfgeometries == other.xrfgeometries and \
+                self.diodeI0 == other.diodeI0 and \
+                self.diodeIt == other.diodeIt and \
+                self.reference == other.reference and \
+                self.defaultreferencetime == other.defaultreferencetime and \
+                self.defaultexpotime == other.defaultexpotime and \
+                self.fluxid == other.fluxid and \
+                self.transmissionid == other.transmissionid
+        else:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __str__(self):
         lst = []
-        
+
         if self.diodeI0 is None:
             diodeI0 = None
         else:
             diodeI0 = self.diodeI0
-            if hasattr(diodeI0,"geometry"):
+            if hasattr(diodeI0, 'geometry'):
                 diodeI0 = diodeI0.geometry
-        lst.append("DiodeI0:\n========\n{}".format(diodeI0))
-        
+        lst.append('DiodeI0:\n========\n{}'.format(diodeI0))
+
         if self.diodeIt is None:
             diodeIt = None
         else:
             diodeIt = self.diodeIt
-            if hasattr(diodeIt,"geometry"):
+            if hasattr(diodeIt, 'geometry'):
                 diodeIt = diodeIt.geometry
-        lst.append("DiodeIt:\n========\n{}".format(diodeIt))
-        
-        for i,geom in enumerate(self.xrfgeometries,1):
-            lst.append("XRF geometry ({}):\n===========\n{}".format(i,geom))
+        lst.append('DiodeIt:\n========\n{}'.format(diodeIt))
 
-        lst.append("Flux monitor:\n===========") 
+        for i, geom in enumerate(self.xrfgeometries, 1):
+            lst.append('XRF geometry ({}):\n===========\n{}'.format(i, geom))
+
+        lst.append('Flux monitor:\n===========')
         try:
-            self.reference.to("Hz")
-            refname = "Normalize to flux"
+            self.reference.to('Hz')
+            refname = 'Normalize to flux'
         except pinterrors.DimensionalityError:
-            refname = "Normalize to diode counts"
-        lst.append("{}:\n {:~e}".format(refname,self.reference))
-        referencetime = self.referencetime
+            refname = 'Normalize to diode counts'
+        lst.append('{}:\n {:~e}'.format(refname, self.reference))
+        referencetime = self.defaultreferencetime
         if referencetime is None:
-            referencetime = "<data>"
+            referencetime = '<data>'
         else:
-            referencetime = "{:~}".format(referencetime)
-        lst.append("Normalize to exposure time:\n {}".format(referencetime))
-        lst.append("Default exposure time:\n {:~}",self.defaultexpotime)
-        
+            referencetime = '{:~}'.format(referencetime)
+        lst.append('Normalize to exposure time:\n {}'.format(referencetime))
+        lst.append('Default exposure time:\n {:~}'.format(
+            self.defaultexpotime))
+
         return '\n'.join(lst)
-    
+
+    @property
+    def instrument(self):
+        return self._instrument
+
+    @instrument.setter
+    def instrument(self, value):
+        self._instrument = configuration.getinstrument(instrument=value)
+
     @property
     def simplecalibration(self):
         return self._simplecalibration
 
     @simplecalibration.setter
-    def simplecalibration(self,value):
+    def simplecalibration(self, value):
         self._simplecalibration = value
         self._update_devices()
-        
+
     @property
     def diodeI0(self):
         return self._diodeI0
 
     @diodeI0.setter
-    def diodeI0(self,device):
-        self._diodeI0 = self._generate_device(device,diodes.factory)
+    def diodeI0(self, device):
+        self._diodeI0 = self._generate_device(device, diodes.factory)
         self._update_devices()
-    
+
     @property
     def diodeIt(self):
         return self._diodeIt
 
     @diodeIt.setter
-    def diodeIt(self,device):
-        self._diodeIt = self._generate_device(device,diodes.factory)
+    def diodeIt(self, device):
+        self._diodeIt = self._generate_device(device, diodes.factory)
         self._update_devices()
-    
+
     @property
     def source(self):
         return self._source
-        
+
     @source.setter
-    def source(self,device):
-        self._source = self._generate_device(device,xraysources.factory)
+    def source(self, device):
+        self._source = self._generate_device(device, xraysources.factory)
         self._update_devices()
-    
+
     @property
     def optics(self):
         return self._optics
-        
+
     @optics.setter
-    def optics(self,device):
-        self._optics = self._generate_device(device,xrayoptics.factory)
+    def optics(self, device):
+        self._optics = self._generate_device(device, xrayoptics.factory)
         self._update_devices()
-        
+
     @property
     def xrfgeometries(self):
         return self._xrfgeometries
 
     @property
     def xrfgeometry(self):
-        if len(self._xrfgeometries)!=1:
-            raise RuntimeError('More than one XRF geometry, use "xrfgeometries"')
+        if len(self._xrfgeometries) != 1:
+            raise RuntimeError(
+                'More than one XRF geometry, use \'xrfgeometries\'')
         return self.xrfgeometries[0]
 
     @xrfgeometries.setter
-    def xrfgeometries(self,detgeoms):
+    def xrfgeometries(self, detgeoms):
         self._xrfgeometries = []
         if detgeoms:
             for geom in detgeoms:
-                if not isinstance(geom,xrfgeometries.XRFGeometry):
-                    xrfgeometry,xrfdetector = geom
-                    geom = self._generate_device(xrfgeometry,xrfgeometries.factory)
-                    if geom:
-                        geom.detector = self._generate_device(xrfdetector,xrfdetectors.factory)
-                if geom:
+                if isinstance(geom, xrfgeometries.XRFGeometry):
                     self._xrfgeometries.append(geom)
+                elif geom:
+                    xrfgeometry, xrfdetector = geom
+                    geom = self._generate_device(
+                        xrfgeometry, xrfgeometries.factory)
+                    if geom:
+                        geom.detector = self._generate_device(
+                            xrfdetector, xrfdetectors.factory)
         self._update_devices()
-        
-    def _generate_device(self,device,factory):
+
+    def _generate_device(self, device, factory):
         if instance.isstring(device):
             return factory(device)
         else:
             return device
-            
+
+    def _prepare_update_devices(self):
+        self._diodeI0 = None
+        self._diodeIt = None
+        self._xrfgeometries = []
+
     def _update_devices(self):
         if self.diodeI0 is not None:
             self.diodeI0.optics = self.optics
@@ -200,12 +268,12 @@ class QXRFGeometry(with_metaclass(object)):
             for geom in self.xrfgeometries:
                 geom.source = self.source
 
-    def setxrfposition(self,value):
+    def setxrfposition(self, value):
         if instance.isnumber(value):
             value = [value]
-        for geom,pos in zip(self.xrfgeometries,value):
+        for geom, pos in zip(self.xrfgeometries, value):
             geom.detectorposition = value
-    
+
     def getxrfdistance(self):
         return units.asqarray([geom.distance for geom in self.xrfgeometries])
 
@@ -220,95 +288,114 @@ class QXRFGeometry(with_metaclass(object)):
 
     def getxrfangleout(self):
         return [geom.angleout for geom in self.xrfgeometries]
-        
-    def setreferenceflux(self,flux):
-        self.reference = units.Quantity(flux,"hertz")
-    
-    def setreferencetime(self,expotime):
-        if expotime is None:
-            self.referencetime = None # take the time of the scan
-        else:
-            self.referencetime = units.Quantity(expotime,"s")
-        
-    def setreferencecounts(self,cts):
-        self.reference = units.Quantity(cts,"dimensionless")
-    
-    def setdefaulttime(self,expotime):
-        self.defaultexpotime = units.Quantity(expotime,"s")
 
-    def fluxtocps(self,energy,flux,weights=None):
-        return self.diodeI0.fluxtocps(energy,flux,weights=weights).magnitude
-  
-    def responsetoflux(self,energy,response,weights=None,time=None):
-        return self.diodeI0.responsetoflux(energy,response,weights=weights,time=time).magnitude
-    
-    def xrfnormop(self,energy,expotime=None,reference=None,referencetime=None,weights=None):
+    def setreferenceflux(self, flux):
+        self.reference = units.Quantity(flux, 'hertz')
+
+    def setreferencecounts(self, cts):
+        self.reference = units.Quantity(cts, 'dimensionless')
+
+    @property
+    def defaultexpotime(self):
+        return self._defaultexpotime
+
+    @defaultexpotime.setter
+    def defaultexpotime(self, value):
+        if value is None:
+            value = np.nan
+        self._defaultexpotime = units.Quantity(value, 's')
+
+    @property
+    def defaultreferencetime(self):
+        return self._defaultreferencetime
+
+    @defaultreferencetime.setter
+    def defaultreferencetime(self, value):
+        if value is None:
+            self._defaultreferencetime = None  # take the time from the scan
+        else:
+            self._defaultreferencetime = units.Quantity(value, 's')
+
+    def fluxtocps(self, energy, flux, weights=None):
+        return self.diodeI0.fluxtocps(energy, flux, weights=weights).magnitude
+
+    def responsetoflux(self, energy, response, weights=None, time=None):
+        return self.diodeI0.responsetoflux(energy, response,
+                                           weights=weights, time=time).magnitude
+
+    def xrfnormop(self, energy, expotime=None, reference=None,
+                  referencetime=None, weights=None):
         """
         Args:
             energy(num|array): source lines (keV)
             expotime(Optional(num)): original exposure time (sec)
-            reference(Optional(num)): iodet (counts) or flux (photons/sec) to which the data should be normalized
+            reference(Optional(num)): iodet (counts) or flux (photons/sec)
+                                      to which the data should be normalized
             referencetime(Optional(num)): time to which the data should be normalized
             weights(Optional(num|array)): source line weights
-            
+
         Returns:
             op(linop): raw diode conversion operator
-            Fref(num): flux in photons/s to which the data is normalized after data/op(diode)
-            tref(num): time in s to which the data is normalized after data/op(diode)
+            Fref(num): flux in photons/s to which the data
+                       is normalized after data/op(diode)
+            tref(num): time in s to which the data is normalized
+                       after data/op(diode)
             t(num):    time in s of raw data
         """
         if expotime is None:
             expotime = self.defaultexpotime
         else:
-            expotime = units.Quantity(expotime,"s")
-            
+            expotime = units.Quantity(expotime, 's')
         if reference is None:
             reference = self.reference
         else:
-            reference = units.Quantity(reference,"dimensionless")
-            
+            reference = units.Quantity(reference, 'dimensionless')
         if referencetime is None:
-            referencetime = self.referencetime
+            referencetime = self.defaultreferencetime
         else:
-            referencetime = units.Quantity(referencetime,"s")
-            
-        ret = self.diodeI0.xrfnormop(energy,expotime,reference,referencetime=referencetime,weights=weights)
-        return ret+(units.umagnitude(expotime,"s"),)
-    
-    def quantinfo(self,*args,**kwargs):
+            referencetime = units.Quantity(referencetime, 's')
+        ret = self.diodeI0.xrfnormop(energy, expotime, reference,
+                                     referencetime=referencetime,
+                                     weights=weights)
+        return ret+(units.umagnitude(expotime, 's'),)
+
+    def quantinfo(self, *args, **kwargs):
         """
         Args:
             see xrfnormop
-        
+
         Returns:
             op(linop): raw diode conversion operator
             info(list(dict)): pymca quantification info (flux and geometry)
         """
-        xrfnormop,flux,time,expotime = self.xrfnormop(*args,**kwargs)
+        xrfnormop, flux, time, expotime = self.xrfnormop(*args, **kwargs)
 
         quants = []
         for geom in self.xrfgeometries:
-            quant = {'flux':flux,'time':time}
-            quant["activearea"] = geom.detector.activearea
-            quant["anglein"] = geom.anglein
-            quant["angleout"] = geom.angleout
-            quant["distance"] = self.getxrfdistance()
+            quant = {'flux': flux, 'time': time}
+            quant['activearea'] = geom.detector.activearea
+            quant['anglein'] = geom.anglein
+            quant['angleout'] = geom.angleout
+            quant['distance'] = self.getxrfdistance()
             quants.append(quant)
-            
-        return xrfnormop,quants
-    
-    def _beamfilter_transmission(self,energy,weights=None):
-        Tbeamfilters = [weightedsum(geom.detector.filter_transmission(energy,source=True),weights=weights) for geom in self.xrfgeometries]
-        if len(set(Tbeamfilters))>1:
-            beamfilters = '\n'.join([' Geometry {}: {}'.format(i,geom.beamfilters()) for i,geom in enumerate(self.xrfgeometries,1)])
-            raise RuntimeError('Geometries should have the same beam filters:\n{}'.format(beamfilters))
+
+        return xrfnormop, quants
+
+    def _beamfilter_transmission(self, energy, weights=None):
+        Tbeamfilters = [weightedsum(geom.detector.filter_transmission(
+            energy, source=True), weights=weights) for geom in self.xrfgeometries]
+        if len(set(Tbeamfilters)) > 1:
+            beamfilters = '\n'.join([' Geometry {}: {}'.format(
+                i, geom.beamfilters()) for i, geom in enumerate(self.xrfgeometries, 1)])
+            raise RuntimeError(
+                'Geometries should have the same beam filters:\n{}'.format(beamfilters))
         else:
             Tbeamfilters = Tbeamfilters[0]
         return Tbeamfilters
-        
-    def I0op(self,energy,expotime=None,weights=None,removebeamfilters=False):
+
+    def I0op(self, energy, expotime=None, weights=None, removebeamfilters=False):
         """Calculate the flux before the sample from the I0 diode response
-        
+
         Args:
             energy(num|array): keV
             expotime(Optional(num)): sec
@@ -317,18 +404,19 @@ class QXRFGeometry(with_metaclass(object)):
         """
         if expotime is None:
             expotime = self.defaultexpotime
-        op = self.diodeI0.fluxop(energy,0,time=expotime,weights=weights)
-        
+        op = self.diodeI0.fluxop(energy, 0, time=expotime, weights=weights)
+
         if removebeamfilters:
-            Tbeamfilters = self._beamfilter_transmission(energy,weights=weights)
-            if Tbeamfilters!=1:
-                op = LinearOperator(1./Tbeamfilters,0)*op
+            Tbeamfilters = self._beamfilter_transmission(
+                energy, weights=weights)
+            if Tbeamfilters != 1:
+                op = LinearOperator(1./Tbeamfilters, 0)*op
 
-        return op,expotime
+        return op, expotime
 
-    def Itop(self,energy,expotime=None,weights=None,removebeamfilters=False):
+    def Itop(self, energy, expotime=None, weights=None, removebeamfilters=False):
         """Calculate the flux after the sample from the It diode response
-        
+
         Args:
             energy(num|array): keV
             expotime(Optional(num)): sec
@@ -337,140 +425,151 @@ class QXRFGeometry(with_metaclass(object)):
         """
         if expotime is None:
             expotime = self.defaultexpotime
-        op = self.diodeIt.fluxop(energy,0,time=expotime,weights=weights)
-        
+        op = self.diodeIt.fluxop(energy, 0, time=expotime, weights=weights)
+
         if removebeamfilters:
             # Filters after the sample (like atmosphere) are already taken into account
-            Tbeamfilters = self._beamfilter_transmission(energy,weights=weights)
-            if Tbeamfilters!=1:
-                op = LinearOperator(1./Tbeamfilters,0)*op
-                       
-        return op,expotime
+            Tbeamfilters = self._beamfilter_transmission(
+                energy, weights=weights)
+            if Tbeamfilters != 1:
+                op = LinearOperator(1./Tbeamfilters, 0)*op
 
-    def batchcalibrate(self,params_fixed,params_var):
+        return op, expotime
+
+    def batchcalibrate(self, params_fixed, params_var):
         for k in params_var:
             params = dict(params_fixed)
             params.update(k)
             self.calibrate(**params)
-    
-    def _calibrate_prepare(self,params):
+
+    def _calibrate_prepare(self, params):
         # Get data
-        base = params.pop("base",None)
-        sample = params.pop("sample",None)
-        dataset = params.pop("dataset",None)
-        specnr = params.pop("specnr",None)
-        
+        base = params.pop('base', None)
+        sample = params.pop('sample', None)
+        dataset = params.pop('dataset', None)
+        specnr = params.pop('specnr', None)
+
         if specnr:
             if sample:
-                sampledataset = "{}_{}".format(sample,dataset)
-                specfile = os.path.join(base,sample,sampledataset,"{}.dat".format(sampledataset))
+                sampledataset = '{}_{}'.format(sample, dataset)
+                specfile = os.path.join(
+                    base, sample, sampledataset, '{}.dat'.format(sampledataset))
             else:
-                specfile = os.path.join(base,dataset)
+                specfile = os.path.join(base, dataset)
 
             # Data in spec file
-            data,staticdata = self._parse_spec(specfile,specnr)
+            data, staticdata = self._parse_spec(specfile, specnr)
         else:
             # Data in params
-            data,staticdata = self._parse_default(params)
+            data, staticdata = self._parse_default(params)
 
         # Prepare devices
-        resetdevices = params.pop("resetdevices",False)
-        params2 = self._validate_data(data,staticdata,resetdevices=resetdevices,dark=params["dark"])
-        gaindiodeI0 = params.pop("gaindiodeI0",None)
-        gaindiodeIt = params.pop("gaindiodeIt",None)
-        self._set_diode_gain(gaindiodeI0,params2.get("gaindiodeI0",None),"diodeI0")
-        self._set_diode_gain(gaindiodeIt,params2.get("gaindiodeIt",None),"diodeIt")
+        resetdevices = params.pop('resetdevices', False)
+        params2 = self._validate_data(
+            data, staticdata, resetdevices=resetdevices, dark=params['dark'])
+        gaindiodeI0 = params.pop('gaindiodeI0', None)
+        gaindiodeIt = params.pop('gaindiodeIt', None)
+        self._set_diode_gain(gaindiodeI0, params2.get(
+            'gaindiodeI0', None), 'diodeI0')
+        self._set_diode_gain(gaindiodeIt, params2.get(
+            'gaindiodeIt', None), 'diodeIt')
 
         return data
 
-    def _calibrate_dark(self,params,data):
-        docalibrate = params.pop("calibrate",True)
-        fixdark = params.pop("fixdark",False)
-        params.pop("fluxmin",None)
-        params.pop("fluxmax",None)
+    def _calibrate_dark(self, params, data):
+        docalibrate = params.pop('calibrate', True)
+        fixdark = params.pop('fixdark', False)
+        params.pop('fluxmin', None)
+        params.pop('fluxmax', None)
         if docalibrate and not fixdark:
-           for k,attr in zip(self._calibrate_fields_id(),["diodeI0","diodeIt"]):
-                deviceinstance = getattr(self,attr)
-                kcurrent = "{}_current".format(k)
-                kcps = "{}_cps".format(k)
+            for k, attr in zip(self._calibrate_fields_id(), ['diodeI0', 'diodeIt']):
+                deviceinstance = getattr(self, attr)
+                kcurrent = '{}_current'.format(k)
+                kcps = '{}_cps'.format(k)
                 if kcurrent in data and kcps in data and False:
                     deviceinstance.calibratedark(data[kcurrent])
                     deviceinstance.calibrateF0(data[kcps])
                 elif kcps in data:
                     deviceinstance.calibratedark(data[kcps])
 
-    def _calibrate_gain(self,params,data):
+    def _calibrate_gain(self, params, data):
         fitinfo = {}
 
-        docalibrate = params.pop("calibrate",True)
+        docalibrate = params.pop('calibrate', True)
         if docalibrate:
-            energy = data["energy"].to("keV").magnitude
-            for name in ["current","cps"]:
-                I0,It = self._calibrate_fields_name(name)
+            energy = data['energy'].to('keV').magnitude
+            for name in ['current', 'cps']:
+                I0, It = self._calibrate_fields_name(name)
                 if It in data and I0 in data:
-                    flux = self.diodeIt.responsetoflux(energy,data[It])
-                    fitinfo = self.diodeI0.calibrate(data[I0],flux,energy,**params)
+                    flux = self.diodeIt.responsetoflux(energy, data[It])
+                    fitinfo = self.diodeI0.calibrate(
+                        data[I0], flux, energy, **params)
                     break
 
         return fitinfo
 
-    def calibrate(self,**paramsin):
+    def calibrate(self, **paramsin):
         # Get data and prepare devices
         params = dict(paramsin)
         data = self._calibrate_prepare(params)
 
         # Calibrate
-        dark = params.pop("dark",False)
-        plot = params.pop("plot",False)
-        oscillator = params.pop("oscillator",False)
+        dark = params.pop('dark', False)
+        plot = params.pop('plot', False)
+        oscillator = params.pop('oscillator', False)
         if oscillator:
             if plot:
                 self._show_oscillator_calib(data)
         else:
             if dark:
-                self._calibrate_dark(params,data)
+                self._calibrate_dark(params, data)
                 if plot:
                     self._show_dark_calib(data)
             else:
-                fitinfo = self._calibrate_gain(params,data)
+                fitinfo = self._calibrate_gain(params, data)
                 if plot:
-                    fluxmin = params.get("fluxmin",0)
-                    fluxmax = params.get("fluxmax",np.inf)
-                    self._show_flux_calib(data,fluxmin=fluxmin,fluxmax=fluxmax,fitinfo=fitinfo)
+                    fluxmin = params.get('fluxmin', 0)
+                    fluxmax = params.get('fluxmax', np.inf)
+                    self._show_flux_calib(
+                        data, fluxmin=fluxmin, fluxmax=fluxmax, fitinfo=fitinfo)
         if plot:
             plt.show()
 
-    def _set_diode_gain(self,gainasked,gaindata,attr):
-        deviceinstance = getattr(self,attr)
+    def _set_diode_gain(self, gainasked, gaindata, attr):
+        deviceinstance = getattr(self, attr)
         if gainasked is None:
             if gaindata is None:
-                raise RuntimeError("Gain of diode {} must be specified".format(deviceinstance.__class__.__name__))
+                raise RuntimeError('Gain of diode {} must be specified'.format(
+                    deviceinstance.__class__.__name__))
             deviceinstance.gain = gaindata
         else:
             if gaindata is not None:
-                gainasked = units.quantity_like(gainasked,gaindata)
-                if not np.isclose(gainasked,gaindata):
-                    raise RuntimeError("Data was collected with diode {} gain {}, but {} was expected".format(gaindata,deviceinstance.__class__.__name__,gainasked))
+                gainasked = units.quantity_like(gainasked, gaindata)
+                if not np.isclose(gainasked, gaindata):
+                    raise RuntimeError('Data was collected with diode {} gain {}, but {} was expected'.format(
+                        gaindata, deviceinstance.__class__.__name__, gainasked))
             deviceinstance.gain = gainasked
 
-    def _check_device(self,attr,clsfactory,clsnameused,resetdevice=False):
+    def _check_device(self, attr, clsfactory, clsnameused, resetdevice=False):
         if clsnameused is None:
-            return # usage is not specified
-        
-        deviceinstance = getattr(self,attr)
+            return  # usage is not specified
+
+        deviceinstance = getattr(self, attr)
         if clsnameused:
             # Device was used
             if deviceinstance is None:
                 # Device was not expected to be used
                 if resetdevice:
-                    setattr(self,attr,clsnameused)
+                    setattr(self, attr, clsnameused)
                 else:
-                    raise RuntimeError("Device {} was not expected to be used.".format(clsnameused))
+                    raise RuntimeError(
+                        'Device {} was not expected to be used.'.format(clsnameused))
             else:
                 # Device was expected to be used
                 deviceclass = clsfactory(clsnameused)
-                if not isinstance(deviceinstance,deviceclass):
-                    raise RuntimeError("Data was collected with diode {}, while diode {} was expected.".format(deviceclass.__name__,deviceinstance.__class__.__name__))
+                if not isinstance(deviceinstance, deviceclass):
+                    raise RuntimeError('Data was collected with diode {}, while diode {} was expected.'.format(
+                        deviceclass.__name__, deviceinstance.__class__.__name__))
         elif clsnameused is None:
             # No idea whether device was used or not
             pass
@@ -479,261 +578,297 @@ class QXRFGeometry(with_metaclass(object)):
             if deviceinstance is not None:
                 # Device was expected to be used
                 if resetdevice:
-                    setattr(self,attr,clsnameused)
+                    setattr(self, attr, clsnameused)
                 else:
-                    raise RuntimeError("Data was not collected with device {}.".format(deviceinstance.__class__.__name__))
-    
-    def _calibrate_fields_id(self):
-        return [self.fluxid,self.transmissionid]
+                    raise RuntimeError('Data was not collected with device {}.'.format(
+                        deviceinstance.__class__.__name__))
 
-    def _calibrate_fields_name(self,name):
-        return ["{}_{}".format(k,name) for k in self._calibrate_fields_id()]
+    def _calibrate_fields_id(self):
+        return [self.fluxid, self.transmissionid]
+
+    def _calibrate_fields_name(self, name):
+        return ['{}_{}'.format(k, name) for k in self._calibrate_fields_id()]
 
     def _calibrate_fields(self):
-        return self._calibrate_fields_name("counts")+\
-               self._calibrate_fields_name("cps")+\
-               self._calibrate_fields_name("current")+\
-               self._calibrate_fields_name("photons")+\
-               self._calibrate_fields_name("flux")+\
-               ["time","energy"]
-    
-    def _parse_spec(self,specfile,specnr):
+        return self._calibrate_fields_name('counts') +\
+            self._calibrate_fields_name('cps') +\
+            self._calibrate_fields_name('current') +\
+            self._calibrate_fields_name('photons') +\
+            self._calibrate_fields_name('flux') +\
+            ['time', 'energy']
+
+    def _parse_spec(self, specfile, specnr):
         fspec = spec.spec(specfile)
-        
+
         # Motors
         motornames = self.instrument.motornames()
         specmotornames = self.instrument.specmotornames(motornames)
-        motorvalues = fspec.getmotorvalues(specnr,specmotornames)
-        staticdata = dict(zip(motornames,motorvalues))
+        motorvalues = fspec.getmotorvalues(specnr, specmotornames)
+        staticdata = dict(zip(motornames, motorvalues))
 
         # Counters
         fields = self._calibrate_fields()
-        labels = [self.instrument.speccounternames.get(k,"") for k in fields]
-        ascounter = fspec.haslabels(specnr,labels)
-        asmotor = fspec.hasmotors(specnr,labels)
+        labels = [self.instrument.speccounternames.get(k, '') for k in fields]
+        ascounter = fspec.haslabels(specnr, labels)
+        asmotor = fspec.hasmotors(specnr, labels)
 
-        labels1 = [label for label,v in zip(labels,ascounter) if v]
-        ufields1 = [name for name,v in zip(fields,ascounter) if v]
-        data = fspec.getdata2(specnr,labels1).T
-        data = {k:units.Quantity(v,self.instrument.units[k]) for k,v in zip(ufields1,data)}
-        
-        labels2 = [label for label,v in zip(labels,asmotor) if v]
-        ufields2 = [name for name,v in zip(fields,asmotor) if v]
-        motorvalues = fspec.getmotorvalues(specnr,labels2)
-        
-        data.update({k:units.Quantity(v,self.instrument.units[k]) for k,v in zip(ufields2,motorvalues)})
-        return data,staticdata
-    
-    def _parse_default(self,params):
+        labels1 = [label for label, v in zip(labels, ascounter) if v]
+        ufields1 = [name for name, v in zip(fields, ascounter) if v]
+        data = fspec.getdata2(specnr, labels1).T
+        data = {k: units.Quantity(
+            v, self.instrument.units[k]) for k, v in zip(ufields1, data)}
+
+        labels2 = [label for label, v in zip(labels, asmotor) if v]
+        ufields2 = [name for name, v in zip(fields, asmotor) if v]
+        motorvalues = fspec.getmotorvalues(specnr, labels2)
+
+        data.update({k: units.Quantity(
+            v, self.instrument.units[k]) for k, v in zip(ufields2, motorvalues)})
+        return data, staticdata
+
+    def _parse_default(self, params):
         fields = self._calibrate_fields()
-        
+
         data = {}
         for k in fields:
             if k in params:
-                data[k] = units.Quantity(params.pop(k),self.instrument.units[k])
-                
-        return data,params.pop("motors",{})
-        
-    def _validate_data(self,data,staticdata,resetdevices=False,dark=False):
+                data[k] = units.Quantity(
+                    params.pop(k), self.instrument.units[k])
+
+        return data, params.pop('motors', {})
+
+    def _validate_data(self, data, staticdata, resetdevices=False, dark=False):
 
         fields = self._calibrate_fields()
-        
+
         # Add units where missing and fill with static data if needed
         for k in fields:
             if k in data:
-                data[k] = units.Quantity(data[k],self.instrument.units[k])
+                data[k] = units.Quantity(data[k], self.instrument.units[k])
             elif k in staticdata:
-                data[k] = units.Quantity(staticdata[k],self.instrument.units[k])
+                data[k] = units.Quantity(
+                    staticdata[k], self.instrument.units[k])
 
         # Fill in missing exposure time
-        if "time" not in data:
-            data["time"] = self.defaultexpotime
-        data["time"] = data["time"].to("s")
-        
+        if 'time' not in data:
+            data['time'] = self.defaultexpotime
+        data['time'] = data['time'].to('s')
+
         # Check units of energy
-        if "energy" in data:
-            data["energy"] = data["energy"].to("keV")
-        
+        if 'energy' in data:
+            data['energy'] = data['energy'].to('keV')
+
         # Diode response: ensure units
         for k in self._calibrate_fields_id():
             # counts are not used anywhere, just needed to calculate cps
-            kcounts = "{}_counts".format(k)
-            kphotons = "{}_photons".format(k)
-            kcurrent = "{}_current".format(k)
-            kcps = "{}_cps".format(k)
-            kflux = "{}_flux".format(k)
+            kcounts = '{}_counts'.format(k)
+            kphotons = '{}_photons'.format(k)
+            kcurrent = '{}_current'.format(k)
+            kcps = '{}_cps'.format(k)
+            kflux = '{}_flux'.format(k)
 
             if kcounts in data:
-                data[kcounts] = data[kcounts].to("dimensionless")
+                data[kcounts] = data[kcounts].to('dimensionless')
                 if kcps not in data:
-                    data[kcps] = data[kcounts].to("dimensionless")/data["time"]
+                    data[kcps] = data[kcounts].to('dimensionless')/data['time']
 
             if kcps in data:
-                data[kcps] = data[kcps].to("Hz")
+                data[kcps] = data[kcps].to('Hz')
 
             if kphotons in data:
-                data[kphotons] = data[kphotons].to("dimensionless")
+                data[kphotons] = data[kphotons].to('dimensionless')
                 if kflux not in data:
-                    data[kflux] = data[kphotons].to("dimensionless")/data["time"]
+                    data[kflux] = data[kphotons].to(
+                        'dimensionless')/data['time']
 
             if kflux in data:
-                data[kflux] = data[kflux].to("Hz")
+                data[kflux] = data[kflux].to('Hz')
 
             if kcurrent in data:
-                data[kcurrent] = data[kcurrent].to("A")
+                data[kcurrent] = data[kcurrent].to('A')
 
         # Verify, create or replace devices
-        I0,It = self._calibrate_fields_name("cps")
+        I0, It = self._calibrate_fields_name('cps')
         diodeI0name = self.instrument.diodeI0(staticdata)
         diodeItname = self.instrument.diodeIt(staticdata)
         opticsname = self.instrument.optics(staticdata)
-        self._check_device("optics",xrayoptics.clsfactory,opticsname,resetdevice=resetdevices)
-        self._check_device("diodeI0",diodes.clsfactory,diodeI0name,resetdevice=resetdevices)
-        self._check_device("diodeIt",diodes.clsfactory,diodeItname,resetdevice=resetdevices)
-        
+        self._check_device('optics', xrayoptics.XrayOptics.clsfactory,
+                           opticsname, resetdevice=resetdevices)
+        self._check_device('diodeI0', diodes.PNdiode.clsfactory,
+                           diodeI0name, resetdevice=resetdevices)
+        self._check_device('diodeIt', diodes.PNdiode.clsfactory,
+                           diodeItname, resetdevice=resetdevices)
+
         # Diode gains from response
         ret = {}
-        if "energy" in data and not dark:
-            energy = data["energy"].to("keV").magnitude
-            for k,attr in zip(self._calibrate_fields_id(),["diodeI0","diodeIt"]):
-                kcps = "{}_cps".format(k)
+        if 'energy' in data and not dark:
+            energy = data['energy'].to('keV').magnitude
+            for k, attr in zip(self._calibrate_fields_id(), ['diodeI0', 'diodeIt']):
+                kcps = '{}_cps'.format(k)
                 if kcps in data:
-                    for name in ["current","flux"]:
-                        j = "{}_{}".format(k,name)
+                    for name in ['current', 'flux']:
+                        j = '{}_{}'.format(k, name)
                         if j in data:
-                            ret["gain"+attr] = getattr(self,attr).gainfromresponse(data[kcps],data[j],energy=energy)
+                            ret['gain'+attr] = getattr(self, attr).gainfromresponse(
+                                data[kcps], data[j], energy=energy)
                             break
-
         return ret
 
-    def _show_dark_calib(self,data):
+    def _show_dark_calib(self, data):
         f, axs = plt.subplots(1, 2)
         color = None
-        for k,attr,ax in zip(self._calibrate_fields_name("cps"),["diodeI0","diodeIt"],axs):
-            self._plot_dark_calib(attr,data[k],attr,ax,color=color)
+        for k, attr, ax in zip(self._calibrate_fields_name('cps'), ['diodeI0', 'diodeIt'], axs):
+            self._plot_dark_calib(attr, data[k], attr, ax, color=color)
             color = next(ax._get_lines.prop_cycler)['color']
         plt.tight_layout()
 
-    def _plot_dark_calib(self,deviceattr,response,name,ax,color=None):
-        deviceinstance = getattr(self,deviceattr)
-        ax.plot(response,'o',label='spec',color=color)
-        ax.axhline(y=deviceinstance.fluxtocps(5,0).magnitude,label='calc',color=color)
-        ax.set_xlabel("points")
-        ax.set_ylabel("{} ({:~})".format(name,response.units))
-        ax.set_title("{:~.1e}".format(deviceinstance.gain))
-        ax.legend(loc="best")
+    def _plot_dark_calib(self, deviceattr, response, name, ax, color=None):
+        deviceinstance = getattr(self, deviceattr)
+        ax.plot(response, 'o', label='spec', color=color)
+        ax.axhline(y=deviceinstance.fluxtocps(
+            5, 0).magnitude, label='calc', color=color)
+        ax.set_xlabel('points')
+        ax.set_ylabel('{} ({:~})'.format(name, response.units))
+        ax.set_title('{:~.1e}'.format(deviceinstance.gain))
+        ax.legend(loc='best')
 
-    def _plot_diode_flux(self,attr,energy,response,ax,color=None):
-        deviceinstance = getattr(self,attr)
-        
-        if response.size==1:
-            response = units.asqarray([response[0]*0.9,response[0]*1.1])
-            
-        flux = deviceinstance.responsetoflux(energy,response)
-        
-        lines = ax.plot(flux,response,label=attr,color=color)
-        ax.set_xlabel("flux@sample (ph/s)")
-        ax.set_ylabel("{} ({:~})".format(attr,response.units))
-        ax.set_title("{:~.1e}".format(deviceinstance.gain))
-        ax.legend(loc="best")
-        
+    def _plot_diode_flux(self, attr, energy, response, ax, color=None):
+        deviceinstance = getattr(self, attr)
+
+        if response.size == 1:
+            response = units.asqarray([response[0]*0.9, response[0]*1.1])
+
+        flux = deviceinstance.responsetoflux(energy, response)
+
+        lines = ax.plot(flux, response, label=attr, color=color)
+        ax.set_xlabel('flux@sample (ph/s)')
+        ax.set_ylabel('{} ({:~})'.format(attr, response.units))
+        ax.set_title('{:~.1e}'.format(deviceinstance.gain))
+        ax.legend(loc='best')
+
         return lines[0].get_color()
-        
-    def _show_flux_calib(self,data,fluxmin=0,fluxmax=np.inf,fitinfo={}):
-        f, (ax1, ax2) = plt.subplots(1, 2)
-        
-        I0,It = self._calibrate_fields_name("cps")
-        _,fluxt = self._calibrate_fields_name("flux")
 
-        energy = data["energy"].to("keV").magnitude
+    def _show_flux_calib(self, data, fluxmin=0, fluxmax=np.inf, fitinfo={}):
+        f, (ax1, ax2) = plt.subplots(1, 2)
+
+        I0, It = self._calibrate_fields_name('cps')
+        _, fluxt = self._calibrate_fields_name('flux')
+
+        energy = data['energy'].to('keV').magnitude
         It = units.asqarray(data[It])
         if fluxt in data:
             flux = units.asqarray(data[fluxt])
-            ax1.plot(flux,It,'o',label='spec')
-        color1 = self._plot_diode_flux('diodeIt',energy,It,ax1)
+            ax1.plot(flux, It, 'o', label='spec')
+        color1 = self._plot_diode_flux('diodeIt', energy, It, ax1)
         color2 = next(ax1._get_lines.prop_cycler)['color']
-        
+
         xoff = 0.3
         yoff = 0.01
         info = self.diodeIt.fluxcpsinfo(energy)
-        text = "\n".join(["{} = {}".format(k,v) for k,v in info.items()])
-        ax1.text(xoff,yoff,text,transform = ax1.transAxes,verticalalignment="bottom")
+        text = '\n'.join(['{} = {}'.format(k, v) for k, v in info.items()])
+        ax1.text(xoff, yoff, text, transform=ax1.transAxes,
+                 verticalalignment='bottom')
 
-        flux = self.diodeIt.responsetoflux(energy,It)
-        fluxmin = units.Quantity(fluxmin,"hertz").to("hertz")
-        fluxmax = units.Quantity(fluxmax,"hertz").to("hertz")
+        flux = self.diodeIt.responsetoflux(energy, It)
+        fluxmin = units.Quantity(fluxmin, 'hertz').to('hertz')
+        fluxmax = units.Quantity(fluxmax, 'hertz').to('hertz')
         I0 = units.asqarray(data[I0])
-        indfit = (flux<fluxmin) | (flux>fluxmax)
+        indfit = (flux < fluxmin) | (flux > fluxmax)
         if any(indfit):
-            ax2.plot(flux[indfit],I0[indfit],'o',color="#cccccc")
+            ax2.plot(flux[indfit], I0[indfit], 'o', color='#cccccc')
         indfit = np.logical_not(indfit)
         if any(indfit):
-            ax2.plot(flux[indfit],I0[indfit],'o',label='diodeIt',color=color1)
-        
-        self._plot_diode_flux('diodeI0',energy,I0,ax2,color=color2)
+            ax2.plot(flux[indfit], I0[indfit], 'o',
+                     label='diodeIt', color=color1)
+
+        self._plot_diode_flux('diodeI0', energy, I0, ax2, color=color2)
 
         if fitinfo:
-            text = "\n".join(["{} = {}".format(k,v) for k,v in fitinfo.items()])
-            ax2.text(xoff,yoff,text,transform = ax2.transAxes,verticalalignment="bottom")
-            
+            text = '\n'.join(['{} = {}'.format(k, v)
+                              for k, v in fitinfo.items()])
+            ax2.text(xoff, yoff, text, transform=ax2.transAxes,
+                     verticalalignment='bottom')
+
         plt.tight_layout()
 
-    def _plot_oscillator(self,attr,current,ax,color=None):
-        deviceinstance = getattr(self,attr)
+    def _plot_oscillator(self, attr, current, ax, color=None):
+        deviceinstance = getattr(self, attr)
 
         op = deviceinstance.op_currenttocps()
-        cps = op(current).to("Hz")
-        current = current.to("pA")
+        cps = op(current).to('Hz')
+        current = current.to('pA')
 
-        lines = ax.plot(current,cps,label=attr,color=color)
-        ax.set_xlabel("{} ({:~})".format(attr,current.units))
-        ax.set_ylabel("{} ({:~})".format(attr,cps.units))
-        ax.set_title("{:~.1e}, {:~.1e}".format(op.m.to("Hz/pA"),op.b.to("Hz")))
-        ax.legend(loc="best")
-        
+        lines = ax.plot(current, cps, label=attr, color=color)
+        ax.set_xlabel('{} ({:~})'.format(attr, current.units))
+        ax.set_ylabel('{} ({:~})'.format(attr, cps.units))
+        ax.set_title('{:~.1e}, {:~.1e}'.format(
+            op.m.to('Hz/pA'), op.b.to('Hz')))
+        ax.legend(loc='best')
+
         return lines[0].get_color()
 
-    def _show_oscillator_calib(self,data):
+    def _show_oscillator_calib(self, data):
         f, (ax1, ax2) = plt.subplots(1, 2)
-        
-        I0,It = self._calibrate_fields_name("cps")
-        cur0,curt = self._calibrate_fields_name("current")
-        I0,It = data[I0],data[It]
-        cur0,curt = data[cur0],data[curt]
 
-        lines = ax1.plot(curt.to("pA"),It.to("Hz"),'o',label='spec')
+        I0, It = self._calibrate_fields_name('cps')
+        cur0, curt = self._calibrate_fields_name('current')
+        I0, It = data[I0], data[It]
+        cur0, curt = data[cur0], data[curt]
+
+        lines = ax1.plot(curt.to('pA'), It.to('Hz'), 'o', label='spec')
         color1 = lines[0].get_color()
         color2 = next(ax1._get_lines.prop_cycler)['color']
-        self._plot_oscillator('diodeIt',curt,ax1,color=color1)
+        self._plot_oscillator('diodeIt', curt, ax1, color=color1)
 
-        ax2.plot(cur0.to("pA"),I0.to("Hz"),'o',label='spec',color=color2)
-        self._plot_oscillator('diodeI0',cur0,ax2,color=color2)
+        ax2.plot(cur0.to('pA'), I0.to('Hz'), 'o', label='spec', color=color2)
+        self._plot_oscillator('diodeI0', cur0, ax2, color=color2)
 
-    def list_detectors(self):
-        return xrfdetectors.aliases.keys()
 
-    def list_sources(self):
-        return xraysources.aliases.keys()
-        
-    def list_optics(self):
-        return xrayoptics.aliases.keys()
-        
-    def list_geometries(self):
-        return xrfgeometries.aliases.keys()
-        
-    def list_diodes(self):
-        return diodes.aliases.keys()
-    
-    def list_instruments(self):
-        return configuration.aliases.keys()
+def list_detectors():
+    return list(xrfdetectors.registry.keys())
 
-    def list_devices(self):
-        print("instrument = {}".format(self.list_instruments()))
-        print("xrfgeometry = {}".format(self.list_geometries()))
-        print("xrfdetector = {}".format(self.list_detectors()))
-        print("diodeI0,diodeIt = {}".format(self.list_diodes()))
-        print("source = {}".format(self.list_sources()))
-        print("optics = {}".format(self.list_optics()))
-        
+
+def list_sources():
+    return list(xraysources.registry.keys())
+
+
+def list_optics():
+    return list(xrayoptics.registry.keys())
+
+
+def list_geometries():
+    return list(xrfgeometries.registry.keys())
+
+
+def list_diodes():
+    return list(diodes.registry.keys())
+
+
+def list_instruments():
+    return list(configuration.registry.keys())
+
+
+def print_devices():
+    print('instrument = {}'.format(list_instruments()))
+    print('xrfgeometry = {}'.format(list_geometries()))
+    print('xrfdetector = {}'.format(list_detectors()))
+    print('diodeI0,diodeIt = {}'.format(list_diodes()))
+    print('source = {}'.format(list_sources()))
+    print('optics = {}'.format(list_optics()))
+
+
+class SXM(QXRFGeometry):
+
+    def __init__(self, **kwargs):
+        kwargs['diodeI0'] = kwargs.get('diodeI0', 'iodet1')
+        kwargs['diodeIt'] = kwargs.get('diodeIt', 'idet')
+        kwargs['optics'] = kwargs.get('optics', 'kb')
+        kwargs['xrfdetector'] = kwargs.get('xrfdetector', 'leia')
+        kwargs['xrfgeometry'] = kwargs.get('xrfgeometry', 'sxm120')
+        kwargs['instrument'] = kwargs.get('instrument', 'sxm')
+        kwargs['simplecalibration'] = kwargs.get('simplecalibration', True)
+        super(SXM, self).__init__(**kwargs)
+
+
 factory = QXRFGeometry.factory
-
+registry = QXRFGeometry.clsregistry

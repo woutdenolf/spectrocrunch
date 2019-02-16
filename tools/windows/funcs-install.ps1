@@ -68,9 +68,9 @@ function _addBinPath([string]$path,[string]$target,[bool]$prepend=$false) {
     $envpath = [Environment]::GetEnvironmentVariable("Path", $target)
     if (!($envpath.contains($path))) {
         if ($prepend) {
-            [Environment]::SetEnvironmentVariable("Path", "$path;$envpath", $target)
+            [Environment]::SetEnvironmentVariable("Path", "$path;$env:path", $target)
         } else {
-            [Environment]::SetEnvironmentVariable("Path", "$envpath;$path", $target)
+            [Environment]::SetEnvironmentVariable("Path", "$env:path;$path", $target)
         }
     }
 }
@@ -129,7 +129,7 @@ function cleanBinPath() {
 
 
 # ============updateBinPath============
-# Description: update path environement variable
+# Description: update path environment variable
 function updateBinPath() {
     $local:path = [Environment]::GetEnvironmentVariable("Process", $scope).split(";")
     foreach ($scope in ("Machine","User")) {
@@ -144,8 +144,8 @@ function updateBinPath() {
 }
 
 
-# ============resetBinPath============
-# Description: reset environement variable Path
+# ============resetEnvPath============
+# Description: reset environment variable Path
 function resetEnvPath() {
     $local:path = @()
     foreach ($scope in ("Machine","User")) {
@@ -161,17 +161,29 @@ function resetEnvPath() {
     
 
 # ============resetEnv============
-# Description: reset environement variables
+# Description: reset environment variables
 function resetEnv() {
+    clearEnv
+    copyEnv "Machine" "Process"
+    copyEnv "User" "Process"
+    resetEnvPath
+}
 
+
+# ============clearEnv============
+# Description: clear process environment variables
+function clearEnv() {
     foreach ($key in [Environment]::GetEnvironmentVariables("Process").Keys) {
         [Environment]::SetEnvironmentVariable($key, $null, "Process")
     }
-    foreach ($scope in ("Machine","User")) {
-        $local:envvars = [Environment]::GetEnvironmentVariables($scope)
-        foreach ($key in $local:envvars.Keys) {
-            [Environment]::SetEnvironmentVariable($key, $local:envvars.Item($key), "Process")
-        }
+}
+
+
+# ============copyEnv============
+# Description: copy environment variables
+function copyEnv([string]$fromname, [string]$toname) {
+    $local:envvars = [Environment]::GetEnvironmentVariables($fromname)
+    foreach ($key in $local:envvars.Keys) {
+        [Environment]::SetEnvironmentVariable($key, $local:envvars.Item($key), $toname)
     }
-    resetBinPath
 }

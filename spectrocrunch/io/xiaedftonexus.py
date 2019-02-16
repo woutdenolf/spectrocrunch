@@ -126,7 +126,7 @@ class Converter(object):
     
     @property
     def instrument(self):
-        return getinstrument(self._parameters)
+        return getinstrument(**self._parameters)
 
     @property
     def counter_names(self):

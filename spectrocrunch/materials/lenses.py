@@ -187,3 +187,4 @@ class mitutoyoid21_20x(Lens):
 
 
 factory = Lens.factory
+registry = Lens.clsregistry

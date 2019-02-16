@@ -4,20 +4,19 @@
 
 include README.rst
 include CHANGELOG.rst
-include LICENSE.txt
+include LICENSE
 include setup.py
 include setup.cfg
 include requirements.txt
 include _version.py
 
-include examples/*
+#include examples/*
 
 recursive-include doc *.py
 recursive-include doc *.rst
 recursive-include doc make.bat
 recursive-include doc Makefile
 
-recursive-include tools *.rst
 recursive-include tools *.sh
-
-
+recursive-include tools *.bat
+recursive-include tools *.ps1

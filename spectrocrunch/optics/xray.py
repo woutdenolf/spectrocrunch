@@ -76,3 +76,4 @@ class Filter(XrayOptics):
 
 
 factory = XrayOptics.factory
+registry = XrayOptics.clsregistry

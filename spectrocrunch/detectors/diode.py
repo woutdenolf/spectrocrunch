@@ -453,35 +453,33 @@ class PNdiode(with_metaclass(base.SolidState)):
     def __str__(self):
         fmt = "PN-diode:\n{}\n"
         args = [super(PNdiode, self).__str__()]
-        fmt += "Ammeter:\n Gain = {:~e}\n "
-        args.append(self.gain)
-        fmt += "Dark current = {:~}\n "
-        args.append(self.darkcurrent.to("e/s"))
-        if self.Vmax is not None:
-            fmt += "Output voltage = {:~}\n "
-            args.append(self.Vmax)
         if self.simplecalibration:
-            fmt += "LUT (e-/sample photon):\n {}"
+            fmt += "LUT (e-/sample photon):\n {}\n"
             lut = self._lut_chargepersamplephoton.zip('keV', 'e')
             lut = '\n '.join("{:~}: {:~}".format(*xy) for xy in lut)
-            if lut:
-                lut += "\n"
+            if not lut:
+                lut = None
             args.append(lut)
         else:
-            fmt += "Secondary target:\n  {}"
+            fmt += "Secondary target:\n {}\n"
             target = str(self.secondarytarget)
-            target = '\n  '.join(target.split('\n'))
-            if target:
-                target += "\n "
+            target = '\n '.join(target.split('\n'))
             args.append(target)
-            fmt += '{} '
+            fmt += 'Optics:\n {}\n'
             optics = '\n'.join(str(dev) for dev in self.optics)
             optics = '\n '.join(optics.split('\n'))
-            if optics:
-                optics += "\n"
+            if not optics:
+                optics = None
             args.append(optics)
             fmt += "Before sample: {}\n"
             args.append(self.beforesample)
+        fmt += "Ammeter:\n Gain = {:~e}\n "
+        args.append(self.gain)
+        fmt += "Dark current = {:~}\n"
+        args.append(self.darkcurrent.to("e/s"))
+        if self.Vmax is not None:
+            fmt += " Output voltage = {:~}\n"
+            args.append(self.Vmax)
         fmt += "Voltage-to-Frequency:\n {}"
         args.append(self.oscillator)
         return fmt.format(*args)
@@ -1991,3 +1989,4 @@ class ID16B_IC(NonCalibratedPNdiode):
 
 
 factory = PNdiode.factory
+registry = PNdiode.clsregistry

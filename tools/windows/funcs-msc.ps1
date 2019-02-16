@@ -77,7 +77,7 @@ function msc_versions()
     $tmp["cmake"][64]["generator"] = "Visual Studio 9 2008"
     $tmp["cmake"][64]["arch"] = "x64"
     $tmp["cmake"][64]["toolset"] = $null
-    $tmp["vcvarsall"] = "Common Files\Microsoft\Visual C++ for Python\9.0\vcvarsall.bat"
+    $tmp["vcvarsall"] = "Programs\Common\Microsoft\Visual C++ for Python\9.0\vcvarsall.bat"
     $tmp[32] = "x86"
     $tmp[64] = "amd64"
     $tmp["link"] = "https://download.microsoft.com/download/7/9/6/796EF2E4-801B-4FC4-AB28-B59FBF6D907B/VCForPython27.msi"
@@ -629,6 +629,7 @@ function get_vcvarsall($mscinfo)
         if ($local:vsmanager -ne $null) {
             $local:filename = joinPath $local:vsmanager.InstallationPath $local:mscinfo["vcvarsall"]
             if ((file_exists $local:filename)) {
+                cprint "vcvarsall: $local:filename"
                 return $local:filename
             }
         }
@@ -639,10 +640,13 @@ function get_vcvarsall($mscinfo)
         foreach ($base in $local:bases) {
             $local:filename = joinPath $base $local:mscinfo["vcvarsall"]
             if (file_exists $local:filename) {
+                cprint "vcvarsall: $local:filename"
                 return $local:filename
             }
         }
     }
+
+    cerror "vcvarsall: " $local:mscinfo["vcvarsall"] "Not Found"
 }
 
 

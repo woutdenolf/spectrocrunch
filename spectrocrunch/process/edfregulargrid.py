@@ -36,7 +36,7 @@ from ..utils import units
 class EDFRegularGrid(RegularGrid):
     
     def __init__(self,filenames,labels=None,**kwargs):
-        instrument = configuration.getinstrument(kwargs)
+        instrument = configuration.getinstrument(**kwargs)
         parser = spec.edfheader_parser(units=instrument.units,
                         compensationmotors=instrument.compensationmotors,
                         axesnamemap=instrument.imagemotors,
@@ -77,7 +77,7 @@ class EDFRegularGrid(RegularGrid):
 class XIARegularGrid(RegularGrid):
     
     def __init__(self,xiastack,stacklabel='energylabel',**kwargs):
-        instrument = configuration.getinstrument(kwargs)
+        instrument = configuration.getinstrument(**kwargs)
         parser = spec.edfheader_parser(units=instrument.units,
                         compensationmotors=instrument.compensationmotors,
                         axesnamemap=instrument.imagemotors,

@@ -176,3 +176,4 @@ class LSO_ID21(Scintillator):
 
 
 factory = Scintillator.factory
+registry = Scintillator.clsregistry
