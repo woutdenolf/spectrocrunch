@@ -439,10 +439,10 @@ class Path(h5fs.Path):
             match = target.match(name)
         else:
             match = lambda x:True
-        checksum = target.calc_checksum(dependencies,hashing.calcjhash(parameters))
+        checksum = target.calc_checksum(dependencies,hashing.calchash(parameters))
         for process in self.iter_nxprocess(searchallentries=searchallentries):
             if match(process.name): 
-                if process.verify_checksum(checksum):
+                if process.checksum == checksum:
                     return process
         return None
     
@@ -594,9 +594,6 @@ class _NXprocess(_NXPath):
 
             self.updated()
             
-    def verify_checksum(self,checksum):
-        return self.checksum==checksum
-    
     @property
     def checksum(self):
         with self._verify():
@@ -608,7 +605,7 @@ class _NXprocess(_NXPath):
     @property
     def confighash(self):
         if self.configpath.exists:
-            return hashing.calcjhash(self.config.read(parse=True))
+            return hashing.calchash(self.config.read(parse=True))
         else:
             return None
   

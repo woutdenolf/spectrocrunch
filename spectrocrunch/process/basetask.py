@@ -120,8 +120,8 @@ class Task(with_metaclass(ABCMeta,object)):
     @property
     def checksum(self):
         hashes = [dependency.checksum for dependency in self.dependencies]
-        hashes.append(hashing.calcjhash(self.parameters))
-        return hashing.mergejhash(*hashes)
+        hashes.append(hashing.calchash(self.parameters))
+        return hashing.mergehash(*hashes)
         
     @property
     def parameters(self):
