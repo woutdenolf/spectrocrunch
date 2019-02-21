@@ -108,4 +108,4 @@ def calc_checksum(dependencies,confighash):
     else:
         hashes = []
     hashes.append(confighash)
-    return hashing.mergejhash(*hashes)
+    return hashing.mergehash(*hashes)
