@@ -23,11 +23,8 @@
 # THE SOFTWARE.
 
 import random
-
 import itertools
-
 import numpy as np
-
 import numbers
 
 from .. import indexing

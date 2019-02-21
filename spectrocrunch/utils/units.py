@@ -103,10 +103,8 @@ def units(x):
     Returns:
         x(None|Unit|array(Unit)): 
     """
-
     if instance.isquantity(x):
         return x.units
-
     if instance.isarraynot0(x):
         return [units(y) for y in x]
     else:
@@ -145,8 +143,6 @@ def asqarrayf(x, **kwargs):
         func(callable): apply to x to restore scalars
     """
     if instance.isarray(x):
-        def func(x): return x
-    elif instance.isqarray(x):
         def func(x): return x
     else:
         def func(x): return x[0]

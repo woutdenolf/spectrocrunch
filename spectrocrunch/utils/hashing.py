@@ -22,150 +22,60 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import collections
-from six import string_types
-import numpy as np
 import hashlib
-import pickle
 import json
+import itertools
+from ..patch import jsonpickle
+from ..utils import instance
+from ..utils import listtools
 
 
-def dhash(x):
+def calchash(x):
     """
-    Args:
-        x(string|buffer)
+    Deterministic MD5 hash of data:
+        - handle unsorted data types recursively (dict, set, frozenset)
+        - 
+
+    Returns:
+        str
     """
+    #print('calchash({})'.format(x))
+    if x:
+        # Convert x to a list of hashes
+        if instance.isarray(x):
+            if instance.isset(x):
+                x = sorted(calchash(y) for y in x)
+            else:
+                x = [calchash(y) for y in x]
+        elif instance.ismapping(x):
+            #print('keys before: {}'.format(x.keys()))
+            keys = [calchash(k) for k in x.keys()]
+            values = [calchash(v) for v in x.values()]
+            if not instance.isorderedmapping(x):
+                keys, values = listtools.sort2lists(keys, values)
+            #print('keys after: {}'.format(keys))
+            x = keys + values
+        elif hasattr(x, '__getstate__'):
+            x = [calchash(x.__getstate__())]
+        # Convert x to a unique string
+        #print('jsonpickle: {}'.format(x))
+        x = jsonpickle.encode(x)  # str
+    else:
+        #print('type: {}'.format(x))
+        x = 'type().__name__==' + type(x).__name__
+    # Convert unicode to bytes if needed
+    if not isinstance(x, bytes):
+        x = x.encode()
+    # MD5 hash (str) of x(bytes)
     return hashlib.md5(x).hexdigest()
 
 
-def phash(x):
-    return dhash(pickle.dumps(x))
-
-
-def jhash(x):
-    return dhash(json.dumps(x).encode('utf-8'))
-
-
-def _isiterable(x):
-    return isinstance(x, collections.Iterable) and not isinstance(x, string_types)
-
-
-def _calchash_ndarray(x, hashfunc, numpylarge=False):
-    if x.ndim == 0:
-        return hashfunc(tuple(x[np.newaxis]))
-    elif x.ndim == 1:
-        return hashfunc(tuple(x))
-    else:
-        if numpylarge:
-            keep, x.flags.writeable = x.flags.writeable, False
-            try:
-                ret = hashfunc(x.data)
-            except ValueError:
-                ret = hashfunc(x.data.tobytes())
-            except Exception:
-                raise
-            finally:
-                x.flags.writeable = keep
-            return ret
-        else:
-            return _calchash(tuple(x), hashfunc, numpylarge=numpylarge)
-
-
-def _calchash(x, hashfunc, numpylarge=False):
-    # Convert to iterable:
-    if isinstance(x, collections.Set):
-        x = sorted(x)
-    elif isinstance(x, collections.MutableMapping):
-        if isinstance(x, collections.OrderedDict):
-            x = x.items()
-        else:
-            x = sorted(x.items())
-
-    # Don't try hashing when iterable has any iterable
-    xisiterable = _isiterable(x)
-    tryhash = True
-    if xisiterable:
-        if isinstance(x, np.ndarray):
-            return _calchash_ndarray(x, hashfunc, numpylarge=numpylarge)
-        elif any(_isiterable(xi) for xi in x):
-            tryhash = False
-        else:
-            x = tuple(x)
-
-    if tryhash:
-        try:
-            # This is only allowed to fail when iterable:
-            return hashfunc(x)
-        except TypeError as e:
-            if not xisiterable:
-                raise e
-
-    # Hash of the hashes of an iterable
-    return hashfunc(tuple(_calchash(xi, hashfunc, numpylarge=numpylarge) for xi in x))
-
-
-def calchash(x, **kwargs):
-    """Non-deterministic and non-cryptographic hash
-    """
-    return _calchash(x, hash, **kwargs)
-
-
-def calcdhash(x, **kwargs):
-    """Deterministic and non-cryptographic hash
-    """
-    return _calchash(x, dhash, **kwargs)
-
-
-def calcjhash(x, **kwargs):
-    """Deterministic and non-cryptographic hash
-    """
-    return _calchash(x, jhash, **kwargs)
-
-
-def calcphash(x, **kwargs):
-    """Deterministic and non-cryptographic hash
-    """
-    return _calchash(x, phash, **kwargs)
-
-
-def _eq_hash(func, a, b, kwargs):
-    return func(a, **kwargs) == func(b, **kwargs)
-
-
-def hashequal(a, b, **kwargs):
-    return _eq_hash(calchash, a, b, kwargs)
-
-
-def dhashequal(a, b, **kwargs):
-    return _eq_hash(calcdhash, a, b, kwargs)
-
-
-def jhashequal(a, b, **kwargs):
-    return _eq_hash(calcjhash, a, b, kwargs)
-
-
-def phashequal(a, b, **kwargs):
-    return _eq_hash(calcphash, a, b, kwargs)
-
-
-def _mergehash(hashes, func):
-    if len(hashes) > 1:
-        return func(hashes)
-    else:
-        return hashes[0]
+def hashequal(a, b):
+    return calchash(a) == calchash(b)
 
 
 def mergehash(*hashes):
-    return _mergehash(hashes, calchash)
-
-
-def mergedhash(*hashes):
-    return _mergehash(hashes, calcdhash)
-
-
-def mergejhash(*hashes):
-    return _mergehash(hashes, calcjhash)
-
-
-def mergephash(*hashes):
-    return _mergehash(hashes, calcphash)
+    if len(hashes) > 1:
+        return calchash(hashes)
+    else:
+        return hashes[0]

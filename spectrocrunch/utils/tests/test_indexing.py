@@ -292,13 +292,13 @@ class test_indexing(unittest.TestCase):
                                         ind2 = indexfull
                                         ind3 = [
                                             i for i in ind1 if i is not np.newaxis]
-                                        b1 = [instance.islist(i) for i in ind1]
-                                        b2 = [not instance.islist(
+                                        b1 = [instance.islistgen(i) for i in ind1]
+                                        b2 = [not instance.islistgen(
                                             i) for i in ind2]
                                         bseladv = np.logical_and(b1, b2)
 
                                         if any(bseladv):
-                                            selind = [[i if instance.islist(
+                                            selind = [[i if instance.islistgen(
                                                 ind3[axis]) else 0 for axis in fullaxes] for i in range(r)]
                                         else:
                                             selind = [[0]*n]

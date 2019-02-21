@@ -42,7 +42,7 @@ def isadvanced(index):
     """
     if isinstance(index, tuple):
         return any(isadvanced(ind) for ind in index)
-    return instance.islist(index)
+    return instance.islistgen(index)
 
 
 def lengthadvanced(index, shape):
@@ -66,8 +66,8 @@ def lengthadvanced(index, shape):
             raise IndexError(
                 "shape mismatch: indexing arrays could not be broadcast together with shapes {}".format(tmp))
         return tmp[0]
-    elif instance.islist(index):
-        if instance.isboollist(index):
+    elif instance.islistgen(index):
+        if instance.isboolsequence(index):
             return sum(index)
         else:
             return len(index)
@@ -127,7 +127,7 @@ def isdimchanging(index):
     if isinstance(index, tuple):
         return [isdimchanging(ind) for ind in index]
     else:
-        return instance.islist(index) or\
+        return instance.islistgen(index) or\
             isinstance(index, numbers.Number) or\
             index is np.newaxis
 
@@ -354,7 +354,7 @@ def shape_afterindexing(shape, index, ndim=None):
     for i, iaxes in enumerate(axes):
         if instance.isnumber(iaxes) and iaxes < 0:
             s2[i] = 1
-        elif instance.islist(iaxes):
+        elif instance.islistgen(iaxes):
             s2[i] = lengthadvanced(indexnonew, shape)
         else:
             ind = indexnonew[iaxes]
@@ -514,7 +514,7 @@ def replacefull_transform(index, fullaxes, ndim, restoreadvanced=True):
     axes2, _ = axesorder_afterindexing(indexfull, ndim)
 
     # Advanced indexing dimensions
-    i1list = listtools.where(axes1, lambda x: instance.islist(x))
+    i1list = listtools.where(axes1, lambda x: instance.islistgen(x))
     if len(i1list) == 0:
         laxes1 = []
     else:
@@ -593,11 +593,11 @@ def nonchanging(index, shape=None):
         return True
     elif index is np.newaxis:  # adds a dimension
         return False
-    elif instance.islist(index):
+    elif instance.islistgen(index):
         if shape is None:
             return False  # could be True, but we can't know when shape is not given
         else:
-            if instance.isboollist(index):
+            if instance.isboolsequence(index):
                 return all(index)
             else:
                 return index == list(range(shape))
@@ -625,7 +625,7 @@ def nonchangingdims(index, ndim, axes, shape=None):
 
     axesorder, _ = axesorder_afterindexing(index, ndim)
 
-    i = listtools.where(axesorder, lambda x: instance.islist(x))
+    i = listtools.where(axesorder, lambda x: instance.islistgen(x))
     if len(i) == 1:
         i = i[0]
         if len(axesorder[i]) == 1:
@@ -795,7 +795,7 @@ class operators(object):
         self.ops = []
 
     def append(self, op):
-        if instance.islist(op):
+        if instance.islistgen(op):
             self.ops += op
         elif isinstance(op, operators):
             self.ops += op.ops
@@ -893,7 +893,7 @@ def decompose_listindexing(index, nlist):
     # Replace bool with int array
     index2 = list(index)
     for i, ind in enumerate(index2):
-        if instance.isboollist(index2):
+        if instance.isboolsequence(index2):
             index2[i] = np.where(index2)
 
     indexlist = [None]*nlist
@@ -901,7 +901,7 @@ def decompose_listindexing(index, nlist):
     tpl = [0]*nindex
     for j in range(nlist):
         for i, ind in enumerate(index):
-            if instance.islist(ind):
+            if instance.islistgen(ind):
                 tpl[i] = ind[j]
             else:
                 tpl[i] = ind

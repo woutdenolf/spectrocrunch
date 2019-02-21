@@ -23,36 +23,40 @@
 # THE SOFTWARE.
 
 import unittest
-import numpy as np
-from random import shuffle
-import collections
-
 from .. import hashing
+from ...testutils.randomdata import factory
 
 
 class test_hashing(unittest.TestCase):
 
-    def test_compare(self):
-        eqfuncs = [hashing.hashequal, hashing.jhashequal, hashing.phashequal]
-        a = {'a': 1, 'b': [1, {'c': 2, 'd': 3}]}
-        b = {'b': [1, {'c': 2, 'd': 3}], 'a': 1}
-        for func in eqfuncs:
-            self.assertTrue(func(a, b))
-
-        a = {'a': 1, 'b': [1, collections.OrderedDict([('c', 2), ('d', 3)])]}
-        b = {'b': [1, collections.OrderedDict([('c', 2), ('d', 3)])], 'a': 1}
-        for func in eqfuncs:
-            self.assertTrue(func(a, b))
-
-        b = {'b': [1, collections.OrderedDict([('d', 3), ('c', 2)])], 'a': 1}
-        for func in eqfuncs:
-            self.assertFalse(func(a, b))
+    def test_native(self):
+        for _ in range(1000):
+            o = factory()
+            a = o.data
+            b = o.data
+            #print('----------------------')
+            try:
+                ha = hashing.calchash(a)
+            except UnicodeDecodeError:
+                print(a)
+                raise
+            try:
+                hb = hashing.calchash(b)
+            except UnicodeDecodeError:
+                print(b)
+                raise
+            if ha != hb:
+                print('---')
+                print(a)
+                print(b)
+                assert()
+            #self.assertTrue(hashing.hashequal(a, b))
 
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_hashing("test_compare"))
+    testSuite.addTest(test_hashing("test_native"))
     return testSuite
 
 
