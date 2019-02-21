@@ -774,9 +774,9 @@ class sn3102(XRFDetector):
     aliases = ["XFlash5100"]
 
     def __init__(self, **kwargs):
+        attenuators = kwargs.get("attenuators", {})
         ultralene = compoundfromname.compoundfromname("ultralene")
         moxtek = compoundfromname.compoundfromname("moxtek ap3.3")
-        attenuators = kwargs.get("attenuators", {})
         attenuators["FoilDetector"] = {
             "material": ultralene, "thickness": 4.064e-4}  # cm
         attenuators["WindowDetector"] = {
@@ -784,12 +784,15 @@ class sn3102(XRFDetector):
         attenuators["Detector"] = {
             "material": element.Element('Si'), "thickness": 500e-4}
         kwargs["attenuators"] = attenuators
-        kwargs["activearea"] = units.Quantity(80., "mm^2")
-        kwargs["mcazero"] = 0.  # keV
-        kwargs["mcagain"] = 5e-3  # keV
-        kwargs["mcanoise"] = 0.1  # keV
-        kwargs["mcafano"] = 0.114
-        kwargs["ehole"] = constants.eholepair_si()
+
+        activearea = kwargs.get('activearea', 0.8)
+        kwargs["activearea"] = units.Quantity(activearea, "cm^2")
+        kwargs["mcazero"] = kwargs.get('mcazero', 0.)  # keV
+        kwargs["mcagain"] = kwargs.get('mcagain', 5e-3)  # keV
+        kwargs["mcanoise"] = kwargs.get('mcagain', 0.1)  # keV
+        kwargs["mcafano"] = kwargs.get('mcagain', 0.114)
+        ehole = kwargs.get('ehole', constants.eholepair_si())
+        kwargs["ehole"] = units.Quantity(ehole, "eV")
         super(sn3102, self).__init__(**kwargs)
 
 
@@ -797,8 +800,8 @@ class Leia(XRFDetector):
     aliases = ["SGX80"]
 
     def __init__(self, **kwargs):
-        ultralene = compoundfromname.compoundfromname("ultralene")
         attenuators = kwargs.get("attenuators", {})
+        ultralene = compoundfromname.compoundfromname("ultralene")
         attenuators["FoilDetector"] = {
             "material": ultralene, "thickness": 4.064e-4}  # cm
         attenuators["WindowDetector"] = {
@@ -806,12 +809,15 @@ class Leia(XRFDetector):
         attenuators["Detector"] = {
             "material": element.Element('Si'), "thickness": 450e-4}
         kwargs["attenuators"] = attenuators
-        kwargs["activearea"] = units.Quantity(80., "mm^2")
-        kwargs["mcazero"] = 0.  # keV
-        kwargs["mcagain"] = 5e-3  # keV
-        kwargs["mcanoise"] = 50e-3  # keV
-        kwargs["mcafano"] = 0.19
-        kwargs["ehole"] = constants.eholepair_si()
+
+        activearea = kwargs.get('activearea', 0.8)
+        kwargs["activearea"] = units.Quantity(activearea, "cm^2")
+        kwargs["mcazero"] = kwargs.get('mcazero', 0.)
+        kwargs["mcagain"] = kwargs.get('mcagain', 5e-3)
+        kwargs["mcanoise"] = kwargs.get('mcagain', 50e-3)
+        kwargs["mcafano"] = kwargs.get('mcagain', 0.19)
+        ehole = kwargs.get('ehole', constants.eholepair_si())
+        kwargs["ehole"] = units.Quantity(ehole, "eV")
         super(Leia, self).__init__(**kwargs)
 
 
@@ -819,8 +825,8 @@ class BB8(XRFDetector):
     aliases = ["SGX50"]
 
     def __init__(self, **kwargs):
-        ultralene = compoundfromname.compoundfromname("ultralene")
         attenuators = kwargs.get("attenuators", {})
+        ultralene = compoundfromname.compoundfromname("ultralene")
         attenuators["FoilDetector"] = {
             "material": ultralene, "thickness": 4.064e-4}  # cm
         attenuators["WindowDetector"] = {
@@ -828,12 +834,15 @@ class BB8(XRFDetector):
         attenuators["Detector"] = {
             "material": element.Element('Si'), "thickness": 450e-4}
         kwargs["attenuators"] = attenuators
-        kwargs["activearea"] = units.Quantity(50., "mm^2")
-        kwargs["mcazero"] = 0.  # keV
-        kwargs["mcagain"] = 5e-3  # keV
-        kwargs["mcanoise"] = 0.1  # keV
-        kwargs["mcafano"] = 0.114
-        kwargs["ehole"] = constants.eholepair_si()
+
+        activearea = kwargs.get('activearea', 0.5)
+        kwargs["activearea"] = units.Quantity(activearea, "cm^2")
+        kwargs["mcazero"] = kwargs.get('mcazero', 0.)  # keV
+        kwargs["mcagain"] = kwargs.get('mcagain', 5e-3)  # keV
+        kwargs["mcanoise"] = kwargs.get('mcagain', 0.1)  # keV
+        kwargs["mcafano"] = kwargs.get('mcagain', 0.114)
+        ehole = kwargs.get('ehole', constants.eholepair_si())
+        kwargs["ehole"] = units.Quantity(ehole, "eV")
         super(BB8, self).__init__(**kwargs)
 
 
@@ -841,8 +850,8 @@ class DR40(XRFDetector):
     aliases = ["VITUSH80"]
 
     def __init__(self, **kwargs):
-        ultralene = compoundfromname.compoundfromname("ultralene")
         attenuators = kwargs.get("attenuators", {})
+        ultralene = compoundfromname.compoundfromname("ultralene")
         attenuators["FoilDetector"] = {
             "material": ultralene, "thickness": 4.064e-4}  # cm
         attenuators["WindowDetector"] = {
@@ -850,12 +859,15 @@ class DR40(XRFDetector):
         attenuators["Detector"] = {
             "material": element.Element('Si'), "thickness": 450e-4}
         kwargs["attenuators"] = attenuators
-        kwargs["activearea"] = units.Quantity(80., "mm^2")
-        kwargs["mcazero"] = 0.  # keV
-        kwargs["mcagain"] = 5e-3  # keV
-        kwargs["mcanoise"] = 0.1  # keV
-        kwargs["mcafano"] = 0.114
-        kwargs["ehole"] = constants.eholepair_si()
+
+        activearea = kwargs.get('activearea', 0.8)
+        kwargs["activearea"] = units.Quantity(activearea, "cm^2")
+        kwargs["mcazero"] = kwargs.get('mcazero', 0.)  # keV
+        kwargs["mcagain"] = kwargs.get('mcagain', 5e-3)  # keV
+        kwargs["mcanoise"] = kwargs.get('mcagain', 0.1)  # keV
+        kwargs["mcafano"] = kwargs.get('mcagain', 0.114)
+        ehole = kwargs.get('ehole', constants.eholepair_si())
+        kwargs["ehole"] = units.Quantity(ehole, "eV")
         super(DR40, self).__init__(**kwargs)
 
 
@@ -870,12 +882,15 @@ class ID16b_Virtual1(XRFDetector):
         attenuators["Detector"] = {
             "material": element.Element('Si'), "thickness": 450e-4}
         kwargs["attenuators"] = attenuators
-        kwargs["activearea"] = units.Quantity(80., "mm^2")
-        kwargs["mcazero"] = 0.  # keV
-        kwargs["mcagain"] = 10e-3  # keV
-        kwargs["mcanoise"] = 0.1  # keV
-        kwargs["mcafano"] = 0.114
-        kwargs["ehole"] = constants.eholepair_si()
+
+        activearea = kwargs.get('activearea', 0.8)
+        kwargs["activearea"] = units.Quantity(activearea, "cm^2")
+        kwargs["mcazero"] = kwargs.get('mcazero', 0.)  # keV
+        kwargs["mcagain"] = kwargs.get('mcagain', 10e-3)  # keV
+        kwargs["mcanoise"] = kwargs.get('mcagain', 0.1)  # keV
+        kwargs["mcafano"] = kwargs.get('mcagain', 0.114)
+        ehole = kwargs.get('ehole', constants.eholepair_si())
+        kwargs["ehole"] = units.Quantity(ehole, "eV")
         super(ID16b_Virtual1, self).__init__(**kwargs)
 
 
