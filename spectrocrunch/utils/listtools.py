@@ -90,7 +90,7 @@ def listadvanced(lst, ind):
     Returns:
         list
     """
-    if instance.isboollist(ind):
+    if instance.isboolsequence(ind):
         return listadvanced_bool(lst, ind)
     else:
         return listadvanced_int(lst, ind)

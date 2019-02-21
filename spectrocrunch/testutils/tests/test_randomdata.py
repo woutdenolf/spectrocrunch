@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
+#   Copyright (C) 2017 European Synchrotron Radiation Facility, Grenoble, France
 #
 #   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
 #
@@ -23,28 +23,33 @@
 # THE SOFTWARE.
 
 import unittest
+import collections
 
-from . import test_instance
-from . import test_units
-from . import test_classfactory
-from . import test_indexing
-from . import test_hashing
-from . import test_signalhandling
-from . import test_listtools
-from . import test_lut
+from .. import randomdata
+
+
+class test_randomdata(unittest.TestCase):
+
+    def test_generate(self):
+        for i in range(500):
+            # Generate random data
+            o = randomdata.RandomDict()
+            # Extract raw objects
+            data = o.data
+            try:
+                s = unicode(data)
+            except NameError:
+                s = str(data)
+            self.assertFalse(u'DataBase' in s)
+            # Unordered data structures are shuffled
+            # on each call "data"
+            self.assertEqual(data, o.data)
 
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_instance.test_suite())
-    testSuite.addTest(test_units.test_suite())
-    testSuite.addTest(test_classfactory.test_suite())
-    testSuite.addTest(test_indexing.test_suite())
-    testSuite.addTest(test_hashing.test_suite())
-    testSuite.addTest(test_signalhandling.test_suite())
-    testSuite.addTest(test_listtools.test_suite())
-    testSuite.addTest(test_lut.test_suite())
+    testSuite.addTest(test_randomdata("test_generate"))
     return testSuite
 
 

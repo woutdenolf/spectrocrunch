@@ -23,102 +23,127 @@
 # THE SOFTWARE.
 
 import unittest
-import itertools
+import numpy as np
 
+from .gendata import gendata
 from .. import units
 from .. import instance
-from ...patch.pint import ureg
 from ...math import noisepropagation
-
-import numpy as np
 
 
 class test_instance(unittest.TestCase):
 
-    def test_quantunits(self):
-        for q, arr, expand in itertools.product([True, False], repeat=3):
-            if arr:
-                x = np.arange(1., 10)
-            else:
-                x = 10.
+    def test_instance(self):
+        select = 'str', 'unicode', 'bytes'
+        self._check_instance(instance.isstring, select)
+        select = 'tuple', 'list', 'xrange',
+        self._check_instance(instance.issequence, select)
+        select = 'set', 'frozenset'
+        self._check_instance(instance.isset, select)
+        select = ('tuple', 'list', 'xrange',
+                  'set', 'frozenset',
+                  'array', 'bytearray',
+                  'ndarray', 'ndarray0',
+                  'nparray', 'nparray0',
+                  'qarray', 'qarray0',
+                  'dict', 'odict', 'ddict')
+        self._check_instance(instance.isiterable, select)
+        select = ('tuple', 'list', 'xrange',
+                  'set', 'frozenset',
+                  'array', 'bytearray',
+                  'ndarray', 'ndarray0',
+                  'nparray', 'nparray0',
+                  'qarray', 'qarray0')
+        self._check_instance(instance.isarray, select)
+        select = 'ndarray0', 'nparray0', 'qarray0'
+        self._check_instance(instance.isarray0, select)
+        select = ('tuple', 'list', 'xrange',
+                  'set', 'frozenset',
+                  'array', 'bytearray',
+                  'ndarray', 'nparray', 'qarray')
+        self._check_instance(instance.isarraynot0, select)
+        select = ('bool', 'int', 'float',
+                  'npscalar', 'qscalar')
+        self._check_instance(instance.isscalar, select)
+        select = 'npscalar',
+        self._check_instance(instance.isnpscalar, select)
+        select = 'qscalar',
+        self._check_instance(instance.isqscalar, select)
+        select = 'bool', 'int', 'float', 'npscalar'
+        self._check_instance(instance.isnumber, select)
+        select = 'bool', 'int',
+        self._check_instance(instance.isinteger, select)
+        select = 'qarray', 'qarray0', 'qscalar'
+        self._check_instance(instance.isquantity, select)
+        select = ('ndarray', 'ndarray0', 
+                  'nparray', 'nparray0')
+        self._check_instance(instance.isnparray, select)
+        select = ('ndarray', 'ndarray0', 
+                  'nparray', 'nparray0',
+                  'npscalar')
+        self._check_instance(instance.isnumpy, select)
+        select = 'qarray', 'qarray0'
+        self._check_instance(instance.isqarray, select)
+        select = 'dict', 'ddict', 'odict'
+        self._check_instance(instance.ismapping, select)
+        select = 'odict',
+        self._check_instance(instance.isorderedmapping, select)
 
-            if q:
-                unit0 = ureg.millimeter
-                if arr and expand:
-                    y = np.vectorize(lambda a: units.Quantity(
-                        a, units=unit0), otypes=[object])(x)
-                else:
-                    y = units.Quantity(x, units=unit0)
-                unit1 = ureg.meter
-                munit = 1e-3
-            else:
-                unit0 = None
-                unit1 = None
-                munit = 1
-                y = x
+    def _check_instance(self, isinstance, select):
+        for k, v in gendata().items():
+            b1 = isinstance(v)
+            b2 = k in select
+            msg = '{}({}) != {}'.format(isinstance.__name__, k, b2)
+            self.assertEqual(b1, b2, msg=msg)
 
-            # Test bubbling up and down
-            if q:
-                z = units.Quantity(x, units=unit0)
-                np.testing.assert_array_equal(
-                    instance.asarray(y), instance.asarray(z))
-                z = np.vectorize(lambda a: units.Quantity(
-                    a, units=unit0), otypes=[object])(x)
-                np.testing.assert_array_equal(
-                    units.Quantity(y), units.Quantity(z))
-
-            # Test magnitude
-            a = x*munit
-            b = units.magnitude(y, unit1)
-            if arr:
-                np.testing.assert_array_equal(a, b)
-            else:
-                self.assertEqual(a, b)
-
-            # Test unit conversion
-            if q:
-                a = units.Quantity(x, units=unit0)
-                b = units.quantity_like(y, a)
-            if arr:
-                np.testing.assert_array_equal(a, b)
-            else:
-                self.assertEqual(a, b)
-
-    def _test_asarray(self, x, checktype=True):
+    def _test_asarray(self, x):
+        if instance.isarray(x) and not instance.isquantity(x):
+            xtype = np.ndarray
+        else:
+            xtype = type(x)
         y, func = instance.asarrayf(x)
         self.assertTrue(isinstance(y, np.ndarray))
         y = func(y)
-        if checktype:
-            self.assertEqual(type(y), type(x))
+        self.assertEqual(type(y), xtype)
 
     def test_asarray(self):
+        for k, v in gendata().items():
+            varr = instance.asarray(v)
+            self.assertTrue(instance.isarray(varr))
+        for k, v in gendata().items():
+            barr = instance.isarray(v)
+            varr, restore = instance.asarrayf(v)
+            barr2 = instance.isarray(restore(varr))
+            self.assertEqual(barr, barr2)
+
         a = np.int64(0)
         b = np.int64(1)
         nums = [a, np.array(a), [a], np.array([a]), [a, b], np.array([a, b])]
         checktypes = [True, True, False, True, False]
         for num, check in zip(nums, checktypes):
+            check = True
             x = num
-            self._test_asarray(x, checktype=check)
-            x = units.Quantity(num, units=ureg.millimeter)
+            self._test_asarray(x)
+            x = units.Quantity(num, units=units.ureg.millimeter)
             self._test_asarray(x)
             x = np.vectorize(lambda a: units.Quantity(
-                a, units=ureg.millimeter), otypes=[object])(x)
-            self._test_asarray(x, checktype=False)
+                a, units=units.ureg.millimeter), otypes=[object])(x)
+            self._test_asarray(x)
             x = noisepropagation.randomvariable(num, num)
-            self._test_asarray(x, checktype=check)
+            self._test_asarray(x)
 
         objs = ["abc", np.array("abc"), np.array(
             ["abc"]), ["abc"], ("abc", 1, 2)]
         checktypes = [True, True, True, False, False]
         for o, check in zip(nums, checktypes):
-            self._test_asarray(x, checktype=check)
+            self._test_asarray(x)
 
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
+    testSuite.addTest(test_instance("test_instance"))
     testSuite.addTest(test_instance("test_asarray"))
-    # testSuite.addTest(test_instance("test_quantunits"))
     return testSuite
 
 
