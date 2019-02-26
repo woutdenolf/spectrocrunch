@@ -205,7 +205,7 @@ def isqscalar(x):
 
 
 def isuscalar(x):
-    return isinstance(x, uncertainties.core.AffineScalarFunc)
+    return isinstance(x, uncertainties.UFloat)
 
 
 def isscalar(x):

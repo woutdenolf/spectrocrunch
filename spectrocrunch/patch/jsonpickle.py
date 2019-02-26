@@ -28,7 +28,6 @@ from jsonpickle import Pickler, Unpickler
 import jsonpickle.ext.numpy as jsonpickle_numpy
 from jsonpickle.handlers import BaseHandler, register
 from .pint import ureg
-import uncertainties.core as ucore
 
 try:
     unicode
@@ -61,16 +60,14 @@ def restore(state, **kwargs):
 class QuantityHandler(BaseHandler):
 
     def flatten(self, obj, state):
-        magnitude = self.context.flatten(obj.magnitude, reset=False)
-        units = self.context.flatten(obj.units, reset=False)
-        state['magnitude'] = magnitude
-        state['units'] = units
+        tpl = obj.to_tuple()
+        tpl = self.context.flatten(tpl, reset=False)
+        state['tpl'] = tpl
         return state
 
     def restore(self, state):
-        magnitude = self.context.restore(state['magnitude'], reset=False)
-        units = self.context.restore(state['units'], reset=False)
-        return ureg.Quantity(magnitude, units=units)
+        tpl = self.context.restore(state['tpl'], reset=False)
+        return ureg.Quantity.from_tuple(tpl)
 
 
 class UnitHandler(BaseHandler):

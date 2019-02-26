@@ -26,6 +26,7 @@ import unittest
 import os
 import numpy as np
 import uncertainties
+from uncertainties import umath
 
 from ...utils import units
 from .. import jsonpickle
@@ -103,12 +104,24 @@ class test_serialize(unittest.TestCase):
         deserialized = jsonpickle.decode(serialized)
         self.assertEqual(data, deserialized)
 
+    @unittest.skip('cyclic jsonpickle bug')
     def test_uncertainties(self):
         data = uncertainties.ufloat(1, 2)
         serialized = jsonpickle.encode(data)
         deserialized = jsonpickle.decode(serialized)
-        self.assertEqual(data, deserialized)
+        print(serialized)
+        print(deserialized)
+        self.assertEqual(data.nominal_value, deserialized.nominal_value)
+        self.assertEqual(data.std_dev, deserialized.std_dev)
+        data += 2
+        serialized = jsonpickle.encode(data)
+        deserialized = jsonpickle.decode(serialized)
+        print(serialized)
+        print(deserialized)
+        self.assertEqual(data.nominal_value, deserialized.nominal_value)
+        self.assertEqual(data.std_dev, deserialized.std_dev)
 
+    @unittest.skip('cyclic jsonpickle bug')
     def test_cyclic(self):
         for _class in (LinkClass2, ):
             child = _class(None)
@@ -143,9 +156,9 @@ class test_serialize(unittest.TestCase):
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    # testSuite.addTest(test_serialize("test_cyclic"))
+    testSuite.addTest(test_serialize("test_cyclic"))
     testSuite.addTest(test_serialize("test_units"))
-    # testSuite.addTest(test_serialize("test_uncertainties"))
+    testSuite.addTest(test_serialize("test_uncertainties"))
     return testSuite
 
 
