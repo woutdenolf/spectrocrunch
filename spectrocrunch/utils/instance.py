@@ -25,6 +25,7 @@
 import ast
 import collections
 import numbers
+import math
 import numpy as np
 import uncertainties.core
 from ..patch.pint import ureg
@@ -60,8 +61,9 @@ except ImportError:
 # decode: <byte string>    --(encoding)--> <unicode string>
 #
 #Implicit decoding/encoding in Python 2:
-# str.encode(encoding)     -> str.decode().encode(encoding)
-# unicode.decode(encoding) -> unicode.encode().decode(encoding)
+# default = sys.getdefaultencoding()
+# str.encode(encoding)     -> str.decode(default).encode(encoding)
+# unicode.decode(encoding) -> unicode.encode(default).decode(encoding)
 #
 # Builtin sequence types:
 #------------------------
@@ -173,22 +175,27 @@ def isnparray(x):
 
 
 def isnumpy(x):
-    return isinstance(x, (np.ndarray, np.generic, np.dtype))
+    return isnparray(x) or isnpnumber(x)
 
 
 def isqarray(x):
     if isquantity(x):
-        if isarray(x.magnitude):
+        if isnparray(x.magnitude):
             return True
+    return False
+
+
+def isuarray(x):
+    if isnparray(x):
+        if x.ndim == 0:
+            return isuscalar(asscalar(x))
+        else:
+            return any(isuscalar(z) for z in x)
     return False
 
 
 def isquantity(x):
     return isinstance(x, ureg.Quantity)
-
-
-def isnpscalar(x):
-    return isinstance(x, np.generic)
 
 
 def isqscalar(x):
@@ -197,21 +204,32 @@ def isqscalar(x):
     return False
 
 
+def isuscalar(x):
+    return isinstance(x, uncertainties.core.AffineScalarFunc)
+
+
 def isscalar(x):
-    return isnumber(x) or isnpscalar(x) or isqscalar(x)
+    return isnumber(x) or isqscalar(x) or isuscalar(x)
 
 
 def isnumber(x):
-    return isinstance(x, numbers.Number)
+    return isinstance(x, numbers.Number) or isnpnumber(x)
+
+
+def isnpnumber(x):
+    return np.issubclass_(x.__class__, np.number)
+
+
+def isnpinteger(x):
+    return np.issubclass_(x.__class__, np.integer)
 
 
 def isnumeric(x):
-    return isinstance(x, numbers.Number) and \
-           not isinstance(x, bool)
+    return isnumber(x) and not isinstance(x, bool)
 
 
 def isinteger(x):
-    return isinstance(x, numbers.Integral)
+    return isinstance(x, numbers.Integral) or isnpinteger(x)
 
 
 def dtype_is_integer(dtype):
@@ -227,14 +245,6 @@ def isboolsequence(lst):
         return all(isinstance(i, bool) for i in lst) and len(lst) > 0
     except:
         return False
-
-
-def israndomvariable(x):
-    # do not use asscalar!!!
-    if isarray(x):
-        return any(israndomvariable(z) for z in x)
-    else:
-        return isinstance(x, (uncertainties.core.Variable, uncertainties.core.AffineScalarFunc))
 
 
 def asscalar(x):

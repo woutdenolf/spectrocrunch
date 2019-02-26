@@ -26,12 +26,14 @@ import unittest
 
 from . import test_serialize
 
+
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_serialize.test_suite())
     return testSuite
-    
+
+
 if __name__ == '__main__':
     import sys
 

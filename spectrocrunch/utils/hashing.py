@@ -30,44 +30,97 @@ from ..utils import instance
 from ..utils import listtools
 
 
-def calchash(x):
+def stringhash(x):
+    if not isinstance(x, bytes):
+        return x.encode('utf-8')
+    return x
+
+
+def mtypehash(classname):
+    return stringhash("<class '{}'>".format(classname))
+
+
+def typehash(o):
+    return mtypehash(o.__class__.__name__)
+
+
+def anyhash(x):
+    return stringhash(jsonpickle.encode(x))
+
+
+def getstate(x):
+    return jsonpickle.flatten(x)
+
+
+def calchash(x, _depth=0):
     """
     Deterministic MD5 hash of data:
-        - handle unsorted data types recursively (dict, set, frozenset)
-        - 
+
+    - handle unsorted data types recursively (dict, set, frozenset)
+    - ignore string type difference when possible
+    - ignore number type difference when possible (True == 1 == 1. == 1+0j)
+    - uses jsonpickle to get the state of custom objects
 
     Returns:
-        str
+        bytes: can be 'ascii' decoded
     """
-    #print('calchash({})'.format(x))
-    if x:
-        # Convert x to a list of hashes
-        if instance.isarray(x):
+    if _depth == 100:
+        raise RuntimeError('Maximal hash recursion depth is reached')
+    else:
+        _depth += 1
+    # Convert x to a list(bytes)
+    if x is None:
+        x = [typehash(x)]
+    elif instance.isstring(x):
+        x = [mtypehash('string'), stringhash(x)]
+    elif instance.isnumber(x):
+        try:
+            intx = int(x)
+            if intx == x:
+                x = intx
+        except:
+            pass
+        x = [mtypehash('number'), stringhash(str(x))]
+    elif instance.isarray(x):
+        if instance.isarray0(x):
+            x = [calchash(getstate(x), _depth=_depth)]
+        elif len(x):
             if instance.isset(x):
-                x = sorted(calchash(y) for y in x)
+                x = sorted(calchash(y, _depth=_depth) for y in x)
             else:
-                x = [calchash(y) for y in x]
-        elif instance.ismapping(x):
-            #print('keys before: {}'.format(x.keys()))
-            keys = [calchash(k) for k in x.keys()]
-            values = [calchash(v) for v in x.values()]
+                x = [calchash(y, _depth=_depth) for y in x]
+        else:
+            # Empty array
+            state = getstate(x)
+            if instance.isarray(state):
+                if str(x) == str(state):
+                    x = [typehash(x)]
+                else:
+                    x = [anyhash(x)]
+            else:
+                x = [calchash(state, _depth=_depth)]
+    elif instance.ismapping(x):
+        if len(x):
+            keys = [calchash(k, _depth=_depth) for k in x.keys()]
+            values = [calchash(v, _depth=_depth) for v in x.values()]
             if not instance.isorderedmapping(x):
                 keys, values = listtools.sort2lists(keys, values)
-            #print('keys after: {}'.format(keys))
             x = keys + values
-        elif hasattr(x, '__getstate__'):
-            x = [calchash(x.__getstate__())]
-        # Convert x to a unique string
-        #print('jsonpickle: {}'.format(x))
-        x = jsonpickle.encode(x)  # str
+        else:
+            # Empty mapping
+            state = getstate(x)
+            if type(state) == type(x):
+                if str(x) == str(state):
+                    x = [typehash(x)]
+                else:
+                    x = [anyhash(x)]
+            else:
+                x = [calchash(state, _depth=_depth)]
     else:
-        #print('type: {}'.format(x))
-        x = 'type().__name__==' + type(x).__name__
-    # Convert unicode to bytes if needed
-    if not isinstance(x, bytes):
-        x = x.encode()
-    # MD5 hash (str) of x(bytes)
-    return hashlib.md5(x).hexdigest()
+        x = [calchash(getstate(x), _depth=_depth)]
+    # MD5 hash of list of bytes
+    #print(x)
+    return stringhash(hashlib.md5(b''.join(x)).hexdigest())
 
 
 def hashequal(a, b):

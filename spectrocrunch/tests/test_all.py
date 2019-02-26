@@ -47,7 +47,7 @@ from ..xrf.tests import test_all as test_xrf
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_patch.test_testutils())
+    testSuite.addTest(test_testutils.test_suite())
     testSuite.addTest(test_patch.test_suite())
     testSuite.addTest(test_utils.test_suite())
     testSuite.addTest(test_math.test_suite())

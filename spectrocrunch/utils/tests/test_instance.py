@@ -46,6 +46,7 @@ class test_instance(unittest.TestCase):
                   'ndarray', 'ndarray0',
                   'nparray', 'nparray0',
                   'qarray', 'qarray0',
+                  'uarray', 'uarray0',
                   'dict', 'odict', 'ddict')
         self._check_instance(instance.isiterable, select)
         select = ('tuple', 'list', 'xrange',
@@ -53,37 +54,50 @@ class test_instance(unittest.TestCase):
                   'array', 'bytearray',
                   'ndarray', 'ndarray0',
                   'nparray', 'nparray0',
-                  'qarray', 'qarray0')
+                  'qarray', 'qarray0',
+                  'uarray', 'uarray0')
         self._check_instance(instance.isarray, select)
-        select = 'ndarray0', 'nparray0', 'qarray0'
+        select = 'ndarray0', 'nparray0', 'qarray0', 'uarray0'
         self._check_instance(instance.isarray0, select)
         select = ('tuple', 'list', 'xrange',
                   'set', 'frozenset',
                   'array', 'bytearray',
-                  'ndarray', 'nparray', 'qarray')
+                  'ndarray', 'nparray',
+                  'qarray', 'uarray')
         self._check_instance(instance.isarraynot0, select)
         select = ('bool', 'int', 'float',
-                  'npscalar', 'qscalar')
+                  'nan', 'inf', 'npint', 'npfloat',
+                  'qscalar', 'uscalar')
         self._check_instance(instance.isscalar, select)
-        select = 'npscalar',
-        self._check_instance(instance.isnpscalar, select)
         select = 'qscalar',
         self._check_instance(instance.isqscalar, select)
-        select = 'bool', 'int', 'float', 'npscalar'
+        select = 'uscalar',
+        self._check_instance(instance.isuscalar, select)
+        select = ('bool', 'int', 'float',
+                  'nan', 'inf', 'npint', 'npfloat')
         self._check_instance(instance.isnumber, select)
-        select = 'bool', 'int',
+        select = ('int', 'float',
+                  'nan', 'inf', 'npint', 'npfloat')
+        self._check_instance(instance.isnumeric, select)
+        select = 'npint', 'npfloat'
+        self._check_instance(instance.isnpnumber, select)
+        select = 'bool', 'int', 'npint'
         self._check_instance(instance.isinteger, select)
         select = 'qarray', 'qarray0', 'qscalar'
         self._check_instance(instance.isquantity, select)
-        select = ('ndarray', 'ndarray0', 
-                  'nparray', 'nparray0')
-        self._check_instance(instance.isnparray, select)
-        select = ('ndarray', 'ndarray0', 
+        select = ('ndarray', 'ndarray0',
                   'nparray', 'nparray0',
-                  'npscalar')
+                  'uarray', 'uarray0')
+        self._check_instance(instance.isnparray, select)
+        select = ('ndarray', 'ndarray0',
+                  'nparray', 'nparray0',
+                  'uarray', 'uarray0',
+                  'npint', 'npfloat')
         self._check_instance(instance.isnumpy, select)
         select = 'qarray', 'qarray0'
         self._check_instance(instance.isqarray, select)
+        select = 'uarray', 'uarray0'
+        self._check_instance(instance.isuarray, select)
         select = 'dict', 'ddict', 'odict'
         self._check_instance(instance.ismapping, select)
         select = 'odict',
