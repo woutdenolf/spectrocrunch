@@ -92,11 +92,11 @@ class test_hashing(unittest.TestCase):
         self._assert_hash(None, hash)
 
     def test_quantity(self):
-        hash = b'f60493fe013786edfe469eaabd29e88f'
+        hash = b'815a7db5d24da2606b39c11790171428'
         self._assert_hash(ureg.Quantity([]), hash)
-        hash = b'527a1d65af93088a4a54a7c8d0e0c81a'
+        hash = b'd5604a7ef7b7aff99d95c807141b39bf'
         self._assert_hash(ureg.Quantity(1), hash)
-        hash = b'f1a9c49699b8028a93ebb53501942ef1'
+        hash = b'29db45189b0049d00ea0efc1822352f1'
         self._assert_hash(ureg.Quantity([1, 2], 'mm'), hash)
         self._assert_hash(ureg.Quantity([1, 2], 'millimeter'), hash)
 
