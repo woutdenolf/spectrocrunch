@@ -24,32 +24,63 @@
 
 from __future__ import absolute_import
 from jsonpickle import encode, decode
+from jsonpickle import Pickler, Unpickler
 import jsonpickle.ext.numpy as jsonpickle_numpy
 from jsonpickle.handlers import BaseHandler, register
 from .pint import ureg
+import uncertainties.core as ucore
+
+try:
+    unicode
+except NameError:
+    unicode = str
+
+
+def flatten(data, **kwargs):
+    """
+    Args:
+        data(Any):
+        \**kwargs: see Pickler
+    Returns:
+        dict: state of data
+    """
+    return Pickler(**kwargs).flatten(data, reset=True)
+
+
+def restore(state, **kwargs):
+    """
+    Args:
+        state(dict):
+        \**kwargs: see Pickler
+    Returns:
+        Any: data restored from state
+    """
+    return Unpickler.restore(state, reset=True, **kwargs)
 
 
 class QuantityHandler(BaseHandler):
-    
-    def flatten(self, quantity, data):
-        # enocde for np.ndarray
-        data['magnitude'] = encode(quantity.magnitude)
-        data['units'] = str(quantity.units)
-        return data
-    
-    def restore(self, data):
-        return ureg.Quantity(decode(data['magnitude']),
-                             units=data['units'])
+
+    def flatten(self, obj, state):
+        magnitude = self.context.flatten(obj.magnitude, reset=False)
+        units = self.context.flatten(obj.units, reset=False)
+        state['magnitude'] = magnitude
+        state['units'] = units
+        return state
+
+    def restore(self, state):
+        magnitude = self.context.restore(state['magnitude'], reset=False)
+        units = self.context.restore(state['units'], reset=False)
+        return ureg.Quantity(magnitude, units=units)
 
 
 class UnitHandler(BaseHandler):
-    
-    def flatten(self, unit, data):
-        data['units'] = str(unit)
-        return data
-    
-    def restore(self, data):
-        return ureg.Unit(data['units'])
+
+    def flatten(self, obj, state):
+        state['units'] = str(obj)
+        return state
+
+    def restore(self, state):
+        return ureg.Unit(state['units'])
 
 
 jsonpickle_numpy.register_handlers()

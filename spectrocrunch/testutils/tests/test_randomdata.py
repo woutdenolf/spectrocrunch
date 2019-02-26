@@ -24,32 +24,41 @@
 
 import unittest
 import collections
+import numpy as np
 
 from .. import randomdata
 
 
 class test_randomdata(unittest.TestCase):
 
-    def test_generate(self):
-        for i in range(500):
-            # Generate random data
-            o = randomdata.RandomDict()
-            # Extract raw objects
+    def test_native(self):
+        for _ in range(500):
+            o = randomdata.factory(types=('native',))
+            # Check equality (shuffles unsorted types)
+            self.assertEqual(o, o)
+
+    def test_all(self):
+        for _ in range(500):
+            o = randomdata.factory()
+            self.assertTrue('random' in str(o).lower())
+            # Make sure raw data is generated
             data = o.data
             try:
-                s = unicode(data)
+                us = unicode(data)
             except NameError:
-                s = str(data)
-            self.assertFalse(u'DataBase' in s)
-            # Unordered data structures are shuffled
-            # on each call "data"
-            self.assertEqual(data, o.data)
+                us = str(data)
+            except UnicodeDecodeError as e:
+                us = data.decode('latin1')
+            self.assertFalse(u'random' in us.lower())
+            # Check equality (shuffles unsorted types)
+            self.assertEqual(o, o)
 
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_randomdata("test_generate"))
+    testSuite.addTest(test_randomdata("test_native"))
+    testSuite.addTest(test_randomdata("test_all"))
     return testSuite
 
 

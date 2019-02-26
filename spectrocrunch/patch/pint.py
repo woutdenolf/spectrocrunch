@@ -23,8 +23,35 @@
 # THE SOFTWARE.
 
 from __future__ import absolute_import
+from pint import UnitRegistry, errors
+from pint.quantity import _Quantity
+from pint.unit import _Unit
+from pint.measurement import _Measurement
 
-from pint import *
 
 ureg = UnitRegistry()
+
+
+# Because of unpickling:
+
+
+class Quantity(_Quantity):
+    _REGISTRY = ureg
+    force_ndarray = False
+
+
+class Unit(_Unit):
+    _REGISTRY = ureg
+
+
+class Measurement(_Measurement, Quantity):
+    _REGISTRY = ureg
+    force_ndarray = False
+
+
+ureg.Quantity = Quantity
+ureg.Unit = Unit
+ureg.Measurement = Measurement
+
+
 ureg.define('classical_electron_radius = e^2/(4*pi*m_e*epsilon_0*c^2) = r_e')
