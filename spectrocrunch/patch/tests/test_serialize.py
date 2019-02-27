@@ -100,22 +100,22 @@ class test_serialize(unittest.TestCase):
                          z=ExampleClass(-10, ExampleClass(-10, -20, z=-30),
                                         z=ExampleClass(-10, -20, z=-30)))
         data = {"a": a, "b": b, "c": c, "d": d}
-        serialized = jsonpickle.encode(data)
-        deserialized = jsonpickle.decode(serialized)
+        serialized = jsonpickle.dumps(data)
+        deserialized = jsonpickle.loads(serialized)
         self.assertEqual(data, deserialized)
 
     @unittest.skip('cyclic jsonpickle bug')
     def test_uncertainties(self):
         data = uncertainties.ufloat(1, 2)
-        serialized = jsonpickle.encode(data)
-        deserialized = jsonpickle.decode(serialized)
+        serialized = jsonpickle.dumps(data)
+        deserialized = jsonpickle.loads(serialized)
         print(serialized)
         print(deserialized)
         self.assertEqual(data.nominal_value, deserialized.nominal_value)
         self.assertEqual(data.std_dev, deserialized.std_dev)
         data += 2
-        serialized = jsonpickle.encode(data)
-        deserialized = jsonpickle.decode(serialized)
+        serialized = jsonpickle.dumps(data)
+        deserialized = jsonpickle.loads(serialized)
         print(serialized)
         print(deserialized)
         self.assertEqual(data.nominal_value, deserialized.nominal_value)
@@ -131,8 +131,8 @@ class test_serialize(unittest.TestCase):
             self.assertEqual(id(instance.links[0]), id(instance.links[1]))
             self.assertEqual(id(instance.links[0].links[0]), id(instance))
             print(jsonpickle.Pickler().flatten(instance))
-            encoded = jsonpickle.encode(instance)
-            instance = jsonpickle.decode(encoded)
+            encoded = jsonpickle.dumps(instance)
+            instance = jsonpickle.loads(encoded)
             print(instance)
             self.assertEqual(id(instance.links[0]), id(instance.links[1]))
             self.assertEqual(id(instance.links[0].links[0]), id(instance))
@@ -145,8 +145,8 @@ class test_serialize(unittest.TestCase):
             self.assertEqual(id(c.links[0]), id(b))
             self.assertEqual(id(b.links[0]), id(a))
             print(jsonpickle.Pickler().flatten(c))
-            serialized = jsonpickle.encode(c)
-            c = jsonpickle.decode(serialized)
+            serialized = jsonpickle.dumps(c)
+            c = jsonpickle.loads(serialized)
             b = c.links[0]
             a = b.links[0]
             self.assertEqual(id(c.links[0]), id(b))

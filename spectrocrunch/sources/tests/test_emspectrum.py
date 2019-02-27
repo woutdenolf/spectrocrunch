@@ -50,10 +50,10 @@ class test_emspectrum(unittest.TestCase):
 
     def test_serialize(self):
         s1 = emspectrum.Discrete(ureg.Quantity([100, 300], 'nm'), [1, 1])
-        s2 = jsonpickle.decode(jsonpickle.encode(s1))
+        s2 = jsonpickle.loads(jsonpickle.dumps(s1))
         self.assertEqual(s1, s2)
         s1 = emspectrum.Dark()
-        s2 = jsonpickle.decode(jsonpickle.encode(s1))
+        s2 = jsonpickle.loads(jsonpickle.dumps(s1))
         self.assertEqual(s1, s2)
 
 

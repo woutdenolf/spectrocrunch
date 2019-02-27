@@ -222,7 +222,7 @@ class test_compound(unittest.TestCase):
     @unittest.skipIf(xraylib is None, "xraylib not installed")
     def test_serialize(self):
         c1 = compoundfromformula.CompoundFromFormula("Fe2O3", 5.3, name="test")
-        c2 = jsonpickle.decode(jsonpickle.encode(c1))
+        c2 = jsonpickle.loads(jsonpickle.dumps(c1))
         self.assertEqual(c1, c2)
         self.assertEqual(c1.elements, c2.elements)
         self.assertEqual(c1.density, c2.density)

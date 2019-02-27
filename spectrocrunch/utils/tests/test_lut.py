@@ -74,13 +74,13 @@ class test_lut(unittest.TestCase):
 
     def test_serialize(self):
         l1 = lut.LUT()
-        l2 = jsonpickle.decode(jsonpickle.encode(l1))
+        l2 = jsonpickle.loads(jsonpickle.dumps(l1))
         self.assertEqual(l1, l2)
         l1.add(1, 2)
-        l2 = jsonpickle.decode(jsonpickle.encode(l1))
+        l2 = jsonpickle.loads(jsonpickle.dumps(l1))
         self.assertEqual(l1, l2)
         l1.add([4, 5], [6, 7])
-        l2 = jsonpickle.decode(jsonpickle.encode(l1))
+        l2 = jsonpickle.loads(jsonpickle.dumps(l1))
         self.assertEqual(l1, l2)
 
     def test_add(self):

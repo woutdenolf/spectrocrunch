@@ -301,7 +301,7 @@ class test_element(unittest.TestCase):
     def test_serialize(self):
         e1 = element.Element("Fe")
         e1.markabsorber("Fe", shells=['K'], fluolines=['KA'])
-        e2 = jsonpickle.decode(jsonpickle.encode(e1))
+        e2 = jsonpickle.loads(jsonpickle.dumps(e1))
         self.assertEqual(e1, e2)
         self.assertEqual(e1.shells, e2.shells)
 

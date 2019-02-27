@@ -58,7 +58,7 @@ class test_xray(TestCase):
                                      thickness=1)
                         else:
                             o1 = cls()
-                        o2 = jsonpickle.decode(jsonpickle.encode(o1))
+                        o2 = jsonpickle.loads(jsonpickle.dumps(o1))
                         self.assertEqual(o1, o2)
 
 

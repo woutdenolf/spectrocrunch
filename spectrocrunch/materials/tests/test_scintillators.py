@@ -38,7 +38,7 @@ class test_scintillators(unittest.TestCase):
         for name, cls in scintillators.Scintillator.clsregistry.items():
             if name not in exclude:
                 s1 = cls()
-                s2 = jsonpickle.decode(jsonpickle.encode(s1))
+                s2 = jsonpickle.loads(jsonpickle.dumps(s1))
                 self.assertEqual(s1, s2)
 
 

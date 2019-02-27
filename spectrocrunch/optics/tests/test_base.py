@@ -44,10 +44,10 @@ class test_base(unittest.TestCase):
 
     def test_serialize(self):
         o1 = base.Optics()
-        o2 = jsonpickle.decode(jsonpickle.encode(o1))
+        o2 = jsonpickle.loads(jsonpickle.dumps(o1))
         self.assertEqual(o1, o2)
         o1.set_transmission([7, 7.5], [0.9, 0.85])
-        o2 = jsonpickle.decode(jsonpickle.encode(o1))
+        o2 = jsonpickle.loads(jsonpickle.dumps(o1))
         self.assertEqual(o1, o2)
 
 
