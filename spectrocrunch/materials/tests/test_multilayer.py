@@ -330,7 +330,7 @@ class test_multilayer(unittest.TestCase):
                      "xraylib not installed")
     def test_serialize(self):
         m1 = self._multilayer2()
-        m2 = jsonpickle.decode(jsonpickle.encode(m1))
+        m2 = jsonpickle.loads(jsonpickle.dumps(m1))
         self.assertEqual(m1, m2)
 
 

@@ -180,7 +180,7 @@ class test_mixture(unittest.TestCase):
         c2 = compoundfromformula.CompoundFromFormula("Fe2O3", 1.6)
         m1 = mixture.Mixture(
             [c1, c2], [2, 3], types.fraction.mole, name='mixture')
-        m2 = jsonpickle.decode(jsonpickle.encode(m1))
+        m2 = jsonpickle.loads(jsonpickle.dumps(m1))
         self.assertEqual(m1.compounds, m2.compounds)
         self.assertEqual(m1.density, m2.density)
 

@@ -51,7 +51,7 @@ class test_visirlib(unittest.TestCase):
                      "PyTMM not installed")
     def test_serialize(self):
         m1 = visirlib.Material("main", "Al", "Rakic")
-        m2 = jsonpickle.decode(jsonpickle.encode(m1))
+        m2 = jsonpickle.loads(jsonpickle.dumps(m1))
         self.assertEqual(m1, m2)
 
 

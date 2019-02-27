@@ -176,7 +176,7 @@ class test_diode(unittest.TestCase):
         for name, cls in diode.PNdiode.clsregistry.items():
             if name not in exclude:
                 d1 = cls()
-                d2 = jsonpickle.decode(jsonpickle.encode(d1))
+                d2 = jsonpickle.loads(jsonpickle.dumps(d1))
                 self.assertEqual(d1, d2)
 
 

@@ -200,10 +200,10 @@ class test_polarization(unittest.TestCase):
 
     def test_serialize(self):
         g1 = next(iter(self._gen_jones()))
-        g2 = jsonpickle.decode(jsonpickle.encode(g1))
+        g2 = jsonpickle.loads(jsonpickle.dumps(g1))
         self.assertEqual(g1, g2)
         g1 = next(iter(self._gen_stokes()))
-        g2 = jsonpickle.decode(jsonpickle.encode(g1))
+        g2 = jsonpickle.loads(jsonpickle.dumps(g1))
         self.assertEqual(g1, g2)
 
 

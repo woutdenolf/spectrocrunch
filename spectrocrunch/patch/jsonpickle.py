@@ -23,16 +23,30 @@
 # THE SOFTWARE.
 
 from __future__ import absolute_import
-from jsonpickle import encode, decode
+import jsonpickle
 from jsonpickle import Pickler, Unpickler
 import jsonpickle.ext.numpy as jsonpickle_numpy
 from jsonpickle.handlers import BaseHandler, register
 from .pint import ureg
 
+
+jsonpickle.set_preferred_backend('json')
+jsonpickle.set_encoder_options('json', sort_keys=True)
+# jsonpickle.set_decoder_options('json', ...)
+
+
 try:
     unicode
 except NameError:
     unicode = str
+
+
+def dumps(data):
+    return jsonpickle.encode(data, keys=True)
+
+
+def loads(data):
+    return jsonpickle.decode(data, keys=True)
 
 
 def flatten(data, **kwargs):

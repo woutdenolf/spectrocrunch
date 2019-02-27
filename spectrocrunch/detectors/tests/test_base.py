@@ -46,27 +46,27 @@ class test_base(unittest.TestCase):
         attenuators = {'A': ca, 'B': calcite, 'C': mix}
 
         d1 = base.Material()
-        d2 = jsonpickle.decode(jsonpickle.encode(d1))
+        d2 = jsonpickle.loads(jsonpickle.dumps(d1))
         self.assertEqual(d1, d2)
         d1 = base.Material(attenuators=attenuators)
-        d2 = jsonpickle.decode(jsonpickle.encode(d1))
+        d2 = jsonpickle.loads(jsonpickle.dumps(d1))
         self.assertEqual(d1, d2)
 
         d1 = base.SolidState()
-        d2 = jsonpickle.decode(jsonpickle.encode(d1))
+        d2 = jsonpickle.loads(jsonpickle.dumps(d1))
         self.assertEqual(d1, d2)
         d1 = base.SolidState(attenuators=attenuators,
                              ehole=3.6)
-        d2 = jsonpickle.decode(jsonpickle.encode(d1))
+        d2 = jsonpickle.loads(jsonpickle.dumps(d1))
         self.assertEqual(d1, d2)
 
         d1 = base.CentricCone()
-        d2 = jsonpickle.decode(jsonpickle.encode(d1))
+        d2 = jsonpickle.loads(jsonpickle.dumps(d1))
         self.assertEqual(d1, d2)
         d1 = base.CentricCone(attenuators=attenuators,
                               ehole=3.6,
                               activearea=0.8)
-        d2 = jsonpickle.decode(jsonpickle.encode(d1))
+        d2 = jsonpickle.loads(jsonpickle.dumps(d1))
         self.assertEqual(d1, d2)
 
 

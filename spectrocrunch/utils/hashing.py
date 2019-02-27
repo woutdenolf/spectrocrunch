@@ -45,7 +45,7 @@ def typehash(o):
 
 
 def anyhash(x):
-    return stringhash(jsonpickle.encode(x))
+    return stringhash(jsonpickle.dumps(x))
 
 
 def getstate(x):

@@ -38,7 +38,7 @@ class test_lenses(unittest.TestCase):
         for name, cls in lenses.Lens.clsregistry.items():
             if name not in exclude:
                 l1 = cls()
-                l2 = jsonpickle.decode(jsonpickle.encode(l1))
+                l2 = jsonpickle.loads(jsonpickle.dumps(l1))
                 self.assertEqual(l1, l2)
 
 
