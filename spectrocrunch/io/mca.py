@@ -25,6 +25,7 @@
 import time
 from .spec import spec
 
+
 def array2SpecMca(data):
     """ Write a python array into a Spec array.
         Return the string containing the Spec array
@@ -42,8 +43,9 @@ def array2SpecMca(data):
                 tmpstr += "%.8g " % data[i]
         tmpstr += "\n"
     return tmpstr
-    
-def save(mca,filename,mode="w",zero=0,gain=1):
+
+
+def save(mca, filename, mode="w", zero=0, gain=1):
     with open(filename, mode) as ffile:
         ffile.write("#F %s\n" % filename)
         ffile.write("#D %s\n" % (time.ctime(time.time())))
@@ -52,12 +54,11 @@ def save(mca,filename,mode="w",zero=0,gain=1):
         ffile.write("#D %s\n" % (time.ctime(time.time())))
         ffile.write("#@MCA %16C\n")
         ffile.write("#@CHANN %d %d %d 1\n" % (len(mca), 0, len(mca)-1))
-        ffile.write("#@CALIB %.7g %.7g %.7g\n" % (zero,gain,0))
+        ffile.write("#@CALIB %.7g %.7g %.7g\n" % (zero, gain, 0))
         ffile.write(array2SpecMca(mca))
         ffile.write("\n")
 
+
 def read(filename):
     f = spec(filename)
-    return f.getdata2(1,[])
-
-        
+    return f.getdata2(1, [])

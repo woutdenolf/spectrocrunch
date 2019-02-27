@@ -33,6 +33,7 @@ from . import test_spec
 from . import test_excel
 from . import test_h5py
 
+
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
@@ -45,7 +46,8 @@ def test_suite():
     testSuite.addTest(test_excel.test_suite())
     testSuite.addTest(test_h5py.test_suite())
     return testSuite
-    
+
+
 if __name__ == '__main__':
     import sys
 

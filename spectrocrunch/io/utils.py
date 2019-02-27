@@ -29,13 +29,15 @@ import tempfile
 import random
 import string
 
+
 def randomstring(size=6, chars=string.ascii_letters + string.digits):
     # Number of combinations: n^size  (default: 62^6)
     return ''.join(random.choice(chars) for _ in range(size))
-    
+
+
 class Copy(object):
-    
-    def __init__(self,filename,copyname):
+
+    def __init__(self, filename, copyname):
         self.filename = filename
         self.copyname = copyname
 
@@ -43,14 +45,15 @@ class Copy(object):
         shutil.copy2(self.filename, self.copyname)
         return self.copyname
 
-    def __exit__(self,exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type:
             if os.path.isfile(self.copyname):
                 os.remove(self.copyname)
-        
+
+
 class TemporaryCopy(object):
-    
-    def __init__(self,filename,ext=".tmp"):
+
+    def __init__(self, filename, ext=".tmp"):
         self.filename = filename
         self.tmpfilename = None
         self.ext = ext
@@ -58,26 +61,28 @@ class TemporaryCopy(object):
     def __enter__(self):
         temp_dir = tempfile.gettempdir()
         temp_name = next(tempfile._get_candidate_names())
-        self.tmpfilename = os.path.join(temp_dir,temp_name+self.ext)
+        self.tmpfilename = os.path.join(temp_dir, temp_name+self.ext)
         shutil.copy2(self.filename, self.tmpfilename)
         return self.tmpfilename
 
-    def __exit__(self,exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         if os.path.isfile(self.tmpfilename):
             os.remove(self.tmpfilename)
         self.tmpfilename = None
 
+
 class TemporaryFilename(object):
-    
-    def __init__(self,path,suffix='.tmp',prefix=''):
-        self.tmpfilename = os.path.join(path,prefix+randomstring()+suffix)
-        
+
+    def __init__(self, path, suffix='.tmp', prefix=''):
+        self.tmpfilename = os.path.join(path, prefix+randomstring()+suffix)
+
     def __enter__(self):
         return self.tmpfilename
 
-    def __exit__(self,exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         if os.path.exists(self.tmpfilename):
             os.remove(self.tmpfilename)
+
 
 def mkdir(path):
     try:
@@ -87,4 +92,3 @@ def mkdir(path):
             pass
         else:
             raise e
-
