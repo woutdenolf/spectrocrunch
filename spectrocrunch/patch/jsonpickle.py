@@ -24,7 +24,6 @@
 
 from __future__ import absolute_import
 import jsonpickle
-from jsonpickle import Pickler, Unpickler
 import jsonpickle.ext.numpy as jsonpickle_numpy
 from jsonpickle.handlers import BaseHandler, register
 from .pint import ureg
@@ -57,7 +56,7 @@ def flatten(data, **kwargs):
     Returns:
         dict: state of data
     """
-    return Pickler(**kwargs).flatten(data, reset=True)
+    return jsonpickle.Pickler(**kwargs).flatten(data, reset=True)
 
 
 def restore(state, **kwargs):
@@ -68,7 +67,7 @@ def restore(state, **kwargs):
     Returns:
         Any: data restored from state
     """
-    return Unpickler.restore(state, reset=True, **kwargs)
+    return jsonpickle.Unpickler.restore(state, reset=True, **kwargs)
 
 
 class QuantityHandler(BaseHandler):

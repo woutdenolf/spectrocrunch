@@ -34,8 +34,10 @@ from ...math import noisepropagation
 class test_instance(unittest.TestCase):
 
     def test_instance(self):
-        select = 'str', 'unicode', 'bytes'
+        select = 'str', 'unicode', 'bytes', 'npunicode', 'npbytes', 'npstr'
         self._check_instance(instance.isstring, select)
+        select = 'npunicode', 'npbytes', 'npstr'
+        self._check_instance(instance.isnpstring, select)
         select = 'tuple', 'list', 'xrange',
         self._check_instance(instance.issequence, select)
         select = 'set', 'frozenset'
@@ -67,10 +69,14 @@ class test_instance(unittest.TestCase):
         self._check_instance(instance.isarraynot0, select)
         select = ('bool', 'int', 'float',
                   'nan', 'inf', 'npint', 'npfloat',
+                  'npunicode', 'npbytes', 'npstr',
                   'qscalar', 'uscalar')
         self._check_instance(instance.isscalar, select)
         select = 'qscalar',
         self._check_instance(instance.isqscalar, select)
+        select = ('npint', 'npfloat',
+                  'npunicode', 'npbytes', 'npstr')
+        self._check_instance(instance.isnpscalar, select)
         select = 'uscalar',
         self._check_instance(instance.isuscalar, select)
         select = ('bool', 'int', 'float',
@@ -92,7 +98,9 @@ class test_instance(unittest.TestCase):
         select = ('ndarray', 'ndarray0',
                   'nparray', 'nparray0',
                   'uarray', 'uarray0',
-                  'npint', 'npfloat')
+                  'npint', 'npfloat',
+                  'npstr', 'npunicode',
+                  'npbytes')
         self._check_instance(instance.isnumpy, select)
         select = 'qarray', 'qarray0'
         self._check_instance(instance.isqarray, select)

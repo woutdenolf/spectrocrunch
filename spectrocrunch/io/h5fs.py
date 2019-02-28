@@ -30,9 +30,11 @@ import errno
 import re
 from time import sleep
 import logging
+import numpy as np
 
 from . import fs
 from . import localfs
+from ..utils import instance
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,62 @@ class LockedError(FileSystemException):
     """
     Device has been locked by someone else.
     """
+
+
+try:
+    unicode
+except NameError:
+    unicode = str
+
+
+# Custom numpy dtype's
+vlen_unicode = h5py.special_dtype(vlen=unicode)
+vlen_bytes = h5py.special_dtype(vlen=bytes)
+
+
+def prepare_h5string(s):
+    """
+    Convert to Variable-length string. Uses UTF-8 encoding when
+    possible, otherwise byte-strings are used.
+
+    Args:
+        s: string or sequence of strings
+              string types: unicode, bytes (extended ascii), fixed-length numpy
+    Returns:
+        np.ndarray(vlen_unicode or vlen_bytes)
+    """
+    try:
+        # Do this first to check for encoding issues.
+        # Using vlen_unicode will not check encoding.
+        arr = np.array(s, dtype=unicode)
+    except UnicodeDecodeError:
+        # Reason: byte-string with extended ASCII encoding (e.g. Latin-1)
+        # Solution: save as byte-string
+        # Remark: Clients will read back the data exactly as it is written.
+        #         However the HDF5 character set is h5py.h5t.CSET_ASCII
+        #         which is strictly speaking not correct.
+        return np.array(s, dtype=vlen_bytes)
+    else:
+        return arr.astype(vlen_unicode)
+
+
+def prepare_h5data(data):
+    if instance.isstring(data):
+        return prepare_h5string(data)
+    elif instance.isarray(data):
+        if instance.isnparray(data):
+            if data.ndim == 0:
+                x = data.item()
+            else:
+                x = data[0]
+            if instance.isstring(x):
+                return prepare_h5string(data)
+        elif all(instance.isstring(x) for x in data):
+            return prepare_h5string(data)
+        else:
+            return data
+    else:
+        return data
 
 
 def is_link(fileobj, path):
@@ -541,12 +599,23 @@ class Path(fs.Path):
             raise ValueError('Hdf5 links do not have attributes themselves')
         try:
             with self.open(mode='r') as node:
-                return node.attrs.get(key, default=default)
+                return node.attrs.get(instance.asunicode(key), default=default)
+        except fs.Missing:
+            return default
+
+    def pop_stat(self, key, default=None, follow=True):
+        if follow == False:
+            raise ValueError('Hdf5 links do not have attributes themselves')
+        try:
+            with self.open(mode='r') as node:
+                return node.attrs.pop(instance.asunicode(key), default=default)
         except fs.Missing:
             return default
 
     def update_stats(self, **stats):
         with self.open() as node:
+            stats = {instance.asunicode(k): prepare_h5data(v)
+                     for k, v in stats.items()}
             node.attrs.update(stats)
 
     @contextlib.contextmanager
@@ -637,6 +706,15 @@ class Path(fs.Path):
 
     def write(self, **kwargs):
         return self.mkfile(**kwargs)
+
+    def mkfile(self, data=None, attributes=None, **params):
+        if data is not None:
+            params['data'] = prepare_h5data(data)
+        with self.open(**params) as dset:
+            if attributes:
+                for k, v in attributes.items():
+                    dset.attrs[k] = prepare_h5data(v)
+        return self
 
     @property
     def dtype(self):
