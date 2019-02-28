@@ -104,11 +104,21 @@ except NameError:
     xrange = range
 
 
+listgentypes = list, xrange
+
+
 def isstring(x):
     """
     Immutable sequence of code points or bytes
     """
-    return isinstance(x, (str, bytes, unicode))
+    return isinstance(x, (bytes, unicode)) or isnpstring(x)
+
+
+def asunicode(x):
+    if isinstance(x, bytes):
+        # This raises and exception for extended ASCII (>127)
+        return x.decode('utf-8')
+    return x
 
 
 def issequence(x):
@@ -174,8 +184,16 @@ def isnparray(x):
     return isinstance(x, np.ndarray)
 
 
+def isnpscalar(x):
+    return np.issubclass_(x.__class__, np.generic)
+
+
 def isnumpy(x):
-    return isnparray(x) or isnpnumber(x)
+    return isnparray(x) or isnpscalar(x)
+
+
+def isnpstring(x):
+    return np.issubclass_(x.__class__, np.character)
 
 
 def isqarray(x):
@@ -209,7 +227,7 @@ def isuscalar(x):
 
 
 def isscalar(x):
-    return isnumber(x) or isqscalar(x) or isuscalar(x)
+    return isnumber(x) or isnpscalar(x) or isqscalar(x) or isuscalar(x)
 
 
 def isnumber(x):
@@ -237,7 +255,7 @@ def dtype_is_integer(dtype):
 
 
 def islistgen(x):
-    return isinstance(x, (list, xrange))
+    return isinstance(x, listgentypes)
 
 
 def isboolsequence(lst):

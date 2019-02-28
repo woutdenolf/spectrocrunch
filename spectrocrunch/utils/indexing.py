@@ -55,7 +55,6 @@ def lengthadvanced(index, shape):
     Returns:
         num:
     """
-
     if isinstance(index, tuple):
         tmp = [ind for ind in index if ind is not np.newaxis]
         tmp = [lengthadvanced(ind, s) for ind, s in zip(tmp, shape)]
@@ -83,7 +82,6 @@ def indexcount(index, tp):
     Returns:
         num: length of the list indexing
     """
-
     if isinstance(index, tuple):
         return sum([indexcount(i, tp) for i in index])
     elif isinstance(index, tp):
@@ -100,8 +98,7 @@ def nadvanced(index):
     Returns:
         num: length of the list indexing
     """
-
-    return indexcount(index, instance.listtypes)
+    return indexcount(index, instance.listgentypes)
 
 
 def nsingleton(index):
@@ -112,7 +109,6 @@ def nsingleton(index):
     Returns:
         num: length of the list indexing
     """
-
     return indexcount(index, numbers.Number)
 
 
@@ -183,7 +179,6 @@ def extract_dimnonchanging(index):
     Returns:
         index,num: index2, final axis of list indexing
     """
-
     if len(index) == 0:
         return (), None
 
@@ -229,11 +224,8 @@ def extract_newaxis(index):
     Returns:
         2-tuple
     """
-
     ops = operators()
-
     bnew = [ind is np.newaxis for ind in index]
-
     if any(bnew):
         indexwithnew, indexwithoutnew, bindexwithoutnew = zip(
             *replace_nonnewaxis(index))
@@ -267,7 +259,6 @@ def extract_newaxis(index):
         index_newaxes = tuple(
             [np.newaxis if i == 1 else slice(None) for i in s1])
         ops.append(op_index(index_newaxes))
-
     return index, ops
 
 
@@ -302,7 +293,6 @@ def axesorder_afterindexing(index, ndim):
         list:
         index:
     """
-
     indexexpanded = expand(index, ndim)
 
     # Dimensions which are indexed by lists
@@ -393,7 +383,6 @@ def extract_axis(index, axis, shapefull):
         axis(num|None): stack axis after indexing
         ops(operators): transpose or identity operator
     """
-
     ops = operators()
     ndim = len(index)
     axis = positiveaxis(axis, ndim)
@@ -561,9 +550,7 @@ def replacefull_transform(index, fullaxes, ndim, restoreadvanced=True):
 
     # For extracting particular indices along the full dimensions
     selaxes = [axes2.index(a) for a in fullaxes]
-
     singletonindex = op_singletonindex(selaxes, restore)
-
     return indexfull, postindexfull, singletonindex
 
 
@@ -630,12 +617,10 @@ def nonchangingdims(index, ndim, axes, shape=None):
         i = i[0]
         if len(axesorder[i]) == 1:
             axesorder[i] = axesorder[i][0]
-
     try:
         b &= listtools.listadvanced(axesorder, axes) == axes
     except:
         b = False
-
     return b
 
 

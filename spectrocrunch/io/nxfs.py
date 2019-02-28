@@ -69,31 +69,6 @@ class NexusProcessWrongHash(NexusException):
     pass
 
 
-try:
-    unicode
-except NameError:
-    unicode = str
-
-
-nxchar_dtype = h5py.special_dtype(vlen=unicode)
-
-
-def dataprepare(data):
-    if isinstance(data, bytes):
-        try:
-            return data.decode('utf-8')
-        except UnicodeDecodeError:
-            return data.decode('latin-1')
-    elif instance.isarray0(data):
-        return np.array(data.item(), dtype=nxchar_dtype)
-    elif instance.isnparray(data):
-        return dataprepare(data.tolist())
-    elif instance.isarray(data):
-        return np.array(list(map(dataprepare, data)), dtype=nxchar_dtype)
-    else:
-        return data
-
-
 tzlocal = dateutil.tz.tzlocal()
 
 
@@ -102,7 +77,7 @@ def now():
 
 
 def timestamp():
-    return dataprepare(now().isoformat())
+    return now().isoformat()
 
 
 def parse_timestamp(tm):
@@ -116,22 +91,18 @@ def parse_timestamp(tm):
 class Path(h5fs.Path):
 
     def mkfile(self, data=None, units=None, attributes=None, **params):
+        if attributes is None:
+            attributes = {}
         if instance.isquantity(data):
-            units = '{:~}'.format(data.units)
-            data = data.magnitude
-        if data is not None:
-            params['data'] = dataprepare(data)
-        with self.open(**params) as dset:
             if units is not None:
-                dset.attrs['units'] = dataprepare(units)
-            if attributes is not None:
-                for k, v in attributes.items():
-                    dset.attrs[k] = dataprepare(v)
-        return self
-
-    def update_stats(self, **stats):
-        stats = {k: dataprepare(v) for k, v in stats.items()}
-        super(Path, self).update_stats(**stats)
+                data = data.to(units)
+            units = data.units
+            data = data.magnitude
+        if units is not None:
+            if not instance.isstring(units):
+                units = '{:~}'.format(units)
+            attributes['units'] = units
+        return super(Path, self).mkfile(data=data, attributes=attributes, **params)
 
     @property
     def factorycls(self):
@@ -204,24 +175,22 @@ class Path(h5fs.Path):
             if not path.exists:
                 path = path.mkdir()
             with path.open() as node:
-                nxclassattr = node.attrs.get(u'NX_class', None)
+                nxclassattr = path.get_stat('NX_class', None)
                 if nxclassattr:
                     if nxclassattr != nxclass:
                         raise fs.AlreadyExists('{} with the wrong class ({} instead of {})'.format(
                             path, nxclassattr, nxclass))
                 else:
-                    node.attrs[u'NX_class'] = nxclass
                     if nxattributes:
                         if instance.iscallable(nxattributes):
                             nxattributes = nxattributes()
-                        nxattributes.pop(u'NX_class', None)
-                        node.attrs.update(**nxattributes)
+                        path.update_stats(**nxattributes)
+                    path.update_stats(NX_class=nxclass)
                     if nxfiles:
                         if instance.iscallable(nxfiles):
                             nxfiles = nxfiles()
                         for name, data in nxfiles.items():
                             path[name].mkfile(data=data, **openparams)
-
                     path.updated()
             return self.factory(path)
 
@@ -303,11 +272,11 @@ class Path(h5fs.Path):
                                   **openparams)
 
     def _nxattributes_nxroot(self):
-        return {'file_name': dataprepare(self._h5file.path),
+        return {'file_name': self._h5file.path,
                 'file_time': timestamp(),
-                'HDF5_Version': dataprepare(h5py.version.hdf5_version),
-                'h5py_version': dataprepare(h5py.version.version),
-                'creator': dataprepare(PROGRAM_NAME)}
+                'HDF5_Version': h5py.version.hdf5_version,
+                'h5py_version': h5py.version.version,
+                'creator': PROGRAM_NAME}
 
     def nxentry(self, name=None, **openparams):
         """Get NXentry (first looks in parents) and create if it does not exist
@@ -465,8 +434,8 @@ class Path(h5fs.Path):
         return None
 
     def _nxfiles_nxprocess(self):
-        return {'program': dataprepare(PROGRAM_NAME),
-                'version': dataprepare(__version__),
+        return {'program': PROGRAM_NAME,
+                'version': __version__,
                 'date': timestamp()}
 
     def nxinstrument(self, **openparams):
@@ -697,7 +666,7 @@ class _NXdata(_NXPath):
     def signal(self):
         with self._verify():
             with self.open() as node:
-                name = node.attrs.get("signal", None)
+                name = self.get_stat("signal", None)
                 if name:
                     return self[name]
                 else:
@@ -716,7 +685,7 @@ class _NXdata(_NXPath):
                 elif prop == 'size':
                     return dset.size
                 elif prop == 'interpretation':
-                    interpretation = dset.attrs.get('interpretation', None)
+                    interpretation = signal.get_stat('interpretation', None)
                     if not interpretation:
                         interpretation = self._interpretation(dset)
                     return interpretation
@@ -762,7 +731,7 @@ class _NXdata(_NXPath):
     def auxiliary_signals(self):
         with self._verify():
             with self.open() as node:
-                names = node.attrs.get("auxiliary_signals", [])
+                names = self.get_stat("auxiliary_signals", [])
                 for name in names:
                     yield self[name]
 
@@ -803,23 +772,26 @@ class _NXdata(_NXPath):
             elif name:
                 if title is None:
                     title = name
-                with self[name].open(**createparams) as node:
-                    node.attrs['long_name'] = dataprepare(title)
+                signalpath = self[name]
+                with signalpath.open(**createparams) as node:
                     if not interpretation:
                         interpretation = self._interpretation(node)
-                    node.attrs['interpretation'] = dataprepare(interpretation)
-                    if units is not None:
-                        node.attrs['units'] = dataprepare(units)
+                        attrs = {'long_name': title}
+                        if interpretation:
+                            attrs['interpretation'] = interpretation
+                        if units is not None:
+                            attrs['units'] = units
+                        signalpath.update_stats(**attrs)
             else:
                 raise ValueError('Provide either "name" or "signal"')
 
             # Add signal name to NXdata attributes
             with self.open() as node:
-                signals = np.append(node.attrs.get("auxiliary_signals", []),
-                                    node.attrs.get("signal", []))
+                signals = np.append(self.get_stat("auxiliary_signals", []),
+                                    self.get_stat("signal", []))
                 if signals.size:
-                    node.attrs["auxiliary_signals"] = dataprepare(signals)
-                node.attrs["signal"] = dataprepare(name)
+                    self.update_stats(auxiliary_signals=signals)
+                self.update_stats(signal=name)
 
             self.updated()
             return self[name]
@@ -836,17 +808,16 @@ class _NXdata(_NXPath):
     def default_signal(self, name):
         with self._verify():
             with self.open() as node:
-                if name == node.attrs["signal"]:
+                if name == self.get_stat("signal"):
                     return True
-                signals = np.append(node.attrs.get("signal", []),
-                                    node.attrs.get("auxiliary_signals", []))
+                signals = np.append(self.get_stat("signal", []),
+                                    self.get_stat("auxiliary_signals", []))
                 if name not in signals:
                     return False
-                aux = dataprepare(
-                    [signal for signal in signals if signal != name])
-                if aux.size:
-                    node.attrs["auxiliary_signals"] = aux
-                node.attrs["signal"] = dataprepare(name)
+                aux = [signal for signal in signals if signal != name]
+                if aux:
+                    self.update_stats(auxiliary_signals=aux)
+                self.update_stats(signal=name)
             self.updated()
         return True
 
@@ -854,18 +825,17 @@ class _NXdata(_NXPath):
         with self._verify():
             self[name].remove()
             with self.open() as node:
-                signals = node.attrs.pop("auxiliary_signals", None)
-                if signals.size:
+                signals = self.pop_stat('auxiliary_signals')
+                if signals is not None:
                     if self.signal.name == name:
                         aux = signals[:-1]
                         if aux.size:
-                            node.attrs["auxiliary_signals"] = aux
-                        node.attrs["signal"] = signals[-1]
+                            self.update_stats(auxiliary_signals=aux)
+                        self.update_stats(signal= signals[-1])
                     else:
-                        aux = dataprepare(
-                            [signal for signal in signals if signal != name])
-                        if aux.size:
-                            node.attrs["auxiliary_signals"] = aux
+                        aux = [signal for signal in signals if signal != name]
+                        if aux:
+                            self.update_stats(auxiliary_signals=aux)
             self.updated()
 
     def sort_signals(self, other=None):
@@ -879,10 +849,10 @@ class _NXdata(_NXPath):
                         return
                     signals = other_signals
 
-                aux = dataprepare(signals[1:])
-                if aux.size:
-                    node.attrs["auxiliary_signals"] = aux
-                node.attrs["signal"] = dataprepare(signals[0])
+                aux = signals[1:]
+                if aux:
+                    self.update_stats(auxiliary_signals=aux)
+                self.update_stats(signal= signals[0])
 
             self.updated()
 
@@ -911,7 +881,7 @@ class _NXdata(_NXPath):
                     if not self[name].exists:
                         self[name].link(axis, soft=True)
                     names.append(name)
-                node.attrs["axes"] = dataprepare(names)
+                self.update_stats(axes=names)
                 self.updated()
                 return axes
 
@@ -945,9 +915,14 @@ class _NXdata(_NXPath):
         with self._verify():
             with self.open() as node:
                 ret = []
-                for name in node.attrs.get('axes', []):
-                    with self[name].open(mode='r') as axis:
-                        ret.append(self._axis_astuple(name, axis))
+                for name in self.get_stat('axes', []):
+                    axispath = self[name]
+                    with axispath.open(mode='r') as axis:
+                        attrs = {'title': axispath.get_stat('long_name', None),
+                                 'units': axispath.get_stat('units', None)}
+                        values = axis[()]
+                        values = units.Quantity(values, attrs['units'])
+                        ret.append((name, values, attrs))
                 return ret
 
     @property
@@ -955,17 +930,10 @@ class _NXdata(_NXPath):
         with self._verify():
             with self.open() as node:
                 ret = []
-                for name in node.attrs.get('axes', []):
+                for name in self.get_stat('axes', []):
                     with self[name].open(mode='r') as axis:
                         ret.append(axis.size)
                 return tuple(ret)
-
-    def _axis_astuple(self, name, axis):
-        attrs = {'title': axis.attrs.get('long_name', None),
-                 'units': axis.attrs.get('units', None)}
-        values = axis[()]
-        values = units.Quantity(values, attrs['units'])
-        return name, values, attrs
 
     def default_entry_link(self):
         super(_NXdata, self).mark_default()
@@ -1009,10 +977,10 @@ class _NXcollection(_NXPath):
                             title = '{} ({})'.format(name, units)
                         else:
                             title = name
-                    with axis.open(data=value) as node:
-                        node.attrs["long_name"] = dataprepare(title)
-                        if units:
-                            node.attrs["units"] = dataprepare(units)
+                    axis.mkfile(data=value)
+                    axis.update_stats(long_name=title)
+                    if units:
+                        axis.update_stats(units=units)
                 self.updated()
             return axis
 
@@ -1022,7 +990,7 @@ class _NXcollection(_NXPath):
             if axis.exists:
                 with axis.open(mode='r') as node:
                     values = node[()]
-                    u = node.attrs.get('units', 'dimensionless')
+                    u = axis.get_stat('units', 'dimensionless')
                     values = units.Quantity(values, u)
                 return values
 
@@ -1068,10 +1036,10 @@ class _NXmonochromator(_NXPath):
     @property
     def energy(self):
         with self._verify():
-            with self['energy'].open(mode='r') as node:
-                value = node[()]
-                u = node.attrs.get('units', 'keV')
-                return units.Quantity(value, u)
+            path = self['energy']
+            value = path.read()
+            u = path.get_stat('units', 'keV')
+            return units.Quantity(value, u)
 
     @energy.setter
     def energy(self, value):
