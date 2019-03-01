@@ -115,10 +115,32 @@ def isstring(x):
 
 
 def asunicode(x):
+    """
+    Args:
+        s(bytes or unicode)
+    Returns:
+        bytes
+    Raises:
+        UnicodeDecodeError: bytes with extended-ASCII characters
+    """
     if isinstance(x, bytes):
-        # This raises and exception for extended ASCII (>127)
         return x.decode('utf-8')
     return x
+
+
+def asbytes(s):
+    """
+    Args:
+        s(bytes or unicode)
+    Returns:
+        bytes
+    Raises:
+        UnicodeEncodeError: unicode with non-UTF8 characters
+                            (does this happen?)
+    """
+    if isinstance(s, unicode):
+        return s.encode('utf-8')
+    return s
 
 
 def issequence(x):
@@ -160,6 +182,15 @@ def isarray(x):
     if isinstance(x, types):
         return True
     return isnparray(x) or isqarray(x)
+
+
+def isstringarray(x):
+    if not isarray(x):
+        return False
+    if isarray0(x):
+        return isstring(x.item())
+    else:
+        return all(isstring(y) for y in x)
 
 
 def isarray0(x):

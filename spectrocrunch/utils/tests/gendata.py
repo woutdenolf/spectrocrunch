@@ -23,6 +23,12 @@ def gendata():
     data['npunicode'] = np.unicode_(u'\u0101bc')
     data['npbytes'] = np.bytes_(b'\xe423')
     data['npstr'] = np.str_('abc')
+    data['unicode_list'] = [u'\u0101bc', u'\u0101bc']
+    data['bytes_list'] = [b'\xe423', b'\xe423']
+    data['str_list'] = ['abc', 'abc']
+    data['npunicode_array'] = np.array([u'\u0101bc', u'\u0101bc'])
+    data['npbytes_array'] = np.array([b'\xe423', b'\xe423'])
+    data['npstr_array'] = np.array(['abc', 'abc'])
     data['bytearray'] = bytearray([228, 50, 51])
     data['array'] = array('i', [1000, 2000])
     tmp = 1, 2
