@@ -58,52 +58,63 @@ except NameError:
     unicode = str
 
 
-# Custom numpy dtype's
-vlen_unicode = h5py.special_dtype(vlen=unicode)
-vlen_bytes = h5py.special_dtype(vlen=bytes)
+# Fixed-length dtype's
+flen_unicode_dtype = unicode
+flen_bytes_dtype = bytes
+flen_opaque_dtype = np.void
 
 
-def prepare_h5string(s):
+# Variable-length dtype's
+vlen_unicode_dtype = h5py.special_dtype(vlen=unicode)
+vlen_bytes_dtype = h5py.special_dtype(vlen=bytes)
+vlen_opaque_dtype = h5py.special_dtype(vlen=np.void)
+
+
+def prepare_h5string(s, raiseExtended=True, useOpaqueDataType=False):
     """
-    Convert to Variable-length string. Uses UTF-8 encoding when
-    possible, otherwise byte-strings are used.
+    Convert to Variable-length string (array or scalar).
+    Uses UTF-8 encoding when possible.
 
     Args:
-        s: string or sequence of strings
-              string types: unicode, bytes (extended ascii), fixed-length numpy
+        s: string or array of strings
+           string types: unicode, bytes, fixed-length numpy
+        raiseExtended(bool): raise decoding error
+        useOpaqueDataType(bool): save as opaque instead of
+                                 bytes on decoding error
     Returns:
-        np.ndarray(vlen_unicode or vlen_bytes)
+        np.ndarray: dtype is vlen_bytes_dtype, vlen_unicode_dtype
+                    or flen_opaque_dtype
+    Raises:
+        UnicodeDecodeError: extended ASCII encoding
     """
     try:
-        # Do this first to check for encoding issues.
-        # Using vlen_unicode will not check encoding.
-        arr = np.array(s, dtype=unicode)
+        # Attempt decoding (not done with vlen_unicode_dtype)
+        np.array(s, dtype=flen_unicode_dtype)
     except UnicodeDecodeError:
-        # Reason: byte-string with extended ASCII encoding (e.g. Latin-1)
-        # Solution: save as byte-string
-        # Remark: Clients will read back the data exactly as it is written.
-        #         However the HDF5 character set is h5py.h5t.CSET_ASCII
-        #         which is strictly speaking not correct.
-        return np.array(s, dtype=vlen_bytes)
-    else:
-        return arr.astype(vlen_unicode)
-
-
-def prepare_h5data(data):
-    if instance.isstring(data):
-        return prepare_h5string(data)
-    elif instance.isarray(data):
-        if instance.isnparray(data):
-            if data.ndim == 0:
-                x = data.item()
-            else:
-                x = data[0]
-            if instance.isstring(x):
-                return prepare_h5string(data)
-        elif all(instance.isstring(x) for x in data):
-            return prepare_h5string(data)
+        # Reason: at least one byte-string with non-ASCII character
+        #         (e.g. Latin-1 encoding)
+        if raiseExtended:
+            raise
+        if useOpaqueDataType:
+            # vlen_opaque_dtype: currenly not supported by h5py
+            try:
+                np.array(s, dtype=flen_bytes_dtype)
+            except UnicodeEncodeError:
+                # Reason: at least one UTF-8 string with non-ASCII character
+                s = list(map(instance.asbytes, s))
+            # vlen_opaque_dtype: currenly not supported by h5py
+            return np.array(s, dtype=flen_opaque_dtype)
         else:
-            return data
+            return np.array(s, dtype=vlen_bytes_dtype)
+    else:
+        return np.array(s, dtype=vlen_unicode_dtype)
+
+
+def prepare_h5data(data, **kwargs):
+    if instance.isstring(data):
+        return prepare_h5string(data, **kwargs)
+    elif instance.isstringarray(data):
+        return prepare_h5string(data, **kwargs)
     else:
         return data
 
@@ -612,9 +623,11 @@ class Path(fs.Path):
         except fs.Missing:
             return default
 
-    def update_stats(self, **stats):
+    def update_stats(self, prepare_kwargs=None, **stats):
         with self.open() as node:
-            stats = {instance.asunicode(k): prepare_h5data(v)
+            if prepare_kwargs is None:
+                prepare_kwargs = {}
+            stats = {instance.asunicode(k): prepare_h5data(v, **prepare_kwargs)
                      for k, v in stats.items()}
             node.attrs.update(stats)
 
@@ -707,13 +720,15 @@ class Path(fs.Path):
     def write(self, **kwargs):
         return self.mkfile(**kwargs)
 
-    def mkfile(self, data=None, attributes=None, **params):
+    def mkfile(self, data=None, attributes=None, prepare_kwargs=None, **params):
+        if prepare_kwargs is None:
+            prepare_kwargs = {}
         if data is not None:
-            params['data'] = prepare_h5data(data)
+            params['data'] = prepare_h5data(data, **prepare_kwargs)
         with self.open(**params) as dset:
             if attributes:
                 for k, v in attributes.items():
-                    dset.attrs[k] = prepare_h5data(v)
+                    dset.attrs[k] = prepare_h5data(v, **prepare_kwargs)
         return self
 
     @property

@@ -38,7 +38,11 @@ class test_instance(unittest.TestCase):
         self._check_instance(instance.isstring, select)
         select = 'npunicode', 'npbytes', 'npstr'
         self._check_instance(instance.isnpstring, select)
-        select = 'tuple', 'list', 'xrange',
+        select = ('str_list', 'unicode_list', 'bytes_list',
+                  'npstr_array', 'npunicode_array', 'npbytes_array')
+        self._check_instance(instance.isstringarray, select)
+        select = ('tuple', 'list', 'xrange',
+                  'str_list', 'unicode_list', 'bytes_list')
         self._check_instance(instance.issequence, select)
         select = 'set', 'frozenset'
         self._check_instance(instance.isset, select)
@@ -49,6 +53,8 @@ class test_instance(unittest.TestCase):
                   'nparray', 'nparray0',
                   'qarray', 'qarray0',
                   'uarray', 'uarray0',
+                  'str_list', 'unicode_list', 'bytes_list',
+                  'npstr_array', 'npunicode_array', 'npbytes_array',
                   'dict', 'odict', 'ddict')
         self._check_instance(instance.isiterable, select)
         select = ('tuple', 'list', 'xrange',
@@ -57,7 +63,9 @@ class test_instance(unittest.TestCase):
                   'ndarray', 'ndarray0',
                   'nparray', 'nparray0',
                   'qarray', 'qarray0',
-                  'uarray', 'uarray0')
+                  'uarray', 'uarray0',
+                  'str_list', 'unicode_list', 'bytes_list',
+                  'npstr_array', 'npunicode_array', 'npbytes_array')
         self._check_instance(instance.isarray, select)
         select = 'ndarray0', 'nparray0', 'qarray0', 'uarray0'
         self._check_instance(instance.isarray0, select)
@@ -65,7 +73,9 @@ class test_instance(unittest.TestCase):
                   'set', 'frozenset',
                   'array', 'bytearray',
                   'ndarray', 'nparray',
-                  'qarray', 'uarray')
+                  'qarray', 'uarray',
+                  'str_list', 'unicode_list', 'bytes_list',
+                  'npstr_array', 'npunicode_array', 'npbytes_array')
         self._check_instance(instance.isarraynot0, select)
         select = ('bool', 'int', 'float',
                   'nan', 'inf', 'npint', 'npfloat',
@@ -93,14 +103,15 @@ class test_instance(unittest.TestCase):
         self._check_instance(instance.isquantity, select)
         select = ('ndarray', 'ndarray0',
                   'nparray', 'nparray0',
-                  'uarray', 'uarray0')
+                  'uarray', 'uarray0',
+                  'npstr_array', 'npunicode_array', 'npbytes_array')
         self._check_instance(instance.isnparray, select)
         select = ('ndarray', 'ndarray0',
                   'nparray', 'nparray0',
                   'uarray', 'uarray0',
                   'npint', 'npfloat',
-                  'npstr', 'npunicode',
-                  'npbytes')
+                  'npstr', 'npunicode', 'npbytes',
+                  'npstr_array', 'npunicode_array', 'npbytes_array')
         self._check_instance(instance.isnumpy, select)
         select = 'qarray', 'qarray0'
         self._check_instance(instance.isqarray, select)
