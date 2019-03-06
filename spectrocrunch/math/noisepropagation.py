@@ -41,69 +41,86 @@ from uncertainties import unumpy
 #
 #   Variable.derivatives:
 #       {a:da,b:db,...}
-#   
+#
 #   covariance_matrix([x,y,...]):
-#       C[x,y] = sum( x.derivatives[a] * y.derivatives[a] * sa^2 + 
+#       C[x,y] = sum( x.derivatives[a] * y.derivatives[a] * sa^2 +
 #                     x.derivatives[b] * y.derivatives[b] * sb^2 + ... )
 #
-    
+
+
 class Bernouilli(RandomVariable):
-    def __init__(self,probsuccess,**kwargs):
-        super(Bernouilli,self).__init__(probsuccess,np.sqrt(probsuccess*(1-probsuccess)),**kwargs)
+    def __init__(self, probsuccess, **kwargs):
+        super(Bernouilli, self).__init__(probsuccess,
+                                         np.sqrt(probsuccess*(1-probsuccess)), **kwargs)
+
 
 class Poisson(RandomVariable):
-    def __init__(self,gain,**kwargs):
-        super(Poisson,self).__init__(gain,np.sqrt(gain),**kwargs)
+    def __init__(self, gain, **kwargs):
+        super(Poisson, self).__init__(gain, np.sqrt(gain), **kwargs)
+
 
 def bernouilli(p):
     if instance.isarray(p):
-        return np.vectorize(Bernouilli,otypes=[object])(p)
+        return np.vectorize(Bernouilli, otypes=[object])(p)
     else:
         return Bernouilli(p)
 
+
 def poisson(p):
     if instance.isarray(p):
-        return np.vectorize(Poisson,otypes=[object])(p)
+        return np.vectorize(Poisson, otypes=[object])(p)
     else:
         return Poisson(p)
-        
-def randomvariable(X,SX):
+
+
+def randomvariable(X, SX):
     if instance.isarray(X):
-        return np.vectorize(lambda x, s: RandomVariable(x, s), otypes=[object])(X,SX)
+        return np.vectorize(lambda x, s: randomvariable(x, s), otypes=[object])(X, SX)
     else:
-        return RandomVariable(X,SX)
-  
+        return RandomVariable(X, SX)
+
+
 def E(X):
-    X = units.Quantity(X,forcequantity=False)
+    X = units.Quantity(X, forcequantity=False)
     if instance.isuscalar(X):
         return instance.asscalar(unumpy.nominal_values(X))
     elif instance.isquantity(X):
-        return units.Quantity(E(X.magnitude),X.units)
+        return units.Quantity(E(X.magnitude), X.units)
+    elif instance.isuarray(X):
+        return unumpy.nominal_values(X)
     else:
         return X
-        
+
+
 def S(X):
-    X = units.Quantity(X,forcequantity=False)
+    X = units.Quantity(X, forcequantity=False)
     if instance.isuscalar(X):
         return instance.asscalar(unumpy.std_devs(X))
     elif instance.isquantity(X):
-        return units.Quantity(S(X.magnitude),X.units)
+        return units.Quantity(S(X.magnitude), X.units)
+    elif instance.isuarray(X):
+        return unumpy.std_devs(X)
     else:
         return X*0
 
+
 def VAR(X):
     return S(X)**2
-        
+
+
 def SNR(X):
     return E(X)/S(X)
 
+
 def NSR(X):
     return S(X)/E(X)
-    
+
+
 def RVAR(X):
     return VAR(X)/E(X)**2
-    
-def repeat(N,X,forward=True):
+
+
+def repeat(N, X, forward=True):
     """Sum of a fixed number (N) of independent random variables (Xi) with the same probability mass function.
 
         ISSUE: loose correlation with X
@@ -111,7 +128,7 @@ def repeat(N,X,forward=True):
     Args:
         N(num): number of repeats
         X(num|array): random variable
-        
+
     """
     # Linear error propagation of X+X:
     #    VAR[X+X] = VAR[X] + VAR[X] + 2.COV[X,X]
@@ -132,23 +149,24 @@ def repeat(N,X,forward=True):
     #     see below
     #
     # => SNR[n.X] = SNR[X] * sqrt(n)
-    
+
     if forward:
-        return randomvariable(E(X)*N,S(X)*np.sqrt(N))
+        return randomvariable(E(X)*N, S(X)*np.sqrt(N))
     else:
-        return randomvariable(E(X)/N,S(X)/np.sqrt(N))
-        
-def compound(N,X,forward=True):
+        return randomvariable(E(X)/N, S(X)/np.sqrt(N))
+
+
+def compound(N, X, forward=True):
     """Sum of a random number (N) of independent random variables (X_i) with E[X_i]=E[X_j], VAR[X_i]=VAR[X_j]
        (which is weaker than saying the have the same pmf). This is called a "compound random variable".
-       
+
        S. K. Ross, Introduction to Probability Models, Eleventh Edition, Academic Press, 2014, example 3.10 and 3.19.
-       
+
        http://www.math.unl.edu/~sdunbar1/ProbabilityTheory/Lessons/Conditionals/RandomSums/randsum.shtml
        https://mathmodelsblog.wordpress.com/2010/01/17/an-introduction-to-compound-distributions/
-       
+
         ISSUE: loose correlation with N and X
-        
+
     Args:
         N(num|array): incomming number of photons with uncertainties
         X(num|array): probability mass function of X
@@ -161,13 +179,13 @@ def compound(N,X,forward=True):
     #       -> N a fixed number: pmf(Y) = Binomial
     #       -> pmf(N) = Poisson: pmf(Y) = Poisson (binomial selection theorem)
     # 2. pmf(X) = Poisson  (e.g. X-ray to VIS)
-    
+
     EN = E(N)
     VARN = VAR(N)
     EX = E(X)
     VARX = VAR(X)
-    
-    #if instance.isarray(N) or instance.isarray(X):
+
+    # if instance.isarray(N) or instance.isarray(X):
     #    nN = np.asarray(N).shape
     #    if len(nN)==2:
     #        nN = nN[1]
@@ -180,7 +198,7 @@ def compound(N,X,forward=True):
 
     #    EX = np.broadcast_to(EX,[nN,nX]).T
     #    VARX = np.broadcast_to(VARX,[nN,nX]).T
-    
+
     if forward:
         EY = EN*EX
         VARY = VARN*EX*EX + VARX*EN
@@ -188,60 +206,63 @@ def compound(N,X,forward=True):
         # Y <-> N
         EY = EN/EX
         VARY = (VARN - VARX*EY)/(EX*EX)
-        
-    return randomvariable(EY,np.sqrt(VARY))
-    
-def reverse_add(Z,Y):
+
+    return randomvariable(EY, np.sqrt(VARY))
+
+
+def reverse_add(Z, Y):
     """Z = X + Y (assume X and Y independent)
        VARZ = VARX + VARY
-       
+
        Y = Z - Y
        VARX = VARZ - VARY
-    
-    """
-    return randomvariable( E(Z)-E(Y), (VAR(Z)-VAR(Y))**0.5 )
 
-def reverse_sub(Z,Y):
+    """
+    return randomvariable(E(Z)-E(Y), (VAR(Z)-VAR(Y))**0.5)
+
+
+def reverse_sub(Z, Y):
     """Z = X - Y (assume X and Y independent)
        VARZ = VARX + VARY
-       
+
        X = Z + Y
        VARX = VARZ - VARY
-    
+
     """
-    return randomvariable( E(Z)+E(Y), (VAR(Z)-VAR(Y))**0.5 )
-    
-def reverse_mult(Z,Y):
+    return randomvariable(E(Z)+E(Y), (VAR(Z)-VAR(Y))**0.5)
+
+
+def reverse_mult(Z, Y):
     """Z = X * Y (assume X and Y independent)
        VARZ = Y^2 * VARX + X^2 * VARY
-       
+
        X = Z/Y
        VARX = (VARZ - X^2 * VARY)/Y^2
-    
+
     """
     EY = E(Y)
     EX = E(Z)/EY
-    return randomvariable( EX, (  (VAR(Z)-EX*EX*VAR(Y))/(EY*EY)  )**0.5 )
+    return randomvariable(EX, ((VAR(Z)-EX*EX*VAR(Y))/(EY*EY))**0.5)
 
-def reverse_div(Z,Y):
+
+def reverse_div(Z, Y):
     """Z = X/Y (assume X and Y independent)
        VARZ = 1/Y^2 * VARX + X^2/Y^4 * VARY
-       
+
        X = Z*Y
        VARX = VARZ*Y^2 - X^2/Y^2 * VARY
     """
     EY = E(Y)
     EX = E(Z)*EY
-    return randomvariable( EX, (  VAR(Z)*EY*EY - EX*EX*VAR(Y)/(EY*EY)  )**0.5 )
+    return randomvariable(EX, (VAR(Z)*EY*EY - EX*EX*VAR(Y)/(EY*EY))**0.5)
+
 
 def reverse_log(Z):
     """Z = ln(X)
        VARZ = VARX/X^2
-       
+
        X = exp(Z)
        VARX = X^2*VARZ
     """
     EX = np.exp(E(Z))
-    return randomvariable( EX, (  VAR(Z)*EX*EX  )**0.5 )
-    
-    
+    return randomvariable(EX, (VAR(Z)*EX*EX)**0.5)

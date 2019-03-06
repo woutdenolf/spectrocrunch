@@ -46,6 +46,7 @@ def test_suite():
     testSuite.addTest(test_interpolate.test_suite())
     return testSuite
 
+
 if __name__ == '__main__':
     import sys
 
