@@ -75,7 +75,7 @@ def randomvariable(X,SX):
   
 def E(X):
     X = units.Quantity(X,forcequantity=False)
-    if instance.israndomvariable(X):
+    if instance.isuscalar(X):
         return instance.asscalar(unumpy.nominal_values(X))
     elif instance.isquantity(X):
         return units.Quantity(E(X.magnitude),X.units)
@@ -84,7 +84,7 @@ def E(X):
         
 def S(X):
     X = units.Quantity(X,forcequantity=False)
-    if instance.israndomvariable(X):
+    if instance.isuscalar(X):
         return instance.asscalar(unumpy.std_devs(X))
     elif instance.isquantity(X):
         return units.Quantity(S(X.magnitude),X.units)

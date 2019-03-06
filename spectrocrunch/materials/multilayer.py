@@ -1152,7 +1152,7 @@ class Multilayer(with_metaclass(cache.Cache)):
 
         N, probsuccess = self.propagate_broadcast(N, probsuccess)
 
-        if instance.israndomvariable(N):
+        if instance.isuscalar(N):
             process = noisepropagation.bernouilli(probsuccess)
             Nout = noisepropagation.compound(N, process, forward=forward)
         else:

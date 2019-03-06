@@ -96,11 +96,11 @@ def prepare_h5string(s, raiseExtended=True, useOpaqueDataType=False):
         if raiseExtended:
             raise
         if useOpaqueDataType:
-            # vlen_opaque_dtype: currenly not supported by h5py
             try:
                 np.array(s, dtype=flen_bytes_dtype)
             except UnicodeEncodeError:
                 # Reason: at least one UTF-8 string with non-ASCII character
+                # Here because: mix of unicode and non-ASCII byte strings
                 s = list(map(instance.asbytes, s))
             # vlen_opaque_dtype: currenly not supported by h5py
             return np.array(s, dtype=flen_opaque_dtype)

@@ -139,7 +139,7 @@ class Lens(with_metaclass()):
         probsuccess = self.transmission(visspectrum)
         N, probsuccess = self.propagate_broadcast(N, probsuccess)
         lightyield = self.lightyield(nrefrac, source=source)
-        if instance.israndomvariable(N):
+        if instance.isuscalar(N):
             if forward:
                 proc1 = noisepropagation.bernouilli(probsuccess)
                 proc2 = noisepropagation.poisson(lightyield)

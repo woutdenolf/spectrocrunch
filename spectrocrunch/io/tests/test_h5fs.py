@@ -233,6 +233,8 @@ class test_h5fs(TestCase):
         sLatinUnicode = u'\xe423'  # not used
         sUTF8Unicode = u'\u0101bc'
         sUTF8Bytes = b'\xc4\x81bc'
+        sUTF8AsciiUnicode = u'abc'
+        sUTF8AsciiBytes = b'abc'
         # Expected conversion after HDF5 write/read
         strmap = {}
         strmap['ascii(scalar)'] = sAsciiBytes,\
@@ -241,28 +243,38 @@ class test_h5fs(TestCase):
                                 sLatinBytes
         strmap['unicode(scalar)'] = sUTF8Unicode,\
                                     sUTF8Unicode
+        strmap['unicode2(scalar)'] = sUTF8AsciiUnicode,\
+                                     sUTF8AsciiUnicode
         strmap['ascii(list)'] = [sAsciiBytes, sAsciiBytes],\
                                 [sAsciiUnicode, sAsciiUnicode]
         strmap['ext(list)'] = [sLatinBytes, sLatinBytes],\
                               [sLatinBytes, sLatinBytes]
         strmap['unicode(list)'] = [sUTF8Unicode, sUTF8Unicode],\
                                   [sUTF8Unicode, sUTF8Unicode]
-        strmap['mixed(list)'] = [sUTF8Unicode, sAsciiBytes, sLatinBytes],\
-                                [sUTF8Bytes, sAsciiBytes, sLatinBytes]
+        strmap['unicode2(list)'] = [sUTF8AsciiUnicode, sUTF8AsciiUnicode],\
+                                   [sUTF8AsciiUnicode, sUTF8AsciiUnicode]
+        strmap['mixed(list)'] = [sUTF8Unicode, sUTF8AsciiUnicode, sAsciiBytes, sLatinBytes],\
+                                [sUTF8Bytes, sUTF8AsciiBytes, sAsciiBytes, sLatinBytes]
         strmap['ascii(0d-array)'] = np.array(sAsciiBytes),\
                                     sAsciiUnicode
         strmap['ext(0d-array)'] = np.array(sLatinBytes),\
                                   sLatinBytes
         strmap['unicode(0d-array)'] = np.array(sUTF8Unicode),\
                                       sUTF8Unicode
+        strmap['unicode2(0d-array)'] = np.array(sUTF8AsciiUnicode),\
+                                       sUTF8AsciiUnicode
         strmap['ascii(1d-array)'] = np.array([sAsciiBytes, sAsciiBytes]),\
                                     [sAsciiUnicode, sAsciiUnicode]
         strmap['ext(1d-array)'] = np.array([sLatinBytes, sLatinBytes]),\
                                   [sLatinBytes, sLatinBytes]
         strmap['unicode(1d-array)'] = np.array([sUTF8Unicode, sUTF8Unicode]),\
                                       [sUTF8Unicode, sUTF8Unicode]
-        strmap['mixed(1d-array)'] = np.array([sUTF8Unicode, sAsciiBytes]),\
-                                    [sUTF8Unicode, sAsciiUnicode]
+        strmap['unicode2(1d-array)'] = np.array([sUTF8AsciiUnicode, sUTF8AsciiUnicode]),\
+                                       [sUTF8AsciiUnicode, sUTF8AsciiUnicode]
+        strmap['mixed(1d-array)'] = np.array([sUTF8Unicode, sUTF8AsciiUnicode, sAsciiBytes]),\
+                                    [sUTF8Unicode, sUTF8AsciiUnicode, sAsciiUnicode]
+        strmap['mixed2(1d-array)'] = np.array([sUTF8AsciiUnicode, sAsciiBytes]),\
+                                    [sUTF8AsciiUnicode, sAsciiUnicode]
         path = root.mkdir('test')
 
         prepare_kwargs = {'raiseExtended': raiseExtended,

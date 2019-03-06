@@ -31,7 +31,7 @@ import scipy.integrate
 from ..patch import xraylib
 from ..patch.pint import ureg
 from ..utils import instance
-from ..utils import hashable
+from ..utils.hashable import Hashable
 from ..utils import listtools
 from ..utils.Enum import Enum
 from ..utils.roi import mergeroi1d
@@ -47,7 +47,7 @@ from ..math import fit1d
 # ... -> use PS_pure_kissel,FluorYield,RadRate of lower shells
 
 
-class FluoLine(hashable.Hashable):
+class FluoLine(Hashable):
 
     @staticmethod
     def getlinename(line):
@@ -273,7 +273,7 @@ class FluoLine(hashable.Hashable):
         return xraylib.CS_FluorLine_Kissel_Cascade(Z, self.code, E)
 
 
-class Shell(hashable.Hashable):
+class Shell(Hashable):
 
     @staticmethod
     def getshellname(shell):
@@ -467,7 +467,7 @@ class Shell(hashable.Hashable):
         return xraylib.EdgeEnergy(Z, self.code)
 
 
-class FluoZGroup(hashable.Hashable):
+class FluoZGroup(Hashable):
 
     def __init__(self, element, group):
         self.element = element
@@ -491,7 +491,7 @@ class FluoZGroup(hashable.Hashable):
         return "{}-{}".format(self.element, self.group)
 
 
-class FluoZLine(hashable.Hashable):
+class FluoZLine(Hashable):
 
     def __init__(self, element, line):
         self.line = line
@@ -544,7 +544,7 @@ class FluoZLine(hashable.Hashable):
         return self.energy() > 0
 
 
-class ScatteringLine(hashable.Hashable):
+class ScatteringLine(Hashable):
 
     def __init__(self, energysource):
         self.energysource = energysource
