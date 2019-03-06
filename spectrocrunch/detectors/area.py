@@ -111,7 +111,7 @@ class AreaDetector(with_metaclass()):
         """
         qe = visspectrum.sample(self.qe).to('dimensionless').magnitude
         N, qe = self.propagate_broadcast(N, qe)
-        if instance.israndomvariable(N):
+        if instance.isuscalar(N):
             darkcurrent = noisepropagation.poisson(self.darkcurrent)
             readoutnoise = noisepropagation.randomvariable(
                 0, self.readoutnoise)

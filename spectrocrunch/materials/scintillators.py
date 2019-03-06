@@ -112,7 +112,7 @@ class Scintillator(with_metaclass()):
 
         N, probsuccess, gain = self.propagate_broadcast(N, probsuccess, gain)
 
-        if instance.israndomvariable(N):
+        if instance.isuscalar(N):
             if forward:
                 proc1 = noisepropagation.bernouilli(probsuccess)
                 proc2 = noisepropagation.poisson(gain)
