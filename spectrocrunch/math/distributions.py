@@ -31,39 +31,40 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def plothistogram(values,edges=None,markcen=False,**kwargs):
+def plothistogram(values, edges=None, markcen=False, **kwargs):
     """Usage:
         plothistogram(samples,density=1)
         plothistogram(*np.histogram(samples,density=1))
-       
+
        Args:
         values(array): sample or histogram (when edges is set)
         edges(Optional(array)): histrogram bin edges
     """
     if edges is None:
-        plt.hist(values,align='mid',alpha=0.7,**kwargs)
+        plt.hist(values, align='mid', alpha=0.7, **kwargs)
     else:
         wbin = np.diff(edges)
         xleft = edges[:-1]
-        container = plt.bar(xleft,height=values,width=wbin,align='edge',**kwargs)
+        container = plt.bar(xleft, height=values,
+                            width=wbin, align='edge', **kwargs)
         xcen = xleft + wbin*0.5
         if markcen:
             color = container[0].get_facecolor()
-            plt.plot(xcen,values,'o',color=color) 
+            plt.plot(xcen, values, 'o', color=color)
         return xcen
 
 
 class limitednorm_gen(rv_continuous):
     """Normal distribution within finite limits [-k,k]
-    
+
        pdf(x) = ptf_norm(x) + cdf_norm(-k)
     """
 
-    def _pdf(self,y):
+    def _pdf(self, y):
         # y = (x-loc)/scale
 
-        invalid = (y<-self.k) | (y>self.k)
-        if isinstance(y,np.ndarray):
+        invalid = (y < -self.k) | (y > self.k)
+        if isinstance(y, np.ndarray):
             ret = np.exp(-y**2 / 2.)/np.sqrt(2.0 * np.pi) + self.offset
             ret[invalid] = 0
             return ret
@@ -72,30 +73,30 @@ class limitednorm_gen(rv_continuous):
         else:
             return np.exp(-y**2 / 2.)/np.sqrt(2.0 * np.pi) + self.offset
 
-    def _cdf(self,y):
+    def _cdf(self, y):
         # y = (x-loc)/scale
 
-        if isinstance(y,np.ndarray):
+        if isinstance(y, np.ndarray):
             ret = special.ndtr(y) + self.offset
-            ret[y<-self.k] = 0
-            ret[y>self.k] = 1
+            ret[y < -self.k] = 0
+            ret[y > self.k] = 1
             return ret
         else:
-            if y<=-self.k:
+            if y <= -self.k:
                 return 0
-            elif y>=self.k:
+            elif y >= self.k:
                 return 1
             else:
                 return special.ndtr(y) + self.offset
 
-    def _ppf(self,p):
+    def _ppf(self, p):
         return special.ndtri(p-self.offset)
 
 
 class truncnorm_gen(rv_continuous):
     """Normal distribution within finite limits [a,b]
     """
-    
+
     def _argcheck(self, a, b):
         self.a = a
         self.b = b
@@ -120,7 +121,8 @@ class truncnorm_gen(rv_continuous):
 
     def _ppf(self, q, a, b):
         return np.where(self.a > 0,
-                       -crv_helper._norm_ppf(q*self._cdfminb + self._cdfmina*(1.0-q)),
+                        -crv_helper._norm_ppf(q*self._cdfminb +
+                                              self._cdfmina*(1.0-q)),
                         crv_helper._norm_ppf(q*self._cdfb + self._cdfa*(1.0-q)))
 
     def _stats(self, a, b):
@@ -132,16 +134,16 @@ class truncnorm_gen(rv_continuous):
         return mu, mu2, None, None
 
 
-def limitednorm(k,**kwargs):
+def limitednorm(k, **kwargs):
     k = np.abs(k)
-    return truncnorm_gen(name='limitednorm',**kwargs)(a=-k,b=k)
-    #return scipy.stats.truncnorm(a=-k,b=k)
-    
-    
+    return truncnorm_gen(name='limitednorm', **kwargs)(a=-k, b=k)
+    # return scipy.stats.truncnorm(a=-k,b=k)
+
+
 class holenorm_gen(rv_continuous):
     """Flipped normal distribution within finite limits [a,b]
     """
-    
+
     def _argcheck(self, a, b):
         self.a = a
         self.b = b
@@ -166,7 +168,8 @@ class holenorm_gen(rv_continuous):
 
     def _ppf(self, q, a, b):
         return np.where(self.a > 0,
-                       -crv_helper._norm_ppf(q*self._cdfminb + self._cdfmina*(1.0-q)),
+                        -crv_helper._norm_ppf(q*self._cdfminb +
+                                              self._cdfmina*(1.0-q)),
                         crv_helper._norm_ppf(q*self._cdfb + self._cdfa*(1.0-q)))
 
     def _stats(self, a, b):
@@ -178,10 +181,10 @@ class holenorm_gen(rv_continuous):
         return mu, mu2, None, None
 
 
-def holenorm(k,**kwargs):
+def holenorm(k, **kwargs):
     k = np.abs(k)
-    return holenorm_gen(name='holenorm',**kwargs)(a=-k,b=k)
-    
+    return holenorm_gen(name='holenorm', **kwargs)(a=-k, b=k)
+
 
 # Random number generator (slow if ppf is calculated directly)
 # distribution.rvs(size=1000)
