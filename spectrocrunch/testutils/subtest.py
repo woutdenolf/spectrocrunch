@@ -1,5 +1,6 @@
 import unittest
 import sys
+import itertools
 from contextlib import contextmanager
 
 
@@ -51,3 +52,11 @@ class TestCase(unittest.TestCase):
             reason = self._skipReason
             self._skipReason = ''
             raise unittest.SkipTest(reason)
+
+    def run_subtests(self, parameters, func):
+        keys = list(parameters.keys())
+        values = list(parameters.values())
+        for ivalues in itertools.product(*values):
+            kwargs = {key: value for key, value in zip(keys, ivalues)}
+            with self.subTest(**kwargs):
+                func(**kwargs)
