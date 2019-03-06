@@ -86,7 +86,6 @@ class CompoundFromFormula(compound.Compound):
             density(float): compound density (g/cm^3) 
             name(Optional[str]): compound name
         """
-
         p = FormulaParser()
         elements, mults = p.eval(formula)
         if not elements:

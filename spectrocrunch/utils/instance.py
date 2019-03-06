@@ -235,8 +235,8 @@ def isqarray(x):
 
 
 def isuarray(x):
-    if isnparray(x):
-        if x.ndim == 0:
+    if isarray(x):
+        if isarray0(x):
             return isuscalar(asscalar(x))
         else:
             return any(isuscalar(z) for z in x)
