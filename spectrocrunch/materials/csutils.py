@@ -67,7 +67,7 @@ def eval(method, Z, E, applypost=True, dataframe=False):
             def postfunc(x): return x[0, :]
     else:
         method = getattr(xraylib, method)
-        result = method(Z, E)
+        result = method(Z, float(E))
         postfunc = identity
     if dataframe:
         return pd.DataFrame(result, index=Z, columns=E)

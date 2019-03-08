@@ -29,24 +29,35 @@ import sys
 logger = logging.getLogger(__name__)
 
 
-def allhandlers():
+def gethandlers(signames):
     ret = {}
-    for attr in [x for x in dir(signal) if x.startswith('SIG')]:
-        signalnum = getattr(signal, attr)
+    for attr in signames:
+        signum = getattr(signal, attr, None)
         try:
-            handler = signal.getsignal(signalnum)
-        except ValueError:
+            ret[signum] = signal.getsignal(signum)
+        except (ValueError, TypeError):
             pass
-        else:
-            ret[signalnum] = handler
     return ret
 
 
-def replace_handlers(newhandler, signals=None):
-    if signals is None:
-        signals = allhandlers()
+def termination_handlers():
+    # SIGTERM: politely ask for termination
+    # SIGINT: user asks for termination (CTRL-C)
+    # SIGQUIT: SIGINT but do not cleanup
+    # SIGKILL: immediate termination
+    # SIGHUP: controlling process terminated
+    return gethandlers(['SIGTERM', 'SIGINT', 'SIGHUP'])
+
+
+def allhandlers():
+    return gethandlers([name for name in dir(signal) if name.startswith('SIG')])
+
+
+def replace_handlers(newhandler, handlers=None):
+    if handlers is None:
+        handlers = allhandlers()
     oldhandlers = {}
-    for signum in signals:
+    for signum, oldhander in handlers.items():
         try:
             oldhander = signal.signal(signum, newhandler)
         except (OSError, RuntimeError, ValueError):
@@ -77,8 +88,10 @@ def signalname(signum):
     return next(v for v, k in signal.__dict__.items() if k == signum)
 
 
-class DelaySignalsContext(object):
-    """Context manager which allows for tear-down on exceptions and signals (SIGTERM, SIGINT,...)
+class HandleTermination(object):
+    """
+    Context manager which allows for tear-down on
+    exceptions and graceful termination signals
     """
 
     def __init__(self, setup=None, teardown=None, resend=True):
@@ -88,10 +101,11 @@ class DelaySignalsContext(object):
         self.resend = resend
 
     def __enter__(self):
-        """Overwrite all signal handlers and call user setup
+        """Overwrite signal handlers and call user setup
         """
         self._needcleanup = True
-        self._oldhandlers = replace_handlers(self._newhandler)
+        self._oldhandlers = replace_handlers(self._newhandler,
+                                             termination_handlers())
         if self._setup is not None:
             self._setup()
 
@@ -118,7 +132,7 @@ class DelaySignalsContext(object):
             raise RuntimeError(msg)
         except RuntimeError:
             exc_type, exc_value, exc_traceback = sys.exc_info()
-
+            
         # User tear-down and reset signal handlers
         self._cleanup(exc_type, exc_value, exc_traceback)
 
@@ -126,7 +140,7 @@ class DelaySignalsContext(object):
         if self.resend:
             send_signals([(signum, frame)], self._oldhandlers)
 
-    def __exit__(self, *args):
+    def __exit__(self, exc_type, exc_value, exc_traceback):
         """User tear-down and reset signal handlers
         """
-        return self._cleanup(*args)
+        return self._cleanup(exc_type, exc_value, exc_traceback)

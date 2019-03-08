@@ -27,15 +27,16 @@ from ..utils import instance
 from ..io import nxfs
 from . import axis
 
+
 class Group(Hashable):
     """NXprocess subgroup name wrapper
     """
-    
-    def __init__(self,groupname):
+
+    def __init__(self, groupname):
         name = "counters"
         number = -1
         category = -1
-            
+
         if instance.isnumber(groupname):
             name = "detector{:02d}".format(groupname)
             number = groupname
@@ -45,7 +46,7 @@ class Group(Hashable):
                 groupname = groupname[3:]
             if groupname.startswith("detector"):
                 groupname = groupname[8:]
-                
+
             if groupname.isdigit():
                 number = int(groupname)
                 name = "detector{:02d}".format(number)
@@ -55,11 +56,11 @@ class Group(Hashable):
                 name = "detectorS{:01d}".format(number)
                 category = 1
 
-        elif isinstance(groupname,self.__class__):
-            name,number,category = groupname.name,groupname.number,groupname.category
+        elif isinstance(groupname, self.__class__):
+            name, number, category = groupname.name, groupname.number, groupname.category
         elif groupname:
             raise ValueError("Unexpected detector name {}".format(groupname))
-        
+
         self.name = name
         self.number = number
         self.category = category
@@ -67,17 +68,17 @@ class Group(Hashable):
     @property
     def isdetector(self):
         # e.g. xia00, xiaS0
-        return self.category>=0
-        
+        return self.category >= 0
+
     @property
     def issum(self):
         # e.g. xiaS0
-        return self.category==1
+        return self.category == 1
 
     @property
     def issingledetector(self):
         # e.g. xia00
-        return self.category==0
+        return self.category == 0
 
     @property
     def xialabel(self):
@@ -94,13 +95,13 @@ class Group(Hashable):
     def __repr__(self):
         return self.name
 
-    def __eq__(self,other):
-        if isinstance(other,self.__class__):
-            return self.name==other.name
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.name == other.name
         else:
-            return self.name==other
-    
-    def __ne__(self,other):
+            return self.name == other
+
+    def __ne__(self, other):
         return not self.__eq__(other)
 
     def __hash__(self):
@@ -111,7 +112,7 @@ def regulargriddata(nxgroup):
     """
     Args:
         nxgroup(nxfs.Path): NXdata or NXprocess
-    
+
     Returns:
         groups(dict): Group:list(nxfs.Path)
         axes(list(Axis)):
@@ -119,19 +120,21 @@ def regulargriddata(nxgroup):
     """
     axes = []
     groups = {}
-        
-    if nxgroup.nxclass=='NXdata':
+
+    if nxgroup.nxclass == 'NXdata':
         it = [nxgroup]
         stackdim = None
-    elif nxgroup.nxclass=='NXprocess':
+    elif nxgroup.nxclass == 'NXprocess':
         progname = nxgroup['program'].read()
         if progname == nxfs.PROGRAM_NAME:
             stackdim = nxgroup.config.read().get('stackdim', None)
         else:
-            raise ValueError('NXprocess from program "{}" is not known'.format(progname))
+            raise ValueError(
+                'NXprocess from program "{}" is not known'.format(progname))
         it = nxgroup.results.iter_is_nxclass('NXdata')
     else:
-        raise ValueError('{} should be an NXdata or NXprocess group'.format(nxgroup))
+        raise ValueError(
+            '{} should be an NXdata or NXprocess group'.format(nxgroup))
 
     for nxdata in it:
         if nxdata.islink:
@@ -141,10 +144,10 @@ def regulargriddata(nxgroup):
         group = Group(nxdata.name)
         if group in groups:
             raise RuntimeError('Group {} appears more than once'.format(group))
-        axs = [axis.factory(values,name=name,title=attrs['title'],type='quantitative')
-               for name,values,attrs in nxdata.axes]
+        axs = [axis.factory(values, name=name, title=attrs['title'], type='quantitative')
+               for name, values, attrs in nxdata.axes]
         if axes:
-            if axes!=axs:
+            if axes != axs:
                 raise RuntimeError('{} has different axes'.format(nxdata))
         else:
             axes = axs

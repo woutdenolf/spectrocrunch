@@ -22,16 +22,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import collections
 import os
-
 from ..patch.pint import ureg
 from ..utils.classfactory import with_metaclass
 from ..utils import instance
 from ..utils import listtools
 
-def defaultunit():
-    return ureg.dimensionless
+
+# defaultdict causes jsonpickle issues
+class UnitDict(dict):
+    def __getitem__(self, index):
+        try:
+            return super(UnitDict, self).__getitem__(index)
+        except KeyError:
+            return ureg.dimensionless
+
 
 class InstrumentInfo(with_metaclass(object)):
 
@@ -39,7 +44,7 @@ class InstrumentInfo(with_metaclass(object)):
         data = {}
         data['imagemotors'] = info.get('imagemotors', [])
         data['imageaxes'] = info.get('imageaxes', ('y', 'x'))
-        units = collections.defaultdict(defaultunit)
+        units = UnitDict()
         units.update(info.get('units', {}))
         data['units'] = units
         data['encoderinfo'] = info.get('encoderinfo', {})  # steps/motor units
@@ -65,7 +70,7 @@ class InstrumentInfo(with_metaclass(object)):
         data['_specmotornames'] = info.get('specmotornames', {})
         data['speccounternames'] = info.get('speccounternames', {})
         data['h5stackgroups'] = info.get(
-            'h5stackgroups', ['counters', '^detector(\d+|sum)$'])
+            'h5stackgroups', ['counters', r'^detector(\d+|sum)$'])
         datalocationinfo = info.get('datalocation', {})
         for k in ['xrf_dynamic', 'xrf_static', 'ff_dynamic', 'ff_static']:
             if k not in datalocationinfo:
@@ -129,7 +134,7 @@ class InstrumentInfo(with_metaclass(object)):
         for motname, limits in device.items():
             pos = position_dict.get(motname, None)
             if pos is not None:
-                limits = namea, posa, nameb, posb
+                namea, posa, nameb, posb = limits
                 if abs(pos-posa) < abs(pos-posb):
                     name = namea
                 else:
@@ -284,15 +289,15 @@ class ESRF_ID21_MICRODIFF(InstrumentInfo):
         info['imageaxes'] = ('v', 'h')
         info['units'] = info.get('units',
                                  {'samh': ureg.millimeter,
-                                     'samv': ureg.millimeter,
-                                     'samd': ureg.millimeter,
-                                     'samph': ureg.micrometer,
-                                     'sampv': ureg.micrometer})
+                                  'samv': ureg.millimeter,
+                                  'samd': ureg.millimeter,
+                                  'samph': ureg.micrometer,
+                                  'sampv': ureg.micrometer})
         info['compensationmotors'] = info.get('compensationmotors',
                                               {'samh': ['samph'],
                                                'samv': ['sampv'],
-                                                  'samph': ['samh'],
-                                                  'sampv': ['samv']})
+                                               'samph': ['samh'],
+                                               'sampv': ['samv']})
 
         info['counterdict'] = info.get('counterdict',
                                        {'I0_counts': 'zap_iodet',
@@ -320,8 +325,8 @@ class ESRF_ID16B(InstrumentInfo):
         info['compensationmotors'] = info.get('compensationmotors',
                                               {'sy': ['sampy'],
                                                'sz': ['sampz'],
-                                                  'sampy': ['sy'],
-                                                  'sampz': ['sz']})
+                                               'sampy': ['sy'],
+                                               'sampz': ['sz']})
 
         info['diodeI0'] = info.get('diodeI0',
                                    {'default': 'id16b_IC',

@@ -192,12 +192,14 @@ class test_xrf(unittest.TestCase):
                 np.testing.assert_allclose(c.all_fractions, b.all_fractions)
                 np.testing.assert_allclose(a.ratios, b.ratios)
                 np.testing.assert_allclose(c.ratios, b.ratios)
-                a.fractions = b.fractions
-                c.fractions = b.fractions
-                c.ratios = b.ratios
-                a.ratios = b.ratios
-                self.assertEqual(a, b)
-                self.assertEqual(c, b)
+                np.testing.assert_allclose(a.stailbroadening, b.stailbroadening)
+                np.testing.assert_allclose(c.stailbroadening, b.stailbroadening)
+                np.testing.assert_allclose(a.ltailbroadening, b.ltailbroadening)
+                np.testing.assert_allclose(c.ltailbroadening, b.ltailbroadening)
+                np.testing.assert_allclose(a.stailslope_ratio, b.stailslope_ratio)
+                np.testing.assert_allclose(c.stailslope_ratio, b.stailslope_ratio)
+                np.testing.assert_allclose(a.ltailslope_ratio, b.ltailslope_ratio)
+                np.testing.assert_allclose(c.ltailslope_ratio, b.ltailslope_ratio)
 
     @unittest.skipIf(xrf.compoundfromname.xraylib is None,
                      "xraylib not installed")

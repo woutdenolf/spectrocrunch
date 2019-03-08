@@ -136,7 +136,7 @@ class Path(h5fs.Path):
     def nxclass(self):
         if self.exists:
             try:
-                return self.get_stat(u'NX_class', default=None)
+                return instance.asunicode(self.get_stat(u'NX_class', default=None))
             except Exception:
                 logger.warning('Corrupted '+str(self))
                 logger.warning(traceback.format_exc())
@@ -174,37 +174,36 @@ class Path(h5fs.Path):
         with self.h5open(**openparams):
             if not path.exists:
                 path = path.mkdir()
-            with path.open() as node:
-                nxclassattr = path.get_stat('NX_class', None)
-                if nxclassattr:
-                    if nxclassattr != nxclass:
-                        raise fs.AlreadyExists('{} with the wrong class ({} instead of {})'.format(
-                            path, nxclassattr, nxclass))
-                else:
-                    if nxattributes:
-                        if instance.iscallable(nxattributes):
-                            nxattributes = nxattributes()
-                        path.update_stats(**nxattributes)
-                    path.update_stats(NX_class=nxclass)
-                    if nxfiles:
-                        if instance.iscallable(nxfiles):
-                            nxfiles = nxfiles()
-                        for name, data in nxfiles.items():
-                            path[name].mkfile(data=data, **openparams)
-                    path.updated()
+            nxclassattr = path.get_stat(u'NX_class', None)
+            if nxclassattr:
+                if nxclassattr != nxclass:
+                    raise fs.AlreadyExists('{} with the wrong class ({} instead of {})'.format(
+                        path, nxclassattr, nxclass))
+            else:
+                if nxattributes:
+                    if instance.iscallable(nxattributes):
+                        nxattributes = nxattributes()
+                    path.update_stats(**nxattributes)
+                path.update_stats(NX_class=nxclass)
+                if nxfiles:
+                    if instance.iscallable(nxfiles):
+                        nxfiles = nxfiles()
+                    for name, data in nxfiles.items():
+                        path[name].mkfile(data=data, **openparams)
+                path.updated()
             return self.factory(path)
 
     def is_nxclass(self, *nxclasses):
         nxclass = self.nxclass
         if nxclasses:
-            return any(nxclass == cls for cls in nxclasses)
+            return any(nxclass == instance.asunicode(cls) for cls in nxclasses)
         else:
             return bool(nxclass)
 
     def is_not_nxclass(self, *nxclasses):
         nxclass = self.nxclass
         if nxclasses:
-            return all(nxclass != cls for cls in nxclasses)
+            return all(nxclass != instance.asunicode(cls) for cls in nxclasses)
         else:
             return not bool(nxclass)
 
@@ -564,7 +563,7 @@ class _NXprocess(_NXPath):
     def set_config(self, parameters, dependencies=None):
         with self._verify():
             # Save parameters
-            self.config.write_dict(parameters)
+            self.config.write(parameters, typ='jsonpickle')
 
             # Links to dependencies
             if dependencies:
@@ -645,18 +644,17 @@ class _NXnote(_NXPath):
             self['type'].mkfile(data=mimetype)
             self['data'].mkfile(data=data)
 
-    def write_text(self, text):
-        with self._verify():
-            self._write(text, 'text/plain;charset=utf-8')
-
-    def write_dict(self, dic, typ='jsonpickle'):
-        with self._verify():
+    def write(self, data, typ='jsonpickle'):
+        if instance.isstring(data):
+            self._write(data, 'text/plain;charset=utf-8')
+        else:
             if typ == 'json':
-                self._write(json.dumps(dic), 'application/json')
+                self._write(json.dumps(data, indent=2), 'application/json')
             elif typ == 'jsonpickle':
-                self._write(jsonpickle.dumps(dic), 'application/jsonpickle')
+                self._write(jsonpickle.dumps(data, indent=2), 'application/jsonpickle')
             else:
-                self._write(unicode(dic), 'text/plain;charset=utf-8')
+                self._write(str(data), 'text/plain;charset=utf-8')
+
 
 class _NXdata(_NXPath):
 
@@ -730,10 +728,9 @@ class _NXdata(_NXPath):
     @property
     def auxiliary_signals(self):
         with self._verify():
-            with self.open() as node:
-                names = self.get_stat("auxiliary_signals", [])
-                for name in names:
-                    yield self[name]
+            names = self.get_stat("auxiliary_signals", [])
+            for name in names:
+                yield self[name]
 
     def add_signal(self, name=None, path=None, title=None, interpretation=None, units=None, **createparams):
         """
@@ -787,9 +784,14 @@ class _NXdata(_NXPath):
 
             # Add signal name to NXdata attributes
             with self.open() as node:
-                signals = np.append(self.get_stat("auxiliary_signals", []),
-                                    self.get_stat("signal", []))
-                if signals.size:
+                signals = []
+                add = self.get_stat("auxiliary_signals", None)
+                if add is not None:
+                    signals += add.tolist()
+                add = self.get_stat("signal", None)
+                if add is not None:
+                    signals.append(add)
+                if signals:
                     self.update_stats(auxiliary_signals=signals)
                 self.update_stats(signal=name)
 
@@ -810,8 +812,13 @@ class _NXdata(_NXPath):
             with self.open() as node:
                 if name == self.get_stat("signal"):
                     return True
-                signals = np.append(self.get_stat("signal", []),
-                                    self.get_stat("auxiliary_signals", []))
+                signals = []
+                add = self.get_stat("signal", None)
+                if add is not None:
+                    signals.append(add)
+                add = self.get_stat("auxiliary_signals", None)
+                if add is not None:
+                    signals += add.tolist()
                 if name not in signals:
                     return False
                 aux = [signal for signal in signals if signal != name]
@@ -842,17 +849,15 @@ class _NXdata(_NXPath):
         with self._verify():
             with self.open() as node:
                 signals = sorted(sig.name for sig in self.signals)
-
                 if other:
                     other_signals = list(sig.name for sig in other.signals)
                     if sorted(other_signals) != signals:
                         return
                     signals = other_signals
-
                 aux = signals[1:]
                 if aux:
                     self.update_stats(auxiliary_signals=aux)
-                self.update_stats(signal= signals[0])
+                self.update_stats(signal=signals[0])
 
             self.updated()
 

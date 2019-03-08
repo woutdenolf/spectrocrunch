@@ -35,6 +35,10 @@ def update(parameters):
     matplotlib.rcParams.update(parameters)
 
 
+def default(name):
+    return matplotlib.rcParams[name]
+
+
 def figsize(publish='screen', aspect=0.75, nsidebyside=1, space=0., widescreen=True):
     """
     Args:
@@ -46,9 +50,9 @@ def figsize(publish='screen', aspect=0.75, nsidebyside=1, space=0., widescreen=T
     Returns:
         tuple: width, height (inch)
     """
-    if publish=='word':
+    if publish == 'word':
         width = 6.24
-    elif publish=='powerpoint':
+    elif publish == 'powerpoint':
         if widescreen:
             width = 33.867
         else:
@@ -62,13 +66,13 @@ def figsize(publish='screen', aspect=0.75, nsidebyside=1, space=0., widescreen=T
     return width, width*aspect
 
 
-def adapttofigsize(size,fontsize=None,**kwargs):
+def adapttofigsize(size, fontsize=None, **kwargs):
     """
     Args:
         size(2-tuple): inch
         fontsize(Optional(num)): inch
     """
-    if fontsize: # in inch
+    if fontsize:  # in inch
         # 1 inch = 72 points
         fontsize = fontsize*72
     else:
@@ -98,11 +102,11 @@ def adapttofigsize(size,fontsize=None,**kwargs):
                   'xtick.minor.pad': ptick*cptick,
                   'ytick.major.pad': ptick,
                   'ytick.minor.pad': ptick*cptick,
-                  'xtick.direction': kwargs.get('tick.direction','out'),
-                  'ytick.direction': kwargs.get('tick.direction','out'),
-                 }
+                  'xtick.direction': kwargs.get('tick.direction', 'out'),
+                  'ytick.direction': kwargs.get('tick.direction', 'out'),
+                  }
     update(parameters)
-    parameters = {k:v for k,v in kwargs.items() if k in matplotlib.rcParams}
+    parameters = {k: v for k, v in kwargs.items() if k in matplotlib.rcParams}
     update(parameters)
 
 
@@ -112,9 +116,9 @@ def screensize():
     h = mgr.window.winfo_screenheight()
     w = mgr.window.winfo_screenwidth()
     figs2 = plt.get_fignums()
-    if len(figs2)>len(figs1):
+    if len(figs2) > len(figs1):
         plt.close(figs2[-1])
-    return w,h
+    return w, h
 
 
 def dpi(publish='photo&text', best=True):
@@ -134,30 +138,30 @@ def dpi(publish='photo&text', best=True):
     elif publish == 'powerpoint':
         if not publish or not instance.isarray(publish):
             publish = screensize()
-        width,height = publish
+        width, height = publish
         publish = 'width x height = {} x {} inch'.format(publish)
         # Powerpoint: normal and widescreen
-        #50	 500 × 375   667 × 375   50 dpi
-        #96  960 × 720   1280 × 720  96 dpi
-        #100 1000 × 750  1333 × 750  100 dpi
-        #150 1500 × 1125 2000 × 1125 150 dpi
-        #200 2000 × 1500 2667 × 1500 200 dpi
-        #250 2500 × 1875 3333 × 1875 250 dpi
-        #300 3000 × 2250 4000 × 2250 300 dpi
+        # 50	 500 × 375   667 × 375   50 dpi
+        # 96  960 × 720   1280 × 720  96 dpi
+        # 100 1000 × 750  1333 × 750  100 dpi
+        # 150 1500 × 1125 2000 × 1125 150 dpi
+        # 200 2000 × 1500 2667 × 1500 200 dpi
+        # 250 2500 × 1875 3333 × 1875 250 dpi
+        # 300 3000 × 2250 4000 × 2250 300 dpi
         if best:
-            warr = [667,1280,133,200,2667,333,4000]
+            warr = [667, 1280, 133, 200, 2667, 333, 4000]
         else:
-            warr = [500,960,1000,1500,2000,2500,3000]
-        harr = [375,720,750,1125,1500,1875,2250]
-        dpiarr = [50,96,100,150,200,250,300]
-        for w,h,r in zip(warr,harr,dpiarr):
-            if w>width and h>height:
+            warr = [500, 960, 1000, 1500, 2000, 2500, 3000]
+        harr = [375, 720, 750, 1125, 1500, 1875, 2250]
+        dpiarr = [50, 96, 100, 150, 200, 250, 300]
+        for w, h, r in zip(warr, harr, dpiarr):
+            if w > width and h > height:
                 ret = r
                 break
         else:
             ret = 300
-    else: # screen
+    else:  # screen
         ret = 96
     logger.info('Image publication: {}, {} DPI'
-                .format(publish ,ret))
+                .format(publish, ret))
     return ret

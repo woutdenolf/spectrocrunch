@@ -136,7 +136,6 @@ def asbytes(s):
         bytes
     Raises:
         UnicodeEncodeError: unicode with non-UTF8 characters
-                            (does this happen?)
     """
     if isinstance(s, unicode):
         return s.encode('utf-8')
@@ -239,7 +238,7 @@ def isuarray(x):
         if isarray0(x):
             return isuscalar(asscalar(x))
         else:
-            return any(isuscalar(z) for z in x)
+            return any(isuscalar(z) or isuarray(z) for z in x)
     return False
 
 

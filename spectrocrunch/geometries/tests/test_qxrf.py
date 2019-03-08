@@ -36,27 +36,23 @@ class test_qxrf(unittest.TestCase):
         energy = 10
         geometryinstance = qxrf.factory("SXM",
                                         simplecalibration=False)
-
         info = {"I0_counts": 300,
                 "It_counts": 30,
                 "time": 1,
                 "dark": True,
                 "gaindiodeI0": 1e8,
                 "gaindiodeIt": 1e7}
-        geometryinstance.calibrate(**info)
-
+        geometryinstance.calibrate_diodes(**info)
         info["I0_counts"] = 10000
         info["It_counts"] = 100000
         info["energy"] = energy-2
         info["dark"] = False
-        geometryinstance.calibrate(**info)
-
+        geometryinstance.calibrate_diodes(**info)
         info["I0_counts"] = 5000
         info["energy"] = energy+2
-        geometryinstance.calibrate(**info)
-
-        geometryinstance.setreferenceflux(1e9)
-        geometryinstance.defaultexpotime = 0.1
+        geometryinstance.calibrate_diodes(**info)
+        geometryinstance.reference = units.Quantity(1e9, 'Hz')
+        geometryinstance.defaultexpotime = units.Quantity(100, 'ms')
         return geometryinstance
 
     @unittest.skipIf(qxrf.xrfdetectors.compoundfromname.xraylib is None,
@@ -96,6 +92,17 @@ class test_qxrf(unittest.TestCase):
     @unittest.skipIf(qxrf.xrfgeometries.compoundfromname.xraylib is None,
                      "xraylib not installed")
     def test_serialize(self):
+        xrfgeometries = []
+        for detectorposition in [0, 1]:
+            geometry = {'name': 'sxm120',
+                        'parameters': {'detectorposition': detectorposition}}
+            detector = {'name': 'leia',
+                        'parameters': {}}
+            xrfgeometries.append((geometry, detector))
+        g1 = qxrf.factory('sxm', xrfgeometries=xrfgeometries)
+        g2 = jsonpickle.loads(jsonpickle.dumps(g1))
+        self.assertEqual(g1, g2)
+
         exclude = 'QXRFGeometry',
         for name, cls in qxrf.QXRFGeometry.clsregistry.items():
             if name not in exclude:

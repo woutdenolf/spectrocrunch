@@ -35,7 +35,6 @@ from ..utils import units
 from ..utils import instance
 from ..utils.classfactory import with_metaclass
 from ..io import spec
-from ..patch.pint import ureg
 from ..math.linop import LinearOperator
 from ..math.utils import weightedsum
 
@@ -46,6 +45,10 @@ from pint import errors as pinterrors
 logger = logging.getLogger(__name__)
 
 
+def defaultunit():
+    return units.dimensionless
+
+
 class QXRFGeometry(with_metaclass(object)):
     """Quantitative XRF geometry with I0 and It diodes
     """
@@ -53,7 +56,29 @@ class QXRFGeometry(with_metaclass(object)):
     def __init__(self, instrument=None, diodeI0=None, diodeIt=None,
                  simplecalibration=True, fluxid=None, transmissionid=None,
                  xrfgeometries=None, xrfdetector=None, xrfgeometry=None,
-                 optics=None, source=None):
+                 optics=None, source=None,
+                 reference=units.Quantity(1e10, 'hertz'),
+                 defaultreferencetime=None,
+                 defaultexpotime=units.Quantity(0.1, 's')):
+        """
+        Args:
+            instrument(str)
+            diodeI0(str)
+            diodeIt(str)
+            simplecalibration(bool)
+            fluxid(str): prefix in diode calibration parameters
+                         fluxid_counts, fluxid_flux, ...
+            transmissionid(str): prefix in diode calibration parameters
+                                 transmissionid_counts, transmissionid_flux, ...
+            xrfgeometries(Optional(list))
+            xrfdetector(Optional(str))
+            xrfgeometry(Optional(str))
+            optics(Optional(str))
+            source(Optional(str)): synchrotron by default
+            reference(Optional(Quantity)): normalize XRF data to this I0
+            defaultreferencetime(Optional(Quantity)): normalize XRF data to this expo time
+            defaultexpotime(Optional(Quantity)): XRF expo time in case not provided
+        """
         self._prepare_update_devices()
         self.instrument = instrument
         self.simplecalibration = simplecalibration
@@ -62,14 +87,16 @@ class QXRFGeometry(with_metaclass(object)):
             source = 'synchrotron'
         self.source = source
         if xrfgeometries is None:
-            xrfgeometries = [(xrfgeometry, xrfdetector)]
+            if xrfgeometry is not None and xrfdetector is not None:
+                xrfgeometries = [(xrfgeometry, xrfdetector)]
+            else:
+                xrfgeometries = []
         self.xrfgeometries = xrfgeometries
         self.diodeI0 = diodeI0
         self.diodeIt = diodeIt
-        self.reference = units.Quantity(
-            1e10, 'hertz')  # could be flux or counts
-        self.defaultreferencetime = None
-        self.defaultexpotime = units.Quantity(0.1, 's')
+        self.reference = reference  # could be flux or counts
+        self.defaultreferencetime = defaultreferencetime
+        self.defaultexpotime = defaultexpotime
         if fluxid is None:
             fluxid = 'I0'
         self.fluxid = fluxid
@@ -147,7 +174,7 @@ class QXRFGeometry(with_metaclass(object)):
         lst.append('DiodeIt:\n========\n{}'.format(diodeIt))
 
         for i, geom in enumerate(self.xrfgeometries, 1):
-            lst.append('XRF geometry ({}):\n===========\n{}'.format(i, geom))
+            lst.append('XRF geometry ({}):\n=================\n{}'.format(i, geom))
 
         lst.append('Flux monitor:\n===========')
         try:
@@ -232,24 +259,46 @@ class QXRFGeometry(with_metaclass(object)):
         return self.xrfgeometries[0]
 
     @xrfgeometries.setter
-    def xrfgeometries(self, detgeoms):
+    def xrfgeometries(self, values):
+        """
+        Args:
+            values(list): list of geometry objects and/or
+                          (geometry, detector) tuples.
+                          The tuple elements can be of type str or dict.
+                          In case of dict: {'name':'...', 'parameters':{...}}
+        """
         self._xrfgeometries = []
-        if detgeoms:
-            for geom in detgeoms:
-                if isinstance(geom, xrfgeometries.XRFGeometry):
-                    self._xrfgeometries.append(geom)
-                elif geom:
-                    xrfgeometry, xrfdetector = geom
-                    geom = self._generate_device(
-                        xrfgeometry, xrfgeometries.factory)
-                    if geom:
-                        geom.detector = self._generate_device(
-                            xrfdetector, xrfdetectors.factory)
+        for geom in values:
+            if not isinstance(geom, xrfgeometries.XRFGeometry):
+                xrfgeometry, xrfdetector = geom
+
+                # Instantiate geometry:
+                if instance.isstring(xrfgeometry):
+                    name = xrfgeometry
+                    kwargs = {}
+                else:
+                    name = xrfgeometry['name']
+                    kwargs = xrfgeometry.get('parameters', {})
+                geom = self._generate_device(
+                    name, xrfgeometries.factory, **kwargs)
+                if not geom:
+                    continue
+                
+                # Instantiate detector:
+                if instance.isstring(xrfdetector):
+                    name = xrfdetector
+                    kwargs = {}
+                else:
+                    name = xrfdetector['name']
+                    kwargs = xrfdetector.get('parameters', {})
+                geom.detector = self._generate_device(
+                    name, xrfdetectors.factory, **kwargs)
+            self._xrfgeometries.append(geom)
         self._update_devices()
 
-    def _generate_device(self, device, factory):
+    def _generate_device(self, device, factory, *args, **kwargs):
         if instance.isstring(device):
-            return factory(device)
+            return factory(device, *args, **kwargs)
         else:
             return device
 
@@ -268,32 +317,65 @@ class QXRFGeometry(with_metaclass(object)):
             for geom in self.xrfgeometries:
                 geom.source = self.source
 
-    def setxrfposition(self, value):
-        if instance.isnumber(value):
-            value = [value]
-        for geom, pos in zip(self.xrfgeometries, value):
-            geom.detectorposition = value
-
-    def getxrfdistance(self):
-        return units.asqarray([geom.distance for geom in self.xrfgeometries])
-
-    def getxrfdetectorposition(self):
+    @property
+    def xrf_positions(self):
         return units.asqarray([geom.detectorposition for geom in self.xrfgeometries])
 
-    def getxrfactivearea(self):
+    @xrf_positions.setter
+    def xrf_positions(self, value):
+        for geom, pos in zip(self.xrfgeometries, value):
+            geom.detectorposition = pos
+
+    @property
+    def xrf_distances(self):
+        return units.asqarray([geom.distance for geom in self.xrfgeometries])
+
+    @xrf_distances.setter
+    def xrf_distances(self, value):
+        for geom, pos in zip(self.xrfgeometries, value):
+            geom.distance = pos
+
+    @property
+    def xrf_activeareas(self):
         return units.asqarray([geom.detector.activearea for geom in self.xrfgeometries])
 
-    def getxrfanglein(self):
+    @xrf_activeareas.setter
+    def xrf_activeareas(self, value):
+        for geom, pos in zip(self.xrfgeometries, value):
+            geom.detector.activearea = pos
+
+    @property
+    def xrf_anglesin(self):
         return [geom.anglein for geom in self.xrfgeometries]
 
-    def getxrfangleout(self):
+    @xrf_anglesin.setter
+    def xrf_anglesin(self, value):
+        for geom, pos in zip(self.xrfgeometries, value):
+            geom.anglein = pos
+
+    @property
+    def xrf_anglesout(self):
         return [geom.angleout for geom in self.xrfgeometries]
 
-    def setreferenceflux(self, flux):
-        self.reference = units.Quantity(flux, 'hertz')
+    @xrf_anglesout.setter
+    def xrf_anglesout(self, value):
+        for geom, pos in zip(self.xrfgeometries, value):
+            geom.angleout = pos
 
-    def setreferencecounts(self, cts):
-        self.reference = units.Quantity(cts, 'dimensionless')
+    @property
+    def reference(self):
+        return self._reference
+
+    @reference.setter
+    def reference(self, value):
+        value = units.Quantity(value)
+        try:
+            value = value.to('Hz')
+        except pinterrors.DimensionalityError:
+            value = value.to('dimensionless')
+        except pinterrors.DimensionalityError:
+            raise ValueError('Reference should be in Hz (flux) or dimensionless (counts)')
+        self._reference = value
 
     @property
     def defaultexpotime(self):
@@ -393,6 +475,27 @@ class QXRFGeometry(with_metaclass(object)):
             Tbeamfilters = Tbeamfilters[0]
         return Tbeamfilters
 
+    def addsamplecovers(self, attenuators):
+        for geom in self.xrfgeometries:
+            for att in attenuators:
+                geom.detector.addsamplecover(*att)
+    
+    def adddetectorfilters(self, attenuators):
+        for geom in self.xrfgeometries:
+            for att in attenuators:
+                geom.detector.adddetectorfilter(*att)
+
+    def addbeamfilters(self, attenuators):
+        for geom in self.xrfgeometries:
+            for att in attenuators:
+                geom.detector.addbeamfilter(*att)
+
+    def addtransmissionfilters(self, attenuators):
+        for att in attenuators:
+            name, material, thickness = att
+            # This should be a beam filter so ignore name
+            self.diodeIt.addbeamfilter(None, material, thickness)
+
     def I0op(self, energy, expotime=None, weights=None, removebeamfilters=False):
         """Calculate the flux before the sample from the I0 diode response
 
@@ -436,11 +539,18 @@ class QXRFGeometry(with_metaclass(object)):
 
         return op, expotime
 
-    def batchcalibrate(self, params_fixed, params_var):
-        for k in params_var:
-            params = dict(params_fixed)
-            params.update(k)
-            self.calibrate(**params)
+    def batchcalibrate_diodes(self, params_fixed, params_var):
+        """
+        Execute `calibrate_diodes` from multiple parameter sets
+
+        Args:
+            params_fixed(dict): common for each set
+            params_var(list(dict)): overrides common for each set
+        """
+        for params_var_ in params_var:
+            params = params_fixed.copy()
+            params.update(params_var_)
+            self.calibrate_diodes(**params)
 
     def _calibrate_prepare(self, params):
         # Get data
@@ -448,8 +558,7 @@ class QXRFGeometry(with_metaclass(object)):
         sample = params.pop('sample', None)
         dataset = params.pop('dataset', None)
         specnr = params.pop('specnr', None)
-
-        if specnr:
+        if specnr is not None:
             if sample:
                 sampledataset = '{}_{}'.format(sample, dataset)
                 specfile = os.path.join(
@@ -492,9 +601,8 @@ class QXRFGeometry(with_metaclass(object)):
                 elif kcps in data:
                     deviceinstance.calibratedark(data[kcps])
 
-    def _calibrate_gain(self, params, data):
+    def _calibrate_diode_gain(self, params, data):
         fitinfo = {}
-
         docalibrate = params.pop('calibrate', True)
         if docalibrate:
             energy = data['energy'].to('keV').magnitude
@@ -505,12 +613,13 @@ class QXRFGeometry(with_metaclass(object)):
                     fitinfo = self.diodeI0.calibrate(
                         data[I0], flux, energy, **params)
                     break
-
         return fitinfo
 
-    def calibrate(self, **paramsin):
+    def calibrate_diodes(self, **params):
+        """
+        Calibrate diodes at a particular energy
+        """
         # Get data and prepare devices
-        params = dict(paramsin)
         data = self._calibrate_prepare(params)
 
         # Calibrate
@@ -526,7 +635,7 @@ class QXRFGeometry(with_metaclass(object)):
                 if plot:
                     self._show_dark_calib(data)
             else:
-                fitinfo = self._calibrate_gain(params, data)
+                fitinfo = self._calibrate_diode_gain(params, data)
                 if plot:
                     fluxmin = params.get('fluxmin', 0)
                     fluxmax = params.get('fluxmax', np.inf)
@@ -628,17 +737,14 @@ class QXRFGeometry(with_metaclass(object)):
 
     def _parse_default(self, params):
         fields = self._calibrate_fields()
-
         data = {}
         for k in fields:
             if k in params:
                 data[k] = units.Quantity(
                     params.pop(k), self.instrument.units[k])
-
         return data, params.pop('motors', {})
 
     def _validate_data(self, data, staticdata, resetdevices=False, dark=False):
-
         fields = self._calibrate_fields()
 
         # Add units where missing and fill with static data if needed
@@ -858,6 +964,7 @@ def print_devices():
 
 
 class SXM(QXRFGeometry):
+    aliases = ['sxm1', 'sxm1_kb', 'sxm_kb']
 
     def __init__(self, **kwargs):
         kwargs['diodeI0'] = kwargs.get('diodeI0', 'iodet1')
@@ -868,6 +975,44 @@ class SXM(QXRFGeometry):
         kwargs['instrument'] = kwargs.get('instrument', 'sxm')
         kwargs['simplecalibration'] = kwargs.get('simplecalibration', True)
         super(SXM, self).__init__(**kwargs)
+
+
+class SXM2(QXRFGeometry):
+    aliases = ['sxm2_kb', 'sxm2_kb']
+
+    def __init__(self, **kwargs):
+        kwargs['diodeI0'] = kwargs.get('diodeI0', 'iodet2')
+        kwargs['diodeIt'] = kwargs.get('diodeIt', 'idet')
+        kwargs['optics'] = kwargs.get('optics', 'kb')
+        kwargs['xrfdetector'] = kwargs.get('xrfdetector', 'leia')
+        kwargs['xrfgeometry'] = kwargs.get('xrfgeometry', 'sxm120')
+        kwargs['instrument'] = kwargs.get('instrument', 'sxm')
+        kwargs['simplecalibration'] = kwargs.get('simplecalibration', True)
+        super(SXM2, self).__init__(**kwargs)
+
+
+class SXM1_Unfocused(QXRFGeometry):
+
+    def __init__(self, **kwargs):
+        kwargs['diodeI0'] = kwargs.get('diodeI0', 'iodet1')
+        kwargs['diodeIt'] = kwargs.get('diodeIt', 'idet')
+        kwargs['xrfdetector'] = kwargs.get('xrfdetector', 'leia')
+        kwargs['xrfgeometry'] = kwargs.get('xrfgeometry', 'sxm120')
+        kwargs['instrument'] = kwargs.get('instrument', 'sxm')
+        kwargs['simplecalibration'] = kwargs.get('simplecalibration', True)
+        super(SXM1_Unfocused, self).__init__(**kwargs)
+
+
+class SXM2_Unfocused(QXRFGeometry):
+
+    def __init__(self, **kwargs):
+        kwargs['diodeI0'] = kwargs.get('diodeI0', 'iodet2')
+        kwargs['diodeIt'] = kwargs.get('diodeIt', 'idet')
+        kwargs['xrfdetector'] = kwargs.get('xrfdetector', 'leia')
+        kwargs['xrfgeometry'] = kwargs.get('xrfgeometry', 'sxm120')
+        kwargs['instrument'] = kwargs.get('instrument', 'sxm')
+        kwargs['simplecalibration'] = kwargs.get('simplecalibration', True)
+        super(SXM2_Unfocused, self).__init__(**kwargs)
 
 
 factory = QXRFGeometry.factory

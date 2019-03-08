@@ -185,10 +185,12 @@ class id21_ffsetup(object):
         return N, N0, D, D0
 
     def fluxfromflat(self, image, energy, tframe, nframe):
-        return self.propagate(image, energy, tframe, nframe, samplein=False, withnoise=False, forward=False)/tframe
+        return self.propagate(image, energy, tframe, nframe,
+            samplein=False, withnoise=False, forward=False)/tframe
 
     def flatfromflux(self, flux, energy, tframe, nframe):
-        return self.propagate(flux, energy, tframe, nframe, samplein=False, withnoise=False, forward=True)
+        return self.propagate(flux, energy, tframe, nframe,
+            samplein=False, withnoise=False, forward=True)
 
     @staticmethod
     def getnframes(totaltime, tframe_data, tframe_flat, fracflat):

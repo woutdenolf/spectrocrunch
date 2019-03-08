@@ -24,42 +24,45 @@
 
 from ..io import target
 
+
 class Task(basetask.Task):
     """Create scene image
     """
-    
-    def __init__(self,extensions,**kwargs):
-        super(Task,self).__init__(**kwargs)
-        self._final_output = target.TargetLocalFs(self.outputparent,self.outputname,extensions)
-        
+
+    def __init__(self, extensions, **kwargs):
+        super(Task, self).__init__(**kwargs)
+        self._final_output = target.TargetLocalFs(
+            self.outputparent, self.outputname, extensions)
+
     @property
     def output(self):
         return self._final_output
-    
+
     def _atomic_context_enter(self):
-        self._temp_output = {ext:self.outputparent[self._tempname+ext] for ext in ['.png','.json']}
+        self._temp_output = {
+            ext: self.outputparent[self._tempname+ext] for ext in ['.png', '.json']}
 
     def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
         if exc_type:
-            logger.error(''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
+            logger.error(''.join(traceback.format_exception(
+                exc_type, exc_value, exc_traceback)))
             for path in self._temp_output.values():
                 path.remove(recursive=True)
         else:
-            for ext,path in self._temp_output.items():
+            for ext, path in self._temp_output.items():
                 path.renameremove(self._final_output[ext])
         self._temp_output = None
-        return 1 # Exception is handled (do not raise it)
-        
+        return 1  # Exception is handled (do not raise it)
+
     def _parameters_defaults(self):
-        super(Task,self)._parameters_defaults()
+        super(Task, self)._parameters_defaults()
         self._required_parameters('objects')
-        
+
     def _parameters_filter(self):
         return []
-        
+
     def _execute(self):
         parameters = self.parameters
-        createscene(parameters,self._temp_output['.png'].path)
+        createscene(parameters, self._temp_output['.png'].path)
         with self._temp_output['.json'].open(mode='w') as outfile:
             json.dump(parameters, outfile)
-        
