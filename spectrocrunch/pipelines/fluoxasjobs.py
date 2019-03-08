@@ -28,131 +28,172 @@ import logging
 
 from . import batch
 from .run import run_sequential
-from .fluoxas import tasks as fluoxas_tasks
-from ..process import nxresult 
+from . import fluoxas as mfluoxas
+from ..process import nxresult
 from ..utils import instance
 from ..instruments.configuration import getinstrument
 from ..io.edf import saveedf
 
 logger = logging.getLogger(__name__)
 
-def fluoxas(samplename,datasetname,scannumbers,mapnumbers,cfgfiles,**parameters):
-    if len(scannumbers)!=len(mapnumbers):
-        raise RuntimeError("fluoXAS map numbers must be equal to the mapnumbers")
-    jobname = batch.jobname("fluoxas",(samplename,datasetname,scannumbers,mapnumbers,cfgfiles),parameters)
-    
-    instrument = getinstrument(**parameters)
-    radix,subdir = instrument.xrflocation(samplename,datasetname,type="dynamic")
 
-    sourcepaths = [os.path.join(parameters["proposaldir"],subdir,"{}_fluoXAS_{}".format(radix,nr)) for nr in scannumbers]
-    scannames = ["{}_fluoXAS_{}".format(radix,nr) for nr in scannumbers]
+def fluoxas(samplename, datasetname, scannumbers, mapnumbers, cfgfiles,
+            **parameters):
+    if len(scannumbers) != len(mapnumbers):
+        raise RuntimeError(
+            "fluoXAS map numbers must be equal to the mapnumbers")
+    jobname = batch.jobname(
+        "fluoxas", (samplename, datasetname, scannumbers, mapnumbers, cfgfiles), parameters)
 
-    if len(scannumbers)>1:
-        nxentry =  "{}.fluoxas{}_{}".format(radix,scannumbers[0])
-    else:
-        nxentry =  "{}.fluoxas{}".format(radix,scannumbers[0],scannumbers[-1])
-    nxentry = os.path.join(parameters.get('resultsdir',''),samplename+'.h5')+'::/'+nxentry
-    
-    processdata(jobname,sourcepaths,scannames,mapnumbers,cfgfiles,nxentry,fluoxas=True,**parameters)
+    params = mfluoxas.task_parameters(parameters, 'common')
+    instrument = getinstrument(**params)
+    radix, subdir = instrument.xrflocation(
+        samplename, datasetname, type="dynamic")
 
-def multi(samplename,datasetname,mapnumbers,cfgfiles,**parameters):
-    jobname = batch.jobname("multi",(samplename,datasetname,mapnumbers,cfgfiles),parameters)
-    
-    instrument = getinstrument(**parameters)
-    radix,subdir = instrument.xrflocation(samplename,datasetname,type="dynamic")
-    sourcepaths = [os.path.join(parameters["proposaldir"],subdir)]
+    sourcepaths = [os.path.join(parameters["proposaldir"], subdir, 
+                   "{}_fluoXAS_{}".format(radix, nr)) for nr in scannumbers]
+    scannames = ["{}_fluoXAS_{}".format(radix, nr) for nr in scannumbers]
+
+    if not params.get('nxentry', None):
+        if len(scannumbers) > 1:
+            nxentry = "{}.fluoxas{}_{}".format(radix, scannumbers[0], scannumbers[-1])
+        else:
+            nxentry = "{}.fluoxas{}".format(radix, scannumbers[0])
+        nxentry = os.path.join(parameters.get(
+            'resultsdir', ''), samplename+'.h5')+'::/'+nxentry
+        params['nxentry'] = nxentry
+
+    processdata(jobname, sourcepaths, scannames, mapnumbers,
+                cfgfiles, nxentry, fluoxas=True, **parameters)
+
+
+def multi(samplename, datasetname, mapnumbers, cfgfiles, **parameters):
+    jobname = batch.jobname(
+        "multi", (samplename, datasetname, mapnumbers, cfgfiles), parameters)
+
+    params = mfluoxas.task_parameters(parameters, 'common')
+    instrument = getinstrument(**params)
+    radix, subdir = instrument.xrflocation(
+        samplename, datasetname, type="dynamic")
+    sourcepaths = [os.path.join(parameters["proposaldir"], subdir)]
 
     scannames = [radix]
     scannumbers = [mapnumbers]
-    nxentry =  "{}.sixes{}_{}".format(radix,mapnumbers[0],mapnumbers[-1])
-    nxentry = os.path.join(parameters.get('resultsdir',''),samplename+'.h5')+'::/'+nxentry
-    
-    processdata(jobname,sourcepaths,scannames,scannumbers,cfgfiles,nxentry,multi=True,**parameters)
+    if not params.get('nxentry', None):
+        if len(mapnumbers) > 1:
+            nxentry = "{}.sixes{}_{}".format(radix, mapnumbers[0], mapnumbers[-1])
+        else:
+            nxentry = "{}.sixes{}".format(radix, mapnumbers[0])
+        nxentry = os.path.join(parameters.get(
+            'resultsdir', ''), samplename+'.h5')+'::/'+nxentry
+        params['nxentry'] = nxentry
 
-def single(samplename,datasetname,mapnumber,cfgfiles,**parameters):
-    jobname = batch.jobname("single",(samplename,datasetname,mapnumber,cfgfiles),parameters)
-    
-    instrument = getinstrument(**parameters)
-    radix,subdir = instrument.xrflocation(samplename,datasetname,type="dynamic")
-    sourcepaths = [os.path.join(parameters["proposaldir"],subdir)]
+    processdata(jobname, sourcepaths, scannames, scannumbers,
+                cfgfiles, nxentry, multi=True, **parameters)
+
+
+def single(samplename, datasetname, mapnumber, cfgfiles, **parameters):
+    jobname = batch.jobname(
+        "single", (samplename, datasetname, mapnumber, cfgfiles), parameters)
+
+    params = mfluoxas.task_parameters(parameters, 'common')
+    instrument = getinstrument(**params)
+    radix, subdir = instrument.xrflocation(
+        samplename, datasetname, type="dynamic")
+    sourcepaths = [os.path.join(parameters["proposaldir"], subdir)]
 
     scannames = [radix]
     scannumbers = [[mapnumber]]
-    nxentry =  "{}.map{}".format(radix,mapnumber)
-    nxentry = os.path.join(parameters.get('resultsdir',''),samplename+'.h5')+'::/'+nxentry
-    
-    processdata(jobname,sourcepaths,scannames,scannumbers,cfgfiles,nxentry,**parameters)
+    if not params.get('nxentry', None):
+        nxentry = "{}.map{}".format(radix, mapnumber)
+        nxentry = os.path.join(parameters.get(
+            'resultsdir', ''), samplename+'.h5')+'::/'+nxentry
+        params['nxentry'] = nxentry
 
-def manualselection(sourcepaths,scannames,scannumbers,cfgfiles,outname=None,outsuffix=None,**parameters):
-    jobname = batch.jobname("manualselection",(sourcepaths,scannames,scannumbers,cfgfiles),parameters)
-    
+    processdata(jobname, sourcepaths, scannames,
+                scannumbers, cfgfiles, **parameters)
+
+
+def manualselection(sourcepaths, scannames, scannumbers, cfgfiles,
+                    outname=None, outsuffix=None, **parameters):
+    jobname = batch.jobname(
+        "manualselection", (sourcepaths, scannames, scannumbers, cfgfiles), parameters)
+
     if outname is None:
         outname = scannames[0]
     if outsuffix is None:
         outsuffix = '.map{}'.format(scannumbers[0][0])
-    nxentry = os.path.join(parameters.get('resultsdir',''),outname,outname+'.h5')+'::/'+outname+outsuffix
     
-    processdata(jobname,sourcepaths,scannames,scannumbers,cfgfiles,nxentry,**parameters)
+    params = mfluoxas.task_parameters(parameters, 'common')
+    if not params.get('nxentry', None):
+        nxentry = os.path.join(parameters.get('resultsdir', ''),
+                               outname, outname+'.h5')+'::/'+outname+outsuffix
+        params['nxentry'] = nxentry
 
-def processdata(jobname,*args,**kwargs):
+    processdata(jobname, sourcepaths, scannames,
+                scannumbers, cfgfiles, **parameters)
+
+
+def processdata(jobname, *args, **kwargs):
     if "jobs" in kwargs:
-        kwargs["jobs"].append((jobname,processdata_exec,args,kwargs))
+        kwargs["jobs"].append((jobname, processdata_exec, args, kwargs))
     else:
-        processdata_exec(*args,**kwargs)
-        
-def processdata_exec(sourcepaths,scannames,scannumbers,cfgfiles,nxentry,
-                    fluoxas=False,multi=False,geometry=None,
-                    resultsdir=None,edfexport=False,**kwargs):
-    parameters = dict(kwargs)
+        processdata_exec(*args, **kwargs)
+
+
+def processdata_exec(sourcepaths, scannames, scannumbers, cfgfiles,
+                     fluoxas=False, multi=False, resultsdir=None,
+                     edfexport=False, **parameters):
 
     # Basic input
-    parameters['sourcepaths'] = sourcepaths
-    parameters['scannames'] = scannames
-    parameters['scannumbers'] = scannumbers
-    parameters['nxentry'] = nxentry
-    if not instance.isarray(cfgfiles):
-        cfgfiles = [cfgfiles]
+    params = mfluoxas.task_parameters(parameters, 'pymca')
+    params['sourcepaths'] = sourcepaths
+    params['scannames'] = scannames
+    params['scannumbers'] = scannumbers
     if not resultsdir:
         resultsdir = ''
-    
-    parameters['cfgfiles'] = [cfg if os.path.isabs(cfg) else os.path.join(resultsdir,cfg)
-                              for cfg in cfgfiles]
-    
-    # Quantification
-    parameters["qxrfgeometry"] = geometry
-    
+    if instance.isstring(cfgfiles):
+        cfgfiles = [cfgfiles]
+    params['pymcacfg'] = [cfg if os.path.isabs(cfg)
+                          else os.path.join(resultsdir, cfg)
+                          for cfg in cfgfiles]
+
     # Image aligment
+    params = mfluoxas.task_parameters(parameters, 'align')
     if not fluoxas and not multi:
-         parameters['alignmethod'] = None
+        params['alignmethod'] = None
 
     # Process
-    tasks = fluoxas_tasks(**parameters)
+    tasks = mfluoxas.tasks(**parameters)
     if edfexport:
         edfoutput = not fluoxas and not tasks[-1].done
     else:
         edfoutput = False
-    if run_sequential(tasks,name='fluoxas'):
+    if run_sequential(tasks, name='fluoxas'):
         if edfoutput:
             exportedf(tasks[-1].output)
     else:
         unfinished = [task for task in tasks if not task.done]
-        raise RuntimeError('The following tasks are not finished: {}'.format(unfinished))
-        
+        raise RuntimeError(
+            'The following tasks are not finished: {}'.format(unfinished))
+
+
 def exportedf(nxprocess):
     outdir = nxprocess.device.parent[nxprocess.device.name+'_edfresults']
-    logger.info("EDF export:\n Input: {}\n Output: {}".format(nxprocess,outdir))
+    logger.info("EDF export:\n Input: {}\n Output: {}".format(
+        nxprocess, outdir))
     outdir.remove(recursive=True)
     outdir.mkdir()
 
     groups, axes, stackdim = nxresult.regulargriddata(nxprocess)
     stackaxes = axes[stackdim]
-    for group,paths in groups.items():
+    for group, paths in groups.items():
         if group.isdetector:
             for path in paths:
                 with path.open(mode='r') as dset:
                     shape = dset.shape
                     index = [slice(None)]*dset.ndim
-                    if shape[stackdim]==1:
+                    if shape[stackdim] == 1:
                         filename = group.xialabel+'_'+path.name+'.edf'
                     else:
                         filename = group.xialabel+'_'+path.name+'_{}keV.edf'
@@ -160,6 +201,7 @@ def exportedf(nxprocess):
                         index[stackdim] = i
                         image = dset[tuple(index)]
                         name = filename.format(stackaxes[i])
-                        title = '{}@{}keV'.format(group.xialabel,stackaxes[i])
+                        title = '{}@{}keV'.format(group.xialabel, stackaxes[i])
                         logger.info(' saving {}'.format(filename))
-                        saveedf(outdir[name].path,image,{'Title': title},overwrite=True)
+                        saveedf(outdir[name].path, image, {
+                                'Title': title}, overwrite=True)

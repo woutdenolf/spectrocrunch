@@ -86,7 +86,7 @@ def E(X):
         return instance.asscalar(unumpy.nominal_values(X))
     elif instance.isquantity(X):
         return units.Quantity(E(X.magnitude), X.units)
-    elif instance.isuarray(X):
+    elif instance.isarray(X):
         return unumpy.nominal_values(X)
     else:
         return X
@@ -98,7 +98,7 @@ def S(X):
         return instance.asscalar(unumpy.std_devs(X))
     elif instance.isquantity(X):
         return units.Quantity(S(X.magnitude), X.units)
-    elif instance.isuarray(X):
+    elif instance.isarray(X):
         return unumpy.std_devs(X)
     else:
         return X*0

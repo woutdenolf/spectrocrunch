@@ -236,12 +236,13 @@ class Centric(FlatSample):
         else:
             self._distance = units.Quantity(value, "cm")
 
-    def calibrate_distance_manually(self):
+    def calibrate_distance_manually(self, distance):
         self.distance = distance
 
     @property
     def solidangle(self):
-        return self.detector.solidangle_calc(activearea=self.detector.activearea, distance=self.distance)
+        return self.detector.solidangle_calc(activearea=self.detector.activearea,
+                                             distance=self.distance)
 
     @solidangle.setter
     def solidangle(self, value):
@@ -252,7 +253,12 @@ class Centric(FlatSample):
         if self.distance is None:
             return super(Centric, self).__str__()
         else:
-            return "{}\n Distance = {:~}\n Solid angle = 4*pi*{} srad".format(super(Centric, self).__str__(), self.distance, self.solidangle/(4*np.pi))
+            if self.detector is None:
+                solidangle = np.nan
+            else:
+                solidangle = '4*pi*{}'.format(self.solidangle/(4*np.pi))
+            return "{}\n Distance = {:~}\n Solid angle = {} srad"\
+                .format(super(Centric, self).__str__(), self.distance, solidangle)
 
     def addtopymca(self, setup, cfg):
         super(Centric, self).addtopymca(setup, cfg)

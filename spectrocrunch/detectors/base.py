@@ -25,11 +25,19 @@
 from ..utils import instance
 from ..utils import units
 from ..math import noisepropagation
-from ..patch.pint import ureg
 from ..materials import element
 
 import numpy as np
 import fisx
+import re
+
+
+def match_beamfilter(name):
+    return re.compile('^beamfilter(\d+)$').match(name.lower())
+
+
+def isbeamfilter(name):
+    return bool(match_beamfilter(name))
 
 
 class Material(object):
@@ -37,16 +45,16 @@ class Material(object):
     DETMATERIALLABEL = "Detector"
 
     def __init__(self, attenuators=None):
-        # TODO: separate attenuators, beamfilters and detector material
+        # TODO: separate attenuators, beamfilters and detector material?
         if attenuators is None:
             attenuators = {}
         self.attenuators = attenuators
 
     def __getstate__(self):
-        return {'attenuators': self.attenuators}
+        return {'attenuators': self._attenuators}
 
     def __setstate__(self, state):
-        self.attenuators = state['attenuators']
+        self._attenuators = state['attenuators']
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -58,8 +66,25 @@ class Material(object):
         return not self.__eq__(other)
 
     def addattenuator(self, name, material, thickness):
+        thickness = units.umagnitude(thickness, 'cm')
         self._attenuators[name] = {"material": material,
                                    "thickness": thickness}
+
+    def addsamplecover(self, name, material, thickness):
+        self.addattenuator(name, material, thickness)
+        self.addbeamfilter(None, material, thickness)
+
+    def addbeamfilter(self, name, material, thickness):
+        if not name:
+            name = self.nextbeamfilter()
+        elif not isbeamfilter(name):
+            raise ValueError('This is not a beam filter name')
+        self.addattenuator(name, material, thickness)
+
+    def adddetectorfilter(self, name, material, thickness):
+        if isbeamfilter(name):
+            raise ValueError('This is a beam filter name')
+        self.addattenuator(name, material, thickness)
 
     def removeattenuator(self, name):
         self._attenuators.pop(name, None)
@@ -143,17 +168,22 @@ class Material(object):
             self.attenuators[attlabel] = {
                 "material": material, "thickness": thickness}
 
-    def isbeamfilter(self, name):
-        return "beamfilter" in name.lower()
-
     def isdetectorfilter(self, name):
-        return not self.isbeamfilter(name) and name != self.DETMATERIALLABEL
+        return not isbeamfilter(name) and name != self.DETMATERIALLABEL
 
     def beamfilters(self):
-        return [self.attenuators[att] for att in self.attenuators if self.isbeamfilter(att)]
+        return [self.attenuators[att] for att in self.attenuators if isbeamfilter(att)]
 
     def detectorfilters(self):
         return [self.attenuators[att] for att in self.attenuators if self.isdetectorfilter(att)]
+
+    def nextbeamfilter(self):
+        i = 0
+        for att in self.attenuators:
+            m = match_beamfilter(att)
+            if m:
+                i = max(i, int(m.groups()[0]))
+        return 'BeamFilter{}'.format(i)
 
     def addtofisx(self, setup, cfg):
         for attlabel, attinfo in self.attenuators.items():
@@ -253,7 +283,7 @@ class SolidState(Material):
         if value is None:
             self._ehole = None
         else:
-            self._ehole = units.Quantity(value, "eV")
+            self._ehole = units.Quantity(value, 'eV').to('eV')
 
     def __getstate__(self):
         state = super(SolidState, self).__getstate__()
@@ -316,7 +346,7 @@ class CentricCone(SolidState):
         if value is None:
             self._activearea = None
         else:
-            self._activearea = units.Quantity(value, "cm^2")
+            self._activearea = units.Quantity(value, 'cm^2').to('cm^2')
 
     @classmethod
     def solidangle_calc(cls, activearea=None, distance=None, solidangle=None):
@@ -327,7 +357,7 @@ class CentricCone(SolidState):
             d2 = distance**2.
             r2 = activearea/np.pi
             costheta = distance/(r2+d2)**0.5
-            return 2.*np.pi*(1.-costheta.to(ureg.dimensionless).magnitude)
+            return 2.*np.pi*(1.-costheta.to(units.dimensionless).magnitude)
         elif distance is None:
             r2 = activearea/np.pi
             c2 = (1-solidangle/(2.*np.pi))**2
@@ -353,7 +383,6 @@ class CentricCone(SolidState):
 
     def addtofisx(self, setup, cfg):
         super(CentricCone, self).addtofisx(setup, cfg)
-
         if self.hasmaterial:
             detector = fisx.Detector(
                 self.material.name, self.material.density, self.thickness)

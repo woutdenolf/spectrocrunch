@@ -23,7 +23,7 @@
 # THE SOFTWARE.
 
 from copy import deepcopy
-from abc import ABCMeta,abstractmethod
+from abc import ABCMeta, abstractmethod
 from future.utils import with_metaclass
 import logging
 from contextlib import contextmanager
@@ -32,41 +32,46 @@ import traceback
 from ..utils import instance
 from ..utils import timing
 from ..utils import hashing
-from ..utils.signalhandling import DelaySignalsContext
+from ..utils.signalhandling import HandleTermination
 
 logger = logging.getLogger(__name__)
+
 
 class TaskException(Exception):
     pass
 
+
 class MissingParameter(TaskException):
     pass
+
 
 class ParameterError(TaskException):
     pass
 
-class Task(with_metaclass(ABCMeta,object)):
+
+class Task(with_metaclass(ABCMeta, object)):
     """Task who's output is a single Nexus HDF5 path
     """
-    
-    def __init__(self,dependencies=None,outputparent=None,**parameters):
+
+    def __init__(self, dependencies=None, outputparent=None, **parameters):
         """
         Args:
-            dependencies(Optional(Task|Path))
-            outputparent(Optional(Path))
+            dependencies(Optional(Task|h5fs.Path))
+            outputparent(Optional(h5fs.Path))
         """
         self.outputparent = outputparent
         self.dependencies = dependencies
         self.parameters = parameters
         if not self.hasdependencies and self.outputparent is None:
-            raise ValueError('Specify "outputparent" when task does not have dependencies')
-        
+            raise ValueError(
+                'Specify "outputparent" when task does not have dependencies')
+
     def __str__(self):
         return "Task '{}'".format(self.output.name)
-    
+
     def __repr__(self):
         return self.__str__()
-    
+
     def run(self):
         """Creates the output atomically
         """
@@ -76,14 +81,15 @@ class Task(with_metaclass(ABCMeta,object)):
                 logger.info('{} already done'.format(self))
             else:
                 logger.info('{} started ...'.format(self))
-                with timing.timeit_logger(logger,name=str(self)):
+                with timing.timeit_logger(logger, name=str(self)):
                     with self._atomic_context():
                         self._execute()
         else:
-            logger.warning('{} not executed (missing dependencies)'.format(self))
+            logger.warning(
+                '{} not executed (missing dependencies)'.format(self))
 
     def _atomic_context(self):
-        return DelaySignalsContext(setup=self._atomic_context_enter,
+        return HandleTermination(setup=self._atomic_context_enter,
                                    teardown=self._atomic_context_exit)
 
     def _atomic_context_enter(self):
@@ -91,56 +97,69 @@ class Task(with_metaclass(ABCMeta,object)):
 
     def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
         if exc_type:
-            logger.error(''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
-        return 1 # Exception is handled (do not raise it)
+            logger.error(''.join(traceback.format_exception(
+                exc_type, exc_value, exc_traceback)))
+        return 1  # Exception is handled (do not raise it)
 
     @property
     def output(self):
+        """
+        returns: h5fs.Path
+        """
         return self.outputparent[self.outputname]
-    
+
     @property
     def dependencies_done(self):
         for dependency in self.dependencies:
-            if hasattr(dependency,'output'):
+            if hasattr(dependency, 'output'):
                 if not dependency.done:
                     return False
             else:
                 if not dependency.exists:
                     return False
         return True
-    
+
     @property
     def exists(self):
         return self.output.exists
-            
+
     @property
     def done(self):
         return self.dependencies_done and self.exists
-        
+
     @property
     def checksum(self):
         hashes = [dependency.checksum for dependency in self.dependencies]
         hashes.append(hashing.calchash(self.parameters))
         return hashing.mergehash(*hashes)
-        
+
     @property
     def parameters(self):
         return self._parameters
-    
+
     @parameters.setter
-    def parameters(self,value):
+    def parameters(self, value):
         self._parameters = deepcopy(value)
         self._parameters_defaults()
         lst = self._parameters_filter()
         if lst:
-            self._parameters = {k:v for k,v in self._parameters.items() if k in lst}
-    
+            self._parameters = {k: v for k,
+                                v in self._parameters.items() if k in lst}
+
     @property
     def dependencies(self):
+        """
+        Returns:
+            list(Task or h5fs.Path)
+        """
         return self._dependencies
-        
+
     @dependencies.setter
-    def dependencies(self,value):
+    def dependencies(self, value):
+        """
+        Args:
+            value(list or Task or h5fs.Path)
+        """
         if instance.isarray(value):
             self._dependencies = value
         else:
@@ -149,7 +168,7 @@ class Task(with_metaclass(ABCMeta,object)):
             else:
                 self._dependencies = [value]
         self.default_outputparent = None
-    
+
     @property
     def default_outputparent(self):
         if self._default_outputparent is None:
@@ -163,20 +182,28 @@ class Task(with_metaclass(ABCMeta,object)):
                 else:
                     self._default_outputparent = None
         return self._default_outputparent
-        
+
     @default_outputparent.setter
-    def default_outputparent(self,value):
+    def default_outputparent(self, value):
         self._default_outputparent = value
-    
+
     @property
     def previous_outputs(self):
-        ret = []
+        """
+        Returns:
+            list(h5fs.Path)
+        """
+        return [out for out in self.previous_outputs_iter()]
+
+    def previous_outputs_iter(self):
+        """
+        Yields h5fs.Path
+        """
         for dependency in self.dependencies:
-            if isinstance(dependency,Task):
-                ret.append(dependency.output)
+            if isinstance(dependency, Task):
+                yield dependency.output
             else:
-                ret.append(dependency)
-        return ret
+                yield dependency
 
     @property
     def hasdependencies(self):
@@ -184,17 +211,17 @@ class Task(with_metaclass(ABCMeta,object)):
 
     def _parameters_defaults(self):
         self._required_parameters('method')
-        self.parameters['name'] = self.parameters.get('name',self.method)
+        self.parameters['name'] = self.parameters.get('name', self.method)
 
-    def _required_parameters(self,*params):
+    def _required_parameters(self, *params):
         parameters = self.parameters
         for p in params:
             if p not in parameters:
                 raise MissingParameter(p)
-    
+
     def _parameters_filter(self):
-        return ['name','method']
-    
+        return ['name', 'method']
+
     @property
     def method(self):
         return self.parameters['method']
@@ -209,9 +236,9 @@ class Task(with_metaclass(ABCMeta,object)):
             return self.default_outputparent
         else:
             return self._outputparent
-    
+
     @outputparent.setter
-    def outputparent(self,value):
+    def outputparent(self, value):
         self._outputparent = value
 
     def _ensure_outputdeviceparent(self):
@@ -220,7 +247,7 @@ class Task(with_metaclass(ABCMeta,object)):
             device.parent.mkdir()
         else:
             self.outputparent.mkdir()
-    
+
     @abstractmethod
     def _execute(self):
         pass

@@ -62,6 +62,10 @@ class test_noisepropagation(unittest.TestCase):
                 x, units.magnitude(noisepropagation.E(y), units=unit))
             np.testing.assert_array_equal(s, noisepropagation.S(y))
 
+        x = 10, noisepropagation.randomvariable(20, 1)
+        np.testing.assert_array_equal([10, 20], noisepropagation.E(x))
+        np.testing.assert_array_equal([0, 1], noisepropagation.S(x))
+
     def test_repeat(self):
         X = noisepropagation.randomvariable([100, 200], [100**0.5, 200**0.5])
 
@@ -93,7 +97,6 @@ class test_noisepropagation(unittest.TestCase):
         self.assertNotEqual(noisepropagation.S(N1), noisepropagation.S(N2))
 
     def test_compound(self):
-
         N0 = noisepropagation.randomvariable([100., 200], [100**0.5, 200**0.5])
         EN0 = noisepropagation.E(N0)
 

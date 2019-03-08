@@ -42,8 +42,8 @@ import collections
 
 class Base(object):
 
-    def __init__(self,axis0name=None,axis1name=None,
-                 transfo0=None,transfo1=None,**kwargs):
+    def __init__(self, axis0name=None, axis1name=None,
+                 transfo0=None, transfo1=None, **kwargs):
         self.instrument = configuration.getinstrument(**kwargs)
         if axis0name is None:
             axis0name = self.instrument.imageaxes[0].upper()
@@ -52,14 +52,14 @@ class Base(object):
         self.axis0name = axis0name
         self.axis1name = axis1name
         if transfo0 is None:
-            transfo0 = lambda x:x
+            def transfo0(x): return x
         if transfo1 is None:
-            transfo1 = lambda x:x
+            def transfo1(x): return x
         self.transfo0 = transfo0
         self.transfo1 = transfo1
 
-    def motorquantity(self,values,motorname):
-        return units.Quantity(values,self.instrument.units[motorname])
+    def motorquantity(self, values, motorname):
+        return units.Quantity(values, self.instrument.units[motorname])
 
 
 class PointBase(Base):
@@ -68,13 +68,13 @@ class PointBase(Base):
         coord0 = []
         coord1 = []
         lbls = []
-        for positions,labels in self:
-            p0 = sum(self.motorquantity(x,motname) for motname,x in
-                        zip(self.instrument.imagemotors,positions)
-                        if self.instrument.imageaxes[0] in motname)
-            p1 = sum(self.motorquantity(x,motname) for motname,x in
-                        zip(self.instrument.imagemotors,positions)
-                        if self.instrument.imageaxes[1] in motname)
+        for positions, labels in self:
+            p0 = sum(self.motorquantity(x, motname) for motname, x in
+                     zip(self.instrument.imagemotors, positions)
+                     if self.instrument.imageaxes[0] in motname)
+            p1 = sum(self.motorquantity(x, motname) for motname, x in
+                     zip(self.instrument.imagemotors, positions)
+                     if self.instrument.imageaxes[1] in motname)
 
             # Append positions and labels
             coord0 += instance.asarray(p0).tolist()
@@ -93,20 +93,21 @@ class PointBase(Base):
     @property
     def coordinates1(self):
         return self.transfo1(self._coordinates1)
-        
-        
+
+
 class ImageBase(Base):
 
     def __init__(self, grid, items=None, **kwargs):
         self.instrument = configuration.getinstrument(**kwargs)
         self.grid = grid
         self.set_items(items)
-        axis0name, axis1name = [ax.name for ax in self._grid_image_axes]
-        kwargs['axis0name'] = kwargs.get('kwargs',axis0name).upper()
-        kwargs['axis1name'] = kwargs.get('kwargs',axis1name).upper()
+        axis0name, axis1name = [
+            ax.title_nounits for ax in self._grid_image_axes]
+        kwargs['axis0name'] = kwargs.get('kwargs', axis0name)
+        kwargs['axis1name'] = kwargs.get('kwargs', axis1name)
         kwargs['instrument'] = self.instrument
-        super(ImageBase,self).__init__(**kwargs)
-    
+        super(ImageBase, self).__init__(**kwargs)
+
     def set_items(self, items):
         idxgrid = [slice(None)]*self.grid.ndim
         stackdim = self.grid.stackdim
@@ -124,11 +125,11 @@ class ImageBase(Base):
             for item in items:
                 if not instance.isarray(item):
                     item = (item,)
-                item = item + (-1,)*max(len(stack_dims)-len(item),0)
-                for i,v in zip(stack_dims,item):
+                item = item + (-1,)*max(len(stack_dims)-len(item), 0)
+                for i, v in zip(stack_dims, item):
                     j = self.grid.axes[i].locate(v, detectindex=True)
                     idxgrid[i] = j
-                    if i==stackdim:
+                    if i == stackdim:
                         label = self.grid.axes[i][j]
                         if isinstance(label, fs.Path):
                             label = label.name
@@ -144,7 +145,7 @@ class ImageBase(Base):
             return axes[::-1]
         else:
             return axes
-    
+
     @property
     def transpose(self):
         ax0name = self.grid.axes[self.grid.other_dims[0]].name
@@ -165,7 +166,7 @@ class ImageBase(Base):
         """
         Args:
             index(Optional(list)): e.g. [5,None,1]
-            
+
         Returns:
             data(array): e.g. nrow x ncol x 2
             channels: e.g. [0,None,1]
@@ -187,7 +188,7 @@ class ImageBase(Base):
         labels = ['']*nimages
         channels = [None]*nout
         iout = 0
-        for itemidx,(label,idxgrid) in enumerate(it):
+        for itemidx, (label, idxgrid) in enumerate(it):
             if label is None:
                 continue
             labels[iout] = label
@@ -196,15 +197,15 @@ class ImageBase(Base):
             iout += 1
 
         if self.transpose:
-            data = np.swapaxes(data,0,1)
+            data = np.swapaxes(data, 0, 1)
         return data, channels, labels
 
-    def interpolate(self,p0,p1):
+    def interpolate(self, p0, p1):
         ind = list(range(len(p0)))
-        data = self.grid.interpolate(None,p0,p1,asgrid=True,degree=1)
-        data = data[:,ind,ind]
+        data = self.grid.interpolate(None, p0, p1, asgrid=True, degree=1)
+        data = data[:, ind, ind]
         result = collections.OrderedDict()
-        for label,values in zip(self.grid.axes[0].values,data):
+        for label, values in zip(self.grid.axes[0].values, data):
             result[label] = values
         return result
 
@@ -219,8 +220,9 @@ class EDFStack(ImageBase):
         """
         if instance.isstring(filenames):
             filenames = [filenames]
-        grid = EDFRegularGrid(filenames,instrument=kwargs.get('instrument',None))
-        super(EDFStack,self).__init__(grid, items=items, **kwargs)
+        grid = EDFRegularGrid(
+            filenames, instrument=kwargs.get('instrument', None))
+        super(EDFStack, self).__init__(grid, items=items, **kwargs)
 
 
 class NexusStack(ImageBase):
@@ -232,20 +234,20 @@ class NexusStack(ImageBase):
             items(list(str))
         """
         grid = NXRegularGrid(nxgroup)
-        super(NexusStack,self).__init__(grid, items=items, **kwargs)
+        super(NexusStack, self).__init__(grid, items=items, **kwargs)
 
 
 class XanesSpec(PointBase):
 
-    def __init__(self,filenames,specnumbers,labels=None,**kwargs):
+    def __init__(self, filenames, specnumbers, labels=None, **kwargs):
         """
         Args:
             filenames(str|list(str)): list of spec file names
             specnumbers(list|list(list)): empty list of numbers => all xanes spectra
             labels(Optional(list|list(list))): uses the spec numbers by default
         """
-        super(XanesSpec,self).__init__(**kwargs)
-        
+        super(XanesSpec, self).__init__(**kwargs)
+
         if instance.isstring(filenames):
             filenames = [filenames]
         self.filenames = filenames
@@ -267,16 +269,18 @@ class XanesSpec(PointBase):
         return lst
 
     def __iter__(self):
-        for filename,numbers,labels in zip(self.filenames,self.specnumbers,self.speclabels):
+        for filename, numbers, labels in zip(self.filenames, self.specnumbers, self.speclabels):
             # Get motor positions for each number
             f = spec.spec(filename)
             if not numbers:
-                numbers = f.extractxanesginfo(keepsum=True,sumingroups=False,keepindividual=False)
-                numbers = [k[0] for k in numbers if len(k)==1]
+                numbers = f.extractxanesginfo(
+                    keepsum=True, sumingroups=False, keepindividual=False)
+                numbers = [k[0] for k in numbers if len(k) == 1]
                 lbls = []
             if not numbers:
                 continue
-            positions = zip(*[f.getmotorvalues(nr,self.instrument.imagemotors) for nr in numbers])
+            positions = zip(
+                *[f.getmotorvalues(nr, self.instrument.imagemotors) for nr in numbers])
             if not labels:
                 labels = numbers
-            yield positions,labels
+            yield positions, labels

@@ -29,181 +29,227 @@ from ..process.utils import create_task
 from ..io import nxfs
 from ..instruments.configuration import getinstrument
 
-def xrfparameters(**parameters):
-    sourcepaths = parameters['sourcepaths']
-    scannames = parameters['scannames']
-    scannumbers = parameters['scannumbers']
-    cfgfiles = parameters['cfgfiles']
-    nxentry = parameters['nxentry']
-    
-    instrument = getinstrument(**parameters)
-    dtcor = parameters.get('dtcor',True)
-    fastfitting = parameters.get('fastfitting',True)
-    adddetectors = parameters.get('adddetectors',True)
-    addbeforefit = parameters.get('addbeforefit',True)
-    mlines = parameters.get('mlines',{})
-    exclude_detectors = parameters.get('exclude_detectors',None)
-    include_detectors = parameters.get('include_detectors',None)
-    noxia = parameters.get('noxia',False)
-    encodercor = parameters.get('encodercor',False)
-    qxrfgeometry = parameters.get('qxrfgeometry',None)
-    correctspectra = parameters.get('correctspectra',False)
-    fluxid = parameters.get('fluxid','I0')
-    transmissionid = parameters.get('transmissionid','It')
+
+def task_parameters(parameters, name):
+    params = parameters.get(name, {})
+    parameters[name] = params
+    return params
+
+
+def ensure_parameter(parameters, name, default=None):
+    value = parameters.get(name, default)
+    parameters[name] = value
+    return value
+
+
+def require_parameter(parameters, name):
+    if name not in parameters:
+        raise RuntimeError('Parameter {} is missing'.format(repr(name)))
+    return parameters[name]
+
+
+def require_pop(parameters, name):
+    require_parameter(parameters, name)
+    return parameters.pop(name)
+
+
+def ensure_list(parameters, name, default=None):
+    value = parameters.get(name, default)
+    if value is None:
+        value = []
+    elif not instance.isarray(value):
+        value = [value]
+    parameters[name] = value
+    return value
+
+
+def require_list(parameters, name):
+    require_parameter(parameters, name)
+    return ensure_list(parameters, name)
+
+
+def require_poplist(parameters, name):
+    require_parameter(parameters, name)
+    lst = ensure_list(parameters, name)
+    parameters.pop(name)
+    return lst
+
+
+def xrfparameters(parameters, instrument, include_encoders=True, quant=False):
+    # Input
+    require_list(parameters, 'sourcepaths')
+    require_list(parameters, 'scannames')
+    require_list(parameters, 'scannumbers')
+    require_list(parameters, 'pymcacfg')
+
+    # Extract relevant instrument info
+    excounters = []
+    if include_encoders:
+        excounters.extend(['motors'])
     #dtcorcounters = all(k in instrument.counterdict for k in ['xrficr','xrfocr'])
-    
-    if noxia:
-        cfgfiles = None
-    bfit = cfgfiles is not None
+    #if nospectra:
+    #    excounters.extend(['xrficr', 'xrfocr', 'xrfroi'])
+    counters = instrument.counters(exclude=excounters)
+    counters.extend(parameters.get('counters', []))
+    parameters['counters'] = counters
 
-    if exclude_detectors is None:
-        exclude_detectors = []
-
-    if include_detectors is None:
-        include_detectors = []
-
-    if not instance.isarray(sourcepaths):
-        sourcepaths = [sourcepaths]
-    if not instance.isarray(scannames):
-        scannames = [scannames]
-    if not instance.isarray(scannumbers):
-        scannumbers = [scannumbers]
-    if not instance.isarray(cfgfiles):
-        cfgfiles = [cfgfiles]
-
-    lst = []
-    if noxia:
-        lst.extend(['xrficr','xrfocr','xrfroi'])
-    if not encodercor:
-        lst.extend(['motors'])
-    counters = instrument.counters(exclude=lst)
-    counters.extend(parameters.get('counters',[]))
-
-    edffields1 = ('speclabel','slowlabel','fastlabel','energylabel','timelabel')
-    edffields2 = ('speclabel','slowlabel','fastlabel','stackvalue','time')
-    edfheader = {k2:instrument.edfheaderkeys[k1] for k1,k2 in zip(edffields1,edffields2)}
+    edffields1 = ('speclabel', 'slowlabel', 'fastlabel',
+                  'energylabel', 'timelabel')
+    edffields2 = ('speclabel', 'slowlabel', 'fastlabel', 'stackvalue', 'time')
+    edfheader = {k2: instrument.edfheaderkeys[k1]
+                 for k1, k2 in zip(edffields1, edffields2)}
     edfheader['axesnamemap'] = instrument.imagemotors
     edfheader['compensationmotors'] = instrument.compensationmotors
+    parameters['edfheader'] = edfheader
 
-    config = {
-            # Input
-            'sourcepaths': sourcepaths,
-            'scannames': scannames,
-            'scannumbers': scannumbers,
-            'counters': counters,
-            'counter_reldir': instrument.counter_reldir,
-            'fluxcounter': instrument.counterdict[fluxid+'_counts'],
-            'transmissioncounter': instrument.counterdict[transmissionid+'_counts'],
+    parameters['counter_reldir'] = instrument.counter_reldir
+    fluxid = parameters.pop('fluxid', 'I0')
+    transmissionid = parameters.pop('transmissionid', 'It')
+    parameters['fluxcounter'] = instrument.counterdict[fluxid+'_counts']
+    parameters['transmissioncounter'] = instrument.counterdict[transmissionid+'_counts']
+    parameters['metadata'] = instrument.metadata
+    parameters['units'] = instrument.units
 
-            # Meta data
-            'metadata': instrument.metadata,
-            'edfheader': edfheader,
-            'units': instrument.units,
+    # Others
+    ensure_parameter(parameters, 'dtcor', True)
+    ensure_parameter(parameters, 'fastfitting', True)
+    ensure_parameter(parameters, 'adddetectors', True)  # sum spectra
+    ensure_parameter(parameters, 'addbeforefit', True)  # sum fit results and detector counters
+    ensure_parameter(parameters, 'mlines', {})
+    ensure_parameter(parameters, 'correctspectra', False)
+    ensure_list(parameters, 'exclude_detectors')
+    ensure_list(parameters, 'include_detectors')
+    ensure_list(parameters, 'samplecovers')
+    ensure_list(parameters, 'transmissionfilters')
+    if quant:
+        require_parameter(parameters, 'diodeI0gain')
+        require_parameter(parameters, 'diodeItgain')
+        require_list(parameters, 'xrf_positions')
 
-            # Data correction
-            'dtcor': dtcor,
-            'correctspectra': correctspectra,
-            'adddetectors': adddetectors, # sum spectra
-            'addbeforefit': addbeforefit, # sum fit results and detector counters
-            'qxrfgeometry': qxrfgeometry,
-            
-            # Configuration for fitting
-            'pymcacfg': cfgfiles,
-            'mlines': mlines,
-            'fit': bfit,
-            'fastfitting': fastfitting,
-            'exclude_detectors': exclude_detectors,
-            'include_detectors': include_detectors,
 
-            # Output directories
-            'outputparent': nxfs.Path(str(nxentry))
-    }
-    
-    return config,instrument
-    
 def tasks(**parameters):
     """Scripted pipeline to process FluoXAS data
     """
     tasks = []
-    
+
     # Common parameters
-    parameters['stackdim'] = parameters.get('stackdim',0)
-    parameters['default'] = parameters.get('default',None)
-    commonparams = {k:parameters[k] for k in ['default','stackdim']}
+    commonparams = task_parameters(parameters, 'common').copy()
+    instrument = require_pop(commonparams, 'instrument')
+    outputparent = nxfs.Path(str(require_pop(commonparams, 'nxentry')))
+    ensure_parameter(commonparams, 'stackdim', 0)
+    ensure_parameter(commonparams, 'default', None)
+    instrument = getinstrument(instrument=instrument)
 
-    # Image stacks (counters + result of XRF fitting)
-    xrfparams,instrument = xrfparameters(**parameters)
-    xrfparams.update(commonparams)
-    task = create_task(method='pymca',name='pymca',**xrfparams)
+    # Calibrate geometry
+    params = task_parameters(parameters, 'geometry')
+    geometry = ensure_parameter(params, 'geometry', None)
+    if geometry:
+        init = ensure_parameter(params, 'init', {})
+        init['instrument'] = instrument
+        task = create_task(method='xrfgeometry',
+                           name='xrfgeometry',
+                           outputparent=outputparent,
+                           **params)
+        outputparent = None
+        tasks.append(task)
+    else:
+        task = None
+
+    # XRF fit and counter maps
+    params = task_parameters(parameters, 'resample')
+    encodercor = ensure_parameter(params, 'encodercor', False)
+    params = task_parameters(parameters, 'pymca').copy()
+    xrfparameters(params, instrument, include_encoders=encodercor, quant=bool(geometry))
+    params.update(commonparams)
+    task = create_task(method='pymca', name='pymca',
+                       dependencies=task, 
+                       outputparent=outputparent, **params)
     tasks.append(task)
-    
-    # Normalization
-    prealignnormcounter = parameters.get('prealignnormcounter',None)
-    dtcor = False # No longer needed
-    if dtcor or prealignnormcounter is not None:
-        copy = [{'method':'regex','pattern':prefix}
-                for prefix in instrument.counterdict['counters']]
 
+    # Normalization
+    params = task_parameters(parameters, 'prealignnormalize')
+    counter = ensure_parameter(params, 'counter', None)
+    dtcor = False  # No longer needed
+    if dtcor or counter:
+        copy = [{'method': 'regex', 'pattern': prefix}
+                for prefix in instrument.counterdict['counters']]
         # Create normalization expression
         if dtcor:
             icr = instrument.counterdict['xrficr']
             ocr = instrument.counterdict['xrfocr']
-            if prealignnormcounter is None:
-                expression = '{{}}*nanone({{{}}}/{{{}}})'.format(icr,ocr)
+            if counter:
+                expression = '{{}}*nanone({{{}}}/({{{}}}*{{{}}}))'.format(
+                    icr, ocr, counter)
             else:
-                expression = '{{}}*nanone({{{}}}/({{{}}}*{{{}}}))'.format(icr,ocr,prealignnormcounter)
+                expression = '{{}}*nanone({{{}}}/{{{}}})'.format(icr, ocr)
         else:
-            expression = '{{}}/{{{}}}'.format(prealignnormcounter)
-
-        task = create_task(dependencies=task,method='expression',name='normalize',
-                              expression=expression,copy=copy,**commonparams)
+            expression = '{{}}/{{{}}}'.format(counter)
+        task = create_task(dependencies=task,
+                           method='expression',
+                           name='normalize',
+                           expression=expression,
+                           copy=copy,
+                           **commonparams)
         tasks.append(task)
-        
+
     # Correct for encoder positions
-    encodercor = parameters.get('encodercor',False)
-    
     if encodercor:
         encoders = instrument.encoderinfo
-        task = create_task(dependencies=task,method='resample',name='resample',
-                              encoders=encoders,**commonparams)
+        task = create_task(dependencies=task,
+                           method='resample',
+                           name='resample',
+                           encoders=encoders,
+                           **commonparams)
         tasks.append(task)
-            
+
     # Alignment
-    alignmethod = parameters.get('alignmethod',None)
-    alignreference = parameters.get('alignreference',None)
-    if alignmethod and alignreference is not None:
-        refimageindex = parameters.get('refimageindex',-1)
-        roi = parameters.get('roialign',None)
-        plot = parameters.get('plot',False)
-        task = create_task(dependencies=task,method='align',name='align',alignmethod=alignmethod,
-                              reference=alignreference,refimageindex=refimageindex,
-                              crop=False,roi=roi,plot=plot,**commonparams)
+    params = task_parameters(parameters, 'align')
+    alignmethod = ensure_parameter(params, 'alignmethod', None)
+    reference = ensure_parameter(params, 'reference', None)
+    if alignmethod and reference is not None:
+        ensure_parameter(params, 'refimageindex', -1)
+        ensure_parameter(params, 'roi', None)
+        ensure_parameter(params, 'plot', False)
+        ensure_parameter(params, 'crop', False)
+        params.update(commonparams)
+        task = create_task(dependencies=task,
+                           method='align',
+                           name='align',
+                           alignmethod=alignmethod,
+                           reference=reference,
+                           **params)
         tasks.append(task)
 
     # Post normalization
-    postalignnormcounter = parameters.get('postalignnormcounter',None)
-    if postalignnormcounter is not None:
-        copy = [{'method':'regexparent','pattern':prefix}
+    params = task_parameters(parameters, 'prostalignnormalize')
+    counter = ensure_parameter(params, 'counter', None)
+    if counter:
+        copy = [{'method': 'regexparent', 'pattern': prefix}
                 for prefix in instrument.counterdict['counters']]
-        
-        expression = '{{}}/{{{}}}'.format(postalignnormcounter)
-        task  = create_task(dependencies=task,method='expression',name='postnormalize',
-                               expression=expression,copy=copy,**commonparams)
+        expression = '{{}}/{{{}}}'.format(counter)
+        task = create_task(dependencies=task, method='expression',
+                           name='postnormalize', expression=expression,
+                           copy=copy, **commonparams)
         tasks.append(task)
-        
+
     # Remove NaN's
-    replacenan = parameters.get('replacenan',False)
+    params = task_parameters(parameters, 'replacenan')
+    replacenan = ensure_parameter(params, 'replacenan', False)
     if replacenan:
-        tmp = create_task(dependencies=task,method='replace',name='replace',
-                             org=np.nan,new=0,**commonparams)
+        tmp = create_task(dependencies=task, method='replace',
+                          name='replace', org=np.nan, new=0,
+                          **commonparams)
         tasks.append(tmp)
-                                            
+
     # Crop
-    cropafter = parameters.get('crop',False)
+    params = task_parameters(parameters, 'crop')
+    cropafter = params.get('crop', False)
     if cropafter:
-        cropfull = parameters.get('cropfull',True)
-        tmp = create_task(dependencies=task,method='crop',name='crop',nanval=np.nan,
-                             nanfull=cropfull,reference=alignreference,**commonparams)
+        cropfull = params.get('cropfull', True)
+        tmp = create_task(dependencies=task, method='crop',
+                          name='crop', nanval=np.nan,
+                          nanfull=cropfull, reference=reference,
+                          **commonparams)
         tasks.append(tmp)
-    
+
     return tasks

@@ -34,79 +34,94 @@ from ..io.utils import randomstring
 
 logger = logging.getLogger(__name__)
 
+
 class Task(basetask.Task):
     """Task who's output is a single self.temp_nxprocess
     """
-        
+
     def _parameters_filter(self):
-        return super(Task,self)._parameters_filter()+['default']
+        return super(Task, self)._parameters_filter()+['default']
 
     @property
     def default(self):
-        return self.parameters.get('default',None)
+        return self.parameters.get('default', None)
 
     def _atomic_context_enter(self):
         while True:
             try:
-                self.temp_nxprocess = self.outputparent.nxprocess(randomstring(),noincrement=True,
-                                                                parameters=self.parameters,
-                                                                dependencies=list(self.previous_outputs))
+                self.temp_nxprocess = self.outputparent.nxprocess(randomstring(), noincrement=True,
+                                                                  parameters=self.parameters,
+                                                                  dependencies=list(self.previous_outputs))
             except fs.AlreadyExists:
-                pass # already exists
+                pass  # already exists
             else:
                 break
-    
+
     @property
     def outputname(self):
-        outputname = target.Name(self.parameters['name'])
+        """
+        NXprocess name (non-existent unless locked)
+        """
+        if not hasattr(self, '_target'):
+            self._target = target.Name(self.parameters['name'])
+        if self._target.locked:
+            return str(self._target)
+        else:
+            self._target.reset()
         entry = self.outputparent
         if not entry.exists:
-            return str(outputname)
-        process = entry.find_nxprocess(name=str(outputname),parameters=self.parameters,
-                                       dependencies=self.dependencies,searchallentries=False)
+            return str(self._target)
+        process = entry.find_nxprocess(name=str(self._target),
+                                       parameters=self.parameters,
+                                       dependencies=self.dependencies,
+                                       searchallentries=False)
         if process is None:
-            while entry[str(outputname)].exists:
-                outputname += 1
+            while entry[str(self._target)].exists:
+                self._target += 1
         else:
-            outputname = target.Name(process.name)
-        return str(outputname)
-        
+            self._target = target.Name(process.name)
+        return str(self._target)
+
+    def _lock_outputname(self):
+        self._target.lock()
+
     @property
     def temp_nxresults(self):
         return self.temp_nxprocess.results
-        
+
     @property
     def temp_outputname(self):
         return self.temp_nxprocess.name
-    
+
     @property
     def localpath(self):
         return self.outputparent.device.parent
-        
+
     @property
     def temp_localpath(self):
         return self.localpath[self.temp_outputname]
-    
+
     @property
     def output_localpath(self):
         name = self.outputparent.name + '_' + self.outputname
         return self.localpath[name]
-    
+
     def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
         if exc_type:
-            logger.error(''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
-            self.removeoutput()
+            logger.error(''.join(traceback.format_exception(
+                exc_type, exc_value, exc_traceback)))
+            self._remove_temp_output()
         else:
-            self.renameoutput()
-            nxutils.set_default(self.output,self.default)
+            self._rename_temp_output()
+            nxutils.set_default(self.output, self.default)
         self.temp_nxprocess = None
-        return 1 # Exception is handled (do not raise it)
+        return 1  # Exception is handled (do not raise it)
 
-    def removeoutput(self):
+    def _remove_temp_output(self):
         self.temp_nxprocess.remove(recursive=True)
         self.temp_localpath.remove(recursive=True)
-    
-    def renameoutput(self):
+
+    def _rename_temp_output(self):
         while self.temp_nxprocess.exists:
             try:
                 old, new = self.temp_nxprocess, self.output
@@ -114,12 +129,25 @@ class Task(basetask.Task):
             except fs.AlreadyExists:
                 if self.output.exists:
                     # Already done by someone else
-                    self.removeoutput()
+                    self._remove_temp_output()
             else:
-                logger.info('Rename {} to {}'.format(old, new))
+                logger.info('Renamed {} to {}'.format(old, new))
+                self._lock_outputname()
         old = self.temp_localpath
         if old.exists:
             new = self.output_localpath
             old.move(new, force=True)
-            logger.info('Rename {} to {}'.format(old, new))
-            
+            logger.info('Renamed {} to {}'.format(old, new))
+
+    def find_dependency(self, **parameters):
+        """
+        Returns:
+            nxfs._NXprocess or None
+        """
+        for nxprocess in self.previous_outputs_iter():
+            if nxprocess.is_nxclass(u'NXprocess'):
+                config = nxprocess.config.read()
+                if all(config.get(k, None) == v
+                       for k, v in parameters.items()):
+                    return nxprocess
+        return None

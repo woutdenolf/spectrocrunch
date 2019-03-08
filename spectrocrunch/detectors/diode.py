@@ -428,14 +428,15 @@ class PNdiode(with_metaclass(base.SolidState)):
 
     @gain.setter
     def gain(self, value):
-        if hasattr(self, "_gain"):
+        try:
             u = self.gainunits
-            gain = units.Quantity(value, u).to(u)
-        else:
+        except AttributeError:
             try:
-                gain = value.to("V/A")
-            except pinterrors.DimensionalityError:
                 gain = value.to("A")
+            except pinterrors.DimensionalityError:
+                gain = value.to("V/A")
+        else:
+            gain = units.Quantity(value, u).to(u)
         self._gain = self.gainrounder(gain)
 
     @property

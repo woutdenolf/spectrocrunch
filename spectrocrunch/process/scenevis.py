@@ -38,157 +38,174 @@ from ..io import xiaedf
 
 logger = logging.getLogger(__name__)
 
-def scene_modifyaxes(sc,parameters):
-    if parameters.get('originzero',False):
+
+def scene_modifyaxes(sc, parameters):
+    if parameters.get('originzero', False):
         sc.originzero()
-    if parameters.get('transpose',False):
+    if parameters.get('transpose', False):
         sc.transpose(True)
-    if parameters.get('flipx',False):
-        sc.flipx(increasing=parameters.get('incx',None))
-    elif parameters.get('incx',False):
+    if parameters.get('flipx', False):
+        sc.flipx(increasing=parameters.get('incx', None))
+    elif parameters.get('incx', False):
         sc.increasingx(True)
-    if parameters.get('flipy',False):
-        sc.flipy(increasing=parameters.get('incy',None))
-    elif parameters.get('incy',False):
+    if parameters.get('flipy', False):
+        sc.flipy(increasing=parameters.get('incy', None))
+    elif parameters.get('incy', False):
         sc.increasingy(True)
-    if parameters.get('aspectratio',None) is not None:
+    if parameters.get('aspectratio', None) is not None:
         sc.aspectratio = parameters['aspectratio']
 
-def scene_globalscaling(sc,parameters):
-    rlo = parameters.get('rlo',None)
-    rhi = parameters.get('rhi',None)
+
+def scene_globalscaling(sc, parameters):
+    rlo = parameters.get('rlo', None)
+    rhi = parameters.get('rhi', None)
     if rlo is not None or rhi is not None:
-        vmin,vmax = sc.vminmax
+        vmin, vmax = sc.vminmax
         dv = np.array(vmax)-np.array(vmin)
 
         if rlo is None:
             vmin = None
         else:
-            rlo,func = instance.asarrayf(rlo)
+            rlo, func = instance.asarrayf(rlo)
             vmin = vmin + dv*func(rlo)
         if rhi is None:
             vmax = None
         else:
-            rhi,func = instance.asarrayf(rhi)
+            rhi, func = instance.asarrayf(rhi)
             vmax = vmin + dv*func(rhi)
-        sc.scale(vmin=vmin,vmax=vmax)
+        sc.scale(vmin=vmin, vmax=vmax)
 
-    alo = parameters.get('alo',None)
-    ahi = parameters.get('ahi',None)
+    alo = parameters.get('alo', None)
+    ahi = parameters.get('ahi', None)
     if alo is not None or ahi is not None:
-        sc.scale(vmin=alo,vmax=ahi)
+        sc.scale(vmin=alo, vmax=ahi)
 
-def createwriter(parameters,filename):
-    filename,ext = os.path.splitext(filename)
+
+def createwriter(parameters, filename):
+    filename, ext = os.path.splitext(filename)
     filename = filename+'.xlsx'
     if filename not in parameters['writers']:
         writer = pd.ExcelWriter(filename)
-        parameters['writers'][filename]=writer 
+        parameters['writers'][filename] = writer
     return parameters['writers'][filename]
 
-def savefigures(filename,parameters):
+
+def savewriters(parameters):
+    for filename, writer in parameters['writers'].items():
+        writer.save()
+        logger.info('Saved {}'.format(filename))
+
+
+def savefigures(filename, parameters):
     figs = [plt.figure(i) for i in plt.get_fignums()]
-    if len(figs)>1:
-        filename,ext = os.path.splitext(filename)
-        filename = '{}_{{:02d}}{}'.format(filename,ext)
-    for i,fig in enumerate(figs):
+    if len(figs) > 1:
+        filename, ext = os.path.splitext(filename)
+        filename = '{}_{{:02d}}{}'.format(filename, ext)
+    for i, fig in enumerate(figs):
         name = filename.format(i+1)
         if not os.path.exists(os.path.dirname(name)):
             os.makedirs(os.path.dirname(name))
-        fig.savefig(name,**parameters['saveparams'])
+        saveparams = parameters.get('saveparams',{})
+        fig.savefig(name, **saveparams)
         logger.info('Saved {}'.format(name))
+
 
 def closefigures():
     for i in plt.get_fignums():
         plt.close(i)
 
-def savewriters(parameters):
-    for filename,writer in parameters['writers'].items():
-        writer.save()
-        logger.info('Saved {}'.format(filename))
+
+def specname(info):
+    filename = "spec{:02d}".format(info["spec"])
+    radix = "_".join((info["sample"],filename))
+    filename = os.path.join(info["sample"],radix,"{}.dat".format(radix))
+    return os.path.join(info["root"],filename)
+
 
 def extractname(item):
     if instance.isarray(item):
         return item[0]
     else:
         return item
-        
+
+
 def ctrfilenames(info):
-    radix = '_'.join((info['sample'],info['dataset']))
+    radix = '_'.join((info['sample'], info['dataset']))
     root = info['root']
     sample = info['sample']
-    fformat = xiaedf.xiaformat_ctr(radix,info['num'])
-    fname = lambda name: os.path.join(root,sample,radix,'zap',fformat.format(name))
-    return [fname(extractname(item)) for item in info['items']]
-    
+    fformat = xiaedf.xiaformat_ctr(radix, info['num'])
+    return [os.path.join(root, sample, radix, 'zap',
+            fformat.format(extractname(item)))
+            for item in info['items']]
+
+
 def specfilename(info):
     filename = 'spec{:02d}'.format(info['spec'])
-    radix = '_'.join((info['sample'],filename))
-    filename = os.path.join(info['sample'],radix,'{}.dat'.format(radix))
-    return os.path.join(info['root'],filename)
+    radix = '_'.join((info['sample'], filename))
+    filename = os.path.join(info['sample'], radix, '{}.dat'.format(radix))
+    return os.path.join(info['root'], filename)
+
 
 def h5path(info):
-    root = os.path.join(info["root"],info["sample"]+'.h5')
-    entry = "_".join((info["sample"],info["dataset"]))+'.'+info["scan"]
+    root = os.path.join(info["root"], info["sample"]+'.h5')
+    entry = "_".join((info["sample"], info["dataset"]))+'.'+info["scan"]
     return "{}::/{}/{}".format(root, entry, info["process"])
-    
-def createscene(parameters,output=None):
+
+
+def createscene(parameters, output=None):
     parameters = parameters.copy()
     objects = parameters.pop('objects')
-    
+
     # Create scene and connect it to axes
-    figsize = parameters.get('figsize',None)
-    defaultsettings.adapttofigsize(figsize,**parameters)
+    figsize = parameters.get('figsize', None)
+    if figsize is None:
+        figsize = defaultsettings.default('figure.figsize')
+    defaultsettings.adapttofigsize(figsize, **parameters)
     f, ax = plt.subplots(figsize=figsize)
-    if parameters.get('noaxes',False):
+    if parameters.get('noaxes', False):
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
-        #ax.set_axis_off()
-
-    sc = scene.Scene(unit0=parameters.get('unitfast','mm'),\
-                     unit1=parameters.get('unitslow','mm'),\
-                     title=parameters.get('title',None))
+        # ax.set_axis_off()
+    sc = scene.Scene(unit0=parameters.get('unitfast', 'mm'),
+                     unit1=parameters.get('unitslow', 'mm'),
+                     title=parameters.get('title', None))
     sc.setaxes(ax)
 
     # Add objects to scene
     for info in objects:
-        plotparams = info.get('plotparams',{}).copy()
+        plotparams = info.get('plotparams', {}).copy()
         plotparams['scene'] = sc
-        
-        dataparams = info.get('dataparams',{}).copy()
-        dataparams['instrument'] = parameters.get('instrument',None)
-
-        pmin = plotparams.pop('lo',[])
-        pmax = plotparams.pop('hi',[])
-        
+        dataparams = info.get('dataparams', {}).copy()
+        dataparams['instrument'] = parameters.get('instrument', None)
+        pmin = plotparams.pop('lo', [])
+        pmax = plotparams.pop('hi', [])
         if 'process' in info:
             uri = h5path(info)
-            item = scene_view.Nexus(uri,info.get('items',None),
-                        plotparams=plotparams,**dataparams)
-            
+            item = scene_view.Nexus(uri, info.get('items', None),
+                                    plotparams=plotparams, **dataparams)
+        elif 'uri' in info:
+            item = scene_view.Nexus(info['uri'], info.get('items', None),
+                                    plotparams=plotparams, **dataparams)
         elif 'spec' in info:
             filename = specname(info)
-            item = scene_view.XanesSpec(filename,info.get('items',None),
-                        plotparams=plotparams,**dataparams)
-
+            item = scene_view.XanesSpec(filename, info.get('items', None),
+                                        plotparams=plotparams, **dataparams)
         elif 'sample' in info:
             filenames = ctrfilenames(info)
-            item = scene_view.ZapRoiMap(filenames,info.get('items',None),
-                        plotparams=plotparams,**dataparams)
-
+            item = scene_view.ZapRoiMap(filenames, info.get('items', None),
+                                        plotparams=plotparams, **dataparams)
         else:
             raise RuntimeError('Unknown object description')
-
         if pmin and pmax:
-            item.selfscale(pmin=pmin,pmax=pmax)
+            item.selfscale(pmin=pmin, pmax=pmax)
         item.useaxesnames()
 
     # Modify axes
-    scene_modifyaxes(sc,parameters)
-    
+    scene_modifyaxes(sc, parameters)
+
     # Global intensity scaling
-    scene_globalscaling(sc,parameters)
-        
+    scene_globalscaling(sc, parameters)
+
     # Save interpolated data
     for item in sc:
         try:
@@ -198,13 +215,13 @@ def createscene(parameters,output=None):
 
     # Plot/save figure
     sc.updateview()
-    if parameters.get('tight_layout',False):
+    if parameters.get('tight_layout', False):
         plt.tight_layout()
     if output is not None:
-        savefigures(output,parameters)
+        savefigures(output, parameters)
 
-    if parameters.get('plot',True):
-        #TODO: this hangs when another window is opened in the mean time: 
+    if parameters.get('plot', True):
+        # TODO: this hangs when another window is opened in the mean time:
         # sc.ax.get_figure().canvas.mpl_connect('resize_event', lambda event: sc.updateview())
         plt.show()
 
@@ -214,23 +231,52 @@ def createscene(parameters,output=None):
 class Task(nxprocess.Task):
     """Create scene image
     """
-    
+
     def _parameters_defaults(self):
-        super(Task,self)._parameters_defaults()
-        self._required_parameters('objects')
-        
+        super(Task, self)._parameters_defaults()
+        # Required parameters
+        self.allparams = [
+            'objects',
+            'instrument'
+        ]
+        self._required_parameters(*self.allparams)
+        # Optional parameters
+        self.allparams += [
+            'figsize',
+            'noaxes',
+            'unitfast',
+            'unitslow',
+            'title',
+            'instrument',
+            'tight_layout',
+            'plot',
+            'originzero',
+            'transpose',
+            'flipx',
+            'flipy',
+            'incx',
+            'incy',
+            'aspectratio',
+            'rlo',
+            'rhi',
+            'alo',
+            'ahi',
+            'saveparams'
+        ]
+
     def _parameters_filter(self):
-        return []
-        
+        return super(Task, self)._parameters_filter() +\
+            self.allparams
+
     def _execute(self):
-        createscene(self.parameters,self.temp_localpath.path)
-    
+        createscene(self.parameters, self.temp_localpath.path)
+
     @property
     def temp_localpath(self):
-        path = super(Task,self).temp_localpath
+        path = super(Task, self).temp_localpath
         return path.parent[path.name+'.png']
-        
+
     @property
     def output_localpath(self):
-        path = super(Task,self).output_localpath
+        path = super(Task, self).output_localpath
         return path.parent[path.name+'.png']

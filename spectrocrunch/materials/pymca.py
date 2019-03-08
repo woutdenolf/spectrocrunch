@@ -424,7 +424,8 @@ class PymcaHandle(PymcaBaseHandle):
             self.weights), instance.asarray(self.scatter))
         s = '\n '.join("{} keV: {} % (Scatter: {})".format(k, v*100, sc)
                        for k, v, sc in s)
-        return "Flux = {} ph/s\nTime = {} s\nSource lines:\n {}\n{}\n{}".format(self.flux, self.time, s, self.sample, self.sample.geometry)
+        return "Flux = {:~}\nTime = {:~}\nSource lines:\n {}\n{}\n{}"\
+            .format(self.flux, self.time, s, self.sample, self.sample.geometry)
 
     def set_source(self, energy=None, weights=None, scatter=None):
         if energy is None:
@@ -453,7 +454,7 @@ class PymcaHandle(PymcaBaseHandle):
 
     @flux.setter
     def flux(self, value):
-        self._flux = units.umagnitude(value, "hertz")
+        self._flux = units.Quantity(value,'Hz').to('Hz')
 
     @property
     def time(self):
@@ -461,11 +462,11 @@ class PymcaHandle(PymcaBaseHandle):
 
     @time.setter
     def time(self, value):
-        self._time = units.umagnitude(value, "s")
+        self._time = units.Quantity(value,'s').to('s')
 
     @property
     def I0(self):
-        return self.flux*self.time
+        return (self.flux*self.time).to('dimensionless').magnitude
 
     @property
     def emax_strict(self):
@@ -513,8 +514,8 @@ class PymcaHandle(PymcaBaseHandle):
         cfg["fit"]["scatterflag"] = int(any(cfg["fit"]["energyscatter"]))
 
         # Not just the source:
-        cfg["concentrations"]["flux"] = self.flux
-        cfg["concentrations"]["time"] = self.time
+        cfg["concentrations"]["flux"] = self.flux.to('Hz').magnitude
+        cfg["concentrations"]["time"] = self.time.to('s').magnitude
 
     def loadfrompymca_beam(self, cfg):
         ind = np.asarray(cfg["fit"]["energyflag"], dtype=bool).tolist()

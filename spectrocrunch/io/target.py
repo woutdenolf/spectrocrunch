@@ -23,8 +23,11 @@
 # THE SOFTWARE.
 
 import re
-
+import logging
 from ..utils import hashing
+
+
+logger = logging.getLogger(__name__)
 
 
 def locate_number(name):
@@ -88,22 +91,33 @@ class Name(object):
         self.fmt = fmt
         self.num = num
         self._orgnum = num
+        self.locked = False
 
     def reset(self):
         self.num = self._orgnum
+    
+    def lock(self):
+        self.locked = True
+
+    def unlock(self):
+        self.locked = True
 
     def __repr__(self):
-        return self.fmt.format(self.num)
+        return repr(str(self))
 
     def __str__(self):
-        return repr(self)
+        return self.fmt.format(self.num)
 
     def __iadd__(self, x):
-        self.num += x
+        if self.locked:
+            logger.warning('{} is locked and therefore not incremented'
+                .format(repr(self)))
+        else:
+            self.num += x
         return self
 
     def __add__(self, x):
-        return self.__class__(self.fmt.format(self.num+1))
+        return self.__class__(self.fmt.format(self.num+x))
 
     @property
     def matchfunc(self):
