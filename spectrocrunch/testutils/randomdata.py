@@ -682,6 +682,16 @@ class RandomNumpyNumber(ChoiceBase):
                 RandomNumpyFloat, RandomNumpyComplex)
 
 
+class RandomHashableNumber(ChoiceBase):
+
+    @classmethod
+    def choices(cls, types=TYPES, **kwargs):
+        ret = [RandomNativeNumber]
+        if 'numpy' in types:
+            ret.append(RandomNumpyNumber)
+        return tuple(ret)
+
+
 class RandomNumber(ChoiceBase):
 
     @classmethod
@@ -721,6 +731,15 @@ class RandomAtom(ChoiceBase):
     def choices(cls, **kwargs):
         return (RandomNone,) +\
                 RandomNumber.choices(**kwargs) +\
+                RandomString.choices(**kwargs)
+
+
+class RandomHashableAtom(ChoiceBase):
+
+    @classmethod
+    def choices(cls, **kwargs):
+        return (RandomNone,) +\
+                RandomHashableNumber.choices(**kwargs) +\
                 RandomString.choices(**kwargs)
 
 
@@ -771,7 +790,7 @@ class RandomHashable(ChoiceBase):
 
     @classmethod
     def choices(cls, **kwargs):
-        return RandomAtom.choices(**kwargs) +\
+        return RandomHashableAtom.choices(**kwargs) +\
                RandomHashableSequence.choices(**kwargs)
 
 
