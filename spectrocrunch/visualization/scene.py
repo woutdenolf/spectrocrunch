@@ -123,7 +123,7 @@ class Scene(Hashable, Geometry2D):
             return ""
         unit = "{:~}".format(unit)
         if unit == "um":
-            unit = "$\mu$m"
+            unit = r"$\mu$m"
         return unit
 
     @property

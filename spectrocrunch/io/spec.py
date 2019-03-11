@@ -171,11 +171,11 @@ def zapimage_submap(header, cmdlabel, scanrange, currentpos, microntounits):
 class cmd_parser(object):
 
     def __init__(self):
-        self.fnumber = "(?:[+-]?[0-9]*\.?[0-9]+)"
-        self.inumber = "\d+"
-        self.blanks = "\s+"
-        self.motor = "[a-zA-Z]+"
-        self.motornum = "[a-zA-Z0-9]+"
+        self.fnumber = r"(?:[+-]?[0-9]*\.?[0-9]+)"
+        self.inumber = r"\d+"
+        self.blanks = r"\s+"
+        self.motor = r"[a-zA-Z]+"
+        self.motornum = r"[a-zA-Z0-9]+"
 
     def __call__(self, cmd):
         return self.parse(cmd)
