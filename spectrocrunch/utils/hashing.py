@@ -83,7 +83,7 @@ def calchash(x, _depth=0):
         x = [mtypehash('number'), stringhash(str(x))]
     elif instance.isarray(x):
         if instance.isarray0(x):
-            x = [calchash(getstate(x), _depth=_depth)]
+            x = [calchash(x.item(), _depth=_depth)]
         elif len(x):
             if instance.isset(x):
                 x = sorted(calchash(y, _depth=_depth) for y in x)
@@ -116,6 +116,9 @@ def calchash(x, _depth=0):
                     x = [anyhash(x)]
             else:
                 x = [calchash(state, _depth=_depth)]
+    elif instance.isquantity(x):
+        x = [calchash(x.magnitude, _depth=_depth),
+             calchash(str(x.units), _depth=_depth)]
     else:
         x = [calchash(getstate(x), _depth=_depth)]
     # MD5 hash of list of bytes

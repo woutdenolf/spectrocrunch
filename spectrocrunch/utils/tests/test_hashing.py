@@ -94,11 +94,16 @@ class test_hashing(unittest.TestCase):
     def test_quantity(self):
         hash = b'815a7db5d24da2606b39c11790171428'
         self._assert_hash(ureg.Quantity([]), hash)
-        hash = b'd5604a7ef7b7aff99d95c807141b39bf'
+        hash = b'68da45d058243e374445ffa286ecec2f'
         self._assert_hash(ureg.Quantity(1), hash)
-        hash = b'29db45189b0049d00ea0efc1822352f1'
+        hash = b'5207bcbf3207f96eb11a3d7b0a6220b9'
         self._assert_hash(ureg.Quantity([1, 2], 'mm'), hash)
-        self._assert_hash(ureg.Quantity([1, 2], 'millimeter'), hash)
+        self._assert_hash(ureg.Quantity([1., 2], 'millimeter'), hash)
+        self._assert_not_hash(ureg.Quantity([1.001, 2], 'millimeter'), hash)
+
+    unittest.skip('not implemented yet')
+    def test_uncertainties(self):
+        pass
 
     def test_array(self):
         # Empty
@@ -114,9 +119,9 @@ class test_hashing(unittest.TestCase):
         self._assert_hash(np.array([]), hash)
 
         # 0-dim
-        hash = b'18d4d05ac61332285ebb876bbd280e5e'
-        self._assert_hash(np.array(5), hash)
-        self._assert_not_hash(np.array(5.), hash)
+        hash = b'3ba6029fee48926bdc4542eaa1869081'
+        self._assert_hash(np.array(5, dtype=np.int32), hash)
+        self._assert_hash(np.array(5, dtype=np.float32), hash)
 
         # 1-dim
         hash = b'afe312eedebfd83274e9fc40c3125d22'
@@ -167,6 +172,7 @@ def test_suite():
     testSuite.addTest(test_hashing("test_other"))
     testSuite.addTest(test_hashing("test_array"))
     testSuite.addTest(test_hashing("test_quantity"))
+    testSuite.addTest(test_hashing("test_uncertainties"))
     testSuite.addTest(test_hashing("test_dict"))
     testSuite.addTest(test_hashing("test_random"))
     return testSuite
