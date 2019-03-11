@@ -25,7 +25,6 @@
 import re
 import logging
 import traceback
-from copy import deepcopy
 
 from . import nxqxrf_dependent
 from ..io import xiaedf
@@ -49,6 +48,13 @@ class Task(nxqxrf_dependent.Task):
             'instrument'
         }
 
+        self.optional_parameters |= {
+            'include_counters',
+            'exclude_counters',
+            'fluxid',
+            'transmissionid'
+        }
+
     def _atomic_context_enter(self):
         name = randomstring()
         root = self.outputparent
@@ -68,15 +74,26 @@ class Task(nxqxrf_dependent.Task):
         return 1  # Exception is handled (do not raise it)
 
     def _execute(self):
-        parameters = deepcopy(self.parameters)
-        parameters['include_counters'] = [self._rematch_func(
+        parameters = self.parameters
+        include_counters = [self._rematch_func(
             redict) for redict in parameters.get('include_counters', [])]
-        parameters['exclude_counters'] = [self._rematch_func(
+        exclude_counters = [self._rematch_func(
             redict) for redict in parameters.get('exclude_counters', [])]
-        path, radix, number = parameters['path'], parameters['radix'], parameters['number']
+        path, radix, number = (parameters['path'],
+                               parameters['radix'],
+                               parameters['number'])
+        instrument = parameters.get('instrument', None)
+        fluxid = parameters.get('fluxid', None)
+        transmissionid = parameters.get('transmissionid', None)
         xiaimage = xiaedf.xiaimage_number(path, radix, number)
         converter = xiaedftonexus.Converter(
-            nxentry=self.temp_nxentry, qxrfgeometry=self.qxrfgeometry, **parameters)
+            nxentry=self.temp_nxentry,
+            qxrfgeometry=self.qxrfgeometry,
+            include_counters=include_counters,
+            exclude_counters=exclude_counters,
+            instrument=instrument,
+            fluxid=fluxid,
+            transmissionid=transmissionid)
         nxentry = converter(xiaimage)
 
     @property

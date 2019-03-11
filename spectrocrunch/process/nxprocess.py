@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 class Task(basetask.Task):
-    """Task who's output is a single self.temp_nxprocess
+    """Task who's output is a single NXprocess
     """
 
     def _parameters_defaults(self):
@@ -50,7 +50,8 @@ class Task(basetask.Task):
     def _atomic_context_enter(self):
         while True:
             try:
-                self.temp_nxprocess = self.outputparent.nxprocess(randomstring(), noincrement=True,
+                self.temp_nxprocess = self.outputparent.nxprocess(randomstring(),
+                                                                  noincrement=True,
                                                                   parameters=self.parameters,
                                                                   dependencies=list(self.previous_outputs))
             except fs.AlreadyExists:

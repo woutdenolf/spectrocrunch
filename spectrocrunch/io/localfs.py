@@ -184,15 +184,13 @@ class Path(fs.Path):
             os.rename(self.path, dest.path)
         except OSError as err:
             if err.errno == errno.EXDEV:
-                dest = self._move_copydel(dest)
+                dest = self._move_copyrenamedel(dest)
             else:
                 raise
-
         return dest
 
     def copy(self, dest, force=False, follow=False, dereference=False):
         dest = self._copy_move_prepare(dest, force=force)
-
         if self.islink and not follow:
             # just copy the link
             dest.link(self.linkdest)
@@ -203,7 +201,6 @@ class Path(fs.Path):
                 shutil.copytree(self.path, dest.path, symlinks=not dereference)
             else:
                 shutil.copy(self.path, dest.path)
-
         return dest
 
     def remove(self, recursive=False):

@@ -23,6 +23,7 @@
 # THE SOFTWARE.
 
 from . import nxqxrf_dependent
+from . import nxprocess
 from . import nxresult
 from . import nxlazy
 from . import axis
@@ -42,7 +43,7 @@ from PyMca5.PyMcaIO import ConfigDict
 logger = logging.getLogger(__name__)
 
 
-class Task(nxqxrf_dependent.Task):
+class Task(nxqxrf_dependent.Task, nxprocess.Task):
 
     DEFAULT_STACKDIM = 0
 

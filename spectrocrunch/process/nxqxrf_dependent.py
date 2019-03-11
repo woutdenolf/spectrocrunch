@@ -1,9 +1,10 @@
-from . import nxprocess
-from .basetask import MissingParameter
+from . import basetask
 from ..utils import units
 
 
-class Task(nxprocess.Task):
+class Task(basetask.Task):
+    """Task with an 'xrfgeometry' dependency
+    """
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
@@ -50,5 +51,5 @@ class Task(nxprocess.Task):
     def _qxrf_parameter(self, name, optional=False):
         value = self.parameters.get(name, None)
         if value is None and not optional:
-            raise MissingParameter(name)
+            raise basetask.MissingParameter(name)
         return value

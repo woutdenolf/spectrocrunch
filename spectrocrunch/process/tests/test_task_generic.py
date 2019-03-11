@@ -1,35 +1,11 @@
-# -*- coding: utf-8 -*-
-#
-#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
-#
-#   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the 'Software'), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-
 import unittest
-import numpy as np
-from testfixtures import TempDirectory
 import os
 from contextlib import contextmanager
 import itertools
 import threading
+import numpy as np
 
+from .test_task import test_task
 from .. import h5regulargrid
 from ...io import nxfs
 from ...utils.tests import genindexing
@@ -38,16 +14,9 @@ from .. import nxwrap
 from .. import axis
 from ...utils import units
 from ...io import target
-from ...patch import xraylib
 
 
-class test_nxprocess(unittest.TestCase):
-
-    def setUp(self):
-        self.dir = TempDirectory()
-
-    def tearDown(self):
-        self.dir.cleanup()
+class test_task_generic(test_task):
 
     @contextmanager
     def _nxprocess(self, method=None):
@@ -160,38 +129,6 @@ class test_nxprocess(unittest.TestCase):
             nxdata = proc.results['detector00']
             grid = h5regulargrid.NXSignalRegularGrid(nxdata.signal)
             self._check_grid(grid)
-
-    def _run_task(self, parameters, proc1):
-        if proc1:
-            previoustask = utils.nxpathtotask(proc1)
-            self.assertTrue(previoustask.done)
-        else:
-            previoustask = None
-
-        # Check run and re-run
-        newtask = utils.create_task(dependencies=previoustask, **parameters)
-        self.assertFalse(newtask.done)
-        newtask.run()
-        self.assertTrue(newtask.done)
-        proc2 = newtask.output
-        newtask.run()
-        proc3 = newtask.output
-        self.assertEqual(proc2, proc3)
-        task = utils.create_task(dependencies=previoustask, **parameters)
-        self.assertTrue(task.done)
-        task.run()
-        proc3 = task.output
-        self.assertEqual(proc2, proc3)
-
-        # Check reconstructed task from output
-        task = utils.nxpathtotask(proc2)
-        self.assertEqual(type(task), type(newtask))
-        self.assertTrue(task.done)
-        task.run()
-        proc3 = task.output
-        self.assertEqual(proc2, proc3)
-
-        return proc2
 
     def test_crop(self):
         with self._nxprocess(method='crop') as proc1:
@@ -443,38 +380,6 @@ class test_nxprocess(unittest.TestCase):
 
             proc1.root.ls(recursive=True)
 
-    @unittest.skipIf(xraylib.XRayInit is None, "xraylib not installed")
-    def test_nxqxrf(self):
-        fixed = {'plot': False,
-                 'dark': False,
-                 'time': 1,
-                 'gaindiodeI0': 1e8,
-                 'gaindiodeIt': 1e7
-        }
-        variable = [{'I0_counts': 300, 'It_counts': 30,
-                     'dark': True},
-                    {'I0_counts': 400000, 'It_counts': 100000,
-                     'energy': 7},
-                    {'I0_counts': 200000, 'It_counts': 100000,
-                     'energy': 7.1}
-        ]
-        h5filename = os.path.join(self.dir.path, 'test.h5')
-        outputparent = nxfs.Path('/', h5file=h5filename)['entry']
-        parameters = {'method': 'xrfgeometry',
-                      'outputparent': outputparent,
-                      'geometry': 'sxm',
-                      'init': {},
-                      'fixed': fixed,
-                      'variable': variable
-        }
-        proc2 = self._run_task(parameters, None)
-        parameters['geometry'] = 'SXM'
-        proc3 = self._run_task(parameters, None)
-        self._check_reproc(proc2, proc3)
-
-    def test_nxxiaedf(self):
-        pass
-
     def test_scenevis(self):
         with self._nxprocess(method='scenevis') as proc1:
             proc1, info = proc1
@@ -523,27 +428,20 @@ class test_nxprocess(unittest.TestCase):
         for a, b in zip(grid, data):
             np.testing.assert_array_equal(a, b)
 
-    def _check_reproc(self, proc1, proc2):
-        self.assertNotEqual(proc1, proc2)
-        self.assertEqual(proc1.name.split('.')[-1], '1')
-        self.assertEqual(proc2.name.split('.')[-1], '2')
-
 
 def test_suite():
     '''Test suite including all test suites'''
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_nxprocess('test_grid'))
-    testSuite.addTest(test_nxprocess('test_copy'))
-    testSuite.addTest(test_nxprocess('test_concurrency'))
-    testSuite.addTest(test_nxprocess('test_crop'))
-    testSuite.addTest(test_nxprocess('test_replace'))
-    testSuite.addTest(test_nxprocess('test_minlog'))
-    testSuite.addTest(test_nxprocess('test_align'))
-    testSuite.addTest(test_nxprocess('test_expression'))
-    testSuite.addTest(test_nxprocess('test_resample'))
-    testSuite.addTest(test_nxprocess('test_nxqxrf'))
-    testSuite.addTest(test_nxprocess('test_scenevis'))
-    testSuite.addTest(test_nxprocess('test_nxxiaedf'))
+    testSuite.addTest(test_task_generic('test_grid'))
+    testSuite.addTest(test_task_generic('test_copy'))
+    testSuite.addTest(test_task_generic('test_concurrency'))
+    testSuite.addTest(test_task_generic('test_crop'))
+    testSuite.addTest(test_task_generic('test_replace'))
+    testSuite.addTest(test_task_generic('test_minlog'))
+    testSuite.addTest(test_task_generic('test_align'))
+    testSuite.addTest(test_task_generic('test_expression'))
+    testSuite.addTest(test_task_generic('test_resample'))
+    testSuite.addTest(test_task_generic('test_scenevis'))
     return testSuite
 
 

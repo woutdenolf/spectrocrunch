@@ -39,8 +39,10 @@ logger = logging.getLogger(__name__)
 
 class Converter(object):
 
-    def __init__(self, h5file=None, nxentry=None, qxrfgeometry=None, include_counters=None,
-                 exclude_counters=None, diodeI0=None, diodeIt=None, dtype=np.float32, **parameters):
+    def __init__(self, h5file=None, nxentry=None, qxrfgeometry=None,
+                 include_counters=None, exclude_counters=None,
+                 fluxid=None, transmissionid=None,
+                 dtype=np.float32, instrument=None):
         self.dtype = dtype
         if nxentry:
             if not isinstance(nxentry, nxfs.Path):
@@ -53,7 +55,7 @@ class Converter(object):
             nxentry = nxfs.Path('/', h5file=h5file).new_nxentry()
         self._nxentry = nxentry
         self._qxrfgeometry = qxrfgeometry
-        self._parameters = parameters
+        self._instrument = getinstrument(instrument=instrument)
         if include_counters:
             self.includefuncs = include_counters
         else:
@@ -62,14 +64,17 @@ class Converter(object):
             self.excludefuncs = exclude_counters
         else:
             self.excludefuncs = []
-        if diodeI0:
-            self._diodeI0 = diodeI0
+        if qxrfgeometry:
+            fluxid = qxrfgeometry.fluxid
+            transmissionid = qxrfgeometry.transmissionid
+        if fluxid:
+            self._fluxid = fluxid
         else:
-            self._diodeI0 = 'I0'
-        if diodeIt:
-            self._diodeIt = diodeIt
+            self._fluxid = 'I0'
+        if transmissionid:
+            self._transmissionid = transmissionid
         else:
-            self._diodeIt = 'It'
+            self._transmissionid = 'It'
         self._reset()
 
     def _reset(self):
@@ -107,9 +112,8 @@ class Converter(object):
         nxinstrument = self.nxentry.nxinstrument()
         name = nxinstrument['name']
         if not name.exists:
-            instrument = self.instrument
-            name = name.mkfile(data=instrument.longname)
-            name.update_stats(short_name=instrument.shortname)
+            name = name.mkfile(data=self._instrument.longname)
+            name.update_stats(short_name=self._instrument.shortname)
         return nxinstrument
 
     @property
@@ -125,10 +129,6 @@ class Converter(object):
         return self.nxentry.application('xrf', definition='NXxrf')
 
     @property
-    def instrument(self):
-        return getinstrument(**self._parameters)
-
-    @property
     def counter_names(self):
         if self._counter_names is None:
             self._counter_names = self._xiaobject.counternames()
@@ -137,14 +137,14 @@ class Converter(object):
     def _counter_interpretation(self):
         if self._interpretation_to_counter is None:
             ret = {}
-            ctrdict = self.instrument.counterdict
+            ctrdict = self._instrument.counterdict
             ret['icr'] = ctrdict.get('xrficr', None)
             ret['ocr'] = ctrdict.get('xrfocr', None)
             ret['lt'] = ctrdict.get('xrflt', None)
             ret['rt'] = ctrdict.get('xrfrt', None)
             ret['dt'] = ctrdict.get('xrfdt', None)
-            ret['i0'] = ctrdict.get(self._diodeI0+'_counts', None)
-            ret['it'] = ctrdict.get(self._diodeIt+'_counts', None)
+            ret['i0'] = ctrdict.get(self._fluxid+'_counts', None)
+            ret['it'] = ctrdict.get(self._transmissionid+'_counts', None)
             self._interpretation_to_counter = ret
             self._counter_to_interpretation = {
                 v: k for k, v in ret.items() if v}
@@ -173,7 +173,7 @@ class Converter(object):
     @property
     def header(self):
         if self._header is None:
-            instrument = self.instrument
+            instrument = self._instrument
             parseinfo = {'time': instrument.edfheaderkeys.get('timelabel', None),
                          'energy': instrument.edfheaderkeys.get('energylabel', None),
                          'speclabel': instrument.edfheaderkeys.get('speclabel', None),
@@ -259,7 +259,7 @@ class Converter(object):
         application = self.application
         self.stats = None
         preset_time = self.preset_time
-        units = self.instrument.units
+        units = self._instrument.units
 
         if self._qxrfgeometry is not None:
             energy = self.energy.to('keV').magnitude
@@ -276,9 +276,9 @@ class Converter(object):
             application['it_to_flux_offset'].mkfile(
                 data=self.normalize_quantity(op.b, 'Hz'))
             distance = self.normalize_quantity(
-                self._qxrfgeometry.getxrfdistance(), 'cm')
+                self._qxrfgeometry.xrf_distances, 'cm')
             activearea = self.normalize_quantity(
-                self._qxrfgeometry.getxrfactivearea(), 'cm^2')
+                self._qxrfgeometry.xrf_activeareas, 'cm^2')
 
         for i, detname in enumerate(self._xiaobject.detectors_used):
             mcaname = 'mca'+detname
@@ -339,7 +339,7 @@ class Converter(object):
             nchunks = int(np.ceil(2.*nbytes_data/nbytes_mem))
         n = shape[0]
         inc = int(np.ceil(n/nchunks))
-        ind = range(n)[::inc]
+        ind = list(range(n))[::inc]
         if ind[-1] != n:
             ind.append(n)
 

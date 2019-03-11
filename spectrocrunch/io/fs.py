@@ -383,25 +383,22 @@ class Path(File):
         return ret
 
     def _copy_move_prepare(self, dest, force=False, rename=False):
+        """Called by `move` and `copy`
+        """
         dest = self.sibling(dest)
         if dest.isdir and not rename:
             dest = dest[self.name]
         if dest.exists and not force:
             raise AlreadyExists(dest.location)
-
         d = dest.parent
         if d and not d.exists:
             d.mkdir()
-
         return dest
 
-    def _move_copydel(self, dest):
-        """This is called if dest is an external path
-           and cannot be move directly. So copy/delete
-           instead, which is atomic if rename is atomic.
+    def _move_copyrenamedel(self, dest, rename=False):
+        """Instead of move, do copy(temporary name) + rename + delete
         """
-        tmp = '{}-{}'.format(dest.name, utils.randomstring())
-        tmp = dest.parent[tmp]
+        tmp = dest.parent.randomnode(prefix=dest.name)
         self.copy(tmp, force=True, follow=True)
         ret = tmp.rename(dest.path)
         self.remove(recursive=True)
@@ -654,6 +651,10 @@ class Path(File):
 
     @abstractmethod
     def move(self, dest, force=False, rename=False):
+        """
+        Atomic if the underlying filesystem has an atomic `rename`.
+        Filesystem boundaries are handled with copytemp/delete/rename.
+        """
         pass
 
     def mv(self, *args, **kwargs):
@@ -720,8 +721,8 @@ class Path(File):
 
     @contextlib.contextmanager
     def temp(self, name=None, force=False, **kwargs):
-        """Context manager which creates a non-existing temporary path that will be 
-        removed or renamed on exit.
+        """Context manager which creates a non-existing temporary path
+        that will be removed or renamed on exit.
         """
         path = self.randomnode(**kwargs)
         try:
@@ -759,13 +760,16 @@ class Path(File):
         Args:
             match(str|callable): regex when str
         """
-        if not instance.iscallable(match):
-            match = re.compile(regex(match)).match
+        if instance.isstring(match):
+            match = re.compile(match).match
         for path in self:
             if path.isfile and not files:
                 continue
             if match(path):
                 yield path
             if recursive and path.isdir and _level > depth:
-                for sub in path.find(match, recursive=True, depth=depth, _level=_level+1):
+                for sub in path.find(match,
+                                     recursive=True,
+                                     depth=depth,
+                                     _level=_level+1):
                     yield sub

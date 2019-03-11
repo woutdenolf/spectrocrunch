@@ -546,11 +546,13 @@ class Path(fs.Path):
                 dest.remove(recursive=True)
             if self.device == dest.device:
                 try:
+                    # h5py does not have a `rename` so use
+                    # the next best thing
                     f.move(self.path, dest.path)
                 except ValueError:
-                    dest = self._move_copydel(dest)
+                    dest = self._move_copyrenamedel(dest)
             else:
-                dest = self._move_copydel(dest)
+                dest = self._move_copyrenamedel(dest)
             dest._move_relink(self, dest)
             return self.factory(dest)
 

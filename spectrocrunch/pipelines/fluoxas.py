@@ -134,41 +134,44 @@ def tasks(**parameters):
 
     # Common parameters
     commonparams = task_parameters(parameters, 'common').copy()
-    instrument = require_pop(commonparams, 'instrument')
-    outputparent = nxfs.Path(str(require_pop(commonparams, 'nxentry')))
+    sinstrument = require_pop(commonparams, 'instrument')
+    coutputparent = commonparams.pop('outputparent', None)
     ensure_parameter(commonparams, 'stackdim', 0)
     ensure_parameter(commonparams, 'default', None)
-    instrument = getinstrument(instrument=instrument)
+    instrument = getinstrument(instrument=sinstrument)
 
     # Calibrate geometry
     params = task_parameters(parameters, 'geometry')
+    ensure_parameter(params, 'outputparent', default=None)
     geometry = ensure_parameter(params, 'geometry', None)
     if geometry:
         init = ensure_parameter(params, 'init', {})
         init['instrument'] = instrument
         task = create_task(method='xrfgeometry',
                            name='xrfgeometry',
-                           outputparent=outputparent,
                            **params)
-        outputparent = None
         tasks.append(task)
     else:
         task = None
 
     # XRF fit and counter maps
     params = task_parameters(parameters, 'resample')
-    encodercor = ensure_parameter(params, 'encodercor', False)
+    encodercor = params.pop('encodercor', False)
     params = task_parameters(parameters, 'pymca').copy()
-    xrfparameters(params, instrument, include_encoders=encodercor, quant=bool(geometry))
+    ensure_parameter(params, 'outputparent', default=coutputparent)
+    xrfparameters(params, instrument,
+                  include_encoders=encodercor,
+                  quant=bool(geometry))
     params.update(commonparams)
-    task = create_task(method='pymca', name='pymca',
-                       dependencies=task, 
-                       outputparent=outputparent, **params)
+    task = create_task(method='pymca',
+                       name='pymca',
+                       dependencies=task,
+                       **params)
     tasks.append(task)
 
     # Normalization
     params = task_parameters(parameters, 'prealignnormalize')
-    counter = ensure_parameter(params, 'counter', None)
+    counter = params.pop('counter', None)
     dtcor = False  # No longer needed
     if dtcor or counter:
         copy = [{'method': 'regex', 'pattern': prefix}
@@ -184,6 +187,8 @@ def tasks(**parameters):
                 expression = '{{}}*nanone({{{}}}/{{{}}})'.format(icr, ocr)
         else:
             expression = '{{}}/{{{}}}'.format(counter)
+        ensure_parameter(params, 'outputparent', default=coutputparent)
+        ensure_parameter(params, 'name', 'resample')
         task = create_task(dependencies=task,
                            method='expression',
                            name='normalize',
@@ -194,12 +199,15 @@ def tasks(**parameters):
 
     # Correct for encoder positions
     if encodercor:
+        params = task_parameters(parameters, 'resample')
+        params.update(commonparams)
+        ensure_parameter(params, 'outputparent', default=coutputparent)
+        ensure_parameter(params, 'name', 'resample')
         encoders = instrument.encoderinfo
         task = create_task(dependencies=task,
                            method='resample',
-                           name='resample',
                            encoders=encoders,
-                           **commonparams)
+                           **params)
         tasks.append(task)
 
     # Alignment
@@ -207,49 +215,59 @@ def tasks(**parameters):
     alignmethod = ensure_parameter(params, 'alignmethod', None)
     reference = ensure_parameter(params, 'reference', None)
     if alignmethod and reference is not None:
+        params.update(commonparams)
+        ensure_parameter(params, 'outputparent', default=coutputparent)
+        ensure_parameter(params, 'name', 'align')
         ensure_parameter(params, 'refimageindex', -1)
         ensure_parameter(params, 'roi', None)
         ensure_parameter(params, 'plot', False)
         ensure_parameter(params, 'crop', False)
-        params.update(commonparams)
-        task = create_task(dependencies=task,
-                           method='align',
-                           name='align',
-                           alignmethod=alignmethod,
-                           reference=reference,
+        ensure_parameter(params, 'name', 'postnormalize')
+        task = create_task(dependencies=task, method='align',
                            **params)
         tasks.append(task)
 
     # Post normalization
     params = task_parameters(parameters, 'prostalignnormalize')
-    counter = ensure_parameter(params, 'counter', None)
+    counter = params.pop('counter', None)
     if counter:
         copy = [{'method': 'regexparent', 'pattern': prefix}
                 for prefix in instrument.counterdict['counters']]
         expression = '{{}}/{{{}}}'.format(counter)
+        params.update(commonparams)
+        ensure_parameter(params, 'outputparent', default=coutputparent)
+        ensure_parameter(params, 'name', 'postnormalize')
         task = create_task(dependencies=task, method='expression',
-                           name='postnormalize', expression=expression,
-                           copy=copy, **commonparams)
+                           expression=expression,
+                           copy=copy, **params)
         tasks.append(task)
 
     # Remove NaN's
     params = task_parameters(parameters, 'replacenan')
-    replacenan = ensure_parameter(params, 'replacenan', False)
+    replacenan = params.pop('replacenan', False)
     if replacenan:
+        params.update(commonparams)
+        ensure_parameter(params, 'outputparent', default=coutputparent)
+        ensure_parameter(params, 'name', 'replace')
+        ensure_parameter(params, 'org', np.nan)
+        ensure_parameter(params, 'new', 0)
         tmp = create_task(dependencies=task, method='replace',
-                          name='replace', org=np.nan, new=0,
-                          **commonparams)
+                          **params)
         tasks.append(tmp)
 
     # Crop
     params = task_parameters(parameters, 'crop')
-    cropafter = params.get('crop', False)
+    cropafter = params.pop('crop', False)
     if cropafter:
-        cropfull = params.get('cropfull', True)
+        params.update(commonparams)
+        ensure_parameter(params, 'outputparent', default=coutputparent)
+        ensure_parameter(params, 'name', 'crop')
+        ensure_parameter(params, 'cropfull', True)
+        params['nanfull'] = params.pop('cropfull')
+        ensure_parameter(params, 'nanval', np.nan)
+        ensure_parameter(params, 'reference', reference)
         tmp = create_task(dependencies=task, method='crop',
-                          name='crop', nanval=np.nan,
-                          nanfull=cropfull, reference=reference,
-                          **commonparams)
+                          **params)
         tasks.append(tmp)
 
     return tasks
