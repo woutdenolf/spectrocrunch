@@ -38,6 +38,7 @@ from .. import nxwrap
 from .. import axis
 from ...utils import units
 from ...io import target
+from ...patch import xraylib
 
 
 class test_nxprocess(unittest.TestCase):
@@ -442,6 +443,7 @@ class test_nxprocess(unittest.TestCase):
 
             proc1.root.ls(recursive=True)
 
+    @unittest.skipIf(xraylib.XRayInit is None, "xraylib not installed")
     def test_nxqxrf(self):
         fixed = {'plot': False,
                  'dark': False,

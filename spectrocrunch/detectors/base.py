@@ -33,7 +33,7 @@ import re
 
 
 def match_beamfilter(name):
-    return re.compile('^beamfilter(\d+)$').match(name.lower())
+    return re.compile(r'^beamfilter(\d+)$').match(name.lower())
 
 
 def isbeamfilter(name):

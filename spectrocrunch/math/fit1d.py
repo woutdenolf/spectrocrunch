@@ -184,7 +184,7 @@ def lstsq_nonnegative(A, b, errors=False, vare=None):
 
     .. math::
 
-        A.x = b + e \quad x>=0
+        A.x = b + e \\quad x>=0
 
         E(e) = 0
 

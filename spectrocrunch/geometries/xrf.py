@@ -255,7 +255,7 @@ class LinearMotor(object):
 
             txt = []
             if fit:
-                txt.append("$\chi^2_{{red}}$ = {}".format(
+                txt.append(r"$\chi^2_{{red}}$ = {}".format(
                     info["reduced_chisq"]))
             txt.append("$c$ = {:f}".format(rate))
             txt.append("$d_0$ = {:~}".format(self.zerodistance_rv.to("mm")))
