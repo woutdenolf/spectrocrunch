@@ -22,8 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from . import nxprocess
-from .basetask import MissingParameter
+from . import nxqxrf_dependent
 from . import nxresult
 from . import nxlazy
 from . import axis
@@ -43,14 +42,14 @@ from PyMca5.PyMcaIO import ConfigDict
 logger = logging.getLogger(__name__)
 
 
-class Task(nxprocess.Task):
+class Task(nxqxrf_dependent.Task):
 
     DEFAULT_STACKDIM = 0
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
-        # Required parameters
-        self.allparams = [
+
+        self.required_parameters |= {
             # Input
             'sourcepaths',
             'counter_reldir',
@@ -74,38 +73,27 @@ class Task(nxprocess.Task):
             'fastfitting',
             'exclude_detectors',
             'include_detectors'
-        ]
-        self._required_parameters(*self.allparams)
-        # Optional parameters
-        self.allparams += [
-            # XRF geometry
-            'diodeI0gain',
-            'diodeItgain',
-            'xrf_positions',
-            'referenceflux',
-            'referencetime',
-            'defaultexpotime',
-            'samplecovers',
-            'transmissionfilters',
-            # Other
+        }
+
+        self.optional_parameters |= {
             'stackdim'
-        ]
+        }
 
         parameters = self.parameters
         parameters['stackdim'] = parameters.get(
             'stackdim', self.DEFAULT_STACKDIM)
 
+        edfheader = parameters['edfheader']
         edffields = ('speclabel', 'slowlabel', 'fastlabel',
                      'stackvalue', 'time', 'axesnamemap',
                      'compensationmotors')
         defaults = (None, None, None,
                     None, None, {},
                     {})
-        edfheader = parameters['edfheader']
+        
         parameters['edfheader'] = {k: edfheader.get(k, default)
                                    for k, default in zip(edffields, defaults)}
 
-        parameters = self.parameters
         pymcacfg = parameters.get('pymcacfg', None)
         if pymcacfg is None:
             pymcacfg = []
@@ -114,10 +102,6 @@ class Task(nxprocess.Task):
                         if instance.isstring(cfg) else cfg
                         for cfg in pymcacfg]
         parameters['pymcacfg'] = pymcacfg
-
-    def _parameters_filter(self):
-        return super(Task, self)._parameters_filter() +\
-            self.allparams
 
     def _execute(self):
         self._preparestacks()
@@ -272,41 +256,6 @@ class Task(nxprocess.Task):
     @property
     def units(self):
         return self.parameters['units']
-
-    @property
-    def qxrfgeometry(self):
-        if not hasattr(self, '_qxrfgeometry'):
-            self._qxrfgeometry = None
-        if self._qxrfgeometry is None:
-            nxprocess = self.find_dependency(method='xrfgeometry')
-            if nxprocess:
-                geometry = nxprocess.results['geometry'].read(parse=True)
-                geometry.diodeI0.gain = self._qxrf_parameter('diodeI0gain')
-                geometry.diodeIt.gain = self._qxrf_parameter('diodeItgain')
-                geometry.xrf_positions = self._qxrf_parameter('xrf_positions')
-                value = self._qxrf_parameter('referenceflux', optional=True)
-                if value is not None:
-                    geometry.reference = units.Quantity(value, 'Hz')
-                value = self._qxrf_parameter('referencetime', optional=True)
-                if value is not None:
-                    geometry.defaultreferencetime = value
-                value = self._qxrf_parameter('defaultexpotime', optional=True)
-                if value is not None:
-                    geometry.defaultexpotime = value
-                value = self._qxrf_parameter('samplecovers', optional=True)
-                if value:
-                    geometry.addsamplecovers(value)
-                value = self._qxrf_parameter('transmissionfilters', optional=True)
-                if value:
-                    geometry.addtransmissionfilters(value)
-                self._qxrfgeometry = geometry
-        return self._qxrfgeometry
-
-    def _qxrf_parameter(self, name, optional=False):
-        value = self.parameters.get(name, None)
-        if value is None and not optional:
-            raise MissingParameter(name)
-        return value
 
     def _prepare_xrfquant(self):
         if not self.fluxnorm:

@@ -39,8 +39,9 @@ class Task(basetask.Task):
     """Task who's output is a single self.temp_nxprocess
     """
 
-    def _parameters_filter(self):
-        return super(Task, self)._parameters_filter()+['default']
+    def _parameters_defaults(self):
+        super(Task, self)._parameters_defaults()
+        self.optional_parameters.add('default')
 
     @property
     def default(self):
@@ -138,16 +139,3 @@ class Task(basetask.Task):
             new = self.output_localpath
             old.move(new, force=True)
             logger.info('Renamed {} to {}'.format(old, new))
-
-    def find_dependency(self, **parameters):
-        """
-        Returns:
-            nxfs._NXprocess or None
-        """
-        for nxprocess in self.previous_outputs_iter():
-            if nxprocess.is_nxclass(u'NXprocess'):
-                config = nxprocess.config.read()
-                if all(config.get(k, None) == v
-                       for k, v in parameters.items()):
-                    return nxprocess
-        return None

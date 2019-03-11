@@ -42,14 +42,16 @@ class Task(nxprocess.Task):
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
+        self.required_parameters |= {
+            'sliced',
+            'stackdim',
+            'skip'
+        }
         parameters = self.parameters
         parameters['skip'] = parameters.get('skip', [])
         parameters['sliced'] = parameters.get('sliced', False)
         parameters['stackdim'] = parameters.get(
             'stackdim', self.DEFAULT_STACKDIM)
-
-    def _parameters_filter(self):
-        return super(Task, self)._parameters_filter()+['sliced', 'stackdim', 'skip']
 
     def _execute(self):
         """

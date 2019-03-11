@@ -125,7 +125,7 @@ class test_hashing(unittest.TestCase):
 
         # 1-dim
         hash = b'afe312eedebfd83274e9fc40c3125d22'
-        self._assert_hash([1, 2], hash)
+        self._assert_hash(list([1, 2]), hash)
         hash = b'afe312eedebfd83274e9fc40c3125d22'
         self._assert_hash(tuple([1, 2]), hash)
         hash = b'afe312eedebfd83274e9fc40c3125d22'

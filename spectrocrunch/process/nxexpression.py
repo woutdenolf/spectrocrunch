@@ -43,12 +43,12 @@ class Task(nxregulargrid.Task):
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
-        self._required_parameters('expression')
+        self.required_parameters |= {
+            'expression',
+            'copy'
+        }
         parameters = self.parameters
         parameters['copy'] = parameters.get('copy', [])
-
-    def _parameters_filter(self):
-        return super(Task, self)._parameters_filter()+['expression', 'copy']
 
     def _prepare_process(self):
         super(Task, self)._prepare_process()

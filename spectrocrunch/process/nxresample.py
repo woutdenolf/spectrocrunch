@@ -54,15 +54,17 @@ class Task(nxregulargrid.Task):
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
-        self._required_parameters('encoders')
+        self.required_parameters |= {
+            'encoders',
+            'cval',
+            'degree',
+            'crop'
+        }
         parameters = self.parameters
         parameters['sliced'] = False
         parameters['cval'] = parameters.get('cval', np.nan)
         parameters['degree'] = parameters.get('degree', 1)
         parameters['crop'] = parameters.get('crop', False)
-
-    def _parameters_filter(self):
-        return super(Task, self)._parameters_filter()+['encoders', 'cval', 'degree', 'crop']
 
     def scan_axis_name(self, axname):
         for nxprocess in self.previous_outputs:

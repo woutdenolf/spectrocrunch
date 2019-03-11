@@ -207,8 +207,8 @@ class test_nxprocess(unittest.TestCase):
             grid1 = h5regulargrid.NXRegularGrid(proc1)
             grid2 = h5regulargrid.NXRegularGrid(proc2)
             grid3 = h5regulargrid.NXRegularGrid(proc3)
-            self.assertEqual(set([sig.name for sig in grid1.signals]),
-                             set([sig.name for sig in grid2.signals]))
+            self.assertEqual({sig.name for sig in grid1.signals},
+                             {sig.name for sig in grid2.signals})
             self.assertFalse(np.isnan(grid2.values).any())
             np.testing.assert_array_equal(grid2.values, grid3.values)
 
@@ -236,8 +236,8 @@ class test_nxprocess(unittest.TestCase):
             grid1 = h5regulargrid.NXRegularGrid(proc1)
             grid2 = h5regulargrid.NXRegularGrid(proc2)
             grid3 = h5regulargrid.NXRegularGrid(proc3)
-            self.assertEqual(set([sig.name for sig in grid1.signals]),
-                             set([sig.name for sig in grid2.signals]))
+            self.assertEqual({sig.name for sig in grid1.signals},
+                             {sig.name for sig in grid2.signals})
             np.testing.assert_array_equal(grid2.values, grid3.values)
             np.testing.assert_array_equal(
                 grid1.values[info['index']], parameters['old'])
@@ -260,8 +260,8 @@ class test_nxprocess(unittest.TestCase):
             grid2 = h5regulargrid.NXRegularGrid(proc2)
             grid3 = h5regulargrid.NXRegularGrid(proc3)
 
-            self.assertEqual(set([sig.name for sig in grid1.signals]),
-                             set([sig.name for sig in grid2.signals]))
+            self.assertEqual({sig.name for sig in grid1.signals},
+                             {sig.name for sig in grid2.signals})
             np.testing.assert_array_equal(grid2.values, grid3.values)
             np.testing.assert_array_equal(-np.log(grid1), grid3.values)
 
@@ -393,10 +393,10 @@ class test_nxprocess(unittest.TestCase):
 
             grid1 = h5regulargrid.NXRegularGrid(proc2)
             grid2 = h5regulargrid.NXRegularGrid(proc2)
-            signals1 = [
-                s.name for s in grid1.signals if s.name not in info['skip']]
-            signals2 = [s.name for s in grid2.signals]
-            self.assertEqual(set(signals1), set(signals2))
+            signals1 = {
+                s.name for s in grid1.signals if s.name not in info['skip']}
+            signals2 = {s.name for s in grid2.signals}
+            self.assertEqual(signals1, signals2)
 
             index = [None]*grid2.ndim
             for s2 in grid2.signals:
@@ -472,6 +472,9 @@ class test_nxprocess(unittest.TestCase):
         proc3 = self._run_task(parameters, None)
         self._check_reproc(proc2, proc3)
 
+    def test_nxxiaedf(self):
+        pass
+
     def test_scenevis(self):
         with self._nxprocess(method='scenevis') as proc1:
             proc1, info = proc1
@@ -540,6 +543,7 @@ def test_suite():
     testSuite.addTest(test_nxprocess('test_resample'))
     testSuite.addTest(test_nxprocess('test_nxqxrf'))
     testSuite.addTest(test_nxprocess('test_scenevis'))
+    testSuite.addTest(test_nxprocess('test_nxxiaedf'))
     return testSuite
 
 
