@@ -24,6 +24,10 @@
 
 import ast
 import collections
+try:
+    from collections import collections_abc
+except ImportError:
+    collections_abc = collections
 import numbers
 import math
 import numpy as np
@@ -146,12 +150,12 @@ def issequence(x):
     """
     Sequence (mutable, immutable, generator) except for strings and bytearray's
     """
-    return isinstance(x, collections.abc.Sequence) and \
+    return isinstance(x, collections_abc.Sequence) and \
            not isinstance(x, (str, bytes, unicode, bytearray))
 
 
 def isset(x):
-    return isinstance(x, collections.abc.Set)
+    return isinstance(x, collections_abc.Set)
 
 
 def isiterable(x):
@@ -159,7 +163,7 @@ def isiterable(x):
     """
     if isqscalar(x):
         return False
-    if isinstance(x, collections.abc.Iterable):
+    if isinstance(x, collections_abc.Iterable):
         return not isstring(x)
     return isqarray(x)
 
@@ -169,17 +173,17 @@ def isorderedmapping(x):
 
 
 def ismapping(x):
-    return isinstance(x, collections.abc.Mapping)
+    return isinstance(x, collections_abc.Mapping)
 
 
 def iscallable(x):
-    return isinstance(x, collections.abc.Callable)
+    return isinstance(x, collections_abc.Callable)
 
 
 def isarray(x):
     if issequence(x):
         return True
-    types = collections.abc.Set, array, bytearray
+    types = collections_abc.Set, array, bytearray
     if isinstance(x, types):
         return True
     return isnparray(x) or isqarray(x)
