@@ -51,7 +51,7 @@ class InstrumentInfo(with_metaclass(object)):
         data['compensationmotors'] = info.get('compensationmotors', {})
         edfheaderkeys = {'speclabel': 'title',
                          'energylabel': 'energy',
-                         'timelabel': 'timelabel',
+                         'timelabel': 'time',
                          'energyunit': 'keV',
                          'timeunit': 's',
                          'fastlabel': 'fast',

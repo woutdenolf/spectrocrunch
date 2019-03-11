@@ -40,7 +40,7 @@ from ...utils import instance
 from ...utils import listtools
 from ...materials import compoundfromname
 from ...testutils.subtest import TestCase
-from .xrfmap import XrfMapGenerator
+from ...process.tests.xrfmap import XrfMapGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ class test_fluoxas(TestCase):
         parameters['crop'] = cropparams
         parameters['replacenan'] = replaceparams
         parameters['common'] = commonparams
-        commonparams['instrument'] = 'sxm'
+        commonparams['instrument'] = self.xrfmap.instrument
         commonparams["stackdim"] = stackdim
 
         nmaps, nlines, nspec, nchan, ndet = self.xrfmap.data.shape
@@ -123,12 +123,14 @@ class test_fluoxas(TestCase):
             cfgfiles = None
 
         if quant:
-            parameters['geometry'] = self.xrfmap.taskparams_geometry(seldetectors)
+            geomparams = self.xrfmap.taskparams_geometry(seldetectors)
+            parameters['geometry'] = geomparams
             pymcaparams.update(self.xrfmap.taskparams_pymca(seldetectors))
             prealignnormcounter = None
         else:
+            geomparams = {}
             prealignnormcounter = "arr_norm"
-
+        
         alignreference = None
         fitlabels = set(self.fitlabels(quant=quant))
         fitlabelsfile = {label.replace('-', '_') for label in fitlabels}
@@ -187,8 +189,8 @@ class test_fluoxas(TestCase):
 
         with self._destpath_context() as destpath:
             radix = self.xrfmap.radix
-            commonparams["nxentry"] = os.path.join(
-                destpath.path, radix+'.h5')+'::/'+radix
+            commonparams["outputparent"] = os.path.join(destpath.path, radix+'.h5::/'+radix)
+            geomparams["outputparent"] = os.path.join(destpath.path, radix+'.h5::/'+radix)
             pymcaparams["sourcepaths"] = [self.xrfmap.path]
             pymcaparams["scannames"] = [radix]
             pymcaparams["scannumbers"] = [self.xrfmap.scannumbers]

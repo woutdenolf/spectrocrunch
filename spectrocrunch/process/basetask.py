@@ -29,6 +29,7 @@ import logging
 from contextlib import contextmanager
 import traceback
 
+from ..io import nxfs
 from ..utils import instance
 from ..utils import timing
 from ..utils import hashing
@@ -56,8 +57,8 @@ class Task(with_metaclass(ABCMeta, object)):
     def __init__(self, dependencies=None, outputparent=None, **parameters):
         """
         Args:
-            dependencies(Optional(Task|h5fs.Path))
-            outputparent(Optional(h5fs.Path))
+            dependencies(Optional(Task or h5fs.Path or str))
+            outputparent(Optional(h5fs.Path or str))
         """
         self.outputparent = outputparent
         self.dependencies = dependencies
@@ -168,13 +169,17 @@ class Task(with_metaclass(ABCMeta, object)):
     def dependencies(self, value):
         """
         Args:
-            value(list or Task or h5fs.Path)
+            value(list or Task or h5fs.Path or str)
         """
-        if instance.isarray(value):
+        if instance.isstringarray(value):
+            self._dependencies = [nxfs.Path(v) for v in value]
+        elif instance.isarray(value):
             self._dependencies = value
         else:
             if value is None:
                 self._dependencies = []
+            elif instance.isstring(value):
+                self._dependencies = [nxfs.Path(value)]
             else:
                 self._dependencies = [value]
         self.default_outputparent = None
@@ -243,6 +248,8 @@ class Task(with_metaclass(ABCMeta, object)):
 
     @outputparent.setter
     def outputparent(self, value):
+        if instance.isstring(value):
+            value = nxfs.Path(value)
         self._outputparent = value
 
     def _ensure_outputdeviceparent(self):

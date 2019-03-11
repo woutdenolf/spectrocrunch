@@ -13,7 +13,7 @@ from ...io import xiaedf
 
 class XrfMapGenerator(object):
 
-    def __init__(self):
+    def __init__(self, nmaps=2):
         water = compoundfromname.compoundfromname("water")
         calcite = compoundfromname.compoundfromname("calcite")
         fe = element.Element("Fe")
@@ -26,11 +26,12 @@ class XrfMapGenerator(object):
         pymcahandle = pymca.PymcaHandle(energy=8.0, flux=1e9, time=0.3,
                                         snip=False, continuum=1, escape=False,
                                         linear=True, noisepropagation=False)
-
+        self.instrument = 'sxm'
         self.sample1 = sample1
         self.sample2 = sample2
         self.pymcahandle = pymcahandle
-        self.energies = [8., 9.]
+        self.energies = np.linspace(8, 9, nmaps)
+        self.nmaps = nmaps
         self.ndet = 3
         self.detcomb = (0,), (1,), (2,), (0, 2), (0, 1, 2)
 
@@ -47,7 +48,7 @@ class XrfMapGenerator(object):
         init = {'reference': self.pymcahandle.flux,
                 'defaultexpotime': self.pymcahandle.time,
                 'xrfgeometries': [('sxm120', 'leia')]*ndet,
-                'instrument': 'sxm'}
+                'instrument': self.instrument}
         fixed = {'plot': False,
                  'dark': False,
                  'time': 1,
@@ -59,7 +60,7 @@ class XrfMapGenerator(object):
                      'energy': min(self.energies)},
                     {'I0_counts': 200000, 'It_counts': 100000,
                      'energy': max(self.energies)}]
-        parameters = {'geometry': 'sxm',
+        parameters = {'geometry': self.instrument,
                       'fixed': fixed,
                       'init': init,
                       'variable': variable}
@@ -193,7 +194,9 @@ class XrfMapGenerator(object):
                 data[imap, imap+off, imap+off, :, idet] = spec2
 
         # Generate counter headers
-        ctrheaders = np.vectorize(lambda e: {"DCM_Energy": e, "time": reftime},
+        elabel = qxrfgeometry.instrument.edfheaderkeys['energylabel']
+        tlabel = qxrfgeometry.instrument.edfheaderkeys['timelabel']
+        ctrheaders = np.vectorize(lambda e: {elabel: e, tlabel: reftime},
                                   otypes=[object])(self.energies)
 
         # Init counters
@@ -273,10 +276,6 @@ class XrfMapGenerator(object):
         self.data = data
         self.stats = stats
         self.ctrs = ctrs
-
-    @property
-    def nmaps(self):
-        return len(self.energies)
 
     @property
     def scannumbers(self):
