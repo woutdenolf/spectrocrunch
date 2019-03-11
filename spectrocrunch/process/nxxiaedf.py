@@ -27,7 +27,7 @@ import logging
 import traceback
 from copy import deepcopy
 
-from . import basetask
+from . import nxqxrf_dependent
 from ..io import xiaedf
 from ..io import xiaedftonexus
 from ..io import fs
@@ -36,23 +36,18 @@ from ..io.utils import randomstring
 logger = logging.getLogger(__name__)
 
 
-class Task(basetask.Task):
+class Task(nxqxrf_dependent.Task):
     """Converts XIA edf to an NXentry
     """
 
-    def __init__(self, **kwargs):
-        super(Task, self).__init__(**kwargs)
-        self.temp_nxentry = None
-
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
-        self._required_parameters('path', 'radix', 'number', 'instrument')
-
-        # TODO: temporary measure until pickleable
-        self.qxrfgeometry = self.parameters.pop('qxrfgeometry', None)
-
-    def _parameters_filter(self):
-        return []
+        self.required_parameters |= {
+            'path',
+            'radix',
+            'number',
+            'instrument'
+        }
 
     def _atomic_context_enter(self):
         name = randomstring()

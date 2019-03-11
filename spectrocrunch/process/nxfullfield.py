@@ -33,7 +33,8 @@ class Task(nxprocess.Task):
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
-        self.allparams = [
+        self.required_parameters |= {
+            'stackdim',
             # Input
             "darklist",
             "datalist",
@@ -54,13 +55,9 @@ class Task(nxprocess.Task):
             "keepflat",
             "roi",
             "rebin"
-        ]
-        self._required_parameters(*self.allparams)
+        }
         self.parameters['stackdim'] = self.parameters.get(
             'stackdim', self.DEFAULT_STACKDIM)
-
-    def _parameters_filter(self):
-        return super(Task, self)._parameters_filter()+self.allparams+['stackdim']
 
     def _execute(self):
         parameters = self.parameters

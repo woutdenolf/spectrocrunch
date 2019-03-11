@@ -7,19 +7,14 @@ class Task(nxprocess.Task):
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
-        self.allparams = [
+        self.required_parameters |= {
             # Geometry
             'geometry',
             'init',
             # Measurements
             'fixed',
             'variable'
-        ]
-        self._required_parameters(*self.allparams)
-
-    def _parameters_filter(self):
-        return super(Task, self)._parameters_filter() +\
-            self.allparams
+        }
         
     def _execute(self):
         parameters = self.parameters

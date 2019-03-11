@@ -1035,8 +1035,8 @@ class Multilayer(with_metaclass(cache.Cache)):
                 shell = "M"
             return shell
 
-        groups = set(["{} {}".format(el, shellparse(shell))
-                      for el, shells in groups.items() for shell in shells])
+        groups = {"{} {}".format(el, shellparse(shell))
+                      for el, shells in groups.items() for shell in shells}
 
         # Get fluorescence
         secondary = 2*(ninteractions > 1)

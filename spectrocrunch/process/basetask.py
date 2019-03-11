@@ -61,6 +61,8 @@ class Task(with_metaclass(ABCMeta, object)):
         """
         self.outputparent = outputparent
         self.dependencies = dependencies
+        self.required_parameters = set()
+        self.optional_parameters = set()
         self.parameters = parameters
         if not self.hasdependencies and self.outputparent is None:
             raise ValueError(
@@ -140,7 +142,15 @@ class Task(with_metaclass(ABCMeta, object)):
     @parameters.setter
     def parameters(self, value):
         self._parameters = deepcopy(value)
+        # Default parameters + mark required/optional
         self._parameters_defaults()
+        # Missing required parameters?
+        for p in self.required_parameters:
+            if p not in self._parameters:
+                raise MissingParameter(p)
+        # Remove unknown parameters
+        # Dev: subclass could overwrite _parameters_filter
+        #      and return None to skip this step
         lst = self._parameters_filter()
         if lst:
             self._parameters = {k: v for k,
@@ -210,17 +220,11 @@ class Task(with_metaclass(ABCMeta, object)):
         return bool([x for x in self.dependencies])
 
     def _parameters_defaults(self):
-        self._required_parameters('method')
         self.parameters['name'] = self.parameters.get('name', self.method)
-
-    def _required_parameters(self, *params):
-        parameters = self.parameters
-        for p in params:
-            if p not in parameters:
-                raise MissingParameter(p)
+        self.required_parameters |= {'name', 'method'}
 
     def _parameters_filter(self):
-        return ['name', 'method']
+        return self.required_parameters | self.optional_parameters
 
     @property
     def method(self):
@@ -247,6 +251,19 @@ class Task(with_metaclass(ABCMeta, object)):
             device.parent.mkdir()
         else:
             self.outputparent.mkdir()
+
+    def find_dependency(self, **parameters):
+        """
+        Returns:
+            nxfs._NXprocess or None
+        """
+        for nxprocess in self.previous_outputs_iter():
+            if nxprocess.is_nxclass(u'NXprocess'):
+                config = nxprocess.config.read()
+                if all(config.get(k, None) == v
+                       for k, v in parameters.items()):
+                    return nxprocess
+        return None
 
     @abstractmethod
     def _execute(self):

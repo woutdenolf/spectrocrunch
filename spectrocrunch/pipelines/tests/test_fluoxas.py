@@ -131,12 +131,10 @@ class test_fluoxas(TestCase):
 
         alignreference = None
         fitlabels = set(self.fitlabels(quant=quant))
-        fitlabelsfile = set([label.replace('-', '_') for label in fitlabels])
-        detcounterlabels = set(
-            ['xmap_icr', 'xmap_ocr', 'xmap_x1c', 'xmap_x2c'])
-        counterlabels = set(['arr_iodet', 'arr_idet', 'arr_norm'])
-        calclabels = set(
-            ['calc_transmission', 'calc_absorbance', 'calc_flux0', 'calc_fluxt'])
+        fitlabelsfile = {label.replace('-', '_') for label in fitlabels}
+        detcounterlabels = {'xmap_icr', 'xmap_ocr', 'xmap_x1c', 'xmap_x2c'}
+        counterlabels = {'arr_iodet', 'arr_idet', 'arr_norm'}
+        calclabels = {'calc_transmission', 'calc_absorbance', 'calc_flux0', 'calc_fluxt'}
         for label in fitlabels:
             if not 'Scatter' in label:
                 alignreference = label
@@ -148,17 +146,16 @@ class test_fluoxas(TestCase):
         expectedgroups_data = []
         if addspectra:
             if adddetectorgroups:
-                expectedgroups_data = set(
-                    ["S{:d}".format(i+1) for i in range(len(incdets_explicite))])
+                expectedgroups_data = {
+                    "S{:d}".format(i+1) for i in range(len(incdets_explicite))}
             else:
                 if len(alldetectors) == 1:
-                    expectedgroups_data = set(
-                        ['{:02d}'.format(alldetectors[0])])
+                    expectedgroups_data = {'{:02d}'.format(alldetectors[0])}
                 else:
-                    expectedgroups_data = set(['S1'])
+                    expectedgroups_data = {'S1'}
         else:
-            expectedgroups_data = set(
-                ["{:02d}".format(i) for i in list(listtools.flatten(incdets_explicite))])
+            expectedgroups_data = {
+                "{:02d}".format(i) for i in list(listtools.flatten(incdets_explicite))}
 
         # Final groups
         if adddects_explicite:
@@ -307,7 +304,7 @@ class test_fluoxas(TestCase):
                         else:
                             expectedsubgroups = detcounterlabels
                     self.assertEqual(
-                        set([sig.name for sig in signals]), expectedsubgroups)
+                        {sig.name for sig in signals}, expectedsubgroups)
 
                 # Check generated spectra (data)
                 if newspectra:

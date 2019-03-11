@@ -32,7 +32,16 @@ class Task(nxregulargrid.Task):
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
-        self._required_parameters('alignmethod', 'reference')
+        self.required_parameters |= {
+            'alignmethod',
+            'reference',
+            'refimageindex',
+            'crop',
+            'roi',
+            'plot',
+            'pad',
+            'onraw'
+        }
         parameters = self.parameters
         parameters['refimageindex'] = parameters.get('refimageindex', -1)
         parameters['crop'] = parameters.get('crop', False)
@@ -41,7 +50,7 @@ class Task(nxregulargrid.Task):
         parameters['pad'] = not parameters['crop']
         parameters['onraw'] = True
 
-        alignmethod = parameters['alignmethod']
+        alignmethod = parameters.get('alignmethod', None)
         if alignmethod == "sift":
             from ..align.alignSift import alignSift as alignclass
         elif alignmethod == "elastix":
@@ -58,9 +67,6 @@ class Task(nxregulargrid.Task):
             raise basetask.ParameterError(
                 'Unknown alignmethod {}'.format(repr(alignmethod)))
         self.alignclass = alignclass
-
-    def _parameters_filter(self):
-        return super(Task, self)._parameters_filter()+['alignmethod', 'reference', 'refimageindex', 'crop', 'roi', 'plot', 'pad', 'onraw']
 
     def _prepare_process(self):
         # Output signal paths

@@ -234,14 +234,11 @@ class Task(nxprocess.Task):
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
-        # Required parameters
-        self.allparams = [
+        self.required_parameters |= {
             'objects',
             'instrument'
-        ]
-        self._required_parameters(*self.allparams)
-        # Optional parameters
-        self.allparams += [
+        }
+        self.optional_parameters |= {
             'figsize',
             'noaxes',
             'unitfast',
@@ -262,11 +259,7 @@ class Task(nxprocess.Task):
             'alo',
             'ahi',
             'saveparams'
-        ]
-
-    def _parameters_filter(self):
-        return super(Task, self)._parameters_filter() +\
-            self.allparams
+        }
 
     def _execute(self):
         createscene(self.parameters, self.temp_localpath.path)
