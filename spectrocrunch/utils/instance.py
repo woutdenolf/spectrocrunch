@@ -146,18 +146,20 @@ def issequence(x):
     """
     Sequence (mutable, immutable, generator) except for strings and bytearray's
     """
-    return isinstance(x, collections.Sequence) and \
+    return isinstance(x, collections.abc.Sequence) and \
            not isinstance(x, (str, bytes, unicode, bytearray))
 
 
 def isset(x):
-    return isinstance(x, collections.Set)
+    return isinstance(x, collections.abc.Set)
 
 
 def isiterable(x):
     """Excluding string types
     """
-    if isinstance(x, collections.Iterable):
+    if isqscalar(x):
+        return False
+    if isinstance(x, collections.abc.Iterable):
         return not isstring(x)
     return isqarray(x)
 
@@ -167,17 +169,17 @@ def isorderedmapping(x):
 
 
 def ismapping(x):
-    return isinstance(x, collections.Mapping)
+    return isinstance(x, collections.abc.Mapping)
 
 
 def iscallable(x):
-    return isinstance(x, collections.Callable)
+    return isinstance(x, collections.abc.Callable)
 
 
 def isarray(x):
     if issequence(x):
         return True
-    types = collections.Set, array, bytearray
+    types = collections.abc.Set, array, bytearray
     if isinstance(x, types):
         return True
     return isnparray(x) or isqarray(x)
