@@ -71,6 +71,7 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
             # Configuration for fitting
             'pymcacfg',
             'mlines',
+            'addhigh',
             'fastfitting',
             'exclude_detectors',
             'include_detectors'
@@ -589,7 +590,8 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
                                                 outpath.path, outname, cfg, energy,
                                                 fast=self.parameters['fastfitting'],
                                                 mlines=self.parameters['mlines'],
-                                                quant=quant)
+                                                quant=quant,
+                                                addhigh=self.parameters['addhigh'])
 
                 # Prepare list of files
                 name = nxresult.Group(detector)
