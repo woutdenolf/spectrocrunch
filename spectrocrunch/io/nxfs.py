@@ -239,7 +239,7 @@ class Path(h5fs.Path):
         for entry in self.root.iter_is_nxclass(u'NXentry'):
             yield entry
 
-    def iter_nxprocess(self, searchallentries=True):
+    def iter_nxprocess(self, searchallentries=False):
         if searchallentries:
             entry = None
         else:
@@ -251,6 +251,21 @@ class Path(h5fs.Path):
         else:
             for process in entry.iter_is_nxclass(u'NXprocess'):
                 yield process
+
+    def iter_application(self, searchallentries=False):
+        if searchallentries:
+            entry = None
+        else:
+            entry = self.findfirstup_is_nxclass(u'NXentry')
+        if entry is None:
+            for entry in self.iter_nxentry():
+                for subentry in entry.iter_is_nxclass(u'NXsubentry'):
+                    if 'definition' in subentry:
+                        yield subentry
+        else:
+            for subentry in entry.iter_is_nxclass(u'NXsubentry'):
+                if 'definition' in subentry:
+                    yield subentry
 
     def findfirstup_is_nxclass(self, *nxclasses):
         path = None
@@ -360,7 +375,8 @@ class Path(h5fs.Path):
     def _nxfiles_nxnote(self):
         return {'date': timestamp()}
 
-    def nxprocess(self, name, parameters=None, dependencies=None, searchallentries=True, noincrement=False, **openparams):
+    def nxprocess(self, name, parameters=None, dependencies=None,
+                  searchallentries=True, noincrement=False, **openparams):
         """Creates NXentry and NXprocess when needed.
 
         Args:
@@ -432,6 +448,17 @@ class Path(h5fs.Path):
                     return process
         return None
 
+    def find_application(self, entryname=None, definition=None):
+        for application in self.iter_application(searchallentries=True):
+            if entryname:
+                if application.parent.name != entryname:
+                    continue
+            if definition:
+                if application['definition'].read() != definition:
+                    continue
+            return application
+        return None
+
     def _nxfiles_nxprocess(self):
         return {'program': PROGRAM_NAME,
                 'version': __version__,
@@ -442,7 +469,8 @@ class Path(h5fs.Path):
         if path is not None:
             return path
         entry = self.nxentry()
-        return self._init_nxclass(entry['instrument'], u'NXinstrument', **openparams)
+        return self._init_nxclass(entry['instrument'], u'NXinstrument',
+                                  **openparams)
 
     def measurement(self, nxclass=u'NXcollection', **openparams):
         path = self.findfirstup_is_name('measurement')
@@ -452,30 +480,39 @@ class Path(h5fs.Path):
         entry = self.nxentry()
         return self._init_nxclass(entry['measurement'], nxclass, **openparams)
 
-    def nxcollection(self, name, nxattributes=None, nxfiles=None, **openparams):
+    def nxcollection(self, name, nxattributes=None, nxfiles=None,
+                     **openparams):
         self._raise_if_class(u'NXroot')
         return self._init_nxclass(self[name], u'NXcollection',
-                                  nxattributes=nxattributes, nxfiles=nxfiles, **openparams)
+                                  nxattributes=nxattributes,
+                                  nxfiles=nxfiles, **openparams)
 
-    def nxdetector(self, name, nxattributes=None, nxfiles=None, **openparams):
+    def nxdetector(self, name, nxattributes=None,
+                   nxfiles=None, **openparams):
         instrument = self.nxinstrument(**openparams)
         return self._init_nxclass(instrument[name], u'NXdetector',
-                                  nxattributes=nxattributes, nxfiles=nxfiles, **openparams)
+                                  nxattributes=nxattributes,
+                                  nxfiles=nxfiles, **openparams)
 
-    def nxmonochromator(self, name='monochromator', nxattributes=None, nxfiles=None, **openparams):
+    def nxmonochromator(self, name='monochromator', nxattributes=None,
+                        nxfiles=None, **openparams):
         instrument = self.nxinstrument(**openparams)
         return self._init_nxclass(instrument[name], u'NXmonochromator',
-                                  nxattributes=nxattributes, nxfiles=nxfiles, **openparams)
+                                  nxattributes=nxattributes,
+                                  nxfiles=nxfiles, **openparams)
 
-    def application(self, name, definition=None, nxattributes=None, nxfiles=None, **openparams):
+    def application(self, name, definition=None, nxattributes=None,
+                    nxfiles=None, **openparams):
         entry = self.nxentry(**openparams)
         if definition is None:
             definition = name
-        if nxfiles is None:
+        if not nxfiles:
             nxfiles = {}
+        nxfiles.update(self._nxfiles_nxentry())
         nxfiles['definition'] = nxfiles.get('definition', definition)
         return self._init_nxclass(self[name], u'NXsubentry',
-                                  nxattributes=nxattributes, nxfiles=nxfiles, **openparams)
+                                  nxattributes=nxattributes,
+                                  nxfiles=nxfiles, **openparams)
 
     def positioners(self, **openparams):
         path = self.findfirstup_is_nxclass(u'NXprocess')
