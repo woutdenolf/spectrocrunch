@@ -31,7 +31,7 @@ from ..instruments.configuration import getinstrument
 
 
 def task_parameters(parameters, name):
-    params = parameters.get(name, {})
+    params = parameters.get(name, {}).copy()
     parameters[name] = params
     return params
 
@@ -116,6 +116,7 @@ def xrfparameters(parameters, instrument, include_encoders=True, quant=False):
     ensure_parameter(parameters, 'adddetectors', True)  # sum spectra
     ensure_parameter(parameters, 'addbeforefit', True)  # sum fit results and detector counters
     ensure_parameter(parameters, 'mlines', {})
+    ensure_parameter(parameters, 'addhigh', 0)
     ensure_parameter(parameters, 'correctspectra', False)
     ensure_list(parameters, 'exclude_detectors')
     ensure_list(parameters, 'include_detectors')
@@ -133,7 +134,7 @@ def tasks(**parameters):
     tasks = []
 
     # Common parameters
-    commonparams = task_parameters(parameters, 'common').copy()
+    commonparams = task_parameters(parameters, 'common')
     sinstrument = require_pop(commonparams, 'instrument')
     coutputparent = commonparams.pop('outputparent', None)
     ensure_parameter(commonparams, 'stackdim', 0)
@@ -157,7 +158,7 @@ def tasks(**parameters):
     # XRF fit and counter maps
     params = task_parameters(parameters, 'resample')
     encodercor = params.pop('encodercor', False)
-    params = task_parameters(parameters, 'pymca').copy()
+    params = task_parameters(parameters, 'pymca')
     ensure_parameter(params, 'outputparent', default=coutputparent)
     xrfparameters(params, instrument,
                   include_encoders=encodercor,
@@ -228,7 +229,7 @@ def tasks(**parameters):
         tasks.append(task)
 
     # Post normalization
-    params = task_parameters(parameters, 'prostalignnormalize')
+    params = task_parameters(parameters, 'postalignnormalize')
     counter = params.pop('counter', None)
     if counter:
         copy = [{'method': 'regexparent', 'pattern': prefix}

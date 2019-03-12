@@ -29,13 +29,13 @@ class test_task_xrf(test_task):
         parameters = {
             'method': 'xrfgeometry',
             'outputparent': outputparent,
-            'geometry': 'sxm',
+            'geometry': 'sxm1',
             'init': {},
             'fixed': fixed,
             'variable': variable
         }
         proc2 = self._run_task(parameters, None)
-        parameters['geometry'] = 'SXM'
+        parameters['geometry'] = 'SXM1'
         proc3 = self._run_task(parameters, None)
         self._check_reproc(proc2, proc3)
 
