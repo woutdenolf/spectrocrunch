@@ -964,7 +964,18 @@ def print_devices():
 
 
 class SXM(QXRFGeometry):
-    aliases = ['sxm1', 'sxm1_kb', 'sxm_kb']
+
+    def __init__(self, **kwargs):
+        kwargs['diodeIt'] = kwargs.get('diodeIt', 'idet')
+        kwargs['xrfdetector'] = kwargs.get('xrfdetector', 'leia')
+        kwargs['xrfgeometry'] = kwargs.get('xrfgeometry', 'sxm120')
+        kwargs['instrument'] = kwargs.get('instrument', 'sxm')
+        kwargs['simplecalibration'] = kwargs.get('simplecalibration', True)
+        super(SXM, self).__init__(**kwargs)
+
+
+class SXM1(QXRFGeometry):
+    aliases = ['sxm1_kb', 'sxm1_kb']
 
     def __init__(self, **kwargs):
         kwargs['diodeI0'] = kwargs.get('diodeI0', 'iodet1')
@@ -974,7 +985,7 @@ class SXM(QXRFGeometry):
         kwargs['xrfgeometry'] = kwargs.get('xrfgeometry', 'sxm120')
         kwargs['instrument'] = kwargs.get('instrument', 'sxm')
         kwargs['simplecalibration'] = kwargs.get('simplecalibration', True)
-        super(SXM, self).__init__(**kwargs)
+        super(SXM1, self).__init__(**kwargs)
 
 
 class SXM2(QXRFGeometry):
