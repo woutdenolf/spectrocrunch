@@ -30,6 +30,7 @@ from ..patch.pint import ureg
 from ..utils import instance
 from ..utils import units
 from ..utils import listtools
+from ..math import linop
 from ..instruments import configuration
 from ..process.edfregulargrid import EDFRegularGrid
 from ..process.h5regulargrid import NXRegularGrid
@@ -43,7 +44,7 @@ import collections
 class Base(object):
 
     def __init__(self, axis0name=None, axis1name=None,
-                 transfo0=None, transfo1=None, **kwargs):
+                 linop0=None, linop1=None, **kwargs):
         self.instrument = configuration.getinstrument(**kwargs)
         if axis0name is None:
             axis0name = self.instrument.imageaxes[0].upper()
@@ -51,12 +52,17 @@ class Base(object):
             axis1name = self.instrument.imageaxes[1].upper()
         self.axis0name = axis0name
         self.axis1name = axis1name
-        if transfo0 is None:
-            def transfo0(x): return x
-        if transfo1 is None:
-            def transfo1(x): return x
-        self.transfo0 = transfo0
-        self.transfo1 = transfo1
+        if not linop0:
+            linop0 = 1, 0
+        elif instance.isscalar(linop0):
+            linop0 = 1, linop0
+        self.linop0 = linop.LinearOperator(*linop0)
+        if not linop1:
+            linop1 = 1, 0
+        elif instance.isscalar(linop1):
+            linop1 = 1, linop1
+        linop1 = linop.LinearOperator(*linop1)
+        self.linop1 = linop1
 
     def motorquantity(self, values, motorname):
         return units.Quantity(values, self.instrument.units[motorname])
@@ -88,11 +94,11 @@ class PointBase(Base):
 
     @property
     def coordinates0(self):
-        return self.transfo0(self._coordinates0)
+        return self.linop0(self._coordinates0)
 
     @property
     def coordinates1(self):
-        return self.transfo1(self._coordinates1)
+        return self.linop1(self._coordinates1)
 
 
 class ImageBase(Base):
@@ -156,11 +162,11 @@ class ImageBase(Base):
 
     @property
     def axis0values(self):
-        return self.transfo0(self._grid_image_axes[0].values)
+        return self.linop0(self._grid_image_axes[0].values)
 
     @property
     def axis1values(self):
-        return self.transfo1(self._grid_image_axes[1].values)
+        return self.linop1(self._grid_image_axes[1].values)
 
     def displaydata(self, index=None):
         """
