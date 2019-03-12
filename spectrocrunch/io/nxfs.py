@@ -604,18 +604,14 @@ class _NXprocess(_NXPath):
 
             # Links to dependencies
             if dependencies:
-                # for dependency in dependencies:
-                #    dependency._raise_ifnot_class(self.NX_CLASS)
-                #    if self.parent!=dependency.parent:
-                #        raise ValueError('{} and {} should be in the same entry'.format(self,dependencies))
+                linkroot = self.dependencies
                 for dependency in dependencies:
-                    dependency = self.dependencies[dependency.name].link(
-                        dependency)
+                    name = linkroot.nonexisting_name(dependency.name)
+                    dependency = linkroot[name].link(dependency)
 
             # Other info
             self['sequence_index'].write(data=self.sequence_index)
             self.configpath.update_stats(checksum=self.checksum)
-
             self.updated()
 
     @property

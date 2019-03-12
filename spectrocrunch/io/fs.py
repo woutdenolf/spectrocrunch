@@ -773,3 +773,17 @@ class Path(File):
                                      depth=depth,
                                      _level=_level+1):
                     yield sub
+
+    def nonexisting_name(self, name):
+        if name not in self:
+            return name
+        m = re.match(r'^(.+)\((\d+)\)$', name)
+        if m:
+            name = m.groups()[0]
+            i = int(m.groups()[1])+1
+        else:
+            i = 1
+        fmt = name + '({})'
+        while fmt.format(i) in self:
+            i += 1
+        return fmt.format(i)

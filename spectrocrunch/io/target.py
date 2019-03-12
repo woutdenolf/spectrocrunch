@@ -50,9 +50,9 @@ def regex(name):
     name = re.escape(name)
     start, end, num, nonumber = locate_number(name)
     if nonumber:
-        pattern = '^'+name+'(\.[0-9]+)?$'
+        pattern = '^' + name + r'(\.[0-9]+)?$'
     else:
-        pattern = '^'+name[:start]+'[0-9]+'+name[end:]+'$'
+        pattern = '^' + name[:start]+'[0-9]+' + name[end:] + '$'
     return pattern
 
 

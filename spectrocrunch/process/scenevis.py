@@ -146,15 +146,11 @@ def specfilename(info):
     return os.path.join(info['root'], filename)
 
 
-def h5path(info):
-    root = os.path.join(info["root"], info["sample"]+'.h5')
-    entry = "_".join((info["sample"], info["dataset"]))+'.'+info["scan"]
-    return "{}::/{}/{}".format(root, entry, info["process"])
-
-
-def createscene(parameters, output=None):
+def createscene(parameters, previous_outputs=None, output=None):
     parameters = parameters.copy()
     objects = parameters.pop('objects')
+    if previous_outputs is None:
+        previous_outputs = []
 
     # Create scene and connect it to axes
     figsize = parameters.get('figsize', None)
@@ -179,8 +175,10 @@ def createscene(parameters, output=None):
         dataparams['instrument'] = parameters.get('instrument', None)
         pmin = plotparams.pop('lo', [])
         pmax = plotparams.pop('hi', [])
-        if 'process' in info:
-            uri = h5path(info)
+        if 'uri' in info:
+            uri = info['uri']
+            if uri not in previous_outputs:
+                raise ValueError('{} not in dependencies'.format(uri))
             item = scene_view.Nexus(uri, info.get('items', None),
                                     plotparams=plotparams, **dataparams)
         elif 'uri' in info:
@@ -262,7 +260,9 @@ class Task(nxprocess.Task):
         }
 
     def _execute(self):
-        createscene(self.parameters, self.temp_localpath.path)
+        createscene(self.parameters,
+                    output=self.temp_localpath.path,
+                    previous_outputs=list(self.previous_outputs))
 
     @property
     def temp_localpath(self):
