@@ -172,14 +172,14 @@ class Task(with_metaclass(ABCMeta, object)):
             value(list or Task or h5fs.Path or str)
         """
         if instance.isstringarray(value):
-            self._dependencies = [nxfs.Path(v) for v in value]
+            self._dependencies = [nxfs.factory(v) for v in value]
         elif instance.isarray(value):
             self._dependencies = value
         else:
             if value is None:
                 self._dependencies = []
             elif instance.isstring(value):
-                self._dependencies = [nxfs.Path(value)]
+                self._dependencies = [nxfs.factory(value)]
             else:
                 self._dependencies = [value]
         self.default_outputparent = None
