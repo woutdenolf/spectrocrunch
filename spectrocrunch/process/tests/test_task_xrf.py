@@ -40,7 +40,6 @@ class test_task_xrf(test_task):
         self._check_reproc(proc2, proc3)
 
     @unittest.skipIf(xraylib.XRayInit is None, "xraylib not installed")
-    @unittest.skip('not implemented yet')
     def test_nxxiaedf(self):
         xrfmap = XrfMapGenerator(nmaps=1)
         xrfmap.generate(self.dir.path, 'test')
@@ -57,6 +56,7 @@ class test_task_xrf(test_task):
         h5filename = os.path.join(self.dir.path, 'test.h5')
         parameters = {
             'method': 'xiaedftonx',
+            'name': 'first',
             'outputparent': h5filename,
             'path': xrfmap.path,
             'radix': xrfmap.radix,
@@ -64,11 +64,23 @@ class test_task_xrf(test_task):
             'instrument': xrfmap.instrument.lower()
         }
         parameters.update(xrfmap.taskparams_pymca(seldetectors))
-
-        proc2 = self._run_task(parameters, proc1, outputnxprocess=False)
-        parameters['instrument'] = xrfmap.instrument.upper()
-        proc3 = self._run_task(parameters, proc1, outputnxprocess=False)
-        self._check_reproc(proc2, proc3)
+        entry2 = self._run_task(parameters, proc1, outputnxprocess=False)
+        parameters['name'] = 'second'
+        entry3 = self._run_task(parameters, proc1, outputnxprocess=False)
+        appli2 = entry2.root.find_application(entryname='first',
+                                              definition='NXxrf')
+        appli3 = entry3.root.find_application(entryname='second',
+                                              definition='NXxrf')
+        self.assertEqual(entry2, appli2.parent)
+        self.assertEqual(entry3, appli3.parent)
+        files2 = {path.name for path in appli2.listdir()}
+        files3 = {path.name for path in appli3.listdir()}
+        files = {'i0', 'i0_to_flux_factor', 'i0_to_flux_offset',
+                 'it', 'it_to_flux_factor', 'it_to_flux_offset',
+                 'start_time', 'end_time', 'definition'}
+        files |= {'mca{:02d}'.format(i) for i in range(xrfmap.ndet)}
+        self.assertEqual(files, files2)
+        self.assertEqual(files, files3)
 
 
 def test_suite():
