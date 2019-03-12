@@ -34,7 +34,7 @@ class test_qxrf(unittest.TestCase):
 
     def geometryinstance(self):
         energy = 10
-        geometryinstance = qxrf.factory("SXM",
+        geometryinstance = qxrf.factory("sxm1",
                                         simplecalibration=False)
         info = {"I0_counts": 300,
                 "It_counts": 30,
@@ -99,7 +99,7 @@ class test_qxrf(unittest.TestCase):
             detector = {'name': 'leia',
                         'parameters': {}}
             xrfgeometries.append((geometry, detector))
-        g1 = qxrf.factory('sxm', xrfgeometries=xrfgeometries)
+        g1 = qxrf.factory('sxm1', xrfgeometries=xrfgeometries)
         g2 = jsonpickle.loads(jsonpickle.dumps(g1))
         self.assertEqual(g1, g2)
 
