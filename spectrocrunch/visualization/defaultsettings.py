@@ -136,10 +136,8 @@ def dpi(publish='photo&text', best=True):
     elif publish == 'lineart':
         ret = 1200 if best else 900
     elif publish == 'powerpoint':
-        if not publish or not instance.isarray(publish):
-            publish = screensize()
-        width, height = publish
-        publish = 'width x height = {} x {} inch'.format(publish)
+        width, height = screensize()
+        publish = 'width x height = {} x {} inch'.format(width, height)
         # Powerpoint: normal and widescreen
         # 50	 500 × 375   667 × 375   50 dpi
         # 96  960 × 720   1280 × 720  96 dpi

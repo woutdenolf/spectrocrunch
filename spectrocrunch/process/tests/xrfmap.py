@@ -60,7 +60,7 @@ class XrfMapGenerator(object):
                      'energy': min(self.energies)},
                     {'I0_counts': 200000, 'It_counts': 100000,
                      'energy': max(self.energies)}]
-        parameters = {'geometry': self.instrument,
+        parameters = {'geometry': 'sxm1',
                       'fixed': fixed,
                       'init': init,
                       'variable': variable}

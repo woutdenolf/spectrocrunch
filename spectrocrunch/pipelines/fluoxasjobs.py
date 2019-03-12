@@ -141,24 +141,24 @@ def manualselection(sourcepaths, scannames, scannumbers, cfgfiles,
         outname = scannames[0]
     if outsuffix is None:
         outsuffix = '.map'
-    
-    params = mfluoxas.task_parameters(parameters, 'common')
-    ensure_outputparent(parameters, samplename, radix+outsuffix, scannumbers)
+    ensure_outputparent(parameters, outname, outname+outsuffix, scannumbers)
     processdata(jobname, sourcepaths, scannames,
                 scannumbers, cfgfiles, **parameters)
 
 
 def processdata(jobname, *args, **kwargs):
-    if "jobs" in kwargs:
-        kwargs["jobs"].append((jobname, processdata_exec, args, kwargs))
-    else:
+    jobs = kwargs.pop('jobs', None)
+    if jobs is None:
+        # Execute immediately
         processdata_exec(*args, **kwargs)
+    else:
+        # Add to queue
+        jobs.append((jobname, processdata_exec, args, kwargs))
 
 
 def processdata_exec(sourcepaths, scannames, scannumbers, cfgfiles,
                      fluoxas=False, multi=False, resultsdir=None,
                      edfexport=False, **parameters):
-
     # Basic input
     params = mfluoxas.task_parameters(parameters, 'pymca')
     params['sourcepaths'] = sourcepaths
