@@ -127,6 +127,8 @@ def dpi(publish='photo&text', best=True):
         publish(str,tuple): publication medium (WxH when a tuple)
         best(bool):
     """
+    if publish == 'powerpoint':
+        publish = screensize()
     if publish == 'color':
         ret = 300
     elif publish == 'b&w':
@@ -135,8 +137,8 @@ def dpi(publish='photo&text', best=True):
         ret = 900 if best else 600
     elif publish == 'lineart':
         ret = 1200 if best else 900
-    elif publish == 'powerpoint':
-        width, height = screensize()
+    elif instance.issequence(publish):
+        width, height = publish
         publish = 'width x height = {} x {} inch'.format(width, height)
         # Powerpoint: normal and widescreen
         # 50	 500 × 375   667 × 375   50 dpi
