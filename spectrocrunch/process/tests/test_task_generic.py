@@ -384,10 +384,9 @@ class test_task_generic(test_task):
         with self._nxprocess(method='scenevis') as proc1:
             proc1, info = proc1
             outputparent = proc1.root['images']
-            obj1 = {'uri': str(proc1),
-                    'items': [('detector00/Fe-K',0),
-                              ('detector00/Si-K',0),
-                              ('detector00/Al-K',0)]
+            obj1 = {'items': [('detector00/Fe-K', 0),
+                              ('detector00/Si-K', 0),
+                              ('detector00/Al-K', 0)]
             }
             parameters = {'method': 'scenevis',
                           'outputparent': outputparent,

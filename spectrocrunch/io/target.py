@@ -124,10 +124,14 @@ class Name(object):
         return match(str(str))
 
 
-def calc_checksum(dependencies, confighash):
+def calc_checksum(dependencies, parameters, alreadyhash=False):
     if dependencies:
         hashes = [prev.checksum for prev in dependencies]
     else:
         hashes = []
-    hashes.append(confighash)
+    if alreadyhash:
+        h = parameters
+    else:
+        h = hashing.calchash(parameters)
+    hashes.append(h)
     return hashing.mergehash(*hashes)

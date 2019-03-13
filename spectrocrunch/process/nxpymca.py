@@ -74,10 +74,7 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
             'addhigh',
             'fastfitting',
             'exclude_detectors',
-            'include_detectors'
-        }
-
-        self.optional_parameters |= {
+            'include_detectors',
             'stackdim'
         }
 

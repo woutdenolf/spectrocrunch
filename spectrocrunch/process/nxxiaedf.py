@@ -45,15 +45,17 @@ class Task(nxqxrf_dependent.Task):
             'path',
             'radix',
             'number',
-            'instrument'
-        }
-
-        self.optional_parameters |= {
+            'instrument',
             'include_counters',
             'exclude_counters',
             'fluxid',
             'transmissionid'
         }
+        parameters = self.parameters
+        parameters['fluxid'] = parameters.get('fluxid', None)
+        parameters['transmissionid'] = parameters.get('transmissionid', None)
+        parameters['include_counters'] = parameters.get('include_counters', [])
+        parameters['exclude_counters'] = parameters.get('exclude_counters', [])
 
     def _atomic_context_enter(self):
         name = randomstring()
@@ -76,15 +78,15 @@ class Task(nxqxrf_dependent.Task):
     def _execute(self):
         parameters = self.parameters
         include_counters = [self._rematch_func(
-            redict) for redict in parameters.get('include_counters', [])]
+            redict) for redict in parameters['include_counters']]
         exclude_counters = [self._rematch_func(
-            redict) for redict in parameters.get('exclude_counters', [])]
+            redict) for redict in parameters['exclude_counters']]
         path, radix, number = (parameters['path'],
                                parameters['radix'],
                                parameters['number'])
-        instrument = parameters.get('instrument', None)
-        fluxid = parameters.get('fluxid', None)
-        transmissionid = parameters.get('transmissionid', None)
+        instrument = parameters['instrument']
+        fluxid = parameters['fluxid']
+        transmissionid = parameters['transmissionid']
         xiaimage = xiaedf.xiaimage_number(path, radix, number)
         converter = xiaedftonexus.Converter(
             nxentry=self.temp_nxentry,
