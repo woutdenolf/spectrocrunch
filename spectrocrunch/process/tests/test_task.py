@@ -23,9 +23,10 @@ class test_task(unittest.TestCase):
         self.assertFalse(task2.done)
         task2.run()
         self.assertTrue(task2.done)
-        checksum = task2.checksum
-        self.assertEqual(checksum, task2.output.checksum)
-        self.assertTrue(task2.output.valid_checksum())
+        if outputnxprocess:
+            checksum = task2.checksum
+            self.assertEqual(checksum, task2.output.checksum)
+            self.assertTrue(task2.output.valid_checksum())
         proc2 = task2.output
 
         # Check re-run (same task instance)
