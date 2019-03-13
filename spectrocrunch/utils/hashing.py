@@ -23,29 +23,28 @@
 # THE SOFTWARE.
 
 import hashlib
-import json
 import itertools
 from ..patch import jsonpickle
 from ..utils import instance
 from ..utils import listtools
 
 
-def stringhash(x):
+def string_repr_to_hash(x):
     if not isinstance(x, bytes):
         return x.encode('utf-8')
     return x
 
 
-def mtypehash(classname):
-    return stringhash("<class '{}'>".format(classname))
+def classname_repr_to_hash(classname):
+    return string_repr_to_hash("<class '{}'>".format(classname))
 
 
-def typehash(o):
-    return mtypehash(o.__class__.__name__)
+def class_repr_to_hash(o):
+    return classname_repr_to_hash(o.__class__.__name__)
 
 
-def anyhash(x):
-    return stringhash(jsonpickle.dumps(x))
+def any_repr_to_hash(x):
+    return string_repr_to_hash(jsonpickle.dumps(x, sort_keys=True))
 
 
 def getstate(x):
@@ -70,9 +69,9 @@ def calchash(x, _depth=0):
         _depth += 1
     # Convert x to a list(bytes)
     if x is None:
-        x = [typehash(x)]
+        x = [class_repr_to_hash(x)]
     elif instance.isstring(x):
-        x = [mtypehash('string'), stringhash(x)]
+        x = [classname_repr_to_hash('string'), string_repr_to_hash(x)]
     elif instance.isnumber(x):
         try:
             intx = int(x)
@@ -80,7 +79,7 @@ def calchash(x, _depth=0):
                 x = intx
         except:
             pass
-        x = [mtypehash('number'), stringhash(str(x))]
+        x = [classname_repr_to_hash('number'), string_repr_to_hash(str(x))]
     elif instance.isarray(x):
         if instance.isarray0(x):
             x = [calchash(x.item(), _depth=_depth)]
@@ -94,9 +93,9 @@ def calchash(x, _depth=0):
             state = getstate(x)
             if instance.isarray(state):
                 if str(x) == str(state):
-                    x = [typehash(x)]
+                    x = [class_repr_to_hash(x)]
                 else:
-                    x = [anyhash(x)]
+                    x = [any_repr_to_hash(x)]
             else:
                 x = [calchash(state, _depth=_depth)]
     elif instance.ismapping(x):
@@ -111,9 +110,9 @@ def calchash(x, _depth=0):
             state = getstate(x)
             if type(state) == type(x):
                 if str(x) == str(state):
-                    x = [typehash(x)]
+                    x = [class_repr_to_hash(x)]
                 else:
-                    x = [anyhash(x)]
+                    x = [any_repr_to_hash(x)]
             else:
                 x = [calchash(state, _depth=_depth)]
     elif instance.isquantity(x):
@@ -123,7 +122,7 @@ def calchash(x, _depth=0):
         x = [calchash(getstate(x), _depth=_depth)]
     # MD5 hash of list of bytes
     #print(x)
-    return stringhash(hashlib.md5(b''.join(x)).hexdigest())
+    return string_repr_to_hash(hashlib.md5(b''.join(x)).hexdigest())
 
 
 def hashequal(a, b):

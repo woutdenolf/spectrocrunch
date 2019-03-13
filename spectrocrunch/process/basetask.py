@@ -30,9 +30,9 @@ from contextlib import contextmanager
 import traceback
 
 from ..io import nxfs
+from ..io import target
 from ..utils import instance
 from ..utils import timing
-from ..utils import hashing
 from ..utils.signalhandling import HandleTermination
 
 logger = logging.getLogger(__name__)
@@ -132,9 +132,7 @@ class Task(with_metaclass(ABCMeta, object)):
 
     @property
     def checksum(self):
-        hashes = [dependency.checksum for dependency in self.dependencies]
-        hashes.append(hashing.calchash(self.parameters))
-        return hashing.mergehash(*hashes)
+        return target.calc_checksum(self.dependencies, self.parameters)
 
     @property
     def parameters(self):

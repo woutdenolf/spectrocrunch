@@ -18,28 +18,40 @@ class test_task(unittest.TestCase):
         else:
             previoustask = None
 
-        # Check run and re-run
-        newtask = utils.create_task(dependencies=previoustask, **parameters)
-        self.assertFalse(newtask.done)
-        newtask.run()
-        self.assertTrue(newtask.done)
-        proc2 = newtask.output
-        newtask.run()
-        proc3 = newtask.output
-        self.assertEqual(proc2, proc3)
-        task = utils.create_task(dependencies=previoustask, **parameters)
-        self.assertTrue(task.done)
-        task.run()
-        proc3 = task.output
+        # Check run
+        task2 = utils.create_task(dependencies=previoustask, **parameters)
+        self.assertFalse(task2.done)
+        task2.run()
+        self.assertTrue(task2.done)
+        checksum = task2.checksum
+        self.assertEqual(checksum, task2.output.checksum)
+        self.assertTrue(task2.output.valid_checksum())
+        proc2 = task2.output
+
+        # Check re-run (same task instance)
+        task2.run()
+        proc3 = task2.output
         self.assertEqual(proc2, proc3)
 
-        # Check reconstructed task from output
+        # Check re-run (new task instance)
+        task3 = utils.create_task(dependencies=previoustask, **parameters)
+        self.assertTrue(task3.done)
+        task3.run()
+        proc3 = task3.output
+        self.assertEqual(proc2, proc3)
+
+        # Check re-run (reconstructed task instance)
         if outputnxprocess:
-            task = utils.nxpathtotask(proc2)
-            self.assertEqual(type(task), type(newtask))
-            self.assertTrue(task.done)
-            task.run()
-            proc3 = task.output
+            task4 = utils.nxpathtotask(proc2)
+            self.assertEqual(type(task4), type(task2))
+            self.assertTrue(task4.done)
+            self.assertEqual(checksum, task4.checksum)
+            self.assertEqual(checksum, task4.output.checksum)
+            self.assertTrue(task4.output.valid_checksum())
+
+            # Check re-run (new task instance)
+            task4.run()
+            proc3 = task4.output
             self.assertEqual(proc2, proc3)
 
         return proc2

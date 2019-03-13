@@ -146,11 +146,11 @@ def specfilename(info):
     return os.path.join(info['root'], filename)
 
 
-def createscene(parameters, previous_outputs=None, output=None):
+def createscene(parameters, dependencies=None, output=None):
     parameters = parameters.copy()
     objects = parameters.pop('objects')
-    if previous_outputs is None:
-        previous_outputs = []
+    if dependencies is None:
+        dependencies = []
 
     # Create scene and connect it to axes
     figsize = parameters.get('figsize', None)
@@ -168,6 +168,7 @@ def createscene(parameters, previous_outputs=None, output=None):
     sc.setaxes(ax)
 
     # Add objects to scene
+    dependency_ctr = -1
     for info in objects:
         plotparams = info.get('plotparams', {}).copy()
         plotparams['scene'] = sc
@@ -175,16 +176,7 @@ def createscene(parameters, previous_outputs=None, output=None):
         dataparams['instrument'] = parameters.get('instrument', None)
         pmin = plotparams.pop('lo', [])
         pmax = plotparams.pop('hi', [])
-        if 'uri' in info:
-            uri = info['uri']
-            if uri not in previous_outputs:
-                raise ValueError('{} not in dependencies'.format(uri))
-            item = scene_view.Nexus(uri, info.get('items', None),
-                                    plotparams=plotparams, **dataparams)
-        elif 'uri' in info:
-            item = scene_view.Nexus(info['uri'], info.get('items', None),
-                                    plotparams=plotparams, **dataparams)
-        elif 'spec' in info:
+        if 'spec' in info:
             filename = specname(info)
             item = scene_view.XanesSpec(filename, info.get('items', None),
                                         plotparams=plotparams, **dataparams)
@@ -193,7 +185,11 @@ def createscene(parameters, previous_outputs=None, output=None):
             item = scene_view.ZapRoiMap(filenames, info.get('items', None),
                                         plotparams=plotparams, **dataparams)
         else:
-            raise RuntimeError('Unknown object description')
+            dependency_ctr += 1
+            i = info.get('dependency', dependency_ctr)
+            uri = str(dependencies[i])
+            item = scene_view.Nexus(uri, info.get('items', None),
+                                    plotparams=plotparams, **dataparams)
         if pmin and pmax:
             item.selfscale(pmin=pmin, pmax=pmax)
         item.useaxesnames()
@@ -234,15 +230,11 @@ class Task(nxprocess.Task):
         super(Task, self)._parameters_defaults()
         self.required_parameters |= {
             'objects',
-            'instrument'
-        }
-        self.optional_parameters |= {
+            'instrument',
             'figsize',
             'noaxes',
             'unitfast',
             'unitslow',
-            'title',
-            'instrument',
             'tight_layout',
             'plot',
             'originzero',
@@ -256,13 +248,34 @@ class Task(nxprocess.Task):
             'rhi',
             'alo',
             'ahi',
+            'title',
             'saveparams'
         }
+        parameters = self.parameters
+        parameters['figsize'] = parameters.get('figsize', None)
+        parameters['noaxes'] = parameters.get('noaxes', False)
+        parameters['tight_layout'] = parameters.get('tight_layout', False)
+        parameters['plot'] = parameters.get('plot', False)
+        parameters['unitfast'] = parameters.get('unitfast', 'mm')
+        parameters['unitslow'] = parameters.get('unitslow', 'mm')
+        parameters['aspectratio'] = parameters.get('aspectratio', None)
+        parameters['originzero'] = parameters.get('originzero', False)
+        parameters['transpose'] = parameters.get('transpose', False)
+        parameters['flipx'] = parameters.get('flipx', False)
+        parameters['flipy'] = parameters.get('flipy', False)
+        parameters['incx'] = parameters.get('incx', False)
+        parameters['incy'] = parameters.get('incy', False)
+        parameters['rlo'] = parameters.get('rlo', None)
+        parameters['rhi'] = parameters.get('rhi', None)
+        parameters['alo'] = parameters.get('alo', None)
+        parameters['ahi'] = parameters.get('ahi', None)
+        parameters['title'] = parameters.get('title', None)
+        parameters['saveparams'] = parameters.get('saveparams', {})
 
     def _execute(self):
         createscene(self.parameters,
                     output=self.temp_localpath.path,
-                    previous_outputs=list(self.previous_outputs))
+                    dependencies=self.previous_outputs)
 
     @property
     def temp_localpath(self):

@@ -41,11 +41,12 @@ class Task(basetask.Task):
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
-        self.optional_parameters.add('default')
+        self.parameters['default'] = self.parameters.get('default', None)
+        self.required_parameters.add('default')
 
     @property
     def default(self):
-        return self.parameters.get('default', None)
+        return self.parameters['default']
 
     def _atomic_context_enter(self):
         while True:

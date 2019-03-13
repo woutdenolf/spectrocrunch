@@ -441,7 +441,7 @@ class Path(h5fs.Path):
         else:
             def match(x): return True
         checksum = target.calc_checksum(
-            dependencies, hashing.calchash(parameters))
+            dependencies, parameters)
         for process in self.iter_nxprocess(searchallentries=searchallentries):
             if match(process.name):
                 if process.checksum == checksum:
@@ -604,10 +604,8 @@ class _NXprocess(_NXPath):
 
             # Links to dependencies
             if dependencies:
-                linkroot = self.dependencies
                 for dependency in dependencies:
-                    name = linkroot.nonexisting_name(dependency.name)
-                    dependency = linkroot[name].link(dependency)
+                    self.add_dependency(dependency)
 
             # Other info
             self['sequence_index'].write(data=self.sequence_index)
@@ -619,11 +617,20 @@ class _NXprocess(_NXPath):
         with self._verify():
             checksum = self.configpath.get_stat('checksum')
             if checksum is None:
-                checksum = target.calc_checksum(
-                    self.dependencies, self.confighash)
+                checksum = target.calc_checksum(self.dependencies,
+                                                self.confighash,
+                                                alreadyhash=True)
             else:
                 checksum = checksum.encode('ascii')
+                
             return checksum
+
+    def valid_checksum(self):
+        checksum1 = self.checksum
+        checksum2 = target.calc_checksum(self.dependencies,
+                                         self.confighash,
+                                         alreadyhash=True)
+        return checksum1 == checksum2
 
     @property
     def confighash(self):
@@ -634,7 +641,21 @@ class _NXprocess(_NXPath):
 
     @property
     def dependencies(self):
-        return self.results.nxcollection('dependencies')
+        deproot = self.nxcollection('dependencies')
+        order = deproot.get_stat('order', [])
+        return [deproot[name] for name in order]
+
+    def add_dependency(self, dependency):
+        deproot = self.nxcollection('dependencies')
+        order = deproot.get_stat('order', None)
+        if order is None:
+            order = []
+        else:
+            order = order.tolist()
+        name = deproot.nonexisting_name(dependency.name)
+        dependency = deproot[name].link(dependency)
+        order.append(name)
+        deproot.update_stats(order=order)
 
     @property
     def sequence_index(self):

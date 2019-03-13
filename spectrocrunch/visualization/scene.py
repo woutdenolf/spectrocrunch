@@ -574,11 +574,10 @@ class Image(Item):
                 data[..., ch] = self._get_data(i)
         if len(channels) == 1:
             data = data[..., 0]
-
-        func = self.get_setting("datafunc")
-        if instance.iscallable(func):
-            data = func(data)
-
+        u = self.get_setting("colorbar_units")
+        if u:
+            print(float(units.Quantity(1, u).to('dimensionless').magnitude))
+            data = data/float(units.Quantity(1, u).to('dimensionless').magnitude)
         return data
 
     def _get_data(self, index):
@@ -710,7 +709,6 @@ class Image(Item):
                 "vmax": None,
                 "cnorm": None,
                 "cnormargs": (),
-                "datafunc": None,
                 "legend": False,
                 "legend_position": "RT",
                 "legend_spacing": 2.,
@@ -908,6 +906,7 @@ class Image(Item):
         self.addcomposition(settings, legend, colors, vmin, vmax)
 
         # Legend
+        print(legend, lvisible)
         self.addlegend(scene, settings, items, newitems,
                        legend, colors, visible=lvisible)
 
@@ -955,14 +954,15 @@ class Image(Item):
                         if ma > 0.01:
                             fmt = floatformat(ma, 3)
                         else:
-                            fmt = ":.2E"
+                            fmt = ':.2E'
 
                         visible = True
                         u = settings["colorbar_units"]
                         if u:
-                            u = " {}".format(u)
+                            u = '{:~}'.format(units.ureg.Unit(u))
+                            u = ' ' + u.replace(' ', '')
                         else:
-                            u = ""
+                            u = ''
                         if settings["legend"]:
                             fmt = "{{}} [{{{}}},{{{}}}]{}".format(fmt, fmt, u)
                             legend[i] = fmt.format(name, mi, ma)

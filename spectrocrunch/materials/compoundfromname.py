@@ -76,7 +76,7 @@ else:
 
     # organics:
     compounddb["cellulose"] = compoundfromformula.CompoundFromFormula(
-        "C6H10O5", 1.5, name="")
+        "C6H10O5", 1.5, name="cellulose")
     # http://dx.doi.org/10.1100/tsw.2009.27:
     compounddb["human hair"] = compoundfromlist.CompoundFromList(['C', 'O', 'N', 'H', 'S'],
                                                                  [0.49, 0.30, 0.145,

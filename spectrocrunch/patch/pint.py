@@ -28,7 +28,6 @@ from pint.quantity import _Quantity
 from pint.unit import _Unit
 from pint.measurement import _Measurement
 
-
 ureg = UnitRegistry()
 
 
@@ -55,3 +54,7 @@ ureg.Measurement = Measurement
 
 
 ureg.define('classical_electron_radius = e^2/(4*pi*m_e*epsilon_0*c^2) = r_e')
+ureg.define('percent = 1e-2*count = %')
+ureg.define(u'permille = 1e-3*count = \u2030')
+ureg.define('ppm = 1e-6*count')
+ureg.define('ppb = 1e-9*count')
