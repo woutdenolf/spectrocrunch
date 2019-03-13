@@ -576,7 +576,6 @@ class Image(Item):
             data = data[..., 0]
         u = self.get_setting("colorbar_units")
         if u:
-            print(float(units.Quantity(1, u).to('dimensionless').magnitude))
             data = data/float(units.Quantity(1, u).to('dimensionless').magnitude)
         return data
 
@@ -716,10 +715,12 @@ class Image(Item):
                 "scalebar": False,
                 "scalebar_position": "lower right",
                 "scalebar_ratio": 1/5.,
-                "scalebar_fraction": 0.1,
-                "scalebar_pad": 0.1,
+                "scalebar_fraction": 0.1,  # fraction of display
+                "scalebar_pad": 0.1,  # fraction of font size
+                "scalebar_labelsep": 2,  # points
                 "scalebar_color": "#ffffff",
                 "scalebar_size": 0.,
+                "scalebar_unit": None,
                 "fontsize": matplotlib.rcParams['font.size'],
                 "fontweight": 500,
                 "channels": None,
@@ -906,7 +907,6 @@ class Image(Item):
         self.addcomposition(settings, legend, colors, vmin, vmax)
 
         # Legend
-        print(legend, lvisible)
         self.addlegend(scene, settings, items, newitems,
                        legend, colors, visible=lvisible)
 
@@ -914,7 +914,8 @@ class Image(Item):
         self.addscalebar(scene, items, newitems, position=settings["scalebar_position"],
                          visible=settings["scalebar"], ratio=settings["scalebar_ratio"],
                          xfrac=settings["scalebar_fraction"], pad=settings["scalebar_pad"],
-                         color=settings["scalebar_color"], size=settings["scalebar_size"])
+                         color=settings["scalebar_color"], size=settings["scalebar_size"],
+                         unit=settings["scalebar_unit"], sep=settings["scalebar_labelsep"])
 
         self.refreshscene(newitems)
 
@@ -991,7 +992,7 @@ class Image(Item):
 
     def addlegend(self, scene, settings, items, newitems, labels, colors,
                   visible=True, astext=False, withpatch=False):
-        if not labels:
+        if not labels or not visible:
             return
 
         if astext:
@@ -1056,43 +1057,50 @@ class Image(Item):
             legend.set_visible(visible)
             newitems["legend"] = legend
 
-    def addscalebar(self, scene, items, newitems, position="lower right", visible=True, ratio=8., xfrac=0.1, pad=0.1, color="#ffffff", size=0):
+    def addscalebar(self, scene, items, newitems, position="lower right", visible=True,
+                    ratio=8., xfrac=0.1, pad=0.1, sep=2, color="#ffffff", size=0, unit=None):
         if not visible:
             return
 
         name = "scalebar"
+        if unit is None:
+            unit = scene.xunit
 
-        # Scalebar horizontal size in axis units
+        # Scalebar horizontal size
         sx = scene.xmagnitude(self.displaylimx)
-        sx = abs(sx[1]-sx[0])
+        sx = units.Quantity(abs(sx[1]-sx[0]), scene.xunit)
         if size:
             xsize = units.Quantity(size, scene.xunit)
         else:
-            xsize = units.Quantity(round_sig(sx*xfrac, 1), scene.xunit)
-        xsize = xsize.to(scene.xunit)
-        xfrac = xsize.magnitude/sx
+            xsize = units.Quantity(round_sig(sx.magnitude*xfrac, 1),
+                                   scene.xunit)
+        xfrac = (xsize/sx).to('dimensionless').magnitude
 
         # Integer if possible
+        xsize = xsize.to(unit)
         mxsize = xsize.magnitude
         if mxsize == int(mxsize):
-            mxsize = int(mxsize)
-            xsize = units.Quantity(mxsize, xsize.units)
+            xsize = units.Quantity(int(mxsize), unit)
+        label = "{:~}".format(xsize)
 
-        # Scalebar vertical size in axis units
-        ys = scene.ymagnitude(self.displaylimy)
-        ys = abs(ys[1]-ys[0])
+        # Scalebar vertical size
+        sy = scene.ymagnitude(self.displaylimy)
+        sy = units.Quantity(abs(sy[1]-sy[0]), scene.yunit)
         yfrac = ratio*xfrac
-        mysize = ys*yfrac
+        ysize = sy*yfrac
 
         # TODO: handle zoom
+        mxsize = xsize.to(scene.xunit).magnitude
+        mysize = ysize.to(scene.yunit).magnitude
         scalebar = AnchoredSizeBar(scene.ax.transData,
                                    mxsize,
-                                   "{:~}".format(xsize),
+                                   label,
                                    position,
                                    pad=pad,
                                    color=color,
                                    fill_bar=True,
                                    frameon=False,
+                                   sep=sep,
                                    size_vertical=mysize)
 
         newitems[name] = scalebar
