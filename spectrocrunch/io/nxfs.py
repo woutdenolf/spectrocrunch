@@ -536,12 +536,12 @@ class Path(h5fs.Path):
                 if nxclass == u'NXdata':
                     nxdata = path
                 if nxdata:
-                    if parentnxclass == u'NXentry':
-                        default = parent[DEFAULT_PLOT_NAME]
-                        if default.islink:
-                            default.remove()
-                        dest = parent.relpath(nxdata.path)
-                        nxdata = default.link(dest)
+                    #if parentnxclass == u'NXentry' and nxclass != u'NXdata':
+                    #    default = parent[DEFAULT_PLOT_NAME]
+                    #    if default.islink:
+                    #        default.remove()
+                    #    dest = parent.relpath(nxdata.path)
+                    #    nxdata = default.link(dest)
                     dest = parent.relpath(nxdata.path)
                     parent.update_stats(default=dest)
                 if parentnxclass == u'NXroot':
@@ -556,6 +556,28 @@ class Path(h5fs.Path):
             path = path[default]
             default = path.get_stat('default', default=None)
         return path
+        
+    @property
+    def dependencies(self):
+        self._raise_ifnot_class('NXentry', 'NXprocess')
+        deproot = self.nxcollection('dependencies')
+        order = deproot.get_stat('order', [])
+        return [deproot[name] for name in order]
+
+    def add_dependency(self, dependency):
+        self._raise_ifnot_class('NXentry', 'NXprocess')
+        if instance.isstring(dependency):
+            dependency = nxfs.factory(dependency)
+        deproot = self.nxcollection('dependencies')
+        order = deproot.get_stat('order', None)
+        if order is None:
+            order = []
+        else:
+            order = order.tolist()
+        name = deproot.nonexisting_name(dependency.name)
+        dependency = deproot[name].link(dependency)
+        order.append(name)
+        deproot.update_stats(order=order)
 
 
 class _NXPath(Path):
@@ -595,7 +617,7 @@ class _NXprocess(_NXPath):
     @property
     def plotselect(self):
         with self._verify():
-            return self.nxdata(DEFAULT_PLOT_NAME)
+            return self.nxdata[DEFAULT_PLOT_NAME]
 
     def set_config(self, parameters, dependencies=None):
         with self._verify():
@@ -638,24 +660,6 @@ class _NXprocess(_NXPath):
             return hashing.calchash(self.config.read(parse=True))
         else:
             return None
-
-    @property
-    def dependencies(self):
-        deproot = self.nxcollection('dependencies')
-        order = deproot.get_stat('order', [])
-        return [deproot[name] for name in order]
-
-    def add_dependency(self, dependency):
-        deproot = self.nxcollection('dependencies')
-        order = deproot.get_stat('order', None)
-        if order is None:
-            order = []
-        else:
-            order = order.tolist()
-        name = deproot.nonexisting_name(dependency.name)
-        dependency = deproot[name].link(dependency)
-        order.append(name)
-        deproot.update_stats(order=order)
 
     @property
     def sequence_index(self):
@@ -993,16 +997,6 @@ class _NXdata(_NXPath):
                     with self[name].open(mode='r') as axis:
                         ret.append(axis.size)
                 return tuple(ret)
-
-    def default_entry_link(self):
-        super(_NXdata, self).mark_default()
-        entry = self.nxentry()
-        if self.parent != entry:
-            plotselect = entry[DEFAULT_PLOT_NAME]
-            if plotselect.islink:
-                plotselect.remove()
-            plotselect = plotselect.link(self)
-            plotselect.mark_default()
 
 
 class _NXcollection(_NXPath):

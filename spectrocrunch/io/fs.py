@@ -350,8 +350,8 @@ class Path(File):
             path = "{}{}{}".format(self.device, self.devsep, path)
         return self.factory(path)
 
-    def __call__(self, *value):
-        return self.__getitem__(value)
+    #def __call__(self, *value):
+    #    return self.__getitem__(value)
 
     def __iter__(self):
         for path in self.listdir():
