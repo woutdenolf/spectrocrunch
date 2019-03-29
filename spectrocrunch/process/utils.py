@@ -23,6 +23,8 @@
 # THE SOFTWARE.
 
 from .basetask import TaskException
+from ..utils import instance
+from ..io import nxfs
 
 def create_task(**parameters):
     method = parameters.get('method', None)
@@ -57,6 +59,8 @@ def create_task(**parameters):
 
 
 def nxpathtotask(path):
+    if instance.isstring(path):
+        path = nxfs.factory(path)
     if path.is_nxclass('NXprocess'):
         parameters = path.config.read()
         if 'method' not in parameters and 'name' not in parameters:
