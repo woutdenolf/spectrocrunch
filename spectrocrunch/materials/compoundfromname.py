@@ -181,6 +181,8 @@ else:
         "Hg3S2Cl2", 6.845, name="corderoite")
 
     # Pb pigments
+    compounddb["cerussite"] = compoundfromformula.CompoundFromFormula(
+        "PbCO3", 6.58, name="cerussite")
     compounddb["hydrocerussite"] = compoundfromformula.CompoundFromFormula(
         "Pb3C2O8H2", 6.8, name="hydrocerussite")
     compounddb["lead chromate"] = compoundfromformula.CompoundFromFormula(

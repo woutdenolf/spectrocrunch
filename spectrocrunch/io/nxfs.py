@@ -617,7 +617,7 @@ class _NXprocess(_NXPath):
     @property
     def plotselect(self):
         with self._verify():
-            return self.nxdata[DEFAULT_PLOT_NAME]
+            return self.nxdata(DEFAULT_PLOT_NAME)
 
     def set_config(self, parameters, dependencies=None):
         with self._verify():

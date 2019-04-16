@@ -388,8 +388,11 @@ class Path(File):
         dest = self.sibling(dest)
         if dest.isdir and not rename:
             dest = dest[self.name]
-        if dest.exists and not force:
-            raise AlreadyExists(dest.location)
+        if dest.exists:
+            if force:
+                dest.remove(recursive=True)
+            else:
+                raise AlreadyExists(dest.location)
         d = dest.parent
         if d and not d.exists:
             d.mkdir()
