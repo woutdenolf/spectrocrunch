@@ -1439,6 +1439,10 @@ class xiacompound(xiadata):
             return (nitems,) + items[0].sshape
 
     @property
+    def has_stats(self):
+        return len(self.sshape) == self.ndim
+
+    @property
     def cshape(self):
         # ... x nrow x ncol x nctr x 1
         items = self.getitems()
@@ -1819,6 +1823,10 @@ class xialine(xiadata):
             ndet = s[1]//self.NSTATS
             ndet = len(self.xiadetectorselect_numbers(range(ndet)))
             return (s[0], self.nstats, ndet)
+
+    @property
+    def has_stats(self):
+        return self.statfilename() is not None
 
     def _getdata(self, index=slice(None)):
         """

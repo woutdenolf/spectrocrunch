@@ -86,6 +86,8 @@ class Converter(object):
         self._stats = None
 
     def __call__(self, xiaobject, **openparams):
+        if not xiaobject.dshape:
+            raise RuntimeError('Missing data: {}'.format(xiaobject))
         self._xiaobject = xiaobject
         with self.nxentry.open(**openparams):
             try:
@@ -162,8 +164,11 @@ class Converter(object):
     @property
     def stats(self):
         if self._stats is None:
-            self._xiaobject.onlyicrocr(False)
-            self._stats = self._xiaobject.stats
+            if self._xiaobject.has_stats:
+                self._xiaobject.onlyicrocr(False)
+                self._stats = self._xiaobject.stats
+            else:
+                logger.error('Statistics could not be extracted from data')
         return self._stats
 
     @stats.setter
@@ -193,11 +198,27 @@ class Converter(object):
 
     @property
     def preset_time(self):
-        return self.normalize_quantity(self.header['time'], 's')
+        try:
+            return self.normalize_quantity(self.header['time'], 's')
+        except:
+            logger.error('Energy could not be extracted from data')
+            return np.nan
 
     @property
     def energy(self):
-        return self.normalize_quantity(self.header['energy'], 'keV')
+        try:
+            return self.normalize_quantity(self.header['energy'], 'keV')
+        except:
+            logger.error('Energy could not be extracted from data')
+            return np.nan
+
+    @property
+    def axes(self):
+        try:
+            return self.header['axes']
+        except:
+            logger.error('Scan axes could not be extracted from data')
+            return []
 
     def normalize_quantity(self, x, u):
         return units.astype(x.to(u), self.dtype)
@@ -249,8 +270,7 @@ class Converter(object):
 
     def _parse_positioners(self):
         positioners = self.positioners
-        axes = self.header['axes']
-        for ax in axes:
+        for ax in self.axes:
             values = self.normalize_quantity(ax.values, ax.units)
             positioners.add_axis(ax.name, values, title=ax.title)
 
@@ -287,38 +307,44 @@ class Converter(object):
             lt = counter_paths['lt']
             rt = counter_paths['rt']
             if lt is None or rt is None:
-                events = self.stats[..., self._xiaobject.STEVT, i].astype(
-                    self.dtype)
+                hasstats = self.stats is not None
+                if hasstats:
+                    events = self.stats[..., self._xiaobject.STEVT, i].astype(
+                        self.dtype)
 
             if lt is None:
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    lt = events / \
-                        self.stats[..., self._xiaobject.STICR,
-                                   i].astype(self.dtype)
-                lt[~np.isfinite(lt)] = 0
-                lt = self.add_measurement(
-                    measurement, 'live_time_'+detname, data=lt, units='s')
+                if hasstats:
+                    with np.errstate(divide='ignore', invalid='ignore'):
+                        lt = events / \
+                            self.stats[..., self._xiaobject.STICR,
+                                    i].astype(self.dtype)
+                    lt[~np.isfinite(lt)] = 0
+                    lt = self.add_measurement(
+                        measurement, 'live_time_'+detname, data=lt, units='s')
             else:
                 u = units.get(lt.name, None)
                 if u is not None:
                     lt.update_stats(units=u)
 
             if rt is None:
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    rt = events / \
-                        self.stats[..., self._xiaobject.STOCR,
-                                   i].astype(self.dtype)
-                rt[~np.isfinite(rt)] = np.nan
-                rt = self.add_measurement(
-                    measurement, 'elapsed_time_'+detname, data=rt, units='s')
+                if hasstats:
+                    with np.errstate(divide='ignore', invalid='ignore'):
+                        rt = events / \
+                            self.stats[..., self._xiaobject.STOCR,
+                                    i].astype(self.dtype)
+                    rt[~np.isfinite(rt)] = np.nan
+                    rt = self.add_measurement(
+                        measurement, 'elapsed_time_'+detname, data=rt, units='s')
             else:
                 u = units.get(rt.name, None)
                 if u is not None:
                     rt.update_stats(units=u)
 
             nxgroup = application.nxcollection(mcaname)
-            nxgroup['live_time'].link(lt)
-            nxgroup['elapsed_time'].link(rt)
+            if lt is not None:
+                nxgroup['live_time'].link(lt)
+            if rt is not None:
+                nxgroup['elapsed_time'].link(rt)
             if self._qxrfgeometry is not None:
                 nxgroup['distance'].mkfile(data=distance[i])
                 nxgroup['active area'].mkfile(data=activearea[i])
@@ -419,8 +445,12 @@ class Converter(object):
             nxdata = measurement
         else:
             nxdata = self.nxentry.nxdata(nxfs.DEFAULT_PLOT_NAME)
-        axes = [ax.name for ax in self.header['axes']]
-        nxdata.set_axes(*axes)
+        axes = [ax.name for ax in self.axes]
+        if axes:
+            try:
+                nxdata.set_axes(*axes)
+            except nxfs.NexusException as e:
+                logger.error(str(e))
         if nxdata != measurement:
             for path in self.measurement:
                 nxdata.add_signal(path=path)
