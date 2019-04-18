@@ -85,6 +85,6 @@ Import as follows:
 
 
 .. |Travis Status Master| image:: https://travis-ci.org/woutdenolf/spectrocrunch.svg?branch=master
-   :target: https://travis-ci.org/woutdenolf/spectrocrunch
-.. |Appveyor Status Master| image:: https://ci.appveyor.com/api/projects/status/github/woutdenolf/spectrocrunch?svg=true&branch=master
+   :target: https://travis-ci.org/woutdenolf/spectrocrunch?branch=master
+.. |Appveyor Status| image:: https://ci.appveyor.com/api/projects/status/1txj75w5hjpmjfl3/branch/master?svg=true
    :target: https://ci.appveyor.com/project/woutdenolf/spectrocrunch/branch/master
