@@ -175,6 +175,9 @@ class Converter(object):
     def stats(self, value):
         self._stats = value
 
+    def getstat(self, idet, istat):
+        return self.stats[..., istat, idet].astype(self.dtype)
+
     @property
     def header(self):
         if self._header is None:
@@ -300,7 +303,7 @@ class Converter(object):
             activearea = self.normalize_quantity(
                 self._qxrfgeometry.xrf_activeareas, 'cm^2')
 
-        for i, detname in enumerate(self._xiaobject.detectors_used):
+        for idet, detname in enumerate(self._xiaobject.detectors_used):
             mcaname = 'mca'+detname
             counter_paths = self._counter_paths[detname]
 
@@ -309,36 +312,29 @@ class Converter(object):
             if lt is None or rt is None:
                 hasstats = self.stats is not None
                 if hasstats:
-                    events = self.stats[..., self._xiaobject.STEVT, i].astype(
-                        self.dtype)
-
-            if lt is None:
-                if hasstats:
-                    with np.errstate(divide='ignore', invalid='ignore'):
-                        lt = events / \
-                            self.stats[..., self._xiaobject.STICR,
-                                    i].astype(self.dtype)
-                    lt[~np.isfinite(lt)] = 0
-                    lt = self.add_measurement(
-                        measurement, 'live_time_'+detname, data=lt, units='s')
-            else:
-                u = units.get(lt.name, None)
-                if u is not None:
-                    lt.update_stats(units=u)
-
+                    Nslow = self.getstat(idet, self._xiaobject.STEVT)
             if rt is None:
                 if hasstats:
+                    Rslow = self.getstat(idet, self._xiaobject.STOCR)
                     with np.errstate(divide='ignore', invalid='ignore'):
-                        rt = events / \
-                            self.stats[..., self._xiaobject.STOCR,
-                                    i].astype(self.dtype)
-                    rt[~np.isfinite(rt)] = np.nan
+                        rt = Nslow / Rslow
                     rt = self.add_measurement(
                         measurement, 'elapsed_time_'+detname, data=rt, units='s')
             else:
                 u = units.get(rt.name, None)
                 if u is not None:
                     rt.update_stats(units=u)
+            if lt is None:
+                if hasstats:
+                    Rreal = self.getstat(idet, self._xiaobject.STICR)
+                    with np.errstate(divide='ignore', invalid='ignore'):
+                        lt = Nslow / Rreal
+                    lt = self.add_measurement(
+                        measurement, 'live_time_'+detname, data=lt, units='s')
+            else:
+                u = units.get(lt.name, None)
+                if u is not None:
+                    lt.update_stats(units=u)
 
             nxgroup = application.nxcollection(mcaname)
             if lt is not None:

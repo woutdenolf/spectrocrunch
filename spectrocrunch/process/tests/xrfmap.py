@@ -247,21 +247,26 @@ class XrfMapGenerator(object):
         # Apply deadtime
         stats = np.zeros(
             (nmaps, nlines, nspec, xiaedf.xiadata.NSTATS, ndet), dtype=data.dtype)
+        RT = reftime  # sec
         for i in range(ndet):
-            ICR = data[..., i].sum(axis=-1)
+            Rreal = data[..., i].sum(axis=-1)
             if applydt:
-                OCR = ICR*(1-0.2*i/(ndet-1.))  # DT = 10*i %
+                DTslow = 0.2*i/(ndet-1.)
             else:
-                OCR = ICR
-            ctrs["xmap_icr_{:02d}".format(i)] = ICR
-            ctrs["xmap_ocr_{:02d}".format(i)] = OCR
-            data[..., i] = data[..., i]*(OCR/ICR)[..., np.newaxis]
+                DTslow = 0
+            DTfast = 0.05*DTslow
+            LTfast = RT*(1-DTfast)
+            Rslow = Rreal*(1-DTslow)
+            Nslow = RT*Rslow
+            ctrs["xmap_icr_{:02d}".format(i)] = Rreal
+            ctrs["xmap_ocr_{:02d}".format(i)] = Rslow
+            data[..., i] = data[..., i]*(1-DTslow)[..., np.newaxis]
             stats[..., xiaedf.xiadata.STDET, i] = i
-            stats[..., xiaedf.xiadata.STEVT, i] = ICR  # % Not sure
-            stats[..., xiaedf.xiadata.STICR, i] = ICR
-            stats[..., xiaedf.xiadata.STOCR, i] = OCR
-            stats[..., xiaedf.xiadata.STDT, i] = 100-OCR*100./ICR  # %
-            stats[..., xiaedf.xiadata.STLT, i] = OCR*1000./ICR  # 1000 msec RT
+            stats[..., xiaedf.xiadata.STEVT, i] = Nslow
+            stats[..., xiaedf.xiadata.STICR, i] = Rreal
+            stats[..., xiaedf.xiadata.STOCR, i] = Rslow
+            stats[..., xiaedf.xiadata.STDT, i] = DTslow*100  # %
+            stats[..., xiaedf.xiadata.STLT, i] = LTfast*1000  # msec
 
         # Generate data
         stack = xiaedf.xiastack_radix(path, radix)
