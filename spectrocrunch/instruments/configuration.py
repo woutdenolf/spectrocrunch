@@ -191,8 +191,8 @@ class ESRF_ID21_SXM(InstrumentInfo):
         info['compensationmotors'] = info.get('compensationmotors',
                                               {'samy': ['sampy'],
                                                'samz': ['sampz'],
-                                                  'sampy': ['samy'],
-                                                  'sampz': ['samz']})
+                                               'sampy': ['samy'],
+                                               'sampz': ['samz']})
         info['encoderinfo'] = info.get('encoderinfo',
                                        {'samy': {'resolution': 52500, 'counter': 'arr_samy'},
                                         'samz': {'resolution': 50000, 'counter': 'arr_samz'}})

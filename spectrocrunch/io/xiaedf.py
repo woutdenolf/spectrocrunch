@@ -762,7 +762,6 @@ def normalizer(norm):
 class xiadata(object):
     """Implements XIA data access
     """
-
     STDET = 0
     STEVT = 1
     STICR = 2
