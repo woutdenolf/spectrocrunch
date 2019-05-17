@@ -323,20 +323,6 @@ class Compound(multielementbase.MultiElementBase):
                           for e, w in e_wfrac.items())
         return ret
 
-    def refractive_index_delta(self, E, fine=False, decomposed=False, **kwargs):
-        if hasattr(self, 'structure') and fine:
-            environ = self
-        else:
-            environ = None
-        return self.refractive_index_delta_calc(E, self.massfractions(), self.density, environ=environ, **kwargs)
-
-    def refractive_index_beta(self, E, fine=False, decomposed=False, **kwargs):
-        if hasattr(self, 'structure') and fine:
-            environ = self
-        else:
-            environ = None
-        return self.refractive_index_beta_calc(E, self.massfractions(), self.density, environ=environ, **kwargs)
-
     def get_energy(self, energyrange, defaultinc=1):
         """Get absolute energies (keV) from a relative energy range (eV)
 
