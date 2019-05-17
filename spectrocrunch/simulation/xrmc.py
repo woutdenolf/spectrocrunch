@@ -65,7 +65,7 @@ def loadxrmcresult(path, basename, ext='.dat'):
                     ('emax', np.float64)])
     data = []
     info = {}
-    for filename in filenames:
+    for filename in sorted(filenames):
         with open(filename, "rb") as f:
             header = np.fromfile(f, dtype=dt, count=1)[0]
             shape = header['ninter'], header['nbin'], header['ncol'], header['nrow']
@@ -87,7 +87,6 @@ def loadxrmcresult(path, basename, ext='.dat'):
 
 def showxrmcresult(data, x0=None, x1=None, xenergy=None, time=None, ylog=False):
     print('Data shape: {}'.format(data.shape))
-    print('Total counts/order: {}'.format([d.sum() for d in data]))
 
     if len(x0) > 1:
         x0min, x0max = x0[0], x0[-1]
@@ -102,10 +101,23 @@ def showxrmcresult(data, x0=None, x1=None, xenergy=None, time=None, ylog=False):
     else:
         extent = None
 
+    axes = tuple(range(2, data.ndim))
+    min = data.min(axes).T
+    max = data.max(axes).T
+    sum = data.sum(axes).T
+    for i, (mi, ma, su) in enumerate(zip(min, max, sum)):
+        print('Step {}'.format(i))
+        print(' Min counts/pixel (for each order): {}'.format(mi))
+        print(' Max counts/pixel (for each order): {}'.format(ma))
+        print(' Total counts (for each order): {}'.format(su))
+
     for order, stack in enumerate(data):
         for islice, chunk in enumerate(stack):
             chunk = np.squeeze(chunk)
-            if chunk.ndim == 1:
+            if chunk.ndim == 0:
+                # Diode signal
+                continue
+            elif chunk.ndim == 1:
                 # XRF spectrum
                 spectrum = chunk
                 img = None
@@ -117,7 +129,7 @@ def showxrmcresult(data, x0=None, x1=None, xenergy=None, time=None, ylog=False):
                 # XRF image
                 img = chunk.sum(axis=-1)
                 spectrum = chunk.sum(axis=(0, 1))
-            label = 'Order {}, Slice {}'.format(order, islice)
+            label = 'Order {}, Step {}'.format(order, islice)
             if spectrum is not None:
                 plt.figure(1)
                 if xenergy is None:
@@ -194,6 +206,18 @@ class xrmc_main(xrmc_file):
         self.fileprefix = fileprefix
         self.devices = []
         self.loops = []  # first is the inner loop
+
+    def __repr__(self):
+        s = ''
+        lst = '\n '.join(map(repr, self.devices))
+        if lst:
+            s += 'Devices:\n ' + lst
+        lst = '\n '.join([repr(loop[0]) for loop in self.loops])
+        if lst:
+            if s:
+                s += '\n'
+            s += 'Loops:\n ' + lst
+        return s
 
     @property
     def filesuffix(self):
@@ -321,6 +345,8 @@ class xrmc_main(xrmc_file):
 
     def addloop(self, name, device, step=None, nsteps=1):
         """
+        First call specifies the outer loop and last call the inner loop
+
         Args:
             name(str):
             device(object):
@@ -339,20 +365,17 @@ class xrmc_main(xrmc_file):
         return fmt
 
     def loop_steps(self):
-        # self.loops: first is the inner loop
-        # itertools.product: last is the inner loop
         loops = self.loops
-        loopidx = [list(range(nsteps+1)) for _, _, nsteps in loops[::-1]]
+        loopidx = [list(range(nsteps+1)) for _, _, nsteps in loops]
         idx_prev = (-1,)*len(loops)
         for idx in itertools.product(*loopidx):
-            idx = idx[::-1]
             idxsteps = []
             for (step, rstep, _), a, b in zip(loops, idx_prev, idx):
                 if b > a:
                     idxsteps.append(step)
                 elif b < a:
                     idxsteps.append(rstep)
-            yield idx, idxsteps
+            yield idx, idxsteps[::-1]
             idx_prev = idx
 
 
@@ -403,6 +426,9 @@ class xrmc_device(xrmc_child):
         super(xrmc_device, self).__init__(parent)
         self.name = name
 
+    def __repr__(self):
+        return self.name
+
     @property
     def code(self):
         return [('Newdevice ' + self.TYPE, 'Device type', True),
@@ -415,6 +441,22 @@ class xrmc_device(xrmc_child):
     @filesuffix.setter
     def filesuffix(self, value):
         self.name = value.lower()
+
+    def add_inplane_rotationloop(self, step, nsteps):
+        if isinstance(self, Quadrics):
+            cmd = 'RotateAll'
+        else:
+            cmd = 'Rotate'
+        step = [(cmd, (0, 0, 0, 0, 0, 1, step))]
+        self.parent.addloop(self.name+'_inplanerot', self, step=step, nsteps=nsteps)
+
+    def add_outplane_rotationloop(self, step, nsteps):
+        if isinstance(self, Quadrics):
+            cmd = 'RotateAll'
+        else:
+            cmd = 'Rotate'
+        step = [(cmd, (0, 0, 0, 1, 0, 0, step))]
+        self.parent.addloop(self.name+'_outplanerot', self, step=step, nsteps=nsteps)
 
 
 class Transform(xrmc_child):
@@ -433,6 +475,9 @@ class Transform(xrmc_child):
                     raise ValueError('A translation needs 3 parameters: dx,dy,dz')
             else:
                 raise ValueError('Unknown transformation {}'.format(repr(cmd)))
+
+    def __repr__(self):
+        return ','.join(cmd for cmd, _ in self.transformations) + '({})'.format(self.device)
 
     @property
     def header(self):
@@ -494,8 +539,8 @@ class Source(xrmc_device):
         lines = super(Source, self).code
         div = self.divergence
         lines += [('SpectrumName {}'.format(self.parent.spectrum().name), 'Spectrum input device name', True),
-                  ('X 0 0 -{}'.format(self.distance), 'position of the source in the sample frame (x, y, z; cm)', True),
-                  ('uk 0 0 1', 'direction of e2s in the sample frame (x, y, z; cm)', True),
+                  ('X 0 -{} 0'.format(self.distance), 'position of the source in the sample frame (x, y, z; cm)', True),
+                  ('uk 0 1 0', 'direction of e2s in the sample frame (x, y, z; cm)', True),
                   ('ui 1 0 0', 'direction of e0s in the sample frame (x, y, z; cm)', True),
                   ('Divergence {} {}'.format(div, div), 'beam divergency (theta0, theta1; rad)', True),
                   ('Size 0.0 0.0 0.0', 'source size (sigma0 sigma1, sigma2; cm)', True)]
@@ -592,9 +637,9 @@ class Detector(xrmc_device):
                   ('PixelSize {} {}'.format(*self.pixelsize[::-1]), 'Pixel Size (sx x sy, scol x srow; cm)', True),
                   ('Shape {}'.format(pixelshape), 'Pixel shape (0 rectangular, 1 elliptical)', True),
                   ('dOmegaLim {}'.format(2*np.pi), 'Limit solid angle (default = 2*PI)', False),
-                  ('X 0 0 {}'.format(self.distance), 'origin of the detector in the sample frame (x, y, z; cm)', True),
-                  ('uk 0 0 -1', 'direction of e2d in the sample frame (x, y, z; cm)', True),
-                  ('ui 0 1 0', 'direction of e0d (rows) in the sample frame (x, y, z; cm)', True),
+                  ('X 0 {} 0'.format(self.distance), 'origin of the detector in the sample frame (x, y, z; cm)', True),
+                  ('uk 0 -1 0', 'direction of e2d in the sample frame (x, y, z; cm)', True),
+                  ('ui 0 0 1', 'direction of e0d (rows) in the sample frame (x, y, z; cm)', True),
                   ('ExpTime 1', 'Exposure time (sec)', True),
                   ('PhotonNum {:d}'.format(m), 'Multiplicity of simulated events per pixel', True),
                   ('RandomPixelFlag 1', 'Enable random point on pixels (0/1)', True),
@@ -611,17 +656,9 @@ class Detector(xrmc_device):
                   ('NBins {}'.format(self.nbins), 'NBins', energydispersive),
                   ('SaturateEmin 0', 'Saturate energies lower than Emin (0/1)', energydispersive),
                   ('SaturateEmax 0', 'Saturate energies greater than Emax (0/1)', energydispersive),
-                  ('Rotate 0 0 0 1 0 0 {}'.format(self.orientation_outplane), 'rotation around sample frame e0-axis (deg; >0 detector above synchrotron e0e2-plane)', energydispersive),
-                  ('Rotate 0 0 0 0 1 0 {}'.format(self.orientation_inplane), 'rotation around sample frame e1-axis (deg; >0 detector to the left when looking upstream)', energydispersive)]
+                  ('Rotate 0 0 0 0 0 1 {}'.format(self.orientation_inplane), 'rotation around sample frame e2-axis (deg; >0 detector to the left when looking upstream)', bool(self.orientation_inplane)),
+                  ('Rotate 0 0 0 1 0 0 {}'.format(self.orientation_outplane), 'rotation around sample frame e0-axis (deg; >0 detector below synchrotron e0e1-plane)', bool(self.orientation_outplane))]
         return lines
-
-    def add_inplane_rotationloop(self, step, nsteps):
-        step = [('Rotate', (0, 0, 0, 0, 1, 0, step))]
-        self.parent.addloop(self.name+'_inplanerot', self, step=step, nsteps=nsteps)
-
-    def add_outplane_rotationloop(self, step, nsteps):
-        step = [('Rotate', (0, 0, 0, 1, 0, 0, step))]
-        self.parent.addloop(self.name+'_outplanerot', self, step=step, nsteps=nsteps)
 
     def reloutput(self, suffix=None):
         if not suffix:
@@ -639,7 +676,7 @@ class Detector(xrmc_device):
 
     @property
     def energydispersive(self):
-        return bool(bool(self.ebinsize))
+        return bool(self.ebinsize)
 
     @property
     def nbins(self):
@@ -817,22 +854,37 @@ class Quadrics(xrmc_device):
             lines.append((' '.join(list(map(str, params))), comment, True))
         return lines
 
-    def add_plane(self, name, x0, y0, z0, nx, ny, nz):
+    def add_plane(self, name, x0, y0, z0, nx, ny, nz, fixed=False):
         if name in self.names:
             raise ValueError('Plane {} already exists'.format(repr(name)))
-        self._lst.append((name, 'Plane', [x0, y0, z0, nx, ny, nz]))
+        params = [x0, y0, z0, nx, ny, nz]
+        if fixed:
+            params.append('BlockTransformAll')
+        self._lst.append((name, 'Plane', params))
 
-    def add_layer(self, thickness, dx, dy, ox, oy):
+    def add_cylinder(self, name, axis, d0, d1, R0, R1, fixed=False):
+        if name in self.names:
+            raise ValueError('Cylinder {} already exists'.format(repr(name)))
+        axis = axis.upper()
+        if axis not in ['X', 'Y', 'Z']:
+            raise ValueError("Axis must be 'X', 'Y' or 'Z'")
+        params = [d0, d1, R0, R1]
+        if fixed:
+            params.append('BlockTransformAll')
+        self._lst.append((name, 'Cylinder'+axis, params))
+
+    def add_layer(self, thickness, dhor, dvert, ohor, overt, dthickness=1e-10, **kwargs):
         """
-        Norm parallel with the Z-axis (beam direction)
-        Z-axis runs though the geometric center
+        Norm parallel with the beam direction
+        Beam runs though the geometric center
 
         Args:
             thickness:
-            dx: length along the X-axis
-            dy: length along the Y-axis
-            ox: shift along X-axis
-            oy: shift along Y-axis
+            dhor: length along the horizontal axis
+            dvert: length along the vertical axis
+            ohor: shift along horizontal axis
+            overt: shift along vertical axis
+            dthickness: layers cannot be touching
         """
         t = 0
         ilayer = -1
@@ -844,23 +896,15 @@ class Quadrics(xrmc_device):
                 i = int(m.groups()[0])
                 if i > ilayer:
                     ilayer = i
-                    t = params[2]
+                    t = params[1]  # thickness of previous layer
         ilayer += 1
-        self.add_plane('layer{}a'.format(ilayer), 0, 0, t, 0, 0, -1)
-        self.add_plane('layer{}b'.format(ilayer), 0, 0, t+thickness, 0, 0, 1)
-        self.add_plane('blayer{}_xmin'.format(ilayer), ox-dx/2, ox, 0, -1, 0, 0)
-        self.add_plane('blayer{}_xmax'.format(ilayer), ox+dx/2, ox, 0, 1, 0, 0)
-        self.add_plane('blayer{}_ymin'.format(ilayer), oy, oy-dy/2, 0, 0, -1, 0)
-        self.add_plane('blayer{}_ymax'.format(ilayer), oy, oy+dy/2, 0, 0, 1, 0)
+        self.add_plane('layer{}a'.format(ilayer), 0, t+dthickness, 0, 0, -1, 0, **kwargs)
+        self.add_plane('layer{}b'.format(ilayer), 0, t+thickness, 0, 0, 1, 0, **kwargs)
+        self.add_plane('blayer{}_xmin'.format(ilayer), ohor-dhor/2, 0, 0, -1, 0, 0, **kwargs)
+        self.add_plane('blayer{}_xmax'.format(ilayer), ohor+dhor/2, 0, 0, 1, 0, 0, **kwargs)
+        self.add_plane('blayer{}_zmin'.format(ilayer), 0, 0, overt-dvert/2, 0, 0, -1, **kwargs)
+        self.add_plane('blayer{}_zmax'.format(ilayer), 0, 0, overt+dvert/2, 0, 0, 1, **kwargs)
         return ilayer
-
-    def add_cylinder(self, name, axis, d0, d1, R0, R1):
-        if name in self.names:
-            raise ValueError('Cylinder {} already exists'.format(repr(name)))
-        axis = axis.upper()
-        if axis not in ['X', 'Y', 'Z']:
-            raise ValueError("Axis must be 'X', 'Y' or 'Z'")
-        self._lst.append((name, 'Cylinder'+axis, [d0, d1, R0, R1]))
 
     @property
     def names(self):
@@ -892,7 +936,7 @@ class Compositions(xrmc_device):
                       ('Phase {}'.format(name), 'Name', True),
                       ('NElem {}'.format(len(elements)), ' # elements', True)]
             for formula, wfrac in zip(elements, massfractions):
-                lines.append(('{} {}'.format(formula, wfrac), 'mass fraction', True))
+                lines.append(('{} {}'.format(formula, wfrac*100), 'mass fraction', True))
             lines += [('Rho {}'.format(density), 'Mass density (g/cm3)', True)]
         return lines
 
@@ -912,8 +956,11 @@ class XrmcWorldBuilder(object):
     def __init__(self, path):
         self.main = main = xrmc_main(path)
         self.quadrics = main.add_device(Quadrics, 'quadrics')
-        self.objectlib = main.add_device(Objects, 'objectlib')
+        self.objects = main.add_device(Objects, 'objects')
         self.compoundlib = main.add_device(Compositions, 'compoundlib')
+
+    def __repr__(self):
+        return repr(self.main)
 
     def addelement(self, symb):
         self.compoundlib.addmaterial(Element(symb))
@@ -921,27 +968,28 @@ class XrmcWorldBuilder(object):
     def addcompoundfromname(self, name):
         self.compoundlib.addmaterial(compoundfromname(name))
 
-    def definesource(self, flux=None, energy=None, distance=None, beamsize=None):
+    def definesource(self, flux=None, energy=None, distance=None, beamsize=None, multiplicity=1):
         self.main.removedevice(cls=Source)
         self.source = self.main.add_device(Source, 'synchrotron',
                                            beamsize=beamsize, distance=distance)
-        self.main.add_device(Spectrum, 'dcmspectrum',
-                             lines=[(energy, 0, flux)], multiplicity=1)
+        self.spectrum = self.main.add_device(Spectrum, 'dcmspectrum',
+                                             lines=[[energy, 0, flux]],
+                                             multiplicity=multiplicity)
 
-    def adddiode(self, distance=None, activearea=None, orientation_inplane=0,
-                 orientation_outplane=0,
-                 poissonnoise=False, forcedetect=True, multiplicity=1):
+    def adddiode(self, distance=None, activearea=None, ebinsize=None,
+                 orientation_inplane=0, orientation_outplane=0, 
+                 poissonnoise=False, forcedetect=False, multiplicity=1):
         self.main.removedevice(cls=Detector)
         self.detector = self.main.add_device(SingleElementDetector, 'detector',
                                     distance=distance, activearea=activearea,
                                     orientation_inplane=orientation_inplane, orientation_outplane=orientation_outplane,
-                                    ebinsize=None, poissonnoise=poissonnoise,
+                                    ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity)
 
-    def addxrfdetector(self, distance=None, activearea=None,
+    def addxrfdetector(self, distance=None, activearea=None, ebinsize=None,
                        orientation_inplane=0, orientation_outplane=0,
                        poissonnoise=False, forcedetect=True, multiplicity=1,
-                       ebinsize=None, response=None):
+                       response=None):
         self.main.removedevice(cls=Detector)
         if response:
             cls = SDD
@@ -955,153 +1003,36 @@ class XrmcWorldBuilder(object):
                                     forcedetect=forcedetect, multiplicity=multiplicity,
                                     **response)
 
-    def addareadetector(self, distance=None, activearea=None, multiplicity=1,
-                        orientation_inplane=0, orientation_outplane=0, ebinsize=None,
-                        pixelsize=None, dims=None, poissonnoise=False, forcedetect=True):
+    def addareadetector(self, distance=None, activearea=None, ebinsize=None,
+                        orientation_inplane=0, orientation_outplane=0,
+                        poissonnoise=False, forcedetect=True, multiplicity=1,
+                        pixelsize=None, dims=None):
         self.main.removedevice(cls=Detector)
         self.detector = self.main.add_device(AreaDetector, 'detector',
                                     distance=distance,
                                     pixelsize=pixelsize, dims=dims,
-                                    orientation_inplane=-orientation_inplane, orientation_outplane=orientation_outplane,
+                                    orientation_inplane=orientation_inplane, orientation_outplane=orientation_outplane,
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity)
 
-    def addlayer(self, thickness=None, dx=None, dy=None, ox=0, oy=0, material=None, atmosphere='Vacuum'):
-        ilayer = self.quadrics.add_layer(thickness, dx, dy, ox, oy)
+    def addlayer(self, thickness=None, dhor=None, dvert=None, ohor=0, overt=0, material=None, atmosphere='Vacuum'):
+        ilayer = self.quadrics.add_layer(thickness, dhor, dvert, ohor, overt)
         box = ['layer{}a'.format(ilayer), 'layer{}b'.format(ilayer),
                'blayer{}_xmin'.format(ilayer), 'blayer{}_xmax'.format(ilayer),
-               'blayer{}_ymin'.format(ilayer), 'blayer{}_ymax'.format(ilayer)]
-        self.objectlib.add('layer{}'.format(ilayer), material, atmosphere, box)
+               'blayer{}_zmin'.format(ilayer), 'blayer{}_zmax'.format(ilayer)]
+        self.objects.add('layer{}'.format(ilayer), material, atmosphere, box)
 
     def removesample(self):
         self.quadrics.clear()
-        self.objectlib.clear()
+        self.objects.clear()
 
     def finalize(self, interactions=None):
-        self.main.add_device(Sample, 'sample', multiplicity=interactions)
+        sample = self.main.sample()
+        if sample:
+            sample.multiplicity = interactions
+        else:
+            self.main.add_device(Sample, 'sample', multiplicity=interactions)
         self.main.save()
 
     def simulate(self):
         return self.main.simulate()
-
-
-def example(path, experiment='xrf'):
-    # X: synchrotron plane
-    # Z: beam direction
-
-    world = XrmcWorldBuilder(path)
-
-    # Source
-    if experiment == 'pco':
-        beamsize = 100  # micron
-    else:
-        beamsize = 1  # micron
-    world.definesource(flux=1e9, energy=7.5, distance=42e2, beamsize=beamsize*1e-4)
-
-    # Detector
-    forcedetect = True
-    poissonnoise = False
-    detectordistance = 5
-    # Projected beam size in transmission
-    projbeamsizetrans = 2 * (world.source.distance + detectordistance) * np.tan(world.source.divergence)
-    projbeamsizesample = 2 * (world.source.distance) * np.tan(world.source.divergence)
-    assert beamsize == projbeamsizesample*1e4
-    if experiment == 'xrf' or experiment == 'xrfrot':
-        # XRF
-        multiplicity = 2000
-        interactions = 500, 500
-        convoluted = False
-        activearea = 0.8  # cm^2
-        ebinsize = 5e-3  # keV
-        if convoluted:
-            world.addelement('Si')
-            world.addelement('Be')
-            response = {'material': 'Si',
-                        'thickness': 100e-4,
-                        'windowmaterial': 'Be',
-                        'windowthickness': 25e-4,
-                        'noise': 0.1,
-                        'fano': 0.1}
-        else:
-            response = {}
-        if experiment == 'xrfrot':
-            angle_start = 10
-            angle_end = 170
-        else:
-            angle_start = angle_end = 110
-        detector = world.addxrfdetector(
-                        distance=detectordistance, activearea=activearea,
-                        orientation_inplane=angle_start, orientation_outplane=0,
-                        ebinsize=ebinsize, poissonnoise=poissonnoise,
-                        forcedetect=forcedetect, multiplicity=multiplicity,
-                        response=response)
-        if angle_start != angle_end:
-            angle_nsteps = angle_end-angle_start
-            detector.add_inplane_rotationloop(1, angle_nsteps)
-    elif experiment == 'diode':
-        # Diode
-        multiplicity = 2000
-        interactions = 500,
-        world.adddiode(distance=detectordistance, activearea=activearea,
-                       orientation_inplane=0, orientation_outplane=0,
-                       poissonnoise=poissonnoise, 
-                       forcedetect=forcedetect, multiplicity=multiplicity)
-    elif experiment == 'pco':
-        # Capture the full beam in transmission
-        shift = 0.001  # cm
-        angle = np.arctan2(shift, detectordistance)*180/np.pi  # deg
-        ebinsize = 5e-3
-        multiplicity = 1
-        interactions = 1, 1
-        n = 128
-        pixelsize = projbeamsizetrans/n
-        world.addareadetector(distance=detectordistance,
-                              pixelsize=(pixelsize, pixelsize), dims=(n, n),
-                              orientation_inplane=-angle, orientation_outplane=angle,
-                              ebinsize=ebinsize, poissonnoise=poissonnoise,
-                              forcedetect=forcedetect, multiplicity=multiplicity)
-    else:
-        raise RuntimeError('Unknown experiment')
-
-    # Sample
-    world.removesample()
-    thickness = [50e-4, 50e-4]
-    materials = ['hematite', 'cerussite']
-    if experiment == 'pco':
-        # Make sure the entire sample is in the beam footprint
-        d = projbeamsizesample/2.
-    else:
-        # Make sure the sample is larger than the beam footprint
-        d = projbeamsizesample*10
-    dxs = [d, d/2]
-    dys = [d, d/4]
-    oxs = [0, -(d-dxs[1])/2.]
-    oys = [0, -(d-dys[1])/2.]
-    for t, material, dx, dy, ox, oy in zip(thickness, materials, dxs, dys, oxs, oys):
-        world.addcompoundfromname(material)
-        world.addlayer(thickness=t, dx=dx, dy=dy, ox=ox, oy=oy, material=material)
-    
-    # Simulate
-    world.finalize(interactions=interactions)
-    if not world.simulate():
-        raise RuntimeError('Simulation failed')
-
-
-if __name__=='__main__':
-    if True:
-        #path = r'/tmp/xrmctest'
-        #with localfs.temp(name=path, force=True) as path:
-        #     example(str(path))
-        path = localfs.Path(r'/tmp/xrmctest')
-        path.remove(recursive=True)
-        example(str(path), experiment='pco')
-    #path, basename = '/users/denolf/tmp/fluor_layers', 'output'
-    data, info = loadxrmcresult('/tmp/xrmctest/output/', 'detector')
-    info.pop('xenergy') # in case you want channels
-    showxrmcresult(data, ylog=True, **info)
-
-    if False:
-        y = data[1,:,0,0,1320:1326].sum(axis=-1)
-        x = np.linspace(10, 170, len(y))
-        plt.plot(x, y)
-        plt.show()
