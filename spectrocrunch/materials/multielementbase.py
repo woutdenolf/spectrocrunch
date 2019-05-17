@@ -25,7 +25,6 @@
 from . import types
 from . import elementbase
 from ..utils import instance
-from ..patch.pint import ureg
 from ..utils.hashable import Hashable
 
 import numpy as np
@@ -142,41 +141,6 @@ class MultiElementBase(Hashable, elementbase.ElementBase):
         """Differential Compton cross section (cm^2/g/srad, E in keV). Use for XRF.
         """
         return self._crosssection("diff_compton_cross_section", E, fine=fine, decomposed=decomposed, **kwargs)
-
-    def refractive_index_real(self, E, **kwargs):
-        """Real part of the refractive index
-        """
-        return 1-self.refractive_index_delta(E)
-
-    def refractive_index_imag(self, E, **kwargs):
-        """Imaginary part of the refractive index
-        """
-        return -self.refractive_index_beta(E)
-
-    @classmethod
-    def refractive_index_delta_calc(cls, E, e_wfrac, density, **kwargs):
-        """n = 1-delta-i.beta
-        """
-        delta = sum(e_wfrac[e]*e.scatfact_real(E, **
-                                               kwargs)/e.MM for e in e_wfrac)
-        delta = ureg.Quantity(delta, 'mol/g') *\
-            ureg.Quantity(E, 'keV').to("cm", "spectroscopy")**2 *\
-            (ureg.classical_electron_radius*ureg.avogadro_number *
-             ureg.Quantity(density, 'g/cm^3')/(2*np.pi))
-
-        return delta.to("dimensionless").magnitude
-
-    @classmethod
-    def refractive_index_beta_calc(cls, E, e_wfrac, density, **kwargs):
-        """n = 1-delta-i.beta
-        """
-        beta = -sum(e_wfrac[e]*e.scatfact_imag(E, **
-                                               kwargs)/e.MM for e in e_wfrac)
-        beta = ureg.Quantity(beta, 'mol/g') *\
-            ureg.Quantity(E, 'keV').to("cm", "spectroscopy")**2 *\
-            (ureg.classical_electron_radius*ureg.avogadro_number *
-             ureg.Quantity(density, 'g/cm^3')/(2*np.pi))
-        return beta.to("dimensionless").magnitude
 
     @classmethod
     def cs_type(cls, cs):

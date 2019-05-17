@@ -232,7 +232,6 @@ class Mixture(multielementbase.MultiElementBase):
 
     def elemental_molefractions(self, total=True):
         ret = {}
-
         c_nfrac = self.molefractions(total=total)
         for c in c_nfrac:
             e_nfrac = c.molefractions(total=total)
@@ -245,7 +244,6 @@ class Mixture(multielementbase.MultiElementBase):
 
     def elemental_massfractions(self):
         ret = {}
-
         c_wfrac = self.massfractions()
         for c in c_wfrac:
             e_wfrac = c.massfractions()
@@ -314,12 +312,6 @@ class Mixture(multielementbase.MultiElementBase):
                     else:
                         ret += eret
         return ret
-
-    def refractive_index_delta(self, E, fine=False, decomposed=False, **kwargs):
-        return self.refractive_index_delta_calc(E, self.elemental_massfractions(), self.density, environ=None, **kwargs)
-
-    def refractive_index_beta(self, E, fine=False, decomposed=False, **kwargs):
-        return self.refractive_index_beta_calc(E, self.elemental_massfractions(), self.density, environ=None, **kwargs)
 
     def markinfo(self):
         yield "{}".format(self.name)

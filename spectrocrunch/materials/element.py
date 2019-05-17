@@ -495,8 +495,9 @@ class Element(hashable.Hashable, elementbase.ElementBase):
              ureg.Quantity(self.MM, 'g/mol')).to("cm^2/g").magnitude
         wl = ureg.Quantity(E, 'keV').to("angstrom", "spectroscopy").magnitude
         K = source.thomson_K
-        def func(azimuth, polar): return c*K(azimuth, polar) * \
-            self._xraylib_method_full("FF_Rayl", np.sin(polar/2.)/wl)**2
+        def func(azimuth, polar):
+            return c*K(azimuth, polar) * \
+                   self._xraylib_method_full("FF_Rayl", np.sin(polar/2.)/wl)**2
         return lazy.Function(func, name="diff_el(phi,theta)")
 
     def diff_compton_cross_section(self, E, source=None, **kwargs):
@@ -519,8 +520,9 @@ class Element(hashable.Hashable, elementbase.ElementBase):
              ureg.Quantity(self.MM, 'g/mol')).to("cm^2/g").magnitude
         wl = ureg.Quantity(E, 'keV').to("angstrom", "spectroscopy").magnitude
         K = source.compton_K(E)
-        def func(azimuth, polar): return c*K(azimuth, polar) * \
-            self._xraylib_method_full("SF_Compt", np.sin(polar/2.)/wl)
+        def func(azimuth, polar):
+            return c*K(azimuth, polar) * \
+                   self._xraylib_method_full("SF_Compt", np.sin(polar/2.)/wl)
         return lazy.Function(func, name="diff_inel(phi,theta)")
 
     def _get_multiplicity(self, struct):

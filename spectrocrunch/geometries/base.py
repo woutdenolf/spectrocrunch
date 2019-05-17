@@ -98,8 +98,8 @@ class FlatSample(Base):
     def __init__(self, anglein=None, angleout=None, azimuth=0., **kwargs):
         """
         Args:
-            anglein(num): angle (deg) between primary beam and sample surface
-            angleout(num): angle (deg) between detector and sample surface
+            anglein(num): angle (deg) between primary beam and sample surface [0, 90]
+            angleout(num): angle (deg) between detector and sample surface [-90, 90]
             azimuth(num): angle (deg) between the source-detector plane and the polarization plane
         """
         self.anglein = anglein  # deg
