@@ -4,7 +4,7 @@
 # 
 
 SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source ${SCRIPT_ROOT}/funcs.sh
+source ${SCRIPT_ROOT}/funcs-make.sh
 
 
 function cmake_url()
@@ -38,7 +38,8 @@ function cmake_latest()
     
     local lst
     if [[ -z ${rversion} ]];then
-        lst=("LatestRelease")
+        cmake_all_versions | tail -1
+        return
     else
         lst=$(cmake_all_versions)
     fi
@@ -82,55 +83,30 @@ function cmake_build_dependencies()
 function cmake_install_fromsource()
 {
     local restorewd=$(pwd)
+    local program="cmake"
 
-    cprint "Download cmake ..."
-    mkdir -p cmake
-    cd cmake
+    cprint "Download ${program} ..."
+    mkdir -p ${program}
+    cd ${program}
 
-    local version=$(get_local_version ${1})
+    local version=$(get_local_version)
     if [[ -z ${version} ]]; then
         require_web_essentials
         version=$(cmake_latest ${1})
     fi
-
-    local sourcedir=cmake-${version}
-    if [[ $(dryrun) == false && ! -d ${sourcedir} ]]; then
-        cmake_download ${sourcedir}
-        mkdir -p ${sourcedir}
-        tar -xzf ${sourcedir}.tar.gz -C ${sourcedir} --strip-components=1
-        rm -f ${sourcedir}.tar.gz
-    fi
-    cd ${sourcedir}
-
-    local prefix=$(project_opt)/cmake/${version}
-    if [[ ! -f ./bin/cmake ]]; then
-
-        cprint "Configure cmake for ${prefix} ..."
-        if [[ $(dryrun) == false ]]; then
-            cmake_build_dependencies
-
-            mexec mkdir -p ${prefix}
-            ./configure --prefix=${prefix} -- -DCMAKE_USE_OPENSSL:BOOL=ON
-        fi
-
-        cprint "Build cmake ..."
-        if [[ $(dryrun) == false ]]; then
-            make -s -j2
-        fi
+    
+    local base=${program}-${version}
+    echo ${base}
+    if [[ $(dryrun) == false && ! -d ${base} ]]; then
+        cmake_download ${base}
     fi
 
-    cprint "Install cmake in ${prefix} ..."
     if [[ $(dryrun) == false ]]; then
-        if [[ ! -f ${prefix}/bin/cmake ]]; then
-            mmakeinstall cmake-${version}
-        fi
-
-        # Add path just for this session
-        addBinPath ${prefix}/bin
-        #addProfile $(project_resource) "# Installed cmake: ${prefixstr}"
-        #addBinPath ${prefix}/bin
-        #addBinPathProfile $(project_resource) "${prefixstr}/bin"
-
+        cmake_build_dependencies
+        
+        easymake ${program} \
+                 ${version} \
+                 -- -DCMAKE_USE_OPENSSL:BOOL=ON
     fi
 
     cd ${restorewd}

@@ -4,7 +4,7 @@
 # 
 
 SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source ${SCRIPT_ROOT}/funcs.sh
+source ${SCRIPT_ROOT}/funcs-make.sh
 source ${SCRIPT_ROOT}/funcs-swig.sh
 source ${SCRIPT_ROOT}/funcs-python.sh
 
@@ -20,17 +20,29 @@ function xraylib_build_dependencies()
     pip_install numpy
     pip_install cython
 
+    #$(pip_bin) freeze | grep numpy > requirements.txt
+    #pip_install -r requirements.txt
+    #rm requirements.txt
+
     cd ${tmp}
+}
+
+
+function xraylib_run_dependencies()
+{
+    require_python
+}
+
+
+function xraylib_all_versions()
+{
+    versions_from_github "tschoonj" "xraylib" "xraylib-[0-9\.]+"
 }
 
 
 function xraylib_latest()
 {
-    local header=""
-    if [[ ! -z ${GITHUB_TOKEN} ]];then
-        header="Authorization: token ${GITHUB_TOKEN}"
-    fi
-    curl -H "${header}" --silent "https://api.github.com/repos/tschoonj/xraylib/tags" | grep -o -E "xraylib-[0-9\.]+" | head -1 | grep -E -o "[0-9\.]+"
+    latest_version xraylib_all_versions ${1}
 }
 
 
@@ -42,109 +54,52 @@ function xraylib_download()
 }
 
 
-function xraylib_install_fromsource()
+function xraylib_source_install()
 {
     #if [[ ! -d xraylib && ${ARG_SKIPLONG} == true ]]; then
     #    cprint "Skipping xraylib installation"
     #    return
     #fi
-
-    local restorewd=$(pwd)
-
-    cprint "Download xraylib ..."
-    mkdir -p xraylib
-    cd xraylib
-
-    local version=$(get_local_version)
-    if [[ -z ${version} ]]; then
-        require_web_essentials
-        version=$(xraylib_latest)
-    fi
     
-    local sourcedir=xraylib-${version}
-    if [[ $(dryrun) == false && ! -d ${sourcedir} ]]; then
-        xraylib_download ${sourcedir}
-        mkdir -p ${sourcedir}
-        tar -xzf ${sourcedir}.tar.gz -C ${sourcedir} --strip-components=1
-        rm -f ${sourcedir}.tar.gz
+    source_install xraylib "${1}" \
+         --enable-python \
+         --enable-python-integration \
+         --disable-java \
+         --disable-lua \
+         --disable-ruby \
+         --disable-php \
+         --disable-pascal \
+         --disable-idl \
+         --disable-perl \
+         --disable-fortran2003 \
+         PYTHON="$(python_full_bin)"
+}
+
+
+function xraylib_system_install()
+{
+    :
+}
+
+
+function xraylib_exists()
+{
+    python_hasmodule xraylib
+}
+
+
+function xraylib_version()
+{
+    if [[ $(xraylib_exists) == false ]]; then
+        echo 0
+    else
+        python -c "import xraylib;print(xraylib.__version__)"
     fi
-    cd ${sourcedir}
-
-    local prefix=$(project_opt)/xraylib/${version}
-    local prefixstr=$(project_optstr)/xraylib/${version}
-    if [[ ! -f python/.libs/_xraylib.so ]]; then
-
-        cprint "Configure xraylib for ${prefix} ..."
-        if [[ $(dryrun) == false ]]; then
-            xraylib_build_dependencies ${restorewd}
-
-            mexec mkdir -p ${prefix}
-            autoreconf -i
-            ./configure --prefix="${prefix}" \
-                        --enable-python \
-                        --enable-python-integration \
-                        --disable-java \
-                        --disable-lua \
-                        --disable-ruby \
-                        --disable-php \
-                        --disable-pascal \
-                        --disable-idl \
-                        --disable-perl \
-                        --disable-fortran2003 \
-                        PYTHON="$(python_full_bin)"
-            $(pip_bin) freeze | grep numpy > requirements.txt
-        fi
-
-        cprint "Build xraylib ..."
-        if [[ $(dryrun) == false ]]; then
-            make -s -j2
-        fi
-    fi
-
-    cprint "Install xraylib in ${prefix} ..."
-    if [[ $(dryrun) == false ]]; then
-        pip_install -r requirements.txt
-        mmakeinstall xraylib-${version}
-        #mmakepack xraylib-${version}
-        #mdpkg_install *.deb ${prefix}
-
-        addProfile $(project_resource) "# Installed xraylib: ${prefixstr}"
-        addBinPath ${prefix}/bin
-        addBinPathProfile $(project_resource) "${prefixstr}/bin"
-        addLibPath ${prefix}/lib
-        addLibPathProfile $(project_resource) "${prefixstr}/lib"
-    fi
-
-    cd ${restorewd}
 }
 
 
 function require_xraylib()
 {
-    cprintstart
-    cprint "Verify xraylib ..."
-
-    # Requirements (for running)
-    require_python
-
-    # Check
-    if [[ $(python_hasmodule xraylib) == true ]]; then
-        cprint "Python module \"xraylib\" is installed"
-        cprintend
-        return
-    fi
-
-    # Install from source
-    xraylib_install_fromsource
-
-    # Check
-    if [[ $(python_hasmodule xraylib) == true ]]; then
-        cprint "Python module \"xraylib\" is installed"
-    else
-        cprint "Python module \"xraylib\" is NOT installed"
-    fi
-
-    cprintend
+    require_software xraylib ${1}
 }
-
 

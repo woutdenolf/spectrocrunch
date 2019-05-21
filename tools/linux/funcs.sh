@@ -22,7 +22,7 @@ function cprint()
 {
     local hcol='\033[0;36m'
     local ncol='\033[0m'
-    echo -e "${hcol}${1} ${ncol}"
+    echo -e "${hcol}$@ ${ncol}"
 }
 
 
@@ -33,7 +33,7 @@ function cerror()
 {
     local hcol='\033[0;31m'
     local ncol='\033[0m'
-    echo -e "${hcol}${1} ${ncol}"
+    echo -e "${hcol}$@ ${ncol}"
 }
 
 
@@ -256,7 +256,7 @@ function require_new_version()
     local currentv=${1}
     local requiredv=${2}
 
-    if [[ ${currentv} == 0 ]]; then
+    if [[ ${currentv} == 0 || -z ${currentv} ]]; then
         echo true # does not exist
         return
     fi
@@ -363,9 +363,12 @@ function addFile()
 	grep "${LINE}" "${FILE}" > /dev/null 2>&1
 	local Retval=$?
 	if [[ $Retval != 0 ]]; then
+	    cprint "Adding \"${LINE}\" to file ${FILE}"
         echo ${LINE} | mexec tee --append ${FILE}
         grep "${LINE}" "${FILE}" > /dev/null 2>&1
 	    Retval=$?
+	else
+	    cprint "Line \"${LINE}\" already in ${FILE}"
 	fi
 
 	return $Retval
@@ -400,10 +403,28 @@ function addVar()
 }
 
 
+# ============pathExists============
+# Description: checks whether path exists
+function pathExists()
+{
+    # Expand variables, commonly ${HOME}
+    local _path=$(eval echo ${1})
+    if [[ -e ${_path} ]];then
+        echo true
+    else
+        echo false
+    fi
+}
+
+
 # ============addBinPath============
 # Description: Add path to ${PATH}
 function addBinPath()
 {
+    if [[ $(pathExists ${1}) == false ]];then
+        cprint "Does not exist: ${1}"
+        return
+    fi
 	if [[ ":${PATH}:" != *":${1}:"* ]]; then
         export PATH=${1}:${PATH}
     fi
@@ -414,6 +435,10 @@ function addBinPath()
 # Description: Add path to ${CPATH}
 function addInclPath()
 {
+    if [[ $(pathExists ${1}) == false ]];then
+        cprint "Does not exist: ${1}"
+        return
+    fi
 	if [[ ":${CPATH}:" != *":${1}:"* ]]; then
         export CPATH=${1}:${CPATH}
     fi
@@ -424,13 +449,34 @@ function addInclPath()
 # Description: Add path to ${LD_LIBRARY_PATH}
 function addLibPath()
 {
+    if [[ $(pathExists ${1}) == false ]];then
+        cprint "Does not exist: ${1}"
+        return
+    fi
+    # For dynamic linking:
 	if [[ ":${LD_LIBRARY_PATH},:" != *":${1}:"* ]]; then
         export LD_LIBRARY_PATH=${1}:${LD_LIBRARY_PATH}
     fi
+    # For static linking:
 	if [[ ":${LIBRARY_PATH},:" != *":${1}:"* ]]; then
         export LIBRARY_PATH=${1}:${LIBRARY_PATH}
     fi
 }
+
+
+# ============addPkgConfigPath============
+# Description: Add path to ${PKG_CONFIG_PATH}
+function addPkgConfigPath()
+{
+    if [[ $(pathExists ${1}) == false ]];then
+        cprint "Does not exist: ${1}"
+        return
+    fi
+	if [[ ":${PKG_CONFIG_PATH},:" != *":${1}:"* ]]; then
+        export PKG_CONFIG_PATH=${1}:${PKG_CONFIG_PATH}
+    fi
+}
+
 
 # ============addVarProfile============
 # Description: Add variable premanently
@@ -444,6 +490,10 @@ function addVarProfile()
 # Description: Add path to ${PATH} premanently
 function addBinPathProfile()
 {
+    if [[ $(pathExists ${2}) == false ]];then
+        cprint "Does not exist: ${2}"
+        return
+    fi
     addProfile ${1} "export PATH=${2}:\${PATH}"
 }
 
@@ -452,6 +502,10 @@ function addBinPathProfile()
 # Description: Add path to ${CPATH} premanently
 function addInclPathProfile()
 {
+    if [[ $(pathExists ${2}) == false ]];then
+        cprint "Does not exist: ${2}"
+        return
+    fi
     addProfile ${1} "export CPATH=${2}:\${CPATH}"
 }
 
@@ -460,8 +514,24 @@ function addInclPathProfile()
 # Description: Add path to ${LD_LIBRARY_PATH} premanently
 function addLibPathProfile()
 {
+    if [[ $(pathExists ${2}) == false ]];then
+        cprint "Does not exist: ${2}"
+        return
+    fi
     addProfile ${1} "export LD_LIBRARY_PATH=${2}:\${LD_LIBRARY_PATH}"
     addProfile ${1} "export LIBRARY_PATH=${2}:\${LIBRARY_PATH}"
+}
+
+
+# ============addPkgConfigPathProfile============
+# Description: Add path to ${PKG_CONFIG_PATH} premanently
+function addPkgConfigPathProfile()
+{
+    if [[ $(pathExists ${2}) == false ]];then
+        cprint "Does not exist: ${2}"
+        return
+    fi
+    addProfile ${1} "export PKG_CONFIG_PATH=${2}:\${PKG_CONFIG_PATH}"
 }
 
 
@@ -619,6 +689,18 @@ function cmdexists()
 }
 
 
+# ============libexists============
+# Description: 
+function libexists()
+{
+    if [[ -z $(/sbin/ldconfig -p | grep ${1}) ]]; then
+        echo false
+    else
+        echo true
+    fi
+}
+
+
 # ============cmd_path============
 # Description: 
 function cmd_path()
@@ -657,3 +739,4 @@ function install_info()
     cprint "Opt directory: $(project_opt)"
     cprint "Resource file: $(project_resource)"
 }
+
