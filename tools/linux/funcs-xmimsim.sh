@@ -180,6 +180,10 @@ function xmimsim_source_install()
 
 function xmimsim_post_source_install()
 {
+    if [[ ! -f xmimsimdata.h5 && ${ARG_SKIPLONG} == true ]]; then
+        cprint "Skipping xmimsim database creation"
+        return
+    fi
     local prefix=${1}
     if [[ ! -f ${prefix}/bin/xmimsim-db ]]; then
         cerror "${prefix}/bin/xmimsim-db: not installed"
