@@ -48,6 +48,9 @@ function travis_download_prebuild()
 function virtualdisplay()
 {
     export DISPLAY=:99.0
+    return
+
+    # No longer needed:
     sudo -E apt-get install xvfb
     if [[ -f /etc/init.d/xvfb ]];then
         sudo -E chmod +x /etc/init.d/xvfb

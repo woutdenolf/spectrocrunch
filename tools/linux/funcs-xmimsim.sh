@@ -130,30 +130,6 @@ function xmimsim_build_dependencies()
 }
 
 
-function libxml2_run_dependencies()
-{
-    :
-}
-
-
-function libxslt_run_dependencies()
-{
-    :
-}
-
-
-function easyrng_run_dependencies()
-{
-    :
-}
-
-
-function xmimsim_run_dependencies()
-{
-    :
-}
-
-
 function libxml2_source_install()
 {
     source_install libxml2 "${1}" --without-python
@@ -198,22 +174,19 @@ function xmimsim_post_source_install()
 
 function libxml2_exists()
 {
-    #libexists libxml2
-    echo false
+    libexists libxml2
 }
 
 
 function libxslt_exists()
 {
-    #libexists libxslt
-    echo false
+    libexists libxslt
 }
 
 
 function easyrng_exists()
 {
-    #libexists libeasyRNG
-    echo false
+    libexists libeasyRNG
 }
 
 
@@ -225,31 +198,19 @@ function xmimsim_exists()
 
 function libxml2_version()
 {
-    if [[ $(libxml2_exists) == false ]]; then
-        echo 0
-    else
-        echo 0
-    fi
+    libversion libxml2
 }
 
 
 function libxslt_version()
 {
-    if [[ $(libxslt_exists) == false ]]; then
-        echo 0
-    else
-        echo 0
-    fi
+    libversion libxslt
 }
 
 
 function easyrng_version()
 {
-    if [[ $(easyrng_exists) == false ]]; then
-        echo 0
-    else
-        echo 0
-    fi
+    libversion libeasyRNG
 }
 
 

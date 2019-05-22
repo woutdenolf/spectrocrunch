@@ -1,4 +1,5 @@
 sudo: required
+dist: xenial
 
 language: python
 
@@ -25,7 +26,6 @@ matrix:
       env:
         - TRAVISRUN="unit"
     #- python: 3.7
-    #  dist: xenial
     #  os: linux
     #  env:
     #    - TRAVISRUN="unit"
@@ -46,8 +46,17 @@ cache:
   - $CACHED_FOLDER
 
 addons:
-  apt_packages:
-    - pandoc  # does not get install with script
+    apt:
+        packages:
+            - pandoc  # does not get install with script
+            - libgl1-mesa-dev  # For OpenGL
+            - libegl1-mesa  # Required by Qt xcb platform plugin
+            - libxkbcommon-x11-0  # needed for Qt plugins
+            - libxkbcommon0  # needed for Qt plugins
+            - libxkbcommon-dev  # needed for Qt plugins
+
+services:
+- xvfb
 
 before_install:
   - source $TRAVIS_BUILD_DIR/ci/travis-before-install.sh

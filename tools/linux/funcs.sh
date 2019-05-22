@@ -693,11 +693,49 @@ function cmdexists()
 # Description: 
 function libexists()
 {
-    if [[ -z $(/sbin/ldconfig -p | grep ${1}) ]]; then
-        echo false
-    else
+    for _path in ${LD_LIBRARY_PATH//:/ }; do
+        if [[ -e ${_path}/${1}.so ]]; then
+            echo true
+            return
+        fi
+    done
+    if [[ ! -z $(/sbin/ldconfig -p | grep -o -E "${1}\.so") ]]; then
         echo true
+        return
     fi
+    echo false
+}
+
+
+# ============libpath============
+# Description: 
+function libpath()
+{
+    for _path in ${LD_LIBRARY_PATH//:/ }; do
+        if [[ -e ${_path}/${1}.so ]]; then
+            echo ${_path}/${1}.so
+            return
+        fi
+    done
+    for _path in $(/sbin/ldconfig -p | grep -o -E "=> .+${1}\.so" | cut -c4- ); do
+        if [[ -e ${_path} ]]; then
+            echo ${_path}
+            return
+        fi
+    done
+}
+
+
+# ============libversion============
+# Description: 
+function libversion()
+{
+    local _path=$(libpath ${1})
+    if [[ -e ${_path} ]]; then
+        readelf -d ${_path} | grep SONAME | grep -o -E "${1}\.so[\.0-9]+[0-9]" | grep -o -E "[0-9][\.0-9]*[0-9]?"
+        return
+    fi
+    echo 0
 }
 
 

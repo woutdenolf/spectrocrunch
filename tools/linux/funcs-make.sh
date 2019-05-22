@@ -15,9 +15,7 @@ function easymake()
 {
     local restorewd=$(pwd)
     local program=${1}
-    shift
-    local version=${1}
-    shift
+    local version=${2}
     
     local base=${program}-${version}
     if [[ ! -d ${base} ]]; then
@@ -38,7 +36,7 @@ function easymake()
     local prefixstr=$(project_optstr)/${program}/${version}
     if [[ ! -e "Makefile" ]]; then
         cprint "Configure ${program} (${version}) with options:"
-        cprint " --prefix=\"${prefix}\"" "$@"
+        cprint " --prefix=\"${prefix}\"" "${@:3}"
 
         # Remove local directory from LD_LIBRARY_PATH
         local keep_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
@@ -55,7 +53,7 @@ function easymake()
         # Reconfigure is needed
         #autoreconf -i
         #if [[ -f "autogen.sh" ]]; then
-        #    ../autogen.sh "$@"
+        #    ../autogen.sh "${@:3}"
         #    if [[ $? != 0 ]]; then
         #        LD_LIBRARY_PATH=${keep_LD_LIBRARY_PATH}
         #        cd ${restorewd}
@@ -75,7 +73,7 @@ function easymake()
         # Configure
         #../configure --help
         #return
-        ../configure --prefix="${prefix}" "$@"
+        ../configure --prefix="${prefix}" "${@:3}"
         
         LD_LIBRARY_PATH=${keep_LD_LIBRARY_PATH}
         if [[ $? != 0 ]]; then
@@ -85,6 +83,7 @@ function easymake()
         fi
     else
         cprint "Configure ${program} (${version}): already configured."
+	cprint " --prefix=\"${prefix}\"" "${@:3}"
     fi
 
     cprint "Build ${program} (${version}) ..."
@@ -123,9 +122,7 @@ function easymake()
 function source_install()
 {
     local program=${1}
-    shift
-    local rversion=${1}
-    shift
+    local rversion=${2}
     local restorewd=$(pwd)
     local func_latest="${program}_latest"
     local func_download="${program}_download"
@@ -142,9 +139,8 @@ function source_install()
     fi
     
     local base=${program}-${version}
-    echo ${base}
     if [[ $(dryrun) == false && ! -d ${base} ]]; then
-        cprint "Download ${program} ..."
+        cprint "Download ${program} (${version}) ..."
         eval $func_download ${base}
     fi
 
@@ -152,7 +148,7 @@ function source_install()
         cd ${restorewd}
         eval $func_deps
         cd ${program}
-        easymake ${program} ${version} "$@"
+        easymake ${program} ${version} "${@:3}"
     fi
 
     cd ${restorewd}
