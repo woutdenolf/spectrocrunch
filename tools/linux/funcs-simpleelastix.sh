@@ -18,7 +18,7 @@ function simpleelastix_build_dependencies()
 
     mapt-get install lua5.1 liblua5.1-dev
     #pip_install virtualenv>=13.0 # does not work on rnice
-    require_cmake 3
+    require_cmake 3.10
     require_swig 3
 
     cd ${tmp}
