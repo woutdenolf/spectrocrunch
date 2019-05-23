@@ -49,6 +49,9 @@ addons:
     apt:
         packages:
             - pandoc  # does not get install with script
+            - libxkbcommon-x11-0  # needed for Qt plugins
+            - libxkbcommon0  # needed for Qt plugins
+            - libxkbcommon-dev  # needed for Qt plugins
 
 services:
 - xvfb

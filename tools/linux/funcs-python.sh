@@ -125,6 +125,7 @@ function python_bin()
 
 function python_apt()
 {
+    # e.g. python-tk and python3.tk
     strreplace $(python_bin) "python2" "python"
 }
 
@@ -321,7 +322,15 @@ function pip_uninstall()
 function python_build_dependencies()
 {
     require_build_essentials
-    mapt-get install libsqlite3-dev libreadline-dev libncurses5-dev libssl-dev libgdbm-dev tk-dev libffi-dev
+    require_openssl
+    mapt-get install libbz2-dev
+    mapt-get install zlib1g-dev
+    mapt-get install libsqlite3-dev
+    mapt-get install libreadline-dev
+    mapt-get install libncurses5-dev
+    mapt-get install libssl-dev
+    mapt-get install libgdbm-dev
+    mapt-get install tk-dev libffi-dev
 }
 
 
@@ -421,6 +430,8 @@ function python_install_fromsource()
 
 function require_python()
 {
+    cprintstart
+
     if [[ ! -z ${1} ]]; then
         PYTHONVREQUEST=${1}
     fi
@@ -438,6 +449,7 @@ function require_python()
     # Check version
     if [[ $(require_new_version_strict $(python_full_version) ${PYTHONVREQUEST}) == false ]]; then
         cprint "Python version $(python_full_version) is used"
+        cprintend
         return
     fi
 
@@ -454,6 +466,8 @@ function require_python()
             cerror "Python version $(python_full_version) is used but ${PYTHONVREQUEST} is required"
         fi
     fi
+
+    cprintend
 }
 
 
@@ -474,6 +488,8 @@ function require_pythondev()
 
 function require_pyqt4()
 {
+    cprintstart
+    cprint "Verify PyQt4 ..."
     if [[ $(python_hasmodule "PyQt4") == false ]]; then
         mapt-get install $(python_apt)-qt4
     fi
@@ -482,6 +498,7 @@ function require_pyqt4()
     fi
     if [[ $(python_hasmodule "PyQt4") == true ]]; then
         cprint "Python module \"PyQt4\" is working"
+        cprintend
         return
     else
         cprint "Python module \"PyQt4\" is NOT working. Try PySide ..."
@@ -492,11 +509,14 @@ function require_pyqt4()
     else
         cprint "Python module \"PySide\" is NOT working"
     fi
+    cprintend
 }
 
 
 function require_pyqt5()
 {
+    cprintstart
+    cprint "Verify PyQt5 ..."
     if [[ $(python_hasmodule "PyQt5") == false ]]; then
         pip_install pyqt5
     fi
@@ -505,6 +525,7 @@ function require_pyqt5()
     fi
     if [[ $(python_hasmodule "PyQt5") == true ]]; then
         cprint "Python module \"PyQt5\" is working"
+        cprintend
         return
     else
         cprint "Python module \"PyQt5\" is NOT working. Try PySide2 ..."
@@ -515,6 +536,7 @@ function require_pyqt5()
     else
         cprint "Python module \"PySide2\" is NOT working"
     fi
+    cprintend
 }
 
 

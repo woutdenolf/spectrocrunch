@@ -60,7 +60,7 @@ function main()
 
     dryrun reset ${ARG_DRY}
 
-    if [[ $(travis_check_platform "trusty") == false ]]; then
+    if [[ $(travis_check_platform "xenial") == false ]]; then
         echo "Run on the same platfrom as Travis"
         travis_cleanup_python
         return 1

@@ -176,15 +176,22 @@ function pyopencl_install()
         # mako: templating language for python
         # pybind11: C++/Python connection
         
-        mapt-get install ocl-icd-opencl-dev ocl-icd-libopencl1 opencl-headers libffi-dev
+        mapt-get install ocl-icd-opencl-dev
+        mapt-get install ocl-icd-libopencl1
+        mapt-get install opencl-headers
+        mapt-get install libffi-dev
         
         intel_install_opencldrivers
-        pip_install numpy pybind11 mako
+        pip_install numpy
+        pip_install pybind11
+        pip_install mako
         pip_install pyopencl
 
         if [[ $(pyopencl_test) == false ]]; then
             amd_install_opencldrivers
-            pip_install numpy pybind11 mako
+            pip_install numpy
+            pip_install pybind11
+            pip_install mako
             pip_install pyopencl
         fi
     fi

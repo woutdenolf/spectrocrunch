@@ -7,6 +7,7 @@ GLOBAL_SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source ${GLOBAL_SCRIPT_ROOT}/../tools/linux/funcs.sh
 source ${GLOBAL_SCRIPT_ROOT}/../tools/linux/funcs-python.sh
 
+
 function travis_check_platform()
 {
     local platform=$(lsb_release -c | awk '{print $2}')
@@ -16,6 +17,7 @@ function travis_check_platform()
         echo false
     fi
 }
+
 
 function travis_build_folder()
 {
@@ -98,7 +100,7 @@ function travis_install_dependencies()
     if [[ $(dryrun) == true ]]; then
         source $(project_folder)/tools/linux-install-deps.sh -v ${pythonv} -u -d -x
     else
-        source $(project_folder)/tools/linux-install-deps.sh -v ${pythonv} -u -y -x
+        source $(project_folder)/tools/linux-install-deps.sh -v ${pythonv} -u -x
     fi
 
     local ret=$?

@@ -12,16 +12,17 @@ function travis_download_prebuild()
 
     if [[ ! -d ${DEP_FOLDER} ]]; then
         local FILE=spectrocrunch.travis.python${PYTHONV}.tgz
-        local LINK1=http://ftp.esrf.fr/tmp/${FILE}
-        local LINK2=https://transfer.sh/12avMO/${FILE}
+        local LINKS=("http://ftp.esrf.fr/tmp/${FILE}" "https://transfer.sh/12avMO/${FILE}")
         
         # Download to cache folder
         if [[ ! -d ${DEP_FOLDER} ]]; then
             echo "Download pre-build libraries ..."
-            wget ${LINK1}
-            if [[ ! -f ${FILE} ]]; then
-                wget ${LINK2}
-            fi
+            for LINK in ${LINKS[@]}; do
+                if [[ -f ${FILE} ]]; then
+                    break
+                fi
+                wget ${LINK}
+            done
 
             # Unpack in build folder
             if [[ -f ${FILE} ]]; then

@@ -77,6 +77,9 @@ function cmake_download()
 function cmake_build_dependencies()
 {
     require_build_essentials
+    require_openssl
+    mapt-get install libncurses5-dev
+    mapt-get install qt4-qmake
 }
 
 

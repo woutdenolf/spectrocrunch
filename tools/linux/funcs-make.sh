@@ -87,7 +87,7 @@ function easymake()
     fi
 
     cprint "Build ${program} (${version}) ..."
-    make -s -j2
+    make -s -j$(($(nproc)+1))
     if [[ $? != 0 ]]; then
         cerror "Building ${program} (${version}) failed"
         cd ${restorewd}

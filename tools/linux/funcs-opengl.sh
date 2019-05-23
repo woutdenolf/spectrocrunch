@@ -11,7 +11,8 @@ source ${SCRIPT_ROOT}/funcs-python.sh
 function pyopengl_install()
 {
     # Mesa: free OpenGl implementation
-    mapt-get install libgl1-mesa-dev mesa-common-dev
+    mapt-get install libgl1-mesa-dev
+    mapt-get install mesa-common-dev
     # GLU, GLX, GLE: higher level features on top of OpenGl
     mapt-get install libglu1-mesa-dev
     mapt-get install libegl1-mesa
