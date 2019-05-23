@@ -711,17 +711,29 @@ function libexists()
 # Description: 
 function libpath()
 {
-    for _path in ${LD_LIBRARY_PATH//:/ }; do
-        if [[ -e ${_path}/${1}.so ]]; then
-            echo ${_path}/${1}.so
-            return
+    local _path
+    for _libname in $@; do
+        pkgconf --exists ${_libname}
+        if [[ $? == 0 ]];then
+            pkgconf --libs ${_libname} 2>/dev/null 
+            _path=$(pkgconf --libs ${_libname} 2>/dev/null | head -1 | grep -o -E "\-L.+\ -")
+            if [[ ! -z ${_path} ]]; then
+                echo ${_path:2:-2}
+                return
+            fi
         fi
-    done
-    for _path in $(/sbin/ldconfig -p | grep -o -E "=> .+${1}\.so" | cut -c4- ); do
-        if [[ -e ${_path} ]]; then
-            echo ${_path}
-            return
-        fi
+        for _path in ${LD_LIBRARY_PATH//:/ }; do
+            if [[ -e ${_path}/${_libname}.so ]]; then
+                echo ${_path}/${_libname}.so
+                return
+            fi
+        done
+        for _path in $(/sbin/ldconfig -p | grep -o -E "=> .+${_libname}\.so" | cut -c4- ); do
+            if [[ -e ${_path} ]]; then
+                echo ${_path}
+                return
+            fi
+        done
     done
 }
 
@@ -730,11 +742,27 @@ function libpath()
 # Description: 
 function libversion()
 {
-    local _path=$(libpath ${1})
-    if [[ -e ${_path} ]]; then
-        readelf -d ${_path} | grep SONAME | grep -o -E "${1}\.so[\.0-9]+[0-9]" | grep -o -E "[0-9][\.0-9]*[0-9]?"
-        return
-    fi
+    local _version=0
+    for _libname in $@; do
+        pkgconf --exists ${_libname}
+        if [[ $? == 0 ]];then
+            _version=$(pkgconf --modversion ${_libname} 2>/dev/null | head -1 | grep -o -E "[\.0-9]+[0-9]")
+            if [[ ! -z ${_version} ]]; then
+                echo ${_version}
+                return
+            fi
+        fi
+    done
+    for _libname in $@; do
+        local _path=$(libpath ${_libname})
+        if [[ -e ${_path} ]]; then
+            _version=$(readelf -d ${_path} | grep SONAME | grep -o -E "${_libname}\.so[\.0-9]+[0-9]" | grep -o -E "[0-9][\.0-9]*[0-9]?$")
+            if [[ ! -z ${_version} ]]; then
+                echo ${_version}
+                return
+            fi
+        fi
+    done
     echo 0
 }
 

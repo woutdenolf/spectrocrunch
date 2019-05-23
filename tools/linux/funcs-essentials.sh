@@ -8,8 +8,10 @@ function require_build_essentials()
     mapt-get install make build-essential
     mapt-get install make checkinstall
     mapt-get install make autoconf libtool
+    mapt-get install make pkgconf
     mapt-get install make libbz2-dev zlib1g-dev
-    mapt-get install make openssl openssl-devel
+    mapt-get install make openssl
+    mapt-get install make openssl-dev openssl-devel libssl-dev
 }
 
 

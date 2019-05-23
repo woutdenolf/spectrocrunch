@@ -480,11 +480,17 @@ function require_pyqt4()
     if [[ $(python_hasmodule "PyQt4") == false ]]; then
         python_virtualenv_system_link PyQt4 sip*.so sipconfig*.py
     fi
-    
     if [[ $(python_hasmodule "PyQt4") == true ]]; then
         cprint "Python module \"PyQt4\" is working"
+        return
     else
-        cprint "Python module \"PyQt4\" is NOT working"
+        cprint "Python module \"PyQt4\" is NOT working. Try PySide ..."
+    fi
+    pip_install PySide
+    if [[ $(python_hasmodule "PySide") == true ]]; then
+        cprint "Python module \"PySide\" is working"
+    else
+        cprint "Python module \"PySide\" is NOT working"
     fi
 }
 
@@ -497,11 +503,17 @@ function require_pyqt5()
     if [[ $(python_hasmodule "PyQt5") == false ]]; then
         python_virtualenv_system_link PyQt5 sip*.so sipconfig*.py
     fi
-    
     if [[ $(python_hasmodule "PyQt5") == true ]]; then
         cprint "Python module \"PyQt5\" is working"
+        return
     else
-        cprint "Python module \"PyQt5\" is NOT working"
+        cprint "Python module \"PyQt5\" is NOT working. Try PySide2 ..."
+    fi
+    pip_install PySide2
+    if [[ $(python_hasmodule "PySide2") == true ]]; then
+        cprint "Python module \"PySide2\" is working"
+    else
+        cprint "Python module \"PySide2\" is NOT working"
     fi
 }
 

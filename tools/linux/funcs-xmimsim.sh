@@ -117,12 +117,15 @@ function libxslt_build_dependencies()
 
 function easyrng_build_dependencies()
 {
+    mapt-get install gfortran
     require_build_essentials
 }
 
 
 function xmimsim_build_dependencies()
 {
+    mapt-get install gfortran
+    mapt-get install libglib2.0-dev
     require_build_essentials
     require_easyrng
     require_libxslt
@@ -136,15 +139,28 @@ function libxml2_source_install()
 }
 
 
+function libxml2_system_install()
+{
+    # libxml2-utils provides xmlcatalog
+    mapt-get install libxml2-dev libxml2-utils
+}
+
+
 function libxslt_source_install()
 {
     source_install libxslt "${1}" --without-python
 }
 
 
+function libxslt_system_install()
+{
+    mapt-get install libxslt1-dev
+}
+
+
 function easyrng_source_install()
 {
-    source_install easyrng "${1}"
+    source_install easyrng "${1}" --with-fortran
 }
 
 
@@ -174,7 +190,11 @@ function xmimsim_post_source_install()
 
 function libxml2_exists()
 {
-    libexists libxml2
+    if [[ $(libexists libxml2) == true && $(cmdexists xmlcatalog) == true ]]; then
+        echo true
+    else
+        echo false
+    fi
 }
 
 
@@ -210,7 +230,7 @@ function libxslt_version()
 
 function easyrng_version()
 {
-    libversion libeasyRNG
+    libversion easyRNG libeasyRNG
 }
 
 
