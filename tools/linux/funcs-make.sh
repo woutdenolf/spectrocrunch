@@ -6,6 +6,23 @@
 SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source ${SCRIPT_ROOT}/funcs.sh
 
+
+function make_prefix()
+{
+    local program=${1}
+    local version=${2}
+    echo $(project_opt)/${program}/${version}
+}
+
+
+function make_strprefix()
+{
+    local program=${1}
+    local version=${2}
+    echo $(project_optstr)/${program}/${version}
+}
+
+
 # ============easymake============
 # Description: Execute typical configure/make/make install
 #              Either directory program-version must exist
@@ -16,7 +33,9 @@ function easymake()
     local restorewd=$(pwd)
     local program=${1}
     local version=${2}
-    
+    local cfgparams="${@:3}"
+    local func_configure="${program}_configure"
+
     local base=${program}-${version}
     if [[ ! -d ${base} ]]; then
         mkdir -p ${base}
@@ -34,9 +53,10 @@ function easymake()
 
     local prefix=$(project_opt)/${program}/${version}
     local prefixstr=$(project_optstr)/${program}/${version}
+    cfgparams=$(eval echo ${cfgparams})
     if [[ ! -e "Makefile" ]]; then
         cprint "Configure ${program} (${version}) with options:"
-        cprint " --prefix=\"${prefix}\"" "${@:3}"
+        cprint " --prefix=\"${prefix}\" ${cfgparams}" 
 
         # Remove local directory from LD_LIBRARY_PATH
         local keep_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
@@ -50,31 +70,26 @@ function easymake()
         # Make sure destination exists
         mexec mkdir -p ${prefix}
         
-        # Reconfigure is needed
-        #autoreconf -i
-        #if [[ -f "autogen.sh" ]]; then
-        #    ../autogen.sh "${@:3}"
-        #    if [[ $? != 0 ]]; then
-        #        LD_LIBRARY_PATH=${keep_LD_LIBRARY_PATH}
-        #        cd ${restorewd}
-        #        return
-        #    fi
-        #fi
-        if [[ ! -f "../configure" && -f "../configure.ac" ]]; then
-            cd ..
-            libtoolize --force
-            aclocal
-            autoheader
-            automake --force-missing --add-missing
-            autoconf
-            cd build
-        fi
-    
         # Configure
-        #../configure --help
-        #return
-        ../configure --prefix="${prefix}" "${@:3}"
-        
+        if [[ $(cmdexists ${func_configure}) == true ]];then
+            eval ${func_configure} --prefix="${prefix}" ${cfgparams}
+        else
+            # In case configure file does not exist
+            if [[ ! -f "../configure" && -f "../configure.ac" ]]; then
+                cd ..
+                libtoolize --force
+                aclocal
+                autoheader
+                automake --force-missing --add-missing
+                autoconf
+                cd build
+            fi
+            # Configure
+            #../configure --help
+            #return
+            ../configure --prefix="${prefix}" ${cfgparams}
+        fi
+
         LD_LIBRARY_PATH=${keep_LD_LIBRARY_PATH}
         if [[ $? != 0 ]]; then
             cerror "Configuring ${program} (${version}) failed"
@@ -83,7 +98,7 @@ function easymake()
         fi
     else
         cprint "Configure ${program} (${version}): already configured."
-	cprint " --prefix=\"${prefix}\"" "${@:3}"
+	    cprint " --prefix=\"${prefix}\" ${cfgparams}"
     fi
 
     cprint "Build ${program} (${version}) ..."
@@ -118,7 +133,10 @@ function easymake()
 # ============source_install============
 # Description: Build and install with make
 # Usage: source_install "xraylib" 3.3.0  --enable-python --enable-python-integration ...
-#        Needs functions: xraylib_latest, xraylib_download, xraylib_build_dependencies
+#        Needs functions: xraylib_configure (optional)
+#                         xraylib_latest
+#                         xraylib_download
+#                         xraylib_build_dependencies (optional)
 function source_install()
 {
     local program=${1}
@@ -127,6 +145,7 @@ function source_install()
     local func_latest="${program}_latest"
     local func_download="${program}_download"
     local func_deps="${program}_build_dependencies"
+    local cfgparams="${@:3}"
 
     mkdir -p ${program}
     cd ${program}
@@ -148,7 +167,7 @@ function source_install()
         cd ${restorewd}
         eval $func_deps
         cd ${program}
-        easymake ${program} ${version} "${@:3}"
+        easymake ${program} ${version} ${cfgparams}
     fi
 
     cd ${restorewd}
@@ -160,10 +179,11 @@ function source_install()
 # Usage: require_software "swig" 3
 #        Needs functions: swig_version
 #                         swig_exists
-#                         swig_system_install
+#                         swig_system_install (optional)
 #                         swig_source_install
-#                         swig_run_dependencies
-#                         swig_build_dependencies
+#                         swig_run_dependencies (optional)
+#                         swig_build_dependencies (optional)
+#                         swig_configure (optional)
 #                         swig_latest
 #                         swig_download
 function require_software()
@@ -181,8 +201,8 @@ function require_software()
         return
     fi
     
-    # Try system installation
     if [[ $(dryrun) == false ]]; then
+        # Try system installation
         cprint "System install ${program} ${rversion} ..."
         eval ${program}_system_install ${rversion}
 
@@ -192,23 +212,27 @@ function require_software()
             cprintend
             return
         fi
-    fi
-    
-    # Run dependencies
-    if [[ $(dryrun) == false ]]; then
+
+        # Run dependencies
         cprint "Install run dependencies of ${program} ${rversion} ..."
         eval ${program}_run_dependencies
-    fi
     
-    # Install from source
-    cprint "Source install ${program} ${rversion} ..."
-    eval ${program}_source_install ${rversion}
+        # Install from source
+        cprint "Source install ${program} ${rversion} ..."
+        eval ${program}_source_install ${rversion}
+    fi
 
     # Check version
     if [[ $(require_new_version $(${program}_version) ${rversion}) == false ]]; then
         cprint "${program} version $(${program}_version) will be used"
     else
-        if [[ $(${program}_exists) == false ]]; then
+        local _exists
+        if [[ $(cmdexists "${program}_exists") == true ]];then
+            _exists=$(${program}_exists)
+        else
+            _exists=$(cmdexists ${program})
+        fi
+        if [[ ${_exists} == false ]]; then
             cerror "${program} is not installed"
         else
             cerror "${program} version $(${program}_version) will be used but ${rversion} is required"
@@ -224,18 +248,18 @@ function require_software()
 # Usage: latest_version "swig_all_versions" 3
 function latest_version()
 {
-    local _all_versions=${1}
+    local lst=($(eval ${1}))
     local rversion=${2}
 
-    # Last version
+    # Last version when no version requested
     if [[ -z ${rversion} ]];then
-        ($_all_versions) | tail -1
+        echo ${lst[-1]}
         return
     fi
     
     # Last version with the same base
-    local _version
-    for i in $($_all_versions); do
+    local _version=""
+    for i in ${lst[@]}; do
         if [[ $(require_new_version ${i} ${rversion}) == false ]]; then
             if [[ ${i} == ${rversion} || ${i} =~ ${rversion}[^0-9] ]]; then
                 _version=${i}
@@ -245,11 +269,16 @@ function latest_version()
 
     # Last version equal or better
     if [[ -z ${_version} ]];then
-        for i in $($_all_versions); do
+        for i in ${lst[@]}; do
             if [[ $(require_new_version ${i} ${rversion}) == false ]]; then
                 _version=${i}
             fi
         done
+    fi
+
+    # Last version 
+    if [[ -z ${_version} ]];then
+        _version=${lst[-1]}
     fi
 
     echo ${_version}

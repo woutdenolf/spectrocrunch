@@ -4,16 +4,22 @@
 # 
 
 SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source ${SCRIPT_ROOT}/funcs.sh
+source ${SCRIPT_ROOT}/funcs-make.sh
 
 if [[ -z ${PYTHONVREQUEST} ]];then
     PYTHONVREQUEST=""
 fi
 
 
+function python_exists()
+{
+    cmdexists $(python_bin)
+}
+
+
 function python_get()
 {
-    if [[ $(cmdexists $(python_bin)) == true ]]; then
+    if [[ $(python_exists) == true ]]; then
         $(python_bin) -c "$@"
     else
         echo ""
@@ -181,6 +187,12 @@ function pip_info()
 }
 
 
+function pip_exists()
+{
+    cmdexists $(pip_bin)
+}
+
+
 function pip_bin()
 {
     if [[ $(python_hasmodule "pip") == true ]]; then
@@ -340,134 +352,54 @@ function python_url()
 }
 
 
-function _python_latest()
+function python_all_versions()
 {
-    curl -sL $(python_url) | grep -E "href=\"${PYTHONVREQUEST}" | while read f
-    do
-        version=$(echo ${f} | grep -o -E "[0-9\.]+[0-9]" | head -1)
-        
-        tmp=$(curl -sL $(python_url)/${version} | grep -o -E "Python-${version}.tgz" | wc -l)
-        if [[ $tmp -ne 0 ]]; then
-            echo ${version}
-        fi
-    done
+    versions_from_site $(python_url) "href=\"[0-9\.]+"
 }
+
 
 function python_latest()
 {
-    _python_latest | tail -1
+    latest_version python_all_versions ${1}
 }
 
 
 function python_download()
 {
-    curl -L $(python_url)/${1}/Python-${1}.tgz --output Python-${1}.tgz
+    if [[ ! -f ${1}.tar.gz ]]; then
+        local _version=$(echo ${1} | grep -E -o "[\.0-9]+")
+        curl -L $(python_url)/${_version}/Python-${_version}.tgz --output python-${_version}.tar.gz
+    fi
 }
 
 
-function python_install_fromsource()
+function python_system_install()
 {
-    local restorewd=$(pwd)
+    mapt-get install $(python_apt)
+}
 
-    cprint "Download python ..."
-    mkdir -p python
-    cd python
 
-    local version=$(get_local_version_strict ${1})
-    if [[ -z ${version} ]]; then
-        require_web_essentials
-        version=$(python_latest)
-    fi
-
-    local sourcedir=Python-${version}
-    if [[ $(dryrun) == false && ! -d ${sourcedir} ]]; then
-        python_download ${version}
-        tar -xzf ${sourcedir}.tgz
-        rm -f ${sourcedir}.tgz
-    fi
-    cd ${sourcedir}
-
-    local prefix=$(project_opt)/python/${version}
-    local prefixstr=$(project_optstr)/python/${version}
-    if [[ ! -d ./build ]]; then
-
-        cprint "Configure python for ${prefix} ..."
-        if [[ $(dryrun) == false ]]; then
-            python_build_dependencies
-
-            mexec mkdir -p ${prefix}
-            ./configure --prefix=${prefix} \
-                        --with-ensurepip=install \
-                        --enable-shared \
-                        LDFLAGS=-Wl,-rpath=${prefix}/lib
-            # --enable-shared (produce shared libraries and headers): needed by xraylib
-            # LDFLAGS=-Wl,-rpath=${prefix}/lib (linker argument "-rpath ${prefix}/lib"): put shared libraries in a customn location (avoid conflict with system python)
-            # --enable-optimizations (profile guided optimizations): gives "profiling ... .gcda:Cannot open" warning on "import distutils"
-        fi
-
-        cprint "Build python ..."
-        if [[ $(dryrun) == false ]]; then
-            make -s -j2
-        fi
-    fi
-
-    cprint "Install python in ${prefix} ..."
-    if [[ $(dryrun) == false ]]; then
-        if [[ ! -f ${prefix}/bin/python ]]; then
-            mmakeinstall python-${version}
-        fi
-
-        addProfile $(project_resource) "# Installed python: ${prefixstr}"
-        addBinPath ${prefix}/bin
-        addBinPathProfile $(project_resource) "${prefixstr}/bin"
-        addLibPath ${prefix}/lib
-        addLibPathProfile $(project_resource) "${prefixstr}/lib"
-    fi
-
-    cd ${restorewd}
+function python_source_install()
+{
+    source_install python "${1}" \
+        --with-ensurepip=install \
+        --enable-shared \
+        LDFLAGS=-Wl,-rpath='"${prefix}/lib"'
+    # --enable-shared (produce shared libraries and headers):
+    #   needed by some libraries like xraylib
+    # LDFLAGS=-Wl,-rpath=${prefix}/lib (linker argument "-rpath ${prefix}/lib"):
+    #   put shared libraries in a custom location (avoid conflict with system python)
+    # --enable-optimizations (profile guided optimizations):
+    #   gives "profiling ... .gcda:Cannot open" warning on "import distutils"
 }
 
 
 function require_python()
 {
-    cprintstart
-
     if [[ ! -z ${1} ]]; then
         PYTHONVREQUEST=${1}
     fi
-    if [[ -z ${PYTHONVREQUEST} ]]; then
-        cprint "Verify python (no specific version requested) ..."
-    else
-        cprint "Verify python ${PYTHONVREQUEST} ..."
-    fi
-
-    # Try system installation
-    if [[ $(cmdexists $(python_bin)) == false ]]; then
-        mapt-get install $(python_apt)
-    fi
-
-    # Check version
-    if [[ $(require_new_version_strict $(python_full_version) ${PYTHONVREQUEST}) == false ]]; then
-        cprint "Python version $(python_full_version) is used"
-        cprintend
-        return
-    fi
-
-    # Install from source
-    python_install_fromsource ${PYTHONVREQUEST}
-
-    # Check version
-    if [[ $(require_new_version_strict $(python_full_version) ${PYTHONVREQUEST}) == false ]]; then
-        cprint "Python version $(python_full_version) is used"
-    else
-        if [[ $(cmdexists $(python_bin)) == false ]]; then
-            cerror "Python is not installed"
-        else
-            cerror "Python version $(python_full_version) is used but ${PYTHONVREQUEST} is required"
-        fi
-    fi
-
-    cprintend
+    require_software python ${1}
 }
 
 

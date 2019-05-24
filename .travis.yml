@@ -17,14 +17,14 @@ matrix:
       os: linux
       env:
         - TRAVISRUN="unit"
-    #- python: 3.5
-    #  os: linux
-    #  env:
-    #    - TRAVISRUN="unit"
-    - python: 3.6
+    - python: 3.5
       os: linux
       env:
         - TRAVISRUN="unit"
+    #- python: 3.6
+    #  os: linux
+    #  env:
+    #    - TRAVISRUN="unit"
     #- python: 3.7
     #  os: linux
     #  env:
@@ -33,7 +33,7 @@ matrix:
     #  os: osx
     #  env:
     #    - TRAVISRUN="unit"
-    #- python: 3.6
+    #- python: 3
     #  os: linux
     #  env:
     #    - TRAVISRUN="style"

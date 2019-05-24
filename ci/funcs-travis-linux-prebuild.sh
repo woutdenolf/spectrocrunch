@@ -157,7 +157,9 @@ function travis_test_project()
         pip_install --pre --no-index --no-cache --find-links=$(travis_pybuild_folder)/dist/ $(project_name)
 
         cprint "Test $(project_name) ..."
-        $(python_bin) -m $(project_name).tests.test_all
+        #$(python_bin) -m $(project_name).tests.test_all
+        pip_install pytest
+        pytest --pyargs $(project_name) --durations=10
     fi
 
     cd ${restorewd}
