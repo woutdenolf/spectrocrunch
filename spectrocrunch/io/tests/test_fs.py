@@ -103,7 +103,7 @@ class test_fs(unittest.TestCase):
         self.assertFalse(file_atxt.isfile)
         self.assertFalse(file_atxt.isdir)
         with self.assertRaises(fs.Missing):
-            with file_atxt.open(mode='r+', **createparams):
+            with file_atxt.open(mode='r', **createparams):
                 pass
         with file_atxt.open(mode='w', **createparams):
             pass
@@ -240,9 +240,9 @@ class test_fs(unittest.TestCase):
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    # testSuite.addTest(test_fs("test_local"))
+    testSuite.addTest(test_fs("test_local"))
     testSuite.addTest(test_fs("test_h5"))
-    # testSuite.addTest(test_fs("test_nx"))
+    testSuite.addTest(test_fs("test_nx"))
     return testSuite
 
 
