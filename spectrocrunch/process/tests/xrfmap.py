@@ -260,7 +260,7 @@ class XrfMapGenerator(object):
             Nslow = RT*Rslow
             ctrs["xmap_icr_{:02d}".format(i)] = Rreal
             ctrs["xmap_ocr_{:02d}".format(i)] = Rslow
-            data[..., i] = data[..., i]*(1-DTslow)
+            data[..., i] *= (1-DTslow)
             stats[..., xiaedf.xiadata.STDET, i] = i
             stats[..., xiaedf.xiadata.STEVT, i] = Nslow
             stats[..., xiaedf.xiadata.STICR, i] = Rreal

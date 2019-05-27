@@ -137,7 +137,7 @@ function python_full_version()
 
 function python_depdir()
 {
-    return "dep_$(python_full_version)"
+    return "dep_python$(python_full_version)"
 }
 
 

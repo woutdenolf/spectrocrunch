@@ -10,13 +10,13 @@ source ${SCRIPT_ROOT}/funcs-xraylib.sh
 
 function libxml2_url()
 {
-    echo "ftp://xmlsoft.org/libxml2/"
+    echo "ftp://xmlsoft.org/libxml2"
 }
 
 
 function libxslt_url()
 {
-    echo "ftp://xmlsoft.org/libxslt/"
+    echo "ftp://xmlsoft.org/libxslt"
 }
 
 
@@ -71,7 +71,7 @@ function xmimsim_latest()
 function libxml2_download()
 {
     if [[ ! -f ${1}.tar.gz ]]; then
-        curl -L $(libxml2_url)${1}.tar.gz --output ${1}.tar.gz
+        curl -L $(libxml2_url)/${1}.tar.gz --output ${1}.tar.gz
     fi
 }
 
@@ -79,7 +79,7 @@ function libxml2_download()
 function libxslt_download()
 {
     if [[ ! -f ${1}.tar.gz ]]; then
-        curl -L $(libxslt_url)${1}.tar.gz --output ${1}.tar.gz
+        curl -L $(libxslt_url)/${1}.tar.gz --output ${1}.tar.gz
     fi
 }
 
@@ -170,9 +170,9 @@ function xmimsim_source_install()
 }
 
 
-function xmimsim_post_source_install()
+function xmimsim_post()
 {
-    local prefix=${1}
+    local prefix=$(make_prefix ${1} ${2})
     if [[ -f ${prefix}/share/xmimsim/xmimsimdata.h5 ]]; then
         return
     fi

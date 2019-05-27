@@ -7,6 +7,9 @@ SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source ${SCRIPT_ROOT}/funcs.sh
 
 
+# ============make_prefix============
+# Description: 
+# Usage: make_prefix xraylib 3.3.0
 function make_prefix()
 {
     local program=${1}
@@ -15,6 +18,9 @@ function make_prefix()
 }
 
 
+# ============make_strprefix============
+# Description: 
+# Usage: make_strprefix xraylib 3.3.0
 function make_strprefix()
 {
     local program=${1}
@@ -35,6 +41,9 @@ function easymake()
     local version=${2}
     local cfgparams="${@:3}"
     local func_configure="${program}_configure"
+    local func_build="${program}_build"
+    local func_install="${program}_install"
+    local func_post="${program}_post"
 
     local base=${program}-${version}
     if [[ ! -d ${base} ]]; then
@@ -54,26 +63,29 @@ function easymake()
     local prefix=$(project_opt)/${program}/${version}
     local prefixstr=$(project_optstr)/${program}/${version}
     cfgparams=$(eval echo ${cfgparams})
-    if [[ ! -e "Makefile" ]]; then
-        cprint "Configure ${program} (${version}) with options:"
-        cprint " --prefix=\"${prefix}\" ${cfgparams}" 
 
-        # Remove local directory from LD_LIBRARY_PATH
-        local keep_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
-        while [[ "${LD_LIBRARY_PATH: -1}" == ":" ]];do
-            LD_LIBRARY_PATH=${LD_LIBRARY_PATH::-1}
-        done
-        while [[ "${LD_LIBRARY_PATH:0:1}" == ":" ]];do
-            LD_LIBRARY_PATH=${LD_LIBRARY_PATH:1}
-        done
-        
-        # Make sure destination exists
-        mexec mkdir -p ${prefix}
-        
-        # Configure
-        if [[ $(cmdexists ${func_configure}) == true ]];then
-            eval ${func_configure} --prefix="${prefix}" ${cfgparams}
-        else
+    # Make sure destination exists
+    mexec mkdir -p ${prefix}
+    
+    # Configure
+    if [[ $(cmdexists ${func_configure}) == true ]];then
+        cprint "Configure ${program} (${version}) with options:"
+        cprint "${cfgparams}" 
+        eval ${func_configure} ${cfgparams}
+    else
+        if [[ ! -e "Makefile" ]]; then
+            cprint "Configure ${program} (${version}) with options:"
+            cprint " --prefix=\"${prefix}\" ${cfgparams}" 
+
+            # Remove local directory from LD_LIBRARY_PATH
+            local keep_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
+            while [[ "${LD_LIBRARY_PATH: -1}" == ":" ]];do
+                LD_LIBRARY_PATH=${LD_LIBRARY_PATH::-1}
+            done
+            while [[ "${LD_LIBRARY_PATH:0:1}" == ":" ]];do
+                LD_LIBRARY_PATH=${LD_LIBRARY_PATH:1}
+            done
+            
             # In case configure file does not exist
             if [[ ! -f "../configure" && -f "../configure.ac" ]]; then
                 cd ..
@@ -88,43 +100,58 @@ function easymake()
             #../configure --help
             #return
             ../configure --prefix="${prefix}" ${cfgparams}
-        fi
 
-        LD_LIBRARY_PATH=${keep_LD_LIBRARY_PATH}
-        if [[ $? != 0 ]]; then
-            cerror "Configuring ${program} (${version}) failed"
-            cd ${restorewd}
-            return
+            LD_LIBRARY_PATH=${keep_LD_LIBRARY_PATH}
+            if [[ $? != 0 ]]; then
+                cerror "Configuring ${program} (${version}) failed"
+                cd ${restorewd}
+                return
+            fi
+        else
+            cprint "Configure ${program} (${version}): already configured."
+	        cprint " --prefix=\"${prefix}\" ${cfgparams}"
         fi
-    else
-        cprint "Configure ${program} (${version}): already configured."
-	    cprint " --prefix=\"${prefix}\" ${cfgparams}"
     fi
 
     cprint "Build ${program} (${version}) ..."
-    make -s -j$(($(nproc)+1))
-    if [[ $? != 0 ]]; then
-        cerror "Building ${program} (${version}) failed"
-        cd ${restorewd}
-        return
+    if [[ $(cmdexists ${func_build}) == true ]];then
+        eval ${func_build} ${program} ${version}
+    else
+        make -s -j$(($(nproc)+1))
+        if [[ $? != 0 ]]; then
+            cerror "Building ${program} (${version}) failed"
+            cd ${restorewd}
+            return
+        fi
     fi
     
     cprint "Install ${program} (${version}) ..."
-    mmakeinstall "${program}-${version}"
-    #mmakepack ${prefix}
-    #mdpkg_install *.deb ${prefix}
-        
+    if [[ $(cmdexists ${func_install}) == true ]];then
+        eval ${func_install} ${program} ${version}
+    else
+        mmakeinstall "${program}-${version}"
+        #mmakepack ${prefix}
+        #mdpkg_install *.deb ${prefix}
+    fi
+
+
     cprint "Set environment for ${program} (${version}) ..."
-    addProfile $(project_resource) "# Installed ${program}: ${prefixstr}"
-    addBinPath "${prefix}/bin"
-    addBinPathProfile $(project_resource) "${prefixstr}/bin"
-    addLibPath "${prefix}/lib"
-    addLibPathProfile $(project_resource) "${prefixstr}/lib"
-    addPkgConfigPath "${prefix}/lib/pkgconfig"
-    addPkgConfigPathProfile $(project_resource) "${prefixstr}/lib/pkgconfig"
+    if [[ $(cmdexists ${func_environment}) == true ]];then
+        eval ${func_environment} ${program} ${version}
+    else
+        addProfile $(project_resource) "# Installed ${program}: ${prefixstr}"
+        addBinPath "${prefix}/bin"
+        addBinPathProfile $(project_resource) "${prefixstr}/bin"
+        addLibPath "${prefix}/lib"
+        addLibPathProfile $(project_resource) "${prefixstr}/lib"
+        addPkgConfigPath "${prefix}/lib/pkgconfig"
+        addPkgConfigPathProfile $(project_resource) "${prefixstr}/lib/pkgconfig"
+    fi
 
     cprint "Post installation ${program} (${version}) ..."
-    eval ${program}_post_source_install ${prefix}
+    if [[ $(cmdexists ${func_post}) == true ]];then
+        eval ${func_post} ${program} ${version}
+    fi
     
     cd ${restorewd}
 }
@@ -157,6 +184,10 @@ function source_install()
         version=$($func_latest ${rversion})
     fi
     
+    if [[ -z ${version} ]];then
+        version="master"
+    fi
+
     local base=${program}-${version}
     if [[ $(dryrun) == false && ! -d ${base} ]]; then
         cprint "Download ${program} (${version}) ..."
@@ -184,6 +215,10 @@ function source_install()
 #                         swig_run_dependencies (optional)
 #                         swig_build_dependencies (optional)
 #                         swig_configure (optional)
+#                         swig_build (optional)
+#                         swig_install (optional)
+#                         swig_environment (optional)
+#                         swig_post (optional)
 #                         swig_latest
 #                         swig_download
 function require_software()
@@ -287,7 +322,7 @@ function latest_version()
 
 # ============versions_from_site============
 # Description: Get all releases from site
-# Usage: versions_from_site "ftp://xmlsoft.org/libxslt/" "libxslt-[0-9\.]+[0-9]\.tar\.gz$"
+# Usage: versions_from_site "ftp://xmlsoft.org/libxslt" "libxslt-[0-9\.]+[0-9]\.tar\.gz$"
 function versions_from_site()
 {
     curl -sL ${1} | grep -E -o ${2} | grep -E -o "[0-9\.]+[0-9]" | sort --version-sort

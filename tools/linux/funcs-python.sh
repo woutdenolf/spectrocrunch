@@ -61,7 +61,7 @@ function python_full_version()
 
 function python_depdir()
 {
-    echo dep_$(python_full_version)
+    echo dep_python$(python_full_version)
 }
 
 
@@ -316,13 +316,16 @@ function pip_ensure()
                 else
                     $(python_bin) -m ensurepip --user
                 fi
+                # ensurepip is disabled in Debian/Ubuntu for the system python
+                if [[ $(python_hasmodule pip) == false ]]; then
+                    mapt-get install $(python_apt)-pip
+                fi
             fi
         else
             mapt-get install $(python_apt)-pip
         fi
     fi
 }
-
 
 
 function pip_uninstall()
@@ -482,4 +485,32 @@ function require_pyqt()
 }
 
 
+function require_venv()
+{
+    if [[ $(python_major_version) == 3 ]];then
+        if [[ $(python_hasmodule venv) == false ]];then
+            mapt-get install $(python_apt)-venv
+        fi
+        if [[ $(python_hasmodule venv) == false ]];then
+            pip_install virtualenv
+        fi
+    else
+        if [[ $(python_hasmodule virtualenv) == false ]];then
+            mapt-get install $(python_apt)-virtualenv
+        fi
+        if [[ $(python_hasmodule virtualenv) == false ]];then
+            pip_install virtualenv
+        fi
+    fi
+}
 
+
+function create_venv()
+{
+    python_virtualenv_deactivate
+    if [[ $(python_major_version) == 3 ]];then
+        $(python_bin) -m venv ${1}
+    else
+        $(python_bin) -m virtualenv ${1}
+    fi
+}

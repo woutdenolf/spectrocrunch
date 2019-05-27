@@ -93,7 +93,7 @@ class test_fluoxas(TestCase):
         commonparams["stackdim"] = stackdim
 
         nmaps, nlines, nspec, nchan, ndet = self.xrfmap.data.shape
-        if include_detectors:
+        if include_detectors or include_detectors==0:
             incdets_explicite = include_detectors
         else:
             incdets_explicite = tuple(range(ndet))

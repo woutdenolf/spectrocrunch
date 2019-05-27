@@ -19,20 +19,6 @@ function gnu_all_versions()
 }
 
 
-function gnu_latest()
-{
-    local libname=${1}
-    local rversion=${2}
-    
-    function _gnu_all_versions()
-    {
-        gnu_all_versions ${libname}
-    }
-    
-    latest_version _gnu_all_versions ${rversion}
-}
-
-
 function gnu_download()
 {
     if [[ ! -f ${2}.tar.gz ]]; then
@@ -41,35 +27,30 @@ function gnu_download()
 }
 
 
-function gnu_source_install()
+function glibc_exists()
 {
-    local restorewd=$(pwd)
-    local program=${1}
-    local rversion=${2}
-
-    cprint "Download ${program} ..."
-    mkdir -p ${program}
-    cd ${program}
-
-    local version=$(get_local_version)
-    if [[ -z ${version} ]]; then
-        require_web_essentials
-        version=$(gnu_latest ${program} ${rversion})
-    fi
-    
-    local base=${program}-${version}
-    echo ${base}
-    if [[ $(dryrun) == false && ! -d ${base} ]]; then
-        gnu_download ${program} ${base}
-    fi
-
-    if [[ $(dryrun) == false ]]; then
-        cmake_build_dependencies
-        easymake ${program} \
-                 ${version}
-    fi
-
-    cd ${restorewd}
+    cmdexists ldd
 }
 
+
+function glibc_version()
+{
+    if [[ $(glibc_exists) == false ]]; then
+        echo 0
+    else
+        ldd --version | head -1 | grep -E -o '[\.0-9]+[0-9]$'
+    fi
+}
+
+
+function require_gnu()
+{
+    local program=${1}
+    local rversion=${2}
+    eval "function ${program}_all_versions(){ gnu_all_versions ${program};}"
+    eval "function ${program}_latest(){ latest_version ${program}_all_versions \${1};}"
+    eval "function ${program}_download(){ gnu_download ${program} \${1};}"
+    eval "function ${program}_source_install(){ gnu_source_install ${program} \${1};}"
+    require_software ${program} "${rversion}"
+}
 

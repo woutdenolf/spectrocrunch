@@ -8,7 +8,7 @@ function travis_download_prebuild()
     # Download pre-build libraries
     local PYTHONV=`python -c "import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)"`
 
-    local DEP_FOLDER=dep_${PYTHONV}
+    local DEP_FOLDER=dep_python${PYTHONV}
 
     if [[ ! -d ${DEP_FOLDER} ]]; then
         local FILE=spectrocrunch.travis.python${PYTHONV}.tgz

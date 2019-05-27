@@ -15,12 +15,6 @@ function xrmc_build_dependencies()
 }
 
 
-function xrmc_run_dependencies()
-{
-    require_xmimsim
-}
-
-
 function xrmc_all_versions()
 {
     versions_from_github "golosio" "xrmc" "XRMC-[0-9\.]+"

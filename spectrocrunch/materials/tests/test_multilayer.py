@@ -301,6 +301,7 @@ class test_multilayer(unittest.TestCase):
                 self.assertSpectrumEqual(
                     spectrum1, spectrum3, rtol=2e-02, compfisx=True)  # 2% deviation
 
+    @unittest.skip("TODO")
     def test_secondary(self):
         compound1 = compoundfromformula.CompoundFromFormula("MnFe", density=6.)
 
@@ -342,7 +343,7 @@ def test_suite():
     testSuite.addTest(test_multilayer("test_primary_simple"))
     testSuite.addTest(test_multilayer("test_primary_complex"))
     testSuite.addTest(test_multilayer("test_serialize"))
-    #TODO: testSuite.addTest(test_multilayer("test_secondary"))
+    testSuite.addTest(test_multilayer("test_secondary"))
     return testSuite
 
 

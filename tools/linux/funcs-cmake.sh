@@ -58,15 +58,15 @@ function cmake_latest()
         fi
     done
 
-    cmake_all_subversions ${lst[-1]} | tail -1
+    cmake_all_subversions ${lst[-1]}
 }
 
 
 function cmake_download()
 {
-    local mversion=$(cmake_extractmainv ${1})
     if [[ ! -f ${1}.tar.gz ]]; then
-        curl -L $(cmake_url)/v${mversion}/${1}.tar.gz --output ${1}.tar.gz
+        local _mversion=$(cmake_extractmainv ${1})
+        curl -L $(cmake_url)/v${_mversion}/${1}.tar.gz --output ${1}.tar.gz
     fi
 }
 

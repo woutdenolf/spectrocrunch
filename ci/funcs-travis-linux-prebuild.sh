@@ -35,7 +35,7 @@ function travis_cached_folder()
 
 function travis_pybuild_folder()
 {
-    local pybuild_folder=$(travis_cached_folder)/$(project_name)_$(python_full_version)
+    local pybuild_folder=$(travis_cached_folder)/$(project_name)_python$(python_full_version)
     mkdir -p ${pybuild_folder}
     echo "${pybuild_folder}"
 }
@@ -68,6 +68,7 @@ function travis_init_python()
 
     if [[ $(dryrun) == false ]]; then
         # Require python version
+        # System wide install like on Travis
         install_systemwide reset true
         python_virtualenv_deactivate
         require_python ${pythonv}
@@ -76,13 +77,11 @@ function travis_init_python()
             return 1
         fi
 
-        # Require pip
+        # Activate virtual environment
         install_systemwide reset false
         require_pip
-        pip_install virtualenv
-
-        # Activate virtual environment
-        virtualenv $(travis_venv)
+        require_venv
+        create_venv $(travis_venv)
         source $(travis_venv)/bin/activate
     fi
 
