@@ -29,8 +29,7 @@ function pyopengl_test()
 
 function require_pyopengl()
 {
-    cprintstart
-    cprint "Verify pyopengl ..."
+    cprintstart "Require pyopengl"
 
     # Requirements (for running)
     require_python
@@ -38,7 +37,7 @@ function require_pyopengl()
     # Check
     if [[ $(pyopengl_test) == true ]]; then
         cprint "Python module \"pyopengl\" is working"
-        cprintend
+        cprintend "Require pyopengl"
         return
     fi
 
@@ -52,5 +51,5 @@ function require_pyopengl()
         cprint "Python module \"pyopengl\" is NOT working"
     fi
 
-    cprintend
+    cprintend "Require pyopengl"
 }

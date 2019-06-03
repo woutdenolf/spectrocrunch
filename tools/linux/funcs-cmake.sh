@@ -76,7 +76,6 @@ function cmake_build_dependencies()
     require_build_essentials
     require_openssl
     mapt-get install libncurses5-dev
-    mapt-get install qt4-qmake
 }
 
 
@@ -88,13 +87,17 @@ function cmake_system_install()
 
 function cmake_configure()
 {
-    ../bootstrap "$@"
+    if [[ -e "Makefile" ]]; then
+        cprint "Configure ${1} (${2}): already configured."
+    else
+        ../bootstrap "${@:3}"
+    fi
 }
 
 
 function cmake_source_install()
 {
-    source_install cmake "${1}" -- -DCMAKE_USE_OPENSSL:BOOL=ON
+    source_install cmake "${1}" --prefix='${prefix}' --no-qt-gui -- -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_USE_OPENSSL:BOOL=ON
 }
 
 

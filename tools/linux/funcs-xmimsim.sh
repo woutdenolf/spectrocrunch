@@ -166,6 +166,10 @@ function easyrng_source_install()
 
 function xmimsim_source_install()
 {
+    if [[ ! -d xrmc && ${ARG_SKIPLONG} == true ]]; then
+        cprint "Skipping xmimsim installation"
+        return
+    fi
     source_install xmimsim "${1}"
 }
 

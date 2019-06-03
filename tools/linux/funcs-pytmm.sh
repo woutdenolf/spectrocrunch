@@ -55,15 +55,14 @@ function pytmm_install_fromsource()
 
 function require_pytmm()
 {
-    cprintstart
-    cprint "Verify pytmm ..."
+    cprintstart "Require pytmm"
 
     # Check
     require_python
 
     if [[ $(python_hasmodule PyTMM) == true ]]; then
         cprint "Python module \"PyTMM\" is installed"
-        cprintend
+        cprintend "Require pytmm"
         return
     fi
 
@@ -76,6 +75,6 @@ function require_pytmm()
         cprint "Python module \"PyTMM\" is NOT installed"
     fi
 
-    cprintend
+    cprintend "Require pytmm"
 }
 

@@ -7,6 +7,110 @@ SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source ${SCRIPT_ROOT}/funcs.sh
 
 
+# ============require_new_version============
+# Description: a new version is required when current < required
+# Usage: [[ $(require_new_version currentversion requiredversion) ]]
+function require_new_version()
+{
+    local currentv=${1}
+    local requiredv=${2}
+
+    if [[ ${currentv} == 0 || -z ${currentv} ]]; then
+        echo true # does not exist
+        return
+    fi
+
+    if [[ -z ${requiredv} ]]; then
+        echo false # no specific version required
+        return
+    fi
+
+    dpkg --compare-versions ${currentv} "lt" ${requiredv}
+    if [[ $? == 0 ]]; then
+        echo true # current < required
+    else
+        echo false # current >= required
+    fi
+}
+
+
+# ============require_new_version_strict============
+# Description: a new version is required when current != required (common depth)
+# Usage: [[ $(require_new_version_strict currentversion requiredversion) ]]
+function require_new_version_strict()
+{
+    local currentv=${1}
+    local requiredv=${2}
+
+    if [[ ${currentv} == 0 ]]; then
+        echo true # does not exist
+        return
+    fi
+
+    if [[ -z ${requiredv} ]]; then
+        echo false # no specific version required
+        return
+    fi
+
+    # Same version depth
+    local n=$(nchar_occurence ${currentv} .)
+    local nreq=$(nchar_occurence ${requiredv} .)
+    if [[ ${nreq} -lt ${n} ]];then
+        n=${nreq}
+    fi
+    n=$((n+1))
+    currentv=$(echo ${currentv} | grep -o -E "[0-9]+" | head -${n})
+    requiredv=$(echo ${requiredv} | grep -o -E "[0-9]+" | head -${n})
+    
+    currentv=$(echo ${currentv})
+    requiredv=$(echo ${requiredv})
+    currentv=${currentv// /.}
+    requiredv=${requiredv// /.}
+
+    # Compare
+    dpkg --compare-versions "${currentv}" "eq" "${requiredv}"
+    if [[ $? == 0 ]]; then
+        echo false # current == required
+    else
+        echo true # current != required
+    fi
+}
+
+
+# ============get_local_version============
+# Description: 
+# Usage: version=$(get_local_version requiredversion)
+function get_local_version()
+{
+    local requiredv=${1}
+
+    for dirname in $(ls -d */ | sort -V); do
+        local version=$(echo ${dirname} | grep -E -o "[0-9\.]+[0-9]")
+        if [[ $(require_new_version ${version} ${requiredv}) == false ]]; then
+            echo ${version}
+            return
+        fi
+    done
+}
+
+
+# ============get_local_version_strict============
+# Description: 
+# Usage: version=$(get_local_version_strict requiredversion)
+function get_local_version_strict()
+{
+    local requiredv=${1}
+
+    for dirname in $(ls -d */ | sort -V); do
+        local version=$(echo ${dirname} | grep -E -o "[0-9\.]+[0-9]")
+        if [[ $(require_new_version_strict ${version} ${requiredv}) == false ]]; then
+            echo ${version}
+            return
+        fi
+    done
+}
+
+
 # ============make_prefix============
 # Description: 
 # Usage: make_prefix xraylib 3.3.0
@@ -18,14 +122,92 @@ function make_prefix()
 }
 
 
-# ============make_strprefix============
+# ============make_prefixstr============
 # Description: 
-# Usage: make_strprefix xraylib 3.3.0
-function make_strprefix()
+# Usage: make_prefixstr xraylib 3.3.0
+function make_prefixstr()
 {
     local program=${1}
     local version=${2}
     echo $(project_optstr)/${program}/${version}
+}
+
+
+# ============mmakeinstall============
+# Description: Execute make install
+# Usage: mmakeinstall pkgname-version
+function mmakeinstall()
+{
+    local name=${1}
+    if [[ -z ${name} ]];then
+        name=$(randomstring 6)
+    fi
+    if [[ $(install_systemwide) == true ]]; then
+        if [[ $(cmdexists "checkinstall") == true ]]; then    
+            sudo -E checkinstall -y --pkgname "${name}-checkinstall"
+            dpkg -l ${name}-checkinstall
+            echo "Remove with \"dpkg -r ${name}-checkinstall\""
+        else
+            sudo -E make install -s
+        fi
+    else
+        make install -s
+    fi
+}
+
+
+# ============mmakepack============
+# Description: Execute make install
+# Usage: mmakepack pkgname-version
+function mmakepack()
+{
+    local name=${1}
+    if [[ -z ${name} ]];then
+        name=$(randomstring 6)
+    fi
+    checkinstall -y --pkgname "${name}-checkinstall" --install=no
+}
+
+
+# ============mdpkg_install============
+# Description: dpkg without prompt
+# Usage: mdpkg_install package.deb ${prefix}
+function mdpkg_install()
+{
+    local package="$1"
+    local prefix="$2"
+    local extension=${package: -4}
+    if [[ ${extension} == ".deb" ]]; then
+        if [[ $(install_systemwide) == true ]]; then
+            sudo -E dpkg -i ${package}
+        else
+            dpkg -x ${package} ${prefix}
+        fi
+    elif [[ ${extension} == ".rpm" ]]; then
+        if [[ $(install_systemwide) == true ]]; then
+            sudo -E rpm -i ${package}
+        else
+            local restorewd=$(pwd)
+            cd ${prefix}
+            rpm2cpio "${restorewd}/${package}" | cpio -id
+            cd ${restorewd}
+        fi
+    else
+        echo "Skip ${package} installation (unknown package extension)"
+    fi
+}
+
+
+# ============cprint_makeenv============
+# Description: 
+# Usage: 
+function cprint_makeenv()
+{
+    cprint "Binaries: PATH=${PATH}"
+    cprint "Headers: CPATH=${CPATH}"
+    cprint "Shared libraries: LD_LIBRARY_PATH=${LD_LIBRARY_PATH}"
+    cprint "Static libraries: LIBRARY_PATH=${LIBRARY_PATH}"
+    cprint "Library metadata: PKG_CONFIG_PATH=${PKG_CONFIG_PATH}"
 }
 
 
@@ -60,20 +242,24 @@ function easymake()
     mkdir -p build
     cd build
 
-    local prefix=$(project_opt)/${program}/${version}
-    local prefixstr=$(project_optstr)/${program}/${version}
+    local prefix=$(make_prefix ${program} ${version})
+    local prefixstr=$(make_prefixstr ${program} ${version})
     cfgparams=$(eval echo ${cfgparams})
 
     # Make sure destination exists
     mexec mkdir -p ${prefix}
     
     # Configure
+    cprint_makeenv
     if [[ $(cmdexists ${func_configure}) == true ]];then
         cprint "Configure ${program} (${version}) with options:"
         cprint "${cfgparams}" 
-        eval ${func_configure} ${cfgparams}
+        eval ${func_configure} ${program} ${version} ${cfgparams}
     else
-        if [[ ! -e "Makefile" ]]; then
+        if [[ -e "Makefile" ]]; then
+            cprint "Configure ${program} (${version}): already configured."
+	        cprint " --prefix=\"${prefix}\" ${cfgparams}"
+        else
             cprint "Configure ${program} (${version}) with options:"
             cprint " --prefix=\"${prefix}\" ${cfgparams}" 
 
@@ -107,9 +293,6 @@ function easymake()
                 cd ${restorewd}
                 return
             fi
-        else
-            cprint "Configure ${program} (${version}): already configured."
-	        cprint " --prefix=\"${prefix}\" ${cfgparams}"
         fi
     fi
 
@@ -140,12 +323,35 @@ function easymake()
         eval ${func_environment} ${program} ${version}
     else
         addProfile $(project_resource) "# Installed ${program}: ${prefixstr}"
-        addBinPath "${prefix}/bin"
-        addBinPathProfile $(project_resource) "${prefixstr}/bin"
-        addLibPath "${prefix}/lib"
-        addLibPathProfile $(project_resource) "${prefixstr}/lib"
-        addPkgConfigPath "${prefix}/lib/pkgconfig"
-        addPkgConfigPathProfile $(project_resource) "${prefixstr}/lib/pkgconfig"
+        if [[ -d "${prefix}/bin/${program}" ]];then
+            addBinPath "${prefix}/bin/${program}"
+            addBinPathProfile $(project_resource) "${prefixstr}/bin/${program}"
+        else
+            addBinPath "${prefix}/bin"
+            addBinPathProfile $(project_resource) "${prefixstr}/bin"
+        fi
+        if [[ -d "${prefix}/lib/${program}" ]];then
+            addLibPath "${prefix}/lib/${program}"
+            addLibPathProfile $(project_resource) "${prefixstr}/lib/${program}"
+        else
+            addLibPath "${prefix}/lib"
+            addLibPathProfile $(project_resource) "${prefixstr}/lib"
+        fi
+        if [[ -d "${prefix}/include/${program}" ]];then
+            addInclPath "${prefix}/include/${program}"
+            addInclPathProfile $(project_resource) "${prefixstr}/include/${program}"
+        else
+            addInclPath "${prefix}/include"
+            addInclPathProfile $(project_resource) "${prefixstr}/include"
+        fi
+        if [[ -d "${prefix}/lib/${program}/pkgconfig" ]];then
+            addPkgConfigPath "${prefix}/lib/${program}/pkgconfig"
+            addPkgConfigPathProfile $(project_resource) "${prefixstr}/lib/${program}/pkgconfig"
+        else
+            addPkgConfigPath "${prefix}/lib/pkgconfig"
+            addPkgConfigPathProfile $(project_resource) "${prefixstr}/lib/pkgconfig"
+        fi
+
     fi
 
     cprint "Post installation ${program} (${version}) ..."
@@ -225,14 +431,12 @@ function require_software()
 {
     local program=${1}
     local rversion=${2}
-    
-    cprintstart
-    cprint "Verify ${program} ${rversion} ..."
+    cprintstart "Require ${program} ${rversion}"
 
     # Check version
     if [[ $(require_new_version $(${program}_version) ${rversion}) == false ]]; then
         cprint "${program} version $(${program}_version) will be used"
-        cprintend
+        cprintend "Require ${program} ${rversion}"
         return
     fi
     
@@ -244,7 +448,7 @@ function require_software()
         # Check version
         if [[ $(require_new_version $(${program}_version) ${rversion}) == false ]]; then
             cprint "${program} version $(${program}_version) will be used"
-            cprintend
+            cprintend "Require ${program} ${rversion}"
             return
         fi
 
@@ -274,7 +478,7 @@ function require_software()
         fi
     fi
 
-    cprintend
+    cprintend "Require ${program} ${rversion}"
 }
 
 

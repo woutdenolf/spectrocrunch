@@ -73,7 +73,11 @@ function python_include()
 
 function python_lib()
 {
-    python_get "import distutils.sysconfig,os; print(os.path.join(distutils.sysconfig.get_config_var('LIBDIR'),distutils.sysconfig.get_config_var('LDLIBRARY')));"
+    local _filename=$(python_get "import distutils.sysconfig;import os.path as op;print(op.join(distutils.sysconfig.get_config_var('LIBDIR'),distutils.sysconfig.get_config_var('LDLIBRARY')));")
+    if [[ ! -f ${_filename} ]];then
+        _filename=$(python_get "from distutils import sysconfig;import os.path as op;v = sysconfig.get_config_vars();fpaths = [op.join(v[pv], v['LDLIBRARY']) for pv in ('LIBDIR', 'LIBPL')]; print(list(filter(op.exists, fpaths))[0])")
+    fi
+    echo ${_filename}
 }
 
 function python_pkg_all()
@@ -423,8 +427,7 @@ function require_pythondev()
 
 function require_pyqt4()
 {
-    cprintstart
-    cprint "Verify PyQt4 ..."
+    cprintstart "Require PyQt4"
     if [[ $(python_hasmodule "PyQt4") == false ]]; then
         mapt-get install $(python_apt)-qt4
     fi
@@ -433,7 +436,7 @@ function require_pyqt4()
     fi
     if [[ $(python_hasmodule "PyQt4") == true ]]; then
         cprint "Python module \"PyQt4\" is working"
-        cprintend
+        cprintend "Require PyQt4"
         return
     else
         cprint "Python module \"PyQt4\" is NOT working. Try PySide ..."
@@ -444,14 +447,13 @@ function require_pyqt4()
     else
         cprint "Python module \"PySide\" is NOT working"
     fi
-    cprintend
+    cprintend "Require PyQt4"
 }
 
 
 function require_pyqt5()
 {
-    cprintstart
-    cprint "Verify PyQt5 ..."
+    cprintstart "Require PyQt5"
     if [[ $(python_hasmodule "PyQt5") == false ]]; then
         pip_install pyqt5
     fi
@@ -460,7 +462,7 @@ function require_pyqt5()
     fi
     if [[ $(python_hasmodule "PyQt5") == true ]]; then
         cprint "Python module \"PyQt5\" is working"
-        cprintend
+        cprintend "Require PyQt5"
         return
     else
         cprint "Python module \"PyQt5\" is NOT working. Try PySide2 ..."
@@ -471,7 +473,7 @@ function require_pyqt5()
     else
         cprint "Python module \"PySide2\" is NOT working"
     fi
-    cprintend
+    cprintend "Require PyQt5"
 }
 
 

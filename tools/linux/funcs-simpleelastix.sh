@@ -13,39 +13,34 @@ source ${SCRIPT_ROOT}/funcs-lua.sh
 
 function simpleelastix_build_dependencies()
 {
-    local tmp=$(pwd)
-    cd ${1}
-
     mapt-get install lua5.1 liblua5.1-dev
+    require_pythondev
     #pip_install virtualenv>=13.0 # does not work on rnice
     require_cmake 3
     require_swig 3
-
-    cd ${tmp}
 }
 
 
 function simpleelastix_download()
 {
-    git clone https://github.com/kaspermarstal/SimpleElastix simpleelastix-master
-    # Last commit that requires cmake 3.0 instead of cmake 3.10
-    git checkout 8d05a69faa84529b808d763488a7bd0783fe138d .
+    git clone https://github.com/kaspermarstal/SimpleElastix ${1}
+    # Last commit that works with cmake 3.0 instead of cmake 3.10
+    cd ${1}
+    git reset --hard 49af818
+    cd ..
 }
 
 
 function simpleelastix_configure()
 {
-    local prefix=$(make_prefix ${1} ${2})
-    # Show
-    cmake -LAH -DCMAKE_INSTALL_PREFIX:PATH="${prefix}" "${@}"
-    # Configure and build in one go
-    cmake  -DCMAKE_INSTALL_PREFIX:PATH="${prefix}" "${@}"
-}
-
-
-function simpleelastix_build()
-{
-    cprint "Nothing to do"
+    if [[ -e "Makefile" ]]; then
+        cprint "Configure ${1} (${2}): already configured."
+    else
+        # Show
+        cmake -LAH "${@:3}"
+        # Configure and build in one go
+        cmake "${@:3}"
+    fi
 }
 
 
@@ -69,6 +64,7 @@ function simpleelastix_source_install()
     
     # http://simpleelastix.readthedocs.io/GettingStarted.html#manually-building-on-linux
     source_install simpleelastix "${1}" \
+                  -DCMAKE_INSTALL_PREFIX:PATH='${prefix}' \
                   -DBUILD_EXAMPLES:BOOL=OFF \
                   -DBUILD_SHARED_LIBS:BOOL=OFF \
                   -DBUILD_TESTING:BOOL=OFF \
@@ -77,7 +73,7 @@ function simpleelastix_source_install()
                   -DSimpleITK_USE_SYSTEM_VIRTUALENV:BOOL=OFF \
                   -DSimpleITK_USE_SYSTEM_ELASTIX:BOOL=OFF \
                   -DSimpleITK_USE_SYSTEM_ITK:BOOL=OFF \
-                  -DPYTHON_EXECUTABLE:FILEPATH=$(python_bin) \
+                  -DPYTHON_EXECUTABLE:FILEPATH=$(python_full_bin) \
                   -DPYTHON_INCLUDE_DIR:PATH=$(python_include) \
                   -DPYTHON_LIBRARY:FILEPATH=$(python_lib) \
                   -DWRAP_DEFAULT:BOOL=OFF \

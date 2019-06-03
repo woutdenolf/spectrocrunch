@@ -7,6 +7,7 @@ SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source ${SCRIPT_ROOT}/funcs-string.sh
 source ${SCRIPT_ROOT}/funcs-essentials.sh
 
+
 # ============fullpath============
 # Description: expand path
 function fullpath()
@@ -38,22 +39,24 @@ function cerror()
 
 
 # ============cprintstart============
-# Description: output to stdout in color
-# Usage: cprintstart
+# Description: 
+# Usage: cprintstart "do something"
 function cprintstart()
 {
     echo ""
     echo ""
     echo ""
     cprint "======================"
+    cprint "START: ${1}"
 }
 
 
 # ============cprintend============
-# Description: output to stdout in color
-# Usage: cprintend
+# Description:
+# Usage: cprintend "do something"
 function cprintend()
 {
+    cprint "END: ${1}"
     cprint "======================"
     echo ""
     echo ""
@@ -157,41 +160,6 @@ function mexec()
 }
 
 
-# ============mmakeinstall============
-# Description: Execute make install
-# Usage: mmakeinstall pkgname-version
-function mmakeinstall()
-{
-    local name=${1}
-    if [[ -z ${name} ]];then
-        name=$(randomstring 6)
-    fi
-    if [[ $(install_systemwide) == true ]]; then
-        if [[ $(cmdexists "checkinstall") == true ]]; then    
-            sudo -E checkinstall -y --pkgname "${name}-checkinstall"
-            #Remove with "dpkg -r yourpackagename"
-        else
-            sudo -E make install -s
-        fi
-    else
-        make install -s
-    fi
-}
-
-
-# ============mmakepack============
-# Description: Execute make install
-# Usage: mmakepack pkgname-version
-function mmakepack()
-{
-    local name=${1}
-    if [[ -z ${name} ]];then
-        name=$(randomstring 6)
-    fi
-    checkinstall -y --pkgname "${name}-checkinstall" --install=no
-}
-
-
 # ============mapt-get============
 # Description: Apt-get without prompt (ignores system wide setting)
 # Usage: mapt-get install ...
@@ -216,139 +184,6 @@ function mapt-get()
     else
         echo "Skip ${pkgmgr} $@ (no system priviliges)"
     fi
-}
-
-
-# ============mdpkg_install============
-# Description: dpkg without prompt
-# Usage: mdpkg_install package.deb ${prefix}
-function mdpkg_install()
-{
-    local package="$1"
-    local prefix="$2"
-    local extension=${package: -4}
-    if [[ ${extension} == ".deb" ]]; then
-        if [[ $(install_systemwide) == true ]]; then
-            sudo -E dpkg -i ${package}
-        else
-            dpkg -x ${package} ${prefix}
-        fi
-    elif [[ ${extension} == ".rpm" ]]; then
-        if [[ $(install_systemwide) == true ]]; then
-            sudo -E rpm -i ${package}
-        else
-            local restorewd=$(pwd)
-            cd ${prefix}
-            rpm2cpio "${restorewd}/${package}" | cpio -id
-            cd ${restorewd}
-        fi
-    else
-        echo "Skip ${package} installation (unknown package extension)"
-    fi
-}
-
-
-# ============require_new_version============
-# Description: a new version is required when current < required
-# Usage: [[ $(require_new_version currentversion requiredversion) ]]
-function require_new_version()
-{
-    local currentv=${1}
-    local requiredv=${2}
-
-    if [[ ${currentv} == 0 || -z ${currentv} ]]; then
-        echo true # does not exist
-        return
-    fi
-
-    if [[ -z ${requiredv} ]]; then
-        echo false # no specific version required
-        return
-    fi
-
-    dpkg --compare-versions ${currentv} "lt" ${requiredv}
-    if [[ $? == 0 ]]; then
-        echo true # current < required
-    else
-        echo false # current >= required
-    fi
-}
-
-
-# ============require_new_version_strict============
-# Description: a new version is required when current != required (common depth)
-# Usage: [[ $(require_new_version_strict currentversion requiredversion) ]]
-function require_new_version_strict()
-{
-    local currentv=${1}
-    local requiredv=${2}
-
-    if [[ ${currentv} == 0 ]]; then
-        echo true # does not exist
-        return
-    fi
-
-    if [[ -z ${requiredv} ]]; then
-        echo false # no specific version required
-        return
-    fi
-
-    # Same version depth
-    local n=$(nchar_occurence ${currentv} .)
-    local nreq=$(nchar_occurence ${requiredv} .)
-    if [[ ${nreq} -lt ${n} ]];then
-        n=${nreq}
-    fi
-    n=$((n+1))
-    currentv=$(echo ${currentv} | grep -o -E "[0-9]+" | head -${n})
-    requiredv=$(echo ${requiredv} | grep -o -E "[0-9]+" | head -${n})
-    
-    currentv=$(echo ${currentv})
-    requiredv=$(echo ${requiredv})
-    currentv=${currentv// /.}
-    requiredv=${requiredv// /.}
-
-    # Compare
-    dpkg --compare-versions "${currentv}" "eq" "${requiredv}"
-    if [[ $? == 0 ]]; then
-        echo false # current == required
-    else
-        echo true # current != required
-    fi
-}
-
-
-# ============get_local_version============
-# Description: 
-# Usage: version=$(get_local_version requiredversion)
-function get_local_version()
-{
-    local requiredv=${1}
-
-    for dirname in $(ls -d */ | sort -V); do
-        local version=$(echo ${dirname} | grep -E -o "[0-9\.]+[0-9]")
-        if [[ $(require_new_version ${version} ${requiredv}) == false ]]; then
-            echo ${version}
-            return
-        fi
-    done
-}
-
-
-# ============get_local_version_strict============
-# Description: 
-# Usage: version=$(get_local_version_strict requiredversion)
-function get_local_version_strict()
-{
-    local requiredv=${1}
-
-    for dirname in $(ls -d */ | sort -V); do
-        local version=$(echo ${dirname} | grep -E -o "[0-9\.]+[0-9]")
-        if [[ $(require_new_version_strict ${version} ${requiredv}) == false ]]; then
-            echo ${version}
-            return
-        fi
-    done
 }
 
 

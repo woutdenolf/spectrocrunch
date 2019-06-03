@@ -15,8 +15,7 @@ source ${SCRIPT_ROOT}/funcs-fdmnes.sh
 
 function install_system_dependencies()
 {
-    cprintstart
-    cprint "Installing system requirements ..."
+    cprintstart "Installing system requirements"
     if [[ $(dryrun) == false ]]; then
         require_web_access
         pip_install numpy # silx
@@ -28,19 +27,19 @@ function install_system_dependencies()
         require_pyqt # pymca
         #mapt-get install libgeos-dev # shapely
     fi
-    cprintend
+    cprintend "Installing system requirements"
 }
 
 
 function install_system_dependencies_dev()
 {
-    cprintstart
-    cprint "Installing system requirements (dev) ..."
+    cprintstart "Installing system requirements (dev)"
     if [[ $(dryrun) == false ]]; then
         require_web_access
         mapt-get install pandoc # nbsphinx
     fi
-    cprintend
+    cprint "Finish: Installing system requirements (dev)"
+    cprintend "Installing system requirements (dev)"
 }
 
 
@@ -57,25 +56,23 @@ function install_nopypi_dependencies()
 
 function install_pypi_dependencies()
 {
-    cprintstart
-    cprint "Installing pypi requirements ..."
+    cprintstart "Installing pypi requirements"
     if [[ $(dryrun) == false ]]; then
         require_web_access
         pip_install -r "$(project_folder)/requirements.txt"
         pip_install pymca
     fi
-    cprintend
+    cprintend "Installing pypi requirements"
 }
 
 
 function install_pypi_dependencies_dev()
 {
-    cprintstart
-    cprint "Installing pypi requirements (dev) ..."
+    cprintstart "Installing pypi requirements (dev)"
     if [[ $(dryrun) == false ]]; then
         require_web_access
         pip_install -r "$(project_folder)/requirements-dev.txt"
     fi
-    cprintend
+    cprintend "Installing pypi requirements (dev)"
 }
 

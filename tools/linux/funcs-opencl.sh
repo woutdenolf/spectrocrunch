@@ -200,8 +200,7 @@ function pyopencl_install()
 
 function require_pyopencl()
 {
-    cprintstart
-    cprint "Verify pyopencl ..."
+    cprintstart "Require pyopencl"
 
     # Requirements (for running)
     require_python
@@ -209,7 +208,7 @@ function require_pyopencl()
     # Check
     if [[ $(pyopencl_test) == true ]]; then
         cprint "Python module \"pyopencl\" is working"
-        cprintend
+        cprintend "Require pyopencl"
         return
     fi
 
@@ -223,5 +222,5 @@ function require_pyopencl()
         cprint "Python module \"pyopencl\" is NOT working"
     fi
 
-    cprintend
+    cprintend "Require pyopencl"
 }

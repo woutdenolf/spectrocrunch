@@ -27,6 +27,16 @@ function gnu_download()
 }
 
 
+function gnu_version()
+{
+    if [[ $(cmdexists ${1}) == false ]]; then
+        echo 0
+    else
+        ${1} --version | head -1 | grep -E -o '[0-9]\.[\.0-9]+' | tail -1
+    fi
+}
+
+
 function glibc_exists()
 {
     cmdexists ldd
@@ -35,11 +45,7 @@ function glibc_exists()
 
 function glibc_version()
 {
-    if [[ $(glibc_exists) == false ]]; then
-        echo 0
-    else
-        ldd --version | head -1 | grep -E -o '[\.0-9]+[0-9]$'
-    fi
+    gnu_version ldd
 }
 
 
