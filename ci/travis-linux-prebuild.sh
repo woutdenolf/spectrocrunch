@@ -66,11 +66,25 @@ function main()
         return 1
     fi
 
+    if [[ ${ARG_PYTHONV::1} == 3 ]];then
+        ARG_PYTHONV=3.6.7
+    else
+        ARG_PYTHONV=2.7.15
+    fi
     travis_init_python ${ARG_PYTHONV}
     if [[ $? != 0 ]]; then
         travis_cleanup_python
         return 1
     fi
+
+    travis_init_cmake 3.12.4
+    if [[ $? != 0 ]]; then
+        travis_cleanup_python
+        return 1
+    fi
+
+    travis_cleanup_python
+    return 1
 
     if [[ ${ARG_PREBUILD} == false ]]; then
         travis_prepare

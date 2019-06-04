@@ -6,6 +6,7 @@
 GLOBAL_SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source ${GLOBAL_SCRIPT_ROOT}/../tools/linux/funcs.sh
 source ${GLOBAL_SCRIPT_ROOT}/../tools/linux/funcs-python.sh
+source ${GLOBAL_SCRIPT_ROOT}/../tools/linux/funcs-cmake.sh
 
 
 function travis_check_platform()
@@ -59,9 +60,7 @@ function travis_init_python()
 {
     local restorewd=$(pwd)
     cd $(travis_cached_folder)
-
     local pythonv=${1}
-
     if [[ $(system_privileges) == false ]]; then
         sudo -s "exit"
     fi
@@ -85,6 +84,28 @@ function travis_init_python()
         source $(travis_venv)/bin/activate
     fi
 
+    cd ${restorewd}
+}
+
+
+function travis_init_cmake()
+{
+    local restorewd=$(pwd)
+    cd $(travis_cached_folder)
+    local cmakev=${1}
+    if [[ $(system_privileges) == false ]]; then
+        sudo -s "exit"
+    fi
+    if [[ $(dryrun) == false ]]; then
+        export PROJECT_PREFIX="/usr/local"
+        require_cmake ${cmakev}
+        if [[ $? != 0 ]]; then
+            unset PROJECT_PREFIX
+            cd ${restorewd}
+            return 1
+        fi
+        unset PROJECT_PREFIX
+    fi
     cd ${restorewd}
 }
 

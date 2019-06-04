@@ -421,7 +421,7 @@ function project_echoprefix()
 
 
 # ============project_userbasestr============
-# Description:
+# Description: ${HOME}/.local
 function project_userbasestr()
 {
     project_echoprefix '${HOME}/.local'
@@ -429,7 +429,7 @@ function project_userbasestr()
 
 
 # ============project_prefixstr============
-# Description: 
+# Description: /usr/local (system) or ${HOME}/.local (user)
 function project_prefixstr()
 {
     if [[ $(install_systemwide) == true ]]; then
@@ -441,7 +441,7 @@ function project_prefixstr()
 
 
 # ============project_optstr============
-# Description: 
+# Description: /opt (system) or ${HOME}/.local (user)
 function project_optstr()
 {
     if [[ $(install_systemwide) == true ]]; then
