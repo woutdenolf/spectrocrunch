@@ -27,7 +27,7 @@ function python_get()
 }
 
 
-function python_version()
+function python_minor_version()
 {
     local tmp="import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)"
     tmp=$(python_get "${tmp}") 
@@ -48,7 +48,7 @@ function python_major_version()
     echo $tmp
 }
 
-function python_full_version()
+function python_version()
 {
     local tmp="import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)"
     tmp=$(python_get "${tmp}") 
@@ -61,7 +61,7 @@ function python_full_version()
 
 function python_depdir()
 {
-    echo dep_python$(python_full_version)
+    echo dep_python$(python_version)
 }
 
 
@@ -164,7 +164,7 @@ function python_hasmodule()
 
 function python_info()
 {
-    cprint "Python version: $(python_full_version)"
+    cprint "Python version: $(python_version)"
     cprint "Python virtual environment: $(python_virtualenv_active)"
     cprint "Python location: $(python_full_bin)"
     cprint "Python package directories: $(python_pkg)"
@@ -273,8 +273,8 @@ function addProfilePythonUserBase()
     # Root under which packages/scripts are installed when no
     # permissions to the default package/script directory.
     # When virtualenv is active: ignores PYTHONUSERBASE
-    local prefix=$(project_userbase)/python/$(python_full_version)
-    local prefixstr=$(project_userbasestr)/python/$(python_full_version)
+    local prefix=$(project_userbase)/python/$(python_version)
+    local prefixstr=$(project_userbasestr)/python/$(python_version)
     addProfile $(project_resource) "# Python user base: ${prefixstr}"
     addVar "PYTHONUSERBASE" ${prefix}
     addVarProfile $(project_resource) "PYTHONUSERBASE" ${prefixstr}

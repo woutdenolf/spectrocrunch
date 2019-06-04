@@ -251,18 +251,32 @@ function pathExists()
     fi
 }
 
+# ============addEnvPath============
+# Description: 
+function addEnvPath()
+{
+    local _path=${1}
+    local _add=${2}
+    if [[ $(pathExists ${_add}) == false ]];then
+        echo ${_path}
+        return
+    fi
+    if [[ ":${_path}:" != *":${_add}:"* ]]; then
+        if [[ -z ${_path} ]]; then
+            echo ${_add}
+        else
+            echo ${_add}:${_path}
+        fi
+        return
+    fi
+    echo ${_path}
+}
 
 # ============addBinPath============
 # Description: Add path to ${PATH}
 function addBinPath()
 {
-    if [[ $(pathExists ${1}) == false ]];then
-        cprint "Does not exist: ${1}"
-        return
-    fi
-	if [[ ":${PATH}:" != *":${1}:"* ]]; then
-        export PATH=${1}:${PATH}
-    fi
+    export PATH=$(addEnvPath ${PATH} "${1}")
 }
 
 
@@ -270,13 +284,7 @@ function addBinPath()
 # Description: Add path to ${CPATH}
 function addInclPath()
 {
-    if [[ $(pathExists ${1}) == false ]];then
-        cprint "Does not exist: ${1}"
-        return
-    fi
-	if [[ ":${CPATH}:" != *":${1}:"* ]]; then
-        export CPATH=${1}:${CPATH}
-    fi
+    export CPATH=$(addEnvPath ${CPATH} ${1})
 }
 
 
@@ -284,18 +292,10 @@ function addInclPath()
 # Description: Add path to ${LD_LIBRARY_PATH}
 function addLibPath()
 {
-    if [[ $(pathExists ${1}) == false ]];then
-        cprint "Does not exist: ${1}"
-        return
-    fi
     # For dynamic linking:
-	if [[ ":${LD_LIBRARY_PATH},:" != *":${1}:"* ]]; then
-        export LD_LIBRARY_PATH=${1}:${LD_LIBRARY_PATH}
-    fi
+    export LD_LIBRARY_PATH=$(addEnvPath ${LD_LIBRARY_PATH} "${1}")
     # For static linking:
-	if [[ ":${LIBRARY_PATH},:" != *":${1}:"* ]]; then
-        export LIBRARY_PATH=${1}:${LIBRARY_PATH}
-    fi
+    export LIBRARY_PATH=$(addEnvPath ${LIBRARY_PATH} "${1}")
 }
 
 
@@ -303,13 +303,7 @@ function addLibPath()
 # Description: Add path to ${PKG_CONFIG_PATH}
 function addPkgConfigPath()
 {
-    if [[ $(pathExists ${1}) == false ]];then
-        cprint "Does not exist: ${1}"
-        return
-    fi
-	if [[ ":${PKG_CONFIG_PATH},:" != *":${1}:"* ]]; then
-        export PKG_CONFIG_PATH=${1}:${PKG_CONFIG_PATH}
-    fi
+    export PKG_CONFIG_PATH=$(addEnvPath ${PKG_CONFIG_PATH} "${1}")
 }
 
 

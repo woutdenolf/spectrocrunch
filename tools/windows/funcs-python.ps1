@@ -102,7 +102,7 @@ function python_exists()
 }
 
 
-function python_version()
+function python_minor_version()
 {
     $local:tmp="import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)"
     $local:tmp=python_get $local:tmp
@@ -124,7 +124,7 @@ function python_major_version()
 }
 
 
-function python_full_version()
+function python_version()
 {
     $local:tmp="import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)"
     $local:tmp=python_get $local:tmp
@@ -137,7 +137,7 @@ function python_full_version()
 
 function python_depdir()
 {
-    return "dep_python$(python_full_version)"
+    return "dep_python$(python_version)"
 }
 
 
@@ -161,7 +161,7 @@ function python_pkg()
 
 function python_info()
 {
-    cprint "Python version: $(python_full_version)"
+    cprint "Python version: $(python_version)"
     cprint "Python virtual environment: $(python_virtualenv_active)"
     cprint "Python location: $(python_full_bin)"
     cprint "Python package directory: $(python_pkg)"
@@ -221,8 +221,8 @@ function require_python([AllowNull()][string]$version)
     }
 
     # Check version
-    if (!(require_new_version_strict $(python_full_version) $global:PYTHONVREQUEST)) {
-        cprint "Python version $(python_full_version) is used"
+    if (!(require_new_version_strict $(python_version) $global:PYTHONVREQUEST)) {
+        cprint "Python version $(python_version) is used"
         return
     }
 
@@ -230,11 +230,11 @@ function require_python([AllowNull()][string]$version)
     python_install_fromsource $global:PYTHONVREQUEST
 
     # Check version
-    if (!(require_new_version_strict $(python_full_version) $global:PYTHONVREQUEST)) {
-        cprint "Python version $(python_full_version) is used"
+    if (!(require_new_version_strict $(python_version) $global:PYTHONVREQUEST)) {
+        cprint "Python version $(python_version) is used"
     } else {
         if ((python_exists)) {
-            cerror "Python version $(python_full_version) is used but $global:PYTHONVREQUEST is required"
+            cerror "Python version $(python_version) is used but $global:PYTHONVREQUEST is required"
         } else {
             cerror "Python is not installed"
         }

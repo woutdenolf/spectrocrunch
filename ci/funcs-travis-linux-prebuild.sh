@@ -35,7 +35,7 @@ function travis_cached_folder()
 
 function travis_pybuild_folder()
 {
-    local pybuild_folder=$(travis_cached_folder)/$(project_name)_python$(python_full_version)
+    local pybuild_folder=$(travis_cached_folder)/$(project_name)_python$(python_version)
     mkdir -p ${pybuild_folder}
     echo "${pybuild_folder}"
 }
@@ -51,7 +51,7 @@ function travis_depbuild_folder()
 
 function travis_venv()
 {
-    echo $(travis_build_folder)/virtualenv/python$(python_full_version)
+    echo $(travis_build_folder)/virtualenv/python$(python_version)
 }
 
 
@@ -178,7 +178,7 @@ function travis_pack_prebuild()
     local restorewd=$(pwd)
     cd $(travis_cached_folder)
 
-    local filename=$(project_name).travis.python$(python_full_version).tgz
+    local filename=$(project_name).travis.python$(python_version).tgz
     cprintstart
     cprint "Pack ${filename} ..."
 

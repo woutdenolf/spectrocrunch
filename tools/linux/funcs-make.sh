@@ -211,6 +211,35 @@ function cprint_makeenv()
 }
 
 
+# ============removelocal_path============
+# Description: 
+# Usage: 
+function removelocal_path()
+{
+    local _path=${1}
+    while [[ "${_path: -1}" == ":" ]];do
+        _path=${_path::-1}
+    done
+    while [[ "${_path:0:1}" == ":" ]];do
+        _path=${_path:1}
+    done
+    echo ${_path}
+}
+
+
+# ============makeenv_removelocal============
+# Description: 
+# Usage: 
+function makeenv_removelocal()
+{
+    export PATH=$(removelocal_path ${PATH})
+    export CPATH=$(removelocal_path ${CPATH})
+    export LD_LIBRARY_PATH=$(removelocal_path ${LD_LIBRARY_PATH})
+    export LIBRARY_PATH=$(removelocal_path ${LIBRARY_PATH})
+    export PKG_CONFIG_PATH=$(removelocal_path ${PKG_CONFIG_PATH})
+}
+
+
 # ============easymake============
 # Description: Execute typical configure/make/make install
 #              Either directory program-version must exist
@@ -249,6 +278,9 @@ function easymake()
     # Make sure destination exists
     mexec mkdir -p ${prefix}
     
+    # Remove local directory env paths
+    makeenv_removelocal
+
     # Configure
     cprint_makeenv
     if [[ $(cmdexists ${func_configure}) == true ]];then
@@ -262,15 +294,6 @@ function easymake()
         else
             cprint "Configure ${program} (${version}) with options:"
             cprint " --prefix=\"${prefix}\" ${cfgparams}" 
-
-            # Remove local directory from LD_LIBRARY_PATH
-            local keep_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
-            while [[ "${LD_LIBRARY_PATH: -1}" == ":" ]];do
-                LD_LIBRARY_PATH=${LD_LIBRARY_PATH::-1}
-            done
-            while [[ "${LD_LIBRARY_PATH:0:1}" == ":" ]];do
-                LD_LIBRARY_PATH=${LD_LIBRARY_PATH:1}
-            done
             
             # In case configure file does not exist
             if [[ ! -f "../configure" && -f "../configure.ac" ]]; then
@@ -287,9 +310,10 @@ function easymake()
             #return
             ../configure --prefix="${prefix}" ${cfgparams}
 
-            LD_LIBRARY_PATH=${keep_LD_LIBRARY_PATH}
+            
             if [[ $? != 0 ]]; then
                 cerror "Configuring ${program} (${version}) failed"
+                LD_LIBRARY_PATH=${keep_LD_LIBRARY_PATH}
                 cd ${restorewd}
                 return
             fi
