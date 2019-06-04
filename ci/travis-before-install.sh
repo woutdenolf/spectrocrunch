@@ -21,7 +21,7 @@ function travis_download_prebuild()
                 if [[ -f ${FILE} ]]; then
                     break
                 fi
-                wget ${LINK}
+                curl ${LINK} -o ${FILE}
             done
 
             # Unpack in build folder
