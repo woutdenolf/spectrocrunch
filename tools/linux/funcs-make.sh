@@ -354,13 +354,10 @@ function easymake()
             addBinPath "${prefix}/bin"
             addBinPathProfile $(project_resource) "${prefixstr}/bin"
         fi
-        if [[ -d "${prefix}/lib/${program}" ]];then
-            addLibPath "${prefix}/lib/${program}"
-            addLibPathProfile $(project_resource) "${prefixstr}/lib/${program}"
-        else
-            addLibPath "${prefix}/lib"
-            addLibPathProfile $(project_resource) "${prefixstr}/lib"
-        fi
+        addLibPath "${prefix}/lib"
+        addLibPathProfile $(project_resource) "${prefixstr}/lib"
+        addLibPath "${prefix}/lib/${program}"
+        addLibPathProfile $(project_resource) "${prefixstr}/lib/${program}"
         if [[ -d "${prefix}/include/${program}" ]];then
             addInclPath "${prefix}/include/${program}"
             addInclPathProfile $(project_resource) "${prefixstr}/include/${program}"
