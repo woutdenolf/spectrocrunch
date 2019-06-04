@@ -10,13 +10,13 @@ source ${SCRIPT_ROOT}/funcs-xraylib.sh
 
 function libxml2_url()
 {
-    echo "ftp://xmlsoft.org/libxml2"
+    echo "ftp://xmlsoft.org/libxml2/"
 }
 
 
 function libxslt_url()
 {
-    echo "ftp://xmlsoft.org/libxslt"
+    echo "ftp://xmlsoft.org/libxslt/"
 }
 
 
@@ -178,6 +178,7 @@ function xmimsim_post()
 {
     local prefix=$(make_prefix ${1} ${2})
     if [[ -f ${prefix}/share/xmimsim/xmimsimdata.h5 ]]; then
+        cprint "${prefix}/share/xmimsim/xmimsimdata.h5 already exists"
         return
     fi
     if [[ ! -f xmimsimdata.h5 && ${ARG_SKIPLONG} == true ]]; then
@@ -192,6 +193,7 @@ function xmimsim_post()
         ${prefix}/bin/xmimsim-db xmimsimdata.h5
     fi
     cp -f xmimsimdata.h5 ${prefix}/share/xmimsim/xmimsimdata.h5
+    cprint "${prefix}/share/xmimsim/xmimsimdata.h5 created"
 }
 
 
