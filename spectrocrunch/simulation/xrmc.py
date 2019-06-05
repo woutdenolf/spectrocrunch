@@ -827,8 +827,11 @@ class Quadrics(xrmc_device):
 
     TYPE = 'quadricarray'
 
-    def __init__(self, parent, name):
+    def __init__(self, parent, name,
+                 orientation_inplane=None, orientation_outplane=None):
         super(Quadrics, self).__init__(parent, name)
+        self.orientation_inplane = orientation_inplane
+        self.orientation_outplane = orientation_outplane
         self.clear()
 
     @property
@@ -852,6 +855,8 @@ class Quadrics(xrmc_device):
             else:
                 comment = ''
             lines.append((' '.join(list(map(str, params))), comment, True))
+        lines += [('RotateAll 0 0 0 0 0 1 {}'.format(self.orientation_inplane), 'rotation around sample frame e2-axis (deg; >0 sample to the left when looking upstream)', bool(self.orientation_inplane)),
+                  ('RotateAll 0 0 0 1 0 0 {}'.format(self.orientation_outplane), 'rotation around sample frame e0-axis (deg; >0 sample below synchrotron e0e1-plane)', bool(self.orientation_outplane))]
         return lines
 
     def add_plane(self, name, x0, y0, z0, nx, ny, nz, fixed=False):
@@ -943,9 +948,11 @@ class Compositions(xrmc_device):
     def add(self, name, elements, massfractions, density):
         self._dict[name] = list(map(str, elements)), massfractions, density
 
-    def addmaterial(self, material):
+    def addmaterial(self, material, name=None):
         wfrac = material.elemental_massfractions()
-        self.add(str(material), list(wfrac.keys()), list(wfrac.values()), material.density)
+        if name is None:
+            name = material.name
+        self.add(name, list(wfrac.keys()), list(wfrac.values()), material.density)
 
     def clear(self):
         self._dict = {}
@@ -967,6 +974,9 @@ class XrmcWorldBuilder(object):
 
     def addcompoundfromname(self, name):
         self.compoundlib.addmaterial(compoundfromname(name))
+
+    def addmaterial(self, material):
+        self.compoundlib.addmaterial(material)
 
     def definesource(self, flux=None, energy=None, distance=None, beamsize=None, multiplicity=1):
         self.main.removedevice(cls=Source)
@@ -1015,7 +1025,7 @@ class XrmcWorldBuilder(object):
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity)
 
-    def addlayer(self, thickness=None, dhor=None, dvert=None, ohor=0, overt=0, material=None, atmosphere='Vacuum'):
+    def addlayer(self, material=None, thickness=None, dhor=None, dvert=None, ohor=0, overt=0, atmosphere='Vacuum'):
         ilayer = self.quadrics.add_layer(thickness, dhor, dvert, ohor, overt)
         box = ['layer{}a'.format(ilayer), 'layer{}b'.format(ilayer),
                'blayer{}_xmin'.format(ilayer), 'blayer{}_xmax'.format(ilayer),

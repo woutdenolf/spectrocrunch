@@ -130,8 +130,7 @@ class Element(hashable.Hashable, elementbase.ElementBase):
 
     @name.setter
     def name(self, value):
-        self._Z, self._name = elementParse(value)
-        self.MM = xraylib.AtomicWeight(self._Z)
+        self.Z = value
 
     def __getstate__(self):
         return {'Z': self.Z,

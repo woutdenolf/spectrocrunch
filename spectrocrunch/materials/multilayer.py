@@ -41,6 +41,8 @@ from ..math import noisepropagation
 from . import pymca
 from . import element
 from ..materials import compoundfromdb
+from ..materials import mixture
+from ..materials import types
 
 logger = logging.getLogger(__name__)
 
@@ -150,9 +152,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             fixed(list(num)): do not change this layer
             geometry(spectrocrunch.geometries.base.Centric): 
         """
-
         self.geometry = geometry
-
         if not instance.isarray(material):
             material = [material]
         if not instance.isarray(thickness):
@@ -161,10 +161,8 @@ class Multilayer(with_metaclass(cache.Cache)):
             fixed = [fixed]
         if len(fixed) != len(material) and len(fixed) == 1:
             fixed = fixed*len(material)
-
         self.layers = [Layer(material=mat, thickness=t, fixed=f, ml=self)
                        for mat, t, f in zip(material, thickness, fixed)]
-
         super(Multilayer, self).__init__(force=True)
 
     def __getstate__(self):
@@ -245,6 +243,17 @@ class Multilayer(with_metaclass(cache.Cache)):
         ret = self.arealdensity()
         s = sum(ret.values())
         return {el: w/s for el, w in ret.items()}
+
+    def tomixture(self, name=None):
+        if not name:
+            name = 'MULTILAYER'
+        vfrac = self.thickness
+        vfrac = vfrac.sum()
+        materials = [layer.material for layer in self]
+        return mixture.Mixture(materials,
+                               vfrac,
+                               types.fraction.volume,
+                               name=name)
 
     def mass_att_coeff(self, energy):
         """Total mass attenuation coefficient

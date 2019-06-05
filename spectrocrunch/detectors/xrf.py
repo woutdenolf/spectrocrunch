@@ -789,8 +789,8 @@ class sn3102(XRFDetector):
         kwargs["activearea"] = units.Quantity(activearea, "cm^2")
         kwargs["mcazero"] = kwargs.get('mcazero', 0.)  # keV
         kwargs["mcagain"] = kwargs.get('mcagain', 5e-3)  # keV
-        kwargs["mcanoise"] = kwargs.get('mcagain', 0.1)  # keV
-        kwargs["mcafano"] = kwargs.get('mcagain', 0.114)
+        kwargs["mcanoise"] = kwargs.get('mcanoise', 0.1)  # keV
+        kwargs["mcafano"] = kwargs.get('mcafano', 0.114)
         ehole = kwargs.get('ehole', constants.eholepair_si())
         kwargs["ehole"] = units.Quantity(ehole, "eV")
         super(sn3102, self).__init__(**kwargs)
@@ -814,8 +814,8 @@ class Leia(XRFDetector):
         kwargs["activearea"] = units.Quantity(activearea, "cm^2")
         kwargs["mcazero"] = kwargs.get('mcazero', 0.)
         kwargs["mcagain"] = kwargs.get('mcagain', 5e-3)
-        kwargs["mcanoise"] = kwargs.get('mcagain', 50e-3)
-        kwargs["mcafano"] = kwargs.get('mcagain', 0.19)
+        kwargs["mcanoise"] = kwargs.get('mcanoise', 50e-3)
+        kwargs["mcafano"] = kwargs.get('mcafano', 0.19)
         ehole = kwargs.get('ehole', constants.eholepair_si())
         kwargs["ehole"] = units.Quantity(ehole, "eV")
         super(Leia, self).__init__(**kwargs)
@@ -839,8 +839,8 @@ class BB8(XRFDetector):
         kwargs["activearea"] = units.Quantity(activearea, "cm^2")
         kwargs["mcazero"] = kwargs.get('mcazero', 0.)  # keV
         kwargs["mcagain"] = kwargs.get('mcagain', 5e-3)  # keV
-        kwargs["mcanoise"] = kwargs.get('mcagain', 0.1)  # keV
-        kwargs["mcafano"] = kwargs.get('mcagain', 0.114)
+        kwargs["mcanoise"] = kwargs.get('mcanoise', 0.1)  # keV
+        kwargs["mcafano"] = kwargs.get('mcafano', 0.114)
         ehole = kwargs.get('ehole', constants.eholepair_si())
         kwargs["ehole"] = units.Quantity(ehole, "eV")
         super(BB8, self).__init__(**kwargs)
@@ -864,8 +864,8 @@ class DR40(XRFDetector):
         kwargs["activearea"] = units.Quantity(activearea, "cm^2")
         kwargs["mcazero"] = kwargs.get('mcazero', 0.)  # keV
         kwargs["mcagain"] = kwargs.get('mcagain', 5e-3)  # keV
-        kwargs["mcanoise"] = kwargs.get('mcagain', 0.1)  # keV
-        kwargs["mcafano"] = kwargs.get('mcagain', 0.114)
+        kwargs["mcanoise"] = kwargs.get('mcanoise', 0.1)  # keV
+        kwargs["mcafano"] = kwargs.get('mcafano', 0.114)
         ehole = kwargs.get('ehole', constants.eholepair_si())
         kwargs["ehole"] = units.Quantity(ehole, "eV")
         super(DR40, self).__init__(**kwargs)
