@@ -249,8 +249,8 @@ class Element(hashable.Hashable, elementbase.ElementBase):
         return [self]
 
     @property
-    def ncompounds(self):
-        return 1
+    def parts(self):
+        return {self: 1}
 
     def _xraylib_method(self, method, E):
         return csutils.eval(method, self.Z, E, applypost=False)

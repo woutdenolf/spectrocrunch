@@ -68,7 +68,6 @@ class PymcaBaseHandle(object):
             fconfig = ConfigDict.ConfigDict()
             fconfig.read(filename)
             self.mcafit.configure(fconfig)
-
         if config is not None:
             self.mcafit.configure(config)
 
@@ -363,14 +362,18 @@ class PymcaBaseHandle(object):
         # polynomial is already in ymatrix, snip not
         out["ymatrix"] = ymatrix+ysnip
 
-        def _plot():
+        def _plot(ylog=False, show=True):
             plt.plot(out["energy"], out["y"], '+', label='data')
             plt.plot(out["energy"], out["yfit"], label='pymca fit')
             plt.plot(out["energy"], out["ymatrix"], label='pymca matrix')
             plt.plot(out["energy"], out["yback"], label='background')
-            plt.gca().set_yscale('log', basey=10)
+            if ylog:
+                plt.gca().set_yscale('log', basey=10)
             plt.legend()
-            plt.show()
+            plt.xlabel('MCA (keV)')
+            plt.ylabel('Counts')
+            if show:
+                plt.show()
         out["plot"] = _plot
 
         return out
@@ -384,14 +387,14 @@ class PymcaHandle(PymcaBaseHandle):
 
     def __init__(self, sample=None, emin=None, emax=None,
                  energy=None, weights=None, scatter=None,
-                 flux=1e9, time=0.1, escape=True, pileup=False, ninteractions=1,
-                 linear=False, snip=True, continuum=0, SingleLayerStrategy=None, noisepropagation=True):
-
+                 flux=1e9, time=0.1, escape=True, pileup=False,
+                 ninteractions=1, linear=False, snip=True,
+                 continuum=0, SingleLayerStrategy=None,
+                 noisepropagation=True):
         self.sample = sample
         self.set_source(energy=energy, weights=weights, scatter=scatter)
         self.emin = emin
         self.emax = emax
-
         self.linear = linear
         self.escape = escape
         self.pileup = pileup
@@ -402,7 +405,6 @@ class PymcaHandle(PymcaBaseHandle):
         self.SingleLayerStrategy = SingleLayerStrategy
         self.flux = flux
         self.time = time
-
         super(PymcaHandle, self).__init__()
 
     def __str__(self):
@@ -421,14 +423,11 @@ class PymcaHandle(PymcaBaseHandle):
     def set_source(self, energy=None, weights=None, scatter=None):
         if energy is None:
             return
-
         self.energy = units.umagnitude(energy, "keV")
-
         if weights is None:
             self.weights = np.ones_like(self.energy)
         else:
             self.weights = weights
-
         if scatter is None:
             self.scatter = np.ones_like(self.energy)
         elif isinstance(scatter, bool):
@@ -445,7 +444,7 @@ class PymcaHandle(PymcaBaseHandle):
 
     @flux.setter
     def flux(self, value):
-        self._flux = units.Quantity(value,'Hz').to('Hz')
+        self._flux = units.Quantity(value, 'Hz').to('Hz')
 
     @property
     def time(self):
@@ -453,7 +452,7 @@ class PymcaHandle(PymcaBaseHandle):
 
     @time.setter
     def time(self, value):
-        self._time = units.Quantity(value,'s').to('s')
+        self._time = units.Quantity(value, 's').to('s')
 
     @property
     def I0(self):
@@ -627,7 +626,6 @@ class PymcaHandle(PymcaBaseHandle):
         """
         super(PymcaHandle, self).loadfrompymca(
             filename=filename, config=config)
-
         config = self.mcafit.getConfiguration()
         self.loadfrompymca_beam(config)
         self.loadfrompymca_background(config)
@@ -773,7 +771,6 @@ class PymcaHandle(PymcaBaseHandle):
         else:
             x, y, ylabel = spectrum.peakspectrum(
                 fluxtime=self.I0, histogram=histogram, group=False)
-
         if not energy:
             a, b = spectrum.channellimits
             nchan = int(2**np.ceil(np.log2(b+1)))
@@ -781,7 +778,6 @@ class PymcaHandle(PymcaBaseHandle):
             mca[a:b+1] = y
             y = mca
             x = np.arange(nchan)
-
         if full:
             return x, y, ylabel
         else:

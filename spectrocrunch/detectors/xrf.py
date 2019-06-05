@@ -37,10 +37,29 @@ from copy import copy
 
 
 class XRFDetector(with_metaclass(base.CentricCone)):
+    """
+    Line profile:
+
+        1. R. van Grieken, A. Markowicz: Handbook of X-ray Spectrometry, CRC Press, Boca Raton (2001)
+           peak, tail and step have fixed area ratio's
+           area includes peak, tail and step
+        2. PyMca
+           peak and tail have a fixed area ratio
+           peak and step have a fixed height ratio
+           area includes only peak
+    """
 
     def __init__(self, mcazero=None, mcagain=None, mcanoise=None, mcafano=None,
-                 shape_fixedarearatios=None, shape_pymca={}, shape_conversionenergy=None, **kwargs):
-
+                 shape_fixedarearatios=None, shape_pymca=None, shape_conversionenergy=None, **kwargs):
+        """
+        Args:
+            mcazero(num):
+            mcagain(num):
+            mcanoise(num):
+            mcafano(num):
+            shape_fixedarearatios(Optional(dict)): see van Grieken
+            shape_pymca(Optional(dict)): see PyMca
+        """
         super(XRFDetector, self).__init__(**kwargs)
 
         self.mcazero = mcazero  # keV
@@ -61,6 +80,8 @@ class XRFDetector(with_metaclass(base.CentricCone)):
                 shape_fixedarearatios["ltailfraction"],\
                 shape_fixedarearatios["stepfraction"]
         else:
+            if shape_pymca is None:
+                shape_pymca = {}
             self.bpeak = shape_pymca.get("bpeak", True)
             self.bstail = shape_pymca.get("bstail", False)
             self.bltail = shape_pymca.get("bltail", False)
@@ -485,13 +506,6 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         Returns:
             array: nx x nu
         """
-        # [1] R. van Grieken, A. Markowicz: Handbook of X-ray Spectrometry, CRC Press, Boca Raton (2001)
-        #     peak, tail and step have fixed area ratio's
-        #     area include peak, tail and step
-        # [2] PyMca
-        #     peak and tail have a fixed area ratio
-        #     peak and step have a fixed height ratio
-        #     area include only peak
         x = instance.asarray(x)[:, np.newaxis]
         u = instance.asarray(u)[np.newaxis, :]
 

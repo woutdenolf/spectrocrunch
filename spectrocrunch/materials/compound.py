@@ -247,10 +247,6 @@ class Compound(multielementbase.MultiElementBase):
     def nelements(self):
         return len(self._elements)
 
-    @property
-    def ncompounds(self):
-        return 1
-
     def markabsorber(self, symb=None, shells=None, fluolines=None, energybounds=None):
         """
         Args:
