@@ -144,7 +144,7 @@ class Multilayer(with_metaclass(cache.Cache)):
 
     FISXCFG = pymca.FisxConfig()
 
-    def __init__(self, material=None, thickness=None, fixed=False, geometry=None):
+    def __init__(self, material=None, thickness=None, fixed=False, geometry=None, name=None):
         """
         Args:
             material(list(spectrocrunch.materials.compound|mixture)): layer composition
@@ -163,6 +163,9 @@ class Multilayer(with_metaclass(cache.Cache)):
             fixed = fixed*len(material)
         self.layers = [Layer(material=mat, thickness=t, fixed=f, ml=self)
                        for mat, t, f in zip(material, thickness, fixed)]
+        if not name:
+            name = 'MULTILAYER'
+        self.name = name
         super(Multilayer, self).__init__(force=True)
 
     def __getstate__(self):
@@ -244,16 +247,20 @@ class Multilayer(with_metaclass(cache.Cache)):
         s = sum(ret.values())
         return {el: w/s for el, w in ret.items()}
 
-    def tomixture(self, name=None):
-        if not name:
-            name = 'MULTILAYER'
-        vfrac = self.thickness
-        vfrac = vfrac.sum()
-        materials = [layer.material for layer in self]
-        return mixture.Mixture(materials,
-                               vfrac,
-                               types.fraction.volume,
-                               name=name)
+    def mixlayers(self):
+        n = len(self)
+        if n == 0:
+            return None
+        elif n == 1:
+            return self[0].material
+        else:
+            vfrac = self.thickness
+            vfrac = vfrac/float(vfrac.sum())
+            materials = [layer.material for layer in self]
+            return mixture.Mixture(materials,
+                                   vfrac,
+                                   types.fraction.volume,
+                                   name=self.name)
 
     def mass_att_coeff(self, energy):
         """Total mass attenuation coefficient

@@ -154,8 +154,11 @@ class Mixture(multielementbase.MultiElementBase):
 
     def __str__(self):
         ws = self.massfractions()
-        return ' + '.join("{:.02f} wt% {}".format(s[1]*100, s[0])
-                          for s in ws.items())
+        names, fractions = zip(*ws.items())
+        names = list(map(str, names))
+        names = ['(' + name + ')' if ' ' in name else name for name in names]
+        return ' + '.join("{:.02f} wt% {}".format(w*100, name)
+                          for name, w in zip(names, fractions))
 
     def __getitem__(self, compound):
         return self.compounds[compound]
@@ -274,8 +277,9 @@ class Mixture(multielementbase.MultiElementBase):
                     environ = c
                 else:
                     environ = None
+                kwargs['environ'] = environ
                 for e, w in c.massfractions().items():
-                    cs = getattr(e, method)(E, environ=environ, **kwargs)
+                    cs = getattr(e, method)(E, **kwargs)
                     ret[c]["cs"][e] = {"w": w, "cs": cs}
         else:
             if self._cs_dict(method):
@@ -287,9 +291,10 @@ class Mixture(multielementbase.MultiElementBase):
                         environ = c
                     else:
                         environ = None
+                    kwargs['environ'] = environ
                     e_wfrac = c.massfractions()
-                    for e in c.elements:
-                        cs = getattr(e, method)(E, environ=environ, **kwargs)
+                    for e in c.parts:
+                        cs = getattr(e, method)(E, **kwargs)
                         if not cs:
                             continue
                         w = c_wfrac[c]*e_wfrac[e]
@@ -304,9 +309,10 @@ class Mixture(multielementbase.MultiElementBase):
                         environ = c
                     else:
                         environ = None
+                    kwargs['environ'] = environ
                     e_wfrac = c.massfractions()
-                    eret = sum(c_wfrac[c]*e_wfrac[e]*getattr(e, method)(E, environ=environ, **kwargs)
-                               for e in c.elements)
+                    eret = sum(c_wfrac[c]*e_wfrac[e]*getattr(e, method)(E, **kwargs)
+                               for e in c.parts)
                     if ret is None:
                         ret = eret
                     else:

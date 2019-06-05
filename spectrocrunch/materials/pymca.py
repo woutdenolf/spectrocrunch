@@ -387,21 +387,7 @@ class PymcaHandle(PymcaBaseHandle):
                  flux=1e9, time=0.1, escape=True, pileup=False, ninteractions=1,
                  linear=False, snip=True, continuum=0, SingleLayerStrategy=None, noisepropagation=True):
 
-        # TODO: do we need this?
-        if sample is None:
-            from . import multilayer
-            from ..geometries import xrf as xrfgeometries
-            from ..sources import xray as xraysources
-            from ..detectors import xrf as xrfdetectors
-
-            source = xraysources.factory("synchrotron")
-            detector = xrfdetectors.factory("XRFDetector", ehole=3.8)
-            geometry = xrfgeometries.factory("LinearXRFGeometry", detector=detector, source=source,
-                                             zerodistance=0, detectorposition=0, positionunits="mm")
-            sample = multilayer.Multilayer(geometry=geometry)
-
         self.sample = sample
-
         self.set_source(energy=energy, weights=weights, scatter=scatter)
         self.emin = emin
         self.emax = emax
@@ -424,8 +410,13 @@ class PymcaHandle(PymcaBaseHandle):
             self.weights), instance.asarray(self.scatter))
         s = '\n '.join("{} keV: {} % (Scatter: {})".format(k, v*100, sc)
                        for k, v, sc in s)
+        if self.sample:
+            sample = str(self.sample)
+            geometry = str(self.sample.geometry)
+        else:
+            sample = geometry = None
         return "Flux = {:~}\nTime = {:~}\nSource lines:\n {}\n{}\n{}"\
-            .format(self.flux, self.time, s, self.sample, self.sample.geometry)
+            .format(self.flux, self.time, s, sample, geometry)
 
     def set_source(self, energy=None, weights=None, scatter=None):
         if energy is None:
@@ -477,7 +468,10 @@ class PymcaHandle(PymcaBaseHandle):
         if self._emax is None:
             # include elastic scattering peaks
             p = np.max(self.energy)
-            s = np.sqrt(self.sample.geometry.detector.gaussianVAR(p))
+            if self.sample:
+                s = np.sqrt(self.sample.geometry.detector.gaussianVAR(p))
+            else:
+                s = 0.1
             return p+3*s
         else:
             return self._emax
@@ -491,7 +485,10 @@ class PymcaHandle(PymcaBaseHandle):
         if self._emin is None:
             # include Al-K lines
             p = xraylib.LineEnergy(13, xraylib.KL3_LINE)
-            s = np.sqrt(self.sample.geometry.detector.gaussianVAR(p))
+            if self.sample:
+                s = np.sqrt(self.sample.geometry.detector.gaussianVAR(p))
+            else:
+                s = 0.1
             return p-3*s
         else:
             return self._emin

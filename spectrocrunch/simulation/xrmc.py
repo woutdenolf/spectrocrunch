@@ -595,7 +595,7 @@ class Detector(xrmc_device):
     def __init__(self, parent, name, distance=None,
                  poissonnoise=True, ebinsize=None,
                  orientation_inplane=None, orientation_outplane=None,
-                 forcedetect=False, multiplicity=None):
+                 forcedetect=False, multiplicity=None, time=1):
         super(Detector, self).__init__(parent, name)
         self.orientation_inplane = orientation_inplane
         self.orientation_outplane = orientation_outplane
@@ -604,6 +604,7 @@ class Detector(xrmc_device):
         self.poissonnoise = poissonnoise
         self.forcedetect = forcedetect
         self.multiplicity = multiplicity
+        self.time = time
 
     @property
     def header(self):
@@ -640,7 +641,7 @@ class Detector(xrmc_device):
                   ('X 0 {} 0'.format(self.distance), 'origin of the detector in the sample frame (x, y, z; cm)', True),
                   ('uk 0 -1 0', 'direction of e2d in the sample frame (x, y, z; cm)', True),
                   ('ui 0 0 1', 'direction of e0d (rows) in the sample frame (x, y, z; cm)', True),
-                  ('ExpTime 1', 'Exposure time (sec)', True),
+                  ('ExpTime {}'.format(self.time), 'Exposure time (sec)', True),
                   ('PhotonNum {:d}'.format(m), 'Multiplicity of simulated events per pixel', True),
                   ('RandomPixelFlag 1', 'Enable random point on pixels (0/1)', True),
                   ('PoissonFlag {:d}'.format(self.poissonnoise), 'Enable Poisson statistic on pix. counts (0/1)', True),
@@ -999,7 +1000,7 @@ class XrmcWorldBuilder(object):
     def addxrfdetector(self, distance=None, activearea=None, ebinsize=None,
                        orientation_inplane=0, orientation_outplane=0,
                        poissonnoise=False, forcedetect=True, multiplicity=1,
-                       response=None):
+                       response=None, time=1):
         self.main.removedevice(cls=Detector)
         if response:
             cls = SDD
@@ -1011,7 +1012,7 @@ class XrmcWorldBuilder(object):
                                     orientation_inplane=orientation_inplane, orientation_outplane=orientation_outplane,
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity,
-                                    **response)
+                                    time=time, **response)
 
     def addareadetector(self, distance=None, activearea=None, ebinsize=None,
                         orientation_inplane=0, orientation_outplane=0,
