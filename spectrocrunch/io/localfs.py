@@ -118,6 +118,9 @@ class Path(fs.Path):
                 raise fs.Missing(self.location)
             elif err.errno == errno.EISDIR:
                 raise fs.NotAFile(self.location)
+            elif not self.isfile:
+                # On windows EACCES instead of EISDIR
+                raise fs.NotAFile(self.location)
             else:
                 raise
         # finally:
