@@ -50,6 +50,14 @@ function travis_depbuild_folder()
 }
 
 
+function travis_exdepbuild_folder()
+{
+    local pybuild_folder=$(travis_cached_folder)/ex$(python_depdir)
+    mkdir -p ${pybuild_folder}
+    echo "${pybuild_folder}"
+}
+
+
 function travis_venv()
 {
     echo $(travis_build_folder)/virtualenv/python$(python_version)
@@ -72,6 +80,7 @@ function travis_init_python()
         python_virtualenv_deactivate
         require_python ${pythonv}
         if [[ $? != 0 ]]; then
+            install_systemwide reset false
             cd ${restorewd}
             return 1
         fi
@@ -91,20 +100,25 @@ function travis_init_python()
 function travis_init_cmake()
 {
     local restorewd=$(pwd)
-    cd $(travis_cached_folder)
+    cd $(travis_exdepbuild_folder)
     local cmakev=${1}
-    if [[ $(system_privileges) == false ]]; then
-        sudo -s "exit"
-    fi
+
     if [[ $(dryrun) == false ]]; then
-        export PROJECT_PREFIX="/usr/local"
+        export CMAKE_INSTALL="sh"
         require_cmake ${cmakev}
         if [[ $? != 0 ]]; then
-            unset PROJECT_PREFIX
+            unset CMAKE_INSTALL
             cd ${restorewd}
             return 1
         fi
-        unset PROJECT_PREFIX
+        unset CMAKE_INSTALL
+
+        # Different location on travis
+        if [[ -d "${HOME}/.local/cmake/${cmakev}" ]];then
+            sudo rm -rf /usr/local/cmake-${cmakev}
+            sudo mv ${HOME}/.local/cmake/${cmakev} /usr/local/cmake-${cmakev}
+            addBinPath "/usr/local/cmake-${cmakev}/bin"
+        fi
     fi
     cd ${restorewd}
 }

@@ -176,7 +176,7 @@ function xmimsim_source_install()
 
 function xmimsim_post()
 {
-    local prefix=$(make_prefix ${1} ${2})
+    local prefix=$(easymake_prefix ${1} ${2})
     if [[ -f ${prefix}/share/xmimsim/xmimsimdata.h5 ]]; then
         return
     fi

@@ -83,9 +83,6 @@ function main()
         return 1
     fi
 
-    travis_cleanup_python
-    return 1
-
     if [[ ${ARG_PREBUILD} == false ]]; then
         travis_prepare
         if [[ $? != 0 ]]; then

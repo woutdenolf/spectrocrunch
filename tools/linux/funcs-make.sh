@@ -111,10 +111,10 @@ function get_local_version_strict()
 }
 
 
-# ============make_prefix============
+# ============easymake_prefix============
 # Description: 
-# Usage: make_prefix xraylib 3.3.0
-function make_prefix()
+# Usage: easymake_prefix xraylib 3.3.0
+function easymake_prefix()
 {
     local program=${1}
     local version=${2}
@@ -122,10 +122,10 @@ function make_prefix()
 }
 
 
-# ============make_prefixstr============
+# ============easymake_prefixstr============
 # Description: 
-# Usage: make_prefixstr xraylib 3.3.0
-function make_prefixstr()
+# Usage: easymake_prefixstr xraylib 3.3.0
+function easymake_prefixstr()
 {
     local program=${1}
     local version=${2}
@@ -240,6 +240,115 @@ function makeenv_removelocal()
 }
 
 
+# ============makeenv_removelocal============
+# Description: 
+# Usage: 
+function easymake_makeenv()
+{
+    local program=${1}
+    local version=${2}
+    local prefix=$(easymake_prefix ${program} ${version})
+    local prefixstr=$(easymake_prefixstr ${program} ${version})
+
+    addProfile $(project_resource) "# Installed ${program}: ${prefixstr}"
+    if [[ -d "${prefix}/bin/${program}" ]];then
+        addBinPath "${prefix}/bin/${program}"
+        addBinPathProfile $(project_resource) "${prefixstr}/bin/${program}"
+    else
+        addBinPath "${prefix}/bin"
+        addBinPathProfile $(project_resource) "${prefixstr}/bin"
+    fi
+    if [[ -d "${prefix}/lib/${program}" ]];then
+        addLibPath "${prefix}/lib/${program}"
+        addLibPathProfile $(project_resource) "${prefixstr}/lib/${program}"
+    else
+        addLibPath "${prefix}/lib"
+        addLibPathProfile $(project_resource) "${prefixstr}/lib"
+    fi
+    if [[ -d "${prefix}/include/${program}" ]];then
+        addInclPath "${prefix}/include/${program}"
+        addInclPathProfile $(project_resource) "${prefixstr}/include/${program}"
+    else
+        addInclPath "${prefix}/include"
+        addInclPathProfile $(project_resource) "${prefixstr}/include"
+    fi
+    if [[ -d "${prefix}/lib/${program}/pkgconfig" ]];then
+        addPkgConfigPath "${prefix}/lib/${program}/pkgconfig"
+        addPkgConfigPathProfile $(project_resource) "${prefixstr}/lib/${program}/pkgconfig"
+    else
+        addPkgConfigPath "${prefix}/lib/pkgconfig"
+        addPkgConfigPathProfile $(project_resource) "${prefixstr}/lib/pkgconfig"
+    fi
+}
+
+
+# ============easymake_configure============
+# Description: 
+# Usage: 
+function easymake_configure()
+{
+    local program=${1}
+    local version=${2}
+    local cfgparams="${@:3}"
+    local prefix=$(easymake_prefix ${program} ${version})
+
+    if [[ -e "Makefile" ]]; then
+        cprint "Configure ${program} (${version}): already configured."
+        cprint " --prefix=\"${prefix}\" ${cfgparams}"
+    else
+        cprint "Configure ${program} (${version}) with options:"
+        cprint " --prefix=\"${prefix}\" ${cfgparams}" 
+        
+        # In case configure file does not exist
+        if [[ ! -f "../configure" && -f "../configure.ac" ]]; then
+            cd ..
+            libtoolize --force
+            aclocal
+            autoheader
+            automake --force-missing --add-missing
+            autoconf
+            cd build
+        fi
+        # Configure
+        ../configure --help
+        ../configure --prefix="${prefix}" ${cfgparams}
+        
+        if [[ $? != 0 ]]; then
+            cerror "Configuring ${program} (${version}) failed"
+            LD_LIBRARY_PATH=${keep_LD_LIBRARY_PATH}
+            cd ${restorewd}
+            return
+        fi
+    fi
+}
+
+
+# ============easymake_build============
+# Description: 
+# Usage: 
+function easymake_build()
+{
+    local program=${1}
+    local version=${2}
+    make -s -j$(($(nproc)+1))
+    return $?
+}
+
+
+# ============easymake_install============
+# Description: 
+# Usage: 
+function easymake_install()
+{
+    local program=${1}
+    local version=${2}
+    local prefix=$(easymake_prefix ${program} ${version})
+    mmakeinstall "${program}-${version}"
+    #mmakepack ${prefix}
+    #mdpkg_install *.deb ${prefix}
+}
+
+
 # ============easymake============
 # Description: Execute typical configure/make/make install
 #              Either directory program-version must exist
@@ -255,6 +364,8 @@ function easymake()
     local func_build="${program}_build"
     local func_install="${program}_install"
     local func_post="${program}_post"
+    local prefix=$(easymake_prefix ${program} ${version})
+    cfgparams=$(eval echo ${cfgparams})
 
     local base=${program}-${version}
     if [[ ! -d ${base} ]]; then
@@ -271,111 +382,48 @@ function easymake()
     mkdir -p build
     cd build
 
-    local prefix=$(make_prefix ${program} ${version})
-    local prefixstr=$(make_prefixstr ${program} ${version})
-    cfgparams=$(eval echo ${cfgparams})
-
     # Make sure destination exists
+    echo mexec mkdir -p ${prefix}
     mexec mkdir -p ${prefix}
     
     # Remove local directory env paths
     makeenv_removelocal
-
-    # Configure
     cprint_makeenv
+
+    cprint "Configure ${program} (${version}) with options:"
+    local prefix=$(easymake_prefix ${program} ${version})
+    cfgparams=$(eval echo ${cfgparams})
+    cprint "${cfgparams}"
     if [[ $(cmdexists ${func_configure}) == true ]];then
-        cprint "Configure ${program} (${version}) with options:"
-        cprint "${cfgparams}" 
         eval ${func_configure} ${program} ${version} ${cfgparams}
     else
-        if [[ -e "Makefile" ]]; then
-            cprint "Configure ${program} (${version}): already configured."
-	        cprint " --prefix=\"${prefix}\" ${cfgparams}"
-        else
-            cprint "Configure ${program} (${version}) with options:"
-            cprint " --prefix=\"${prefix}\" ${cfgparams}" 
-            
-            # In case configure file does not exist
-            if [[ ! -f "../configure" && -f "../configure.ac" ]]; then
-                cd ..
-                libtoolize --force
-                aclocal
-                autoheader
-                automake --force-missing --add-missing
-                autoconf
-                cd build
-            fi
-            # Configure
-            #../configure --help
-            #return
-            ../configure --prefix="${prefix}" ${cfgparams}
-
-            
-            if [[ $? != 0 ]]; then
-                cerror "Configuring ${program} (${version}) failed"
-                LD_LIBRARY_PATH=${keep_LD_LIBRARY_PATH}
-                cd ${restorewd}
-                return
-            fi
-        fi
+        easymake_configure ${program} ${version} ${cfgparams}
     fi
 
     cprint "Build ${program} (${version}) ..."
     if [[ $(cmdexists ${func_build}) == true ]];then
         eval ${func_build} ${program} ${version}
     else
-        make -s -j$(($(nproc)+1))
-        if [[ $? != 0 ]]; then
-            cerror "Building ${program} (${version}) failed"
-            cd ${restorewd}
-            return
-        fi
+        easymake_build ${program} ${version}
+    fi
+    if [[ $? != 0 ]]; then
+        cerror "Building ${program} (${version}) failed"
+        cd ${restorewd}
+        return
     fi
     
     cprint "Install ${program} (${version}) ..."
     if [[ $(cmdexists ${func_install}) == true ]];then
         eval ${func_install} ${program} ${version}
     else
-        mmakeinstall "${program}-${version}"
-        #mmakepack ${prefix}
-        #mdpkg_install *.deb ${prefix}
+        easymake_install ${program} ${version}
     fi
 
-
     cprint "Set environment for ${program} (${version}) ..."
-    if [[ $(cmdexists ${func_environment}) == true ]];then
-        eval ${func_environment} ${program} ${version}
+    if [[ $(cmdexists ${func_makeenv}) == true ]];then
+        eval ${func_makeenv} ${program} ${version}
     else
-        addProfile $(project_resource) "# Installed ${program}: ${prefixstr}"
-        if [[ -d "${prefix}/bin/${program}" ]];then
-            addBinPath "${prefix}/bin/${program}"
-            addBinPathProfile $(project_resource) "${prefixstr}/bin/${program}"
-        else
-            addBinPath "${prefix}/bin"
-            addBinPathProfile $(project_resource) "${prefixstr}/bin"
-        fi
-        if [[ -d "${prefix}/lib/${program}" ]];then
-            addLibPath "${prefix}/lib/${program}"
-            addLibPathProfile $(project_resource) "${prefixstr}/lib/${program}"
-        else
-            addLibPath "${prefix}/lib"
-            addLibPathProfile $(project_resource) "${prefixstr}/lib"
-        fi
-        if [[ -d "${prefix}/include/${program}" ]];then
-            addInclPath "${prefix}/include/${program}"
-            addInclPathProfile $(project_resource) "${prefixstr}/include/${program}"
-        else
-            addInclPath "${prefix}/include"
-            addInclPathProfile $(project_resource) "${prefixstr}/include"
-        fi
-        if [[ -d "${prefix}/lib/${program}/pkgconfig" ]];then
-            addPkgConfigPath "${prefix}/lib/${program}/pkgconfig"
-            addPkgConfigPathProfile $(project_resource) "${prefixstr}/lib/${program}/pkgconfig"
-        else
-            addPkgConfigPath "${prefix}/lib/pkgconfig"
-            addPkgConfigPathProfile $(project_resource) "${prefixstr}/lib/pkgconfig"
-        fi
-
+        easymake_makeenv ${program} ${version}
     fi
 
     cprint "Post installation ${program} (${version}) ..."

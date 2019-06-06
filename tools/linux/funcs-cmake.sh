@@ -64,9 +64,18 @@ function cmake_latest()
 
 function cmake_download()
 {
-    if [[ ! -f ${1}.tar.gz ]]; then
-        local _mversion=$(cmake_extractmainv ${1})
-        curl -L $(cmake_url)/v${_mversion}/${1}.tar.gz --output ${1}.tar.gz
+    if [[ ${CMAKE_INSTALL} == "sh" ]];then
+        if [[ ! -f install.sh ]];then
+            mkdir -p ${1}
+            cd ${1}
+            curl -L https://github.com/Kitware/CMake/releases/download/v${cmakev}/cmake-${cmakev}-Linux-x86_64.sh --output install.sh
+            cd ..
+        fi
+    else
+        if [[ ! -f ${1}.tar.gz ]]; then
+            local _mversion=$(cmake_extractmainv ${1})
+            curl -L $(cmake_url)/v${_mversion}/${1}.tar.gz --output ${1}.tar.gz
+        fi
     fi
 }
 
@@ -87,10 +96,39 @@ function cmake_system_install()
 
 function cmake_configure()
 {
-    if [[ -e "Makefile" ]]; then
-        cprint "Configure ${1} (${2}): already configured."
+    if [[ ${CMAKE_INSTALL} == "sh" ]];then
+        cprint "Installation script does not need configuration"
     else
-        ../bootstrap "${@:3}"
+        if [[ -e "Makefile" ]]; then
+            cprint "Configure ${1} (${2}): already configured."
+        else
+            ../bootstrap "${@:3}"
+        fi
+    fi
+}
+
+
+function cmake_build()
+{
+    if [[ ${CMAKE_INSTALL} == "sh" ]];then
+        cprint "Installation script does not need build"
+    else
+        easymake_build "${@}" 
+        return $?
+    fi
+}
+
+
+function cmake_install()
+{
+    if [[ ${CMAKE_INSTALL} == "sh" ]];then
+        local program=${1}
+        local version=${2}
+        local prefix=$(easymake_prefix ${program} ${version})
+        mexec sh ../install.sh  --skip-license --prefix=${prefix}
+    else
+        easymake_install "${@}" 
+        return $?
     fi
 }
 
@@ -113,6 +151,9 @@ function cmake_version()
 
 function require_cmake()
 {
+    if [[ -z ${CMAKE_INSTALL} ]];then
+        CMAKE_INSTALL="sh"
+    fi
     require_software cmake ${1}
 }
 
