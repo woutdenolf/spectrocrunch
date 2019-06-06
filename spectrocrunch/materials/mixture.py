@@ -66,26 +66,26 @@ class Mixture(multielementbase.MultiElementBase):
         self._compose_compounds(compounds, nfrac)
 
     def _compose_compounds(self, compounds, nfrac):
-        self.compounds = {}
+        self._compounds = {}
         for c, n in zip(compounds, nfrac):
-            if c in self.compounds:
-                self.compounds[c] += float(n)
+            if c in self._compounds:
+                self._compounds[c] += float(n)
             else:
-                self.compounds[c] = float(n)
+                self._compounds[c] = float(n)
 
     def __getstate__(self):
         return {'name': self.name,
-                'compounds_keys': list(self.compounds.keys()),
-                'compounds_values': list(self.compounds.values())}
+                'compounds_keys': list(self._compounds.keys()),
+                'compounds_values': list(self._compounds.values())}
 
     def __setstate__(self, state):
         self.name = state['name']
-        self.compounds = dict(zip(state['compounds_keys'],
-                                  state['compounds_values']))
+        self._compounds = dict(zip(state['compounds_keys'],
+                                   state['compounds_values']))
 
     @property
     def parts(self):
-        return self.compounds
+        return self._compounds
 
     def addcompound(self, c, frac, fractype):
         """Add a compound to the mixture
@@ -102,18 +102,18 @@ class Mixture(multielementbase.MultiElementBase):
                 nfrac = stoichiometry.add_frac(nfrac, frac)
             else:
                 nfrac = np.append(nfrac, frac)
-            compounds = list(self.compounds.keys())+[c]
+            compounds = list(self._compounds.keys())+[c]
         elif fractype == types.fraction.volume:
             vfrac = np.asarray(list(self.volumefractions().values()))
             vfrac = stoichiometry.add_frac(vfrac, frac)
-            compounds = list(self.compounds.keys())+[c]
+            compounds = list(self._compounds.keys())+[c]
             MM = np.asarray([c.molarmass() for c in compounds])
             rho = np.asarray([c.density for c in compounds])
             nfrac = stoichiometry.frac_volume_to_mole(vfrac, rho, MM)
         else:
             wfrac = np.asarray(list(self.massfractions().values()))
             wfrac = stoichiometry.add_frac(wfrac, frac)
-            compounds = list(self.compounds.keys())+[c]
+            compounds = list(self._compounds.keys())+[c]
             MM = np.asarray([c.molarmass() for c in compounds])
             nfrac = stoichiometry.frac_weight_to_mole(wfrac, MM)
 
@@ -129,7 +129,6 @@ class Mixture(multielementbase.MultiElementBase):
         """
         compounds = list(dfrac.keys())
         fractions = np.asarray(list(dfrac.values()))
-
         if fractype == types.fraction.mole:
             nfrac = fractions
         elif fractype == types.fraction.volume:
@@ -139,7 +138,6 @@ class Mixture(multielementbase.MultiElementBase):
         else:
             MM = np.asarray([c.molarmass() for c in compounds])
             nfrac = stoichiometry.frac_weight_to_mole(fractions, MM)
-
         self._compose_compounds(compounds, nfrac)
 
     def tocompound(self, name=None):
@@ -154,15 +152,18 @@ class Mixture(multielementbase.MultiElementBase):
 
     def __str__(self):
         ws = self.massfractions()
-        return ' + '.join("{:.02f} wt% {}".format(s[1]*100, s[0])
-                          for s in ws.items())
+        names, fractions = zip(*ws.items())
+        names = list(map(str, names))
+        names = ['(' + name + ')' if ' ' in name else name for name in names]
+        return ' + '.join("{:.02f} wt% {}".format(w*100, name)
+                          for name, w in zip(names, fractions))
 
     def __getitem__(self, compound):
-        return self.compounds[compound]
+        return self._compounds[compound]
 
     @property
     def elements(self):
-        return list(set(e for c in self.compounds for e in c.elements))
+        return list(set(e for c in self._compounds for e in c.elements))
 
     def molarmass(self, total=True):
         # equivalent to using molefractions when total=True
@@ -185,11 +186,11 @@ class Mixture(multielementbase.MultiElementBase):
 
     def molefractions(self, total=True):
         if total:
-            return dict(self.compounds)
+            return dict(self._compounds)
         else:
-            nfrac = np.asarray(list(self.compounds.values()))
+            nfrac = np.asarray(list(self._compounds.values()))
             nfrac /= nfrac.sum()
-            return dict(zip(self.compounds.keys(), nfrac))
+            return dict(zip(self._compounds.keys(), nfrac))
 
     def massfractions(self):
         nfrac = self.molefractions()
@@ -216,11 +217,7 @@ class Mixture(multielementbase.MultiElementBase):
 
     @property
     def nelements(self):
-        return sum(c.nelements for c in self.compounds)
-
-    @property
-    def ncompounds(self):
-        return len(self.compounds)
+        return sum(c.nelements for c in self._compounds)
 
     @property
     def density(self):
@@ -274,8 +271,9 @@ class Mixture(multielementbase.MultiElementBase):
                     environ = c
                 else:
                     environ = None
+                kwargs['environ'] = environ
                 for e, w in c.massfractions().items():
-                    cs = getattr(e, method)(E, environ=environ, **kwargs)
+                    cs = getattr(e, method)(E, **kwargs)
                     ret[c]["cs"][e] = {"w": w, "cs": cs}
         else:
             if self._cs_dict(method):
@@ -287,9 +285,10 @@ class Mixture(multielementbase.MultiElementBase):
                         environ = c
                     else:
                         environ = None
+                    kwargs['environ'] = environ
                     e_wfrac = c.massfractions()
-                    for e in c.elements:
-                        cs = getattr(e, method)(E, environ=environ, **kwargs)
+                    for e in c.parts:
+                        cs = getattr(e, method)(E, **kwargs)
                         if not cs:
                             continue
                         w = c_wfrac[c]*e_wfrac[e]
@@ -304,9 +303,10 @@ class Mixture(multielementbase.MultiElementBase):
                         environ = c
                     else:
                         environ = None
+                    kwargs['environ'] = environ
                     e_wfrac = c.massfractions()
-                    eret = sum(c_wfrac[c]*e_wfrac[e]*getattr(e, method)(E, environ=environ, **kwargs)
-                               for e in c.elements)
+                    eret = sum(c_wfrac[c]*e_wfrac[e]*getattr(e, method)(E, **kwargs)
+                               for e in c.parts)
                     if ret is None:
                         ret = eret
                     else:
@@ -315,7 +315,7 @@ class Mixture(multielementbase.MultiElementBase):
 
     def markinfo(self):
         yield "{}".format(self.name)
-        for c in self.compounds:
+        for c in self._compounds:
             for s in c.markinfo():
                 yield " {}".format(s)
 
@@ -324,36 +324,36 @@ class Mixture(multielementbase.MultiElementBase):
         Args:
             symb(str): element symbol
         """
-        for c in self.compounds:
+        for c in self._compounds:
             c.markabsorber(symb, shells=shells,
                            fluolines=fluolines, energybounds=energybounds)
 
     def unmarkabsorber(self):
-        for c in self.compounds:
+        for c in self._compounds:
             c.unmarkabsorber()
 
     def hasabsorbers(self):
-        return any([c.hasabsorbers() for c in self.compounds])
+        return any([c.hasabsorbers() for c in self._compounds])
 
     def markscatterer(self, name=None):
         """
         Args:
             name(str): compound name
         """
-        for c in self.compounds:
+        for c in self._compounds:
             c.markscatterer(name)
 
     def unmarkscatterer(self):
-        for c in self.compounds:
+        for c in self._compounds:
             c.unmarkscatterer()
 
     def hasscatterers(self):
-        return any([c.isscatterer() for c in self.compounds])
+        return any([c.isscatterer() for c in self._compounds])
 
     def get_energy(self, energyrange, defaultinc=1):
         """Get absolute energies (keV) from a relative energy range (eV)
         """
-        for c in self.compounds:
+        for c in self._compounds:
             ret = c.get_energy(energyrange, defaultinc=defaultinc)
             if ret is not None:
                 return ret

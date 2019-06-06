@@ -247,10 +247,6 @@ class Compound(multielementbase.MultiElementBase):
     def nelements(self):
         return len(self._elements)
 
-    @property
-    def ncompounds(self):
-        return 1
-
     def markabsorber(self, symb=None, shells=None, fluolines=None, energybounds=None):
         """
         Args:
@@ -304,22 +300,23 @@ class Compound(multielementbase.MultiElementBase):
             environ = self
         else:
             environ = None
+        kwargs['environ'] = environ
         if decomposed:
             ret = {}
             for e, w in e_wfrac.items():
-                cs = getattr(e, method)(E, environ=environ, **kwargs)
+                cs = getattr(e, method)(E, **kwargs)
                 ret[e] = {"w": w, "cs": cs}
         else:
             if self._cs_dict(method):
                 ret = {}
                 for e, w in e_wfrac.items():
-                    cs = getattr(e, method)(E, environ=environ, **kwargs)
+                    cs = getattr(e, method)(E, **kwargs)
                     if not cs:
                         continue
                     for k, v in cs.items():
                         ret[k] = ret.get(k, 0) + w*v
             else:
-                ret = sum(w*getattr(e, method)(E, environ=environ, **kwargs)
+                ret = sum(w*getattr(e, method)(E, **kwargs)
                           for e, w in e_wfrac.items())
         return ret
 

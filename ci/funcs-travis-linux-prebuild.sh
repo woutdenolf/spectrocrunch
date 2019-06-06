@@ -161,8 +161,7 @@ function travis_build_project()
     local restorewd=$(pwd)
     cd $(project_folder)
 
-    cprintstart
-    cprint "Build project ..."
+    cprintstart "Build project"
 
     if [[ $(dryrun) == false ]]; then
         $(python_bin) setup.py build_py --build-lib=$(travis_pybuild_folder)/build/lib -f
@@ -172,6 +171,7 @@ function travis_build_project()
     fi
 
     cd ${restorewd}
+    cprintend "Build project"
 }
 
 
@@ -180,8 +180,7 @@ function travis_test_project()
     local restorewd=$(pwd)
     cd $(travis_build_folder)
 
-    cprintstart
-    cprint "Install/test $(project_name) ..."
+    cprintstart "Install/test $(project_name)"
 
     if [[ $(dryrun) == false ]]; then
         cprint "Uninstall $(project_name) ..."
@@ -197,6 +196,7 @@ function travis_test_project()
     fi
 
     cd ${restorewd}
+    cprintend "Install/test $(project_name)"
 }
 
 
@@ -214,8 +214,7 @@ function travis_pack_prebuild()
     cd $(travis_cached_folder)
 
     local filename=$(project_name).travis.python$(python_version).tgz
-    cprintstart
-    cprint "Pack ${filename} ..."
+    cprintstart "Pack ${filename}"
 
     if [[ $(dryrun) == false ]]; then
         rm -f ${filename}
@@ -227,4 +226,5 @@ function travis_pack_prebuild()
     fi
 
     cd ${restorewd}
+    cprintend "Pack ${filename}"
 }

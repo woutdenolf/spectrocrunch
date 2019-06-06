@@ -149,7 +149,6 @@ def showxrmcresult(data, x0=None, x1=None, xenergy=None, time=None, ylog=False):
                 plt.title(label + ' (looking upstream)')
                 plt.xlabel('Synchrotron plane (cm)')
                 plt.ylabel('Vertical direction (cm)')
-    plt.show()
 
 
 class xrmc_file(object):
@@ -595,7 +594,7 @@ class Detector(xrmc_device):
     def __init__(self, parent, name, distance=None,
                  poissonnoise=True, ebinsize=None,
                  orientation_inplane=None, orientation_outplane=None,
-                 forcedetect=False, multiplicity=None):
+                 forcedetect=False, multiplicity=None, time=1):
         super(Detector, self).__init__(parent, name)
         self.orientation_inplane = orientation_inplane
         self.orientation_outplane = orientation_outplane
@@ -604,6 +603,7 @@ class Detector(xrmc_device):
         self.poissonnoise = poissonnoise
         self.forcedetect = forcedetect
         self.multiplicity = multiplicity
+        self.time = time
 
     @property
     def header(self):
@@ -621,7 +621,6 @@ class Detector(xrmc_device):
     @property
     def code(self):
         lines = super(Detector, self).code
-        spectrum = self.parent.spectrum()
         energydispersive = self.energydispersive
         m = int(np.round(self.multiplicity))
         if self.dims == (1, 1):
@@ -640,7 +639,7 @@ class Detector(xrmc_device):
                   ('X 0 {} 0'.format(self.distance), 'origin of the detector in the sample frame (x, y, z; cm)', True),
                   ('uk 0 -1 0', 'direction of e2d in the sample frame (x, y, z; cm)', True),
                   ('ui 0 0 1', 'direction of e0d (rows) in the sample frame (x, y, z; cm)', True),
-                  ('ExpTime 1', 'Exposure time (sec)', True),
+                  ('ExpTime {}'.format(self.time), 'Exposure time (sec)', True),
                   ('PhotonNum {:d}'.format(m), 'Multiplicity of simulated events per pixel', True),
                   ('RandomPixelFlag 1', 'Enable random point on pixels (0/1)', True),
                   ('PoissonFlag {:d}'.format(self.poissonnoise), 'Enable Poisson statistic on pix. counts (0/1)', True),
@@ -651,8 +650,8 @@ class Detector(xrmc_device):
                   ('PixelType {:d}'.format(pixeltype), 'Pixel content type:', True),
                   ('', '0: fluence,      1: energy fluence,', True),
                   ('', '2: fluence(E),   3: energy fluence(E)', True),
-                  ('Emin 0', 'Emin', energydispersive),
-                  ('Emax {}'.format(spectrum.emax + 1), 'Emax', energydispersive),
+                  ('Emin {}'.format(self.emin), 'Emin', energydispersive),
+                  ('Emax {}'.format(self.emax), 'Emax', energydispersive),
                   ('NBins {}'.format(self.nbins), 'NBins', energydispersive),
                   ('SaturateEmin 0', 'Saturate energies lower than Emin (0/1)', energydispersive),
                   ('SaturateEmax 0', 'Saturate energies greater than Emax (0/1)', energydispersive),
@@ -676,22 +675,44 @@ class Detector(xrmc_device):
 
     @property
     def energydispersive(self):
-        return bool(self.ebinsize)
+        return bool(self.nbins)
 
     @property
-    def nbins(self):
+    def emax(self):
+        return self.parent.spectrum().emax+1
+
+    @property
+    def emin(self):
+        return 0
+
+    @property
+    def ebinsize(self):
         if self.energydispersive:
-            Emax = self.parent.spectrum().emax
-            return int(np.round(Emax/self.ebinsize))
+            return (self.emax-self.emin)/(self.nbins-1.)
         else:
-            return 1
+            return 0
+
+    @ebinsize.setter
+    def ebinsize(self, value):
+        if bool(value):
+            self.nbins = max(int(np.round((self.emax-self.emin)/float(value)+1)), 1)
+        else:
+            self.nbins = 1
+
+    @property
+    def mcagain(self):
+        return self.ebinsize
+
+    @property
+    def mcazero(self):
+        return self.ebinsize/2.
 
     def result(self):
         if self.parent.loops:
             suffix = '_*'
         filename = self.absoutput(suffix=suffix)
         dirname = os.path.dirname(filename)
-        basename. ext = os.path.splitext(os.path.basename(filename))
+        basename, ext = os.path.splitext(os.path.basename(filename))
         return loadxrmcresult(dirname, basename, ext)
 
     def removeoutput(self):
@@ -827,8 +848,11 @@ class Quadrics(xrmc_device):
 
     TYPE = 'quadricarray'
 
-    def __init__(self, parent, name):
+    def __init__(self, parent, name,
+                 orientation_inplane=None, orientation_outplane=None):
         super(Quadrics, self).__init__(parent, name)
+        self.orientation_inplane = orientation_inplane
+        self.orientation_outplane = orientation_outplane
         self.clear()
 
     @property
@@ -852,6 +876,8 @@ class Quadrics(xrmc_device):
             else:
                 comment = ''
             lines.append((' '.join(list(map(str, params))), comment, True))
+        lines += [('RotateAll 0 0 0 0 0 1 {}'.format(self.orientation_inplane), 'rotation around sample frame e2-axis (deg; >0 sample to the left when looking upstream)', bool(self.orientation_inplane)),
+                  ('RotateAll 0 0 0 1 0 0 {}'.format(self.orientation_outplane), 'rotation around sample frame e0-axis (deg; >0 sample below synchrotron e0e1-plane)', bool(self.orientation_outplane))]
         return lines
 
     def add_plane(self, name, x0, y0, z0, nx, ny, nz, fixed=False):
@@ -943,9 +969,11 @@ class Compositions(xrmc_device):
     def add(self, name, elements, massfractions, density):
         self._dict[name] = list(map(str, elements)), massfractions, density
 
-    def addmaterial(self, material):
+    def addmaterial(self, material, name=None):
         wfrac = material.elemental_massfractions()
-        self.add(str(material), list(wfrac.keys()), list(wfrac.values()), material.density)
+        if name is None:
+            name = material.name
+        self.add(name, list(wfrac.keys()), list(wfrac.values()), material.density)
 
     def clear(self):
         self._dict = {}
@@ -968,6 +996,9 @@ class XrmcWorldBuilder(object):
     def addcompoundfromname(self, name):
         self.compoundlib.addmaterial(compoundfromname(name))
 
+    def addmaterial(self, material):
+        self.compoundlib.addmaterial(material)
+
     def definesource(self, flux=None, energy=None, distance=None, beamsize=None, multiplicity=1):
         self.main.removedevice(cls=Source)
         self.source = self.main.add_device(Source, 'synchrotron',
@@ -978,18 +1009,18 @@ class XrmcWorldBuilder(object):
 
     def adddiode(self, distance=None, activearea=None, ebinsize=None,
                  orientation_inplane=0, orientation_outplane=0, 
-                 poissonnoise=False, forcedetect=False, multiplicity=1):
+                 poissonnoise=False, forcedetect=False, multiplicity=1, time=1):
         self.main.removedevice(cls=Detector)
         self.detector = self.main.add_device(SingleElementDetector, 'detector',
                                     distance=distance, activearea=activearea,
                                     orientation_inplane=orientation_inplane, orientation_outplane=orientation_outplane,
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
-                                    forcedetect=forcedetect, multiplicity=multiplicity)
+                                    forcedetect=forcedetect, multiplicity=multiplicity, time=time)
 
     def addxrfdetector(self, distance=None, activearea=None, ebinsize=None,
                        orientation_inplane=0, orientation_outplane=0,
                        poissonnoise=False, forcedetect=True, multiplicity=1,
-                       response=None):
+                       response=None, time=1):
         self.main.removedevice(cls=Detector)
         if response:
             cls = SDD
@@ -1001,21 +1032,21 @@ class XrmcWorldBuilder(object):
                                     orientation_inplane=orientation_inplane, orientation_outplane=orientation_outplane,
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity,
-                                    **response)
+                                    time=time, **response)
 
     def addareadetector(self, distance=None, activearea=None, ebinsize=None,
                         orientation_inplane=0, orientation_outplane=0,
                         poissonnoise=False, forcedetect=True, multiplicity=1,
-                        pixelsize=None, dims=None):
+                        pixelsize=None, dims=None, time=1):
         self.main.removedevice(cls=Detector)
         self.detector = self.main.add_device(AreaDetector, 'detector',
                                     distance=distance,
                                     pixelsize=pixelsize, dims=dims,
                                     orientation_inplane=orientation_inplane, orientation_outplane=orientation_outplane,
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
-                                    forcedetect=forcedetect, multiplicity=multiplicity)
+                                    forcedetect=forcedetect, multiplicity=multiplicity, time=time)
 
-    def addlayer(self, thickness=None, dhor=None, dvert=None, ohor=0, overt=0, material=None, atmosphere='Vacuum'):
+    def addlayer(self, material=None, thickness=None, dhor=None, dvert=None, ohor=0, overt=0, atmosphere='Vacuum'):
         ilayer = self.quadrics.add_layer(thickness, dhor, dvert, ohor, overt)
         box = ['layer{}a'.format(ilayer), 'layer{}b'.format(ilayer),
                'blayer{}_xmin'.format(ilayer), 'blayer{}_xmax'.format(ilayer),

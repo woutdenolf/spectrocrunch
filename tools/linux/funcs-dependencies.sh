@@ -10,6 +10,7 @@ source ${SCRIPT_ROOT}/funcs-opencl.sh
 source ${SCRIPT_ROOT}/funcs-opengl.sh
 source ${SCRIPT_ROOT}/funcs-simpleelastix.sh
 source ${SCRIPT_ROOT}/funcs-xraylib.sh
+source ${SCRIPT_ROOT}/funcs-xmimsim.sh
 source ${SCRIPT_ROOT}/funcs-xrmc.sh
 source ${SCRIPT_ROOT}/funcs-pytmm.sh
 source ${SCRIPT_ROOT}/funcs-fdmnes.sh
@@ -47,6 +48,7 @@ function install_system_dependencies_dev()
 function install_nopypi_dependencies()
 {
     require_xraylib
+    require_xmimsim
     require_xrmc
     require_simpleelastix
     require_pytmm

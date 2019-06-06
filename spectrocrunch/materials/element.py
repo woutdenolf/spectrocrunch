@@ -130,8 +130,7 @@ class Element(hashable.Hashable, elementbase.ElementBase):
 
     @name.setter
     def name(self, value):
-        self._Z, self._name = elementParse(value)
-        self.MM = xraylib.AtomicWeight(self._Z)
+        self.Z = value
 
     def __getstate__(self):
         return {'Z': self.Z,
@@ -250,8 +249,8 @@ class Element(hashable.Hashable, elementbase.ElementBase):
         return [self]
 
     @property
-    def ncompounds(self):
-        return 1
+    def parts(self):
+        return {self: 1}
 
     def _xraylib_method(self, method, E):
         return csutils.eval(method, self.Z, E, applypost=False)

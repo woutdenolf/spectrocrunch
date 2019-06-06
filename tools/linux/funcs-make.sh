@@ -601,7 +601,7 @@ function latest_version()
 # Usage: versions_from_site "ftp://xmlsoft.org/libxslt" "libxslt-[0-9\.]+[0-9]\.tar\.gz$"
 function versions_from_site()
 {
-    curl -sL ${1} | grep -E -o ${2} | grep -E -o "[0-9\.]+[0-9]" | sort --version-sort
+    curl -slL ${1} | grep -E -o ${2} | grep -E -o "[0-9\.]+[0-9]" | sort --version-sort
 }
 
 

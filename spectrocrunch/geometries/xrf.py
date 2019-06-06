@@ -404,7 +404,8 @@ class XRFGeometry(with_metaclass(base.Centric)):
 
 class LinearXRFGeometry(XRFGeometry):
 
-    def __init__(self, detectorposition=None, zerodistance=None, positionunits=None, positionsign=1, **kwargs):
+    def __init__(self, detectorposition=None, zerodistance=None,
+                 positionunits=None, positionsign=1, **kwargs):
         if zerodistance is not None:
             zerodistance = units.Quantity(zerodistance, positionunits)
         distancefunc = LinearMotor(
@@ -412,7 +413,8 @@ class LinearXRFGeometry(XRFGeometry):
         super(LinearXRFGeometry, self).__init__(
             distancefunc=distancefunc, **kwargs)
         self.positionunits = positionunits
-        self.detectorposition = detectorposition
+        if kwargs.get('distance', None) is None:
+            self.detectorposition = detectorposition
 
     def __getstate__(self):
         state = super(LinearXRFGeometry, self).__getstate__()
