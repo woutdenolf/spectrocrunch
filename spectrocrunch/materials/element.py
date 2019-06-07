@@ -795,3 +795,9 @@ class Element(hashable.Hashable, elementbase.ElementBase):
     def fluozgroup(cls, symb):
         ele, group = re.split('[-_ ]+', symb)
         return xrayspectrum.FluoZGroup(cls(ele), group)
+
+    def fluolines(self, lines):
+        if instance.isstring(lines):
+            return xrayspectrum.FluoZLine(self, xrayspectrum.FluoLine(lines))
+        else:
+            return [xrayspectrum.FluoZLine(self, xrayspectrum.FluoLine(line)) for line in lines]

@@ -87,37 +87,40 @@ class Mixture(multielementbase.MultiElementBase):
     def parts(self):
         return self._compounds
 
-    def addcompound(self, c, frac, fractype):
-        """Add a compound to the mixture
+    def addcompounds(self, compounds, fractions, fractype):
+        """Add compounds to the mixture
 
         Args:
-            c(compounds): compound
-            frac(num): compound fraction
+            compounds(Compound or list): compounds
+            fractions(num or list): compound fractions
             fractype(types.fraction): compound fraction type
 
         """
+        if not instance.isarray(compounds):
+            compounds = [compounds]
+        if not instance.isarray(fractions):
+            fractions = [fractions]
+        fractions = np.asarray(fractions)
         if fractype == types.fraction.mole:
-            nfrac = np.asarray(list(self.molefractions().values()))
-            if nfrac.sum() == 1:
-                nfrac = stoichiometry.add_frac(nfrac, frac)
-            else:
-                nfrac = np.append(nfrac, frac)
-            compounds = list(self._compounds.keys())+[c]
+            nfrac = self.molefractions()
+            compounds = list(nfrac.keys()) + compounds
+            nfrac = np.asarray(list(nfrac.values()))
+            nfrac = stoichiometry.add_frac(nfrac, fractions)
         elif fractype == types.fraction.volume:
-            vfrac = np.asarray(list(self.volumefractions().values()))
-            vfrac = stoichiometry.add_frac(vfrac, frac)
-            compounds = list(self._compounds.keys())+[c]
+            vfrac = self.volumefractions()
+            compounds = list(vfrac.keys()) + compounds
+            vfrac = np.asarray(list(vfrac.values()))
+            vfrac = stoichiometry.add_frac(vfrac, fractions)
             MM = np.asarray([c.molarmass() for c in compounds])
             rho = np.asarray([c.density for c in compounds])
             nfrac = stoichiometry.frac_volume_to_mole(vfrac, rho, MM)
         else:
-            wfrac = np.asarray(list(self.massfractions().values()))
-            wfrac = stoichiometry.add_frac(wfrac, frac)
-            compounds = list(self._compounds.keys())+[c]
-            MM = np.asarray([c.molarmass() for c in compounds])
+            wfrac = self.massfractions()
+            compounds = list(wfrac.keys()) + compounds
+            wfrac = np.asarray(list(wfrac.values()))
+            wfrac = stoichiometry.add_frac(wfrac, fractions)
+            MM = np.asarray([c.molarmass()for c in compounds])
             nfrac = stoichiometry.frac_weight_to_mole(wfrac, MM)
-
-        # Compounds (no duplicates)
         self._compose_compounds(compounds, nfrac)
 
     def change_fractions(self, dfrac, fractype):

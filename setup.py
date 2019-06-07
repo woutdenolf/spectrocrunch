@@ -255,7 +255,7 @@ install_requires = ['setuptools', 'numpy', 'future', 'scipy', 'h5py', 'fabio', '
                     'pyparsing', 'shapely', 'matplotlib',
                     'uncertainties', 'pint', 'pandas', 'scikit-image',
                     'xlsxwriter', 'xlrd', 'python-dateutil', 'jsonpickle',
-                    'testfixtures']
+                    'testfixtures', 'future']
 extras_require = {'physics': ['xraylib', 'cctbx', 'fdmnes', 'PyTMM'],
                   'elastix': ['SimpleITK']
                   }

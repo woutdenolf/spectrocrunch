@@ -26,6 +26,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numbers
 import collections
+import warnings
 import scipy.integrate
 
 from ..patch import xraylib
@@ -472,7 +473,6 @@ class FluoZGroup(Hashable):
     def __init__(self, element, group):
         self.element = element
         self.group = group
-
         self.element.markabsorber(shells=group)
 
     def _sortkey(self):
@@ -634,7 +634,7 @@ class ComptonLine(ScatteringLine):
         return np.arccos(np.clip(1-m, -1, 1))
 
 
-class Spectrum(dict):
+class Spectrum(collections.MutableMapping):
 
     TYPES = Enum(['diffcrosssection', 'crosssection', 'rate'])
     # diffcrosssection: cm^2/g/srad
@@ -642,22 +642,55 @@ class Spectrum(dict):
     # rate: dimensionless
 
     def __init__(self, *args, **kwargs):
-        self.update(*args, **kwargs)
-        self.density = None
-        self.xlim = None
-        self.title = None
+        self._lines = {}
+        self.density = kwargs.pop('density', None)
+        self.xlim = kwargs.pop('xlim', None)
+        self.title = kwargs.pop('title', None)
         self.xlabel = "Energy (keV)"
-        self.type = None
-        self.geometry = None
-        self.geomkwargs = {}
+        self.type = kwargs.pop('type', None)
+        self.geometry = kwargs.pop('geometry', None)
+        self.geomkwargs = kwargs.pop('geomkwargs', {})
+        self.update(*args, **kwargs)
+
+    def copy(self):
+        return Spectrum(self._lines,
+                        density=self.density,
+                        xlim=self.xlim,
+                        title=self.title,
+                        type=self.type,
+                        geometry=self.geometry,
+                        geomkwargs=self.geomkwargs)
+
+    def __getitem__(self, item):
+        # Line values can be a function of geomkwargs
+        value = self._lines[item]
+        if callable(value):
+            return value(**self.geomkwargs)
+        else:
+            return value
+
+    def getitem_converted(self, item, convert=False, **kwargs):
+        m = self.line_multiplier(convert=convert)
+        return self[item]*m
+
+    def __setitem__(self, item, value):
+        self._lines[item] = value
+    
+    def __delitem__(self, item):
+        del self._lines[item]
+    
+    def __iter__(self):
+        return iter(self._lines)
+    
+    def __len__(self):
+        return len(self._lines)
 
     @property
     def geomkwargs(self):
         if self.geometry is None:
-            geomkwargs = self._geomkwargs
+            return self._geomkwargs
         else:
-            geomkwargs = self.geometry.xrayspectrumkwargs()
-        return geomkwargs
+            return self.geometry.xrayspectrumkwargs()
 
     @geomkwargs.setter
     def geomkwargs(self, value):
@@ -734,13 +767,11 @@ class Spectrum(dict):
                 units = "I/I$_0$"
         if mcabin:
             units = "{}/mcabin".format(units)
-
         return "{} {}".format(label, units)
 
-    def conversionfactor(self, convert=True):
+    def line_multiplier(self, convert=True):
         if not convert:
             return 1
-
         if self.type == self.TYPES.crosssection:
             return self.density/(4*np.pi)  # cm^2/g -> 1/cm/srad
         elif self.type == self.TYPES.diffcrosssection:
@@ -750,25 +781,40 @@ class Spectrum(dict):
         else:
             raise RuntimeError("Unknown spectrum type: {}".format(self.type))
 
-    def items(self):
-        geomkwargs = self.geomkwargs
-        for k, v in super(Spectrum, self).items():
-            if callable(v):
-                v = v(**geomkwargs)
-            if k.valid and np.sum(v) > 0:
-                yield k, v
+    def profile_multiplier(self, fluxtime=None, histogram=False):
+        ret = 1
+        if fluxtime is not None:
+            ret = ret*fluxtime
+        if histogram:
+            ret = ret*self.mcagain
+        return ret
+
+    def __iadd__(self, other):
+        if self.type != other.type:
+            raise ValueError('Spectra need to be of the same type')
+        for k, v in other.items():
+            if k in self:
+                self._lines[k] += v
+            else:
+                self._lines[k] = v
+        return self
+
+    def __add__(self, other):
+        ret = self.copy()
+        ret += other
+        return ret
 
     def items_sorted(self, sort=False):
         if sort:
-            def sortkey(x): return np.max(
-                instance.asarray(x[0].energy(**self.geomkwargs)))
+            def sortkey(x):
+                return np.max(
+                    instance.asarray(x[0].energy(**self.geomkwargs)))
             return sorted(self.items(), key=sortkey)
         else:
             return self.items()
 
     def items_converted(self, convert=True, **kwargs):
-        m = self.conversionfactor(convert=convert)
-
+        m = self.line_multiplier(convert=convert)
         for line, v in self.items_sorted(**kwargs):
             yield line, v*m
 
@@ -804,18 +850,15 @@ class Spectrum(dict):
 
     def linegroups(self, **kwargs):
         ret = {}
-
         for line, v in self.items_converted(**kwargs):
             group = line.groupname
             if group not in ret:
                 ret[group] = {}
-
             if isinstance(line, FluoZLine):
                 # add contribution from all source lines
                 ret[group][line] = np.sum(v)
             else:
                 ret[group][line] = v
-
         return ret
 
     def lineinfo(self, convert=True, sort=True):
@@ -864,14 +907,11 @@ class Spectrum(dict):
     def peakprofiles(self, x, lineinfo, voigt=False, **kwargs):
         if self.geometry is None:
             return None
-
-        listtools.flatten
         energies = self._lineinfo_values(lineinfo, 'energy')
         if voigt:
             linewidths = self._lineinfo_values(lineinfo, 'natwidth')
         else:
             linewidths = np.zeros_like(energies)
-
         return self.geometry.detector.lineprofile(x, energies, linewidth=linewidths, **kwargs)
 
     def peakprofiles_selectioninfo(self, lineinfo, lines, voigt=False):
@@ -933,19 +973,14 @@ class Spectrum(dict):
         return info
 
     def scaleprofiles(self, convert=False, fluxtime=None, histogram=False, lineinfo=None):
-        multiplier = 1
-        phsource = fluxtime is not None
-        if phsource:
-            multiplier = multiplier*fluxtime
-        if histogram:
-            multiplier = multiplier*self.mcagain
-        ylabel = self.ylabel(
-            convert=convert, phsource=phsource, mcabin=histogram)
-
+        multiplier = self.profile_multiplier(fluxtime=fluxtime,
+                                                  histogram=histogram)
+        ylabel = self.ylabel(convert=convert,
+                             phsource=fluxtime is not None,
+                             mcabin=histogram)
         if lineinfo is not None:
             for k in lineinfo:
                 lineinfo[k]["area"] *= multiplier
-
         return multiplier, ylabel
 
     def __str__(self):
@@ -958,7 +993,7 @@ class Spectrum(dict):
         return self["Rayleigh"].energy()
 
     @property
-    def nsource():
+    def nsource(self):
         return listtools.length(self.energysource)
 
     def power(self, flux, **kwargs):
@@ -1005,7 +1040,9 @@ class Spectrum(dict):
 
         return energies, profiles, ylabel, lineinfo
 
-    def snr(self, linevalid, convert=True, fluxtime=None, histogram=False, voigt=False, backfunc=None, plot=False, kstd=3):
+    def snr(self, linevalid, convert=True, fluxtime=None,
+            histogram=False, voigt=False, backfunc=None,
+            plot=False, kstd=3):
         energies = self.mcaenergies()
         lineinfo = self.lineinfo(convert=convert)
 
@@ -1014,19 +1051,24 @@ class Spectrum(dict):
             raise RuntimeError("No lines fit the description")
 
         if backfunc is None:
-            def backfunc(x): return np.zeros_like(x)
+            def backfunc(x):
+                return np.zeros_like(x)
 
         _, ylabel = self.scaleprofiles(
-            convert=convert, fluxtime=fluxtime, histogram=histogram, lineinfo=lineinfo)
+            convert=convert, fluxtime=fluxtime,
+            histogram=histogram, lineinfo=lineinfo)
         info = self.peakprofiles_selectioninfo(lineinfo, lines, voigt=voigt)
 
         emin, emax = energies[0], energies[-1]
 
-        def funcint(x): return info["extractinpeaks"](info["profilesin"](x))
-        def functot(x): return np.squeeze(
-            info["profiles"](x).sum(axis=-1)+backfunc(x))
-        def funcbkg(x): return np.squeeze(
-            info["extractbkg"](info["profilesall"](x))+backfunc(x))
+        def funcint(x):
+            return info["extractinpeaks"](info["profilesin"](x))
+        def functot(x):
+            return np.squeeze(
+                info["profiles"](x).sum(axis=-1)+backfunc(x))
+        def funcbkg(x):
+            return np.squeeze(
+                info["extractbkg"](info["profilesall"](x))+backfunc(x))
 
         if plot:
             lines = plt.plot(energies, np.random.poisson(
@@ -1042,8 +1084,10 @@ class Spectrum(dict):
         arrbackground = []
 
         for a, b in mergeroi1d(info["roigen"](kstd=kstd)):
-            total += scipy.integrate.quad(functot, a, b)[0]
-            background += scipy.integrate.quad(funcbkg, a, b)[0]
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                total += scipy.integrate.quad(functot, a, b)[0]
+                background += scipy.integrate.quad(funcbkg, a, b)[0]
 
             if plot:
                 ax.axvline(x=a)
@@ -1119,15 +1163,17 @@ class Spectrum(dict):
 
         return energies, ret, ylabel, lineinfo2
 
-    def sumspectrum(self, **kwargs):
+    def sumspectrum(self, backfunc=None, **kwargs):
         """Total X-ray spectrum
         """
         energies, profiles, ylabel, lineinfo = self._linespectra(
             sort=False, **kwargs)
-        profiles = profiles.sum(axis=-1)
-        return energies, profiles, ylabel
+        profile = profiles.sum(axis=-1)
+        if backfunc:
+            profile = profile+backfunc(energies)
+        return energies, profile, ylabel
 
-    def plot(self, convert=False, fluxtime=None, mark=True, log=False, decompose=True,
+    def plot(self, convert=False, fluxtime=None, mark=True, ylog=False, decompose=True,
              histogram=False, backfunc=None, voigt=False, forcelines=False, legend=True,
              sumlabel="sum", title=""):
         """X-ray spectrum or cross-section lines
@@ -1192,14 +1238,14 @@ class Spectrum(dict):
         if sumprof is not None:
             plt.plot(energies, sumprof+bkg, label=sumlabel)
 
-        if self.geometry is not None and log:
+        if self.geometry is not None and ylog:
             ax.set_yscale('log', basey=10)
 
         if legend:
             plt.legend(loc='best')
-        plt.xlabel(self.xlabel)
-        plt.ylabel(ylabel)
-        plt.xlim(self.xlim)
+        ax.set_xlabel(self.xlabel)
+        ax.set_ylabel(ylabel)
+        ax.set_xlim(*self.xlim)
         try:
             if title is not None:
                 if not bool(title):

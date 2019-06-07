@@ -178,6 +178,16 @@ class InstrumentInfo(with_metaclass(object)):
         subdir = os.path.join(sample, radix, subdir)
         return radix, subdir
 
+    def edfparser_info(self):
+        return {'time': self.edfheaderkeys.get('timelabel', None),
+                'energy': self.edfheaderkeys.get('energylabel', None),
+                'speclabel': self.edfheaderkeys.get('speclabel', None),
+                'slowlabel': self.edfheaderkeys.get('slowlabel', None),
+                'fastlabel': self.edfheaderkeys.get('fastlabel', None),
+                'units': self.units,
+                'compensationmotors': self.compensationmotors,
+                'axesnamemap': self.imagemotors}
+
 
 class ESRF_ID21_SXM(InstrumentInfo):
     longname = 'ESRF ID21: Scanning X-ray Microscope'

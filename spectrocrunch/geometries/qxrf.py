@@ -408,6 +408,8 @@ class QXRFGeometry(with_metaclass(object)):
     def xrfnormop(self, energy, expotime=None, reference=None,
                   referencetime=None, weights=None):
         """
+        Returns a function to be applied to I0 before normalizing XRF signal.
+
         Args:
             energy(num|array): source lines (keV)
             expotime(Optional(num)): original exposure time (sec)

@@ -54,7 +54,8 @@ class Standard(with_metaclass(multilayer.Multilayer)):
 
 class ThinFilmStandard(Standard):
 
-    def __init__(self, arealdensity, substrate, substratethickness, name=None, filmthickness=None, **kwargs):
+    def __init__(self, arealdensity, substrate, substratethickness,
+                 name=None, filmthickness=None, **kwargs):
         arealdensity_film = dict(
             zip(map(element.Element, arealdensity.keys()), arealdensity.values()))
 

@@ -114,19 +114,23 @@ class test_compound(unittest.TestCase):
     def test_addelements(self):
         c1 = compoundraw.Compound(
             ["Fe", "O"], [2, 3], types.fraction.mole, density=1)
-        c2 = compoundraw.Compound(["Fe"], [2], types.fraction.mole, density=1)
-        c2.addelements("O", 3, types.fraction.mole)
-        self.assertEqual(c1.elements, c2.elements)
-
-        c1 = compoundraw.Compound(
-            ["Fe", "O"], [2, 3], types.fraction.mass, density=1)
-        c2 = compoundraw.Compound(["Fe"], [2], types.fraction.mass, density=1)
-        c2.addelements("O", 3/5., types.fraction.mass)
-        n1 = c1.molefractions()
-        n2 = c2.molefractions()
-        self.assertEqual(sorted(n1.keys()), sorted(n2.keys()))
-        for k in n1:
-            self.assertAlmostEqual(n1[k], n2[k])
+        n1 = c1.molefractions(total=False)
+        snfrac1 = sum(c1.molefractions(total=True).values())
+        for fractype in ['mass', 'mole']:
+            c2 = compoundraw.Compound(["Fe"], [5], types.fraction.mole, density=1)
+            if fractype == 'mass':
+                c2.addelements("O", c1.massfractions()['O'], types.fraction.mass)
+            else:
+                c2.addelements("O", n1['O'], types.fraction.mole)
+            n2 = c2.molefractions(total=False)
+            snfrac2 = sum(c2.molefractions(total=True).values())
+            self.assertEqual(set(n1.keys()), set(n2.keys()))
+            if fractype == 'mole':
+                self.assertEqual(snfrac1, snfrac2)
+            else:
+                self.assertEqual(1, snfrac2)
+            for k in n1:
+                self.assertAlmostEqual(n1[k], n2[k])
 
     def test_vacuum(self):
         c = compoundraw.Compound([], [], types.fraction.mole, 0, name="vacuum")

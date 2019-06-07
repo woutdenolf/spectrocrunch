@@ -341,8 +341,11 @@ class PymcaBaseHandle(object):
         yback = digestedresult["yback"]  # polynomial + snip
         ysnip = digestedresult["ysnip"]
 
-        def interpol(x, spectrum): return scipy.interpolate.interp1d(x, spectrum,
-                                                                     kind="nearest", bounds_error=False, fill_value=(spectrum[0], spectrum[-1]))
+        def interpol(x, spectrum): 
+            return scipy.interpolate.interp1d(x, spectrum,
+                                              kind="nearest",
+                                              bounds_error=False,
+                                              fill_value=(spectrum[0], spectrum[-1]))
 
         def interpol_energy(prof): return interpol(
             digestedresult["energy"], prof)
@@ -362,18 +365,16 @@ class PymcaBaseHandle(object):
         # polynomial is already in ymatrix, snip not
         out["ymatrix"] = ymatrix+ysnip
 
-        def _plot(ylog=False, show=True):
-            plt.plot(out["energy"], out["y"], '+', label='data')
-            plt.plot(out["energy"], out["yfit"], label='pymca fit')
-            plt.plot(out["energy"], out["ymatrix"], label='pymca matrix')
-            plt.plot(out["energy"], out["yback"], label='background')
+        def _plot(ylog=False, label='data'):
+            plt.plot(out["energy"], out["y"], '+', label=label)
+            plt.plot(out["energy"], out["yfit"], label=label+' fit')
+            plt.plot(out["energy"], out["ymatrix"], label=label+' matrix')
+            plt.plot(out["energy"], out["yback"], label=label+' background')
             if ylog:
                 plt.gca().set_yscale('log', basey=10)
             plt.legend()
             plt.xlabel('MCA (keV)')
             plt.ylabel('Counts')
-            if show:
-                plt.show()
         out["plot"] = _plot
 
         return out
@@ -417,7 +418,7 @@ class PymcaHandle(PymcaBaseHandle):
             geometry = str(self.sample.geometry)
         else:
             sample = geometry = None
-        return "Flux = {:~}\nTime = {:~}\nSource lines:\n {}\n{}\n{}"\
+        return "Flux = {:~e}\nTime = {:~}\nSource lines:\n {}\n{}\n{}"\
             .format(self.flux, self.time, s, sample, geometry)
 
     def set_source(self, energy=None, weights=None, scatter=None):

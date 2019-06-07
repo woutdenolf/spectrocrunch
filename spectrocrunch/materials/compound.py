@@ -119,39 +119,36 @@ class Compound(multielementbase.MultiElementBase):
         """Add an element to the compound
 
         Args:
-            elements(str|element): "Fe" or element("Fe")
-            frac(num): element fraction
+            elements(str or Element or list): "Fe" or Element("Fe")
+            frac(num or list): element fraction
             fractype(types.fraction): element fraction type
             density(Optional(num)): new compound density in g/cm^3
         """
-
         if fractype == types.fraction.volume:
             raise ValueError(
                 "Cannot create a compound from elemental volume fractions")
-
         if not instance.isarray(elements):
             elements = [elements]
         if not instance.isarray(fractions):
             fractions = [fractions]
-
+        fractions = np.asarray(fractions)
         if fractype == types.fraction.mole:
-            nfrac = np.asarray(list(self.molefractions().values()))
-            if nfrac.sum() == 1:
-                nfrac = stoichiometry.add_frac(nfrac, fractions)
-            else:
-                nfrac = np.append(nfrac, fractions)
-            elements = list(self._elements.keys()) + \
+            nfrac = self.molefractions()
+            elements = list(nfrac.keys()) + \
                 [element.Element(el) for el in elements]
+            nfrac = np.asarray(list(nfrac.values()))
+            nfrac = stoichiometry.add_frac(nfrac, fractions)
         else:
-            wfrac = np.asarray(list(self.massfractions().values()))
-            wfrac = stoichiometry.add_frac(wfrac, fractions)
-            elements = list(self._elements.keys()) + \
+            wfrac = self.massfractions()
+            elements = list(wfrac.keys()) + \
                 [element.Element(el) for el in elements]
+            wfrac = np.asarray(list(wfrac.values()))
+            wfrac = stoichiometry.add_frac(wfrac, fractions)
             MM = np.asarray([e.MM for e in elements])
-            nfrac = stoichiometry.frac_weight_to_mole(wfrac, MM)  # normalized
-
-        # Elements (no duplicates)
+            nfrac = stoichiometry.frac_weight_to_mole(wfrac, MM)
         self._compose_elements(elements, nfrac)
+        if density:
+            self.density = density
 
     def change_fractions(self, dfrac, fractype):
         """Change the element fractions

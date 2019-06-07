@@ -705,7 +705,7 @@ class Detector(xrmc_device):
 
     @property
     def mcazero(self):
-        return self.ebinsize/2.
+        return 0
 
     def result(self):
         if self.parent.loops:
@@ -751,8 +751,8 @@ class SDD(SingleElementDetector):
     TYPE = 'detectorconvolute'
 
     def __init__(self, parent, name, material=None, thickness=None,
-                 windowmaterial=None, windowthickness=0, pulseproctime=0,
-                 noise=None, fano=None, **kwargs):
+                 windowmaterial=None, windowthickness=0, dtfrac=None,
+                 countrate=None, pulseproctime=0, noise=None, fano=None, **kwargs):
         self.material = material
         self.thickness = thickness
         if not windowmaterial:
@@ -761,7 +761,7 @@ class SDD(SingleElementDetector):
         self.windowthickness = windowthickness
         self.noise = noise
         self.fano = fano
-        self.pulseproctime = pulseproctime
+        self.set_pulseproctime(dtfrac, countrate, pulseproctime=pulseproctime)
         super(SDD, self).__init__(parent, name, **kwargs)
 
     @property
@@ -776,6 +776,13 @@ class SDD(SingleElementDetector):
                   ('FanoFactor {}'.format(self.fano), 'Detector fano noise (dimensionless)', True),
                   ('PulseWidth {}'.format(self.pulseproctime), 'Time to process one pulse (sec)', bool(self.pulseproctime))]
         return lines
+
+    def set_pulseproctime(self, dtfrac, countrate, pulseproctime=0):
+        # Assume extendable deadtime
+        if dtfrac and countrate:
+            self.pulseproctime = -np.log(1-dtfrac)/countrate
+        else:
+            self.pulseproctime = pulseproctime
 
 
 class Sample(xrmc_device):
@@ -830,6 +837,8 @@ class Objects(xrmc_device):
         lines += [('QArrName {}'.format(self.parent.quadrics().name), 'Quadric array input device name', True), 
                   ('CompName {}'.format(self.parent.compositions().name), 'Composition input device name', True)]
         for name, (compoundin, compoundout, quadricnames) in self._dict.items():
+            compoundin = materialname(compoundin)
+            compoundout = materialname(compoundout)
             lines += [None,
                       ('Object {}'.format(name), '', True),
                       ('{} {}'.format(compoundin, compoundout), 'Phase in, phase out', True),
@@ -838,7 +847,11 @@ class Objects(xrmc_device):
         return lines
 
     def add(self, name, compoundin, compoundout, quadricnames):
-        self._dict[name] = compoundin, compoundout, quadricnames
+        self._dict[name] = [compoundin, compoundout, quadricnames]
+
+    def change_atmosphere(self, atmosphere):
+        for lst in self._dict.values():
+            lst[1] = atmosphere
 
     def clear(self):
         self._dict = {}
@@ -940,6 +953,17 @@ class Quadrics(xrmc_device):
         self._lst = []
 
 
+def materialname(material):
+    try:
+        name = material.name
+    except AttributeError:
+        name = material
+    if 'vacuum' in name.lower():
+        name = 'Vacuum'
+    name = name.replace(' ', '_')
+    return name
+
+
 class Compositions(xrmc_device):
 
     TYPE = 'composition'
@@ -970,9 +994,10 @@ class Compositions(xrmc_device):
         self._dict[name] = list(map(str, elements)), massfractions, density
 
     def addmaterial(self, material, name=None):
-        wfrac = material.elemental_massfractions()
         if name is None:
-            name = material.name
+            name = material
+        name = materialname(name)
+        wfrac = material.elemental_massfractions()
         self.add(name, list(wfrac.keys()), list(wfrac.values()), material.density)
 
     def clear(self):
@@ -981,11 +1006,12 @@ class Compositions(xrmc_device):
 
 class XrmcWorldBuilder(object):
 
-    def __init__(self, path):
+    def __init__(self, path, atmosphere='Vacuum'):
         self.main = main = xrmc_main(path)
         self.quadrics = main.add_device(Quadrics, 'quadrics')
         self.objects = main.add_device(Objects, 'objects')
         self.compoundlib = main.add_device(Compositions, 'compoundlib')
+        self.atmosphere = atmosphere
 
     def __repr__(self):
         return repr(self.main)
@@ -993,10 +1019,11 @@ class XrmcWorldBuilder(object):
     def addelement(self, symb):
         self.compoundlib.addmaterial(Element(symb))
 
-    def addcompoundfromname(self, name):
-        self.compoundlib.addmaterial(compoundfromname(name))
-
     def addmaterial(self, material):
+        if instance.isstring(material):
+            if material.lower() == 'vacuum':
+                return
+            material = compoundfromname(material)
         self.compoundlib.addmaterial(material)
 
     def definesource(self, flux=None, energy=None, distance=None, beamsize=None, multiplicity=1):
@@ -1046,12 +1073,25 @@ class XrmcWorldBuilder(object):
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity, time=time)
 
-    def addlayer(self, material=None, thickness=None, dhor=None, dvert=None, ohor=0, overt=0, atmosphere='Vacuum'):
+    def addlayer(self, material=None, thickness=None, dhor=None, dvert=None, ohor=0, overt=0):
+        if not material:
+            material = 'Vacuum'
         ilayer = self.quadrics.add_layer(thickness, dhor, dvert, ohor, overt)
         box = ['layer{}a'.format(ilayer), 'layer{}b'.format(ilayer),
                'blayer{}_xmin'.format(ilayer), 'blayer{}_xmax'.format(ilayer),
                'blayer{}_zmin'.format(ilayer), 'blayer{}_zmax'.format(ilayer)]
-        self.objects.add('layer{}'.format(ilayer), material, atmosphere, box)
+        self.addmaterial(material)
+        self.objects.add('layer{}'.format(ilayer), material, self.atmosphere, box)
+
+    @property
+    def atmosphere(self):
+        return self._atmosphere
+
+    @atmosphere.setter
+    def atmosphere(self, material):
+        self.addmaterial(material)
+        self._atmosphere = material
+        self.objects.change_atmosphere(material)
 
     def removesample(self):
         self.quadrics.clear()

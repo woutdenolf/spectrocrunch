@@ -156,11 +156,16 @@ def density_from_molefrac(nfrac, rho, MM):
     return((nfrac*MM).sum()/(nfrac*MM/rho).sum())
 
 
-def add_frac(xfrac, afrac):
+def add_frac(x, newfracs):
     """
+    Preserves the sum of `x`
+
     Args:
-        xfrac(np.array): fraction of each compound
-        afrac(np.array): fraction of the new compound
+        x(np.array): amount of each compound
+        newfracs(np.array): fractions of the new compounds
     """
-    s = sum(afrac)
-    return np.append(xfrac*(1-s), afrac)
+    nsum = sum(newfracs)
+    if nsum > 1:
+        raise ValueError('Sum of new fractions must be less than 1')
+    xsum = sum(x)
+    return np.append(x*max(1-nsum, 0), newfracs*xsum)

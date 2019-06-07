@@ -790,7 +790,8 @@ class _NXdata(_NXPath):
             for name in names:
                 yield self[name]
 
-    def add_signal(self, name=None, path=None, title=None, interpretation=None, units=None, **createparams):
+    def add_signal(self, name=None, path=None, title=None,
+                   interpretation=None, units=None, **createparams):
         """
         args:
             name(str)
@@ -831,12 +832,12 @@ class _NXdata(_NXPath):
                 with signalpath.open(**createparams) as node:
                     if not interpretation:
                         interpretation = self._interpretation(node)
-                        attrs = {'long_name': title}
-                        if interpretation:
-                            attrs['interpretation'] = interpretation
-                        if units is not None:
-                            attrs['units'] = units
-                        signalpath.update_stats(**attrs)
+                    attrs = {'long_name': title}
+                    if interpretation:
+                        attrs['interpretation'] = interpretation
+                    if units is not None:
+                        attrs['units'] = units
+                    signalpath.update_stats(**attrs)
             else:
                 raise ValueError('Provide either "name" or "signal"')
 
@@ -968,9 +969,9 @@ class _NXdata(_NXPath):
         if isinstance(value, h5fs.Path):
             with value.open(mode='r') as anode:
                 return len(anode)
-        elif value:
+        try:
             return len(value)
-        else:
+        except TypeError:
             return positioners.axis_size(name)
 
     @property

@@ -953,19 +953,16 @@ class Multilayer(with_metaclass(cache.Cache)):
         if not scattering:
             gen = {k: v for k, v in gen.items() if isinstance(
                 k, xrayspectrum.FluoZLine)}
-
         if emax is None:
             allenergies = list(listtools.flatten(line.energy(
                 **self.geometry.xrayspectrumkwargs()) for line in gen))
             emax = max(allenergies)
-
-        spectrum = xrayspectrum.Spectrum()
-        spectrum.update(gen)
-        spectrum.xlim = [emin, emax]
-        spectrum.density = None
-        spectrum.title = str(self)
-        spectrum.type = spectrum.TYPES.rate
-        spectrum.geometry = self.geometry
+        spectrum = xrayspectrum.Spectrum(gen,
+                                         xlim=[emin, emax],
+                                         density=None,
+                                         title=str(self),
+                                         type=xrayspectrum.Spectrum.TYPES.rate,
+                                         geometry=self.geometry)
         return spectrum
 
     def _print_fisx(self, fluo, details=False):

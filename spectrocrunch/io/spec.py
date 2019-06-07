@@ -500,7 +500,7 @@ class edfheader_parser(object):
             start = units.Quantity(out.pop('start'+label), units=u)
             end = units.Quantity(out.pop('end'+label), units=u)
             n = out.pop(nlabel+label)
-            lst = self.compensationmotors.get(name)
+            lst = self.compensationmotors.get(name, [])
             for mot in lst:
                 pos = out.get(mot, None)
                 if pos is not None:
