@@ -95,7 +95,6 @@ class test_mixture(unittest.TestCase):
             for k in n1:
                 self.assertAlmostEqual(n1[k], n2[k])
 
-
     @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None, "xraylib not installed")
     def test_tocompound(self):
         c1 = compoundfromformula.CompoundFromFormula("Co2O3", 1.5)
