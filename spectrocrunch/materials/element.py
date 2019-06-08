@@ -132,6 +132,9 @@ class Element(hashable.Hashable, elementbase.ElementBase):
     def name(self, value):
         self.Z = value
 
+    def __copy__(self):
+        return self.__class__(self)
+
     def __getstate__(self):
         return {'Z': self.Z,
                 'shells': self.shells,

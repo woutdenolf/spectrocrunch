@@ -652,7 +652,7 @@ class Spectrum(collections.MutableMapping):
         self.geomkwargs = kwargs.pop('geomkwargs', {})
         self.update(*args, **kwargs)
 
-    def copy(self):
+    def __copy__(self):
         return Spectrum(self._lines,
                         density=self.density,
                         xlim=self.xlim,
@@ -660,6 +660,9 @@ class Spectrum(collections.MutableMapping):
                         type=self.type,
                         geometry=self.geometry,
                         geomkwargs=self.geomkwargs)
+
+    def copy(self):
+        return self.__copy__()
 
     def __getitem__(self, item):
         # Line values can be a function of geomkwargs

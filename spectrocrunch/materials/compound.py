@@ -38,7 +38,7 @@ class Compound(multielementbase.MultiElementBase):
     """Interface to a compound
     """
 
-    def __init__(self, elements, frac, fractype, density=None, nrefrac=1, name=None):
+    def __init__(self, elements, frac, fractype=None, density=None, nrefrac=1, name=None):
         """
         Args:
             elements(list): list of elements (["Fe","O"] or [element("Fe"),element("O")])
@@ -98,6 +98,15 @@ class Compound(multielementbase.MultiElementBase):
                 self._elements[e] += float(n)
             else:
                 self._elements[e] = float(n)
+
+    def __copy__(self):
+        nfrac = self.molefractions()
+        return Compound(list(nfrac.keys()),
+                        list(nfrac.values()),
+                        fractype=types.fraction.mole,
+                        density=self.density,
+                        nrefrac=self.nrefrac,
+                        name=self.name)
 
     def __getstate__(self):
         return {'name': self.name,

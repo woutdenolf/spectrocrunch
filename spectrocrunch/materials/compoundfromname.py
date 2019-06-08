@@ -23,6 +23,7 @@
 # THE SOFTWARE.
 
 import warnings
+from copy import copy
 from . import compound
 from . import compoundfromlist
 from . import compoundfromformula
@@ -306,7 +307,7 @@ registry = compounddb.keys()
 
 
 def factory(name):
-    return compounddb[name]
+    return copy(compounddb[name])
 
 
 def search(name):

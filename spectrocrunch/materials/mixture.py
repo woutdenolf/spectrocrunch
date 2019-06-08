@@ -61,8 +61,6 @@ class Mixture(multielementbase.MultiElementBase):
         else:
             MM = np.asarray([c.molarmass() for c in compounds])
             nfrac = stoichiometry.frac_weight_to_mole(fractions, MM)
-
-        # Compounds (no duplicates)
         self._compose_compounds(compounds, nfrac)
 
     def _compose_compounds(self, compounds, nfrac):
@@ -72,6 +70,13 @@ class Mixture(multielementbase.MultiElementBase):
                 self._compounds[c] += float(n)
             else:
                 self._compounds[c] = float(n)
+
+    def __copy__(self):
+        nfrac = self.molefractions()
+        return self.__class__(list(nfrac.keys()),
+                              list(nfrac.values()),
+                              fractype=types.fraction.mole,
+                              name=self.name)
 
     def __getstate__(self):
         return {'name': self.name,

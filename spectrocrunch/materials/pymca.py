@@ -735,8 +735,12 @@ class PymcaHandle(PymcaBaseHandle):
             self.configurepymca()
 
     def xrayspectrum(self, **kwargs):
-        return self.sample.xrayspectrum(self.energy, emin=self.emin, emax=self.emax,
-                                        weights=self.weights, ninteractions=self.ninteractions, **kwargs)
+        return self.sample.xrayspectrum(self.energy,
+                                        emin=self.emin,
+                                        emax=self.emax,
+                                        weights=self.weights,
+                                        ninteractions=self.ninteractions,
+                                        **kwargs)
 
     def xraygrouprates(self, **kwargs):
         spectrum = self.xrayspectrum(**kwargs)
