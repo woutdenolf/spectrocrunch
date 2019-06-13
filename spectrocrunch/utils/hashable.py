@@ -22,47 +22,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from .comparable import Comparable
+from comparable import Comparable
 
 
 class Hashable(Comparable):
-    """A derived class with methods _cmpkey() and _stringrepr() can be used
-       as dictionary keys. Additionally, the string representations can still
-       be used as keys.
-    """
 
-    def _compare(self, other, method):
-        if isinstance(other, str):
-            return method(str(self), other)
-        else:
-            try:
-                return method(self._cmpkey(), other._cmpkey())
-            except:
-                return False
-
-    def _sort(self, other, method):
-        if isinstance(other, str):
-            return method(str(self), other)
-        else:
-            return method(self._sortkey(), other._sortkey())
-
-    def _cmpkey(self):
-        return self.__str__()
-
-    def _sortkey(self):
-        return self.__str__()
-
-    def __repr__(self):
-        return self.__str__()
-
-    def __str__(self):
-        try:
-            return self._stringrepr()
-        except (AttributeError):
-            return str(id(self))
+    @property
+    def _repr(self):
+        return "{}{}".format(type(self).__name__, id(self))
 
     def __hash__(self):
-        return hash(self.__str__())
+        return hash(self._repr)
 
-    def encode(self, *args, **kwargs):
-        return self.__str__().encode(*args, **kwargs)
+
+class CompHashable(Hashable, Comparable):
+
+    @property
+    def _repr(self):
+        return "{}{}".format(type(self).__name__, id(self))

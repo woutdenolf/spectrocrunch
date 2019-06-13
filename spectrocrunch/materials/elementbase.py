@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from ..utils.hashable import CompHashable
+from ..utils.copyable import Copyable
 from . import xrayspectrum
 from ..utils import instance
 from ..patch.pint import ureg
@@ -51,7 +53,7 @@ def refractive_index_beta_calc(energy, e_wfrac, density, **kwargs):
     return beta.to("dimensionless").magnitude
 
 
-class ElementBase(object):
+class ElementBase(Copyable, CompHashable):
 
     def refractive_index_delta(self, E, fine=False, decomposed=False, **kwargs):
         """n = 1-delta-i*beta

@@ -29,7 +29,7 @@ class CompoundFromList(compound.Compound):
     """Interface to a compound defined by a list of elements
     """
 
-    def __init__(self, elements, frac, fractype, density, name=None):
+    def __init__(self, elements, frac, fractype, density=None, name=None):
         """
         Args:
             elements(list[str]): list of elements (["Fe","O"])
@@ -40,4 +40,4 @@ class CompoundFromList(compound.Compound):
         """
 
         super(CompoundFromList, self).__init__(
-            elements, frac, fractype, density, name=name)
+            elements, frac, fractype, density=density, name=name)

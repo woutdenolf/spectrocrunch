@@ -32,7 +32,8 @@ import scipy.integrate
 from ..patch import xraylib
 from ..patch.pint import ureg
 from ..utils import instance
-from ..utils.hashable import Hashable
+from ..utils.hashable import CompHashable
+from ..utils.copyable import Copyable
 from ..utils import listtools
 from ..utils.Enum import Enum
 from ..utils.roi import mergeroi1d
@@ -48,7 +49,7 @@ from ..math import fit1d
 # ... -> use PS_pure_kissel,FluorYield,RadRate of lower shells
 
 
-class FluoLine(Hashable):
+class FluoLine(CompHashable, Copyable):
 
     @staticmethod
     def getlinename(line):
@@ -177,12 +178,17 @@ class FluoLine(Hashable):
         self.code = state['code']
         self.name = state['name']
 
-    def _cmpkey(self):
-        """For comparing and sorting
-        """
+    def _sortkey(self, other):
         return self.code
 
-    def _stringrepr(self):
+    def _cmpkey(self, other):
+        if instance.isnumber(other):
+            return self.code
+        else:
+            return repr(self)
+
+    @property
+    def _repr(self):
         """Unique representation of an instance
         """
         return self.name
@@ -274,7 +280,7 @@ class FluoLine(Hashable):
         return xraylib.CS_FluorLine_Kissel_Cascade(Z, self.code, E)
 
 
-class Shell(Hashable):
+class Shell(CompHashable, Copyable):
 
     @staticmethod
     def getshellname(shell):
@@ -423,12 +429,17 @@ class Shell(Hashable):
         else:
             yield "{} fluorescence lines: {}".format(self.name, ", ".join((str(l) for l in self._fluolines)))
 
-    def _cmpkey(self):
-        """For comparing and sorting
-        """
+    def _sortkey(self, other):
         return self.code
 
-    def _stringrepr(self):
+    def _cmpkey(self, other):
+        if instance.isnumber(other):
+            return self.code
+        else:
+            return repr(self)
+
+    @property
+    def _repr(self):
         """Unique representation of an instance
         """
         return self.name
@@ -468,30 +479,24 @@ class Shell(Hashable):
         return xraylib.EdgeEnergy(Z, self.code)
 
 
-class FluoZGroup(Hashable):
+class FluoZGroup(CompHashable, Copyable):
 
     def __init__(self, element, group):
         self.element = element
         self.group = group
         self.element.markabsorber(shells=group)
 
-    def _sortkey(self):
-        """For sorting
-        """
+    def _sortkey(self, other):
         return max(s.edgeenergy(self.element.Z) for s in self.element.shells)
 
-    def _cmpkey(self):
-        """For comparing and sorting
-        """
-        return self._stringrepr()
-
-    def _stringrepr(self):
+    @property
+    def _repr(self):
         """Unique representation of an instance
         """
         return "{}-{}".format(self.element, self.group)
 
 
-class FluoZLine(Hashable):
+class FluoZLine(CompHashable, Copyable):
 
     def __init__(self, element, line):
         self.line = line
@@ -510,17 +515,11 @@ class FluoZLine(Hashable):
         # Journal of Physical and Chemical Reference Data 8, 329 (1979); https://doi.org/10.1063/1.555595
         return self.line.shell.atomiclevelwidth(self.element.Z) + self.line.shellsource.atomiclevelwidth(self.element.Z)
 
-    def _sortkey(self):
-        """For sorting
-        """
+    def _sortkey(self, other):
         return self.energy()
 
-    def _cmpkey(self):
-        """For comparing
-        """
-        return self._stringrepr()
-
-    def _stringrepr(self):
+    @property
+    def _repr(self):
         """Unique representation of an instance
         """
         return "{}-{}".format(self.element, self.line)
@@ -544,7 +543,7 @@ class FluoZLine(Hashable):
         return self.energy() > 0
 
 
-class ScatteringLine(Hashable):
+class ScatteringLine(CompHashable, Copyable):
 
     def __init__(self, energysource):
         self.energysource = energysource
@@ -553,20 +552,14 @@ class ScatteringLine(Hashable):
     def linewidth(self):
         return 0  # TODO: depends on many things
 
-    def _sortkey(self):
-        """For sorting
-        """
+    def _sortkey(self, other):
         en = self.energy(polar=1e-3)
         if instance.isiterable(en):
             en = max(en)
         return en
 
-    def _cmpkey(self):
-        """For comparing and sorting
-        """
-        return self.name
-
-    def _stringrepr(self):
+    @property
+    def _repr(self):
         """Unique representation of an instance
         """
         return self.name
@@ -634,7 +627,7 @@ class ComptonLine(ScatteringLine):
         return np.arccos(np.clip(1-m, -1, 1))
 
 
-class Spectrum(collections.MutableMapping):
+class Spectrum(Copyable, collections.MutableMapping):
 
     TYPES = Enum(['diffcrosssection', 'crosssection', 'rate'])
     # diffcrosssection: cm^2/g/srad
@@ -651,18 +644,6 @@ class Spectrum(collections.MutableMapping):
         self.geometry = kwargs.pop('geometry', None)
         self.geomkwargs = kwargs.pop('geomkwargs', {})
         self.update(*args, **kwargs)
-
-    def __copy__(self):
-        return Spectrum(self._lines,
-                        density=self.density,
-                        xlim=self.xlim,
-                        title=self.title,
-                        type=self.type,
-                        geometry=self.geometry,
-                        geomkwargs=self.geomkwargs)
-
-    def copy(self):
-        return self.__copy__()
 
     def __getitem__(self, item):
         # Line values can be a function of geomkwargs

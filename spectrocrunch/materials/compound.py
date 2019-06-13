@@ -100,6 +100,15 @@ class Compound(multielementbase.MultiElementBase):
                 self._elements[e] = float(n)
 
     def __copy__(self):
+        nfrac = self._elements
+        return Compound(list(nfrac.keys()),
+                        list(nfrac.values()),
+                        fractype=types.fraction.mole,
+                        density=self.density,
+                        nrefrac=self.nrefrac,
+                        name=self.name)
+
+    def __deepcopy__(self, memo):
         nfrac = self.molefractions()
         return Compound(list(nfrac.keys()),
                         list(nfrac.values()),
@@ -184,14 +193,6 @@ class Compound(multielementbase.MultiElementBase):
 
         # Elements
         self._compose_elements(elements, nfrac)
-
-    def _stringrepr(self):
-        return self.name
-        return '{}: {} ({} g/cm^3)'.format(
-            self.name,
-            ', '.join("{} {}".format(s[1], s[0])
-                      for s in sorted(self._elements.items())),
-            self.density)
 
     def __getitem__(self, el):
         return self._elements[el]

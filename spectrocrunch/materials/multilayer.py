@@ -43,19 +43,20 @@ from . import element
 from ..materials import compoundfromdb
 from ..materials import mixture
 from ..materials import types
+from ..utils.copyable import Copyable
 
 logger = logging.getLogger(__name__)
 
 
-class Layer(object):
+class Layer(Copyable):
 
-    def __init__(self, material=None, thickness=None, fixed=False, ml=None):
+    def __init__(self, material=None, thickness=None, fixed=False, parent=None):
         """
         Args:
             material(compound|mixture|str): material composition
             thickness(num): thickness in cm
             fixed(bool): thickness and composition are fixed
-            ml(Multilayer): part of this ensemble
+            parent(Multilayer): part of this ensemble
         """
         if instance.isstring(material):
             ret = compoundfromdb.factory(material)
@@ -65,7 +66,7 @@ class Layer(object):
         self.material = material
         self.thickness = thickness
         self.fixed = fixed
-        self.ml = ml
+        self.parent = parent
 
     def __getstate__(self):
         return {'material': self.material,
@@ -96,19 +97,19 @@ class Layer(object):
 
     @property
     def xraythicknessin(self):
-        return self.thickness/self.ml.geometry.cosnormin
+        return self.thickness/self.parent.geometry.cosnormin
 
     @xraythicknessin.setter
     def xraythicknessin(self, value):
-        self.thickness = value*self.ml.geometry.cosnormin
+        self.thickness = value*self.parent.geometry.cosnormin
 
     @property
     def xraythicknessout(self):
-        return self.thickness/self.ml.geometry.cosnormout
+        return self.thickness/self.parent.geometry.cosnormout
 
     @xraythicknessout.setter
     def xraythicknessout(self, value):
-        self.thickness = value*self.ml.geometry.cosnormout
+        self.thickness = value*self.parent.geometry.cosnormout
 
     def absorbance(self, energy, weights=None, out=False, **kwargs):
         kwargs.pop("decomposed", None)
@@ -137,7 +138,7 @@ class Layer(object):
                         np.asarray(list(wfrac.values()))*m))
 
 
-class Multilayer(with_metaclass(cache.Cache)):
+class Multilayer(with_metaclass((Copyable, cache.Cache))):
     """
     Class representing a multilayer of compounds or mixtures
     """
@@ -161,7 +162,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             fixed = [fixed]
         if len(fixed) != len(material) and len(fixed) == 1:
             fixed = fixed*len(material)
-        self.layers = [Layer(material=mat, thickness=t, fixed=f, ml=self)
+        self.layers = [Layer(material=mat, thickness=t, fixed=f, parent=self)
                        for mat, t, f in zip(material, thickness, fixed)]
         if not name:
             name = 'MULTILAYER'
@@ -174,7 +175,7 @@ class Multilayer(with_metaclass(cache.Cache)):
     def __setstate__(self, state):
         self.layers = state['layers']
         for layer in self.layers:
-            layer.ml = self
+            layer.parent = self
         self.geometry = state['geometry']
 
     def __eq__(self, other):
@@ -922,7 +923,7 @@ class Multilayer(with_metaclass(cache.Cache)):
             material = [setup.loadfrompymca_material(cfg, name, density)]
             thickness = [thickness]
 
-        self.layers = [Layer(material=mat, thickness=t, ml=self)
+        self.layers = [Layer(material=mat, thickness=t, parent=self)
                        for mat, t in zip(material, thickness)]
 
     def _parse_fisx_result(self, gen):

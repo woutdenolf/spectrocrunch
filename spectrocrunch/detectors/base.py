@@ -26,6 +26,7 @@ from ..utils import instance
 from ..utils import units
 from ..math import noisepropagation
 from ..materials import element
+from ..utils.copyable import Copyable
 
 import numpy as np
 import fisx
@@ -40,7 +41,7 @@ def isbeamfilter(name):
     return bool(match_beamfilter(name))
 
 
-class Material(object):
+class Material(Copyable):
 
     DETMATERIALLABEL = "Detector"
 

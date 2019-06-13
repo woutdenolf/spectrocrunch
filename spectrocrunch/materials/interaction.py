@@ -25,13 +25,13 @@
 
 from ..patch import xraylib
 from ..patch.pint import ureg
-from ..utils.hashable import Hashable
+from ..utils.hashable import CompHashable
 from . import element
 
 import numpy as np
 
 
-class Interaction(Hashable):
+class Interaction(CompHashable):
 
     def __init__(self, name, energy, prob):
         self._name = name
@@ -42,17 +42,11 @@ class Interaction(Hashable):
     def energy(self):
         return self._energy
 
-    def _cmpkey(self):
-        """For comparing
-        """
-        return str(self)
-
-    def _sortkey(self):
-        """For sorting
-        """
+    def _sortkey(self, other):
         return self.energy
 
-    def _stringrepr(self):
+    @property
+    def _repr(self):
         """Unique representation of an instance
         """
         return self._name
@@ -80,7 +74,6 @@ class InteractionFluo(Interaction):
         name = "{}-{}".format(el, line)
         energy = line.energy(el.Z)
         prob = shell.fluoyield(el.Z)*line.radrate(el.Z)
-
         super(InteractionFluo, self).__init__(name, energy, prob)
 
 

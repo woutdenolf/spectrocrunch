@@ -71,13 +71,6 @@ class Mixture(multielementbase.MultiElementBase):
             else:
                 self._compounds[c] = float(n)
 
-    def __copy__(self):
-        nfrac = self.molefractions()
-        return self.__class__(list(nfrac.keys()),
-                              list(nfrac.values()),
-                              fractype=types.fraction.mole,
-                              name=self.name)
-
     def __getstate__(self):
         return {'name': self.name,
                 'compounds_keys': list(self._compounds.keys()),

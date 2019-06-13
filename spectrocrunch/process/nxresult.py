@@ -22,13 +22,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from ..utils.hashable import Hashable
+from ..utils.hashable import CompHashable
 from ..utils import instance
 from ..io import nxfs
 from . import axis
 
 
-class Group(Hashable):
+class Group(CompHashable):
     """NXprocess subgroup name wrapper
     """
 
@@ -89,23 +89,9 @@ class Group(Hashable):
         else:
             return None
 
-    def __str__(self):
+    @property
+    def _repr(self):
         return self.name
-
-    def __repr__(self):
-        return self.name
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.name == other.name
-        else:
-            return self.name == other
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(repr(self))
 
 
 def regulargriddata(nxgroup):

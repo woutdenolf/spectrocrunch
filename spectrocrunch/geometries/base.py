@@ -25,10 +25,11 @@
 import numpy as np
 from ..utils import units
 from ..utils import instance
+from ..utils.copyable import Copyable
 from ..math import noisepropagation
 
 
-class Base(object):
+class Base(Copyable):
 
     def __init__(self, detector=None, source=None, atmosphere=None):
         self.detector = detector

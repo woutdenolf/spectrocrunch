@@ -27,6 +27,7 @@ from ..utils.classfactory import with_metaclass
 from ..resources import resource_filename
 from ..math import noisepropagation
 from ..utils import units
+from ..utils.copyable import Copyable
 from ..materials import compoundfromname
 
 import numpy as np
@@ -36,7 +37,7 @@ import os
 import json
 
 
-class LinearMotor(object):
+class LinearMotor(Copyable):
 
     def __init__(self, zerodistance=None, positionsign=1, geometry=None):
         self.zerodistance = zerodistance
@@ -55,7 +56,7 @@ class LinearMotor(object):
     def __eq__(self, other):
         if isinstance(other, self.__class__):
             return self.zerodistance == other.zerodistance and \
-                self.positionsign == other.positionsign
+                   self.positionsign == other.positionsign
         else:
             return False
 
@@ -341,10 +342,11 @@ class XRFGeometry(with_metaclass(base.Centric)):
     def distance_rv(self):
         """Sample-detector distance in cm
         """
-        if self.distancefunc is None:
+        calc = self.distancefunc
+        if calc is None:
             return super(XRFGeometry, self).distance
         else:
-            return self.distancefunc(rv=True, **self.distancekwargs)
+            return calc(rv=True, **self.distancekwargs)
 
     @property
     def distance(self):
@@ -408,10 +410,11 @@ class LinearXRFGeometry(XRFGeometry):
                  positionunits=None, positionsign=1, **kwargs):
         if zerodistance is not None:
             zerodistance = units.Quantity(zerodistance, positionunits)
-        distancefunc = LinearMotor(
-            zerodistance=zerodistance, positionsign=positionsign, geometry=self)
-        super(LinearXRFGeometry, self).__init__(
-            distancefunc=distancefunc, **kwargs)
+        distancefunc = LinearMotor(zerodistance=zerodistance,
+                                   positionsign=positionsign,
+                                   geometry=self)
+        super(LinearXRFGeometry, self).__init__(distancefunc=distancefunc,
+                                                **kwargs)
         self.positionunits = positionunits
         if kwargs.get('distance', None) is None:
             self.detectorposition = detectorposition

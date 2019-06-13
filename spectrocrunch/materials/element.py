@@ -32,7 +32,6 @@ import re
 from . import elementbase
 from ..patch import xraylib
 from ..patch.pint import ureg
-from ..utils import hashable
 from ..utils import instance
 from ..math import lazy
 from . import xrayspectrum
@@ -102,7 +101,7 @@ def elementSymbol(symb):
     return name
 
 
-class Element(hashable.Hashable, elementbase.ElementBase):
+class Element(elementbase.ElementBase):
     """Interface to chemical elements
     """
 
@@ -132,9 +131,6 @@ class Element(hashable.Hashable, elementbase.ElementBase):
     def name(self, value):
         self.Z = value
 
-    def __copy__(self):
-        return self.__class__(self)
-
     def __getstate__(self):
         return {'Z': self.Z,
                 'shells': self.shells,
@@ -145,14 +141,17 @@ class Element(hashable.Hashable, elementbase.ElementBase):
         self.shells = state['shells']
         self.isscatterer = state['isscatterer']
 
-    def _cmpkey(self):
-        """For comparing and sorting
-        """
+    def _sortkey(self, other):
         return -self.Z
 
-    def _stringrepr(self):
-        """Unique representation of an instance
-        """
+    def _cmpkey(self, other):
+        if instance.isnumber(other):
+            return self.Z
+        else:
+            return repr(self)
+
+    @property
+    def _repr(self):
         return self.name
 
     def shellfactory(self, emin=None, emax=None):
