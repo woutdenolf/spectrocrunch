@@ -1,9 +1,15 @@
 def search(names, name):
-    name = name.lower()
-    ret = [k for k in names if name in k.lower()]
+    lname = name.lower()
+    # Contains (case insensitive)
+    ret = [k for k in names if lname in k.lower()]
     if len(ret) > 1:
-        # Try exact match
-        ret2 = [k for k in names if name == k.lower()]
+        # Equal (case insensitive)
+        ret2 = [k for k in names if lname == k.lower()]
+        if len(ret2) > 1:
+            # Equal (case sensitive)
+            ret3 = [k for k in names if name == k]
+            if ret3:
+                ret2 = ret3
         if ret2:
             ret = ret2
     return ret

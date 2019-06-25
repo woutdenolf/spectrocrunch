@@ -1,4 +1,5 @@
 import os
+import errno
 import re
 import subprocess
 import itertools
@@ -32,7 +33,7 @@ def installed(*args):
         devnull = open(os.devnull)
         _execute(*args, stdout=devnull, stderr=devnull)
     except OSError as e:
-        if e.errno == os.errno.ENOENT:
+        if e.errno == errno.ENOENT:
             return False
     return True
 
@@ -857,10 +858,31 @@ class AreaDetector(Detector):
 
     TYPE = 'detectorarray'
 
-    def __init__(self, parent, name, pixelsize=None, dims=None, **kwargs):
+    def __init__(self, parent, name, pixelsize=None, dims=None,
+                 hpoffset=None, vpoffset=None, **kwargs):
         self.dims = dims
         self.pixelsize = pixelsize
         super(AreaDetector, self).__init__(parent, name, **kwargs)
+        if hpoffset is not None:
+            self.hpoffset = hpoffset
+        if vpoffset is not None:
+            self.vpoffset = vpoffset
+
+    @property
+    def hpoffset(self):
+        return self.hoffset*self.pixelsize[0]
+
+    @hpoffset.setter
+    def hpoffset(self, value):
+        self.hoffset = value/float(self.pixelsize[0])
+
+    @property
+    def hvoffset(self):
+        return self.voffset*self.pixelsize[1]
+
+    @vpoffset.setter
+    def vpoffset(self, value):
+        self.voffset = value/float(self.pixelsize[1])
 
 
 class SingleElementDetector(Detector):
@@ -1192,13 +1214,15 @@ class XrmcWorldBuilder(object):
                                     time=time, **response)
 
     def addareadetector(self, distance=None, activearea=None, ebinsize=None,
-                        polar=0, azimuth=0, poissonnoise=False, forcedetect=True,
+                        polar=0, azimuth=0, hoffset=0, voffset0,
+                        poissonnoise=False, forcedetect=True,
                         multiplicity=1, time=1, pixelsize=None, dims=None):
         self.main.removedevice(cls=Detector)
         self.detector = self.main.add_device(AreaDetector, 'detector',
                                     distance=distance,
                                     pixelsize=pixelsize, dims=dims,
                                     polar=polar, azimuth=azimuth,
+                                    hoffset=hoffset, voffset=voffset,
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity, time=time)
 

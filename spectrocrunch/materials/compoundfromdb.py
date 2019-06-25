@@ -30,8 +30,9 @@ from . import compoundsearch
 import collections
 import itertools
 
-db = collections.OrderedDict(
-    [("name", compoundfromname), ("nist", compoundfromnist), ("formula", compoundfromformula)])
+db = collections.OrderedDict([("name", compoundfromname),
+                              ("nist", compoundfromnist),
+                              ("formula", compoundfromformula)])
 
 
 def getnames():
@@ -49,3 +50,7 @@ def factory(name, **kwargs):
 
 def search(name):
     return compoundsearch.search(getnames(), name)
+
+
+def compoundfromdb(name):
+    return factory(name)
