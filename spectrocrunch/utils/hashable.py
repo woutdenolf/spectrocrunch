@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from comparable import Comparable
+from .comparable import Comparable
 
 
 class Hashable(Comparable):

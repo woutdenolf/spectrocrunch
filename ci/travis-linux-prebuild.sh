@@ -67,7 +67,7 @@ function main()
     fi
 
     if [[ ${ARG_PYTHONV::1} == 3 ]];then
-        ARG_PYTHONV=3.6.7
+        ARG_PYTHONV=3.5.6
     else
         ARG_PYTHONV=2.7.15
     fi
