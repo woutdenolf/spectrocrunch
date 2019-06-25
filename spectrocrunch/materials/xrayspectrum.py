@@ -1024,22 +1024,19 @@ class Spectrum(Copyable, collections.MutableMapping):
             plot=False, kstd=3):
         energies = self.mcaenergies()
         lineinfo = self.lineinfo(convert=convert)
-
         lines = [k for k in lineinfo if linevalid(k)]
         if not bool(lines):
             raise RuntimeError("No lines fit the description")
 
+        # Profile functions
+        _, ylabel = self.scaleprofiles(convert=convert,
+                                       fluxtime=fluxtime,
+                                       histogram=histogram,
+                                       lineinfo=lineinfo)
+        info = self.peakprofiles_selectioninfo(lineinfo, lines, voigt=voigt)
         if backfunc is None:
             def backfunc(x):
                 return np.zeros_like(x)
-
-        _, ylabel = self.scaleprofiles(
-            convert=convert, fluxtime=fluxtime,
-            histogram=histogram, lineinfo=lineinfo)
-        info = self.peakprofiles_selectioninfo(lineinfo, lines, voigt=voigt)
-
-        emin, emax = energies[0], energies[-1]
-
         def funcint(x):
             return info["extractinpeaks"](info["profilesin"](x))
         def functot(x):
@@ -1049,46 +1046,44 @@ class Spectrum(Copyable, collections.MutableMapping):
             return np.squeeze(
                 info["extractbkg"](info["profilesall"](x))+backfunc(x))
 
+        # Plot spectrum
         if plot:
             lines = plt.plot(energies, np.random.poisson(
                 np.round(functot(energies)).astype(int)))
             color2 = lines[0].get_color()
             color1 = next(plt.gca()._get_lines.prop_cycler)['color']
+            ax = plt.gca()
 
-        ax = plt.gca()
+        # Signal and background
         total = 0.
         background = 0.
-
         arrtotal = []
         arrbackground = []
-
         for a, b in mergeroi1d(info["roigen"](kstd=kstd)):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 total += scipy.integrate.quad(functot, a, b)[0]
                 background += scipy.integrate.quad(funcbkg, a, b)[0]
-
             if plot:
                 ax.axvline(x=a)
                 ax.axvline(x=b)
-
             a = np.argmin(np.abs(energies-a))
             b = np.argmin(np.abs(energies-b))
-
             ptotal = functot(energies[a:b])
             pbackground = funcbkg(energies[a:b])
             arrtotal.append(ptotal)
             arrbackground.append(pbackground)
-
             if plot:
-                plt.fill_between(
-                    energies[a:b], pbackground, 0, alpha=0.5, color=color1)
+                plt.fill_between(energies[a:b], pbackground,
+                                 0, alpha=0.5, color=color1)
                 plt.fill_between(energies[a:b], ptotal,
                                  pbackground, alpha=0.5, color=color2)
-
         signal = total-background
-        SNR = signal/np.sqrt(total+background)
+        noise = np.sqrt(total+background)
+        SNR = signal/noise
 
+        # Errors from linear fit within ROI:
+        #   ytotal = a*signal + b*background
         arrtotal = np.concatenate(arrtotal)
         arrbackground = np.concatenate(arrbackground)
         arrsignal = arrtotal-arrbackground
@@ -1100,14 +1095,18 @@ class Spectrum(Copyable, collections.MutableMapping):
         cov = fit1d.lstsq_cov(A, vare=arrtotal)
         cor = fit1d.cor_from_cov(cov)
         cor = abs(cor[0, 1])
-
         if plot:
             plt.ylabel(ylabel)
             plt.xlabel("Energy (keV)")
             plt.title("SNR = {:.02f}, ESR = {:.02f}% (dep), ESR = {:.02f}% (indep), COR = {:.02f}".format(
                 SNR, ESRdep*100, ESRindep*100, cor))
-
-        return {"SNR": SNR, "ESR (dependent)": ESRdep, "ESR (independent)": ESRindep, "SB-correlation": cor}
+        return {"SNR": SNR,
+                "ESR (dependent)": ESRdep,
+                "ESR (independent)": ESRindep,
+                "SB-correlation": cor,
+                'signal': signal,
+                'noise': noise,
+                'background': background}
 
     def linespectra(self, sort=True, **kwargs):
         """X-ray spectrum decomposed in individual lines

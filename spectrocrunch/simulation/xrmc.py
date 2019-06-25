@@ -870,19 +870,19 @@ class AreaDetector(Detector):
 
     @property
     def hpoffset(self):
-        return self.hoffset*self.pixelsize[0]
+        return self.hoffset/float(self.pixelsize[0])
 
     @hpoffset.setter
     def hpoffset(self, value):
-        self.hoffset = value/float(self.pixelsize[0])
+        self.hoffset = value*self.pixelsize[0]
 
     @property
-    def hvoffset(self):
-        return self.voffset*self.pixelsize[1]
+    def vpoffset(self):
+        return self.voffset/float(self.pixelsize[1])
 
     @vpoffset.setter
     def vpoffset(self, value):
-        self.voffset = value/float(self.pixelsize[1])
+        self.voffset = value*self.pixelsize[1]
 
 
 class SingleElementDetector(Detector):
@@ -1214,7 +1214,7 @@ class XrmcWorldBuilder(object):
                                     time=time, **response)
 
     def addareadetector(self, distance=None, activearea=None, ebinsize=None,
-                        polar=0, azimuth=0, hoffset=0, voffset0,
+                        polar=0, azimuth=0, hpoffset=0, vpoffset=0,
                         poissonnoise=False, forcedetect=True,
                         multiplicity=1, time=1, pixelsize=None, dims=None):
         self.main.removedevice(cls=Detector)
@@ -1222,7 +1222,7 @@ class XrmcWorldBuilder(object):
                                     distance=distance,
                                     pixelsize=pixelsize, dims=dims,
                                     polar=polar, azimuth=azimuth,
-                                    hoffset=hoffset, voffset=voffset,
+                                    hpoffset=hpoffset, vpoffset=vpoffset,
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity, time=time)
 
