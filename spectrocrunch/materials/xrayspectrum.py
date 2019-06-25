@@ -856,32 +856,25 @@ class Spectrum(Copyable, collections.MutableMapping):
                 lines = lines.split()
             else:
                 intensities = list(lines.values())
-
             imax = np.argmax(intensities)
-
             for i, (line, peakarea) in enumerate(zip(lines, intensities)):
                 energy = line.energy(**geomkwargs)
-
                 if i == imax:
                     label = group
                 else:
                     label = None
-
                 if bscat:
                     linename = "{}{}".format(group, i)
                 else:
                     linename = str(line)
-
                 lineinfo[linename] = {"group": group,
                                       "label": label,
                                       "energy": energy,
                                       "area": peakarea,
                                       "natwidth": line.linewidth}
-
         if sort:
             lineinfo = collections.OrderedDict(
                 sorted(lineinfo.items(), key=lambda x: x[1]["energy"]))
-
         return lineinfo
 
     @staticmethod
@@ -896,7 +889,9 @@ class Spectrum(Copyable, collections.MutableMapping):
             linewidths = self._lineinfo_values(lineinfo, 'natwidth')
         else:
             linewidths = np.zeros_like(energies)
-        return self.geometry.detector.lineprofile(x, energies, linewidth=linewidths, **kwargs)
+        return self.geometry.detector.lineprofile(x, energies,
+                                                  linewidth=linewidths,
+                                                  **kwargs)
 
     def peakprofiles_selectioninfo(self, lineinfo, lines, voigt=False):
         if self.geometry is None:
@@ -1163,10 +1158,8 @@ class Spectrum(Copyable, collections.MutableMapping):
         """X-ray spectrum or cross-section lines
         """
         ax = plt.gca()
-
         if decompose:
             energies = self.mcaenergies()
-
             lines = self.lineinfo(convert=convert, sort=True)
             multiplier, ylabel = self.scaleprofiles(
                 convert=convert, fluxtime=fluxtime, histogram=histogram)
@@ -1177,40 +1170,44 @@ class Spectrum(Copyable, collections.MutableMapping):
                 g = lineinfo["group"]
                 if g not in colors:
                     colors[g] = next(ax._get_lines.prop_cycler)['color']
-
             blines = profiles is None or forcelines
             calcbkg = not (blines or backfunc is None)
             if calcbkg:
                 bkg = backfunc(energies)
             else:
                 bkg = 0
-
             sumprof = None
             off = 0
             for ind, (linename, lineinfo) in enumerate(lines.items()):
                 color = colors[lineinfo["group"]]
-
                 if profiles is None:
                     prof = lineinfo["area"]*multiplier
                 else:
                     prof = lineinfo["area"]*multiplier*profiles[:, ind]
                     if backfunc is not None and forcelines:
                         off = backfunc(lineinfo["energy"])
-
+                if legend:
+                    label = lineinfo["label"]
+                else:
+                    label = None
                 h = self._plotline(lineinfo, energies, prof+bkg,
-                                   color=color, off=off, label=lineinfo["label"])
+                                   color=color, off=off, label=label)
                 if mark and lineinfo["label"] is not None:
-                    plt.annotate(linename, xy=(
-                        lineinfo["energy"], h+off), color=color)
-
+                    plt.annotate(linename,
+                                 xy=(lineinfo["energy"], h+off),
+                                 color=color,
+                                 clip_on=True)
                 if not blines:
                     if sumprof is None:
                         sumprof = prof
                     else:
                         sumprof += prof
-
             if calcbkg:
-                self._plotline(None, energies, bkg, label="bkg")
+                if legend:
+                    label = sumlabel+"bkg"
+                else:
+                    label = None
+                self._plotline(None, energies, bkg, label=label)
         else:
             energies, sumprof, ylabel = self.sumspectrum(
                 convert=convert, fluxtime=fluxtime, histogram=histogram)
@@ -1218,13 +1215,14 @@ class Spectrum(Copyable, collections.MutableMapping):
                 bkg = 0
             else:
                 bkg = backfunc(energies)
-
         if sumprof is not None:
-            plt.plot(energies, sumprof+bkg, label=sumlabel)
-
+            if legend:
+                label = sumlabel
+            else:
+                label = None
+            plt.plot(energies, sumprof+bkg, label=label)
         if self.geometry is not None and ylog:
             ax.set_yscale('log', basey=10)
-
         if legend:
             plt.legend(loc='best')
         ax.set_xlabel(self.xlabel)

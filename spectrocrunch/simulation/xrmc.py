@@ -153,6 +153,9 @@ def showxrmcresult(data, x0=None, x1=None, xenergy=None, time=None, ylog=False):
 
 class xrmc_file(object):
 
+    def __init__(self):
+        super(xrmc_file, self).__init__()
+
     @property
     def filename(self):
         if self.fileprefix and self.filesuffix:
@@ -204,7 +207,8 @@ class xrmc_main(xrmc_file):
         self.path = path
         self.fileprefix = fileprefix
         self.devices = []
-        self.loops = []  # first is the inner loop
+        self.loops = []  # first is the outer loop
+        super(xrmc_main, self).__init__()
 
     def __repr__(self):
         s = ''
@@ -356,6 +360,9 @@ class xrmc_main(xrmc_file):
         rtransform = transform.retour(nsteps)
         self.loops.append((transform, rtransform, nsteps))
 
+    def removeloops(self):
+        self.loops = []
+
     @property
     def loop_label_format(self):
         fmt = ''
@@ -382,6 +389,7 @@ class xrmc_child(xrmc_file):
 
     def __init__(self, parent):
         self.parent = parent
+        super(xrmc_child, self).__init__()
 
     @property
     def fileprefix(self):
@@ -441,24 +449,124 @@ class xrmc_device(xrmc_child):
     def filesuffix(self, value):
         self.name = value.lower()
 
-    def add_inplane_rotationloop(self, step, nsteps):
+
+class xrmc_reference_frame(object):
+    """
+    The User sample reference frame:
+
+    * Z-axis: beam direction
+    * X-axis: horizontal and pointing to the right when looking upstream
+    * Y-axis: vertical and pointing upwards
+
+    The XRMC sample reference frame is related by x', y', z' = -x, z, y.
+
+    Additionally, the User defines coordinate transformation while
+    XMRC expects change-of-basis.
+    """
+
+    def __init__(self):
+        super(xrmc_reference_frame, self).__init__()
+
+    @staticmethod
+    def translateUserToXrmc(x, y, z):
+        return -x, z, y
+
+    def rotationUserToXrmc(self, x0, y0, z0, ux, uy, uz, angle):
+        if not angle:
+            return ()
+        return self.translateUserToXrmc(x0, y0, z0) + \
+               self.translateUserToXrmc(ux, uy, uz) + \
+               (-angle,)
+
+    @staticmethod
+    def xrmcArrayInput(name, comment, a, n):
+        b = bool(a)
+        if not b:
+            a = [0]*n
+        return ' '.join([name]+list(map(str, a))), comment, b
+
+    def xrmcTranslationInput(self, name, *args):
+        arr = self.translateUserToXrmc(*args)
+        comment = 'position in the sample frame (x, y, z; cm)'
+        return self.xrmcArrayInput(name, comment, arr, len(args))
+
+    def xrmcRotationInput(self, name, *args):
+        arr = self.rotationUserToXrmc(*args)
+        comment = 'rotation around axis passing through (x, y, z; cm), with direction (u,v,w; cm) and rotation angle (deg; change-of-frame)'
+        return self.xrmcArrayInput(name, comment, arr, len(args))
+
+
+class xrmc_positional_device(xrmc_device, xrmc_reference_frame):
+    """
+    Device reference point is positioned at spherical coordinates [r, polar, azimuth].
+    Device surface goes through the reference point.
+    Device surface-center conincides with reference point (unless offsets are not zero)
+    """
+
+    def __init__(self, parent, name, radius=None, polar=None, azimuth=None,
+                 hoffset=0, voffset=0):
+        super(xrmc_positional_device, self).__init__(parent, name)
+        self.radius = radius
+        self.polar = polar
+        self.azimuth = azimuth
+        self.hoffset = hoffset
+        self.voffset = voffset
+
+    def xrmcSphericalRotationInput(self, name):
+        """
+        Transformation of point [0, 0, r] (cartesian) to [r, polar, azimuth] (spherical)
+        """
+        # Spherical: [r, polar, azimuth]
+        # Cartesian: RotZ(azimuth).RotY(polar).[0, 0, r]
+        return [self.xrmcRotationInput(name, 0, 0, 0, 0, 1, 0, self.polar),
+                self.xrmcRotationInput(name, 0, 0, 0, 0, 0, 1, self.azimuth)]
+
+    def xrmcPositionInput(self):
+        """
+        Position device at [r, polar, azimuth] (spherical)
+        """
+        T = self.xrmcTranslationInput('X', self.hoffset, self.voffset, self.radius)
+        # Rotate reference point
+        R = self.xrmcSphericalRotationInput('Rotate')
+        return T, R
+
+    def add_rotationloop(self, suffix, x, y, z, u, v, w, step, nsteps):
+        """
+        Rotate around axis going through [x, y, z] with direction [u, v, w]
+        """
+        params = x, y, z, u, v, w, step
         if isinstance(self, Quadrics):
-            cmd = 'RotateAll'
+            step = [('RotateAll', params)]
         else:
-            cmd = 'Rotate'
-        step = [(cmd, (0, 0, 0, 0, 0, 1, step))]
-        self.parent.addloop(self.name+'_inplanerot', self, step=step, nsteps=nsteps)
+            step = [('Rotate', params)]
+        self.parent.addloop(self.name+suffix, self, step=step, nsteps=nsteps)
 
-    def add_outplane_rotationloop(self, step, nsteps):
-        if isinstance(self, Quadrics):
-            cmd = 'RotateAll'
-        else:
-            cmd = 'Rotate'
-        step = [(cmd, (0, 0, 0, 1, 0, 0, step))]
-        self.parent.addloop(self.name+'_outplanerot', self, step=step, nsteps=nsteps)
+    def add_Xrotationloop(self, step, nsteps):
+        self.add_rotationloop('_Xrot', 0, 0, 0, 1, 0, 0, step, nsteps)
+
+    def add_Yrotationloop(self, step, nsteps):
+        self.add_rotationloop('_Yrot', 0, 0, 0, 0, 1, 0, step, nsteps)
+
+    def add_Zrotationloop(self, step, nsteps):
+        self.add_rotationloop('_Zrot', 0, 0, 0, 0, 0, 1, step, nsteps)
+
+    def add_polarrotationloop(self, step, nsteps):
+        """
+        Keeps azimuth constant modulo 180 degrees
+        """
+        angle = np.radians(self.azimuth+90)
+        u = np.cos(angle)
+        v = np.sin(angle)
+        self.add_rotationloop('_polarrot', 0, 0, 0, u, v, 0, step, nsteps)
+
+    def add_azimuthalrotationloop(self, step, nsteps):
+        """
+        Keeps polar angle constant
+        """
+        self.add_rotationloop('_azimuthrot', 0, 0, 0, 0, 0, 1, step, nsteps)
 
 
-class Transform(xrmc_child):
+class Transform(xrmc_child, xrmc_reference_frame):
 
     def __init__(self, parent, name, device, transformations):
         super(Transform, self).__init__(parent)
@@ -468,7 +576,7 @@ class Transform(xrmc_child):
         for cmd, parameters in transformations:
             if cmd.startswith('Rotate'):
                 if len(parameters) != 7:
-                    raise ValueError('A rotation needs 7 parameters: x0,y0,z0,nx,ny,nz,angle')
+                    raise ValueError('A rotation needs 7 parameters: x,y,z,u,v,w,angle')
             elif cmd.startswith('Translate'):
                 if len(parameters) != 3:
                     raise ValueError('A translation needs 3 parameters: dx,dy,dz')
@@ -488,10 +596,11 @@ class Transform(xrmc_child):
         lines = [('Device {}'.format(self.device.name), 'device name', True)]
         for cmd, parameters in self.transformations:
             if cmd.startswith('Rotate'):
-                comment = 'rotation around axis passing through (x0,y0,z0; cm), with direction (u,v,w; cm) and rotation angle (deg)'
+                lines.append(self.xrmcRotationInput(cmd, *parameters))
             elif cmd.startswith('Translate'):
-                comment = 'translate with (dx,dy,dz; cm)'
-            lines.append((' '.join([cmd] + list(map(str, parameters))), comment, True))
+                lines.append(self.xrmcTranslationInput(cmd, *parameters))
+            else:
+                raise NotImplementedError(cmd)
         return lines
 
     def retour(self, nsteps):
@@ -501,33 +610,47 @@ class Transform(xrmc_child):
                 parameters = tuple(parameters[:-1]) + (-nsteps*parameters[-1],)
             elif cmd.startswith('Translate'):
                 parameters = -nsteps*parameters[0], -nsteps*parameters[1], -nsteps*parameters[2]
+            else:
+                raise NotImplementedError(cmd)
             rtransformations.append((cmd, parameters))
         return self.__class__(self.parent, self.filesuffix+'_retour', self.device, rtransformations)
 
 
-
-class Source(xrmc_device):
+class Source(xrmc_positional_device):
 
     TYPE = 'source'
 
     def __init__(self, parent, name, distance=None, beamsize=None):
-        super(Source, self).__init__(parent, name)
-        self.distance = distance
+        super(Source, self).__init__(parent, name,
+                                     radius=distance,
+                                     polar=180,
+                                     azimuth=0,
+                                     hoffset=0,
+                                     voffset=0)
         self.beamsize = beamsize
+
+    @property
+    def distance(self):
+        return self.radius
+
+    @distance.setter
+    def distance(self, value):
+        self.radius = value
 
     @property
     def header(self):
         return ['Source position/orientation file',
                 '',
-                'The source reference frame (a.k.a. local coordinate system)',
-                'is defined by unit vectors {e0s, e1s, e2s} and origin ors.',
-                'The spherical coordinates in the source frame are {R, phi, theta}',
-                '(theta is the polar angle, i.e. the angle with e2s).',
+                'The sample reference frame is defined so that the beam travels along',
+                'the Y-axis, the Z-axis points upwards and the X-axis is parallel with',
+                'the synchrotron plane, pointing to the left when looking upstream.',
                 '',
-                'The central axis of the source runs along e2s.',
-                'The (horizontal) synchrotron plane is defined by e0s and e2s',
-                'The source divergence is defined as an elliptical cone (theta0, theta1).',
-                'The source can be a point or a 3D Gaussian (sigma0 sigma1, sigma2).']
+                'In the local reference from of the source, the beam',
+                'travels along the Z-axis.'
+                '',
+                'The source is positioned at y=-distance and can have a divergence'
+                '(horizontal, vertical) and size (horizontal, vertical, longitudinal)',
+                'in the local reference frame.']
 
     @property
     def divergence(self):
@@ -537,12 +660,13 @@ class Source(xrmc_device):
     def code(self):
         lines = super(Source, self).code
         div = self.divergence
+        position = self.xrmcTranslationInput('X', 0, 0, -self.distance)
         lines += [('SpectrumName {}'.format(self.parent.spectrum().name), 'Spectrum input device name', True),
-                  ('X 0 -{} 0'.format(self.distance), 'position of the source in the sample frame (x, y, z; cm)', True),
-                  ('uk 0 1 0', 'direction of e2s in the sample frame (x, y, z; cm)', True),
-                  ('ui 1 0 0', 'direction of e0s in the sample frame (x, y, z; cm)', True),
-                  ('Divergence {} {}'.format(div, div), 'beam divergency (theta0, theta1; rad)', True),
-                  ('Size 0.0 0.0 0.0', 'source size (sigma0 sigma1, sigma2; cm)', True)]
+                  position,
+                  ('ui 1 0 0', 'direction of X in the sample frame (x, y, z; cm)', True),
+                  ('uk 0 1 0', 'direction of Z in the sample frame (x, y, z; cm)', True),
+                  ('Divergence {} {}'.format(div, div), 'beam divergency (divH, divV; rad)', True),
+                  ('Size 0.0 0.0 0.0', 'source size (sH, sV, sL; cm)', True)]
         return lines
 
 
@@ -560,7 +684,11 @@ class Spectrum(xrmc_device):
     def header(self):
         return ['Spectrum file',
                 '',
-                'Discrete X-ray source spectrum + continuum']
+                'Discrete X-ray source spectrum + continuum',
+                '',
+                'Polarization is either unpolarized or linear polarized.',
+                'The orientation of the electric field vector is defined'
+                'by (Ehorizontal, Evertical) in the source reference frame (see source).']
 
     @property
     def code(self):
@@ -575,7 +703,7 @@ class Spectrum(xrmc_device):
                   ('Lines', 'discrete energy lines of the spectrum', True),
                   (str(len(self.lines)), 'Number of lines in the spectrum', True)]
         for energy, sigma, mult in self.lines:
-            lines.append(('{} {} {} {}'.format(energy, sigma, mult, 0), 'Energy (keV), sigma (keV), e0 (ph/s), e1 (ph/s)', True))
+            lines.append(('{} {} {} {}'.format(energy, sigma, mult, 0), 'Energy (keV), sigma (keV), Eh (ph/s), Ev (ph/s)', True))
         return lines
 
     @property
@@ -587,58 +715,63 @@ class Spectrum(xrmc_device):
         return sum(intensity for energy, sigma, intensity in self.lines)
 
 
-class Detector(xrmc_device):
+class Detector(xrmc_positional_device):
 
     TYPE = 'detectorarray'
 
     def __init__(self, parent, name, distance=None,
                  poissonnoise=True, ebinsize=None,
-                 orientation_inplane=None, orientation_outplane=None,
-                 forcedetect=False, multiplicity=None, time=1):
-        super(Detector, self).__init__(parent, name)
-        self.orientation_inplane = orientation_inplane
-        self.orientation_outplane = orientation_outplane
-        self.distance = distance
+                 forcedetect=False, multiplicity=None,
+                 time=1, pixelshape='elliptical', **kwargs):
+        super(Detector, self).__init__(parent, name,
+                                       radius=distance,
+                                       **kwargs)
         self.ebinsize = ebinsize
         self.poissonnoise = poissonnoise
         self.forcedetect = forcedetect
         self.multiplicity = multiplicity
         self.time = time
+        self.pixelshape = pixelshape.lower()
+
+    @property
+    def distance(self):
+        return self.radius
+
+    @distance.setter
+    def distance(self, value):
+        self.radius = value
 
     @property
     def header(self):
         return ['Detector array parameter file',
                 '',
-                'The detector reference frame (a.k.a. local coordinate system)',
-                'is defined by unit vectors {e0d, e1d, e2d} and origin ord.',
+                'The detector reference frame (before transformation) is defined',
+                'so that the Z-axis points upstream, the X-axis (detector image rows)',
+                'points upwards and the Y-axis (detector image columns) points to the',
+                'right when looking upstream.',
                 '',
-                'The origin lies on the geometric center of the detector.',
-                'The normal to the detector runs along e2d.',
-                'A detector can have 1 or more pixels (elliptical pixel useful for',
-                'single element detector) with rows and columns parallel to',
-                'e0d and e1d respectively.']
+                'A detector can have 1 or more elliptical or square pixels.']
 
     @property
     def code(self):
         lines = super(Detector, self).code
         energydispersive = self.energydispersive
         m = int(np.round(self.multiplicity))
-        if self.dims == (1, 1):
-            pixelshape = 1
-        else:
-            pixelshape = 0
+        elliptical = self.pixelshape == 'elliptical'
         if energydispersive:
             pixeltype = 2
         else:
             pixeltype = 0
+        
+        position, rotations = self.xrmcPositionInput()
         lines += [('SourceName {}'.format(self.parent.sample().name), 'Source input device name', True),
                   ('NPixels {} {}'.format(*self.dims[::-1]), 'Pixel number (nx x ny, ncol x nrow)', True),
                   ('PixelSize {} {}'.format(*self.pixelsize[::-1]), 'Pixel Size (sx x sy, scol x srow; cm)', True),
-                  ('Shape {}'.format(pixelshape), 'Pixel shape (0 rectangular, 1 elliptical)', True),
+                  ('Shape {:d}'.format(elliptical), 'Pixel shape (0 rectangular, 1 elliptical)', True),
                   ('dOmegaLim {}'.format(2*np.pi), 'Limit solid angle (default = 2*PI)', False),
-                  ('X 0 {} 0'.format(self.distance), 'origin of the detector in the sample frame (x, y, z; cm)', True),
-                  ('uk 0 -1 0', 'direction of e2d in the sample frame (x, y, z; cm)', True),
-                  ('ui 0 0 1', 'direction of e0d (rows) in the sample frame (x, y, z; cm)', True),
+                  position,
+                  ('ui 0 0 1', 'direction of X (rows) in the sample frame (x, y, z; cm)', True),
+                  ('uk 0 -1 0', 'direction of Z in the sample frame (x, y, z; cm)', True),
                   ('ExpTime {}'.format(self.time), 'Exposure time (sec)', True),
                   ('PhotonNum {:d}'.format(m), 'Multiplicity of simulated events per pixel', True),
                   ('RandomPixelFlag 1', 'Enable random point on pixels (0/1)', True),
@@ -654,9 +787,8 @@ class Detector(xrmc_device):
                   ('Emax {}'.format(self.emax), 'Emax', energydispersive),
                   ('NBins {}'.format(self.nbins), 'NBins', energydispersive),
                   ('SaturateEmin 0', 'Saturate energies lower than Emin (0/1)', energydispersive),
-                  ('SaturateEmax 0', 'Saturate energies greater than Emax (0/1)', energydispersive),
-                  ('Rotate 0 0 0 0 0 1 {}'.format(self.orientation_inplane), 'rotation around sample frame e2-axis (deg; >0 detector to the left when looking upstream)', bool(self.orientation_inplane)),
-                  ('Rotate 0 0 0 1 0 0 {}'.format(self.orientation_outplane), 'rotation around sample frame e0-axis (deg; >0 detector below synchrotron e0e1-plane)', bool(self.orientation_outplane))]
+                  ('SaturateEmax 0', 'Saturate energies greater than Emax (0/1)', energydispersive)]
+        lines += rotations
         return lines
 
     def reloutput(self, suffix=None):
@@ -857,15 +989,12 @@ class Objects(xrmc_device):
         self._dict = {}
 
 
-class Quadrics(xrmc_device):
+class Quadrics(xrmc_positional_device):
 
     TYPE = 'quadricarray'
 
-    def __init__(self, parent, name,
-                 orientation_inplane=None, orientation_outplane=None):
-        super(Quadrics, self).__init__(parent, name)
-        self.orientation_inplane = orientation_inplane
-        self.orientation_outplane = orientation_outplane
+    def __init__(self, parent, name, **kwargs):
+        super(Quadrics, self).__init__(parent, name, radius=0, **kwargs)
         self.clear()
 
     @property
@@ -889,8 +1018,7 @@ class Quadrics(xrmc_device):
             else:
                 comment = ''
             lines.append((' '.join(list(map(str, params))), comment, True))
-        lines += [('RotateAll 0 0 0 0 0 1 {}'.format(self.orientation_inplane), 'rotation around sample frame e2-axis (deg; >0 sample to the left when looking upstream)', bool(self.orientation_inplane)),
-                  ('RotateAll 0 0 0 1 0 0 {}'.format(self.orientation_outplane), 'rotation around sample frame e0-axis (deg; >0 sample below synchrotron e0e1-plane)', bool(self.orientation_outplane))]
+        lines += self.xrmcSphericalRotationInput('RotateAll')
         return lines
 
     def add_plane(self, name, x0, y0, z0, nx, ny, nz, fixed=False):
@@ -999,6 +1127,7 @@ class Compositions(xrmc_device):
         name = materialname(name)
         wfrac = material.elemental_massfractions()
         self.add(name, list(wfrac.keys()), list(wfrac.values()), material.density)
+        return name
 
     def clear(self):
         self._dict = {}
@@ -1017,14 +1146,14 @@ class XrmcWorldBuilder(object):
         return repr(self.main)
 
     def addelement(self, symb):
-        self.compoundlib.addmaterial(Element(symb))
+        return self.compoundlib.addmaterial(Element(symb))
 
     def addmaterial(self, material):
         if instance.isstring(material):
             if material.lower() == 'vacuum':
                 return
             material = compoundfromname(material)
-        self.compoundlib.addmaterial(material)
+        return self.compoundlib.addmaterial(material)
 
     def definesource(self, flux=None, energy=None, distance=None, beamsize=None, multiplicity=1):
         self.main.removedevice(cls=Source)
@@ -1035,19 +1164,19 @@ class XrmcWorldBuilder(object):
                                              multiplicity=multiplicity)
 
     def adddiode(self, distance=None, activearea=None, ebinsize=None,
-                 orientation_inplane=0, orientation_outplane=0, 
-                 poissonnoise=False, forcedetect=False, multiplicity=1, time=1):
+                 polar=0, azimuth=0, poissonnoise=False, forcedetect=False,
+                 multiplicity=1, time=1):
         self.main.removedevice(cls=Detector)
         self.detector = self.main.add_device(SingleElementDetector, 'detector',
                                     distance=distance, activearea=activearea,
-                                    orientation_inplane=orientation_inplane, orientation_outplane=orientation_outplane,
+                                    polar=polar, azimuth=azimuth,
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity, time=time)
 
     def addxrfdetector(self, distance=None, activearea=None, ebinsize=None,
-                       orientation_inplane=0, orientation_outplane=0,
-                       poissonnoise=False, forcedetect=True, multiplicity=1,
-                       response=None, time=1):
+                       polar=0, azimuth=0, hoffset=0, voffset=0,
+                       poissonnoise=False, forcedetect=True,
+                       multiplicity=1, time=1, response=None):
         self.main.removedevice(cls=Detector)
         if response:
             cls = SDD
@@ -1056,20 +1185,20 @@ class XrmcWorldBuilder(object):
             response = {}
         self.detector = self.main.add_device(cls, 'detector',
                                     distance=distance, activearea=activearea,
-                                    orientation_inplane=orientation_inplane, orientation_outplane=orientation_outplane,
+                                    polar=polar, azimuth=azimuth,
+                                    hoffset=hoffset, voffset=voffset,
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity,
                                     time=time, **response)
 
     def addareadetector(self, distance=None, activearea=None, ebinsize=None,
-                        orientation_inplane=0, orientation_outplane=0,
-                        poissonnoise=False, forcedetect=True, multiplicity=1,
-                        pixelsize=None, dims=None, time=1):
+                        polar=0, azimuth=0, poissonnoise=False, forcedetect=True,
+                        multiplicity=1, time=1, pixelsize=None, dims=None):
         self.main.removedevice(cls=Detector)
         self.detector = self.main.add_device(AreaDetector, 'detector',
                                     distance=distance,
                                     pixelsize=pixelsize, dims=dims,
-                                    orientation_inplane=orientation_inplane, orientation_outplane=orientation_outplane,
+                                    polar=polar, azimuth=azimuth,
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity, time=time)
 
@@ -1080,8 +1209,9 @@ class XrmcWorldBuilder(object):
         box = ['layer{}a'.format(ilayer), 'layer{}b'.format(ilayer),
                'blayer{}_xmin'.format(ilayer), 'blayer{}_xmax'.format(ilayer),
                'blayer{}_zmin'.format(ilayer), 'blayer{}_zmax'.format(ilayer)]
-        self.addmaterial(material)
+        name = self.addmaterial(material)
         self.objects.add('layer{}'.format(ilayer), material, self.atmosphere, box)
+        return name
 
     @property
     def atmosphere(self):

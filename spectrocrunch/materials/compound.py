@@ -99,24 +99,6 @@ class Compound(multielementbase.MultiElementBase):
             else:
                 self._elements[e] = float(n)
 
-    def __copy__(self):
-        nfrac = self._elements
-        return Compound(list(nfrac.keys()),
-                        list(nfrac.values()),
-                        fractype=types.fraction.mole,
-                        density=self.density,
-                        nrefrac=self.nrefrac,
-                        name=self.name)
-
-    def __deepcopy__(self, memo):
-        nfrac = self.molefractions()
-        return Compound(list(nfrac.keys()),
-                        list(nfrac.values()),
-                        fractype=types.fraction.mole,
-                        density=self.density,
-                        nrefrac=self.nrefrac,
-                        name=self.name)
-
     def __getstate__(self):
         return {'name': self.name,
                 'nrefrac': self.nrefrac,
@@ -151,7 +133,7 @@ class Compound(multielementbase.MultiElementBase):
             fractions = [fractions]
         fractions = np.asarray(fractions)
         if fractype == types.fraction.mole:
-            nfrac = self.molefractions()
+            nfrac = self.equivalents()
             elements = list(nfrac.keys()) + \
                 [element.Element(el) for el in elements]
             nfrac = np.asarray(list(nfrac.values()))
@@ -177,7 +159,6 @@ class Compound(multielementbase.MultiElementBase):
         """
         elements = list(dfrac.keys())
         fractions = np.asarray(list(dfrac.values()))
-
         # Element mole fractions
         if fractype == types.fraction.mole:
             nfrac = fractions  # keep unnormalized!
@@ -190,7 +171,6 @@ class Compound(multielementbase.MultiElementBase):
             MM = np.asarray([e.MM for e in elements])
             nfrac = stoichiometry.frac_weight_to_mole(
                 fractions, MM)  # normalized
-
         # Elements
         self._compose_elements(elements, nfrac)
 
@@ -205,39 +185,45 @@ class Compound(multielementbase.MultiElementBase):
     def parts(self):
         return self._elements
 
-    def molarmass(self, total=True):
-        nfrac = self.molefractions(total=total)
+    def molarmass(self):
+        nfrac = self.equivalents()
         MM = np.asarray([e.MM for e in nfrac])
         nfrac = np.asarray(list(nfrac.values()))
         return (MM*nfrac).sum()
 
     def molarmasseff(self):
-        return self.molarmass(total=False)
+        nfrac = self.molefractions()
+        MM = np.asarray([e.MM for e in nfrac])
+        nfrac = np.asarray(list(nfrac.values()))
+        return (MM*nfrac).sum()
 
     @property
     def Zeff(self):
-        nfrac = self.molefractions(total=False)
+        nfrac = self.molefractions()
         Z = np.asarray([e.Z for e in nfrac])
         nfrac = np.asarray(list(nfrac.values()))
         return (Z*nfrac).sum()
 
-    def molefractions(self, total=True):
-        if total:
-            return dict(self._elements)
-        else:
-            nfrac = np.asarray(list(self._elements.values()))
-            nfrac /= nfrac.sum()
-            return dict(zip(self._elements.keys(), nfrac))
+    def molefractions(self):
+        nfrac = np.asarray(list(self._elements.values()))
+        nfrac /= nfrac.sum()
+        return dict(zip(self._elements.keys(), nfrac))
+
+    def equivalents(self):
+        return dict(self._elements)
 
     def massfractions(self):
-        nfrac = self.molefractions()
+        nfrac = self.equivalents()
         MM = np.asarray([e.MM for e in nfrac])
         wfrac = stoichiometry.frac_mole_to_weight(
             np.asarray(list(nfrac.values())), MM)
         return dict(zip(nfrac.keys(), wfrac))
 
-    def elemental_molefractions(self, **kwargs):
-        return self.molefractions(**kwargs)
+    def elemental_molefractions(self):
+        return self.molefractions()
+
+    def elemental_equivalents(self):
+        return self.equivalents()
 
     def elemental_massfractions(self):
         return self.massfractions()
@@ -361,3 +347,6 @@ class Compound(multielementbase.MultiElementBase):
         o.setCompositionFromLists(names, massfractions)
         cfg.addMaterial(o, errorOnReplace=False)
         return matname
+
+    def tocompound(self, name=None):
+        return self

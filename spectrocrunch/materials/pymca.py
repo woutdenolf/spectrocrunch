@@ -27,7 +27,9 @@ from __future__ import absolute_import
 import contextlib
 import re
 import copy
+import operator
 from types import MethodType
+import collections
 
 from . import mixture
 from . import element
@@ -99,21 +101,73 @@ class PymcaBaseHandle(Copyable):
                 config[key[0]][key[1]] = digestedresult['fittedpar'][i]
         return config
 
-    def configadjustconcentrations(self, config, lmassfractions):
+    @staticmethod
+    def _parse_fitresult_massfractions(wfrac1, wfrac0, exclude):
+        # Group per element
+        wfrac2 = {}
+        for zgroup, w in wfrac1.items():
+            element = zgroup.element
+            if element in exclude:
+                continue
+            group = zgroup.element.shells[0]
+            if element not in wfrac2:
+                wfrac2[element] = {}
+            wfrac2[element][group] = w
+        # Select mass fraction from most relieable group
+        wfrac3 = {}
+        for element, groupdict in wfrac2.items():
+            w = sorted(groupdict.items(), key=operator.itemgetter(0))[0][1]
+            wfrac3[element] = w
+        # Modify original mass fractions
+        wfracr = dict(wfrac0)
+        snew = 1-sum(w for element, w in wfrac0.items() if element not in wfrac3)
+        sold = sum(wfrac3.values())
+        norm = snew/sold
+        for k, v in wfrac3.items():
+            if v:
+                wfracr[k] = v*norm
+        return wfracr
 
-        material = []
-        thickness = []
-        for layer, player in zip(pymcahandle.sample, lmassfractions):
-            print(sum(layer.massfractions().values()))
-            print(sum(layer.massfractions().values()))
+    def _pymcaconfig_massfractions(self, config):
+        """
+        Extract elemental mass fractions from the pymca config sample
+        """
+        materials = collections.OrderedDict()
+        enabled, name, density = config["attenuators"]["Matrix"][:3]
+        if name == 'MULTILAYER':
+            for i in range(len(config["multilayer"])):
+                enabled, name, density = config["multilayer"]["Layer{}".format(i)][:3]
+                if enabled:
+                    mat = self.loadfrompymca_material(config, name, density)
+                    materials[name] = mat.elemental_massfractions()
+        elif enabled:
+            mat = self.loadfrompymca_material(config, name, density)
+            materials[name] = mat.elemental_massfractions()
+        return materials
 
-
+    def configadjustconcentrations(self, config, lmassfractions, exclude=None):
+        """
+        Modify pymca config sample materials based on list of elemental concentrations
+        """
+        if not exclude:
+            exclude = []
+        materials = self._pymcaconfig_massfractions(config)
+        if not materials:
+            return
+        if len(materials) != len(lmassfractions):
+            raise RuntimeError('Number of layers in config and fitresult do not match')
+        for (name, wfrac0), wfrac1 in zip(materials.items(), lmassfractions):
+            wfrac2 = self._parse_fitresult_massfractions(wfrac1, wfrac0, exclude)
+            CompoundList = [str(k)+'1' for k in wfrac2.keys()]
+            CompoundFraction = list(wfrac2.values())
+            config["materials"][name]['CompoundList'] = CompoundList
+            config["materials"][name]['CompoundFraction'] = CompoundFraction
 
     def setdata(self, y):
         x = np.arange(len(y), dtype=np.float32)
         self.mcafit.setData(x, y)
 
-    def fit(self, loadfromfit=True, concentrations=True, spectra=True):
+    def fit(self, loadfromfit=False, concentrations=True, spectra=True, environ_elements=None):
         # Fit
         self.mcafit.estimate()
         fitresult, digestedresult = self.mcafit.startfit(digest=1)
@@ -135,10 +189,14 @@ class PymcaBaseHandle(Copyable):
         if loadfromfit:
             config = self.configfromfitresult(digestedresult)
             if concentrations:
-                self.configadjustconcentrations(config, result['lmassfractions'])
+                self.configadjustconcentrations(config,
+                                                result['lmassfractions'],
+                                                exclude=environ_elements)
             self.loadfrompymca(config=config)
+        return result
 
-    def fitgui(self, ylog=False, legend="data", loadfromfit=True, concentrations=True, spectra=True):
+    def fitgui(self, ylog=False, legend="data", loadfromfit=False,
+               concentrations=True, spectra=True, environ_elements=None):
         if self.app is None:
             self.app = qt.QApplication([])
         w = McaAdvancedFit.McaAdvancedFit()
@@ -175,7 +233,9 @@ class PymcaBaseHandle(Copyable):
             if loadfromfit:
                 config = w.mcafit.getConfiguration()
                 if concentrations:
-                    self.configadjustconcentrations(config, result['lmassfractions'])
+                    self.configadjustconcentrations(config,
+                                                    result['lmassfractions'],
+                                                    exclude=environ_elements)
                 self.loadfrompymca(config=config)
         else:
             if concentrations or spectra:
@@ -220,8 +280,9 @@ class PymcaBaseHandle(Copyable):
         if "layerlist" in conresult:
             nlayers = len(conresult["layerlist"])
             if nlayers > 0:
-                out["lmassfractions"] = [{element.Element.fluozgroup(
-                    k): v for k, v in conresult[k]["mass fraction"].items()} for k in conresult["layerlist"]]
+                out["lmassfractions"] = [{element.Element.fluozgroup(k): v 
+                    for k, v in conresult[k]["mass fraction"].items()}
+                    for k in conresult["layerlist"]]
             else:
                 nlayers = 1
                 out["lmassfractions"] = []

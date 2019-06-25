@@ -73,11 +73,9 @@ class test_compound(unittest.TestCase):
         a = [7, 3, 6, 5]
         density = 2.3
         c = compoundfromformula.CompoundFromFormula("C6H2(NO2)3CH3", density)
-
-        elements2 = c.molefractions()
+        elements2 = c.equivalents()
         for i in range(len(elements)):
             self.assertEqual(elements2[elements[i]], a[i])
-
         self.assertEqual(c.density, density)
 
     @unittest.skipIf(xraylib is None, "xraylib not installed")
@@ -87,13 +85,10 @@ class test_compound(unittest.TestCase):
         density = 2.3
         c = compoundfromlist.CompoundFromList(
             elements, a, types.fraction.mole, density)
-
-        elements2 = c.molefractions()
+        elements2 = c.equivalents()
         for i in range(len(elements)):
             self.assertEqual(elements2[elements[i]], a[i])
-
         self.assertEqual(c.density, density)
-
         c = compoundfromlist.CompoundFromList(
             elements, a, types.fraction.mass, density)
         wfrac = c.massfractions()
@@ -105,8 +100,7 @@ class test_compound(unittest.TestCase):
         elements = ["Ca", "C", "O"]
         a = [6, 6, 18.]  # unit cell content
         c = compoundfromcif.CompoundFromCif("cif/calcite.cif", name="calcite")
-
-        elements2 = c.molefractions()
+        elements2 = c.equivalents()
         for i in range(len(elements)):
             self.assertEqual(elements2[elements[i]], a[i])
 
@@ -114,16 +108,16 @@ class test_compound(unittest.TestCase):
     def test_addelements(self):
         c1 = compoundraw.Compound(
             ["Fe", "O"], [2, 3], types.fraction.mole, density=1)
-        n1 = c1.molefractions(total=False)
-        snfrac1 = sum(c1.molefractions(total=True).values())
+        n1 = c1.molefractions()
+        snfrac1 = sum(c1.equivalents().values())
         for fractype in ['mass', 'mole']:
             c2 = compoundraw.Compound(["Fe"], [5], types.fraction.mole, density=1)
             if fractype == 'mass':
                 c2.addelements("O", c1.massfractions()['O'], types.fraction.mass)
             else:
                 c2.addelements("O", n1['O'], types.fraction.mole)
-            n2 = c2.molefractions(total=False)
-            snfrac2 = sum(c2.molefractions(total=True).values())
+            n2 = c2.molefractions()
+            snfrac2 = sum(c2.equivalents().values())
             self.assertEqual(set(n1.keys()), set(n2.keys()))
             if fractype == 'mole':
                 self.assertEqual(snfrac1, snfrac2)

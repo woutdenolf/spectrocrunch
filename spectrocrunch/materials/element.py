@@ -161,39 +161,39 @@ class Element(elementbase.ElementBase):
         return xrayspectrum.Shell.pymcafactory(energybounds=[self.Z, emin, emax])
 
     def markabsorber(self, symb=None, shells=None, fluolines=None, energybounds=None):
-        """Marking an element's shells and lines has following effect:
-            - partial absorption cross-section is not zero
-            - when no fluolines are given: all lines for each shell are taken into account
-
+        """
+        This is needs for the partial absorption and XRF cross-section (zero otherwise).
+        
         Args:
             symb(str): element symbol
-            shells(Optional(array(int))): None -> all
-            fluolines(Optional(array(int))): None -> all, [] -> explicite all
+            shells(Optional(array(int))): restrict shells
+            fluolines(Optional(array(int))): restrict lines (`None`: all, `[]`:explicite all)
+            energybounds(Optional(2-tuple)): restrict shells based on energy (only when `shells` is `None`)
         """
-
         if symb is None:
             mark = True
         else:
             Z, name = elementParse(symb)
             mark = self.Z == Z
-
         if mark:
             if shells is None:
                 if energybounds is not None:
-                    shells = self.shellfactory(
-                        emin=energybounds[0], emax=energybounds[1])
-
+                    shells = self.shellfactory(emin=energybounds[0],
+                                               emax=energybounds[1])
             if shells is None:
                 self.shells = xrayspectrum.Shell.all_shells(
                     fluolines=fluolines)
             else:
                 shells = xrayspectrum.Shell.expandall(shells)
-                def f(shell): return shell if isinstance(
-                    shell, xrayspectrum.Shell) else xrayspectrum.Shell(shell, fluolines=fluolines)
+                def func(shell):
+                    if isinstance(shell, xrayspectrum.Shell):
+                        return shell
+                    else:
+                        return xrayspectrum.Shell(shell, fluolines=fluolines)
                 if instance.isiterable(shells):
-                    self.shells = [f(shell) for shell in shells]
+                    self.shells = [func(shell) for shell in shells]
                 else:
-                    self.shells = [f(shells)]
+                    self.shells = [func(shells)]
 
     def edge_energies(self):
         return [shell.edgeenergy(self.Z) for shell in self.shells]
@@ -230,14 +230,23 @@ class Element(elementbase.ElementBase):
     def molarmass(self):
         return self.MM
 
+    def molarmasseff(self):
+        return self.MM
+
     def massfractions(self):
-        return dict([(self, 1.)])
+        return {self: 1.}
 
-    def molefractions(self, total=True):
-        return dict([(self, 1.)])
+    def molefractions(self):
+        return self.equivalents()
 
-    def elemental_molefractions(self, **kwargs):
-        return self.molefractions(**kwargs)
+    def equivalents(self):
+        return {self: 1.}
+
+    def elemental_molefractions(self):
+        return self.molefractions()
+
+    def elemental_equivalents(self):
+        return self.equivalents()
 
     def elemental_massfractions(self):
         return self.massfractions()
@@ -261,7 +270,8 @@ class Element(elementbase.ElementBase):
         return csutils.eval(method, self.Z, E, applypost=True)
 
     def mass_att_coeff(self, E, environ=None, decimals=6, refresh=False, **kwargs):
-        """Mass attenuation coefficient (cm^2/g, E in keV). Use for transmission XAS.
+        """
+        Mass attenuation coefficient (cm^2/g, E in keV). Use for transmission XAS.
 
         Args:
             E(num or array-like): energy (keV)
@@ -272,7 +282,6 @@ class Element(elementbase.ElementBase):
         Returns:
             num or np.array
         """
-
         # Total
         cs, func = self._xraylib_method("CS_Total_Kissel", E)
         # Replace part by simulation
@@ -281,7 +290,8 @@ class Element(elementbase.ElementBase):
         return func(cs)
 
     def mass_abs_coeff(self, E, environ=None, decimals=6, refresh=False, **kwargs):
-        """Mass absorption coefficient (cm^2/g, E in keV).
+        """
+        Mass absorption coefficient (cm^2/g, E in keV).
 
         Args:
             E(num or array-like): energy (keV)
@@ -318,7 +328,8 @@ class Element(elementbase.ElementBase):
         return cs
 
     def partial_mass_abs_coeff(self, E, environ=None, decimals=6, refresh=False, **kwargs):
-        """Mass absorption coefficient for the selected shells (cm^2/g, E in keV).
+        """
+        Mass absorption coefficient for the selected shells (cm^2/g, E in keV).
 
         Args:
             E(num or array-like): energy (keV)
@@ -345,7 +356,8 @@ class Element(elementbase.ElementBase):
         return func(cs)
 
     def fluorescence_cross_section(self, E, environ=None, decomposed=False, **kwargs):
-        """XRF cross section for the selected shells and lines (cm^2/g, E in keV). Use for fluorescence XAS.
+        """
+        XRF cross section for the selected shells and lines (cm^2/g, E in keV). Use for fluorescence XAS.
 
         Args:
             E(num or array-like): energy (keV)
@@ -376,7 +388,8 @@ class Element(elementbase.ElementBase):
         return cs
 
     def fluorescence_cross_section_lines(self, E, **kwargs):
-        """XRF cross sections per line (cm^2/g, E in keV). Use for XRF.
+        """
+        XRF cross sections per line (cm^2/g, E in keV). Use for XRF.
 
         Args:
             E(num or array-like): energy (keV)
@@ -535,7 +548,8 @@ class Element(elementbase.ElementBase):
         return ret
 
     def _CS_Photo_Partial_DB(self, E):
-        """Get the partial photoionization cross section for the selected shells from xraylib (E in keV).
+        """
+        Get the partial photoionization cross section for the selected shells from xraylib (E in keV).
 
         Args:
             E(array): energy (keV)
@@ -550,7 +564,8 @@ class Element(elementbase.ElementBase):
         return cs
 
     def _CS_Photo_Partial_SIM(self, E, environ, decimals=6, refresh=False, fluo=True):
-        """Calculate the partial photoionization cross section for the selected shells from fdmnes (E in keV).
+        """
+        Calculate the partial photoionization cross section for the selected shells from fdmnes (E in keV).
 
         Args:
             E(array): energy (keV)
@@ -803,3 +818,6 @@ class Element(elementbase.ElementBase):
             return xrayspectrum.FluoZLine(self, xrayspectrum.FluoLine(lines))
         else:
             return [xrayspectrum.FluoZLine(self, xrayspectrum.FluoLine(line)) for line in lines]
+
+    def tocompound(self, name=None):
+        return self

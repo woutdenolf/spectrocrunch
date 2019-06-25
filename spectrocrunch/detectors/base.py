@@ -33,17 +33,10 @@ import fisx
 import re
 
 
-def match_beamfilter(name):
-    return re.compile(r'^beamfilter(\d+)$').match(name.lower())
-
-
-def isbeamfilter(name):
-    return bool(match_beamfilter(name))
-
-
 class Material(Copyable):
 
     DETMATERIALLABEL = "Detector"
+    ATMOSPHERELABEL = "Atmosphere"
 
     def __init__(self, attenuators=None):
         # TODO: separate attenuators, beamfilters and detector material?
@@ -78,23 +71,38 @@ class Material(Copyable):
     def addbeamfilter(self, name, material, thickness):
         if not name:
             name = self.nextbeamfilter()
-        elif not isbeamfilter(name):
+        elif not self.isbeamfilter(name):
             raise ValueError('This is not a beam filter name')
         self.addattenuator(name, material, thickness)
 
     def adddetectorfilter(self, name, material, thickness):
-        if isbeamfilter(name):
+        if self.isbeamfilter(name):
             raise ValueError('This is a beam filter name')
         self.addattenuator(name, material, thickness)
 
     def removeattenuator(self, name):
         self._attenuators.pop(name, None)
 
-    def removeattenuators(self, name):
-        self._attenuators = {}
+    def removebeamfilters(self):
+        names = [att for att in self.attenuators if self.isbeamfilter(att)]
+        for name in names:
+            self.removeattenuator(name)
+
+    def removedetectorfilters(self):
+        names = [att for att in self.attenuators if self.isdetectorfilter(att)]
+        for name in names:
+            self.removeattenuator(name)
 
     @property
     def attenuators(self):
+        try:
+            mat = self.geometry.atmosphere
+            d = self.geometry.distance
+            if mat and d:
+                self.addattenuator(self.ATMOSPHERELABEL, mat,
+                                   units.umagnitude(d, "cm"))
+        except AttributeError:
+            pass
         return self._attenuators
 
     @attenuators.setter
@@ -140,16 +148,19 @@ class Material(Copyable):
         for attlabel, attinfo in self.attenuators.items():
             self.addtopymca_attenuator(
                 setup, cfg, attlabel, attinfo["material"], attinfo["thickness"])
+        attenuators = {}
+        for attlabel, values in cfg["attenuators"].items():
+            if values[0]:
+                attenuators[attlabel] = values
+        cfg["attenuators"] = attenuators
 
     def addtopymca_attenuator(self, setup, cfg, attlabel, material, thickness):
         matname = setup.addtopymca_material(
             cfg, material, defaultthickness=thickness)
-
         # Can only handle explicite single elements
         if attlabel == self.DETMATERIALLABEL:
             if isinstance(material, element.Element):
                 matname = '{}1'.format(material)
-
         cfg["attenuators"][attlabel] = [
             1, matname, material.density, thickness, 1.0]
 
@@ -160,28 +171,33 @@ class Material(Copyable):
                 self.loadfrompymca_attenuator(setup, cfg, attlabel, attinfo)
 
     def loadfrompymca_attenuator(self, setup, cfg, attlabel, attinfo):
-        enabled = attinfo[0]
-        matname = attinfo[1]
-        density = attinfo[2]
-        thickness = attinfo[3]
+        enabled, matname, density, thickness = attinfo[:4]
         if enabled:
             material = setup.loadfrompymca_material(cfg, matname, density)
             self.attenuators[attlabel] = {
                 "material": material, "thickness": thickness}
 
     def isdetectorfilter(self, name):
-        return not isbeamfilter(name) and name != self.DETMATERIALLABEL
+        return not self.isbeamfilter(name) and name != self.DETMATERIALLABEL
 
     def beamfilters(self):
-        return [self.attenuators[att] for att in self.attenuators if isbeamfilter(att)]
+        return [self.attenuators[att] for att in self.attenuators
+                if self.isbeamfilter(att)]
 
     def detectorfilters(self):
-        return [self.attenuators[att] for att in self.attenuators if self.isdetectorfilter(att)]
+        return [self.attenuators[att] for att in self.attenuators
+                if self.isdetectorfilter(att)]
+
+    def match_beamfilter(self, name):
+        return re.compile(r'^beamfilter(\d+)$').match(name.lower())
+
+    def isbeamfilter(self, name):
+        return bool(self.match_beamfilter(name))
 
     def nextbeamfilter(self):
         i = 0
         for att in self.attenuators:
-            m = match_beamfilter(att)
+            m = self.match_beamfilter(att)
             if m:
                 i = max(i, int(m.groups()[0]))
         return 'BeamFilter{}'.format(i)
@@ -369,18 +385,6 @@ class CentricCone(SolidState):
         else:
             raise RuntimeError(
                 "Either distance, active area or solid angle must be None")
-
-    @Material.attenuators.getter
-    def attenuators(self):
-        try:
-            mat = self.geometry.atmosphere
-            d = self.geometry.distance
-            if mat and d:
-                self.addattenuator("Atmosphere", mat,
-                                   units.umagnitude(d, "cm"))
-        except AttributeError:
-            pass
-        return self._attenuators
 
     def addtofisx(self, setup, cfg):
         super(CentricCone, self).addtofisx(setup, cfg)

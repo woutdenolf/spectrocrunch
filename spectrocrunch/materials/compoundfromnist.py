@@ -23,17 +23,20 @@
 # THE SOFTWARE.
 
 from . import compound
+from . import compoundsearch
 from . import types
 from ..utils import instance
 
 import warnings
 try:
     import xraylib
-    registry = xraylib.GetCompoundDataNISTList()
+    def getnames():
+        return list(xraylib.GetCompoundDataNISTList())
 except ImportError:
     xraylib = None
     warnings.warn("xraylib is not installed", ImportWarning)
-    registry = []
+    def getnames():
+        return []
 
 
 class CompoundFromNist(compound.Compound):
@@ -59,16 +62,7 @@ def factory(name):
 
 
 def search(name):
-    name = name.lower()
-    ret = [k for k in registry if name in k.lower()]
-    if len(ret) > 1:
-        ret2 = [k for k in registry if name == k.lower()]
-        if ret2:
-            ret = ret2
-    if ret:
-        return ret[0]
-    else:
-        return None
+    return compoundsearch.search(getnames(), name)
 
 
 def compoundfromnist(name):

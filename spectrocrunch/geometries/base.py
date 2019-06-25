@@ -142,12 +142,20 @@ class FlatSample(Base):
         """
         return 90-self.anglein
 
+    @anglenormin.setter
+    def anglenormin(self, value):
+        self.anglein = 90-value
+
     @property
     def anglenormout(self):
         """
         angle with surface normal (pointing inwards) in [0, 180]
         """
         return 90+self.angleout
+
+    @anglenormout.setter
+    def anglenormout(self, value):
+        self.angleout = value-90
 
     @property
     def cosnormin(self):

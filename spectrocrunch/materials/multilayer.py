@@ -248,6 +248,12 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
         s = sum(ret.values())
         return {el: w/s for el, w in ret.items()}
 
+    def elemental_molefractions(self):
+        return self.mixlayers().elemental_molefractions()
+
+    def elemental_equivalents(self):
+        return self.mixlayers().elemental_equivalents()
+
     def mixlayers(self):
         n = len(self)
         if n == 0:
@@ -854,11 +860,11 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
             v = cfg["materials"][name]
             density = v["Density"]
         cfg["attenuators"]["Matrix"] = [1, name, density,
-                                        thickness, anglein, angleout, 0, scatteringangle]
+                                        thickness, anglein,
+                                        angleout, 0, scatteringangle]
 
     def loadfrompymca_matrix(self, setup, cfg):
-        _, name, density, thickness, anglein, angleout, _, scatteringangle = cfg[
-            "attenuators"]["Matrix"]
+        _, name, density, thickness, anglein, angleout, _, scatteringangle = cfg["attenuators"]["Matrix"]
         self.geometry.anglein = anglein
         self.geometry.angleout = angleout
         return name, density, thickness
