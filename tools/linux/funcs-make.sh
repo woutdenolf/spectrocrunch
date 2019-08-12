@@ -240,7 +240,7 @@ function makeenv_removelocal()
 }
 
 
-# ============makeenv_removelocal============
+# ============easymake_makeenv============
 # Description: 
 # Usage: 
 function easymake_makeenv()
@@ -383,7 +383,6 @@ function easymake()
     cd build
 
     # Make sure destination exists
-    echo mexec mkdir -p ${prefix}
     mexec mkdir -p ${prefix}
     
     # Remove local directory env paths

@@ -391,6 +391,7 @@ function python_source_install()
     source_install python "${1}" \
         --with-ensurepip=install \
         --enable-shared \
+        --enable-unicode=ucs4 \
         LDFLAGS=-Wl,-rpath='"${prefix}/lib"'
     # --enable-shared (produce shared libraries and headers):
     #   needed by some libraries like xraylib
@@ -398,6 +399,8 @@ function python_source_install()
     #   put shared libraries in a custom location (avoid conflict with system python)
     # --enable-optimizations (profile guided optimizations):
     #   gives "profiling ... .gcda:Cannot open" warning on "import distutils"
+    # --enable-unicode=ucs4
+    #   support p27mu wheels instead of p27m
 }
 
 
