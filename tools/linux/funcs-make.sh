@@ -290,6 +290,7 @@ function easymake_configure()
     local program=${1}
     local version=${2}
     local cfgparams="${@:3}"
+    local base=${program}-${version}
     local prefix=$(easymake_prefix ${program} ${version})
 
     if [[ -e "Makefile" ]]; then
@@ -300,24 +301,24 @@ function easymake_configure()
         cprint " --prefix=\"${prefix}\" ${cfgparams}" 
         
         # In case configure file does not exist
-        if [[ ! -f "../configure" && -f "../configure.ac" ]]; then
-            cd ..
+        if [[ ! -f "../${base}/configure" && -f "../${base}/configure.ac" ]]; then
+            local restorewd=$(pwd)
+            cd ../${base}
             libtoolize --force
             aclocal
             autoheader
             automake --force-missing --add-missing
             autoconf
-            cd build
+            cd ${restorewd}
         fi
+        
         # Configure
-        ../configure --help
-        ../configure --prefix="${prefix}" ${cfgparams}
+        ../${base}/configure --help
+        ../${base}/configure --prefix="${prefix}" ${cfgparams}
         
         if [[ $? != 0 ]]; then
             cerror "Configuring ${program} (${version}) failed"
             LD_LIBRARY_PATH=${keep_LD_LIBRARY_PATH}
-            cd ${restorewd}
-            return
         fi
     fi
 }
@@ -367,6 +368,7 @@ function easymake()
     local prefix=$(easymake_prefix ${program} ${version})
     cfgparams=$(eval echo ${cfgparams})
 
+    # Create source directory program-1.2.3
     local base=${program}-${version}
     if [[ ! -d ${base} ]]; then
         mkdir -p ${base}
@@ -378,9 +380,10 @@ function easymake()
         done
         rm -f ${base}.tar.gz
     fi
-    cd ${base}
-    mkdir -p build
-    cd build
+    
+    # Create build directory program-1.2.3-build
+    mkdir -p ${base}-build
+    cd ${base}-build
 
     # Make sure destination exists
     mexec mkdir -p ${prefix}

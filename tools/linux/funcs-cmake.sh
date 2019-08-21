@@ -104,13 +104,16 @@ function cmake_system_install()
 
 function cmake_configure()
 {
+    local program=${1}
+    local version=${2}
+    local base=${program}-${version}
     if [[ ${CMAKE_INSTALL} == "sh" ]];then
         cprint "Installation script does not need configuration"
     else
         if [[ -e "Makefile" ]]; then
-            cprint "Configure ${1} (${2}): already configured."
+            cprint "Configure ${program} (${version}): already configured."
         else
-            ../bootstrap "${@:3}"
+            ../${base}/bootstrap "${@:3}"
         fi
     fi
 }
@@ -131,12 +134,13 @@ function cmake_install()
 {
     local program=${1}
     local version=${2}
+    local base=${program}-${version}
     local prefix=$(easymake_prefix ${program} ${version})
     if [[ -f ${prefix}/bin/cmake ]];then
         return 0
     fi
     if [[ ${CMAKE_INSTALL} == "sh" ]];then
-        mexec sh ../install.sh  --skip-license --prefix=${prefix}
+        mexec sh ../${base}/install.sh  --skip-license --prefix=${prefix}
     else
         easymake_install "${@}" 
     fi
