@@ -15,7 +15,7 @@ function simpleelastix_build_dependencies()
 {
     mapt-get install lua5.1 liblua5.1-dev
     require_pythondev
-    #pip_install virtualenv>=13.0 # does not work on rnice
+    pip_install virtualenv>=13.0 # does not work on rnice
     require_cmake 3
     require_swig 3
 }
@@ -50,6 +50,11 @@ function simpleelastix_source_install()
         cprint "Skipping simpleelastix installation"
         return
     fi
+
+    # Will be called again by "source_install" but
+    # we need it already here to modify the arguments:
+    simpleelastix_build_dependencies
+
     local _SYSTEM_SWIG="-DSimpleITK_USE_SYSTEM_SWIG:BOOL=OFF"
     if [[ $(require_new_version $(swig_version) 3) == false ]]; then
         _SYSTEM_SWIG="-DSimpleITK_USE_SYSTEM_SWIG:BOOL=ON \
@@ -62,6 +67,11 @@ function simpleelastix_source_install()
         _SYSTEM_LUA="-DSimpleITK_USE_SYSTEM_LUA:BOOL=ON"
     fi
     
+    local _SYSTEM_VIRTUALENV="-DSimpleITK_USE_SYSTEM_VIRTUALENV:BOOL=OFF"
+    if [[ $(python_hasmodule virtualenv) == true || $(python_hasmodule venv) == true ]]; then
+        _SYSTEM_VIRTUALENV="-DSimpleITK_USE_SYSTEM_VIRTUALENV:BOOL=ON"
+    fi
+    
     # http://simpleelastix.readthedocs.io/GettingStarted.html#manually-building-on-linux
     source_install simpleelastix "${1}" \
                   -DCMAKE_INSTALL_PREFIX:PATH='${prefix}' \
@@ -70,7 +80,7 @@ function simpleelastix_source_install()
                   -DBUILD_TESTING:BOOL=OFF \
                   ${_SYSTEM_SWIG} \
                   ${_SYSTEM_LUA} \
-                  -DSimpleITK_USE_SYSTEM_VIRTUALENV:BOOL=OFF \
+                  ${_SYSTEM_VIRTUALENV} \
                   -DSimpleITK_USE_SYSTEM_ELASTIX:BOOL=OFF \
                   -DSimpleITK_USE_SYSTEM_ITK:BOOL=OFF \
                   -DPYTHON_EXECUTABLE:FILEPATH=$(python_full_bin) \

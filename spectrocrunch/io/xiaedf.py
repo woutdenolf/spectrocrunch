@@ -64,10 +64,12 @@ class XiaNameParser():
         fnumber = "[0-9]{{4,}}"
 
         xiafmt = "^(?P<radix>.+)_(?P<label>xia..)_(?P<mapnum>{})_0000_(?P<linenum>{}).edf$"
+        mcafmt = "^(?P<radix>.+)_(?P<label>mca)_(?P<mapnum>{})_0000_(?P<linenum>{}).edf$"
         ctrfmt = "^(?P<radix>.+)_(?P<label>{{}}.+)_(?P<mapnum>{})_0000.edf$".format(
             fnumber)
 
-        self.xianames = [re.compile(xiafmt.format(number, number))]
+        self.xianames = [re.compile(xiafmt.format(number, number)),
+                         re.compile(mcafmt.format(number, number))]
         self.xianames += [re.compile(ctrfmt.format(ctr))
                           for ctr in self.defaultcounters]
         if counters is not None:
@@ -136,10 +138,6 @@ def xiafilename(radix, mapnum, linenum, label):
         return "{}_{}_{:04d}_0000.edf".format(radix, label, mapnum)
     else:
         return "{}_{}_{:04d}_0000_{:04d}.edf".format(radix, label, mapnum, linenum)
-
-
-def xiaformat_line(radix, mapnum, linenum):
-    return "{}_{}_{:04d}_0000_{:04d}.edf".format(radix, '{}', mapnum, linenum)
 
 
 def xiaformat_line(radix, mapnum, linenum):
