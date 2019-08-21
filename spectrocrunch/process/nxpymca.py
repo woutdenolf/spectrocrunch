@@ -184,6 +184,9 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
         return self.temp_localpath['pymcaresults']
 
     def _prepare_adddetector(self):
+        # include_detectors = [1, (0, 2)]
+        # This means we will fit two detector groups (with potentially two config files)
+
         # Detector include/exclude
         self.xiastackraw.exclude_detectors = self.parameters['exclude_detectors']
         include_detectors = list(listtools.flatten(
@@ -205,8 +208,8 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
         adddetectorgroups = len(self._include_detectors) > 1
 
         # Do we need to add spectra (all or in groups)?
-        self.addspectra = (
-            adddetectors or adddetectorgroups) and self.parameters['addbeforefit']
+        self.addspectra = (adddetectors or adddetectorgroups) and\
+                          self.parameters['addbeforefit']
         self.xiastackraw.detectorsum(self.addspectra)
 
         # How many detectors need to be fitted?
