@@ -47,6 +47,19 @@ function swig_run_dependencies()
 }
 
 
+function swig_install()
+{
+    local program=${1}
+    local version=${2}
+    local prefix=$(easymake_prefix ${program} ${version})
+    if [[ -f ${prefix}/bin/swig ]];then
+        return 0
+    fi
+    easymake_install "${@}" 
+    return $?
+}
+
+
 function swig_source_install()
 {
     source_install swig ${1}

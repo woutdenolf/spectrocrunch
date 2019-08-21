@@ -25,7 +25,13 @@ function cmake_all_subversions()
 }
 
 
-function cmake_extractmainv()
+function cmake_extractversion()
+{
+    echo ${1} | grep -E -o "[\.0-9]+"
+}
+
+
+function cmake_extractmajorversion()
 {
     echo ${1} | grep -E -o "[0-9]+(\.[0-9]+)?" | head -1
 }
@@ -41,7 +47,7 @@ function cmake_latest()
         echo ${lst[-1]}
         return
     fi
-    local mversion=$(cmake_extractmainv ${rversion})
+    local mversion=$(cmake_extractmajorversion ${rversion})
     local lst2
     for i in ${lst[@]}; do
         if [[ $(require_new_version ${i} ${mversion}) == false ]]; then
@@ -68,12 +74,14 @@ function cmake_download()
         if [[ ! -f install.sh ]];then
             mkdir -p ${1}
             cd ${1}
-            curl -L https://github.com/Kitware/CMake/releases/download/v${cmakev}/cmake-${cmakev}-Linux-x86_64.sh --output install.sh
+            local _mversion=$(cmake_extractversion ${1})
+            echo https://github.com/Kitware/CMake/releases/download/v${_mversion}/${1}-Linux-x86_64.sh
+            curl -L https://github.com/Kitware/CMake/releases/download/v${_mversion}/${1}-Linux-x86_64.sh --output install.sh
             cd ..
         fi
     else
         if [[ ! -f ${1}.tar.gz ]]; then
-            local _mversion=$(cmake_extractmainv ${1})
+            local _mversion=$(cmake_extractmajorversion ${1})
             curl -L $(cmake_url)/v${_mversion}/${1}.tar.gz --output ${1}.tar.gz
         fi
     fi
@@ -121,15 +129,18 @@ function cmake_build()
 
 function cmake_install()
 {
+    local program=${1}
+    local version=${2}
+    local prefix=$(easymake_prefix ${program} ${version})
+    if [[ -f ${prefix}/bin/cmake ]];then
+        return 0
+    fi
     if [[ ${CMAKE_INSTALL} == "sh" ]];then
-        local program=${1}
-        local version=${2}
-        local prefix=$(easymake_prefix ${program} ${version})
         mexec sh ../install.sh  --skip-license --prefix=${prefix}
     else
         easymake_install "${@}" 
-        return $?
     fi
+    return $?
 }
 
 
