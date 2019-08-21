@@ -41,6 +41,7 @@ from ...utils import cli
 from ...materials import compoundfromname
 from ...testutils.subtest import TestCase
 from ...process.tests.xrfmap import XrfMapGenerator
+from ...xrf.fit import OutputBuffer
 
 
 logger = cli.getLogger(__name__, __file__)
@@ -67,6 +68,15 @@ class test_fluoxas(TestCase):
                       'dtcor': (True, False),
                       'stackdim': (0,),
                       'correctspectra': (True, False)}
+        parameters2 = {'alignmethod': (None,),
+                      'cfgfileuse': (True,),
+                      'include_detectors': [[1,(0,2)]],
+                      'adddetectors': (True, ),
+                      'addbeforefit': (True, ),
+                      'quant': (True,),
+                      'dtcor': (True,),
+                      'stackdim': (0,),
+                      'correctspectra': (False,)}
         self.run_subtests(parameters, self._process)
 
     def _process(self, alignmethod=None, cfgfileuse=None,

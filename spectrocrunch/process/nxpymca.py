@@ -186,26 +186,30 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
     def _prepare_adddetector(self):
         # include_detectors = [1, (0, 2)]
         # This means we will fit two detector groups (with potentially two config files)
+        include_detectors = self.parameters['include_detectors']
+        used_detector = list(listtools.flatten(include_detectors))
 
         # Detector include/exclude
         self.xiastackraw.exclude_detectors = self.parameters['exclude_detectors']
-        include_detectors = list(listtools.flatten(
-            self.parameters['include_detectors']))
-        self.xiastackraw.include_detectors = include_detectors
-        dshape = self.xiastackraw.dshape
-        self.ndet = dshape[-1]
+        self.xiastackraw.include_detectors = used_detector
+        if not used_detector:
+            used_detector = self.xiastackraw.detectors_used
+            used_detector = [int(det) if det.isdigit() else det for det in used_detector]
+            used_detector = list(sorted(used_detector))
+        ndet_used = len(used_detector)
+
+        # Detector groups for fitting
+        if any(len(instance.asarray(lst)) > 1 for lst in instance.asarray(include_detectors)):
+            self._detector_groups = OrderedDict((nxresult.Group('S{:d}'.format(i)), instance.asarray(singledets))
+                                                for i, singledets in enumerate(include_detectors, 1))
+        else:
+            self._detector_groups = {nxresult.Group('S1'): used_detector}
 
         # Do we need to add all detectors?
-        adddetectors = (self.ndet > 1) and self.parameters['adddetectors']
+        adddetectors = (ndet_used > 1) and self.parameters['adddetectors']
 
         # Do we need to add detector groups?
-        if any(len(instance.asarray(lst)) > 1 for lst in instance.asarray(self.parameters['include_detectors'])):
-            self._include_detectors = {nxresult.Group('S{:d}'.format(i)): instance.asarray(singledets)
-                                       for i, singledets in enumerate(self.parameters['include_detectors'], 1)}
-        else:
-            # These are not necessarily all detector!
-            self._include_detectors = {nxresult.Group('S1'): include_detectors}
-        adddetectorgroups = len(self._include_detectors) > 1
+        adddetectorgroups = len(self._detector_groups) > 1
 
         # Do we need to add spectra (all or in groups)?
         self.addspectra = (adddetectors or adddetectorgroups) and\
@@ -214,31 +218,27 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
 
         # How many detectors need to be fitted?
         if self.addspectra:
-            if adddetectorgroups:
-                self.ndetfit = len(self._include_detectors)
-            else:
-                self.ndetfit = 1
+            self.ndetfit = len(self._detector_groups)
         else:
-            self.ndetfit = self.ndet
+            self.ndetfit = ndet_used
 
         # Sum after fitting:
         self._detectors_sumto = OrderedDict()
         if adddetectorgroups:
             # Add single detectors to their corresponding subgroup
-            for dest, singledets in self._include_detectors.items():
+            for dest, singledets in self._detector_groups.items():
                 for det in singledets:
                     self._detectors_sumto[nxresult.Group(det)] = dest
-
             if adddetectors:
                 # Add subgroups to the sumgroup
                 num = max(det.number for det in self._detectors_sumto)
                 dest = nxresult.Group('S{:d}'.format(num+1))
-                for det in self._include_detectors:
+                for det in self._detector_groups:
                     self._detectors_sumto[nxresult.Group(det)] = dest
         elif adddetectors:
             # Add single detectors to the sumgroup
             dest = nxresult.Group('S1')
-            for det in self.xiastackraw.xialabels_used:
+            for det in used_detector:
                 self._detectors_sumto[nxresult.Group(det)] = dest
 
     def _prepare_dtcor(self):
@@ -318,6 +318,9 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
                     qxrfgeometry.xrf_distances.to('cm').magnitude
 
     def _process_xiastackraw(self):
+        self.xiastackraw.exclude_detectors = self.parameters['exclude_detectors']
+        self.xiastackraw.include_detectors = list(
+            listtools.flatten(self.parameters['include_detectors']))
         if self.dtcorbefore or self.addspectra or self.fluxnormbefore:
             label = ''
             if self.dtcorbefore:
@@ -349,8 +352,8 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
                 self.xiastackproc.overwrite(True)
                 if self.addspectra:
                     logger.info('Creating corrected XRF spectra: {}'.format(
-                        list(self._include_detectors.keys())))
-                    for det, singledets in self._include_detectors.items():
+                        list(self._detector_groups.keys())))
+                    for det, singledets in self._detector_groups.items():
                         self.xiastackraw.include_detectors = singledets
                         self.xiastackproc.save(
                             self.xiastackraw, xialabels=[det.xialabel])
@@ -577,7 +580,8 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
 
             filestofit = xiaimage.datafilenames_used()
             filestofit = xiaedf.xiagroupdetectors(filestofit)
-            for detector, cfg, quant in zip(filestofit, pymcacfg, quants):
+            detectors = list(sorted(filestofit.keys()))  # TODO: use _detector_groups
+            for detector, cfg, quant in zip(detectors, pymcacfg, quants):
                 logger.info('Pymca fit \'detector{}\' ...'.format(detector))
 
                 # Fit
@@ -728,7 +732,7 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
                         imageindex, slicedata))
 
                     data = slicedata.data(imageindex, self.outstackdim)
-
+                    
                     # Allocate destination
                     if not signal.exists:
                         if outshape is None:
@@ -761,3 +765,4 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
 
             if list(nxdata.signals):
                 nxdata.set_axes(*self.axes_names)
+
