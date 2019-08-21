@@ -26,7 +26,6 @@ import unittest
 import numpy as np
 import os
 import contextlib
-import logging
 import re
 from testfixtures import TempDirectory
 
@@ -38,11 +37,13 @@ from ...process import nxresult
 from ...align import types
 from ...utils import instance
 from ...utils import listtools
+from ...utils import cli
 from ...materials import compoundfromname
 from ...testutils.subtest import TestCase
 from ...process.tests.xrfmap import XrfMapGenerator
 
-logger = logging.getLogger(__name__)
+
+logger = cli.getLogger(__name__, __file__)
 
 
 class test_fluoxas(TestCase):
