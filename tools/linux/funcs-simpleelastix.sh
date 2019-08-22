@@ -17,16 +17,17 @@ function simpleelastix_build_dependencies()
     require_pythondev
     pip_install virtualenv>=13.0 # does not work on rnice
     require_cmake 3.10
-    require_swig 3.0.12
+    require_swig 3
 }
 
 
 function simpleelastix_download()
 {
     git clone https://github.com/kaspermarstal/SimpleElastix ${1}
-    # Last commit that works with cmake 3.0 instead of cmake 3.10
+
     cd ${1}
-    git checkout v1.1.0
+    
+    #git checkout v1.1.0
     #git reset --hard 49af818 # Sep 10, 2018  (v1.1.0)
     #git reset --hard cf75ff4 # Dec 21, 2017  (Git ITK v4.13.0)
     #git reset --hard 3de935c # Oct 30, 2017 
