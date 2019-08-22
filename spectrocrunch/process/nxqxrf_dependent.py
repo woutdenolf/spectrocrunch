@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from . import basetask
 from ..utils import units
 

@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 def search(names, name):
     lname = name.lower()
     # Contains (case insensitive)

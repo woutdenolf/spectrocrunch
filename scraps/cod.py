@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from peewee import *
 import urllib
 import tempfile

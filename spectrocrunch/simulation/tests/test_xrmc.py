@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import unittest
 import numpy as np
 from scipy.spatial.transform import Rotation

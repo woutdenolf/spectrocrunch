@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 filename = "/data/id16b/inhouse1/comm_17jan/restart/sofc/26jan/6100h_fluoXAS_0/results/6100h_fluoXAS_0/test.h5"
 name = ["/detectorsum/Ni-K_norm", "/counters/arr_srcurr"]
