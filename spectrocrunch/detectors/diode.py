@@ -577,7 +577,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             "{} @ {:.02e} ph/s, {:~.0e}".format(self.__class__.__name__, flux, self.gain))
 
     def _chargeperdiodephoton(self, energy):
-        """Charge generated per photon absorbed by the diode: spectral responsivity multiplied by the energy
+        """Charge generated per photon hitting the diode: spectral responsivity multiplied by the energy
 
         Args:
             energy(num or array): keV
@@ -1061,7 +1061,6 @@ class PNdiode(with_metaclass(base.SolidState)):
         Returns:
             num or array: current (A)
         """
-
         op = self.op_fluxtocurrent(energy, weights=weights)
         return op(units.Quantity(flux, "hertz")).to("ampere")
 
@@ -1595,7 +1594,6 @@ class CalibratedPNdiode(PNdiode):
             if any(ind):
                 r[ind] = super(CalibratedPNdiode,
                                self).spectral_responsivity(energy[ind])
-
         return units.Quantity(r, "A/W")
 
 
