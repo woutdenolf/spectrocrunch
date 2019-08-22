@@ -185,28 +185,37 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
 
     def _prepare_adddetector(self):
         # include_detectors = [1, (0, 2)]
-        # This means we will fit two detector groups (with potentially two config files)
+        # When adding detector spectra, this means we will fit two
+        # detector groups S1 and S2, with potentially two config files
         include_detectors = self.parameters['include_detectors']
-        used_detector = list(listtools.flatten(include_detectors))
+        used_detectors = list(listtools.flatten(include_detectors))
 
         # Detector include/exclude
         self.xiastackraw.exclude_detectors = self.parameters['exclude_detectors']
-        self.xiastackraw.include_detectors = used_detector
-        if not used_detector:
-            used_detector = self.xiastackraw.detectors_used
-            used_detector = [int(det) if det.isdigit() else det for det in used_detector]
-            used_detector = list(sorted(used_detector))
-        ndet_used = len(used_detector)
+        self.xiastackraw.include_detectors = used_detectors
+        tmp = self.xiastackraw.detectors_used  # e.g. ['00', '01', 'S0']
+        if used_detectors:
+            # Keep order provided by 'include_detectors'
+            tmp = [int(det) if det.isdigit() else det for det in tmp]
+            used_detectors = [det for det in used_detectors if det in tmp]
+        else:
+            used_detectors = list(sorted(tmp))
 
         # Detector groups for fitting
-        if any(len(instance.asarray(lst)) > 1 for lst in instance.asarray(include_detectors)):
-            self._detector_groups = OrderedDict((nxresult.Group('S{:d}'.format(i)), instance.asarray(singledets))
+        if any(len(listtools.aslist(lst)) > 1 for lst in listtools.aslist(include_detectors)):
+            self._detector_groups = OrderedDict((nxresult.Group('S{:d}'.format(i)), listtools.aslist(singledets))
                                                 for i, singledets in enumerate(include_detectors, 1))
         else:
-            self._detector_groups = {nxresult.Group('S1'): used_detector}
+            tmp = [nxresult.Group(det) for det in used_detectors]
+            tmp = [det.number for det in tmp if det.issum]
+            if tmp:
+                num = max(tmp)+1
+            else:
+                num = 1
+            self._detector_groups = {nxresult.Group('S{:d}'.format(num)): used_detectors}
 
         # Do we need to add all detectors?
-        adddetectors = (ndet_used > 1) and self.parameters['adddetectors']
+        adddetectors = (len(used_detectors) > 1) and self.parameters['adddetectors']
 
         # Do we need to add detector groups?
         adddetectorgroups = len(self._detector_groups) > 1
@@ -216,29 +225,25 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
                           self.parameters['addbeforefit']
         self.xiastackraw.detectorsum(self.addspectra)
 
-        # How many detectors need to be fitted?
+        # List of detectors to fit
         if self.addspectra:
-            self.ndetfit = len(self._detector_groups)
+            self._detectors_to_fit = list(self._detector_groups.keys())
         else:
-            self.ndetfit = ndet_used
+            self._detectors_to_fit = [nxresult.Group(det) for det in used_detectors]
+        self.ndetfit = len(self._detectors_to_fit)
 
         # Sum after fitting:
         self._detectors_sumto = OrderedDict()
-        if adddetectorgroups:
+        if adddetectorgroups or adddetectors:
             # Add single detectors to their corresponding subgroup
             for dest, singledets in self._detector_groups.items():
                 for det in singledets:
                     self._detectors_sumto[nxresult.Group(det)] = dest
-            if adddetectors:
-                # Add subgroups to the sumgroup
-                num = max(det.number for det in self._detectors_sumto)
-                dest = nxresult.Group('S{:d}'.format(num+1))
-                for det in self._detector_groups:
-                    self._detectors_sumto[nxresult.Group(det)] = dest
-        elif adddetectors:
-            # Add single detectors to the sumgroup
-            dest = nxresult.Group('S1')
-            for det in used_detector:
+        if adddetectorgroups and adddetectors:
+            # Add subgroups to the sumgroup
+            num = max(det.number for det in self._detectors_sumto)
+            dest = nxresult.Group('S{:d}'.format(num+1))
+            for det in self._detector_groups:
                 self._detectors_sumto[nxresult.Group(det)] = dest
 
     def _prepare_dtcor(self):
@@ -549,8 +554,8 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
 
     def _stack_add_xrffit(self):
         # Fit data and add elemental maps
-        pymcacfg = self.parameters['pymcacfg']
-        ncfg = len(pymcacfg)
+        cfglist = self.parameters['pymcacfg']
+        ncfg = len(cfglist)
         if not ncfg:
             return
 
@@ -560,28 +565,29 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
         outpath = self.outfitpath
         outpath.mkdir(force=False)
         if ncfg == 1:
-            pymcacfg = pymcacfg*self.ndetfit
+            cfglist = cfglist*self.ndetfit
         else:
-            pymcacfg = pymcacfg
-            if len(pymcacfg) != self.ndetfit:
+            cfglist = cfglist
+            if len(cfglist) != self.ndetfit:
                 raise RuntimeError('You need {} configuration files, {} provides.'.format(
-                    self.ndetfit, len(pymcacfg)))
+                    self.ndetfit, len(cfglist)))
 
         for imageindex, xiaimage in enumerate(self.xiastackproc):
             if self.fluxnorm:
-                quants = [{'time': self.infoaxes['refexpotime'][imageindex].to('s').magnitude,
-                           'flux':self.infoaxes['refflux'][imageindex].to('Hz').magnitude,
-                           'area':self.infoaxes['activearea'][imageindex, i].to('cm**2').magnitude,
-                           'anglein':self.infoaxes['anglein'][imageindex, i].to('deg').magnitude,
-                           'angleout':self.infoaxes['angleout'][imageindex, i].to('deg').magnitude,
-                           'distance':self.infoaxes['sampledetdistance'][imageindex, i].to('cm').magnitude} for i in range(self.ndetfit)]
+                quantlist = [{'time': self.infoaxes['refexpotime'][imageindex].to('s').magnitude,
+                              'flux':self.infoaxes['refflux'][imageindex].to('Hz').magnitude,
+                              'area':self.infoaxes['activearea'][imageindex, i].to('cm**2').magnitude,
+                              'anglein':self.infoaxes['anglein'][imageindex, i].to('deg').magnitude,
+                              'angleout':self.infoaxes['angleout'][imageindex, i].to('deg').magnitude,
+                              'distance':self.infoaxes['sampledetdistance'][imageindex, i].to('cm').magnitude}
+                             for i in range(self.ndetfit)]
             else:
-                quants = [{}]*self.ndetfit
+                quantlist = [{}]*self.ndetfit
 
             filestofit = xiaimage.datafilenames_used()
             filestofit = xiaedf.xiagroupdetectors(filestofit)
-            detectors = list(sorted(filestofit.keys()))  # TODO: use _detector_groups
-            for detector, cfg, quant in zip(detectors, pymcacfg, quants):
+            filestofit = {nxresult.Group(k):v for k, v in filestofit.items()}
+            for detector, cfg, quant in zip(self._detectors_to_fit, cfglist, quantlist):
                 logger.info('Pymca fit \'detector{}\' ...'.format(detector))
 
                 # Fit

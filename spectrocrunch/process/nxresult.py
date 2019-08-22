@@ -55,12 +55,10 @@ class Group(CompHashable):
                 number = int(groupname[1:])
                 name = "detectorS{:01d}".format(number)
                 category = 1
-
         elif isinstance(groupname, self.__class__):
             name, number, category = groupname.name, groupname.number, groupname.category
         elif groupname:
             raise ValueError("Unexpected detector name {}".format(groupname))
-
         self.name = name
         self.number = number
         self.category = category

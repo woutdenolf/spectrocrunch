@@ -1791,21 +1791,25 @@ class xialine(xiadata):
 
     @property
     def xialabels(self):
+        # 'xia00', 'xiaS0', ...
         files = self.datafilenames()
         return [xianameparser.parse(f).label for f in files]
 
     @property
     def detectors(self):
+        # '00', 'S0', ...
         files = self.datafilenames()
         return [xianameparser.xiaparselabel(xianameparser.parse(f).label)[1] for f in files]
 
     @property
     def xialabels_used(self):
+        # 'xia00', 'xiaS0', ...
         files = self.datafilenames_used()
         return [xianameparser.parse(f).label for f in files]
 
     @property
     def detectors_used(self):
+        # '00', 'S0', ...
         files = self.datafilenames_used()
         return [xianameparser.xiaparselabel(xianameparser.parse(f).label)[1] for f in files]
 
