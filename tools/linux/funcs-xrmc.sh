@@ -15,12 +15,6 @@ function xrmc_build_dependencies()
 }
 
 
-function xrmc_run_dependencies()
-{
-    require_xmimsim
-}
-
-
 function xrmc_all_versions()
 {
     versions_from_github "golosio" "xrmc" "XRMC-[0-9\.]+"
@@ -44,11 +38,10 @@ function xrmc_download()
 
 function xrmc_source_install()
 {
-    #if [[ ! -d xrmc && ${ARG_SKIPLONG} == true ]]; then
-    #    cprint "Skipping xrmc installation"
-    #    return
-    #fi
-    
+    if [[ ! -d xrmc && ${ARG_SKIPLONG} == true ]]; then
+        cprint "Skipping xrmc installation"
+        return
+    fi
     source_install xrmc "${1}"
 }
 

@@ -51,14 +51,14 @@ class test_mixture(unittest.TestCase):
             [compound1, compound2, compound3, compound4], mole, types.fraction.mole)
 
         # Test compound mole fractions
-        nfrac1 = m.molefractions(total=True)
+        nfrac1 = m.equivalents()
         nfrac2 = mole
         labels = ["La2O3", "SrO", "Co2O3", "Fe2O3"]
         for i in range(len(labels)):
             self.assertAlmostEqual(nfrac1[labels[i]], nfrac2[i])
 
         # Test elemental mole fractions
-        nfrac1 = m.elemental_molefractions(total=True)
+        nfrac1 = m.elemental_equivalents()
         nLa = 2*mole[0]
         nSr = 1*mole[1]
         nCo = 2*mole[2]
@@ -70,16 +70,30 @@ class test_mixture(unittest.TestCase):
             self.assertAlmostEqual(nfrac1[labels[i]], nfrac2[i])
 
     @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None, "xraylib not installed")
-    def test_addcompound(self):
+    def test_addcompounds(self):
         c1 = compoundfromformula.CompoundFromFormula("Co2O3", 1.5)
         c2 = compoundfromformula.CompoundFromFormula("Fe2O3", 1.6)
         m1 = mixture.Mixture([c1, c2], [2, 3], types.fraction.mole)
-        m2 = mixture.Mixture([c1], [2], types.fraction.mole)
-        m2.addcompound(c2, 3, types.fraction.mole)
-
-        n1 = m1.molefractions(total=True)
-        n2 = m2.molefractions(total=True)
-        self.assertEqual(n1, n2)
+        n1 = m1.molefractions()
+        snfrac1 = sum(m1.equivalents().values())
+        for fractype in ['mass', 'mole', 'volume']:
+            m2 = mixture.Mixture([c1], [5], types.fraction.mole)
+            if fractype == 'mass':
+                m2.addcompounds(c2, m1.massfractions()[c2], types.fraction.mass)
+            elif fractype == 'volume':
+                m2.addcompounds(c2, m1.volumefractions()[c2], types.fraction.volume)
+            else:
+                m2.addcompounds(c2, n1[c2], types.fraction.mole)
+            n2 = m2.molefractions()
+            snfrac2 = sum(m2.equivalents().values())
+            self.assertEqual(set(n1.keys()), set(n2.keys()))
+            if fractype == 'mole':
+                self.assertEqual(snfrac1, snfrac2)
+            else:
+                self.assertAlmostEqual(1, snfrac2)
+            self.assertAlmostEqual(m1.density, m2.density)
+            for k in n1:
+                self.assertAlmostEqual(n1[k], n2[k])
 
     @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None, "xraylib not installed")
     def test_tocompound(self):
@@ -181,7 +195,7 @@ class test_mixture(unittest.TestCase):
         m1 = mixture.Mixture(
             [c1, c2], [2, 3], types.fraction.mole, name='mixture')
         m2 = jsonpickle.loads(jsonpickle.dumps(m1))
-        self.assertEqual(m1.compounds, m2.compounds)
+        self.assertEqual(m1.parts, m2.parts)
         self.assertEqual(m1.density, m2.density)
 
 
@@ -189,7 +203,7 @@ def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_mixture("test_molefractions"))
-    testSuite.addTest(test_mixture("test_addcompound"))
+    testSuite.addTest(test_mixture("test_addcompounds"))
     testSuite.addTest(test_mixture("test_tocompound"))
     testSuite.addTest(test_mixture("test_cross_sections"))
     testSuite.addTest(test_mixture("test_refractiveindex"))

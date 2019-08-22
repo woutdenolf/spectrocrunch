@@ -173,7 +173,7 @@ class XrfMapGenerator(object):
                     b = farr(data['massfractions'][i][j].values())
                     np.testing.assert_allclose(a/len(seldetectors), b)
 
-    def generate(self, path, radix, applyflux=True, applydt=True):
+    def generate(self, path, radix, changingflux=True, changingdt=True):
         self._generate_spectra(path, radix)
         qxrfgeometry = self._instantiate_geometry()
         refflux = qxrfgeometry.reference.to("hertz").magnitude
@@ -203,7 +203,7 @@ class XrfMapGenerator(object):
         ctrs = {}
 
         # Apply flux decay
-        if applyflux:
+        if changingflux:
             rflux = np.linspace(1, 0.5, nmaps*nlines *
                                 nspec).reshape((nmaps, nlines, nspec))
         else:
@@ -250,7 +250,7 @@ class XrfMapGenerator(object):
         RT = reftime  # sec
         for i in range(ndet):
             Rreal = data[..., i].sum(axis=-1)
-            if applydt:
+            if changingdt:
                 DTslow = 0.2*i/(ndet-1.)
             else:
                 DTslow = 0
@@ -260,7 +260,7 @@ class XrfMapGenerator(object):
             Nslow = RT*Rslow
             ctrs["xmap_icr_{:02d}".format(i)] = Rreal
             ctrs["xmap_ocr_{:02d}".format(i)] = Rslow
-            data[..., i] = data[..., i]*(1-DTslow)
+            data[..., i] *= (1-DTslow)
             stats[..., xiaedf.xiadata.STDET, i] = i
             stats[..., xiaedf.xiadata.STEVT, i] = Nslow
             stats[..., xiaedf.xiadata.STICR, i] = Rreal

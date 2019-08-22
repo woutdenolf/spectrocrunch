@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from ..utils.hashable import CompHashable
+from ..utils.copyable import Copyable
 from . import xrayspectrum
 from ..utils import instance
 from ..patch.pint import ureg
@@ -38,7 +40,7 @@ def refractive_index_delta_calc(energy, e_wfrac, density, **kwargs):
     delta = sum(e_wfrac[e]/e.MM*e.scatfact_real(energy, **kwargs)
                 for e in e_wfrac)
     delta = ureg.Quantity(delta, 'mol/g') *\
-            refractive_index_factor(energy, density)
+        refractive_index_factor(energy, density)
     return delta.to("dimensionless").magnitude
 
 
@@ -47,11 +49,11 @@ def refractive_index_beta_calc(energy, e_wfrac, density, **kwargs):
     beta = -sum(e_wfrac[e]/e.MM*e.scatfact_imag(energy, **kwargs)
                 for e in e_wfrac)
     beta = ureg.Quantity(beta, 'mol/g') *\
-           refractive_index_factor(energy, density)
+        refractive_index_factor(energy, density)
     return beta.to("dimensionless").magnitude
 
 
-class ElementBase(object):
+class ElementBase(Copyable, CompHashable):
 
     def refractive_index_delta(self, E, fine=False, decomposed=False, **kwargs):
         """n = 1-delta-i*beta
@@ -60,7 +62,8 @@ class ElementBase(object):
             environ = self
         else:
             environ = None
-        return refractive_index_delta_calc(E, self.elemental_massfractions(), self.density, environ=environ, **kwargs)
+        return refractive_index_delta_calc(E, self.elemental_massfractions(),
+                                           self.density, environ=environ, **kwargs)
 
     def refractive_index_beta(self, E, fine=False, decomposed=False, **kwargs):
         """n = 1-delta-i*beta
@@ -69,7 +72,8 @@ class ElementBase(object):
             environ = self
         else:
             environ = None
-        return refractive_index_beta_calc(E, self.elemental_massfractions(), self.density, environ=environ, **kwargs)
+        return refractive_index_beta_calc(E, self.elemental_massfractions(),
+                                          self.density, environ=environ, **kwargs)
         
     def refractive_index_real(self, E, **kwargs):
         """Real part of the refractive index

@@ -165,7 +165,7 @@ class test_pymca(unittest.TestCase):
         plt.plot(fitresult["energy"], fitresult["yfit"], label='pymca')
 
         spectrum = h.xrayspectrum()
-        spectrum.plot(fluxtime=h.I0, histogram=True, log=False,
+        spectrum.plot(fluxtime=h.I0, histogram=True, ylog=False,
                       decompose=False, backfunc=lambda x: 1)
 
         ax = plt.gca()

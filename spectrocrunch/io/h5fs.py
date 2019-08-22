@@ -553,14 +553,14 @@ class Path(fs.Path):
                     dest = self._move_copyrenamedel(dest)
             else:
                 dest = self._move_copyrenamedel(dest)
-            dest._move_relink(self, dest)
+            dest._copymove_relink(self, dest)
             return self.factory(dest)
 
-    def _move_relink(self, source, dest):
+    def _copymove_relink(self, source, dest):
         # Softlink in HDF5 are absolute, so relink all links below self
         # that point to a destination below self (including self)
         for path in self.listdir():
-            path._move_relink(source, dest)
+            path._copymove_relink(source, dest)
         if self.islink:
             linkdest = self.linkdest()
             if source.common(linkdest) == source:
@@ -576,11 +576,10 @@ class Path(fs.Path):
                 # just copy the link itself
                 dest.link(self.linkdest())
             else:
-                # TODO: missing option: expand SoftLink and Reference when
-                #       pointing outside the tree being copied.
                 with dest.h5open() as fdest:
                     fsource.copy(self.path, fdest[dest.parent.path], name=dest.name,
                                  expand_soft=dereference, expand_external=dereference)
+                dest._copymove_relink(self, dest)
             return self.factory(dest)
 
     def remove(self, recursive=False):

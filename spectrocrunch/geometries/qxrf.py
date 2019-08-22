@@ -37,6 +37,7 @@ from ..utils.classfactory import with_metaclass
 from ..io import spec
 from ..math.linop import LinearOperator
 from ..math.utils import weightedsum
+from ..utils.copyable import Copyable
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -49,7 +50,7 @@ def defaultunit():
     return units.dimensionless
 
 
-class QXRFGeometry(with_metaclass(object)):
+class QXRFGeometry(with_metaclass(Copyable)):
     """Quantitative XRF geometry with I0 and It diodes
     """
 
@@ -408,6 +409,8 @@ class QXRFGeometry(with_metaclass(object)):
     def xrfnormop(self, energy, expotime=None, reference=None,
                   referencetime=None, weights=None):
         """
+        Returns a function to be applied to I0 before normalizing XRF signal.
+
         Args:
             energy(num|array): source lines (keV)
             expotime(Optional(num)): original exposure time (sec)

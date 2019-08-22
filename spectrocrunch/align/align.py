@@ -82,7 +82,11 @@ class align(object):
         self.cval = cval
 
         # Transformation settings (set before actual transformation)
-        self.dtype = (np.float32(1)*self.source.dtype.type(1)).dtype.type
+        try:
+            one = self.source.dtype.type(1)
+        except AttributeError:
+            one = self.source.dtype(1)
+        self.dtype = (np.float32(1)*one).dtype.type
         self.alignonraw = True
         self.usekernel = False # Doesn't work well for Elastix!
         self.pre_align = {"roi":None}

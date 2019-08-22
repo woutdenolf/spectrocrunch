@@ -41,17 +41,17 @@ class test_hashing(unittest.TestCase):
             try:
                 ha = hashing.calchash(a)
             except UnicodeDecodeError:
-                print(a)
+                #print(a)
                 raise
             try:
                 hb = hashing.calchash(b)
             except UnicodeDecodeError:
-                print(b)
+                #print(b)
                 raise
             if ha != hb:
-                print('---')
-                print(a)
-                print(b)
+                #print('---')
+                #print(a)
+                #print(b)
                 assert()
             self.assertTrue(hashing.hashequal(a, b))
 
@@ -92,7 +92,7 @@ class test_hashing(unittest.TestCase):
         self._assert_hash(None, hash)
 
     def test_quantity(self):
-        hash = b'815a7db5d24da2606b39c11790171428'
+        hash = b'6acad38f0f591c0434a820b6a5f3e4bf'
         self._assert_hash(ureg.Quantity([]), hash)
         hash = b'68da45d058243e374445ffa286ecec2f'
         self._assert_hash(ureg.Quantity(1), hash)
@@ -109,13 +109,13 @@ class test_hashing(unittest.TestCase):
         # Empty
         hash = b'425ed5b515f0a67c6316f0ec499f86bf'
         self._assert_hash(list(), hash)
-        hash = b'bd2ce62877eb062903a7dca3b709c719'
+        hash = b'22b3afce62075c7012f8e5041adfee16'
         self._assert_hash(tuple(), hash)
-        hash = b'c28c01d79239dc662f67b023595e6f91'
+        hash = b'f36acfd9d3040440cac6b32810abaeba'
         self._assert_hash(set(), hash)
-        hash = b'd1c2a7bc5a2517746e1788c5525d0dab'
+        hash = b'3b9937ed5e5748f3a3081d71e017d706'
         self._assert_hash(frozenset(), hash)
-        hash = b'0336cebaf1e0ce25b6ac2f850e93dcc5'
+        hash = b'e5906bb63f0e4c8da08aead693527d42'
         self._assert_hash(np.array([]), hash)
 
         # 0-dim

@@ -8,20 +8,21 @@ function travis_download_prebuild()
     # Download pre-build libraries
     local PYTHONV=`python -c "import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)"`
 
-    local DEP_FOLDER=dep_${PYTHONV}
+    local DEP_FOLDER=dep_python${PYTHONV}
 
     if [[ ! -d ${DEP_FOLDER} ]]; then
         local FILE=spectrocrunch.travis.python${PYTHONV}.tgz
-        local LINK1=http://ftp.esrf.fr/tmp/${FILE}
-        local LINK2=https://transfer.sh/12avMO/${FILE}
+        local LINKS=("http://ftp.esrf.fr/tmp/${FILE}" "https://transfer.sh/12avMO/${FILE}")
         
         # Download to cache folder
         if [[ ! -d ${DEP_FOLDER} ]]; then
             echo "Download pre-build libraries ..."
-            wget ${LINK1}
-            if [[ ! -f ${FILE} ]]; then
-                wget ${LINK2}
-            fi
+            for LINK in ${LINKS[@]}; do
+                if [[ -f ${FILE} ]]; then
+                    break
+                fi
+                curl ${LINK} -o ${FILE}
+            done
 
             # Unpack in build folder
             if [[ -f ${FILE} ]]; then
@@ -48,6 +49,9 @@ function travis_download_prebuild()
 function virtualdisplay()
 {
     export DISPLAY=:99.0
+    return
+
+    # No longer needed:
     sudo -E apt-get install xvfb
     if [[ -f /etc/init.d/xvfb ]];then
         sudo -E chmod +x /etc/init.d/xvfb

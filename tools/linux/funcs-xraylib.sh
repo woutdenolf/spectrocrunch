@@ -14,6 +14,7 @@ function xraylib_build_dependencies()
     local tmp=$(pwd)
     cd ${1}
 
+    mapt-get install gfortran
     require_build_essentials
     require_pythondev
     require_swig 3
@@ -64,6 +65,7 @@ function xraylib_source_install()
     source_install xraylib "${1}" \
          --enable-python \
          --enable-python-integration \
+         --enable-fortran2003 \
          --disable-java \
          --disable-lua \
          --disable-ruby \
@@ -71,7 +73,6 @@ function xraylib_source_install()
          --disable-pascal \
          --disable-idl \
          --disable-perl \
-         --disable-fortran2003 \
          PYTHON="$(python_full_bin)"
 }
 

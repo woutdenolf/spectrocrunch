@@ -22,41 +22,61 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import operator
+
 
 class Comparable(object):
-    """A derived class with method _cmpkey() and _sortkey() will be comparable
-    """
 
-    def _compare(self, other, method):
-        try:
-            return method(self._cmpkey(), other._cmpkey())
-        except (AttributeError, TypeError):
-            # _cmpkey not implemented, or return different type,
-            # so I can't compare with "other".
-            return NotImplemented
+    @property
+    def _repr(self):
+        """Unique representation of an instance
+        """
+        return "{}{}".format(type(self).__name__, id(self))
 
-    def _sort(self, other, method):
+    def _cmpkey(self, other):
+        return self._repr
+
+    def _sortkey(self, other):
+        return self._cmpkey
+
+    def __repr__(self):
+        return self._repr
+
+    def __str__(self):
+        return repr(self)
+
+    def encode(self, *args, **kwargs):
+        return str(self).encode(*args, **kwargs)
+
+    def _compareop(self, other, op, key):
+        a = getattr(self, key)(other)
         try:
-            return method(self._sortkey(), other._sortkey())
-        except (AttributeError, TypeError):
-            # _cmpkey not implemented, or return different type,
-            # so I can't compare with "other".
-            return NotImplemented
+            b = getattr(other, key)(self)
+        except:
+            return op(a, other)
+        else:
+            return op(a, b)
+
+    def _sort(self, other, op):
+        return self._compareop(other, op, '_sortkey')
+
+    def _compare(self, other, op):
+        return self._compareop(other, op, '_cmpkey')
 
     def __lt__(self, other):
-        return self._sort(other, lambda s, o: s < o)
+        return self._sort(other, operator.lt)
 
     def __le__(self, other):
-        return self._sort(other, lambda s, o: s <= o)
+        return self._sort(other, operator.le)
 
     def __ge__(self, other):
-        return self._sort(other, lambda s, o: s >= o)
+        return self._sort(other, operator.ge)
 
     def __gt__(self, other):
-        return self._sort(other, lambda s, o: s > o)
+        return self._sort(other, operator.gt)
 
     def __eq__(self, other):
-        return self._compare(other, lambda s, o: s == o)
+        return self._compare(other, operator.eq)
 
     def __ne__(self, other):
-        return self._compare(other, lambda s, o: s != o)
+        return self._compare(other, operator.ne)

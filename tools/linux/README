@@ -11,23 +11,24 @@ Installation settings:
     dryrun reset false
     modify_bashrc reset false
     
-Default location of source code (not necessary):
+Default source/build root directory (not necessary):
 
 .. code-block:: bash
 
     source spectrocrunch/tools/linux/funcs-python.sh
     cd $(python_depdir)
-    
-Install glibc when installed version is older:
+
+Install any python version:
+
+.. code-block:: bash
+
+    source spectrocrunch/tools/linux/funcs-python.sh
+    require_python 3.6
+
+Install any gnu package:
 
 .. code-block:: bash
 
     source spectrocrunch/tools/linux/funcs-glibc.sh
-    require_glibc 2.14
-    
-Install any gnu package (even when already installed):
+    require_gnu glibc 2.14
 
-.. code-block:: bash
-
-    gnu_install_fromsource glibc 2.14
-    

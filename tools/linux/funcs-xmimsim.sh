@@ -71,7 +71,7 @@ function xmimsim_latest()
 function libxml2_download()
 {
     if [[ ! -f ${1}.tar.gz ]]; then
-        curl -L $(libxml2_url)${1}.tar.gz --output ${1}.tar.gz
+        curl -L $(libxml2_url)/${1}.tar.gz --output ${1}.tar.gz
     fi
 }
 
@@ -79,7 +79,7 @@ function libxml2_download()
 function libxslt_download()
 {
     if [[ ! -f ${1}.tar.gz ]]; then
-        curl -L $(libxslt_url)${1}.tar.gz --output ${1}.tar.gz
+        curl -L $(libxslt_url)/${1}.tar.gz --output ${1}.tar.gz
     fi
 }
 
@@ -117,40 +117,19 @@ function libxslt_build_dependencies()
 
 function easyrng_build_dependencies()
 {
+    mapt-get install gfortran
     require_build_essentials
 }
 
 
 function xmimsim_build_dependencies()
 {
+    mapt-get install gfortran
+    mapt-get install libglib2.0-dev
     require_build_essentials
     require_easyrng
     require_libxslt
     require_xraylib
-}
-
-
-function libxml2_run_dependencies()
-{
-    :
-}
-
-
-function libxslt_run_dependencies()
-{
-    :
-}
-
-
-function easyrng_run_dependencies()
-{
-    :
-}
-
-
-function xmimsim_run_dependencies()
-{
-    :
 }
 
 
@@ -160,31 +139,52 @@ function libxml2_source_install()
 }
 
 
+function libxml2_system_install()
+{
+    # libxml2-utils provides xmlcatalog
+    mapt-get install libxml2-dev libxml2-utils
+}
+
+
 function libxslt_source_install()
 {
     source_install libxslt "${1}" --without-python
 }
 
 
+function libxslt_system_install()
+{
+    mapt-get install libxslt1-dev
+}
+
+
 function easyrng_source_install()
 {
-    source_install easyrng "${1}"
+    source_install easyrng "${1}" --with-fortran
 }
 
 
 function xmimsim_source_install()
 {
+    if [[ ! -d xrmc && ${ARG_SKIPLONG} == true ]]; then
+        cprint "Skipping xmimsim installation"
+        return
+    fi
     source_install xmimsim "${1}"
 }
 
 
-function xmimsim_post_source_install()
+function xmimsim_post()
 {
+    local prefix=$(easymake_prefix ${1} ${2})
+    if [[ -f ${prefix}/share/xmimsim/xmimsimdata.h5 ]]; then
+        cprint "${prefix}/share/xmimsim/xmimsimdata.h5 already exists"
+        return
+    fi
     if [[ ! -f xmimsimdata.h5 && ${ARG_SKIPLONG} == true ]]; then
         cprint "Skipping xmimsim database creation"
         return
     fi
-    local prefix=${1}
     if [[ ! -f ${prefix}/bin/xmimsim-db ]]; then
         cerror "${prefix}/bin/xmimsim-db: not installed"
         return
@@ -193,27 +193,29 @@ function xmimsim_post_source_install()
         ${prefix}/bin/xmimsim-db xmimsimdata.h5
     fi
     cp -f xmimsimdata.h5 ${prefix}/share/xmimsim/xmimsimdata.h5
+    cprint "${prefix}/share/xmimsim/xmimsimdata.h5 created"
 }
 
 
 function libxml2_exists()
 {
-    #libexists libxml2
-    echo false
+    if [[ $(libexists libxml2) == true && $(cmdexists xmlcatalog) == true ]]; then
+        echo true
+    else
+        echo false
+    fi
 }
 
 
 function libxslt_exists()
 {
-    #libexists libxslt
-    echo false
+    libexists libxslt
 }
 
 
 function easyrng_exists()
 {
-    #libexists libeasyRNG
-    echo false
+    libexists libeasyRNG
 }
 
 
@@ -225,31 +227,19 @@ function xmimsim_exists()
 
 function libxml2_version()
 {
-    if [[ $(libxml2_exists) == false ]]; then
-        echo 0
-    else
-        echo 0
-    fi
+    libversion libxml2
 }
 
 
 function libxslt_version()
 {
-    if [[ $(libxslt_exists) == false ]]; then
-        echo 0
-    else
-        echo 0
-    fi
+    libversion libxslt
 }
 
 
 function easyrng_version()
 {
-    if [[ $(easyrng_exists) == false ]]; then
-        echo 0
-    else
-        echo 0
-    fi
+    libversion easyRNG libeasyRNG
 }
 
 

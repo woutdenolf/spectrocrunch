@@ -23,9 +23,11 @@
 # THE SOFTWARE.
 
 import warnings
+from copy import copy
 from . import compound
 from . import compoundfromlist
 from . import compoundfromformula
+from . import compoundsearch
 from . import mixture
 from . import types
 from ..utils import instance
@@ -302,24 +304,17 @@ else:
         data["Elements"], data["massFractions"], types.fraction.mass, data["density"], name="air dry")
     compounddb["air"] = compounddb["air dry"]
 
-registry = compounddb.keys()
+
+def getnames():
+    return list(compounddb.keys())
 
 
 def factory(name):
-    return compounddb[name]
+    return copy(compounddb[name])
 
 
 def search(name):
-    name = name.lower()
-    ret = [k for k in registry if name in k.lower()]
-    if len(ret) > 1:
-        ret2 = [k for k in registry if name == k.lower()]
-        if ret2:
-            ret = ret2
-    if ret:
-        return ret[0]
-    else:
-        return None
+    return compoundsearch.search(getnames(), name)
 
 
 def compoundfromname(name):

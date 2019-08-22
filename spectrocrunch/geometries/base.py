@@ -25,10 +25,11 @@
 import numpy as np
 from ..utils import units
 from ..utils import instance
+from ..utils.copyable import Copyable
 from ..math import noisepropagation
 
 
-class Base(object):
+class Base(Copyable):
 
     def __init__(self, detector=None, source=None, atmosphere=None):
         self.detector = detector
@@ -99,7 +100,7 @@ class FlatSample(Base):
         """
         Args:
             anglein(num): angle (deg) between primary beam and sample surface [0, 90]
-            angleout(num): angle (deg) between detector and sample surface [-90, 90]
+            angleout(num): angle (deg) between detector and sample surface [-90, 90]  (>0 means reflection)
             azimuth(num): angle (deg) between the source-detector plane and the polarization plane
         """
         self.anglein = anglein  # deg
@@ -135,14 +136,34 @@ class FlatSample(Base):
         return self.angleout > 0
 
     @property
+    def anglenormin(self):
+        """
+        angle with surface normal (pointing inwards) in [0, 90]
+        """
+        return 90-self.anglein
+
+    @anglenormin.setter
+    def anglenormin(self, value):
+        self.anglein = 90-value
+
+    @property
+    def anglenormout(self):
+        """
+        angle with surface normal (pointing inwards) in [0, 180]
+        """
+        return 90+self.angleout
+
+    @anglenormout.setter
+    def anglenormout(self, value):
+        self.angleout = value-90
+
+    @property
     def cosnormin(self):
-        # angle with surface normal (pointing inwards)
-        return np.cos(np.radians(90-self.anglein))
+        return np.cos(np.radians(self.anglenormin))
 
     @property
     def cosnormout(self):
-        # angle with surface normal (pointing inwards)
-        return np.cos(np.radians(90+self.angleout))
+        return np.cos(np.radians(self.anglenormout))
 
     @property
     def scatteringangle(self):
@@ -240,14 +261,18 @@ class Centric(FlatSample):
         self.distance = distance
 
     @property
+    def solidangle_rv(self):
+        return self.detector.solidangle_calc(activearea=self.detector.activearea_rv,
+                                             distance=self.distance_rv)
+
+    @property
     def solidangle(self):
-        return self.detector.solidangle_calc(activearea=self.detector.activearea,
-                                             distance=self.distance)
+        return noisepropagation.E(self.solidangle_rv)
 
     @solidangle.setter
     def solidangle(self, value):
         self.distance = self.detector.solidangle_calc(
-            activearea=self.detector.activearea, solidangle=value)
+            activearea=self.detector.activearea_rv, solidangle=value)
 
     def __str__(self):
         if self.distance is None:

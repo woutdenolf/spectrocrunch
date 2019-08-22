@@ -24,9 +24,10 @@
 
 from ..utils import lut
 from ..utils import units
+from ..utils.copyable import Copyable
 
 
-class Optics(object):
+class Optics(Copyable):
 
     def __init__(self, uselut=True, default=1, **kwargs):
         if uselut:

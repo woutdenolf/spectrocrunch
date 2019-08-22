@@ -26,6 +26,7 @@ import unittest
 
 from . import test_objects
 from . import test_calcnoise
+from . import test_xrmc
 
 
 def test_suite():
@@ -33,6 +34,7 @@ def test_suite():
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_objects.test_suite())
     testSuite.addTest(test_calcnoise.test_suite())
+    testSuite.addTest(test_xrmc.test_suite())
     return testSuite
 
 

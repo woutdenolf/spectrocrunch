@@ -60,13 +60,24 @@ function main()
 
     dryrun reset ${ARG_DRY}
 
-    if [[ $(travis_check_platform "trusty") == false ]]; then
+    if [[ $(travis_check_platform "xenial") == false ]]; then
         echo "Run on the same platfrom as Travis"
         travis_cleanup_python
         return 1
     fi
 
+    if [[ ${ARG_PYTHONV::1} == 3 ]];then
+        ARG_PYTHONV=3.5.6
+    else
+        ARG_PYTHONV=2.7.15
+    fi
     travis_init_python ${ARG_PYTHONV}
+    if [[ $? != 0 ]]; then
+        travis_cleanup_python
+        return 1
+    fi
+
+    travis_init_cmake 3.12.4
     if [[ $? != 0 ]]; then
         travis_cleanup_python
         return 1

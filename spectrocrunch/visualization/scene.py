@@ -35,7 +35,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from ..utils import listtools
 from ..utils import instance
 from ..utils import units
-from ..utils.hashable import Hashable
+from ..utils.hashable import CompHashable
 from ..math.utils import floatformat
 from ..math.utils import round_sig
 from ..patch.pint import ureg
@@ -98,7 +98,7 @@ class Geometry2D(object):
         return self.dataaxis('y')
 
 
-class Scene(Hashable, Geometry2D):
+class Scene(CompHashable, Geometry2D):
     """Each scene can have a number of registered items with associalted plot settings.
     """
 
@@ -129,9 +129,6 @@ class Scene(Hashable, Geometry2D):
     @property
     def strunits(self):
         return [self._str_unit(unit) for unit in self.units]
-
-    def _stringrepr(self):
-        return "{}".format(id(self))
 
     def q0(self, v):
         return self.dimquantity(v, 0)
@@ -419,7 +416,7 @@ class Scene(Hashable, Geometry2D):
         return pt*xd/float(xp), pt*yd/float(yp)
 
 
-class Item(Hashable, Geometry2D):
+class Item(CompHashable, Geometry2D):
     """Each item can be registered with multiple scenes. Data is owned by the Item instance,
        plot settings are owned by the scenes.
     """
@@ -433,9 +430,6 @@ class Item(Hashable, Geometry2D):
             self.register(scene)
 
         Item._updatedata(self, **kwargs)
-
-    def _stringrepr(self):
-        return "{} {}".format(type(self).__name__, id(self))
 
     def _updatedata(self, axis0name="Dim0", axis1name="Dim1", **settings):
         self.axis0name = axis0name

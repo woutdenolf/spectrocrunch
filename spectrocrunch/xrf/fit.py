@@ -21,13 +21,22 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
+import PyMca5
 from PyMca5.PyMcaPhysics.xrf import McaAdvancedFitBatch
 from PyMca5.PyMcaPhysics.xrf import FastXRFLinearFit
 from PyMca5.PyMcaPhysics.xrf import ClassMcaTheory
 from PyMca5.PyMca import EDFStack
-from PyMca5.PyMcaIO import EdfFile
 from PyMca5.PyMcaIO import ConfigDict
+try:
+    from PyMca5.PyMcaPhysics.xrf.McaAdvancedFitBatch import OutputBuffer as OutputBufferBase
+except ImportError:
+    OutputBuffer = None
+else:
+    class OutputBuffer(OutputBufferBase):
+
+        @property
+        def outputDirLegacy(self):
+            return self.outputDir
 
 import numpy as np
 import re
@@ -441,7 +450,96 @@ def PerformFit(filelist, cfgfile, energies, mlines={}, norm=None, fast=False, ad
     return ret
 
 
-def PerformBatchFit(filelist, outdir, outname, cfg, energy, mlines=None, quant=None, fast=False, addhigh=0):
+def PerformBatchFit(*args, **kwargs):
+    if OutputBuffer is None:
+        return PerformBatchFitOld(*args, **kwargs)
+    else:
+        return PerformBatchFitNew(*args, **kwargs)
+
+
+def PerformBatchFitNew(filelist, outdir, outname, cfg, energy, mlines=None, quant=None, fast=False, addhigh=0):
+    """Fit XRF spectra in batch with one primary beam energy.
+
+        Least-square fitting. If you intend a linear fit, modify the configuration:
+          - Get current energy calibration with "Load From Fit"
+          - Enable: Perform a Linear Fit
+          - Disable: Stripping
+          - Strip iterations = 0
+        Fast linear least squares:
+          - Use SNIP instead of STRIP
+
+    Args:
+        filelist(list(str)): spectra to fit
+        outdir(str): directory for results
+        outname(str): output radix
+        cfg(str or ConfigDict): configuration file to use
+        energy(num): primary beam energy
+        mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
+        fast(Optional(bool)): fast fitting (linear)
+        quant(Optional(dict)): 
+        addhigh(Optional(int))
+    Returns:
+        files(list(str)): files produced by pymca
+        labels(list(str)): corresponding HDF5 labels
+    """
+    # Adapt cfg in memory
+    if instance.isstring(cfg):
+        cfg = ConfigDict.ConfigDict(filelist=cfg)
+    AdaptPyMcaConfig(cfg, energy, mlines=mlines,
+                     quant=quant, fast=fast, addhigh=addhigh)
+    buncertainties = False
+    bconcentrations = bool(quant)
+    #fast = False
+
+    # Save cfg in temporary file
+    outdir = localfs.Path(outdir).mkdir()
+    with outdir.temp(name=outname+'.cfg', force=True) as cfgfile:
+        cfg.write(cfgfile.path)
+        kwargs = {'outputDir': outdir.path,
+                  'fileEntry': outname,
+                  'h5': False,
+                  'edf': True,
+                  'multipage': False,
+                  'saveFOM': True}
+        outbuffer = OutputBuffer(**kwargs)
+        if fast:
+            batch = FastXRFLinearFit.FastXRFLinearFit()
+            kwargs = {'y': EDFStack.EDFStack(filelist, dtype=np.float32),
+                      'configuration': cfg,
+                      'concentrations': bconcentrations,
+                      'refit': 1,
+                      'outbuffer': outbuffer}
+        else:
+            kwargs = {'filelist': filelist,
+                      'concentrations': bconcentrations,
+                      'fitfiles': 0,
+                      'fitconcfile': 0,
+                      'outbuffer': outbuffer}
+            batch = McaAdvancedFitBatch.McaAdvancedFitBatch(cfgfile.path, **kwargs)
+
+        with outbuffer.saveContext():
+            if fast:
+                batch.fitMultipleSpectra(**kwargs)
+            else:
+                batch.processList()
+
+    # List of files and labels
+    files, labels = [], []
+    groups = ['parameters', 'massfractions']
+    if buncertainties:
+        groups.append('uncertainties')
+    for group in groups:
+        for label in outbuffer.labels(group, labeltype='filename'):
+            filename = outbuffer.filename('.edf', suffix = '_' + label)
+            labels.append(label)
+            files.append(filename)
+    if 'chisq' in outbuffer:
+        labels.append('calc_chisq')
+        files.append(outbuffer.filename('.edf', suffix = '_chisq'))
+    return files, labels
+
+
+def PerformBatchFitOld(filelist, outdir, outname, cfg, energy, mlines=None, quant=None, fast=False, addhigh=0):
     """Fit XRF spectra in batch with one primary beam energy.
 
         Least-square fitting. If you intend a linear fit, modify the configuration:
@@ -505,8 +603,8 @@ def PerformBatchFit(filelist, outdir, outname, cfg, energy, mlines=None, quant=N
                 Z, line = m["Z"], m["line"]
 
                 # Peak area
-                label = "{}-{}".format(Z, line)
-                f = filename("{}_{}".format(Z, line))
+                label = "{}_{}".format(Z, line)
+                f = filename(label)
                 edf.saveedf(f,
                             result['parameters'][i],
                             {'Title': label}, overwrite=True)
@@ -515,8 +613,8 @@ def PerformBatchFit(filelist, outdir, outname, cfg, energy, mlines=None, quant=N
 
                 # Error on peak area
                 if buncertainties:
-                    label = "s{}-{}".format(Z, line)
-                    f = filename("s{}_{}".format(Z, line))
+                    label = "s{}_{}".format(Z, line)
+                    f = filename(label)
                     edf.saveedf(f,
                                 result['uncertainties'][i],
                                 {'Title': label}, overwrite=True)
@@ -525,8 +623,8 @@ def PerformBatchFit(filelist, outdir, outname, cfg, energy, mlines=None, quant=N
 
                 # Mass fraction
                 if bconcentrations and Z.lower() != "scatter":
-                    label = "w{}-{}".format(Z, line)
-                    f = filename("w{}_{}".format(Z, line))
+                    label = "w{}_{}".format(Z, line)
+                    f = filename(label)
                     edf.saveedf(f,
                                 result['concentrations'][j],
                                 {'Title': label}, overwrite=True)
@@ -550,9 +648,9 @@ def PerformBatchFit(filelist, outdir, outname, cfg, energy, mlines=None, quant=N
                 label = basename(name)[nbase:]
                 if label.endswith("mass_fraction"):
                     label = "w"+label[:-14]
-                label = label.replace("_", "-")
                 if label == "chisq":
                     label = "calc_chisq"
                 labels.append(label)
                 files.append(name)
     return files, labels
+

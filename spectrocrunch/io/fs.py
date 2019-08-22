@@ -730,9 +730,9 @@ class Path(File):
         path = self.randomnode(**kwargs)
         try:
             yield path
-        except Exception as e:
+        except:
             path.remove(recursive=True)
-            raise e
+            raise
         finally:
             if name:
                 if path.exists:

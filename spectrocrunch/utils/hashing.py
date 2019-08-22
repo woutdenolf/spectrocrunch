@@ -90,14 +90,7 @@ def calchash(x, _depth=0):
                 x = [calchash(y, _depth=_depth) for y in x]
         else:
             # Empty array
-            state = getstate(x)
-            if instance.isarray(state):
-                if str(x) == str(state):
-                    x = [class_repr_to_hash(x)]
-                else:
-                    x = [any_repr_to_hash(x)]
-            else:
-                x = [calchash(state, _depth=_depth)]
+            x = [class_repr_to_hash(x)]
     elif instance.ismapping(x):
         if len(x):
             keys = [calchash(k, _depth=_depth) for k in x.keys()]
@@ -107,14 +100,7 @@ def calchash(x, _depth=0):
             x = keys + values
         else:
             # Empty mapping
-            state = getstate(x)
-            if type(state) == type(x):
-                if str(x) == str(state):
-                    x = [class_repr_to_hash(x)]
-                else:
-                    x = [any_repr_to_hash(x)]
-            else:
-                x = [calchash(state, _depth=_depth)]
+            x = [class_repr_to_hash(x)]
     elif instance.isquantity(x):
         x = [calchash(x.magnitude, _depth=_depth),
              calchash(str(x.units), _depth=_depth)]

@@ -182,14 +182,14 @@ class test_element(unittest.TestCase):
         e.markabsorber("Sn", shells=None, fluolines=None)
         mu3 = e.partial_mass_abs_coeff(8.)
         mu4 = e.fluorescence_cross_section(8.)
-        self.assertEqual(mu1, mu3)
+        self.assertAlmostEqual(mu1, mu3)
         np.testing.assert_allclose(mu2, mu4, rtol=1e-5, atol=2e-5)
 
         # all lines explicitely
         e.markabsorber("Sn", shells=None, fluolines=[])
         mu3 = e.partial_mass_abs_coeff(8.)
         mu4 = e.fluorescence_cross_section(8.)
-        self.assertEqual(mu1, mu3)
+        self.assertAlmostEqual(mu1, mu3)
         np.testing.assert_allclose(mu2, mu4, rtol=1e-5, atol=2e-5)
 
         e = element.Element("Fe")

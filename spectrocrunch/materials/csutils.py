@@ -25,10 +25,7 @@
 from ..patch import xraylib
 from ..utils import instance
 import numpy as np
-
-
-def identity(x):
-    return x
+import pandas as pd
 
 
 def eval(method, Z, E, applypost=True, dataframe=False):
@@ -47,28 +44,36 @@ def eval(method, Z, E, applypost=True, dataframe=False):
     if instance.isquantity(E):
         E = E.to('keV').magnitude
     if is_arr_Z or is_arr_E:
-        Z = np.atleast_1d(Z).astype(int)
+        Z = np.atleast_1d(Z)
         E = np.atleast_1d(E).astype(float)
+        shapeZ = Z.shape
+        shapeE = E.shape
+        Z = Z.flatten()
+        E = E.flatten()
         if xraylib.xraylib_np:
             method = getattr(xraylib.xraylib_np, method)
             result = method(Z, E)
         else:
             method = getattr(xraylib, method)
-            s = len(Z), len(E)
-            result = np.empty(s, dtype=float)
+            shape = Z.size, E.size
+            result = np.empty(shape, dtype=float)
             for i, Zi in enumerate(Z):
                 for j, Ej in enumerate(E):
                     result[i, j] = method(Zi, Ej)
         if is_arr_Z and is_arr_E:
-            postfunc = identity
+            def postfunc(x):
+                return x
         elif is_arr_Z:
-            def postfunc(x): return x[:, 0]
+            def postfunc(x):
+                return x[:, 0].reshape(shapeZ)
         else:
-            def postfunc(x): return x[0, :]
+            def postfunc(x):
+                return x[0, :].reshape(shapeE)
     else:
         method = getattr(xraylib, method)
         result = method(Z, float(E))
-        postfunc = identity
+        def postfunc(x):
+            return x
     if dataframe:
         return pd.DataFrame(result, index=Z, columns=E)
     else:

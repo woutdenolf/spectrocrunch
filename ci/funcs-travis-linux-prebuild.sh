@@ -6,6 +6,8 @@
 GLOBAL_SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source ${GLOBAL_SCRIPT_ROOT}/../tools/linux/funcs.sh
 source ${GLOBAL_SCRIPT_ROOT}/../tools/linux/funcs-python.sh
+source ${GLOBAL_SCRIPT_ROOT}/../tools/linux/funcs-cmake.sh
+
 
 function travis_check_platform()
 {
@@ -16,6 +18,7 @@ function travis_check_platform()
         echo false
     fi
 }
+
 
 function travis_build_folder()
 {
@@ -33,7 +36,7 @@ function travis_cached_folder()
 
 function travis_pybuild_folder()
 {
-    local pybuild_folder=$(travis_cached_folder)/$(project_name)_$(python_full_version)
+    local pybuild_folder=$(travis_cached_folder)/$(project_name)_python$(python_version)
     mkdir -p ${pybuild_folder}
     echo "${pybuild_folder}"
 }
@@ -47,9 +50,17 @@ function travis_depbuild_folder()
 }
 
 
+function travis_exdepbuild_folder()
+{
+    local pybuild_folder=$(travis_cached_folder)/ex$(python_depdir)
+    mkdir -p ${pybuild_folder}
+    echo "${pybuild_folder}"
+}
+
+
 function travis_venv()
 {
-    echo $(travis_build_folder)/virtualenv/python$(python_full_version)
+    echo $(travis_build_folder)/virtualenv/python$(python_version)
 }
 
 
@@ -57,33 +68,58 @@ function travis_init_python()
 {
     local restorewd=$(pwd)
     cd $(travis_cached_folder)
-
     local pythonv=${1}
-
     if [[ $(system_privileges) == false ]]; then
         sudo -s "exit"
     fi
 
     if [[ $(dryrun) == false ]]; then
         # Require python version
+        # System wide install like on Travis
         install_systemwide reset true
         python_virtualenv_deactivate
         require_python ${pythonv}
         if [[ $? != 0 ]]; then
+            install_systemwide reset false
             cd ${restorewd}
             return 1
         fi
 
-        # Require pip
+        # Activate virtual environment
         install_systemwide reset false
         require_pip
-        pip_install virtualenv
-
-        # Activate virtual environment
-        virtualenv $(travis_venv)
+        require_venv
+        create_venv $(travis_venv)
         source $(travis_venv)/bin/activate
     fi
 
+    cd ${restorewd}
+}
+
+
+function travis_init_cmake()
+{
+    local restorewd=$(pwd)
+    cd $(travis_exdepbuild_folder)
+    local cmakev=${1}
+
+    if [[ $(dryrun) == false ]]; then
+        export CMAKE_INSTALL="sh"
+        require_cmake ${cmakev}
+        if [[ $? != 0 ]]; then
+            unset CMAKE_INSTALL
+            cd ${restorewd}
+            return 1
+        fi
+        unset CMAKE_INSTALL
+
+        # Different location on travis
+        if [[ -d "${HOME}/.local/cmake/${cmakev}" ]];then
+            sudo rm -rf /usr/local/cmake-${cmakev}
+            sudo mv ${HOME}/.local/cmake/${cmakev} /usr/local/cmake-${cmakev}
+            addBinPath "/usr/local/cmake-${cmakev}/bin"
+        fi
+    fi
     cd ${restorewd}
 }
 
@@ -98,7 +134,7 @@ function travis_install_dependencies()
     if [[ $(dryrun) == true ]]; then
         source $(project_folder)/tools/linux-install-deps.sh -v ${pythonv} -u -d -x
     else
-        source $(project_folder)/tools/linux-install-deps.sh -v ${pythonv} -u -y -x
+        source $(project_folder)/tools/linux-install-deps.sh -v ${pythonv} -u -x
     fi
 
     local ret=$?
@@ -125,8 +161,7 @@ function travis_build_project()
     local restorewd=$(pwd)
     cd $(project_folder)
 
-    cprintstart
-    cprint "Build project ..."
+    cprintstart "Build project"
 
     if [[ $(dryrun) == false ]]; then
         $(python_bin) setup.py build_py --build-lib=$(travis_pybuild_folder)/build/lib -f
@@ -136,6 +171,7 @@ function travis_build_project()
     fi
 
     cd ${restorewd}
+    cprintend "Build project"
 }
 
 
@@ -144,8 +180,7 @@ function travis_test_project()
     local restorewd=$(pwd)
     cd $(travis_build_folder)
 
-    cprintstart
-    cprint "Install/test $(project_name) ..."
+    cprintstart "Install/test $(project_name)"
 
     if [[ $(dryrun) == false ]]; then
         cprint "Uninstall $(project_name) ..."
@@ -155,10 +190,13 @@ function travis_test_project()
         pip_install --pre --no-index --no-cache --find-links=$(travis_pybuild_folder)/dist/ $(project_name)
 
         cprint "Test $(project_name) ..."
-        $(python_bin) -m $(project_name).tests.test_all
+        #$(python_bin) -m $(project_name).tests.test_all
+        pip_install pytest
+        pytest --pyargs $(project_name) --durations=10
     fi
 
     cd ${restorewd}
+    cprintend "Install/test $(project_name)"
 }
 
 
@@ -175,9 +213,8 @@ function travis_pack_prebuild()
     local restorewd=$(pwd)
     cd $(travis_cached_folder)
 
-    local filename=$(project_name).travis.python$(python_full_version).tgz
-    cprintstart
-    cprint "Pack ${filename} ..."
+    local filename=$(project_name).travis.python$(python_version).tgz
+    cprintstart "Pack ${filename}"
 
     if [[ $(dryrun) == false ]]; then
         rm -f ${filename}
@@ -189,4 +226,5 @@ function travis_pack_prebuild()
     fi
 
     cd ${restorewd}
+    cprintend "Pack ${filename}"
 }

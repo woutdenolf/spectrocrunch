@@ -557,35 +557,32 @@ class test_xiaedf(unittest.TestCase):
     def test_line(self):
         mapnum = 2
         linenum = 10
-
         i = 0
-        for ndet in [4, 1]:
-            for nchan in [32, 1]:
-                for nspec in [10, 1]:
+        for ndet in [2, 1]:
+            for nchan in [8, 1]:
+                for nspec in [6, 1]:
                     self._test_line(os.path.join(self.dir.path, "test_line_{}".format(
                         i)), "test_line_{}".format(i), mapnum, linenum, ndet, nspec, nchan)
                     i += 1
 
     def test_image(self):
         mapnum = 2
-
         i = 0
-        for ndet in [4, 1]:
-            for nchan in [32, 1]:
-                for ncol in [10, 1]:
-                    for nrow in [15, 1]:
+        for ndet in [2, 1]:
+            for nchan in [8, 1]:
+                for ncol in [6, 1]:
+                    for nrow in [3, 1]:
                         self._test_image(os.path.join(self.dir.path, "test_image_{}".format(
                             i)), "test_image_{}".format(i), mapnum, ndet, ncol, nrow, nchan)
                         i += 1
 
     def test_stack(self):
-
         i = 0
-        for ndet in [4]:
-            for nchan in [32]:
-                for ncol in [10]:
-                    for nrow in [15]:
-                        for nenergy in [8]:
+        for ndet in [2]:
+            for nchan in [8]:
+                for ncol in [6]:
+                    for nrow in [3]:
+                        for nenergy in [2]:
                             self._test_stack(os.path.join(self.dir.path, "test_stack_{}".format(
                                 i)), "test_stack_{}".format(i), ndet, ncol, nrow, nenergy, nchan)
                             i += 1

@@ -179,7 +179,7 @@ class test_multilayer(unittest.TestCase):
                 spectrum1[k] = np.sum(spectrum1[k])
                 spectrum2[k] = np.sum(spectrum2[k])
 
-        self.assertEqual(sorted(spectrum1.keys()), sorted(spectrum2.keys()))
+        self.assertEqual(set(spectrum1.keys()), set(spectrum2.keys()))
 
         for k in spectrum1:
             np.testing.assert_allclose(spectrum1[k], spectrum2[k], rtol=rtol)
@@ -301,6 +301,7 @@ class test_multilayer(unittest.TestCase):
                 self.assertSpectrumEqual(
                     spectrum1, spectrum3, rtol=2e-02, compfisx=True)  # 2% deviation
 
+    @unittest.skip("TODO")
     def test_secondary(self):
         compound1 = compoundfromformula.CompoundFromFormula("MnFe", density=6.)
 
@@ -333,6 +334,17 @@ class test_multilayer(unittest.TestCase):
         m2 = jsonpickle.loads(jsonpickle.dumps(m1))
         self.assertEqual(m1, m2)
 
+    @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,
+                     "xraylib not installed")
+    def test_mixlayers(self):
+        m = self._multilayer1()
+        energy = 10
+        t = sum(m.xraythicknessin)
+        mix = m.mixlayers()
+        abs1 = m.absorbance(energy)
+        abs2 = mix.mass_att_coeff(energy)*mix.density*t
+        self.assertAlmostEqual(abs1, abs2)
+
 
 def test_suite():
     """Test suite including all test suites"""
@@ -342,7 +354,8 @@ def test_suite():
     testSuite.addTest(test_multilayer("test_primary_simple"))
     testSuite.addTest(test_multilayer("test_primary_complex"))
     testSuite.addTest(test_multilayer("test_serialize"))
-    #TODO: testSuite.addTest(test_multilayer("test_secondary"))
+    testSuite.addTest(test_multilayer("test_secondary"))
+    testSuite.addTest(test_multilayer("test_mixlayers"))
     return testSuite
 
 

@@ -29,9 +29,10 @@ from copy import copy
 from . import instance
 from . import units
 from . import listtools
+from .copyable import Copyable
 
 
-class LUT(object):
+class LUT(Copyable):
     """Lookup table with sorted/unique keys and keys/values with units
     """
 

@@ -101,8 +101,7 @@ function fdmnes_install_fromsource()
 
 function require_fdmnes()
 {
-    cprintstart
-    cprint "Verify fdmnes ..."
+    cprintstart "Require fdmnes ${1}"
 
     # Requirements (for running)
     require_python
@@ -110,7 +109,7 @@ function require_fdmnes()
     # Check
     if [[ $(python_hasmodule fdmnes) == true ]]; then
         cprint "Python module \"fdmnes\" is installed"
-        cprintend
+        cprintend "Require fdmnes ${1}"
         return
     fi
 
@@ -124,7 +123,7 @@ function require_fdmnes()
         cprint "Python module \"fdmnes\" is NOT installed"
     fi
 
-    cprintend
+    cprintend "Require fdmnes ${1}"
 }
 
 

@@ -37,7 +37,7 @@ class test_indexing(unittest.TestCase):
     def test_list(self):
         for k in range(50):
             n = 100
-            lst = range(n)
+            lst = list(range(n))
             for index in genindexing.genindexing(n, advanced=False):
                 slst = lst[index]
                 self.assertEqual(indexing.nonchanging(index, n), slst == lst)
@@ -138,37 +138,37 @@ class test_indexing(unittest.TestCase):
     def test_extract_dimnonchanging(self):
         a = np.arange(10*20*30*40).reshape((10, 20, 30, 40))
 
-        index = (slice(1, 2), range(5), slice(3, 4), range(5))
+        index = (slice(1, 2), list(range(5)), slice(3, 4), list(range(5)))
         index1 = indexing.extract_dimchanging(index)
         index2, iadv = indexing.extract_dimnonchanging(index)
         self.assertEqual(iadv, 0)
         np.testing.assert_array_equal(a[index], a[index1][index2])
 
-        index = (slice(1, 2), range(5), range(5), slice(3, 4))
+        index = (slice(1, 2), list(range(5)), list(range(5)), slice(3, 4))
         index1 = indexing.extract_dimchanging(index)
         index2, iadv = indexing.extract_dimnonchanging(index)
         self.assertEqual(iadv, 1)
         np.testing.assert_array_equal(a[index], a[index1][index2])
 
-        index = (slice(1, 2), range(5), 0, range(5))
+        index = (slice(1, 2), list(range(5)), 0, list(range(5)))
         index1 = indexing.extract_dimchanging(index)
         index2, iadv = indexing.extract_dimnonchanging(index)
         self.assertEqual(iadv, 1)
         np.testing.assert_array_equal(a[index], a[index1][index2])
 
-        index = (range(5), 0, range(5), slice(1, 2))
+        index = (list(range(5)), 0, list(range(5)), slice(1, 2))
         index1 = indexing.extract_dimchanging(index)
         index2, iadv = indexing.extract_dimnonchanging(index)
         self.assertEqual(iadv, 0)
         np.testing.assert_array_equal(a[index], a[index1][index2])
 
-        index = (0, 0, slice(1, 2), range(5))
+        index = (0, 0, slice(1, 2), list(range(5)))
         index1 = indexing.extract_dimchanging(index)
         index2, iadv = indexing.extract_dimnonchanging(index)
         self.assertEqual(iadv, 0)
         np.testing.assert_array_equal(a[index], a[index1][index2])
 
-        index = (slice(None), np.newaxis, range(5), range(5), 0, np.newaxis)
+        index = (slice(None), np.newaxis, list(range(5)), list(range(5)), 0, np.newaxis)
         index1 = indexing.extract_dimchanging(index)
         index2, iadv = indexing.extract_dimnonchanging(index)
         self.assertEqual(iadv, 2)
@@ -192,7 +192,7 @@ class test_indexing(unittest.TestCase):
                 for nother in range(ndim-nsingleton-nlist):
                     for nnew in range(0, 2):
                         for r in [0, 5]:
-                            p = [range(r)]*nlist + [0]*nsingleton + \
+                            p = [list(range(r))]*nlist + [0]*nsingleton + \
                                 [slice(None)]*nother + [np.newaxis]*nnew
                             for index in itertools.permutations(p):
                                 # index = indexing.expand(index,ndim=ndim) # apparently not needed?
@@ -218,7 +218,7 @@ class test_indexing(unittest.TestCase):
         self.assertTrue(indexing.nonchangingdims(
             ([True]*4, slice(None), slice(None), slice(None)), ndim, axes, shape=shape))
         self.assertTrue(indexing.nonchangingdims(
-            (range(4), slice(None), slice(None), slice(None)), ndim, axes, shape=shape))
+            (list(range(4)), slice(None), slice(None), slice(None)), ndim, axes, shape=shape))
         self.assertFalse(indexing.nonchangingdims(([False, True, True, True], slice(
             None), slice(None), slice(None)), ndim, axes, shape=shape))
         self.assertFalse(indexing.nonchangingdims(([1, 0, 2, 3], slice(
@@ -261,7 +261,7 @@ class test_indexing(unittest.TestCase):
                 for nother in range(ndim-nsingleton-nlist):
                     for nnew in range(0, 2):
                         for r in rrange:
-                            p = [range(r)]*nlist + [0]*nsingleton + \
+                            p = [list(range(r))]*nlist + [0]*nsingleton + \
                                 [slice(None)]*nother + [np.newaxis]*nnew
                             for index in itertools.permutations(p):
                                 # Shape after indexing
@@ -280,11 +280,11 @@ class test_indexing(unittest.TestCase):
                 for nother in range(ndim-nsingleton-nlist):
                     for nnew in range(0, 1):
                         for r in [5]:
-                            p = [range(r)]*nlist + [0]*nsingleton + \
+                            p = [list(range(r))]*nlist + [0]*nsingleton + \
                                 [slice(None)]*nother + [np.newaxis]*nnew
                             for index in itertools.permutations(p):
                                 for n in range(1, ndim):
-                                    for fullaxes in itertools.combinations(range(ndim), n):
+                                    for fullaxes in itertools.combinations(list(range(ndim)), n):
                                         indexfull, postindexfull, singletonindex = indexing.replacefull_transform(
                                             index, fullaxes, ndim, restoreadvanced=False)
 
@@ -384,7 +384,7 @@ class test_indexing(unittest.TestCase):
 
             def selector(i): return data[(
                 slice(None),)*j+(i,)+(slice(None),)*(ndim-j-1)]
-            args2 = range(shapefull[axis])
+            args2 = list(range(shapefull[axis]))
             keep = data[index]
             new = np.max(keep) + np.arange(keep.size).reshape(keep.shape)
             indexing.setitem(selector, args2, index, ndim,
@@ -417,7 +417,7 @@ class test_indexing(unittest.TestCase):
                 for nother in range(ndim-nsingleton-nlist):
                     for nnew in [0]:
                         for r in rrange:
-                            p = [range(r)]*nlist + [0]*nsingleton + \
+                            p = [list(range(r))]*nlist + [0]*nsingleton + \
                                 [slice(None)]*nother + [np.newaxis]*nnew
                             for index in itertools.permutations(p):
                                 for axis in range(-ndim, ndim):
@@ -431,7 +431,7 @@ class test_indexing(unittest.TestCase):
 
                                     def selector(i): return data[(
                                         slice(None),)*j+(i,)+(slice(None),)*(ndim-j-1)]
-                                    args2 = range(shapefull[axis])
+                                    args2 = list(range(shapefull[axis]))
                                     keep = data[index]
                                     new = np.max(
                                         keep) + np.arange(keep.size).reshape(keep.shape)
@@ -444,18 +444,18 @@ class test_indexing(unittest.TestCase):
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    # testSuite.addTest(test_indexing("test_list"))
-    # testSuite.addTest(test_indexing("test_numpy"))
-    # testSuite.addTest(test_indexing("test_replacefull"))
-    # testSuite.addTest(test_indexing("test_expand"))
-    # testSuite.addTest(test_indexing("test_axisindex"))
-    # testSuite.addTest(test_indexing("test_nonchangingdims"))
-    # testSuite.addTest(test_indexing("test_extract_dimnonchanging"))
-    # testSuite.addTest(test_indexing("test_extract_newaxis"))
-    # testSuite.addTest(test_indexing("test_shape_afterindexing"))
-    # testSuite.addTest(test_indexing("test_replacefull_transform"))
+    testSuite.addTest(test_indexing("test_list"))
+    testSuite.addTest(test_indexing("test_numpy"))
+    testSuite.addTest(test_indexing("test_replacefull"))
+    testSuite.addTest(test_indexing("test_expand"))
+    testSuite.addTest(test_indexing("test_axisindex"))
+    testSuite.addTest(test_indexing("test_nonchangingdims"))
+    testSuite.addTest(test_indexing("test_extract_dimnonchanging"))
+    testSuite.addTest(test_indexing("test_extract_newaxis"))
+    testSuite.addTest(test_indexing("test_shape_afterindexing"))
+    testSuite.addTest(test_indexing("test_replacefull_transform"))
     testSuite.addTest(test_indexing("test_getitem"))
-    # testSuite.addTest(test_indexing("test_setitem"))
+    testSuite.addTest(test_indexing("test_setitem"))
     return testSuite
 
 

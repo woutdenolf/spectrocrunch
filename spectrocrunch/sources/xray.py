@@ -25,12 +25,13 @@
 from ..utils.classfactory import with_metaclass
 from ..utils.Enum import Enum
 from . import polarization
+from ..utils.copyable import Copyable
 
 import numpy as np
 import matplotlib.pyplot as plt
 
 
-class XraySource(with_metaclass(object)):
+class XraySource(with_metaclass(Copyable)):
 
     def __init__(self, stokes=None):
         self.stokes = stokes

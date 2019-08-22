@@ -26,7 +26,6 @@ import unittest
 import numpy as np
 import os
 import contextlib
-import logging
 import re
 from testfixtures import TempDirectory
 
@@ -38,11 +37,14 @@ from ...process import nxresult
 from ...align import types
 from ...utils import instance
 from ...utils import listtools
+from ...utils import cli
 from ...materials import compoundfromname
 from ...testutils.subtest import TestCase
 from ...process.tests.xrfmap import XrfMapGenerator
+from ...xrf.fit import OutputBuffer
 
-logger = logging.getLogger(__name__)
+
+logger = cli.getLogger(__name__, __file__)
 
 
 class test_fluoxas(TestCase):
@@ -66,6 +68,15 @@ class test_fluoxas(TestCase):
                       'dtcor': (True, False),
                       'stackdim': (0,),
                       'correctspectra': (True, False)}
+        parameters2 = {'alignmethod': (None,),
+                      'cfgfileuse': (True,),
+                      'include_detectors': [[1,(0,2)]],
+                      'adddetectors': (True, ),
+                      'addbeforefit': (True, ),
+                      'quant': (True,),
+                      'dtcor': (True,),
+                      'stackdim': (0,),
+                      'correctspectra': (False,)}
         self.run_subtests(parameters, self._process)
 
     def _process(self, alignmethod=None, cfgfileuse=None,
@@ -93,7 +104,7 @@ class test_fluoxas(TestCase):
         commonparams["stackdim"] = stackdim
 
         nmaps, nlines, nspec, nchan, ndet = self.xrfmap.data.shape
-        if include_detectors:
+        if include_detectors or include_detectors==0:
             incdets_explicite = include_detectors
         else:
             incdets_explicite = tuple(range(ndet))
@@ -133,7 +144,7 @@ class test_fluoxas(TestCase):
         
         alignreference = None
         fitlabels = set(self.fitlabels(quant=quant))
-        fitlabelsfile = {label.replace('-', '_') for label in fitlabels}
+        fitlabelsfile = fitlabels
         detcounterlabels = {'xmap_icr', 'xmap_ocr', 'xmap_x1c', 'xmap_x2c'}
         counterlabels = {'arr_iodet', 'arr_idet', 'arr_norm'}
         calclabels = {'calc_transmission', 'calc_absorbance', 'calc_flux0', 'calc_fluxt'}
@@ -273,8 +284,13 @@ class test_fluoxas(TestCase):
                                          for mapnum in range(nmaps)])
                     fitresults_subdir = os.path.join(
                         '{}_pymca.1'.format(radix), 'pymcaresults')
-                    destpath.compare(
-                        sorted(expected), path=fitresults_subdir, files_only=True, recursive=False)
+                    if OutputBuffer is None:
+                        destpath.compare(
+                            sorted(expected), path=fitresults_subdir, files_only=True, recursive=False)
+                    else:
+                        expected = set(expected)
+                        actual = set(os.listdir(os.path.join(destpath.path, fitresults_subdir)))
+                        self.assertEqual(actual & expected, expected)
 
                 # Check top-level output directory (h5 files)
                 expected = []
@@ -374,9 +390,15 @@ class test_fluoxas(TestCase):
         # destpath context
 
     def fitlabels(self, quant=False):
-        labels = list(self.xrfmap.labels)
+        labels = []
+        if OutputBuffer is not None:
+            labels += ['Constant']
+        labels += list(self.xrfmap.labels)
         if quant:
-            labels += ['w'+label for label in labels if 'Scatter' not in label]
+            labels += ['w'+label for label in labels
+                       if 'Scatter' not in label and
+                       label != 'Constant']
+        labels = [label.replace('-', '_') for label in labels]
         return labels
 
     @contextlib.contextmanager
@@ -386,9 +408,9 @@ class test_fluoxas(TestCase):
         destpath.cleanup()
 
     def _assert_fitresult(self, grpname, grpdata, info):
-        if 'Scatter' in grpname or 'chisq' in grpname:
+        if 'Scatter' in grpname or 'chisq' in grpname or 'Constant' in grpname:
             return
-        grpname = str(grpname)
+        grpname = str(grpname).replace('_', '-')
         m = re.match("Scatter-(Compton|Peak)([0-9]+)", grpname)
         if m:
             grpname = m.group(1)
@@ -412,8 +434,8 @@ class test_fluoxas(TestCase):
                            for peakareas in info['peakareas']]
         for data, v1, v2 in zip(grpdata, values1, values2):
             mask = data == np.nanmax(data)
-            np.testing.assert_allclose(data[~mask], v1, rtol=1e-4)
-            np.testing.assert_allclose(data[mask], v2, rtol=1e-4)
+            np.testing.assert_allclose(data[~mask], v1, rtol=1e-4, err_msg=grpname)
+            np.testing.assert_allclose(data[mask], v2, rtol=1e-4, err_msg=grpname)
 
 
 def test_suite():

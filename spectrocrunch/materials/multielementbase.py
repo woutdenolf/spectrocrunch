@@ -25,15 +25,15 @@
 from . import types
 from . import elementbase
 from ..utils import instance
-from ..utils.hashable import Hashable
 
 import numpy as np
 
 
-class MultiElementBase(Hashable, elementbase.ElementBase):
+class MultiElementBase(elementbase.ElementBase):
     # TODO: refactor most of Mixture and Compound
 
-    def _cmpkey(self):
+    @property
+    def _repr(self):
         return self.name
 
     @property

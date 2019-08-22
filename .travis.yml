@@ -1,4 +1,5 @@
 sudo: required
+dist: xenial
 
 language: python
 
@@ -16,16 +17,15 @@ matrix:
       os: linux
       env:
         - TRAVISRUN="unit"
-    #- python: 3.5
-    #  os: linux
-    #  env:
-    #    - TRAVISRUN="unit"
-    - python: 3.6
+    - python: 3.5
       os: linux
       env:
         - TRAVISRUN="unit"
+    #- python: 3.6
+    #  os: linux
+    #  env:
+    #    - TRAVISRUN="unit"
     #- python: 3.7
-    #  dist: xenial
     #  os: linux
     #  env:
     #    - TRAVISRUN="unit"
@@ -33,7 +33,7 @@ matrix:
     #  os: osx
     #  env:
     #    - TRAVISRUN="unit"
-    #- python: 3.6
+    #- python: 3
     #  os: linux
     #  env:
     #    - TRAVISRUN="style"
@@ -46,8 +46,15 @@ cache:
   - $CACHED_FOLDER
 
 addons:
-  apt_packages:
-    - pandoc  # does not get install with script
+    apt:
+        packages:
+            - pandoc  # does not get install with script
+            - libxkbcommon-x11-0  # needed for Qt plugins
+            - libxkbcommon0  # needed for Qt plugins
+            - libxkbcommon-dev  # needed for Qt plugins
+
+services:
+- xvfb
 
 before_install:
   - source $TRAVIS_BUILD_DIR/ci/travis-before-install.sh

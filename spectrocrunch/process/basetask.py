@@ -93,7 +93,7 @@ class Task(with_metaclass(ABCMeta, object)):
 
     def _atomic_context(self):
         return HandleTermination(setup=self._atomic_context_enter,
-                                   teardown=self._atomic_context_exit)
+                                 teardown=self._atomic_context_exit)
 
     def _atomic_context_enter(self):
         pass

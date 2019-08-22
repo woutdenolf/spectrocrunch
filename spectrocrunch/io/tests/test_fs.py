@@ -44,9 +44,12 @@ class test_fs(unittest.TestCase):
     def test_local(self):
         path = os.path.join(self.dir.path, 'local')
         root = localfs.Path(path)
+        parent = os.path.dirname(self.dir.path)
+        while os.path.dirname(parent) != parent:
+            parent = os.path.dirname(parent)
         self.assertEqual(root, path)
-        self.assertEqual(root['/a']['b']['c'].root, '/')
-        self.assertEqual(root['a']['b']['c'].root, '/')
+        self.assertEqual(root['/a']['b']['c'].root, parent)
+        self.assertEqual(root['a']['b']['c'].root, parent)
         self._check_path(root, root)
         self._check_link(root)
         # root.ls(recursive=True,stats=False)
@@ -240,9 +243,9 @@ class test_fs(unittest.TestCase):
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    # testSuite.addTest(test_fs("test_local"))
+    testSuite.addTest(test_fs("test_local"))
     testSuite.addTest(test_fs("test_h5"))
-    # testSuite.addTest(test_fs("test_nx"))
+    testSuite.addTest(test_fs("test_nx"))
     return testSuite
 
 

@@ -342,8 +342,8 @@ class Converter(object):
             if rt is not None:
                 nxgroup['elapsed_time'].link(rt)
             if self._qxrfgeometry is not None:
-                nxgroup['distance'].mkfile(data=distance[i])
-                nxgroup['active area'].mkfile(data=activearea[i])
+                nxgroup['distance'].mkfile(data=distance[idet])
+                nxgroup['active area'].mkfile(data=activearea[idet])
             nxgroup['preset_time'].mkfile(data=preset_time)
 
         measurement.updated()

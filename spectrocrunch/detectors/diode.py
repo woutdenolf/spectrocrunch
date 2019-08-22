@@ -1895,9 +1895,8 @@ class ID16B_IT(NonCalibratedPNdiode):
     aliases = ["id16b_It"]
 
     def __init__(self, **kwargs):
-
         kwargs["attenuators"] = {}
-        kwargs["attenuators"]["Atmosphere"] = {
+        kwargs["attenuators"][self.ATMOSPHERELABEL] = {
             "material": compoundfromname.compoundfromname("air"), "thickness": 80.}
         kwargs["attenuators"]["Detector"] = {
             "material": element.Element('Si'), "thickness": 500e-4}
