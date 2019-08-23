@@ -27,6 +27,7 @@ function simpleelastix_download()
 
     cd ${1}
     
+    git reset --hard 2a79d15
     #git checkout v1.1.0
     #git reset --hard 49af818 # Sep 10, 2018  (v1.1.0)
     #git reset --hard cf75ff4 # Dec 21, 2017  (Git ITK v4.13.0)
@@ -104,12 +105,12 @@ function simpleelastix_source_install()
 
 function simpleelastix_install()
 {
-    local outdir="SimpleITK-build/Wrapping/Python/Packaging"
-    if [[ -f ${outdir}/setup.py ]]; then
+    local outdir="SimpleITK-build/Wrapping/Python"
+    if [[ -f ${outdir}/Packaging/setup.py ]]; then
         cd ${outdir}
-        $(python_bin) setup.py install
+        $(python_bin) Packaging/setup.py install
     else
-        cerror "Missing file python ${outdir}/setup.py"
+        cerror "Missing file python ${outdir}/Packaging/setup.py"
     fi
 }
 
@@ -125,7 +126,7 @@ function simpleelastix_version()
     if [[ $(simpleelastix_exists) == false ]]; then
         echo 0
     else
-        python -c "import SimpleITK;print(SimpleITK.__version__)"
+        python -c "import SimpleITK;print(SimpleITK.Version_VersionString())"
     fi
 }
 
