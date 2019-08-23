@@ -236,7 +236,8 @@ class h5FileIO(object):
         #   w : TRUNCERR
         #   x : EEXIST
         #   a : EEXIST(lock=r), OK(lock=r+/w/x/a)
-
+        if 'HDF5_USE_FILE_LOCKING' not in os.environ:
+            os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
         path = self.path
         for _ in range(self.retries):
             try:

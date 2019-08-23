@@ -88,8 +88,7 @@ class Task(nxregulargrid.Task):
         # Set NXdata signal and axes attributes
         for signalout in self.signalsout:
             nxdata = signalout.parent
-            with signalout.open() as dsetout:
-                signalout = nxdata.add_signal(signalout.name)
+            signalout = nxdata.add_signal(signalout.name)
             if not nxdata.axes:
                 nxdata.set_axes(*axes)
 

@@ -12,7 +12,7 @@ def ffparameters(**parameters):
 
     rebin = parameters.get("rebin", (1, 1))
     roiraw = parameters.get("roiraw", None)
-    stackdim = parameters.get("stackdim", 2)
+    stackdim = parameters.get("stackdim", 0)
     normalize = parameters.get("normalize", True)
     normalizeonload = parameters.get("normalizeonload", True)
     flatbeforeafter = parameters.get("flatbeforeafter", True)
@@ -23,7 +23,7 @@ def ffparameters(**parameters):
     if not instance.isarray(radix):
         radix = [radix]
 
-    outputparent = nxfs.Path(str(nxentry))
+    outputparent = nxfs.factory(str(nxentry))
     outputparent = outputparent.parent[outputparent.name+'.1']
 
     config = {

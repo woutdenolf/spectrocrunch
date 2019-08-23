@@ -16,7 +16,9 @@ class Task(nxprocess.Task):
             # Input
             "darklist",
             "datalist",
+            "datastackvalues",
             "flatlist",
+            "flatstackvalues",
             "flatbeforeafter",
             # EDF header
             "frametimelabel",
@@ -34,8 +36,13 @@ class Task(nxprocess.Task):
             "roi",
             "rebin"
         }
-        self.parameters['stackdim'] = self.parameters.get(
+        parameters = self.parameters
+        parameters['stackdim'] = parameters.get(
             'stackdim', self.DEFAULT_STACKDIM)
+        parameters['datastackvalues'] = parameters.get(
+            'datastackvalues', [])
+        parameters['flatstackvalues'] = parameters.get(
+            'flatstackvalues', [])
 
     def _execute(self):
         parameters = self.parameters
