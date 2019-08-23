@@ -2,9 +2,11 @@
 
 from ..utils.Enum import Enum
 
-dataType = Enum(['h5','h5ext','singlefile','nparray'])
-alignType = Enum(['full','usetransfo','calctransfo'])
-transformationType = Enum(['translation','rigid','similarity','affine','projective']) # B-spline, moving least-squares
+dataType = Enum(['h5', 'h5ext', 'singlefile', 'nparray'])
+alignType = Enum(['full', 'usetransfo', 'calctransfo'])
+# B-spline, moving least-squares
+transformationType = Enum(
+    ['translation', 'rigid', 'similarity', 'affine', 'projective'])
 
 # Affine transformation:
 #   Coordinate transformation: X' = R.X + T
@@ -28,6 +30,3 @@ transformationType = Enum(['translation','rigid','similarity','affine','projecti
 # http://www.robots.ox.ac.uk/~az/tutorials/cvpr03_part1.pdf
 # http://morpheo.inrialpes.fr/people/Boyer/Teaching/M2R/geoProj.pdf
 # https://ags.cs.uni-kl.de/fileadmin/inf_ags/3dcv-ws11-12/3DCV_WS11-12_lec04.pdf
-
-
-

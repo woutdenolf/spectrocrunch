@@ -80,7 +80,8 @@ def create_context():
         platdev = ocl.select_device(best=True)
     if platdev is not None:
         try:
-            device = pyopencl.get_platforms()[platdev[0]].get_devices()[platdev[1]]
+            device = pyopencl.get_platforms()[platdev[0]].get_devices()[
+                platdev[1]]
             ctx = pyopencl.Context(devices=[device])
         except pyopencl.RuntimeError:
             pass
@@ -96,17 +97,18 @@ def create_context():
 
 class alignSift(align):
 
-    def __init__(self,*args,**kwargs):
-        super(alignSift,self).__init__(*args,**kwargs)
+    def __init__(self, *args, **kwargs):
+        super(alignSift, self).__init__(*args, **kwargs)
 
         # No 1D
         if 1 in self.source.imgsize:
-            raise ValueError("Sift can only be applied on images, not 1D vectors.")
+            raise ValueError(
+                "Sift can only be applied on images, not 1D vectors.")
 
         # pyopencl stuff
         self.ctx = create_context()
         self.queue = pyopencl.CommandQueue(self.ctx)
-        
+
         # Prepare alignment kernel
         self.siftdtype = np.float32
         sift.param.par.Scales = 8
@@ -117,21 +119,21 @@ class alignSift(align):
         self.matchplan = sift.MatchPlan(ctx=self.ctx)
         self.kpref = None
         self.kpmoving = None
-        
+
         # Prepare transformation kernel
         try:
             self.transformix = pyopencl.Program(self.ctx,
-                                get_opencl_code("transform.cl")).build()
+                                                get_opencl_code("transform.cl")).build()
         except IOError:
             self.transformix = pyopencl.Program(self.ctx,
-                                get_opencl_code("sift/transform.cl")).build()
+                                                get_opencl_code("sift/transform.cl")).build()
 
         # Prepare transformation buffers
         self._transform = self.defaulttransform(dtype=self.siftdtype)
         self.buffers["matrix"] = pyopencl.array.empty(self.queue,
-                                    shape=(2, 2), dtype=self.siftdtype)
+                                                      shape=(2, 2), dtype=self.siftdtype)
         self.buffers["offset"] = pyopencl.array.empty(self.queue,
-                                    shape=(1, 2), dtype=self.siftdtype)
+                                                      shape=(1, 2), dtype=self.siftdtype)
         self.updatecofbuffer()
 
         # Problem space
@@ -143,13 +145,15 @@ class alignSift(align):
 
     def updatecofbuffer(self):
         # (x,y) becomes (y,x)
-        cpy1 = pyopencl.enqueue_copy(self.queue, self.buffers["matrix"].data, np.ascontiguousarray(self._transform.getlinear().T))
-        cpy2 = pyopencl.enqueue_copy(self.queue, self.buffers["offset"].data, np.ascontiguousarray(self._transform.gettranslation()[::-1]))
+        cpy1 = pyopencl.enqueue_copy(
+            self.queue, self.buffers["matrix"].data, np.ascontiguousarray(self._transform.getlinear().T))
+        cpy2 = pyopencl.enqueue_copy(self.queue, self.buffers["offset"].data, np.ascontiguousarray(
+            self._transform.gettranslation()[::-1]))
 
     @property
     def problemshape(self):
         return self.inshape
-    
+
     @problemshape.setter
     def problemshape(self, value):
         if value == self.inshape:
@@ -158,22 +162,23 @@ class alignSift(align):
         self.outshape = value
 
         self.siftplan = sift.SiftPlan(shape=self.inshape,
-                        dtype=self.siftdtype, ctx=self.ctx)
-        if min(self.inshape)<=5:
+                                      dtype=self.siftdtype, ctx=self.ctx)
+        if min(self.inshape) <= 5:
             sift.param.par["BorderDist"] = 0
         if 3*(2 * sift.param.par["BorderDist"] + 2) > min(self.inshape):
             sift.param.par["BorderDist"] = 1
 
         self.buffers["input"] = pyopencl.array.empty(self.queue,
-                        shape=self.inshape, dtype=self.siftdtype)
+                                                     shape=self.inshape, dtype=self.siftdtype)
         self.buffers["output"] = pyopencl.array.empty(self.queue,
-                        shape=self.outshape, dtype=self.siftdtype)
+                                                      shape=self.outshape, dtype=self.siftdtype)
 
-        localshape = local_shape(self.transformix.transform, self.device, kernellimit=128)
+        localshape = local_shape(
+            self.transformix.transform, self.device, kernellimit=128)
         self.transformix_localshape = localshape
         self.transformix_globalshape = global_shape(self.inshape, localshape)
 
-    def execute_transformkernel(self,img):
+    def execute_transformkernel(self, img):
         """Transform image according with the transformation kernel
         """
         if self._transform.isidentity():
@@ -182,19 +187,21 @@ class alignSift(align):
 
         # Copy image to buffer
         data = np.ascontiguousarray(img, self.siftdtype)
-        cpy = pyopencl.enqueue_copy(self.queue, self.buffers["input"].data, data)
+        cpy = pyopencl.enqueue_copy(
+            self.queue, self.buffers["input"].data, data)
         cpy.wait()
 
         # Apply transformation
         self.execute_transformatrix()
         return self.buffers["output"].get()
-        
-    def execute_alignkernel(self,img):
+
+    def execute_alignkernel(self, img):
         """Align image on reference
         """
         # Copy image to buffer
         data = np.ascontiguousarray(img, self.siftdtype)
-        cpy = pyopencl.enqueue_copy(self.queue, self.buffers["input"].data, data)
+        cpy = pyopencl.enqueue_copy(
+            self.queue, self.buffers["input"].data, data)
         cpy.wait()
 
         # Find keypoints of buffered image
@@ -204,16 +211,16 @@ class alignSift(align):
         self._transform.settranslation(np.zeros(2))
         if self.kpref.size != 0 and self.kpmoving.size != 0:
             raw_matching = self.matchplan.match(self.buffers["ref_kp_gpu"],
-                            self.kpmoving, raw_results=True)
+                                                self.kpmoving, raw_results=True)
 
             # Extract transformation from matching keypoints
             matching = np.recarray(shape=raw_matching.shape,
-                        dtype=self.matchplan.dtype_kp)
+                                   dtype=self.matchplan.dtype_kp)
             len_match = raw_matching.shape[0]
             if len_match != 0:
                 matching[:, 0] = self.kpmoving[raw_matching[:, 1]]
                 matching[:, 1] = self.kpref[raw_matching[:, 0]]
- 
+
                 # Map kpmoving to kpref
                 self.transformationFromKp(matching[:, 0].x, matching[:, 0].y,
                                           matching[:, 1].x, matching[:, 1].y)
@@ -221,8 +228,8 @@ class alignSift(align):
                 # Extract transformation matrix
                 #dx = matching[:, 1].x - matching[:, 0].x
                 #dy = matching[:, 1].y - matching[:, 0].y
-                #self._transform.settranslation((np.median(dy),np.median(dx))) # y is the first dimension in python
-                
+                # self._transform.settranslation((np.median(dy),np.median(dx))) # y is the first dimension in python
+
         # Apply transformation
         if self._transform.isidentity():
             return img
@@ -231,52 +238,57 @@ class alignSift(align):
         self.execute_transformatrix()
         return self.buffers["output"].get()
 
-    def transformationFromKp(self,xsrc,ysrc,xdest,ydest):
+    def transformationFromKp(self, xsrc, ysrc, xdest, ydest):
         """ Least-squares transformation parameters to map src to dest
 
             Remark: the rigid transformation is the most problematic (cfr. test_sift_mapping)
         """
-        self._transform.fromkeypoints(xsrc,ysrc,xdest,ydest)
+        self._transform.fromkeypoints(xsrc, ysrc, xdest, ydest)
 
     def execute_transformatrix(self):
         """Execute transformation kernel
         """
         ev = self.transformix.transform(self.queue,
-                                   self.transformix_globalshape,
-                                   self.transformix_localshape,
-                                   self.buffers["input"].data,
-                                   self.buffers["output"].data,
-                                   self.buffers["matrix"].data,
-                                   self.buffers["offset"].data,
-                                   np.int32(self.inshape[1]),  # input width
-                                   np.int32(self.inshape[0]),  # input height
-                                   np.int32(self.outshape[1]),  # output width
-                                   np.int32(self.outshape[0]),  # output height
-                                   self.siftdtype(self.cval),  # fill
-                                   np.int32(1))  # bilinear interpolation
+                                        self.transformix_globalshape,
+                                        self.transformix_localshape,
+                                        self.buffers["input"].data,
+                                        self.buffers["output"].data,
+                                        self.buffers["matrix"].data,
+                                        self.buffers["offset"].data,
+                                        # input width
+                                        np.int32(self.inshape[1]),
+                                        # input height
+                                        np.int32(self.inshape[0]),
+                                        # output width
+                                        np.int32(self.outshape[1]),
+                                        # output height
+                                        np.int32(self.outshape[0]),
+                                        self.siftdtype(self.cval),  # fill
+                                        np.int32(1))  # bilinear interpolation
 
     def set_reference(self, img, previous=False):
         """Reference for alignment
         """
         self.problemshape = img.shape
-        
+
         # Set reference keypoints
         if previous:
             self.kpref = self.kpmoving
         else:
-            self.kpref = self.siftplan.keypoints(np.ascontiguousarray(img, self.siftdtype))
+            self.kpref = self.siftplan.keypoints(
+                np.ascontiguousarray(img, self.siftdtype))
 
-        self.buffers["ref_kp_gpu"] = pyopencl.array.to_device(self.matchplan.queue, self.kpref)
+        self.buffers["ref_kp_gpu"] = pyopencl.array.to_device(
+            self.matchplan.queue, self.kpref)
 
     def get_transformation(self):
         """Get transformation from alignment kernel
         """
         return self._transform
 
-    def set_transformation(self,transform,bchanged):
+    def set_transformation(self, transform, bchanged):
         """Set the transformation kernel according to the alignment kernel and adapted transformation
         """
         if bchanged:
             self._transform.fromtransform(transform)
             self.updatecofbuffer()
-

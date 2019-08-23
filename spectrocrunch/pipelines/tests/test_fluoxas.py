@@ -48,9 +48,9 @@ class test_fluoxas(TestCase):
                       'correctspectra': (True, False)}
         parameters2 = {'alignmethod': (None,),
                       'cfgfileuse': (True,),
-                      'include_detectors': [[1,(0,2)]],
-                      'adddetectors': (True, ),
-                      'addbeforefit': (True, ),
+                      'include_detectors': [(1, (0,2))],
+                      'adddetectors': (False, ),
+                      'addbeforefit': (False, ),
                       'quant': (True,),
                       'dtcor': (True,),
                       'stackdim': (0,),
@@ -87,8 +87,7 @@ class test_fluoxas(TestCase):
         else:
             incdets_explicite = tuple(range(ndet))
 
-        alldetectors = tuple(
-            sorted(list(listtools.flatten(incdets_explicite))))
+        alldetectors = tuple(listtools.flatten(incdets_explicite))
         adddetectorgroups = any(len(instance.asarray(
             dets)) > 1 for dets in instance.asarray(incdets_explicite))
         adddects_explicite = adddetectors and len(alldetectors) > 1
@@ -231,40 +230,47 @@ class test_fluoxas(TestCase):
                                     for mapnum in range(nmaps)
                                     for linenum in range(nlines)]
                     else:
-                        expected = ["{}_xia{}_{:04d}_0000_{:04d}.edf".format(radixout, det, mapnum, linenum)
+                        expected = ["{}_xia{}_{:04d}_0000_{:04d}.edf"
+                                    .format(radixout, det, mapnum, linenum)
                                     for det in expectedgroups_data
                                     for mapnum in range(nmaps)
                                     for linenum in range(nlines)]
                     xrfspectra_subdir = os.path.join(
                         '{}_pymca.1'.format(radix), 'xrfspectra')
                     destpath.compare(
-                        sorted(expected), path=xrfspectra_subdir, files_only=True, recursive=False)
+                        sorted(expected), path=xrfspectra_subdir,
+                        files_only=True, recursive=False)
                 else:
                     radixout = radix
 
                 # Check pymca fit output (files)
                 if cfgfileuse:
                     if addspectra:
-                        expected = ["{}_xia{}_{:04d}_0000_{}.edf".format(radixout, det, mapnum, label)
+                        expected = ["{}_xia{}_{:04d}_0000_{}.edf"
+                                    .format(radixout, det, mapnum, label)
                                     for det in expectedgroups_data
                                     for mapnum in range(nmaps)
                                     for label in fitlabelsfile]
-                        expected.extend(["{}_xia{}_{:04d}_0000.cfg".format(radixout, det, mapnum, label)
+                        expected.extend(["{}_xia{}_{:04d}_0000.cfg"
+                                         .format(radixout, det, mapnum, label)
                                          for det in expectedgroups_data
                                          for mapnum in range(nmaps)])
                     else:
-                        expected = ["{}_xia{}_{:04d}_0000_{}.edf".format(radixout, det, mapnum, label)
+                        expected = ["{}_xia{}_{:04d}_0000_{}.edf"
+                                    .format(radixout, det, mapnum, label)
                                     for det in expectedgroups_data
                                     for mapnum in range(nmaps)
                                     for label in fitlabelsfile]
-                        expected.extend(["{}_xia{}_{:04d}_0000.cfg".format(radixout, det, mapnum, label)
+                        expected.extend(["{}_xia{}_{:04d}_0000.cfg"
+                                         .format(radixout, det, mapnum, label)
                                          for det in expectedgroups_data
                                          for mapnum in range(nmaps)])
                     fitresults_subdir = os.path.join(
                         '{}_pymca.1'.format(radix), 'pymcaresults')
                     if OutputBuffer is None:
                         destpath.compare(
-                            sorted(expected), path=fitresults_subdir, files_only=True, recursive=False)
+                            sorted(expected), path=fitresults_subdir,
+                            files_only=True, recursive=False)
                     else:
                         expected = set(expected)
                         actual = set(os.listdir(os.path.join(destpath.path, fitresults_subdir)))
@@ -306,8 +312,9 @@ class test_fluoxas(TestCase):
                 if newspectra:
                     # Apply DT correction
                     if dtcorbefore:
-                        data0 = self.xrfmap.data * (self.xrfmap.stats[..., xiaedf.xiadata.STICR, :] /
-                                                    self.xrfmap.stats[..., xiaedf.xiadata.STOCR, :])[..., np.newaxis, :]
+                        data0 = self.xrfmap.stats[..., xiaedf.xiadata.STICR, :] /
+                                self.xrfmap.stats[..., xiaedf.xiadata.STOCR, :]
+                        data0 = self.xrfmap.data * data0[..., np.newaxis, :]
                     else:
                         data0 = self.xrfmap.data.copy()
 
@@ -324,7 +331,7 @@ class test_fluoxas(TestCase):
                             data0 = data0[..., alldetectors].sum(
                                 axis=-1)[..., np.newaxis]
                     else:
-                        data0 = data0[..., alldetectors]
+                        data0 = data0[..., tuple(sorted(alldetectors))]
 
                     # Saved spectra
                     stack = xiaedf.xiastack_radix(os.path.join(
@@ -342,12 +349,12 @@ class test_fluoxas(TestCase):
                         if group.issum:
                             if adddetectorgroups:
                                 if group.number > len(incdets_explicite):
-                                    dets = alldetectors
+                                    dets = tuple(sorted(alldetectors))
                                 else:
                                     dets = tuple(instance.asarray(
                                         incdets_explicite[group.number-1]).tolist())
                             else:
-                                dets = alldetectors
+                                dets = tuple(sorted(alldetectors))
                         else:
                             dets = (group.number,)
                         logger.debug(

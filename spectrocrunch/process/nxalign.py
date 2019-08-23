@@ -18,7 +18,9 @@ class Task(nxregulargrid.Task):
             'roi',
             'plot',
             'pad',
-            'onraw'
+            'onraw',
+            "alignmultiplier",
+            "alignoffset"
         }
         parameters = self.parameters
         parameters['refimageindex'] = parameters.get('refimageindex', -1)
@@ -27,6 +29,8 @@ class Task(nxregulargrid.Task):
         parameters['plot'] = parameters.get('plot', False)
         parameters['pad'] = not parameters['crop']
         parameters['onraw'] = True
+        parameters['alignmultiplier'] = parameters.get('alignmultiplier', None)
+        parameters['alignoffset'] = parameters.get('alignoffset', None)
 
         alignmethod = parameters.get('alignmethod', None)
         if alignmethod == "sift":
@@ -67,6 +71,20 @@ class Task(nxregulargrid.Task):
                 out.append(ax2)
         return out
 
+    def rawcalc(self):
+        parameters = self.parameters
+        multiplier = parameters['alignmultiplier']
+        offset = parameters['alignoffset']
+        if multiplier is not None or offset is not None:
+            if multiplier is None:
+                multiplier = 1
+            if offset is None:
+                offset = 0
+            def rawcalc(img):
+                return multiplier*img + offset
+            return rawcalc
+        return None
+
     def _execute_grid(self):
         # Align image stacks
         with self.grid.open_signals() as datasets:
@@ -78,6 +96,7 @@ class Task(nxregulargrid.Task):
                                     signalsout, "", **kwargs)
                 kwargs = {k: parameters[k] for k in [
                     'onraw', 'pad', 'crop', 'roi', 'refimageindex']}
+                kwargs['rawcalc'] = self.rawcalc()
                 self._prepare_reference(kwargs)
                 o.align(self.reference_signal_index, **kwargs)
                 axes = self._process_axes(o)
@@ -107,8 +126,8 @@ class Task(nxregulargrid.Task):
                     'Unknown refimageindex {}'.format(repr(refimageindex)))
         elif instance.isinteger(refimageindex):
             pass
-        elif refimageindex is None:
-            refimageindex = -1
+        elif refimageindex is None:  # pair-wise
+            refimageindex = None
         else:  # fraction
             refimageindex = int(
                 round(refimageindex*refgrid.shape[refgrid.stackdim]))

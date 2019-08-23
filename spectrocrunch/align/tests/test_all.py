@@ -6,6 +6,7 @@ from . import test_alignSourceDest
 from . import test_transform
 from . import test_align
 
+
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
@@ -14,7 +15,8 @@ def test_suite():
     testSuite.addTest(test_transform.test_suite())
     testSuite.addTest(test_align.test_suite())
     return testSuite
-    
+
+
 if __name__ == '__main__':
     import sys
 

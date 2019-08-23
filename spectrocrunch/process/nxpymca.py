@@ -181,7 +181,8 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
 
         # Detector groups for fitting
         if any(len(listtools.aslist(lst)) > 1 for lst in listtools.aslist(include_detectors)):
-            self._detector_groups = OrderedDict((nxresult.Group('S{:d}'.format(i)), listtools.aslist(singledets))
+            self._detector_groups = OrderedDict((nxresult.Group('S{:d}'.format(i)),
+                                                 listtools.aslist(singledets))
                                                 for i, singledets in enumerate(include_detectors, 1))
         else:
             tmp = [nxresult.Group(det) for det in used_detectors]
@@ -200,7 +201,7 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
 
         # Do we need to add spectra (all or in groups)?
         self.addspectra = (adddetectors or adddetectorgroups) and\
-                          self.parameters['addbeforefit']
+            self.parameters['addbeforefit']
         self.xiastackraw.detectorsum(self.addspectra)
 
         # List of detectors to fit
@@ -209,6 +210,8 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
         else:
             self._detectors_to_fit = [nxresult.Group(det) for det in used_detectors]
         self.ndetfit = len(self._detectors_to_fit)
+        logger.info('Fitted detectors (in order): {}'
+                    .format([det.xialabel for det in self._detectors_to_fit]))
 
         # Sum after fitting:
         self._detectors_sumto = OrderedDict()
@@ -564,13 +567,13 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
 
             filestofit = xiaimage.datafilenames_used()
             filestofit = xiaedf.xiagroupdetectors(filestofit)
-            filestofit = {nxresult.Group(k):v for k, v in filestofit.items()}
+            filestofit = {nxresult.Group(k): v for k, v in filestofit.items()}
             for detector, cfg, quant in zip(self._detectors_to_fit, cfglist, quantlist):
                 logger.info('Pymca fit \'detector{}\' ...'.format(detector))
 
                 # Fit
-                outname = '{}_xia{}_{:04d}_0000'.format(
-                    xiaimage.radix, detector, xiaimage.mapnum)
+                outname = '{}_{}_{:04d}_0000'.format(
+                    xiaimage.radix, detector.xialabel, xiaimage.mapnum)
                 energy = self.axes[self.axes_names[self.outstackdim]
                                    ][imageindex].magnitude
 
