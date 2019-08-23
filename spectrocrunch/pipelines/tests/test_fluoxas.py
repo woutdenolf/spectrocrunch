@@ -312,7 +312,7 @@ class test_fluoxas(TestCase):
                 if newspectra:
                     # Apply DT correction
                     if dtcorbefore:
-                        data0 = self.xrfmap.stats[..., xiaedf.xiadata.STICR, :] /
+                        data0 = self.xrfmap.stats[..., xiaedf.xiadata.STICR, :] /\
                                 self.xrfmap.stats[..., xiaedf.xiadata.STOCR, :]
                         data0 = self.xrfmap.data * data0[..., np.newaxis, :]
                     else:
