@@ -182,7 +182,7 @@ class alignElastix(align):
                 transformParameterMap[0]["TransformParameters"] = (
                     str(theta), str(tx), str(ty))
             elif self.transfotype == transformationType.affine:
-                pass
+                raise NotImplementedError
             else:
                 raise NotImplementedError(
                     "Elastix doesn't support this type of transformation.")

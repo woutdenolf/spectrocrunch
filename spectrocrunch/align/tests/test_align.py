@@ -41,7 +41,8 @@ class test_align(unittest.TestCase):
 
                 # Prepare dataIO
                 inputstack, cofrel, stackdim = helper_teststack.data(
-                    transfotype, vector=vector, transposed=transposed, realistic=realistic, subpixel=subpixel)
+                    transfotype, vector=vector, transposed=transposed,
+                    realistic=realistic, subpixel=subpixel)
                 outputstack = [np.zeros(1, dtype=np.float32)]*len(inputstack)
 
                 # References

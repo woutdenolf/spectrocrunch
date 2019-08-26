@@ -43,14 +43,21 @@ class LinearMapping(Mapping):
             return img
         if self.transfotype == transformationType.translation:
             # shift: takes transformation vector for coordinates (y,x)
-            return ndtransform.shift(img, -self.cof[1::-1], cval=self.cval, **self.interpolationargs)
+            return ndtransform.shift(img, -self.cof[1::-1], cval=self.cval,
+                                     **self.interpolationargs)
         else:
             if self.islinearidentity():
                 # shift: takes transformation vector for coordinates (y,x)
-                return ndtransform.shift(img, -self.cof[1::-1, 2], cval=self.cval, **self.interpolationargs)
+                return ndtransform.shift(img, -self.cof[1::-1, 2],
+                                         cval=self.cval,
+                                         **self.interpolationargs)
             elif self.isprojidentity():
-                # affine_transform: takes change-of-frame matrix for coordinates (y,x)
-                return ndtransform.affine_transform(img, self.cof[0:2, 0:2].T, offset=self.cof[1::-1, 2], cval=self.cval, **self.interpolationargs)
+                # affine_transform: takes change-of-frame matrix
+                #                   for coordinates (y,x)
+                return ndtransform.affine_transform(img, self.cof[0:2, 0:2].T,
+                                                    offset=self.cof[1::-1, 2],
+                                                    cval=self.cval,
+                                                    **self.interpolationargs)
             else:
                 raise NotImplementedError()
 
@@ -58,7 +65,9 @@ class LinearMapping(Mapping):
         if self.transfotype == transformationType.translation:
             return "tx = {}, ty = {}".format(self.cof[0], self.cof[1])
         else:
-            return "tx = {}, ty = {}\nR={}\npx = {}, py = {}".format(self.cof[0, 2], self.cof[1, 2], self.cof[0:2, 0:2], self.cof[2, 0], self.cof[2, 1])
+            return "tx = {}, ty = {}\nR={}\npx = {}, py = {}"\
+                   .format(self.cof[0, 2], self.cof[1, 2], self.cof[0:2, 0:2],
+                           self.cof[2, 0], self.cof[2, 1])
 
     def __str__(self):
         return self.__repr__()
@@ -68,7 +77,9 @@ class LinearMapping(Mapping):
 
     def getnumpyhomography(self):
         if self.transfotype == transformationType.translation:
-            return np.array([[1, 0, self.cof[0]], [0, 1, self.cof[1]], [0, 0, 1]], dtype=self.dtype)
+            return np.array([[1, 0, self.cof[0]],
+                             [0, 1, self.cof[1]],
+                             [0, 0, 1]], dtype=self.dtype)
         else:
             return self.cof[:]
 
@@ -111,7 +122,7 @@ class LinearMapping(Mapping):
 
     def setrigid(self, theta, tx, ty):
         if self.transfotype == transformationType.translation:
-            trn = self.gettranslation()
+            #trn = self.gettranslation()
             self.transfotype == transformationType.affine
             self.cof = self.getidentity()
         elif self.transfotype == transformationType.rigid:
@@ -124,7 +135,6 @@ class LinearMapping(Mapping):
             pass
         else:
             raise ValueError("Transformation does not have an linear part")
-
         costheta = np.cos(theta)
         sintheta = np.sin(theta)
         self.cof[0:2, :] = np.array(
@@ -155,7 +165,6 @@ class LinearMapping(Mapping):
             pass
         else:
             raise ValueError("Transformation does not have an linear part")
-
         self.cof[0:2, 0:2] = M
 
     def getlinear(self):
@@ -188,12 +197,12 @@ class LinearMapping(Mapping):
             pass
         else:
             raise ValueError("Transformation does not have an affine part")
-
         self.cof[0:2, :] = M
 
     def getaffine(self):
         if self.transfotype == transformationType.translation:
-            return np.array([[1, 0, self.cof[0]], [0, 1, self.cof[1]]], dtype=self.dtype)
+            return np.array([[1, 0, self.cof[0]],
+                             [0, 1, self.cof[1]]], dtype=self.dtype)
         elif self.transfotype == transformationType.rigid:
             return self.cof[:, 0:2]
         elif self.transfotype == transformationType.similarity:
@@ -226,7 +235,9 @@ class LinearMapping(Mapping):
 
     def getprojective(self):
         if self.transfotype == transformationType.translation:
-            return np.array([[1, 0, self.cof[0]], [0, 1, self.cof[1]], [0, 0, 1]], dtype=self.dtype)
+            return np.array([[1, 0, self.cof[0]],
+                             [0, 1, self.cof[1]],
+                             [0, 0, 1]], dtype=self.dtype)
         elif self.transfotype == transformationType.rigid:
             return self.cof[:]
         elif self.transfotype == transformationType.similarity:
@@ -268,8 +279,13 @@ class LinearMapping(Mapping):
         else:
             return np.array_equal(self.cof[2, 0:2], np.zeros(2, dtype=self.dtype))
 
-    def _dot(self, C, right=True):
-        if self.transfotype == transformationType.translation and C.transfotype == transformationType.translation:
+    def _combine(self, C, right=True):
+        """
+        :param LinearMapping C:
+        :param bool right: multiply self from the right (self is the first transformation)
+        """
+        if self.transfotype == transformationType.translation and\
+            C.transfotype == transformationType.translation:
             cof = self.cof + C.cof
             return cof, transformationType.translation
 
@@ -290,36 +306,42 @@ class LinearMapping(Mapping):
         else:
             cof = np.dot(C2, C1)
 
-        if self.transfotype == transformationType.projective or C.transfotype == transformationType.projective:
+        if self.transfotype == transformationType.projective or\
+           C.transfotype == transformationType.projective:
             transfotype = transformationType.projective
-        elif self.transfotype == transformationType.affine or C.transfotype == transformationType.affine:
+        elif self.transfotype == transformationType.affine or\
+             C.transfotype == transformationType.affine:
             transfotype = transformationType.affine
-        elif self.transfotype == transformationType.similarity or C.transfotype == transformationType.similarity:
+        elif self.transfotype == transformationType.similarity or\
+             C.transfotype == transformationType.similarity:
             transfotype = transformationType.similarity
         else:
             transfotype = transformationType.rigid
 
         return cof, transfotype
 
-    def dot(self, C):
-        cof, transfotype = self._dot(C)
+    def after(self, C):
+        # C is the first transformation
+        return self._dot(C, right=False)
+
+    def before(self, C):
+        # self is the first transformation
+        return self._dot(C, right=True)
+
+    def after_inplace(self, C):
+        return self._dotinplace(C, right=False)
+
+    def before_inplace(self, C):
+        return self._dotinplace(C, right=True)
+
+    def _dot(self, C, right=True):
+        cof, transfotype = self._combine(C, right=right)
         ret = transform(transfotype, dtype=cof.dtype, cval=self.cval)
         ret.cof[:] = cof
         return ret
 
-    def dotinplace(self, C):
-        # C after self
-        cof, transfotype = self._dot(C)
-        if len(cof) == len(self.cof):
-            self.cof[:] = cof
-        else:
-            self.cof = cof
-        self.transfotype = transfotype
-        self.dtype = cof.dtype
-
-    def dotleftinplace(self, C):
-        # C before self
-        cof, transfotype = self._dot(C, right=False)
+    def _dotinplace(self, C, right=True):
+        cof, transfotype = self._combine(C, right=right)
         if len(cof) == len(self.cof):
             self.cof[:] = cof
         else:
@@ -618,5 +640,7 @@ class LinearMapping(Mapping):
 
 
 def transform(transfotype, **kwargs):
-    if transfotype in [transformationType.translation, transformationType.rigid, transformationType.similarity, transformationType.affine, transformationType.projective]:
+    if transfotype in [transformationType.translation, transformationType.rigid,
+                       transformationType.similarity, transformationType.affine,
+                       transformationType.projective]:
         return LinearMapping(transfotype, **kwargs)

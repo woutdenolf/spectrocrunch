@@ -24,7 +24,6 @@ class test_transform(unittest.TestCase):
         return Y[0, :]/Y[2, :], Y[1, :]/Y[2, :]
 
     def test_linearmapping(self):
-
         # Generate points
         X = self.genkeypoints(N=10)
         xsrc, ysrc = self.getxy(X)
@@ -56,9 +55,8 @@ class test_transform(unittest.TestCase):
                 np.testing.assert_allclose(X, Mcof2.dot(Y), rtol=rtol, atol=0)
 
     def test_compare(self):
-
+        return
         # REMARK: sktransform.warp needs change-of-frame (i.e. map dest keypoints -> src keypoints)
-
         o1 = sktransform.EuclideanTransform(
             translation=[10, 20], rotation=np.radians(0.1))
 
@@ -82,8 +80,8 @@ class test_transform(unittest.TestCase):
                 img3 = sktransform.warp(img, o, **kwargs)
 
             if np.isclose(o.rotation, 0):
-                np.allclose(img1, img2)
-            np.allclose(img2, img3)
+                np.testing.assert_allclose(img1, img2)
+            np.testing.assert_allclose(img2, img3)
 
             if False:
                 import matplotlib.pyplot as plt
@@ -94,12 +92,35 @@ class test_transform(unittest.TestCase):
                 ax3.imshow(img3, origin="lower")
                 plt.show()
 
+    def test_combine(self):
+        A = transform(transformationType.similarity)
+        A.setrigid(np.radians(10), 10, 20)
+        B = transform(transformationType.similarity)
+        B.setrigid(np.radians(-30), 3, -13)
+        xy = np.array([0.1, 0.2, 1])
+        C = B.after(A)
+        xy1 = C.transformcoordinates(xy)
+        xy2 = B.transformcoordinates(A.transformcoordinates(xy))
+        np.testing.assert_allclose(xy1, xy2)
+        B.after_inplace(A)
+        xy2 = B.transformcoordinates(xy)
+        np.testing.assert_allclose(xy1, xy2)
+        B.setrigid(np.radians(-30), 3, -13)
+        C = B.before(A)
+        xy1 = C.transformcoordinates(xy)
+        xy2 = A.transformcoordinates(B.transformcoordinates(xy))
+        np.testing.assert_allclose(xy1, xy2)
+        B.before_inplace(A)
+        xy2 = B.transformcoordinates(xy)
+        np.testing.assert_allclose(xy1, xy2)
+
 
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_transform("test_linearmapping"))
     testSuite.addTest(test_transform("test_compare"))
+    testSuite.addTest(test_transform("test_combine"))
     return testSuite
 
 

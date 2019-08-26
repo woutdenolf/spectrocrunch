@@ -286,9 +286,9 @@ class alignSift(align):
         """
         return self._transform
 
-    def set_transformation(self, transform, bchanged):
+    def set_transformation(self, transform, changed):
         """Set the transformation kernel according to the alignment kernel and adapted transformation
         """
-        if bchanged:
+        if changed:
             self._transform.fromtransform(transform)
             self.updatecofbuffer()
