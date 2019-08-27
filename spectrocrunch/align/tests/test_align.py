@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+import numpy as np
 
 from .. import alignElastix
 from .. import alignSift
@@ -11,9 +12,9 @@ from ..alignSimple import alignCentroid
 from ..alignSimple import alignGaussMax
 from ..types import transformationType
 from .import helper_teststack
+from ...utils.cli import getLogger
 
-import numpy as np
-
+logger = getLogger(__name__, __file__)
 
 siftctx = alignSift.create_context()
 
@@ -26,11 +27,24 @@ class test_align(unittest.TestCase):
             np.testing.assert_almost_equal(
                 cofrelcalc, cofrel, decimal=1, err_msg=msg)
 
-    def try_alignment(self, alignclass, transfotype, realistic=False, subpixel=True):
+    def assertAligned(self, outputstack, stackdim):
+        for stack in outputstack:
+            # Check whether maximum of each image in the stack
+            # is on the same location
+            idx = [slice(None)]*stack.ndim
+            n = stack.shape[stackdim]
+            lst1 = []
+            for i in range(n):
+                idx[stackdim] = i
+                lst1.append(np.nanargmax(stack[tuple(idx)]))
+            lst2 = [lst1[0]]*n
+            self.assertEqual(lst1, lst2)
+
+    def assertAlign(self, alignclass, transfotype, realistic=False, subpixel=True):
         if transfotype == transformationType.translation and\
                 alignclass != alignSift.alignSift and\
                 alignclass != alignElastix.alignElastix:
-            lst = [False, True]
+            lst = [True, False]
         else:
             lst = [False]
 
@@ -50,8 +64,9 @@ class test_align(unittest.TestCase):
                 refimageindex = 0  # len(inputstack)//2
 
                 # Prepare alignment
-                o = alignclass(inputstack, None, outputstack, None, None, stackdim=stackdim,
-                               overwrite=True, plot=False, transfotype=transfotype)
+                o = alignclass(inputstack, None, outputstack, None, None,
+                               stackdim=stackdim, overwrite=True, plot=False,
+                               transfotype=transfotype)
 
                 # Check alignment
                 if vector:
@@ -65,30 +80,55 @@ class test_align(unittest.TestCase):
                 for i in range(4):
                     pad = (i & 1) == 1
                     crop = (i & 2) == 2
+                    prealigntransfo = (i & 4) == 4
+                    if prealigntransfo:
+                        prealigntransfolist = [o.defaulttransform() for _ in range(o.source.nimages)]
+                        for transfo in prealigntransfolist:
+                            tx, ty = np.random.randint(-2, 2, 2)
+                            if vector:
+                                if transposed:
+                                    tx = 0
+                                else:
+                                    ty = 0
+                            transfo.settranslation(tx, ty)
+                    else:
+                        prealigntransfolist = None
 
                     # Fixed reference
-                    msg = "Alignment: Pad = {}, Crop = {}, 1D = {}, transposed = {}, type = {}".format(
-                        pad, crop, vector, transposed, "fixed")
-                    o.align(refdatasetindex, refimageindex=refimageindex,
-                            pad=pad, crop=crop, roi=roi)
-                    self.compare_relativecof(o.absolute_cofs(
-                        homography=True), cofrel, msg=msg)
+                    for redo in False, True:
+                        msg = "Alignment: Pad = {}, Crop = {}, 1D = {}, transposed = {}, prealigntransfo = {}, redo = {}, type = {}".format(
+                            pad, crop, vector, transposed, prealigntransfo, redo, "fixed")
+                        logger.debug(msg)
+                        o.align(refdatasetindex, refimageindex=refimageindex,
+                                pad=pad, crop=crop, roi=roi, redo=redo,
+                                prealigntransfo=prealigntransfolist)
+                        self.compare_relativecof(o.absolute_cofs(
+                            homography=True, include_pre=True), cofrel, msg=msg)
+                        self.assertAligned(outputstack, stackdim)
 
                     # Pairwise: align on raw
-                    msg = "Alignment: Pad = {}, Crop = {}, 1D = {}, transposed = {}, type = {}".format(
-                        pad, crop, vector, transposed, "pairwise/raw")
-                    o.align(refdatasetindex, onraw=True,
-                            pad=pad, crop=crop, roi=roi)
-                    self.compare_relativecof(o.absolute_cofs(
-                        homography=True), cofrel, msg=msg)
+                    for redo in False, True:
+                        msg = "Alignment: Pad = {}, Crop = {}, 1D = {}, transposed = {}, prealigntransfo = {}, redo = {}, type = {}".format(
+                            pad, crop, vector, transposed, prealigntransfo, redo, "pairwise/raw")
+                        logger.debug(msg)
+                        o.align(refdatasetindex, onraw=True,
+                                pad=pad, crop=crop, roi=roi, redo=redo,
+                                prealigntransfo=prealigntransfolist)
+                        self.compare_relativecof(o.absolute_cofs(
+                            homography=True, include_pre=True), cofrel, msg=msg)
+                        self.assertAligned(outputstack, stackdim)
 
                     # Pairwise: align on aligned
-                    msg = "Alignment: Pad = {}, Crop = {}, 1D = {}, transposed = {}, type = {}".format(
-                        pad, crop, vector, transposed, "pairwise")
-                    o.align(refdatasetindex, onraw=False,
-                            pad=pad, crop=crop, roi=roi)
-                    self.compare_relativecof(o.absolute_cofs(
-                        homography=True), cofrel, msg=msg)
+                    for redo in False, True:
+                        msg = "Alignment: Pad = {}, Crop = {}, 1D = {}, transposed = {}, prealigntransfo = {}, redo = {}, type = {}".format(
+                            pad, crop, vector, transposed, prealigntransfo, redo, "pairwise")
+                        logger.debug(msg)
+                        o.align(refdatasetindex, onraw=False,
+                                pad=pad, crop=crop, roi=roi, redo=redo,
+                                prealigntransfo=prealigntransfolist)
+                        self.compare_relativecof(o.absolute_cofs(
+                            homography=True, include_pre=True), cofrel, msg=msg)
+                        self.assertAligned(outputstack, stackdim)
 
     @unittest.skip("TODO")
     def test_fft_internals(self):
@@ -147,38 +187,38 @@ class test_align(unittest.TestCase):
     def test_elastix(self):
         types = [transformationType.translation]
         for t in types:
-            self.try_alignment(alignElastix.alignElastix, t)
+            self.assertAlign(alignElastix.alignElastix, t)
 
     @unittest.skipIf(alignSift.pyopencl is None, "pyopencl is not installed")
     @unittest.skipIf(siftctx is None, "no pyopencl device available")
-    @unittest.skipIf(True, "temporary disable")
+    #@unittest.skipIf(True, "temporary disable")
     def test_sift(self):
         types = [transformationType.translation, transformationType.rigid,
                  transformationType.similarity, transformationType.affine]
         # TODO: the others are not that precise
         types = [transformationType.translation]
         for t in types:
-            self.try_alignment(alignSift.alignSift, t)
+            self.assertAlign(alignSift.alignSift, t)
 
     def test_fft(self):
         types = [transformationType.translation]
         for t in types:
-            self.try_alignment(alignFFT, t)
+            self.assertAlign(alignFFT, t)
 
     def test_min(self):
-        self.try_alignment(
+        self.assertAlign(
             alignMin, transformationType.translation, realistic=True, subpixel=False)
 
     def test_max(self):
-        self.try_alignment(
+        self.assertAlign(
             alignMax, transformationType.translation, subpixel=False)
 
     def test_centroid(self):
-        self.try_alignment(
+        self.assertAlign(
             alignCentroid, transformationType.translation, subpixel=False)
 
     def test_gaussmax(self):
-        self.try_alignment(
+        self.assertAlign(
             alignGaussMax, transformationType.translation, subpixel=False)
 
 

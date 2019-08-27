@@ -126,7 +126,7 @@ class alignElastix(align):
                 logger.info("Elastix couldn't align images")
                 return []
 
-    def get_transformation(self):
+    def get_alignkernel(self):
         """Get transformation from alignment kernel.
         """
         transform = self.defaulttransform()
@@ -163,30 +163,26 @@ class alignElastix(align):
 
         return transform
 
-    def set_transformation(self, transform, changed):
+    def set_transformkernel(self, transform):
         """Set the transformation kernel according to the alignment kernel and adapted transformation
         """
         transformParameterMap = self.elastix_GetTransformParameterMap()
-
-        if changed:
-            if transform.transfotype != self.transfotype:
-                raise ValueError("Transformations must have the same type")
-
-            if self.transfotype == transformationType.translation:
-                tmp = transform.gettranslation()
-                transformParameterMap[0]["TransformParameters"] = (
-                    str(tmp[0]), str(tmp[1]))
-            elif self.transfotype == transformationType.rigid:
-                transformParameterMap[0]["CenterOfRotationPoint"] = ("0", "0")
-                theta, tx, ty = transform.getrigid()
-                transformParameterMap[0]["TransformParameters"] = (
-                    str(theta), str(tx), str(ty))
-            elif self.transfotype == transformationType.affine:
-                raise NotImplementedError
-            else:
-                raise NotImplementedError(
-                    "Elastix doesn't support this type of transformation.")
-
+        if transform.transfotype != self.transfotype:
+            raise ValueError("Transformations must have the same type")
+        if self.transfotype == transformationType.translation:
+            tmp = transform.gettranslation()
+            transformParameterMap[0]["TransformParameters"] = (
+                str(tmp[0]), str(tmp[1]))
+        elif self.transfotype == transformationType.rigid:
+            transformParameterMap[0]["CenterOfRotationPoint"] = ("0", "0")
+            theta, tx, ty = transform.getrigid()
+            transformParameterMap[0]["TransformParameters"] = (
+                str(theta), str(tx), str(ty))
+        elif self.transfotype == transformationType.affine:
+            raise NotImplementedError
+        else:
+            raise NotImplementedError(
+                "Elastix doesn't support this type of transformation.")
         self.transformix.SetTransformParameterMap(transformParameterMap)
 
     def changefortransform(self, shape):

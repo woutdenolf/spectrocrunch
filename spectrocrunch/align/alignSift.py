@@ -281,14 +281,13 @@ class alignSift(align):
         self.buffers["ref_kp_gpu"] = pyopencl.array.to_device(
             self.matchplan.queue, self.kpref)
 
-    def get_transformation(self):
+    def get_alignkernel(self):
         """Get transformation from alignment kernel
         """
         return self._transform
 
-    def set_transformation(self, transform, changed):
+    def set_transformkernel(self, transform):
         """Set the transformation kernel according to the alignment kernel and adapted transformation
         """
-        if changed:
-            self._transform.fromtransform(transform)
-            self.updatecofbuffer()
+        self._transform.fromtransform(transform)
+        self.updatecofbuffer()

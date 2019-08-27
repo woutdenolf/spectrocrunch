@@ -96,4 +96,3 @@ def getLogger(name, filename):
     if name == '__main__':
         logging_cliconfig(logger)
     return logger
-

@@ -31,7 +31,7 @@ class alignFFT(align):
     def execute_transformkernel(self, img):
         """Transform image according with the transformation kernel
         """
-        return self.execute_transform_nokernel(img, self._transform)
+        return self._transform.transformimage(img)
 
     def ifft_interpolate(self, imgft, ROIoffset, ROIsize):
         """Sub-region inverse Fourier transform with subpixel interpolation
@@ -350,13 +350,12 @@ class alignFFT(align):
         else:
             self.fixedft = self.fft_handle_missing(img)
 
-    def get_transformation(self):
+    def get_alignkernel(self):
         """Get transformation
         """
         return self._transform
 
-    def set_transformation(self, transform, changed):
+    def set_transformkernel(self, transfo):
         """Set transformation
         """
-        if changed:
-            self._transform.fromtransform(transform)
+        self._transform.fromtransform(transfo)

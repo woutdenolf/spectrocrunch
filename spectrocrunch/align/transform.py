@@ -22,8 +22,24 @@ class Mapping(object):
 
 
 class LinearMapping(Mapping):
+    """
+    Transformation:
+        L.Xold = Xnew (coordinate transformation)
+        Xold = C.Xnew (change-of-frame)
+    Combine transformations:
+        L2.L1.Xold = Xnew (coordinate transformation, order = multiply from the left)
+        Xold = C1.C2.Xnew (change-of-frame, order = multiply from the right)
+    Change of reference frame:
+        Xold = C1.Xnew
+        Xold = C2.Xold'
+        Xnew = C2.Xnew'
+        Xold' = C2^(-1).C1.C2.Xnew'
+        Xnew = L1.Xold
+        Xnew' = C2^(-1).L1.C2.Xold'
+    """
 
-    def __init__(self, transfotype, dtype=np.float, cval=np.nan, **interpolationargs):
+    def __init__(self, transfotype, dtype=np.float, cval=np.nan,
+                 **interpolationargs):
         self.transfotype = transfotype
         self.dtype = dtype
         self.cval = cval
@@ -36,6 +52,15 @@ class LinearMapping(Mapping):
 
         # (change of frame matrices, not change of coordinates!)
         self.cof = self.getidentity()
+
+    def __copy__(self):
+        m = LinearMapping(self.transfotype, dtype=self.dtype, cval=self.cval,
+                          **self.interpolationargs)
+        m.cof = self.cof
+        return m
+
+    def copy(self):
+        return self.__copy__()
 
     def transformimage(self, img):
         # self.cof: change-of-frame matrix for coordinates (x,y)
@@ -230,7 +255,6 @@ class LinearMapping(Mapping):
             pass
         else:
             raise ValueError("Transformation does not have an affine part")
-
         self.cof[:] = M
 
     def getprojective(self):
@@ -271,13 +295,15 @@ class LinearMapping(Mapping):
         if self.transfotype == transformationType.translation:
             return True
         else:
-            return np.array_equal(self.cof[0:2, 0:2], np.identity(2, dtype=self.dtype))
+            return np.array_equal(self.cof[0:2, 0:2],
+                                  np.identity(2, dtype=self.dtype))
 
     def isprojidentity(self):
         if self.transfotype == transformationType.translation:
             return True
         else:
-            return np.array_equal(self.cof[2, 0:2], np.zeros(2, dtype=self.dtype))
+            return np.array_equal(self.cof[2, 0:2],
+                                  np.zeros(2, dtype=self.dtype))
 
     def _combine(self, C, right=True):
         """
@@ -286,8 +312,8 @@ class LinearMapping(Mapping):
         """
         if self.transfotype == transformationType.translation and\
             C.transfotype == transformationType.translation:
-            cof = self.cof + C.cof
-            return cof, transformationType.translation
+                cof = self.cof + C.cof
+                return cof, transformationType.translation
 
         if self.transfotype == transformationType.translation:
             C1 = np.identity(3, dtype=self.dtype)
@@ -311,28 +337,14 @@ class LinearMapping(Mapping):
             transfotype = transformationType.projective
         elif self.transfotype == transformationType.affine or\
              C.transfotype == transformationType.affine:
-            transfotype = transformationType.affine
+                transfotype = transformationType.affine
         elif self.transfotype == transformationType.similarity or\
              C.transfotype == transformationType.similarity:
-            transfotype = transformationType.similarity
+                transfotype = transformationType.similarity
         else:
             transfotype = transformationType.rigid
 
         return cof, transfotype
-
-    def after(self, C):
-        # C is the first transformation
-        return self._dot(C, right=False)
-
-    def before(self, C):
-        # self is the first transformation
-        return self._dot(C, right=True)
-
-    def after_inplace(self, C):
-        return self._dotinplace(C, right=False)
-
-    def before_inplace(self, C):
-        return self._dotinplace(C, right=True)
 
     def _dot(self, C, right=True):
         cof, transfotype = self._combine(C, right=right)
@@ -349,6 +361,27 @@ class LinearMapping(Mapping):
         self.transfotype = transfotype
         self.dtype = cof.dtype
 
+    def after(self, C):
+        # C is the first transformation
+        return self._dot(C, right=False)
+
+    def before(self, C):
+        # self is the first transformation
+        return self._dot(C, right=True)
+
+    def after_inplace(self, C):
+        return self._dotinplace(C, right=False)
+
+    def before_inplace(self, C):
+        return self._dotinplace(C, right=True)
+
+    def new_frame(self, C):
+        return C.inverse().before(self).before(C)
+
+    def new_frame_inplace(self, C):
+        self.after_inplace(C.inverse())
+        self.before_inplace(C)
+
     def inverse(self):
         ret = transform(self.transfotype, dtype=self.cof.dtype, cval=self.cval)
         if self.transfotype == transformationType.translation:
@@ -357,7 +390,7 @@ class LinearMapping(Mapping):
             ret.cof[:] = np.linalg.inv(self.cof)
         return ret
 
-    def inverseinplace(self):
+    def inverse_inplace(self):
         if self.transfotype == transformationType.translation:
             self.cof[:] = -self.cof
         else:
@@ -465,7 +498,7 @@ class LinearMapping(Mapping):
 
         #self.settranslation(cendest - C.dot(censrc))
         # This seems to be more accurate:
-        Ynoshift = Y-C.dot(X)
+        Ynoshift = Y - C.dot(X)
         self.settranslation([self.centroid(Ynoshift[0, :]),
                              self.centroid(Ynoshift[1, :])])
 

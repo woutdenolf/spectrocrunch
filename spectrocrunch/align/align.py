@@ -4,6 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from shapely.geometry import Polygon
 from shapely.geometry import LineString
+import logging
 
 from .alignSource import alignSource
 from .alignDest import alignDest
@@ -13,39 +14,15 @@ from .transform import transform
 from ..utils.roi import cliproi
 from ..utils import instance
 
-import logging
+
+logger = logging.getLogger(__name__)
 
 
 class align(object):
-    """Allows for the alignment of several stacks based on one stack.
-       "Alignment" is the process of determining a transformation between
-       two images that should represent the same thing but transformed/deformed.
-
-        Transformation:
-            L.Xold = Xnew (coordinate transformation)
-            Xold = C.Xnew (change-of-frame)
-        Combine transformations:
-            L2.L1.Xold = Xnew (coordinate transformation, multiply from the left)
-            Xold = C1.C2.Xnew (change-of-frame, multiply from the right)
-        Effect of change-of-frame:
-            L2 = C^-1.L1.C (coordinate transformation in new frame)
-            C2 = C^-1.C1.C (change-of-frame in new frame)
-
-        Calculate transformation (image alignment):
-            fixed image:   raw -> dopre_align (cof=C1) -> img1 
-            moving image:  raw -> dopre_align (cof=C1) -> img2 -> execute_alignkernel(img1,img2) -> img3, C2
-
-            C1^-1: pre-align to raw (roi)
-            C2: alignment in pre-align frame
-            C1.C2.C1^-1: cof in raw frame
-
-        Apply transformation (image transformation):
-            aligned image: raw -> dopre_transform (cof=C3) -> img1 -> execute_transform() -> img4 -> dopost_transform (cof=C4) -> img5
-
-            C3: raw to pre-transform (pad)
-            C1^-1.C3: pre-align to pre-transform
-            C3^-1.C1.C2.C1^-1.C3: alignment in pre-transform frame
-            C4: post transformation (crop)
+    """
+    Allows for the alignment of several stacks based on one stack.
+    "Alignment" is the process of determining a transformation between
+    two images that should represent the same thing but transformed/deformed.
     """
 
     def __init__(self, source, sourcelist, dest, destlist, extension,
@@ -81,13 +58,11 @@ class align(object):
         self.transfotype = transfotype
         self.transfos = [self.defaulttransform()
                          for _ in range(self.source.nimages)]
-        self.C1 = self.defaulttransform(ttype=transformationType.translation)
-        self.C1inv = self.defaulttransform(
-            ttype=transformationType.translation)
-        self.C3invC1 = self.defaulttransform(
-            ttype=transformationType.translation)
-        self.C1invC3 = self.defaulttransform(
-            ttype=transformationType.translation)
+        self.pre_transfos = [self.defaulttransform() for _ in range(self.source.nimages)]
+        self.prealign_to_raw = [self.defaulttransform()
+                                for _ in range(self.source.nimages)]
+        self.prealign_to_pretransform = [self.defaulttransform()
+                                         for _ in range(self.source.nimages)]
 
         # Plot
         self.plotinfo = {"ON": plot, "fig": None, "axes": None}
@@ -182,7 +157,7 @@ class align(object):
         """Get raw image, preprocessed for alignment
         """
         img = self.readimgraw(datasetindex, imageindex)
-        img = self.dopre_align(img)
+        img = self.dopre_align(img, imageindex)
         if 0 in img.shape or len(img.shape) != 2:
             raise ValueError(
                 "Image preprocessed for alignment has shape {}".format(img.shape))
@@ -195,24 +170,29 @@ class align(object):
         """
         return self.pre_align["roi"] is None
 
-    def dopre_align(self, img):
+    def dopre_align(self, img, i):
         if callable(self.pre_align["func"]):
             img = self.pre_align["func"](img)
-        #self.execute_transform(img, i)
+        transfo = self.pre_transfos[i]
+        if not transfo.isidentity():
+            img = self.execute_transform(img, i, transfo)
         if self.pre_align["roi"] is not None:
             img = self.roi(img, self.pre_align["roi"])
         return img
 
-    def nopre_transform(self):
+    def nopre_transform(self, i):
         """
         Returns:
             bool: True when transformation is done on the raw image
         """
-        return np.all(np.asarray(self.extend) <= 0)
+        return np.all(np.asarray(self.extend) <= 0) and self.pre_transfos[i].isidentity()
 
-    def dopre_transform(self, img):
+    def dopre_transform(self, img, i):
         """Manual transformation before the real transformation (not used in alignment)
         """
+        transfo = self.pre_transfos[i]
+        if not transfo.isidentity():
+            img = self.execute_transform(img, i, transfo)
         if self.pre_transform["pad"]:
             img = self.pad(img)
         return img
@@ -237,104 +217,118 @@ class align(object):
     def execute_transformkernel(self, img):
         raise NotImplementedError()
 
-    def execute_transform_nokernel(self, img, transfo):
-        """Apply a transformation to an image
-
-        :param np.ndarray img:
-        :para num or LinearMapping transfo:
-        """
-        if instance.isnumber(transfo):
-            transfo = self.cof_in_pretransform_frame(transfo)
-        return transfo.transformimage(img)
-
-    def absolute_cofs(self, homography=False):
+    def absolute_cofs(self, homography=False, include_pre=False):
         """Change-of-frame for each raw image (i.e. inverse of coordinate transformation matrix)
         """
         if self.source.nimages == 0:
             return None
-        if homography:
-            return np.array([t.getnumpyhomography() for t in self.transfos])
+        if include_pre:
+            transfos = [ptr.before(tr) for ptr, tr in zip(self.pre_transfos, self.transfos)]
         else:
-            return np.array([t.getnumpy() for t in self.transfos])
+            transfos = self.transfos
+        if homography:
+            return np.array([t.getnumpyhomography() for t in transfos])
+        else:
+            return np.array([t.getnumpy() for t in transfos])
 
     def cof_in_raw_frame(self, i):
-        """ C2' = Ch^-1.C2.Ch
-            C2: in pre-align frame
-            C2': in raw frame
-            Ch: pre-align frame to raw frame
-        """
-        C2 = self.transfos[i]
-        if self.C1inv.isidentity():
+        C = self.prealign_to_raw[i]
+        C2 = self.transfos[i]  # defined in pre-align frame
+        if C.isidentity():
             return C2
-        return self.C1.before(C2).before(self.C1inv)
+        else:
+            return C2.new_frame(C)
 
     def cof_in_pretransform_frame(self, i):
-        """ C2' = Ch^-1.C2.Ch
-            C2: in pre-align frame
-            C2': in pre-transform frame
-            Ch: pre-align frame to pre-transform frame
-        """
-        C2 = self.transfos[i]
-        if self.C1invC3.isidentity():
+        C = self.prealign_to_pretransform[i]
+        C2 = self.transfos[i]  # defined in pre-align frame
+        if C.isidentity():
             return C2
-        return self.C3invC1.before(C2).before(self.C1invC3)
+        else:
+            return C2.new_frame(C)
 
-    def calccof_raw_to_prealign(self):
-        """ raw -> pre-align: C1 (roi)
-            pre-align -> raw: C1^-1
+    def calccof_prealign_to_raw(self):
         """
-        ttype = transformationType.translation
-        C1 = self.defaulttransform(ttype=ttype)
+        Calculate transformation (image alignment):
+            fixed image:   raw -> dopre_align (cof=C1) -> img1 
+            moving image:  raw -> dopre_align (cof=C1) -> img2 -> execute_alignkernel(img1,img2) -> img3, C2
+
+            C1: raw to pre-align (in order: pretransform, roi)
+            C2: cof in pre-align frame
+        """
+        CroiInv = self.defaulttransform(ttype=transformationType.translation)
         if self.pre_align["roi"] is not None:
+            # cof raw to pre-align
             ty, tx = self.pre_align["roi"][:][0]
-            C1.settranslation(tx, ty)
-        self.C1 = C1
-        self.C1inv = C1.inverse()
-        self.C3invC1.fromtransform(self.C1)
-        self.C1invC3.fromtransform(self.C1inv)
+            # cof pre-align to raw
+            CroiInv.settranslation(-tx, -ty)
+        for prealign_to_raw, prealign_to_pretransform, pretransfo in\
+            zip(self.prealign_to_raw, self.prealign_to_pretransform, self.pre_transfos):
+            prealign_to_raw.fromtransform(CroiInv)
+            if not pretransfo.isidentity():
+                # raw to pre-transform
+                prealign_to_raw.before_inplace(pretransfo.inverse())
+            prealign_to_pretransform.fromtransform(prealign_to_raw)
 
-    def calccof_pretransform_to_prealign(self):
-        """ raw -> pre-align: C1 (roi)
-            raw -> pre-transform: C3 (pad)
-            pre-transform -> pre-align: C3^-1.C1
-            pre-align -> pre-transform: C1^-1.C3
+    def calccof_prealign_to_pretransform(self):
         """
-        self.C3invC1.fromtransform(self.C1)
-        self.C1invC3.fromtransform(self.C1inv)
+        Apply transformation (image transformation):
+            aligned image: raw -> dopre_transform (cof=C3) -> img1 -> apply_transform (cof=C2) -> img4 -> dopost_transform (cof=C4) -> img5
 
+            C1: raw to pre-align
+            C2: cof in pre-align frame
+            C3: raw to pre-transform (in order: pretransform, pad)
+            C4: post transformation (crop)
+        """
+        Cpad = self.defaulttransform(ttype=transformationType.translation)
         if self.pre_transform["pad"]:
-            C3inv = self.defaulttransform(ttype=transformationType.translation)
-            C3inv.settranslation([max(self.extend[1][0], 0), max(
-                self.extend[0][0], 0)])  # o2min, o1min
-            C3 = C3inv.inverse()
-            self.C3invC1.after_inplace(C3inv)
-            self.C1invC3.before_inplace(C3)
+            # raw to pre-transform
+            o2min = -max(self.extend[1][0], 0)
+            o1min = -max(self.extend[0][0], 0)
+            Cpad.settranslation(o2min, o1min) 
+        for prealign_to_raw, prealign_to_pretransform, pretransfo in\
+            zip(self.prealign_to_raw, self.prealign_to_pretransform, self.pre_transfos):
+            prealign_to_pretransform.fromtransform(prealign_to_raw)
+            if not pretransfo.isidentity():
+                # raw to pre-transform
+                prealign_to_pretransform.before(pretransfo)
+            if self.pre_transform["pad"]:
+                prealign_to_pretransform.before(Cpad)
 
-            # TODO: not this right?
-            # self.C3invC1.settranslation([self.extend[1][0],self.extend[0][0]])
-            # self.C1invC3.settranslation([-self.extend[1][0],-self.extend[0][0]])
-
-    def execute_transform(self, img, i):
-        """Transform according to the transformation extracted from
-           the transformation kernel (see gettransformation).
+    def execute_transform(self, img, i, transfo=None):
         """
-        if not self.transformidentity(i):
+        Transform according to the transformation extracted from
+        the transformation kernel (see store_transformation).
+
+        :param np.ndarray img: in the pre-transform frame
+        :param int or LinearMapping transfo:
+        :returns np.ndarray:
+        """
+        if transfo is None:
+            transfo = self.transfos[i]  # defined in pre-align frame
+        C = self.prealign_to_pretransform[i]
+        if not C.isidentity():
+            transfo.new_frame_inplace(C)  # now defined in pre-transform frame
+        if not transfo.isidentity():
             if self.usekernel:
+                self.set_transformkernel(transfo)
                 return self.execute_transformkernel(img)
             else:
-                return self.execute_transform_nokernel(img, i)
+                return transfo.transformimage(img)
         return img
 
-    def transformidentity(self, i):
+    def transformidentity(self, transfo):
         """Is the transformation the identity
         """
-        return self.transfos[i].isidentity()
+        if instance.isnumber(transfo):
+            transfo = self.transfos[transfo]
+        return transfo.isidentity()
 
     def pureidentity(self, i):
         """Is the transformation the identity, including the changes applied
            before (padding) and after (cropping)
         """
-        return self.nopre_transform() and self.nopost_transform() and self.transformidentity(i)
+        return self.nopre_transform(i) and self.nopost_transform() and self.transformidentity(i)
 
     def transform(self, img, i):
         """Apply image transformation
@@ -344,7 +338,7 @@ class align(object):
             return img
 
         # Apply initial transformation (not used in alignment)
-        imgtransformed = self.dopre_transform(img)
+        imgtransformed = self.dopre_transform(img, i)
 
         # Apply transformation
         imgtransformed = self.execute_transform(imgtransformed, i)
@@ -358,38 +352,29 @@ class align(object):
 
         return imgtransformed
 
-    def get_transformation(self):
+    def get_alignkernel(self):
         """Get transformation from align kernel.
         """
         raise NotImplementedError()
 
-    def gettransformation(self, i, pairwise):
-        """Get transformation parameters
-        """
-        transfo = self.get_transformation()
-        # pairwise: transfo relative to previous
-        # not pairwise: transfo relative to i=iref
-        changed = pairwise and i != 0 and self.alignonraw
-        if changed:
-            # make transfo relative to i=0
-            self.transfos[i].fromtransform(self.transfos[i-1].before(transfo))
-        else:
-            self.transfos[i].fromtransform(transfo)
-        self.update_transformation(i, changed)
-
-    def set_transformation(self, cof, changed):
+    def set_transformkernel(self, transfo):
         """Set transformation in transform kernel
         """
         raise NotImplementedError()
 
-    def update_transformation(self, i, changed):
-        """Set the active transformation
+    def store_transformation(self, i, pairwise):
         """
-        if self.usekernel:
-            transfo = self.cof_in_pretransform_frame(i)
-            if not self.C1invC3.isidentity():
-                changed = True
-            self.set_transformation(transfo, changed)
+        Store transformation from align kernel for usage
+        in transform kernel
+        """
+        transfo = self.get_alignkernel()
+        # pairwise: transfo relative to previous
+        # not pairwise: transfo relative to i=iref
+        if pairwise and i != 0 and self.alignonraw:
+            # make transfo relative to i=0
+            self.transfos[i].fromtransform(self.transfos[i-1].before(transfo))
+        else:
+            self.transfos[i].fromtransform(transfo)
 
     def settransformidentity(self, i):
         """Make this transformation the identity
@@ -450,7 +435,6 @@ class align(object):
                 p = p.intersection(ps[i])
 
             if self.polygonempty(p):
-                logger = logging.getLogger(__name__)
                 logger.warning(
                     "Cropping skipped because there would be nothing left.")
                 return ()
@@ -498,9 +482,7 @@ class align(object):
         o1max = ymax-self.source.imgsize[0]+1
         o2min = -xmin
         o2max = xmax-self.source.imgsize[1]+1
-
         self.extend = ((o1min, o1max), (o2min, o2max))
-
         self.pre_transform["pad"] = np.any(np.asarray(self.extend) > 0)
         self.post_transform["crop"] = np.any(np.asarray(self.extend) < 0)
 
@@ -508,21 +490,21 @@ class align(object):
         """If all transformations are known, padding/cropping can be calculated
         """
         self.extend = ((0, 0), (0, 0))
-
-        # Smallest rectangle that contains the union (pad) or intersection (crop) of all polygons
+        # Smallest rectangle that contains the union (pad)
+        # or intersection (crop) of all polygons
         tmp = self.polygoncollectionbounds(
             ps, pad=self.pre_transform_requested["pad"])
         if len(tmp) != 4:
             self.pre_transform["pad"] = False
             self.post_transform["crop"] = False
             return
-
         self.setextend(*tmp)
 
     def bextendfrommask(self, pairwise):
         return self.post_transform_requested["crop"] and\
             self.cval is np.nan and\
-            (self.pre_align["roi"] is None or self.transfotype == transformationType.translation) and\
+            (self.pre_align["roi"] is None or
+             self.transfotype == transformationType.translation) and\
             not pairwise
 
     def setextendmask(self, img, reset=False):
@@ -531,7 +513,6 @@ class align(object):
         #    mask = np.logical_not(np.isnan(img))
         # else:
         #    mask = img != self.cval
-
         if reset:
             self._extendmask = mask
         else:
@@ -542,7 +523,6 @@ class align(object):
         """
         indvalidrow = np.argwhere(self._extendmask.sum(axis=1))
         indvalidcol = np.argwhere(self._extendmask.sum(axis=0))
-
         # When pre_align["roi"]: only valid for translations
         ymin = indvalidrow[0][0]
         ymax = indvalidrow[-1][0] - \
@@ -550,7 +530,6 @@ class align(object):
         xmin = indvalidcol[0][0]
         xmax = indvalidcol[-1][0] - \
             self._extendmask.shape[1]+self.source.imgsize[1]
-
         self.setextend(xmin, ymin, xmax, ymax)
 
     def parsetransformation_beforeapplication(self, pairwise):
@@ -573,7 +552,7 @@ class align(object):
                 # try to fit as much data in the original image size as possible
                 self.minimaltransformation(p0, ps)
 
-        self.calccof_pretransform_to_prealign()
+        self.calccof_prealign_to_pretransform()
 
     def transform_axes(self, axes):
         """Image X and Y axes after transformation
@@ -698,8 +677,6 @@ class align(object):
     def doalign(self, refdatasetindex, refimageindex=None, aligntype=alignType.full):
         """Align datasets and save the result.
         """
-        logger = logging.getLogger(__name__)
-
         pairwise = refimageindex is None
 
         # Prepare destination (will be done after alignment)
@@ -736,7 +713,7 @@ class align(object):
                     self.set_reference(imgref)
 
                 # Get align transformation
-                logger.debug("Align index %d on %d" % (i, iref))
+                logger.debug("Align image %d on %d" % (i, iref))
 
                 if i == iref:
                     self.settransformidentity(i)
@@ -756,9 +733,9 @@ class align(object):
                             imgref, 0, "Reference %d (pair-wise)" % (iref))
                     self.plot(rawprep, 2, "To align %d" % i)
                     self.plot(imgaligned, 1, "Aligned %d" % i)
-                    self.gettransformation(i, pairwise)
+                    self.store_transformation(i, pairwise)
 
-                logger.debug("Aligned index %d on %d" % (i, iref))
+                logger.debug("Change-of-frame {}".format(self.transfos[i]))
 
                 # Reference for the next image
                 if pairwise:
@@ -770,8 +747,8 @@ class align(object):
 
                 # Only calculation
                 if aligntype == alignType.calctransfo:
-                    # This is still not good enough because different kernels are used
-                    # when calculating anf applying alignment
+                    # TODO: This is still not good enough because
+                    # align and transformation kernels could be different kernels
                     if self.bextendfrommask(pairwise):
                         self.setextendmask(imgaligned, reset=bfirst)
                     bfirst = False
@@ -782,43 +759,63 @@ class align(object):
                 for j in range(self.source.nsets):
                     self.copyimg(j, i)
             else:
-                if aligntype == alignType.usetransfo:
-                    self.update_transformation(i, True)
-
                 for j in range(self.source.nsets):
                     usealignedimage = aligntype != alignType.usetransfo and \
                         j == refdatasetindex and \
                         self.nopre_align() and \
-                        self.nopre_transform() and \
+                        self.nopre_transform(i) and \
                         self.nopost_transform()
                     if usealignedimage:
                         img = imgaligned
                     else:
                         img = self.readimgraw(j, i)
                         img = self.transform(img, i)
-
                     self.writeimg(img, j, i)
 
-    def prepare_pre_align(self, roi=None):
+    def prepare_pre_align(self, roi=None, transfo=None):
+        if not isinstance(transfo, (list, tuple)):
+            if transfo is None:
+                transfo = self.defaulttransform()
+            transfo = [transfo] * self.source.nimages
+        self.pre_transfos = transfo
         if roi is None:
             self.pre_align["roi"] = None
         else:
-            self.pre_align["roi"] = ((0 if roi[0][0] is None else roi[0][0], roi[0][1]),
-                                     (0 if roi[1][0] is None else roi[1][0], roi[1][1]))
-        self.calccof_raw_to_prealign()
+            def bdefault(a):
+                if a is None:
+                    return 0
+                else:
+                    return a
+            def edefault(a):
+                if a is None:
+                    return -1
+                else:
+                    return a
+            self.pre_align["roi"] = ((bdefault(roi[0][0]), edefault(roi[0][1])),
+                                     (bdefault(roi[1][0]), edefault(roi[1][1])))
+        self.calccof_prealign_to_raw()
 
     def align(self, refdatasetindex, refimageindex=None, onraw=False, pad=True,
-              crop=False, redo=False, roi=None, rawcalc=None):
+              crop=False, redo=False, roi=None, rawcalc=None, prealigntransfo=None):
         """Alignment function that needs to be called 
 
         Args:
             refdatasetindex(int): stack to be used for alignment
-            refimageindex(Optional(int)): fixed reference to align on (pairwise alignment when None)
-            onraw(Optional(bool)): when doing pairwise alignment, use the previous raw or aligned images to align the next one on
-            pad(Optional(bool)): make sure nothing is transformed outside the field of view (has priority over crop)
+            refimageindex(Optional(int)): fixed reference to align on
+                                          pairwise alignment when None
+            onraw(Optional(bool)): when doing pairwise alignment, use the
+                                   previous raw or aligned images to align
+                                   the next one on
+            pad(Optional(bool)): make sure nothing is transformed outside
+                                 the field of view (has priority over crop)
             crop(Optional(bool)): make sure no missing data is added
-            redo(Optional(bool)): apply transformations without recalculating them (all other keywords are ignored)
+            redo(Optional(bool)): apply transformations without recalculating
+                                  them (all other keywords are ignored)
             roi(Optional(array-like)): use ony part of the image to align
+            rawcalc(Optional(callable)): apply function to raw data before
+                                         alignment (not used in transformation)
+            prealigntransfo(Optional(list(LinearMapping))): apply to raw data before alignment
+                                         (propogates to transformation)
         """
         if redo:
             self.doalign(refdatasetindex, aligntype=alignType.usetransfo)
@@ -828,13 +825,13 @@ class align(object):
                 self.alignonraw = onraw
             else:
                 self.alignonraw = True
-            self.prepare_pre_align(roi=roi)
+            self.prepare_pre_align(roi=roi, transfo=prealigntransfo)
             self.pre_transform_requested["pad"] = pad
             self.post_transform_requested["crop"] = crop
             self.pre_transform["pad"] = pad
             self.post_transform["crop"] = crop
-            center = False
-            if roi or pad or crop or center or callable(rawcalc):
+            #center = False
+            if roi or pad or crop or callable(rawcalc) or prealigntransfo:
                 # Do not use transformed image of alignment procedure
                 self.pre_align["func"] = rawcalc
                 self.doalign(refdatasetindex,
