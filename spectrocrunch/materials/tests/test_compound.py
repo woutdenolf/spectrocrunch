@@ -200,12 +200,12 @@ class test_compound(unittest.TestCase):
         c1 = compoundfromformula.CompoundFromFormula("Fe2O3", 5.3, name="test")
         c2 = jsonpickle.loads(jsonpickle.dumps(c1))
         self.assertEqual(c1, c2)
-        self.assertEqual(c1.elements, c2.elements)
+        self.assertEqual(set(c1.elements), set(c2.elements))
         self.assertEqual(c1.density, c2.density)
         c1 = compoundfromname.compoundfromname('ultralene')
         c2 = jsonpickle.loads(jsonpickle.dumps(c1))
         self.assertEqual(c1, c2)
-        self.assertEqual(c1.elements, c2.elements)
+        self.assertEqual(set(c1.elements), set(c2.elements))
         self.assertEqual(c1.density, c2.density)
 
 

@@ -173,7 +173,7 @@ class test_mixture(unittest.TestCase):
         m1 = mixture.Mixture(
             [c1, c2], [2, 3], types.fraction.mole, name='mixture')
         m2 = jsonpickle.loads(jsonpickle.dumps(m1))
-        self.assertEqual(m1.parts, m2.parts)
+        self.assertEqual(set(m1.parts), set(m2.parts))
         self.assertEqual(m1.density, m2.density)
 
 
