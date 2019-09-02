@@ -22,10 +22,19 @@ def eval(method, Z, E, applypost=True, dataframe=False):
     if instance.isquantity(E):
         E = E.to('keV').magnitude
     if is_arr_Z or is_arr_E:
+        is_array_Z = instance.isarraynot0(Z)
+        is_array_E = instance.isarraynot0(E)
         Z = np.atleast_1d(Z)
         E = np.atleast_1d(E).astype(float)
-        shapeZ = Z.shape
-        shapeE = E.shape
+        if is_array_Z:
+            shapeZ = Z.shape
+        else:
+            shapeZ = tuple()
+        if is_array_E:
+            shapeE = E.shape
+        else:
+            shapeE = tuple()
+        shape = shapeZ + shapeE
         Z = Z.flatten()
         E = E.flatten()
         if xraylib.xraylib_np:
@@ -40,13 +49,13 @@ def eval(method, Z, E, applypost=True, dataframe=False):
                     result[i, j] = method(Zi, Ej)
         if is_arr_Z and is_arr_E:
             def postfunc(x):
-                return x
+                return x.reshape(shapeZ + shapeE)
         elif is_arr_Z:
             def postfunc(x):
-                return x[:, 0].reshape(shapeZ)
+                return x.reshape(shapeZ)
         else:
             def postfunc(x):
-                return x[0, :].reshape(shapeE)
+                return x.reshape(shapeE)
     else:
         method = getattr(xraylib, method)
         result = method(Z, float(E))

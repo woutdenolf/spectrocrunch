@@ -28,11 +28,35 @@ class test_csutils(unittest.TestCase):
         Z, E = 1, 7
         result = csutils.eval(method, Z, E)
         self.assertTrue(isinstance(result, float))
+        Z, E = 1, np.array(7)
+        result = csutils.eval(method, Z, E)
+        self.assertEqual(result.shape, tuple())
         Z, E = 1, np.linspace(7, 7.5, 5)
         result = csutils.eval(method, Z, E)
         self.assertEqual(result.shape, (5, ))
         result, postfunc = csutils.eval(method, Z, E, applypost=False)
         self.assertEqual(result.shape, (1, 5))
+        Z, E = [1, 2, 3], 7
+        result = csutils.eval(method, Z, E)
+        self.assertEqual(result.shape, (3,))
+        Z, E = [1, 2, 3], np.array(7)
+        result = csutils.eval(method, Z, E)
+        self.assertEqual(result.shape, (3,))
+        Z, E = [1, 2, 3], np.linspace(7, 7.5, 5)
+        result = csutils.eval(method, Z, E)
+        self.assertEqual(result.shape, (3, 5))
+        Z, E = 1, [np.linspace(7, 7.5, 5), np.linspace(7, 7.5, 5)]
+        result = csutils.eval(method, Z, E)
+        self.assertEqual(result.shape, (2, 5))
+        Z, E = [1, 2, 3], [np.linspace(7, 7.5, 5), np.linspace(7, 7.5, 5)]
+        result = csutils.eval(method, Z, E)
+        self.assertEqual(result.shape, (3, 2, 5))
+        Z, E = np.array(1), [np.linspace(7, 7.5, 5), np.linspace(7, 7.5, 5)]
+        result = csutils.eval(method, Z, E)
+        self.assertEqual(result.shape, (2, 5))
+        Z, E = [[1, 2, 3], [1, 2, 3]], [np.linspace(7, 7.5, 5), np.linspace(7, 7.5, 5)]
+        result = csutils.eval(method, Z, E)
+        self.assertEqual(result.shape, (2, 3, 2, 5))
 
 
 def test_suite():
