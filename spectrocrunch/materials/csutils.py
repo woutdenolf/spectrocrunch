@@ -34,7 +34,9 @@ def eval(method, Z, E, applypost=True, dataframe=False):
             shapeE = E.shape
         else:
             shapeE = tuple()
-        shape = shapeZ + shapeE
+        shape_result = shapeZ + shapeE
+        def postfunc(x):
+            return x.reshape(shape_result)
         Z = Z.flatten()
         E = E.flatten()
         if xraylib.xraylib_np:
@@ -47,15 +49,6 @@ def eval(method, Z, E, applypost=True, dataframe=False):
             for i, Zi in enumerate(Z):
                 for j, Ej in enumerate(E):
                     result[i, j] = method(Zi, Ej)
-        if is_arr_Z and is_arr_E:
-            def postfunc(x):
-                return x.reshape(shapeZ + shapeE)
-        elif is_arr_Z:
-            def postfunc(x):
-                return x.reshape(shapeZ)
-        else:
-            def postfunc(x):
-                return x.reshape(shapeE)
     else:
         method = getattr(xraylib, method)
         result = method(Z, float(E))
