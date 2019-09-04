@@ -725,17 +725,20 @@ class Detector(xrmc_positional_device):
     def __init__(self, parent, name, distance=None,
                  poissonnoise=True, ebinsize=None,
                  forcedetect=False, multiplicity=None,
+                 emin=None, emax=None,
                  time=1, pixelshape='elliptical', **kwargs):
         super(Detector, self).__init__(parent, name,
                                        radius=distance,
                                        **kwargs)
+        self.emin = emin
+        self.emax = emax
         self.ebinsize = ebinsize
         self.poissonnoise = poissonnoise
         self.forcedetect = forcedetect
         self.multiplicity = multiplicity
         self.time = time
         self.pixelshape = pixelshape.lower()
-
+        
     @property
     def distance(self):
         return self.radius
@@ -814,11 +817,25 @@ class Detector(xrmc_positional_device):
 
     @property
     def emax(self):
-        return self.parent.spectrum().emax+1
+        if self._emax is None:
+            return self.parent.spectrum().emax+1
+        else:
+            return self._emax
+
+    @emax.setter
+    def emax(self, value):
+        self._emax = value
 
     @property
     def emin(self):
-        return 0
+        if self._emin is None:
+            return 0
+        else:
+            return self._emin
+
+    @emin.setter
+    def emin(self, value):
+        self._emin = value
 
     @property
     def ebinsize(self):
@@ -1200,7 +1217,8 @@ class XrmcWorldBuilder(object):
     def addxrfdetector(self, distance=None, activearea=None, ebinsize=None,
                        polar=0, azimuth=0, hoffset=0, voffset=0,
                        poissonnoise=False, forcedetect=True,
-                       multiplicity=1, time=1, response=None):
+                       multiplicity=1, time=1, response=None,
+                       emin=None, emax=None):
         self.main.removedevice(cls=Detector)
         if response:
             cls = SDD
@@ -1213,6 +1231,7 @@ class XrmcWorldBuilder(object):
                                     hoffset=hoffset, voffset=voffset,
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity,
+                                    emin=emin, emax=emax,
                                     time=time, **response)
 
     def addareadetector(self, distance=None, activearea=None, ebinsize=None,
