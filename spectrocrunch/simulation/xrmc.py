@@ -23,10 +23,6 @@ logger = logging.getLogger(__name__)
 def _execute(*args, **kwargs):
     proc = subprocess.Popen(args, **kwargs)
     out, err = proc.communicate()
-    if out:
-        out = out.decode()
-    if err:
-        err = err.decode()
     return out, err, proc.returncode
 
 
@@ -42,13 +38,32 @@ def installed(*args):
 
 def execute(*args, **kwargs):
     try:
-        capture = kwargs.pop('capture', False)
-        if capture:
+        if kwargs.pop('stdout', False):
             kwargs['stdout'] = subprocess.PIPE
+        if kwargs.pop('stderr', False):
             kwargs['stderr'] = subprocess.PIPE
         return _execute(*args, **kwargs)
     except OSError as e:
         return None, None, e.errno
+
+
+headerdt = np.dtype([('ninter', np.int32),  # N. of interactions
+                     ('ncol', np.int32),  # N. of columns
+                     ('nrow', np.int32),  # N. of rows
+                     ('scol', np.float64),  # Pixel size Sx
+                     ('srow', np.float64),  # Pixel size Sy
+                     ('time', np.float64),  # Exposure time in sec.
+                     ('type', np.int32),  # Pixel content type
+                     ('nbin', np.int32),  # N. of energy bins
+                     ('emin', np.float64),  # Minimum bin energy
+                     ('emax', np.float64)])  # Maximum bin energy
+
+
+def saveemptyresult(filename, header):
+    with open(filename, "w") as f:
+        header.tofile(f)
+        shape = header['ninter'], header['nbin'], header['ncol'], header['nrow']
+        np.zeros(np.product(shape), dtype=np.float64).tofile(f)
 
 
 def loadxrmcresult(path, basename, ext='.dat'):
@@ -56,23 +71,13 @@ def loadxrmcresult(path, basename, ext='.dat'):
     returns: Ninteractions, Nstack, Nrows, Ncolumns, Nchannels
     """
     filenames = glob(os.path.join(path, basename+'*'+ext))
-    dt = np.dtype([('ninter', np.int32),
-                    ('ncol', np.int32),
-                    ('nrow', np.int32),
-                    ('scol', np.float64),
-                    ('srow', np.float64),
-                    ('time', np.float64),
-                    ('type', np.int32),
-                    ('nbin', np.int32),
-                    ('emin', np.float64),
-                    ('emax', np.float64)])
     data = []
     info = {}
     for filename in sorted(filenames):
         with open(filename, "rb") as f:
-            header = np.fromfile(f, dtype=dt, count=1)[0]
+            header = np.fromfile(f, dtype=headerdt, count=1)[0]
             shape = header['ninter'], header['nbin'], header['ncol'], header['nrow']
-            datai = np.fromfile(f, dtype=np.double).reshape(shape)
+            datai = np.fromfile(f, dtype=np.float64).reshape(shape)
             data.append(datai)
             if not info:
                 x0 = np.arange(header['nrow'])-(header['nrow']-1)/2.
@@ -245,7 +250,7 @@ class xrmc_main(xrmc_file):
         if detectors:
             lines += ['', self.title('START SIMULATIONS')]
             if self.loops:
-                fmt = self.loop_label_format
+                fmt = self.loop_suffix_format
                 bfirst = True
                 for idx, steps in self.loop_steps():
                     lines.append('')
@@ -259,7 +264,9 @@ class xrmc_main(xrmc_file):
                         else:
                             imgType = 'Image'
                         lines += ['Run {}'.format(detector.name),
-                                  'Save {} {} {}'.format(detector.name, imgType, detector.reloutput(fmt.format(*idx)))]
+                                  'Save {} {} {}'.format(detector.name,
+                                                         imgType,
+                                                         detector.reloutput(suffix=fmt.format(*idx)))]
             else:
                 for detector in detectors:
                     if detector.TYPE == 'detectorconvolute':
@@ -267,8 +274,17 @@ class xrmc_main(xrmc_file):
                     else:
                         imgType = 'Image'
                     lines += ['Run {}'.format(detector.name),
-                              'Save {} {} {}'.format(detector.name, imgType, detector.reloutput())]
+                              'Save {} {} {}'.format(detector.name,
+                                                     imgType,
+                                                     detector.reloutput())]
         return lines
+
+    def output_suffixes(self):
+        if self.loops:
+            fmt = self.loop_suffix_format
+            return [fmt.format(*idx) for idx, _ in self.loop_steps()]
+        else:
+            return ['']
 
     def add_device(self, cls, *args, **kwargs):
         device = cls(self, *args, **kwargs)
@@ -342,12 +358,22 @@ class xrmc_main(xrmc_file):
         for detector in self.detectors():
             detector.removeoutput()
         localfs.Path(self.path)['output'].mkdir()
-        out, err, returncode = execute('xrmc', self.filepath, cwd=self.path)
-        if out:
-            print(out)
-        if err:
-            print(err)
-        return returncode == 0
+        _, err, returncode = execute('xrmc', self.filepath,
+                                     cwd=self.path, stderr=True)
+        success = returncode == 0
+        if not success:
+            if err:
+                print('XRMC errors:')
+                print(err)
+            if 'pulsetrain maximum reached' in err:
+                self.create_empty_output()
+                success = True
+        return success
+
+    def create_empty_output(self):
+        ninteractions = self.sample().ninteractions
+        for detector in self.detectors():
+            detector.saveemptyoutput(ninteractions)
 
     def addloop(self, name, device, step=None, nsteps=1):
         """
@@ -367,7 +393,7 @@ class xrmc_main(xrmc_file):
         self.loops = []
 
     @property
-    def loop_label_format(self):
+    def loop_suffix_format(self):
         fmt = ''
         for _, _, nsteps in self.loops:
             fmt += '_{{:0{}d}}'.format(max(len(str(nsteps)), 1))
@@ -801,7 +827,7 @@ class Detector(xrmc_positional_device):
         if not suffix:
             suffix = ''
         return 'output/{}{}.dat'.format(self.name, suffix)
-    
+
     def absoutput(self, suffix=None):
         if not suffix:
             suffix = ''
@@ -871,6 +897,21 @@ class Detector(xrmc_positional_device):
         filename = self.absoutput()
         if os.path.isfile(filename):
             os.remove(filename)
+
+    def saveemptyoutput(self, ninteractions):
+        energydispersive = self.energydispersive
+        if energydispersive:
+            pixeltype = 2
+        else:
+            pixeltype = 0
+        nrow, ncol = self.dims
+        srow, scol = self.pixelsize
+        header = np.array((ninteractions, ncol, nrow, scol, srow, self.time,
+                          pixeltype, self.nbins, self.emin, self.emax),
+                          dtype=headerdt)
+        suffixes = self.parent.output_suffixes()
+        for suffix in suffixes:
+            saveemptyresult(self.absoutput(suffix=suffix), header)
 
 
 class AreaDetector(Detector):
@@ -965,6 +1006,10 @@ class Sample(xrmc_device):
     def __init__(self, parent, name, multiplicity=(1, 1)):
         super(Sample, self).__init__(parent, name)
         self.multiplicity = multiplicity
+
+    @property
+    def ninteractions(self):
+        return len(self.multiplicity)
 
     @property
     def header(self):
