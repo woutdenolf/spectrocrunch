@@ -7,6 +7,9 @@ import logging
 from contextlib import contextmanager
 
 
+_logger = logging.getLogger(__name__)
+
+
 def taketimestamp():
     return datetime.datetime.now()
 
@@ -25,7 +28,9 @@ def strseconds(seconds):
     return "{:d}h {:d}m {:d}s".format(*hms(seconds))
 
 
-def printtimeelapsed(T0, logger, text="Elapsed time"):
+def printtimeelapsed(T0, logger=None, text="Elapsed time"):
+    if logger is None:
+        logger = _logger
     hours, min, sec = hms((datetime.datetime.now()-T0).seconds)
     logger.info("{}: {:d}h {:d}m {:d}s".format(text, hours, min, sec))
 
@@ -33,7 +38,7 @@ def printtimeelapsed(T0, logger, text="Elapsed time"):
 class ProgressLogger(object):
     def __init__(self, logger=None):
         if logger is None:
-            logger = logging.getLogger(__name__)
+            logger = _logger
         self.logger = logger
         self.setn(1)
         self.start()
@@ -77,16 +82,15 @@ def timeit(name=""):
     t0 = time.time()
     yield
     t1 = time.time()
-
     print("Execution time ({}): {}".format(name, t1-t0))
 
 
 @contextmanager
-def timeit_logger(logger, name=""):
+def timeit_logger(logger=None, name=""):
     T0 = taketimestamp()
     yield
     if name:
         text = "Elapsed time ({})".format(name)
     else:
         text = None
-    printtimeelapsed(T0, logger, text=text)
+    printtimeelapsed(T0, logger=logger, text=text)

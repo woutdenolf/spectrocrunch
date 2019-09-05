@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+import numpy as np
+import scipy.integrate
+import scipy.special
 
 from .. import multilayer
 from .. import compoundfromformula
@@ -15,10 +18,6 @@ from ...sources import xray as xraysources
 from ...utils import timing
 from ...utils import listtools
 from ...patch import jsonpickle
-
-import numpy as np
-import scipy.integrate
-import scipy.special
 
 
 class test_multilayer(unittest.TestCase):
@@ -151,14 +150,11 @@ class test_multilayer(unittest.TestCase):
                     spectrum2.pop(k)
                 except KeyError:
                     pass
-
             # Fisx adds sources
             for k in spectrum1:
                 spectrum1[k] = np.sum(spectrum1[k])
                 spectrum2[k] = np.sum(spectrum2[k])
-
         self.assertEqual(set(spectrum1.keys()), set(spectrum2.keys()))
-
         for k in spectrum1:
             np.testing.assert_allclose(spectrum1[k], spectrum2[k], rtol=rtol)
 
@@ -181,63 +177,70 @@ class test_multilayer(unittest.TestCase):
         integratormult = geometry.solidangle/geometry.cosnormin  # srad
         for anglesign in [1, -1]:
             detector.geometry.angleout = anglesign*abs(geometry.angleout)
+            energy0 = [8, 9]
+            weights = [1, 2]
 
-            for energy0, weights in [[8, 1], [[8, 9], [1, 1]]]:
-                sourceweights = np.squeeze(np.asarray(
-                    weights, dtype=float)/np.sum(weights))
-                if isinstance(energy0, list):
-                    emax = max(energy0)
-                else:
-                    emax = energy0
+            # Calculate spectrum manually (1 layer, 1 interaction)
+            emax = max(energy0)
+            rates = dict(compound1.xrayspectrum(
+                energy0, emin=2, emax=emax).probabilities)  # 1/cm
+            mu0 = compound1.mass_att_coeff(energy0)
+            for k in rates:
+                energy1 = k.energy(
+                    **detector.geometry.xrayspectrumkwargs())
+                mu1 = compound1.mass_att_coeff(energy1)
+                chi = mu1/o.geometry.cosnormout-mu0/o.geometry.cosnormin
+                chi = chi*compound1.density
+                thicknesscor = (np.exp(chi*o.thickness[0])-1)/chi  # cm
+                if not geometry.reflection:
+                    thicknesscor *= np.exp(-mu1*compound1.density *
+                                           o.thickness[0]/o.geometry.cosnormout)
+                eff = o.geometry.efficiency(energy0, energy1)
+                if not isinstance(k, xrayspectrum.FluoZLine):
+                    eff = np.diag(eff)
+                eff = np.squeeze(eff)
+                rates[k] = rates[k]*eff*integratormult * \
+                    thicknesscor*weights/np.sum(weights)
+            spectrumRef = xrayspectrum.Spectrum()
+            spectrumRef.update(rates)
+            spectrumRef.xlim = [2, emax]
+            spectrumRef.density = 1
+            spectrumRef.title = str(self)
+            spectrumRef.type = spectrumRef.TYPES.rate
 
-                # Simple spectrum generation (1 layer, 1 interaction)
-                gen = dict(compound1.xrayspectrum(
-                    energy0, emin=2, emax=emax).probabilities)  # 1/cm
-
-                mu0 = compound1.mass_att_coeff(energy0)
-                for k in gen:
-                    energy1 = k.energy(
-                        **detector.geometry.xrayspectrumkwargs())
-                    mu1 = compound1.mass_att_coeff(energy1)
-                    chi = mu1/o.geometry.cosnormout-mu0/o.geometry.cosnormin
-                    chi = chi*compound1.density
-                    thicknesscor = (np.exp(chi*o.thickness[0])-1)/chi  # cm
-                    if not geometry.reflection:
-                        thicknesscor *= np.exp(-mu1*compound1.density *
-                                               o.thickness[0]/o.geometry.cosnormout)
-
-                    eff = o.geometry.efficiency(energy0, energy1)
-                    if not isinstance(k, xrayspectrum.FluoZLine):
-                        eff = np.diag(eff)
-                    eff = np.squeeze(eff)
-
-                    gen[k] = gen[k]*eff*integratormult * \
-                        thicknesscor*sourceweights
-
-                spectrumRef = xrayspectrum.Spectrum()
-                spectrumRef.update(gen)
-                spectrumRef.xlim = [2, emax]
-                spectrumRef.density = 1
-                spectrumRef.title = str(self)
-                spectrumRef.type = spectrumRef.TYPES.rate
-
-                # Compare with different methods
-                # with timing.timeit("analytical"):
-                spectrum1 = o.xrayspectrum(
-                    energy0, weights=weights, emin=2, emax=emax, method="analytical", ninteractions=1)
-                # with timing.timeit("numerical"):
-                spectrum2 = o.xrayspectrum(
-                    energy0, weights=weights, emin=2, emax=emax, method="numerical", ninteractions=1)
-                # with timing.timeit("fisx"):
-                spectrum3 = o.xrayspectrum(
-                    energy0, weights=weights, emin=2, emax=emax, method="fisx", ninteractions=1)
-
-                self.assertSpectrumEqual(
-                    spectrum1, spectrumRef, rtol=1e-06)  # 0.0001% deviation
-                self.assertSpectrumEqual(
-                    spectrum1, spectrum2)  # 0.00001% deviation
-                self.assertSpectrumEqual(
-                    spectrum1, spectrum3, rtol=2e-02, compfisx=True)  # 2% deviation
+            # Compare with different methods
+            for asarray in False, True:
+                if asarray:
+                    energy0 = [energy0]*2
+                    weights = [weights]*2
+                with timing.timeit_logger(name="analytical"):
+                    spectra1 = o.xrayspectrum(
+                        energy0, weights=weights, emin=2, emax=emax,
+                        method="analytical", ninteractions=1)
+                with timing.timeit_logger(name="numerical"):
+                    spectra2 = o.xrayspectrum(
+                        energy0, weights=weights, emin=2, emax=emax,
+                        method="numerical", ninteractions=1)
+                with timing.timeit_logger(name="fisx"):
+                    spectra3 = o.xrayspectrum(
+                        energy0, weights=weights, emin=2, emax=emax,
+                        method="fisx", ninteractions=1)
+                if not asarray:
+                    spectra1 = [spectra1]
+                    spectra2 = [spectra2]
+                    spectra3 = [spectra3]
+                for spectrum1 in spectra1:
+                    self.assertSpectrumEqual(
+                        spectra1[0], spectrum1, rtol=1e-07)
+                for spectrum1 in spectra1:
+                    self.assertSpectrumEqual(
+                        spectrum1, spectrumRef, rtol=1e-06)
+                    for spectrum2 in spectra2:
+                        self.assertSpectrumEqual(
+                            spectrum1, spectrum2, rtol=1e-07)
+                    for spectrum3 in spectra3:
+                        self.assertSpectrumEqual(
+                            spectrum1, spectrum3, rtol=1e-06, compfisx=True)
 
     @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,
                      "xraylib not installed")
@@ -259,25 +262,24 @@ class test_multilayer(unittest.TestCase):
 
         for anglesign in [1, -1]:
             detector.geometry.angleout = anglesign*abs(geometry.angleout)
-            for energy0, weights in [[8, 1], [[8, 9], [1., 2.]]]:
-                if isinstance(energy0, list):
-                    emax = max(energy0)
-                else:
-                    emax = energy0
-                # with timing.timeit("analytical"):
+            energy0 = [8, 9]
+            weights = [1, 2]
+            with timing.timeit_logger(name="analytical"):
                 spectrum1 = o.xrayspectrum(
-                    energy0, weights=weights, emin=2, emax=emax, method="analytical", ninteractions=1)
-                # with timing.timeit("numerical"):
+                    energy0, weights=weights, emin=2,
+                    method="analytical", ninteractions=1)
+            with timing.timeit_logger(name="numerical"):
                 spectrum2 = o.xrayspectrum(
-                    energy0, weights=weights, emin=2, emax=emax, method="numerical", ninteractions=1)
-                # with timing.timeit("fisx"):
+                    energy0, weights=weights, emin=2,
+                    method="numerical", ninteractions=1)
+            with timing.timeit_logger(name="fisx"):
                 spectrum3 = o.xrayspectrum(
-                    energy0, weights=weights, emin=2, emax=emax, method="fisx", ninteractions=1)
-
-                self.assertSpectrumEqual(
-                    spectrum1, spectrum2, rtol=1e-04)  # 0.001% deviation
-                self.assertSpectrumEqual(
-                    spectrum1, spectrum3, rtol=2e-02, compfisx=True)  # 2% deviation
+                    energy0, weights=weights, emin=2,
+                    method="fisx", ninteractions=1)
+            self.assertSpectrumEqual(
+                spectrum1, spectrum2, rtol=1e-04)
+            self.assertSpectrumEqual(
+                spectrum1, spectrum3, rtol=1e-04, compfisx=True)
 
     @unittest.skip("TODO")
     def test_secondary(self):
@@ -297,13 +299,14 @@ class test_multilayer(unittest.TestCase):
 
         for anglesign in [-1]:
             detector.geometry.angleout = anglesign*abs(geometry.angleout)
-            for energy0, weights in [[8, 1], [9, 1], [[8, 9], [1, 2]]]:
-                spectrum2 = o.xrayspectrum(
-                    energy0, weights=weights, emin=2, emax=energy0, method="numerical", ninteractions=2)
-                spectrum3 = o.xrayspectrum(
-                    energy0, weights=weights, emin=2, emax=energy0, method="fisx", ninteractions=2)
-                self.assertSpectrumEqual(
-                    spectrum2, spectrum3, rtol=1e-02, compfisx=True)  # 1% deviation
+            energy0 = [8, 9]
+            weights = [1, 2]
+            spectrum2 = o.xrayspectrum(
+                energy0, weights=weights, emin=2, emax=energy0, method="numerical", ninteractions=2)
+            spectrum3 = o.xrayspectrum(
+                energy0, weights=weights, emin=2, emax=energy0, method="fisx", ninteractions=2)
+            self.assertSpectrumEqual(
+                spectrum2, spectrum3, rtol=1e-02, compfisx=True)
 
     @unittest.skipIf(xrfdetectors.compoundfromname.xraylib is None,
                      "xraylib not installed")

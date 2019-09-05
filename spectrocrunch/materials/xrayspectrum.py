@@ -6,6 +6,7 @@ import numbers
 import collections
 import warnings
 import scipy.integrate
+from copy import deepcopy
 
 from ..patch import xraylib
 from ..patch.pint import ureg
@@ -637,13 +638,13 @@ class Spectrum(Copyable, collections.MutableMapping):
 
     def __setitem__(self, item, value):
         self._lines[item] = value
-    
+
     def __delitem__(self, item):
         del self._lines[item]
-    
+
     def __iter__(self):
         return iter(self._lines)
-    
+
     def __len__(self):
         return len(self._lines)
 
@@ -679,11 +680,9 @@ class Spectrum(Copyable, collections.MutableMapping):
     def apply_weights(self, weights):
         if weights is None:
             return
-
         weights, func = instance.asarrayf(weights)
         n = len(weights)
         weights = func(weights/weights.sum(dtype=float))
-
         for k in self:
             if listtools.length(self[k]) == n:
                 self[k] = self[k]*weights
@@ -762,7 +761,7 @@ class Spectrum(Copyable, collections.MutableMapping):
         return self
 
     def __add__(self, other):
-        ret = self.copy()
+        ret = deepcopy(self)
         ret += other
         return ret
 
@@ -803,7 +802,7 @@ class Spectrum(Copyable, collections.MutableMapping):
             if isinstance(line, FluoZLine):
                 yield line, np.sum(v)
             else:
-                for line, v in zip(line.split(), np.asarray(v)):
+                for v in instance.asarray(v):
                     yield line, v
 
     def spectrum(self, **kwargs):
@@ -831,6 +830,7 @@ class Spectrum(Copyable, collections.MutableMapping):
             bscat = group == "Compton" or group == "Rayleigh"
             if bscat:
                 lines, intensities = next(iter(lines.items()))
+                intensities = instance.asarray(intensities)
                 lines = lines.split()
             else:
                 intensities = list(lines.values())
