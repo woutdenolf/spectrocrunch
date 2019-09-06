@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+from . import test_utils
 from . import test_stoichiometry
 from . import test_csutils
 from . import test_compound
@@ -16,6 +17,7 @@ from . import test_scintillators
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
+    testSuite.addTest(test_utils.test_suite())
     testSuite.addTest(test_stoichiometry.test_suite())
     testSuite.addTest(test_csutils.test_suite())
     testSuite.addTest(test_element.test_suite())

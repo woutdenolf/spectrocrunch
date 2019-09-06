@@ -1178,7 +1178,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
             if ninteractions >= 2:
                 method = "numerical"
         # Calculate line rates for each source
-        energy0, weights, singlespectrum = reshape_spectrum_lines(energy0, weights=weights)
+        energy0, weights, singlespectrum, singleline = reshape_spectrum_lines(energy0, weights=weights)
         if method == "fisx":
             rates = self._rates_fisx(energy0, weights, ninteractions,
                                      emin=emin, emax=emax)

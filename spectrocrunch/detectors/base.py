@@ -235,7 +235,7 @@ class Material(Copyable):
         return 1-self.transmission(energy)
 
     def efficiency(self, energysource, energydet, withdetectorattenuation=True):
-        """Filter+Detector efficiency
+        """Filter+Detector attenuation
 
           T(energysource)*T(energydet)*A(energydet)
 
@@ -252,14 +252,12 @@ class Material(Copyable):
         """
         energysource = instance.asarray(energysource)
         energydet = instance.asarray(energydet)
-
         T0 = self.filter_transmission(energysource, source=True)
         T1 = self.filter_transmission(energydet, source=False)
         if withdetectorattenuation:
             A = self.attenuation(energydet)
         else:
             A = 1.
-
         return T0[:, np.newaxis]*(T1*A)[np.newaxis, :]
 
 

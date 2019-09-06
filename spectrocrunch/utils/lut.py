@@ -165,8 +165,9 @@ class LUT(Copyable):
         self.x = units.Quantity(x, self.xunits)
         self.y = units.Quantity(y, self.yunits)
         if len(x) == 1:
-            y = [y[0]]
-            self._func = lambda x: y*len(x)
+            y = y[0]
+            # Table has only one value
+            self._func = lambda x: np.full_like(x, y)
         else:
             self._func = interpolate.interp1d(x, y, bounds_error=False,
                                               fill_value=(y[0], y[-1]),

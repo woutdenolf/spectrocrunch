@@ -19,35 +19,54 @@ def elemental_crosssections(dictin, dictout=None, w=1):
     return dictout
 
 
-def reshape_spectrum_lines(energy, weights=None):
+def reshape_spectrum_lines(energy, weights=None, normalize=True, **others):
     """
     Args:
         energy(num or array): source energies
-                              shape = nSourceLines or nSource x nSourceLines
+                              shape = [nSource x] nSourceLines
         weights(Optional(num or array): source line weights
-                                        shape=nSourceLines or nSource x nSourceLines
+                                        shape= [nSource x] nSourceLines
+        **other: others to be reshaped
     Returns:
-        tuple: energy(nSource x nSourceLines), weights(nSource x nSourceLines), singlesource
+        tuple: energy(nSource x nSourceLines), weights(nSource x nSourceLines), *others, singlesource, singleline
     """
+    # Reshape energy
     if instance.isquantity(energy):
         energy = energy.to('keV').magnitude
-    singlesource = True
-    if instance.isarraynot0(energy):
-        singlesource = instance.asarray(energy).ndim < 2
+    shape = np.asarray(energy).shape
+    if shape:
+        singlesource = len(shape) == 1
+        singleline = False
+    else:
+        singlesource = singleline = True
     energy = np.atleast_1d(energy).astype(float)
     if energy.ndim == 1:
         energy = energy[np.newaxis, :]
     else:
         energy = np.atleast_2d(energy)
+    # Reshape and normalize weights
     if weights is None:
         weights = np.ones_like(energy)
+        weights = weights/weights.sum(axis=-1, dtype=float)[:, np.newaxis]
     else:
         weights = np.atleast_1d(weights).astype(float)
         if weights.ndim == 1:
             weights = weights[np.newaxis, :]
         else:
             weights = np.atleast_2d(weights)
+        if normalize:
+            weights = weights/weights.sum(axis=-1, dtype=float)[:, np.newaxis]
     if energy.shape != weights.shape:
         raise ValueError('Energy and Weights do not have the same shape (nSource x nSourceLines)')
-    weights = weights/weights.sum(axis=-1, dtype=float)[:, np.newaxis]
-    return energy, weights, singlesource
+    # Reshape others
+    result = [energy, weights]
+    for name, values in others.items():
+        values = np.atleast_1d(values).astype(float)
+        if values.ndim == 1:
+            values = values[np.newaxis, :]
+        else:
+            values = np.atleast_2d(values)
+        if energy.shape != values.shape:
+            raise ValueError('Energy and {} do not have the same shape (nSource x nSourceLines)'.format(name))
+    result += [singlesource, singleline]
+    return result

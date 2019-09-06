@@ -334,7 +334,7 @@ class LinearOperator(Operator):
         else:
             x = str(self._opright)
         mx = "{} * {}".format(self.m, x)
-        b = " {:+}".format(self.b)
+        b = " {}".format(self.b)
         return "{}{}".format(mx, b)
 
     def _attr_eq(self, other):
