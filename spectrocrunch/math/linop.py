@@ -10,7 +10,8 @@ from ..utils import units
 
 
 class Operator(object):
-    """An operator with an operator on the right
+    """
+    An operator with an operator on the right
     """
 
     def __init__(self):
@@ -26,17 +27,14 @@ class Operator(object):
 
     def __str__(self):
         args = self._op_args
-
         if self._opright is None:
             var = "x"
         else:
             var = str(self._opright)
-
         if args:
             args = "{},{}".format(var, args)
         else:
             args = var
-
         return "{}({})".format(self._op_name, args)
 
     def __repr__(self):
@@ -144,7 +142,8 @@ class Lambda(Operator):
 
 
 class CommutativeOperator(Operator):
-    """ f: x -> f(x): f*LinearOperator = LinearOperator*g and g exists
+    """
+    f: x -> f(x): f*LinearOperator = LinearOperator*g and g exists
     """
 
     def __mul__(self, rother):
@@ -158,7 +157,8 @@ class CommutativeOperator(Operator):
             return super(CommutativeOperator, self).__mul__(rother)
 
     def _commute_linop(self, linop):
-        """If operator f is self, get operator g for which f * linop = linop * g
+        """
+        If operator f is self, get operator g for which f * linop = linop * g
 
         Args:
             linop(LinearOperator):
@@ -170,8 +170,9 @@ class CommutativeOperator(Operator):
 
 
 class ClipOperator(CommutativeOperator):
-    """ f: x -> x       cmin < x < cmax
-                ...     else
+    """
+    f: x -> x       cmin < x < cmax
+            ...     else
     """
 
     def __init__(self, cmin=None, cmax=None):
@@ -209,7 +210,6 @@ class ClipOperator(CommutativeOperator):
     def _valid_limits(self, cmin, cmax):
         vmin = self._valid_limit(cmin)
         vmax = self._valid_limit(cmax)
-
         if vmin and vmax:
             try:
                 v = self.cmin <= self.cmax
@@ -217,7 +217,6 @@ class ClipOperator(CommutativeOperator):
                 v = False
         else:
             v = True
-
         return v, vmin, vmax
 
     def __mul__(self, rother):
@@ -255,9 +254,10 @@ class ClipOperator(CommutativeOperator):
 
 
 class Clip(ClipOperator):
-    """ f: x -> x       cmin < x < cmax
-                cmin    cmin < x
-                cmax    x < cmax
+    """
+    f: x -> x       cmin < x < cmax
+            cmin    cmin < x
+            cmax    x < cmax
     """
 
     # Expressed with Heaviside Step Function:
@@ -273,7 +273,6 @@ class Clip(ClipOperator):
         # return np.clip(x,self.cmin,self.cmax)
         y, func = units.asqarrayf(x)
         y = self.tofloat(y)
-
         v, vmin, vmax = self._valid_limits(self.cmin, self.cmax)
         if v:
             if vmin:
@@ -283,7 +282,6 @@ class Clip(ClipOperator):
         else:
             nan = units.quantity_like(np.nan, y)
             y[:] = nan
-
         return func(y)
 
     @property
@@ -292,8 +290,9 @@ class Clip(ClipOperator):
 
 
 class NaNClip(ClipOperator):
-    """ f: x -> x    cmin < x < cmax
-                nan  else
+    """
+    f: x -> x    cmin < x < cmax
+            nan  else
     """
 
     @property
@@ -303,13 +302,11 @@ class NaNClip(ClipOperator):
     def _eval(self, x):
         y, func = units.asqarrayf(x)
         y = self.tofloat(y)
-
         nan = units.quantity_like(np.nan, y)
         if self._valid_limit(self.cmin):
             y[units.binary_operator(y, self.cmin, operator.lt)] = nan
         if self._valid_limit(self.cmax):
             y[units.binary_operator(y, self.cmax, operator.gt)] = nan
-
         return func(y)
 
     @property
@@ -318,7 +315,8 @@ class NaNClip(ClipOperator):
 
 
 class LinearOperator(Operator):
-    """ f: x -> m*x+b
+    """
+    f: x -> m*x+b
     """
 
     def __init__(self, m, b):
@@ -336,13 +334,15 @@ class LinearOperator(Operator):
         else:
             x = str(self._opright)
         mx = "{} * {}".format(self.m, x)
-
         b = " {:+}".format(self.b)
-
         return "{}{}".format(mx, b)
 
     def _attr_eq(self, other):
-        return self.m == other.m and self.b == other.b
+        b = (self.m == other.m) & (self.b == other.b)
+        try:
+            return all(b)
+        except:
+            return b
 
     def _eval(self, x):
         return self.m*x + self.b
@@ -351,7 +351,6 @@ class LinearOperator(Operator):
         if isinstance(rother, self.__class__):
             if self._opright is not None:
                 return super(LinearOperator, self).__mul__(rother)
-
             op = self.__class__(self.m*rother.m, rother.b*self.m+self.b)
             op._opright = rother._opright
             return op
@@ -368,7 +367,6 @@ class LinearOperator(Operator):
                 ret = self.__class__(self.m, self.b)
                 for _ in range(1, p):
                     ret *= self.__class__(self.m, self.b)
-
             return ret
         else:
             raise NotImplementedError

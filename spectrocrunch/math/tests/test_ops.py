@@ -56,35 +56,34 @@ class test_ops(unittest.TestCase):
 
     def test_combine(self):
         for arg in np.random.random(5)*60-30:
-            #arg = -29
-
             for ops in self._gencase(ncases=500):
                 opc = linop.Identity()
                 result = arg
-                # print "\n"*5
-                # print ops
-
                 # Forward
                 for op in ops:
-                    #print("\nx = {}".format(result))
-                    #print("y = {}".format(op))
                     if op is not None:
                         result = op(result)
                     opc = op*opc
-                    #print("y = {}".format(result))
-                    #print("x = {}".format(arg))
-                    #print("y = {}".format(opc))
-                    #print("y = {}".format(opc(arg)))
-
                     np.testing.assert_allclose(result, opc(arg))
-
                 # Inverse
                 result = arg
                 for op in reversed(ops):
                     if op is not None:
                         result = op.inverse(result)
-
                 np.testing.assert_allclose(result, opc.inverse(arg))
+
+    def test_veclinop(self):
+        m = np.linspace(1, 5, 5)[:, np.newaxis]
+        b = np.linspace(1, 5, 5)[:, np.newaxis]
+        op = linop.LinearOperator(m, b)
+        x = np.arange(10)[np.newaxis, :]
+        y1 = op(x)
+        y2 = m*x + b
+        self.assertEqual(y1.shape, (5, 10))
+        np.testing.assert_array_equal(y1, y2)
+        self.assertEqual(op, op)
+        op *= op
+        self.assertEqual(op, op)
 
 
 def test_suite():
@@ -92,6 +91,7 @@ def test_suite():
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_ops("test_linop"))
     testSuite.addTest(test_ops("test_combine"))
+    testSuite.addTest(test_ops("test_veclinop"))
     return testSuite
 
 
