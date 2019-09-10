@@ -625,6 +625,9 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
     def _primary_rates(self, selfabs=True):
         """
         Returns the ph generated per source line after 1 interaction (without efficiency term)
+
+        returns:
+            dict: line: rates (nSourceLines)
         """
         interactionindex = 1
 
@@ -637,7 +640,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
         nlayers = self.nlayers
         nlines = len(interactions1)
 
-        # Integrated attenuation over the sample thickness
+        # Effective sample thickness (corrected for attenuation)
         if selfabs:
             geomkwargs = self.geometry.xrayspectrumkwargs()
             energy1 = interactioninfo["getenergy"](
@@ -691,9 +694,8 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
             # nlayers x 1 x 1
             J2 = self.thickness[:, np.newaxis, np.newaxis]
 
-        # cm -> cm.srad
-        integratormult = self.geometry.solidangle/self.geometry.cosnormin
-        J2 *= integratormult
+        # Multiply thickness with geometrical factor: cm -> cm.srad
+        J2 *= self.geometry.solidangle/self.geometry.cosnormin
 
         # Interaction probability: nlayers x nsource x nlines  (1/cm/srad)
         probs = interactioninfo["probabilities"][interactionindex].loc[(
@@ -705,11 +707,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
 
         # Sum over layers
         J2 = J2.sum(axis=0).T  # nlines x nsource
-
-        # Sum over source lines for fluorescence
-        J2 = dict(zip(interactions1, J2))
-
-        return J2
+        return dict(zip(interactions1, J2))
 
     def _primary_rates_numerical(self):
         """Returns the ph generated per source line after 1 interaction (without efficiency term)
@@ -1070,8 +1068,8 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
             rates.append(self._parse_fisx_result(fixresult))
         return rates
 
-    def _rates(self, method, energy0, weights, ninteractions, emin=0, emax=None,
-               withdetectorattenuation=True):
+    def _rates(self, method, energy0, weights, ninteractions, emin=0,
+               emax=None, withdetectorresponse=True):
         """
         Args:
             energy0(array): nSource x nLines
@@ -1109,18 +1107,18 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
                                 ratesi[k] += v
                             else:
                                 ratesi[k] = v
-            # Apply filter attenuation (source and detection) + detector attenuation
-            self._rates_applyefficiency(ratesi,
-                                        withdetectorattenuation=withdetectorattenuation)
-            # Weighted source
+            # Attenuation of source and detected X-rays
+            self._attenuated_rates(ratesi,
+                                   withdetectorattenuation=withdetectorresponse)
+            # Apply source weights
             for k in ratesi:
                 ratesi[k] = ratesi[k] * weightsi
             rates.append(ratesi)
         return rates
 
-    def _rates_applyefficiency(self, rates, withdetectorattenuation=True):
+    def _attenuated_rates(self, rates, withdetectorattenuation=True):
         """
-        Apply filter attenuation (source and detection) + detector attenuation
+        Apply various attenuations: source filter, detector filter, detector
 
         Args:
             rates(dict): line: rate
@@ -1148,7 +1146,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
     @cache.withcache("layerinfo")
     def xrayspectrum(self, energy0, emin=0, emax=None, method="analytical",
                      ninteractions=1, weights=None, scattering=True,
-                     withdetectorattenuation=True):
+                     withdetectorresponse=True):
         """
         Spectrum of this sample measured under the associated gemetry
 
@@ -1160,7 +1158,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
             ninteractions:
             weights(array): nLines or nSource x nLines
             scattering(bool): include scattering peaks
-            withdetectorattenuation(bool):
+            withdetectorresponse(bool):
         Returns:
             list()
         """
@@ -1185,7 +1183,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
         else:
             rates = self._rates(method, energy0, weights, ninteractions,
                                 emin=emin, emax=emax,
-                                withdetectorattenuation=withdetectorattenuation)
+                                withdetectorresponse=withdetectorresponse)
         # X-ray spectrum for each source
         spectra = [self._rates_to_spectrum(rdict, emin=emin, emax=emax,
                                            scattering=scattering)

@@ -31,7 +31,7 @@ def flatten(data, **kwargs):
     """
     Args:
         data(Any):
-        \**kwargs: see Pickler
+        **kwargs: see Pickler
     Returns:
         dict: state of data
     """
@@ -42,7 +42,7 @@ def restore(state, **kwargs):
     """
     Args:
         state(dict):
-        \**kwargs: see Pickler
+        **kwargs: see Pickler
     Returns:
         Any: data restored from state
     """

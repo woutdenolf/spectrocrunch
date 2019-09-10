@@ -46,8 +46,7 @@ def reshape_spectrum_lines(energy, weights=None, normalize=True, **others):
         energy = np.atleast_2d(energy)
     # Reshape and normalize weights
     if weights is None:
-        weights = np.ones_like(energy)
-        weights = weights/weights.sum(axis=-1, dtype=float)[:, np.newaxis]
+        weights = np.ones_like(energy)/float(energy.shape[1])
     else:
         weights = np.atleast_1d(weights).astype(float)
         if weights.ndim == 1:

@@ -125,7 +125,7 @@ class LUT(Copyable):
     def __call__(self, x):
         x, func = units.asqarrayf(x)
         if self.isempty():
-            y = [self.default.magnitude]*len(x)
+            y = np.full(x.shape, self.default.magnitude)
             yunits = self.default.units
         else:
             x = x.to(self.xunits).magnitude
@@ -160,6 +160,7 @@ class LUT(Copyable):
             y = y.to(self.yunits).magnitude
             x = np.append(x, self.x.magnitude)
             y = np.append(y, self.y.magnitude)
+        dtype = y.dtype
         x, y = listtools.unique2lists(x, y, add=add)
         x, y = listtools.sort2lists(x, y)
         self.x = units.Quantity(x, self.xunits)
@@ -167,7 +168,7 @@ class LUT(Copyable):
         if len(x) == 1:
             y = y[0]
             # Table has only one value
-            self._func = lambda x: np.full_like(x, y)
+            self._func = lambda x: np.full_like(x, y, dtype=dtype)
         else:
             self._func = interpolate.interp1d(x, y, bounds_error=False,
                                               fill_value=(y[0], y[-1]),

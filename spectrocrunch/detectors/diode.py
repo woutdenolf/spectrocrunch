@@ -24,6 +24,7 @@ from ..math import noisepropagation
 from ..utils import instance
 from . import base
 from ..utils import lut
+from ..materials.utils import reshape_spectrum_lines
 
 import numpy as np
 import silx.math.fit as fit
@@ -536,16 +537,25 @@ class PNdiode(with_metaclass(base.SolidState)):
         ax.get_yaxis().get_major_formatter().set_useOffset(False)
         plt.title(self.__class__.__name__)
 
-    def plot_response(self, energy, flux, current=False):
+    def plot_response(self, energy, flux, weights=None, current=False):
+        """
+        Args:
+            energy(num or array): source energies
+                                  shape = [nSource x] nSourceLines
+            flux(num or array): source energies
+                                shape = [nSource x] nFluxes
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
+        """
+        energy, weights, singlesource, singleline = reshape_spectrum_lines(energy, weights=weights)
         if current:
-            y = [self.fluxtocurrent(en, flux).to(
-                "A").magnitude for en in energy]
+            response = self.fluxtocurrent(energy, flux, weights=weights).to("A").magnitude
             unit = "A"
         else:
-            y = [self.fluxtocps(en, flux).to("Hz").magnitude for en in energy]
+            response = self.fluxtocps(energy, flux, weights=weights).to("Hz").magnitude
             unit = "Hz"
-
-        plt.plot(energy, y)
+        for i, (x, y) in enumerate(zip(energy, response)):
+            plt.plot(x, y, label='Source{}'.format(i))
         # plt.axhline(y=self.oscillator.Fmax.to("Hz").magnitude,label="max")
         ax = plt.gca()
         ax.set_xlabel("Energy (keV)")
@@ -553,25 +563,28 @@ class PNdiode(with_metaclass(base.SolidState)):
         ax.get_yaxis().get_major_formatter().set_useOffset(False)
         plt.title(
             "{} @ {:.02e} ph/s, {:~.0e}".format(self.__class__.__name__, flux, self.gain))
+        if not singlesource:
+            plt.legend()
 
     def _chargeperdiodephoton(self, energy):
-        """Charge generated per photon hitting the diode: spectral responsivity multiplied by the energy
+        """
+        Charge generated per photon hitting the diode: spectral responsivity multiplied by the energy
 
         Args:
             energy(num or array): keV
 
         Returns:
-            num or array: C/ph
+            num or array: e/ph
         """
-        return (self.spectral_responsivity(energy)*units.Quantity(energy, "keV")).to("coulomb")
+        return (self.spectral_responsivity(energy)*units.Quantity(energy, "keV")).to("e")
 
     def _transmission_optics(self, energy):
         """
         Args:
-            energy(array): source energies in keV (dims: nE)
+            energy(array): source energies in keV (shape: nSource)
 
         Returns:
-
+            array:
         """
         T = np.ones_like(energy)
         for dev in self.optics:
@@ -587,7 +600,6 @@ class PNdiode(with_metaclass(base.SolidState)):
         Returns:
             array: 
         """
-
         # Before sample:
         #  Direct detection  : point-before-detection - filter(source) - filter(det) - diode - optics - sample
         #  Indirect detection: point-before-detection - filter(source) - target - optics - sample
@@ -595,12 +607,9 @@ class PNdiode(with_metaclass(base.SolidState)):
         # After sample:
         #  Direct detection  : sample - optics - point-before-detection
         #  Indirect detection: sample - optics - point-before-detection
-
         T = self._transmission_optics(energy)
-
         if self.beforesample:
             T = T*self.filter_transmission(energy, source=True)
-
             if self.secondarytarget is None:
                 # Direct detection
                 T = T*self.transmission(energy)\
@@ -608,88 +617,84 @@ class PNdiode(with_metaclass(base.SolidState)):
             else:
                 # Indirect detection
                 T = T*self.secondarytarget.transmission(energy)
-
         return T
 
     def _detection_rates(self, energy, weights):
-        """Rate of line j at point-before-diode (i.e. without diode attenuation)
-           due to
-           rate of line i at point-before-detection (i.e. before source filter)
+        """
+        Rate of line j at point-before-diode (i.e. without diode attenuation)
+        multiplied by (and due to) rate of line i at point-before-detection (i.e. before source filter)
 
         Args:
-            energy(array): source energies in keV (dims: nE)
-            weights(array): source energies in keV (dims: nE)
+            energy(array): source energies in keV
+                           shape: [nSource x] nSourceLines
+            weights(array): source energies in keV
+                            shape: [nSource x] nSourceLines
 
         Returns:
-            energy2(array): energies (keV) of lines detected by the diode (dims: nE2)
-            rates(array): rates of lines detected by the diode (dims: nE x nE2)
-
+            energy2(array): energies (keV) of lines detected by the diode
+                            shape: [nSource] x nSourceLines2
+            rates(array): rates of lines detected by the diode
+                          shape: [nSource x] nSourceLines2
         """
-
+        energy, weights, singlesource, singleline = reshape_spectrum_lines(energy, weights=weights)
         if self.secondarytarget is None:
             # Directly detect the source spectrum
             wY = weights *\
                 self.filter_transmission(energy, source=True) *\
                 self.filter_transmission(energy, source=False)
-            wY = wY[np.newaxis, :]
+            wY = wY.sum(axis=-1, keepdims=True)
         else:
-            nE = len(energy)
-
             # Spectrum generated from the target
-            # As for detector efficiency: include source and detector filters but not detector attenuation
-            spectrum = self.secondarytarget.xrayspectrum(
-                energy, weights=weights, withdetectorattenuation=False)
-
+            # As for detector efficiency: includes source and detector filters
+            #                             but not detector attenuation
+            spectra = self.secondarytarget.xrayspectrum(
+                energy, weights=weights, withdetectorresponse=False)
+            
             # Extract energies and rates (ph/phsource)
-            energy, wY = zip(*list(spectrum.spectrum()))
-
+            spectra = [dict(spectrum.spectrum()) for spectrum in spectra]
+            energies = set()
+            for spectrum in spectra:
+                energies |= set(spectrum.keys())
+            energy = []
+            wY = []
+            for spectrum in spectra:
+                missing = energies - set(spectrum.keys())
+                if missing:
+                    spectrum.update(zip(missing, np.zeros(len(missing))))
+                energy.append(list(spectrum.keys()))
+                wY.append(list(spectrum.values()))
             energy = np.asarray(energy)
-            nE2 = len(energy)
-            wY = np.asarray(wY).reshape((nE, nE2))
-
-        return energy, wY
-
-    def _parse_source(self, energy, weights=None):
-        """
-        Args:
-            energy(num or array): source energies
-            weights(Optional(num or array): source line weights
-        Returns:
-            tuple: energy(array),weights(array)
-        """
-        energy = instance.asarray(energy).astype(float)
-        if weights is None:
-            weights = np.ones_like(energy)
+            wY = np.asarray(wY)
+        if singlesource:
+            return energy[0], wY[0]
         else:
-            weights = instance.asarray(weights)
-        weights /= weights.sum()
-        return energy, weights
+            return energy, wY
 
-    def _chargepersamplephoton(self, energy, weights=None):
+    def _chargepersamplephoton(self, energy, weights=None, keepdims=False):
         """Charge generated per photon reaching the sample
 
         Args:
-            energy(num or array): source energies in keV (dims: nE)
-            weights(num or array): source line weights (dims: nE)
+            energy(num or array): source energies in keV (shape: [nSource x] nSourceLines)
+            weights(num or array): source line weights (shape: [nSource x] nSourceLines)
 
         Returns:
-            num: C/ph
+            num: C/ph (num or array(nSource [x 1]))
         """
-        # Parse input
-        energy, weights = self._parse_source(energy, weights=weights)
+        # Parse input (nSource x nSourceLines)
+        energy, weights, singlesource, singleline = reshape_spectrum_lines(energy, weights=weights)
+        kwargs = {'axis': -1, 'keepdims': keepdims}
         if self.simplecalibration:
             # I(A)  = Is(ph/s) . Cs(C) + D(A)
             # Cs(C) = SUM_i [wi.LUTj]
             LUTj = self._lut_chargepersamplephoton(
                 units.Quantity(energy, 'keV'))
-            return np.sum(LUTj*weights)
+            # Sum over source lines:
+            Cs = np.sum(LUTj*weights, **kwargs)  # nSource
         else:
             # Transmission, rates and charge-per-diode-photon
-            Ts = self._source_transmission(energy)  # nE
-            energy2, wiYij = self._detection_rates(
-                energy, weights)  # nE2, nE x nE2
-            Cj = self._chargeperdiodephoton(energy2)  # nE2
-
+            Ts = self._source_transmission(energy)  # nSource x nSourceLines
+            energy2, wiYij = self._detection_rates(energy, weights)  # nSource x nSecondary
+            Cj = self._chargeperdiodephoton(energy2)  # nSource x nSecondary
             # I(A)  = Is(ph/s) . Cs(C) + D(A)
             # Cs(C) = SUM_i [SUM_j[wi.Yij.Cj]] / SUM_k [wk.Tks]
             #
@@ -698,29 +703,35 @@ class PNdiode(with_metaclass(base.SolidState)):
             # Cs (C/ph): charge per photon hitting the sample
             # Yij: rate of line j due to line i (including solid angle but not diode attenuation)
 
-            # Sum over source lines:
-            return np.sum(wiYij*Cj[np.newaxis, :])/np.sum(weights*Ts)
+            # Sum over secondary source lines:
+            Cs = np.sum(wiYij*Cj, **kwargs)/np.sum(weights*Ts, **kwargs) # nSource
 
-    def _calibrate_chargepersamplephoton(self, energy, Cscalib, weights=None, caliboption="optics", bound=False):
+        if singlesource:
+            return Cs[0]
+        else:
+            return Cs
+
+    def _calibrate_chargepersamplephoton(self, energy, Cscalib, weights=None,
+                                         caliboption="optics", bound=False, plot=False):
         """
         Args:
-            energy(num or array): source energies in keV (dims: nE)
-            Cscalib(num): new charge-per-sample-photon (C)
-            weights(num or array): source line weights (dims: nE)
+            energy(num or array): source energies in keV (shape: nSourceLines)
+            Cscalib(num): new charge-per-sample-photon (C or e)
+            weights(num or array): source line weights (shape: nSourceLines)
             caliboption(str): "optics", "solidangle" or "thickness"
 
         Returns:
             Cscalc(num)
-            Cscalib(num)
         """
-
+        # Parse input (1 x nSourceLines)
+        energy, weights, singlesource, singleline = reshape_spectrum_lines(energy, weights=weights)
+        energy = energy[0]
+        weights = weights[0]
         # I(A) = Is(ph/s).Cs + D(A)
         if self._simplecalibration:
             # Cs = SUM_i [SUM_j[wi.Yij.Cj]] / SUM_k [wk.Tks]
             #    = SUM_i [wi . Csi]
-            energy, weights = self._parse_source(energy, weights=weights)
-            self._lut_chargepersamplephoton.replace(
-                units.Quantity(energy, 'keV'), Cscalib/weights)
+            self._lut_chargepersamplephoton.replace(units.Quantity(energy, 'keV'), Cscalib/weights)
             Cscalc = self._chargepersamplephoton(energy, weights=weights)
         else:
             # Propagate correction to one of the components of Cs:
@@ -749,29 +760,49 @@ class PNdiode(with_metaclass(base.SolidState)):
             else:
                 # No analytical solution (in general): diode thickness or optics transmission
                 # Fluorescence does not change (expensive to calculate)
-                energy, weights = self._parse_source(energy, weights=weights)
                 energy2, wiYij = self._detection_rates(
-                    energy, weights)  # nE2, nE x nE2
-                # Solve: Cscalib-Cs(x) = 0
+                    energy, weights)  # nSource x nSecondary, nSource x nSecondary
+                # Solve: func(x) = (Cscalib-Cs(x))^2 = 0
                 Cs, xorg, x0 = self._calibrate_init(
                     energy, caliboption=caliboption, bound=bound)
-                # Solve: 1/Cscalib - 1/Cs(x) = 0  (inverse because Cs are small values)
-                def func(x): return (1./Cscalib-1./Cs(x, energy,
-                                                      weights, energy2, wiYij)).to("1/coulomb").magnitude
+                # Remark: calling function Cs changes self based on first argument
+                Cscalibm = Cscalib.to("e").magnitude
+                def func(x):
+                    return (Cscalibm -
+                            Cs(x, energy, weights, energy2, wiYij).to("e").magnitude)**2
                 if bound:
                     x, info = scipy.optimize.bisect(
                         func, x0[0], x0[-1], full_output=True, disp=False)
                     if not info.converged:
                         x = np.nan
+                    if plot:
+                        print(info)
                 else:
                     x, infodict, ier, emsg = scipy.optimize.fsolve(
                         func, x0=x0, full_output=True)
+                    if plot:
+                        print(infodict)
+                        print(emsg, ier)
                     if ier != 1:
                         x = np.nan
+                
+                if plot:
+                    plt.axvline(x0, linestyle='dashed')
+                    plt.axvline(x)
+                    plt.axhline(0)
+                    xx = np.linspace(0.1, 1.5, 50)
+                    yy = [func(xi) for xi in xx]
+                    plt.plot(xx, yy)
+                
                 x = self._calibrate_apply(
                     energy, x, xorg, caliboption=caliboption)
                 Cscalc = Cs(x, energy, weights, energy2, wiYij)
-        return Cscalc, Cscalib
+
+                if plot:
+                    print(bound, x0, x)
+                    print(Cscalib, Cscalc)
+                    plt.show()
+        return Cscalc
 
     def _calibrate_init(self, energy, caliboption="optics", bound=False):
         if caliboption == "thickness":
@@ -822,34 +853,34 @@ class PNdiode(with_metaclass(base.SolidState)):
 
     def _calibrate_thickness(self, x, energy, weights, energy2, wiYij):
         self.thickness = instance.asscalar(x)
-        Ts = self._source_transmission(energy)  # nE
-        Cj = self._chargeperdiodephoton(energy2)  # nE2
+        Ts = self._source_transmission(energy)  # nSource
+        Cj = self._chargeperdiodephoton(energy2)  # nSecondary
         return np.sum(wiYij*Cj[np.newaxis, :])/np.sum(weights*Ts)
 
     def _calibrate_optics(self, x, energy, weights, energy2, wiYij):
         self.caliboptic.set_transmission(energy, x)
-        Ts = self._source_transmission(energy)  # nE
-        Cj = self._chargeperdiodephoton(energy2)  # nE2
+        Ts = self._source_transmission(energy)  # nSource
+        Cj = self._chargeperdiodephoton(energy2)  # nSecondary
         return np.sum(wiYij*Cj[np.newaxis, :])/np.sum(weights*Ts)
 
     def samplelineweights(self, energy, weights=None):
         """Source weights after transmission
 
         Args:
-            energy(num or array): source energies in keV (dims: nE)
-            weights(num or array): source line weights (dims: nE)
+            energy(num or array): source energies in keV (shape: nSource)
+            weights(num or array): source line weights (shape: nSource)
 
         Returns:
             weights(num or array): source line weights at the sample position
         """
         # Parse input
-        energy, weights = self._parse_source(energy, weights=weights)
+        energy, weights, singlesource, singleline = reshape_spectrum_lines(energy, weights=weights)
         if self.simplecalibration or not self.beforesample:
             return weights
         else:
             # wis = Iis/sum_i[Iis] = wi.Tis / sum_i[wi.Tis]
             weights *= self._source_transmission(energy)
-            weights /= weights.sum()
+            weights /= weights.sum(axis=-1, keepdims=True)
             return weights
 
     def op_currenttovoltage(self):
@@ -879,20 +910,25 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert flux to current
 
         Args:
-            energy(num or array): keV
-            weights(Optional(num or array)): line fractions
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             callable: slope (C/ph), intercept(C/s)
         """
-        return linop.LinearOperator(self._chargepersamplephoton(energy, weights=weights), self.darkcurrent)
+        Cs = self._chargepersamplephoton(energy, weights=weights, keepdims=True)
+        return linop.LinearOperator(Cs, self.darkcurrent)
 
     def op_currenttoflux(self, energy, weights=None):
         """Operator to convert current to flux
 
         Args:
-            energy(num or array): keV
-            weights(Optional(num or array)): line fractions
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             callable: slope (ph/C), intercept(ph/s)
@@ -969,8 +1005,10 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert counts-per-second to flux
 
         Args:
-            energy(num or array): keV
-            weights(Optional(num or array)): line fractions
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             callable: slope (ph/cps), intercept(ph/s)
@@ -981,8 +1019,10 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert flux to counts-per-second 
 
         Args:
-            energy(num or array): keV
-            weights(Optional(num or array)): line fractions
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             callable: slope (cps/ph), intercept(cps)
@@ -996,9 +1036,11 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert counts to flux
 
         Args:
-            energy(num or array): keV
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
             time(num): sec
-            weights(Optional(num or array)): line fractions
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             callable: slope (ph/cts), intercept(ph/s)
@@ -1009,8 +1051,10 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert voltage to flux
 
         Args:
-            energy(num or array): keV
-            weights(Optional(num or array)): line fractions
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             callable: slope (ph/s/V), intercept(ph/s)
@@ -1021,8 +1065,10 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert flux to voltage
 
         Args:
-            energy(num or array): keV
-            weights(Optional(num or array)): line fractions
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             callable: slope (V.s/ph), intercept(V)
@@ -1032,9 +1078,12 @@ class PNdiode(with_metaclass(base.SolidState)):
     def fluxtocurrent(self, energy, flux, weights=None):
         """
         Args:
-            energy(num or array): keV
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
             flux(num or array): ph/s
-            weights(Optional(num or array)): line fractions
+                                shape = [nSource x] n
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             num or array: current (A)
@@ -1045,9 +1094,12 @@ class PNdiode(with_metaclass(base.SolidState)):
     def currenttoflux(self, energy, current, weights=None):
         """
         Args:
-            energy(num or array): keV
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
             current(num or array): A
-            weights(Optional(num or array)): line fractions
+                                   shape = [nSource x] n
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             num or array: flux (ph/s)
@@ -1059,9 +1111,12 @@ class PNdiode(with_metaclass(base.SolidState)):
     def cpstoflux(self, energy, cps, weights=None):
         """
         Args:
-            energy(num or array): keV
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
             cps(num or array): cts/s
-            weights(Optional(num or array)): line fractions
+                               shape = [nSource x] n
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             num or array: flux (ph/s)
@@ -1072,10 +1127,13 @@ class PNdiode(with_metaclass(base.SolidState)):
     def countstoflux(self, energy, time, counts, weights=None):
         """
         Args:
-            energy(num or array): keV
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
             time(num): s
             cps(num or array): cts/s
-            weights(Optional(num or array)): line fractions
+                               shape = [nSource x] n
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             num or array: flux (ph/s)
@@ -1086,9 +1144,12 @@ class PNdiode(with_metaclass(base.SolidState)):
     def fluxtocps(self, energy, flux, weights=None):
         """
         Args:
-            energy(num or array): keV
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
             flux(num or array): ph/s
-            weights(Optional(num or array)): line fractions
+                                shape = [nSource x] n
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             num or array: cps (cts/s)
@@ -1176,9 +1237,12 @@ class PNdiode(with_metaclass(base.SolidState)):
     def voltagetoflux(self, energy, voltage, weights=None):
         """
         Args:
-            energy(num or array): keV
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
             voltage(num or array): V
-            weights(Optional(num or array)): line fractions
+                                   shape = [nSource x] n
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             num or array: flux (ph/s)
@@ -1189,9 +1253,12 @@ class PNdiode(with_metaclass(base.SolidState)):
     def fluxtovoltage(self, energy, flux, weights=None):
         """
         Args:
-            energy(num or array): keV
-            cps(num or array): ph/s
-            weights(Optional(num or array)): line fractions
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
+            flux(num or array): ph/s
+                                shape = [nSource x] n
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             num or array: voltage (V)
@@ -1214,15 +1281,16 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Operator to convert diode response flux.
 
         Args:
-            energy(num or array): keV
-            response(num or array): example of a response
-            weights(Optional(num or array)): line fractions
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
+            response(num or array): shape = [nSource x] n
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
             time(Optional(num)): sec
 
         Returns:
             op(linop): raw diode conversion operator
         """
-
         if time is None:
             default = "hertz"
         else:
@@ -1254,9 +1322,12 @@ class PNdiode(with_metaclass(base.SolidState)):
         """Convert diode response to flux
 
         Args:
-            energy(num or array): keV
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
             response(num or array): cts (default when time given), cps (default when time not given), A or V
-            weights(Optional(num or array)): line fractions
+                                    shape = [nSource x] n
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
             time(Optional(num)): sec
 
         Returns:
@@ -1359,11 +1430,13 @@ class PNdiode(with_metaclass(base.SolidState)):
             Fref = round_sig(cpstoflux(Idioderef/t),2)
 
         Args:
-            energy(num or array): source lines (keV)
+            energy(num or array): source energies (keV)
+                                  shape = [nSource x] nSourceLines
             expotime(num): sec
             reference(num): iodet (counts) or flux (photons/sec) to which the data should be normalized
             referencetime(Optional(num)): time to which the data should be normalized
-            weights(Optional(num or array)): source line weights
+            weights(Optional(num or array): source line weights
+                                            shape= [nSource x] nSourceLines
 
         Returns:
             op(linop): raw diode conversion operator
@@ -1472,8 +1545,16 @@ class PNdiode(with_metaclass(base.SolidState)):
             self.oscillator.F0))
 
     def fluxcpsinfo(self, energy, weights=None):
+        """
+        Args:
+            energy(num or array): source energies in keV (shape: nSourceLines)
+            weights(num or array): source line weights (shape: nSourceLines)
+
+        Returns:
+            dict
+        """
         ret = collections.OrderedDict()
-        Cs = self._chargepersamplephoton(energy, weights=weights).to("e")
+        Cs = self._chargepersamplephoton(energy, weights=weights)
         ret["Energy"] = "{} keV".format(energy)
         ret["Charge/ph"] = "{:~f}".format(Cs.to("e"))
         ret["Dark"] = "{:~e}".format(self.darkcurrent.to("e/s"))
@@ -1501,7 +1582,8 @@ class PNdiode(with_metaclass(base.SolidState)):
 
 
 class CalibratedPNdiode(PNdiode):
-    """A pn-diode with a known spectral responsivity
+    """
+    A pn-diode with a known spectral responsivity
     """
 
     def __init__(self, energy=None, response=None, model=True, fitresponse=True, **kwargs):
@@ -1576,27 +1658,29 @@ class CalibratedPNdiode(PNdiode):
 
 
 class NonCalibratedPNdiode(PNdiode):
-    """A pn-diode with an unknown spectral responsivity
+    """
+    A pn-diode with an unknown spectral responsivity
     """
 
     def __init__(self, **kwargs):
         super(NonCalibratedPNdiode, self).__init__(**kwargs)
 
-    def calibrate(self, response, sampleflux, energy, weights=None, caliboption="optics", fixdark=False, fluxmin=0, fluxmax=np.inf):
-        """Calibrate with another diode measuring the flux at the sample position
+    def calibrate(self, response, sampleflux, energy, weights=None,
+                  caliboption="optics", fixdark=False, fluxmin=0, fluxmax=np.inf):
+        """
+        Calibrate with another diode measuring the flux at the sample position
 
         Args:
             response(array): count rate (Hz) or current (A) measured by this diode (nResponse)
             sampleflux(array): flux measured at the sample position (Hz, nResponse)
-            energy(num or array): source lines (keV, nLines)
-            weights(Optional(num or array)): source line weights (nLines)
+            energy(num or array): source lines (keV, nSourceLines)
+            weights(Optional(num or array)): source line weights (nSourceLines)
             caliboption(str): "optics", "solidangle" or "thickness"
             fixdark(Optional(num)): fix dark current
 
         Returns:
             None
         """
-
         # I(A) = Is(ph/s).slope + intercept
         #      = Is(ph/s).Cs + D(A)
         # Cs: charge per sample photon
@@ -1647,9 +1731,9 @@ class NonCalibratedPNdiode(PNdiode):
             R2 = 1-sum((y-ycalc)**2)/sum((y-np.mean(y))**2)
 
         # Set diode thickness, solid angle or transmission
-        slope = units.Quantity(slope, "ampere/hertz")
-        Cscalc, Cscalib = self._calibrate_chargepersamplephoton(
-            energy, slope, weights=weights, caliboption=caliboption)
+        Cscalib = units.Quantity(slope, "coulomb").to('e')
+        Cscalc = self._calibrate_chargepersamplephoton(
+            energy, Cscalib, weights=weights, caliboption=caliboption)
 
         info = "Diode calibration:\n Energy: {} keV"\
                "\n Electron-hole pairs per photon hitting the sample: {:~} (experiment: {:~})"\
@@ -1659,7 +1743,7 @@ class NonCalibratedPNdiode(PNdiode):
                 "e"), self.darkcurrent.to("e/s"), R2)
         logger.info(info)
 
-        ret = self.fluxcpsinfo(energy)
+        ret = self.fluxcpsinfo(energy, weights=weights)
         ret["R$^2$"] = R2
         return ret
 
