@@ -19,7 +19,7 @@ def sig_to_ndigits(x, sig):
     return sig-int(math.floor(math.log10(abs(x))))-1
 
 
-round_ndigits = round
+round_ndigits = np.round
 
 
 def ceil_ndigits(x, n):
