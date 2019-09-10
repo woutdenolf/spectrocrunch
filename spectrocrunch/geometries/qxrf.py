@@ -420,7 +420,7 @@ class QXRFGeometry(with_metaclass(Copyable)):
         ret = self.diodeI0.xrfnormop(energy, expotime, reference,
                                      referencetime=referencetime,
                                      weights=weights)
-        return ret+(units.umagnitude(expotime, 's'),)
+        return ret + (units.umagnitude(expotime, 's'),)
 
     def quantinfo(self, *args, **kwargs):
         """
@@ -478,13 +478,15 @@ class QXRFGeometry(with_metaclass(Copyable)):
             self.diodeIt.addbeamfilter(None, material, thickness)
 
     def I0op(self, energy, expotime=None, weights=None, removebeamfilters=False):
-        """Calculate the flux before the sample from the I0 diode response
+        """
+        Calculate the flux before the sample from the I0 diode response
 
         Args:
             energy(num|array): keV
             expotime(Optional(num)): sec
             weights(Optional(num|array)): source lines ratio's
-            removebeamfilters(Optional(bool)): remove beam filter transmission
+            removebeamfilters(Optional(bool)): flux before beam filter
+                                               instead of flux before sample
         """
         if expotime is None:
             expotime = self.defaultexpotime
@@ -493,19 +495,22 @@ class QXRFGeometry(with_metaclass(Copyable)):
         if removebeamfilters:
             Tbeamfilters = self._beamfilter_transmission(
                 energy, weights=weights)
-            if Tbeamfilters != 1:
-                op = LinearOperator(1./Tbeamfilters, 0)*op
+            op = LinearOperator(1./Tbeamfilters, 0)*op
 
+        op.m = op.m.to('hertz')
+        op.b = op.b.to('hertz')
         return op, expotime
 
     def Itop(self, energy, expotime=None, weights=None, removebeamfilters=False):
-        """Calculate the flux after the sample from the It diode response
+        """
+        Calculate the flux after the sample from the It diode response
 
         Args:
             energy(num|array): keV
             expotime(Optional(num)): sec
             weights(Optional(num|array)): source lines ratio's
-            removebeamfilters(Optional(bool)): remove beam filter transmission
+            removebeamfilters(Optional(bool)): flux before beam filter
+                                               instead of flux before sample
         """
         if expotime is None:
             expotime = self.defaultexpotime
@@ -515,9 +520,10 @@ class QXRFGeometry(with_metaclass(Copyable)):
             # Filters after the sample (like atmosphere) are already taken into account
             Tbeamfilters = self._beamfilter_transmission(
                 energy, weights=weights)
-            if Tbeamfilters != 1:
-                op = LinearOperator(1./Tbeamfilters, 0)*op
+            op = LinearOperator(1./Tbeamfilters, 0)*op
 
+        op.m = op.m.to('hertz')
+        op.b = op.b.to('hertz')
         return op, expotime
 
     def batchcalibrate_diodes(self, params_fixed, params_var):

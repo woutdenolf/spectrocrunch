@@ -592,13 +592,14 @@ class PNdiode(with_metaclass(base.SolidState)):
         return T
 
     def _source_transmission(self, energy):
-        """Transmission between sample and point-before-detection (i.e. before source filter)
+        """
+        Transmission between sample and point-before-detection (i.e. before source filter)
 
         Args:
             energy(array): keV
 
         Returns:
-            array: 
+            array:
         """
         # Before sample:
         #  Direct detection  : point-before-detection - filter(source) - filter(det) - diode - optics - sample
@@ -647,6 +648,9 @@ class PNdiode(with_metaclass(base.SolidState)):
             # Spectrum generated from the target
             # As for detector efficiency: includes source and detector filters
             #                             but not detector attenuation
+            weights = weights *\
+                      self.filter_transmission(energy, source=True)
+            weights = weights/weights.sum(axis=-1, keepdims=True)
             spectra = self.secondarytarget.xrayspectrum(
                 energy, weights=weights, withdetectorresponse=False)
             
@@ -671,7 +675,8 @@ class PNdiode(with_metaclass(base.SolidState)):
             return energy, wY
 
     def _chargepersamplephoton(self, energy, weights=None, keepdims=False):
-        """Charge generated per photon reaching the sample
+        """
+        Charge generated per photon reaching the sample
 
         Args:
             energy(num or array): source energies in keV (shape: [nSource x] nSourceLines)
@@ -1410,7 +1415,8 @@ class PNdiode(with_metaclass(base.SolidState)):
         else:
             return None
 
-    def xrfnormop(self, energy, expotime, reference, referencetime=None, weights=None):
+    def xrfnormop(self, energy, expotime, reference, referencetime=None,
+                  weights=None):
         """Operator to convert the raw diode signal to a flux normalizing signal.
            Usage: Inorm = I/op(iodet)
 
@@ -1443,7 +1449,6 @@ class PNdiode(with_metaclass(base.SolidState)):
             Fref(num): flux in photons/s to which the data is normalized after data/op(diode)
             tref(num): time in s to which the data is normalized after data/op(diode)
         """
-
         # Convert from counts to photons/sec
         # op: x-> cpstoflux(x/t)
         t = units.Quantity(expotime, "s")
@@ -1459,7 +1464,6 @@ class PNdiode(with_metaclass(base.SolidState)):
         else:
             raise RuntimeError(
                 "Reference {} should be in photons/sec (flux) or counts (iodet).".format(reference))
-
         # Convert from counts to counts at reference flux "Fref" and reference time "tref"
         if referencetime is not None:
             tref = units.Quantity(referencetime, "s")
@@ -1470,10 +1474,8 @@ class PNdiode(with_metaclass(base.SolidState)):
                 1./Fref, "s"), units.Quantity(0, "dimensionless"))
             tref = t
         op = op2*op
-
         op.m = units.magnitude(op.m, "dimensionless")
         op.b = units.magnitude(op.b, "dimensionless")
-
         return op, Fref.to("hertz").magnitude, tref.to("s").magnitude
 
     def calibratedark(self, darkresponse, time=None):
@@ -1731,7 +1733,7 @@ class NonCalibratedPNdiode(PNdiode):
             R2 = 1-sum((y-ycalc)**2)/sum((y-np.mean(y))**2)
 
         # Set diode thickness, solid angle or transmission
-        Cscalib = units.Quantity(slope, "coulomb").to('e')
+        Cscalib = units.Quantity(slope, "coulomb")
         Cscalc = self._calibrate_chargepersamplephoton(
             energy, Cscalib, weights=weights, caliboption=caliboption)
 
