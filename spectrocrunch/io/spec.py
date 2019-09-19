@@ -438,7 +438,7 @@ class edfheader_parser(object):
                 self._extract_floats(header, {v: v}, out)
 
         # EDF: row-first ordering
-        # data.shape == (Dim_2,Dim_1) == (slow,fast)
+        # data.shape == (Dim_2, Dim_1) == (slow, fast)
         axes = []
         if not defaultdims:
             defaultdims = (None, None)

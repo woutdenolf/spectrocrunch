@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import time
+import os
+from .utils import mkdir
 from .spec import spec
 
 
@@ -24,6 +26,7 @@ def array2SpecMca(data):
 
 
 def save(mca, filename, mode="w", zero=0, gain=1):
+    mkdir(os.path.dirname(filename))
     with open(filename, mode) as ffile:
         ffile.write("#F %s\n" % filename)
         ffile.write("#D %s\n" % (time.ctime(time.time())))

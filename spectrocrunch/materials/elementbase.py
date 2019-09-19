@@ -2,6 +2,7 @@
 
 from ..utils.hashable import CompHashable
 from ..utils.copyable import Copyable
+from ..math.utils import weightedsum
 from . import xrayspectrum
 from ..utils import instance
 from ..patch.pint import ureg
@@ -52,7 +53,7 @@ class ElementBase(Copyable, CompHashable):
             environ = None
         return refractive_index_beta_calc(E, self.elemental_massfractions(),
                                           self.density, environ=environ, **kwargs)
-        
+
     def refractive_index_real(self, E, **kwargs):
         """Real part of the refractive index
         """
@@ -62,7 +63,7 @@ class ElementBase(Copyable, CompHashable):
         """Imaginary part of the refractive index
         """
         return -self.refractive_index_beta(E)
-        
+
     def xrayspectrum(self, E, source=None, weights=None, emin=0, emax=None, **kwargs):
         E = instance.asarray(E)
         if emax is None:
@@ -106,11 +107,11 @@ class ElementBase(Copyable, CompHashable):
 
     @property
     def pymcaname(self):
-        return self.pymcamaterial_prefix+self.name
+        return self.pymcamaterial_prefix + self.name
 
     @property
     def pymcacomment(self):
-        return self.pymcacomment_prefix+self.name
+        return self.pymcacomment_prefix + self.name
 
     @classmethod
     def namefrompymca(cls, string):
@@ -118,3 +119,18 @@ class ElementBase(Copyable, CompHashable):
             if string.startswith(prefix):
                 return string[len(prefix):]
         return string
+
+    def absorbance(self, energy, thickness, weights=None, decomposed=False, **kwargs):
+        muL = self.mass_att_coeff(energy, decomposed=decomposed, **kwargs)*(thickness*self.density)
+        # TODO: decomposed -> apply recursively
+        if weights is None:
+            return muL
+        else:
+            return weightedsum(muL, weights=weights)
+
+    def transmission(self, energy, thickness, decomposed=False, **kwargs):
+        A = self.absorbance(energy, thickness, decomposed=decomposed, **kwargs)
+        if decomposed:
+            return A  # TODO: apply recursively
+        else:
+            return np.exp(-A)

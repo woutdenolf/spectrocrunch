@@ -251,33 +251,37 @@ function easymake_makeenv()
     local prefixstr=$(easymake_prefixstr ${program} ${version})
 
     addProfile $(project_resource) "# Installed ${program}: ${prefixstr}"
+    if [[ -d "${prefix}/bin" ]];then
+        addBinPath "${prefix}/bin"
+        addBinPathProfile $(project_resource) "${prefixstr}/bin"
+    fi
     if [[ -d "${prefix}/bin/${program}" ]];then
         addBinPath "${prefix}/bin/${program}"
         addBinPathProfile $(project_resource) "${prefixstr}/bin/${program}"
-    else
-        addBinPath "${prefix}/bin"
-        addBinPathProfile $(project_resource) "${prefixstr}/bin"
+    fi
+    if [[ -d "${prefix}/lib" ]];then
+        addLibPath "${prefix}/lib"
+        addLibPathProfile $(project_resource) "${prefixstr}/lib"
     fi
     if [[ -d "${prefix}/lib/${program}" ]];then
         addLibPath "${prefix}/lib/${program}"
         addLibPathProfile $(project_resource) "${prefixstr}/lib/${program}"
-    else
-        addLibPath "${prefix}/lib"
-        addLibPathProfile $(project_resource) "${prefixstr}/lib"
+    fi
+    if [[ -d "${prefix}/include" ]];then
+        addInclPath "${prefix}/include"
+        addInclPathProfile $(project_resource) "${prefixstr}/include"
     fi
     if [[ -d "${prefix}/include/${program}" ]];then
         addInclPath "${prefix}/include/${program}"
         addInclPathProfile $(project_resource) "${prefixstr}/include/${program}"
-    else
-        addInclPath "${prefix}/include"
-        addInclPathProfile $(project_resource) "${prefixstr}/include"
+    fi
+    if [[ -d "${prefix}/lib/pkgconfig" ]];then
+        addPkgConfigPath "${prefix}/lib/pkgconfig"
+        addPkgConfigPathProfile $(project_resource) "${prefixstr}/lib/pkgconfig"
     fi
     if [[ -d "${prefix}/lib/${program}/pkgconfig" ]];then
         addPkgConfigPath "${prefix}/lib/${program}/pkgconfig"
         addPkgConfigPathProfile $(project_resource) "${prefixstr}/lib/${program}/pkgconfig"
-    else
-        addPkgConfigPath "${prefix}/lib/pkgconfig"
-        addPkgConfigPathProfile $(project_resource) "${prefixstr}/lib/pkgconfig"
     fi
 }
 

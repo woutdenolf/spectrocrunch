@@ -808,7 +808,7 @@ class _NXdata(_NXPath):
                     title = name
                 signalpath = self[name]
                 with signalpath.open(**createparams) as node:
-                    if not interpretation:
+                    if interpretation is None:
                         interpretation = self._interpretation(node)
                     attrs = {'long_name': title}
                     if interpretation:

@@ -269,11 +269,11 @@ class Path(fs.Path):
 @contextmanager
 def temp(**kwargs):
     """
-    Context manager which creates a non-existing temporary path that will be 
-    removed or renamed on exit.
+    Context manager which creates a non-existing temporary path that
+    will be removed or renamed on exit.
 
     Args:
-        \**kwargs: see localfs.Path.temp
+        **kwargs: see localfs.Path.temp
     """
     with Path(tempfile.gettempdir()).temp(**kwargs) as path:
         yield path

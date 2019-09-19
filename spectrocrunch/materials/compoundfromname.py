@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 
 import warnings
+import re
 from copy import copy
 from . import compound
 from . import compoundfromlist
 from . import compoundfromformula
 from . import compoundsearch
 from . import mixture
+from . import element
 from . import types
 from ..utils import instance
 
@@ -296,4 +298,7 @@ def search(name):
 
 
 def compoundfromname(name):
-    return factory(name)
+    if re.match('[A-Z][a-z]?', name):
+        return element.Element(name)
+    else:
+        return factory(name)

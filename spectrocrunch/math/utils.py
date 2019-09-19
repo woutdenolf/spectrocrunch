@@ -67,5 +67,5 @@ def weightedsum(values, weights=None):
         return values[0]
     elif weights is None or not instance.isarray(weights):
         return np.mean(values)
-
-    return values*weights/sum(weights)
+    else:
+        return sum(values*weights)/sum(weights)

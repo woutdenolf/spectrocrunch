@@ -66,8 +66,9 @@ class Material(Copyable):
         for name in names:
             self.removeattenuator(name)
 
-    def removedetectorfilters(self):
-        names = [att for att in self.attenuators if self.isdetectorfilter(att)]
+    def removedetectorfilters(self, include_atmosphere=True):
+        names = [att for att in self.attenuators
+                 if self.isdetectorfilter(att, include_atmosphere=include_atmosphere)]
         for name in names:
             self.removeattenuator(name)
 
@@ -155,16 +156,18 @@ class Material(Copyable):
             self.attenuators[attlabel] = {
                 "material": material, "thickness": thickness}
 
-    def isdetectorfilter(self, name):
-        return not self.isbeamfilter(name) and name != self.DETMATERIALLABEL
+    def isdetectorfilter(self, name, include_atmosphere=True):
+        return not self.isbeamfilter(name) and\
+               name != self.DETMATERIALLABEL and\
+               (name != self.ATMOSPHERELABEL or not include_atmosphere)
 
     def beamfilters(self):
         return [self.attenuators[att] for att in self.attenuators
                 if self.isbeamfilter(att)]
 
-    def detectorfilters(self):
+    def detectorfilters(self, include_atmosphere=True):
         return [self.attenuators[att] for att in self.attenuators
-                if self.isdetectorfilter(att)]
+                if self.isdetectorfilter(att, include_atmosphere=include_atmosphere)]
 
     def match_beamfilter(self, name):
         return re.compile(r'^beamfilter(\d+)$').match(name.lower())
@@ -195,24 +198,27 @@ class Material(Copyable):
             setup.setAttenuators(atts)
 
     def filter_absorbance(self, energy, source=False):
-        """Absorbance by filters (before or after sample)
+        """
+        Absorbance by filters (before or after sample)
         """
         if source:
             atts = self.beamfilters()
         else:
             atts = self.detectorfilters()
         if atts:
-            return sum([att["material"].mass_att_coeff(energy)*(att["thickness"]*att["material"].density) for att in atts])
+            return sum(att["material"].absorbance(energy, att["thickness"]) for att in atts)
         else:
             return np.zeros_like(energy, dtype=float)
 
     def filter_transmission(self, energy, source=False):
-        """Transmission through filters (before or after sample)
+        """
+        Transmission through filters (before or after sample)
         """
         return np.exp(-self.filter_absorbance(energy, source=source))
 
     def filter_attenuation(self, energy, source=False):
-        """Attenuation by filters (before or after sample)
+        """
+        Attenuation by filters (before or after sample)
         """
         return 1-self.filter_transmission(energy, source=source)
 

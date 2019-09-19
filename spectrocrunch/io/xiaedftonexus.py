@@ -333,8 +333,9 @@ class Converter(object):
         ndet = shape[-1]
         shape[-1] = self._xiaobject.dtype(0).itemsize
         nbytes_data = np.prod(shape)
-        nbytes_mem = virtual_memory().available
-        nchunks = int(np.ceil(nbytes_data/nbytes_mem))
+        #nbytes_mem = virtual_memory().available
+        nbytes_mem = 100*1024**2  # 100 MB
+        nchunks = int(np.ceil(nbytes_data/float(nbytes_mem)))
         if nchunks > 1:
             nchunks = int(np.ceil(2.*nbytes_data/nbytes_mem))
         n = shape[0]
