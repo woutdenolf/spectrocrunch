@@ -6,7 +6,8 @@ import numbers
 import collections
 import warnings
 import scipy.integrate
-from copy import deepcopy
+import copy
+from collections import Counter
 
 from ..patch import xraylib
 from ..patch.pint import ureg
@@ -522,6 +523,45 @@ class FluoZLine(CompHashable, Copyable):
         return self.energy() > 0
 
 
+class Line(CompHashable, Copyable):
+
+    def __init__(self, energy, groupname='unknown', linewidth=0):
+        self._energy = energy
+        self._groupname = groupname
+        self._linewidth = linewidth
+
+    @property
+    def linewidth(self):
+        return self._linewidth
+
+    def _sortkey(self, other):
+        en = self._energy
+        if instance.isiterable(en):
+            en = max(en)
+        return en
+
+    @property
+    def _repr(self):
+        """Unique representation of an instance
+        """
+        return str(self._energy)
+
+    @property
+    def nenergy(self):
+        return listtools.length(self._energy)
+
+    def energy(self, **kwargs):
+        return self._energy
+
+    @property
+    def groupname(self):
+        return self._groupname
+
+    @property
+    def valid(self):
+        return True
+
+
 class ScatteringLine(CompHashable, Copyable):
 
     def __init__(self, energysource):
@@ -587,7 +627,7 @@ class ComptonLine(ScatteringLine):
         Args:
             polar(num): radians
         """
-        if polar == 0 or polar is None:
+        if not polar:
             return self.energysource
         m = ureg.Quantity(
             1-np.cos(polar), "1/(m_e*c^2)").to("1/keV", "spectroscopy").magnitude
@@ -761,7 +801,7 @@ class Spectrum(Copyable, collections.MutableMapping):
         return self
 
     def __add__(self, other):
-        ret = deepcopy(self)
+        ret = copy.deepcopy(self)
         ret += other
         return ret
 
@@ -781,33 +821,78 @@ class Spectrum(Copyable, collections.MutableMapping):
 
     @property
     def probabilities(self):
-        """Interaction probability per cm and per srad
         """
-        if self.type != self.TYPES.crosssection:
+        Interaction probability (1/cm/srad)
+        """
+        if self.type != self.TYPES.crosssection and\
+           self.type != self.TYPES.diffcrosssection:
             raise RuntimeError(
-                "Spectrum does not contain cross-sections (cm^2/g)")
+                "Spectrum does not contain cross-sections (cm^2/g or cm^2/g/srad)")
         return self.items_converted(convert=True)
 
     @property
+    def probabilities_dict(self):
+        """
+        Interaction probability (1/cm/srad)
+        """
+        ret = {}
+        for k, v in self.probabilities:
+            if k in ret:
+                ret[k] += v
+            else:
+                ret[k] = v
+        return ret
+
+    @property
     def rates(self):
-        """Line rate (ph/phsource)
+        """
+        Line rate (ph/phsource)
         """
         if self.type != self.TYPES.rate:
             raise RuntimeError(
                 "Spectrum does not contain line rates (ph/phsource)")
         return self.items_converted(convert=True)
 
+    @property
+    def rates_dict(self):
+        """
+        Line rate (ph/phsource)
+        """
+        ret = {}
+        for k, v in self.rates:
+            if k in ret:
+                ret[k] += v
+            else:
+                ret[k] = v
+        return ret
+
     def lines(self, **kwargs):
+        """
+        Line rates (ph/phsource) or probabilities (1/cm/srad)
+        """
         for line, v in self.items_converted(convert=True, **kwargs):
             if isinstance(line, FluoZLine):
                 yield line, np.sum(v)
             else:
-                for v in instance.asarray(v):
-                    yield line, v
+                energysource = instance.asarray(line.energy())
+                values = instance.asarray(v)
+                cls = line.__class__
+                for e, v in zip(energysource, values):
+                    yield cls(e), v
 
     def spectrum(self, **kwargs):
+        """
+        Line energy and rates (ph/phsource) or probabilities (1/cm/srad)
+        """
         for line, v in self.lines(**kwargs):
-            yield instance.asscalar(line.energy(**kwargs)), v
+            yield instance.asscalar(line.energy(**self.geomkwargs)), v
+
+    @property
+    def spectrum_dict(self):
+        """
+        Line energy and rates (ph/phsource) or probabilities (1/cm/srad)
+        """
+        return dict(Counter(self.spectrum()))
 
     def linegroups(self, **kwargs):
         ret = {}
@@ -931,7 +1016,7 @@ class Spectrum(Copyable, collections.MutableMapping):
 
     def scaleprofiles(self, convert=False, fluxtime=None, histogram=False, lineinfo=None):
         multiplier = self.profile_multiplier(fluxtime=fluxtime,
-                                                  histogram=histogram)
+                                             histogram=histogram)
         ylabel = self.ylabel(convert=convert,
                              phsource=fluxtime is not None,
                              mcabin=histogram)
@@ -1129,9 +1214,9 @@ class Spectrum(Copyable, collections.MutableMapping):
             profile = profile+backfunc(energies)
         return energies, profile, ylabel
 
-    def plot(self, convert=False, fluxtime=None, mark=True, ylog=False, decompose=True,
-             histogram=False, backfunc=None, voigt=False, forcelines=False, legend=True,
-             sumlabel="sum", title=""):
+    def plot(self, convert=False, fluxtime=None, mark=True, ylog=False,
+             decompose=True, histogram=False, backfunc=None, voigt=False,
+             forcelines=False, legend=True, sumlabel="sum", title=""):
         """X-ray spectrum or cross-section lines
         """
         ax = plt.gca()
@@ -1223,5 +1308,4 @@ class Spectrum(Copyable, collections.MutableMapping):
             y = prof
             h = max(y)
             plt.plot(energies, y, **kwargs)
-
         return h
