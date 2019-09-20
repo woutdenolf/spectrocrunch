@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import os
-import errno
 import re
-import subprocess
 import itertools
 import logging
+import functools
 import numpy as np
 from glob import glob
 import matplotlib.pyplot as plt
@@ -13,6 +12,8 @@ from future.utils import with_metaclass
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 from ..io import localfs
+from ..io import mca
+from ..utils import subprocess
 from ..utils import instance
 from ..materials.element import Element
 from ..materials.compoundfromname import compoundfromname
@@ -20,31 +21,12 @@ from ..materials.compoundfromname import compoundfromname
 logger = logging.getLogger(__name__)
 
 
-def _execute(*args, **kwargs):
-    proc = subprocess.Popen(args, **kwargs)
-    out, err = proc.communicate()
-    return out, err, proc.returncode
-
-
-def installed(*args):
-    try:
-        devnull = open(os.devnull)
-        _execute(*args, stdout=devnull, stderr=devnull)
-    except OSError as e:
-        if e.errno == errno.ENOENT:
-            return False
-    return True
+def installed():
+    return subprocess.installed('xrmc')
 
 
 def execute(*args, **kwargs):
-    try:
-        if kwargs.pop('stdout', False):
-            kwargs['stdout'] = subprocess.PIPE
-        if kwargs.pop('stderr', False):
-            kwargs['stderr'] = subprocess.PIPE
-        return _execute(*args, **kwargs)
-    except OSError as e:
-        return None, None, e.errno
+    return subprocess.execute('xrmc', *args, **kwargs)
 
 
 headerdt = np.dtype([('ninter', np.int32),  # N. of interactions
@@ -66,7 +48,31 @@ def saveemptyresult(filename, header):
         np.zeros(np.product(shape), dtype=np.float64).tofile(f)
 
 
-def loadxrmcresult(path, basename, ext='.dat'):
+def loadxrmcresult(filename):
+    """
+    returns: Ninteractions, Nrows, Ncolumns, Nchannels
+    """
+    with open(filename, "rb") as f:
+        header = np.fromfile(f, dtype=headerdt, count=1)[0]
+        shape = header['ninter'], header['nbin'], header['ncol'], header['nrow']
+        data = np.fromfile(f, dtype=np.float64).reshape(shape)
+        x0 = np.arange(header['nrow'])-(header['nrow']-1)/2.
+        x1 = np.arange(header['ncol'])-(header['ncol']-1)/2.
+        x0 *= header['srow']
+        x1 *= header['scol']
+        energy = np.linspace(header['emin'], header['emax'], header['nbin'])
+        zero = header['emin']
+        gain = (header['emax']-header['emin'])/(header['nbin']-1.)
+        info = {'time': header['time'],
+                'x0': x0,
+                'x1': x1,
+                'xenergy': energy,
+                'zero': zero,
+                'gain': gain}
+    return np.transpose(data, (0, 3, 2, 1)), info
+
+
+def loadxrmcresults(path, basename, ext='.dat'):
     """
     returns: Ninteractions, Nstack, Nrows, Ncolumns, Nchannels
     """
@@ -74,23 +80,22 @@ def loadxrmcresult(path, basename, ext='.dat'):
     data = []
     info = {}
     for filename in sorted(filenames):
-        with open(filename, "rb") as f:
-            header = np.fromfile(f, dtype=headerdt, count=1)[0]
-            shape = header['ninter'], header['nbin'], header['ncol'], header['nrow']
-            datai = np.fromfile(f, dtype=np.float64).reshape(shape)
-            data.append(datai)
-            if not info:
-                x0 = np.arange(header['nrow'])-(header['nrow']-1)/2.
-                x1 = np.arange(header['ncol'])-(header['ncol']-1)/2.
-                x0 *= header['srow']
-                x1 *= header['scol']
-                energy = np.linspace(header['emin'], header['emax'], header['nbin'])
-                info = {'time': header['time'],
-                        'x0': x0,
-                        'x1': x1,
-                        'xenergy': energy}
-    data = np.stack(data, axis=0)
-    return np.transpose(data, (1, 0, 4, 3, 2)), info
+        datai, infoi = loadxrmcresult(filename)
+        data.append(datai)
+        if not info:
+            info = infoi
+    data = np.stack(data, axis=1)
+    return data, info
+
+
+def xrmcresult_to_mca(xrmcfile, mcafile, mode='w'):
+    """
+    Save sum spectrum as mca
+    """
+    data, info = loadxrmcresult(xrmcfile)
+    mcadata = data.sum(axis=tuple(range(data.ndim - 1)))
+    mca.save(mcadata, mcafile, mode=mode,
+             zero=info['zero'], gain=info['gain'])
 
 
 def showxrmcresult(data, x0=None, x1=None, xenergy=None, time=None, ylog=False):
@@ -187,20 +192,31 @@ class xrmc_file(object):
 
     @property
     def content(self):
+        body = self.body
+        if not body:
+            return []
         lines = self.header
         if not lines:
             lines = []
         lines = ['; '+s for s in lines]
         lines.append('')
-        lines += self.body
+        lines += body
         lines += ['', 'End']
         return lines
 
+    @property
+    def empty(self):
+        return not bool(self.body)
+
     def save(self, mode='w'):
-        logger.info('Saving '+self.filepath)
-        lines = self.content
+        filepath = self.filepath
+        logger.info('Saving ' + filepath)
         localfs.Path(self.path).mkdir()
-        with open(self.filepath, mode=mode) as f:
+        localfs.Path(filepath).remove()
+        lines = self.content
+        if not lines:
+            return
+        with open(filepath, mode=mode) as f:
             for line in lines:
                 f.write(line+'\n')
 
@@ -245,7 +261,8 @@ class xrmc_main(xrmc_file):
         if self.devices:
             lines += ['', self.title('DEVICES USED FOR SIMULATION')]
             for device in self.devices:
-                lines += ['', 'Load ' + device.filename]
+                if not device.empty:
+                    lines += ['', 'Load ' + device.filename]
         detectors = self.detectors()
         if detectors:
             lines += ['', self.title('START SIMULATIONS')]
@@ -301,19 +318,19 @@ class xrmc_main(xrmc_file):
 
     def source(self, **kwargs):
         return self.finddevice(cls=Source, **kwargs)
-    
+
     def spectrum(self, **kwargs):
         return self.finddevice(cls=Spectrum, **kwargs)
-        
+
     def sample(self, **kwargs):
         return self.finddevice(cls=Sample, **kwargs)
 
     def quadrics(self, **kwargs):
         return self.finddevice(cls=Quadrics, **kwargs)
-    
+
     def compositions(self, **kwargs):
         return self.finddevice(cls=Compositions, **kwargs)
-    
+
     def objects(self, **kwargs):
         return self.finddevice(cls=Objects, **kwargs)
 
@@ -353,12 +370,12 @@ class xrmc_main(xrmc_file):
         self.devices = lst
 
     def simulate(self):
-        if not installed('xrmc'):
+        if not installed():
             raise RuntimeError('xrmc is not installed')
         for detector in self.detectors():
             detector.removeoutput()
         localfs.Path(self.path)['output'].mkdir()
-        _, err, returncode = execute('xrmc', self.filepath,
+        _, err, returncode = execute(self.filepath,
                                      cwd=self.path, stderr=True)
         success = returncode == 0
         if not success:
@@ -525,6 +542,29 @@ class xrmc_reference_frame(object):
         return self.xrmcArrayInput(name, comment, arr, len(args))
 
 
+def addPositionalAttrs(names):
+    """
+    Inherited attributes from parent
+    """
+    def inner(cls):
+        for name in names:
+            def getAttr(self, attr_name=name):
+                if self.lock_to is None:
+                    return getattr(self, "_" + attr_name)
+                else:
+                    return getattr(self.lock_to, "_" + attr_name)
+            def setAttr(self, value, attr_name=name):
+                if self.lock_to is None:
+                    setattr(self, "_" + attr_name, value)
+                else:
+                    setattr(self.lock_to, "_" + attr_name, value)
+            prop = property(getAttr, setAttr)
+            setattr(cls, name, prop)
+        return cls
+    return inner
+
+
+@addPositionalAttrs(('radius', 'polar', 'azimuth', 'hoffset', 'voffset'))
 class xrmc_positional_device(xrmc_device, xrmc_reference_frame):
     """
     Device reference point is positioned at spherical coordinates [r, polar, azimuth].
@@ -533,13 +573,14 @@ class xrmc_positional_device(xrmc_device, xrmc_reference_frame):
     """
 
     def __init__(self, parent, name, radius=None, polar=None, azimuth=None,
-                 hoffset=0, voffset=0):
+                 hoffset=0, voffset=0, lock_to=None):
         super(xrmc_positional_device, self).__init__(parent, name)
-        self.radius = radius
-        self.polar = polar
-        self.azimuth = azimuth
-        self.hoffset = hoffset
-        self.voffset = voffset
+        self.lock_to = lock_to
+        self._radius = radius
+        self._polar = polar
+        self._azimuth = azimuth
+        self._hoffset = hoffset
+        self._voffset = voffset
 
     def xrmcSphericalRotationInput(self, name):
         """
@@ -638,14 +679,43 @@ class Transform(xrmc_child, xrmc_reference_frame):
             if cmd.startswith('Rotate'):
                 parameters = tuple(parameters[:-1]) + (-nsteps*parameters[-1],)
             elif cmd.startswith('Translate'):
-                parameters = -nsteps*parameters[0], -nsteps*parameters[1], -nsteps*parameters[2]
+                parameters = (-nsteps*parameters[0],
+                              -nsteps*parameters[1],
+                              -nsteps*parameters[2])
             else:
                 raise NotImplementedError(cmd)
             rtransformations.append((cmd, parameters))
         return self.__class__(self.parent, self.filesuffix+'_retour', self.device, rtransformations)
 
 
-class Source(xrmc_positional_device):
+class WithObjects(object):
+
+    def __init__(self, parent, name, **kwargs):
+        super(WithObjects, self).__init__(parent, name, **kwargs)
+        self.quadrics = parent.add_device(Quadrics,
+                                          name + '_quadrics',
+                                          lock_to=self)
+        self.objects = parent.add_device(Objects,
+                                         name + '_objects')
+
+    def add_layer(self, material=None, thickness=None,
+                  dhor=None, dvert=None, ohor=0, overt=0):
+        if not material:
+            material = 'Vacuum'
+        ilayer = self.quadrics.add_layer(thickness, dhor, dvert, ohor, overt)
+        box = ['layer{}a'.format(ilayer), 'layer{}b'.format(ilayer),
+               'blayer{}_xmin'.format(ilayer), 'blayer{}_xmax'.format(ilayer),
+               'blayer{}_zmin'.format(ilayer), 'blayer{}_zmax'.format(ilayer)]
+        name = self.parent.compositions().addmaterial(material)
+        self.objects.add('layer{}'.format(ilayer), material, box)
+        return name
+
+    def clear(self):
+        self.quadrics.clear()
+        self.objects.clear()
+
+
+class Source(WithObjects, xrmc_positional_device):
 
     TYPE = 'source'
 
@@ -665,6 +735,10 @@ class Source(xrmc_positional_device):
     @distance.setter
     def distance(self, value):
         self.radius = value
+
+    @property
+    def position(self):
+        return -self.distance
 
     @property
     def header(self):
@@ -744,7 +818,7 @@ class Spectrum(xrmc_device):
         return sum(intensity for energy, sigma, intensity in self.lines)
 
 
-class Detector(xrmc_positional_device):
+class Detector(WithObjects, xrmc_positional_device):
 
     TYPE = 'detectorarray'
 
@@ -764,7 +838,7 @@ class Detector(xrmc_positional_device):
         self.multiplicity = multiplicity
         self.time = time
         self.pixelshape = pixelshape.lower()
-        
+
     @property
     def distance(self):
         return self.radius
@@ -772,6 +846,10 @@ class Detector(xrmc_positional_device):
     @distance.setter
     def distance(self, value):
         self.radius = value
+
+    @property
+    def position(self):
+        return self.distance
 
     @property
     def header(self):
@@ -888,10 +966,12 @@ class Detector(xrmc_positional_device):
     def result(self):
         if self.parent.loops:
             suffix = '_*'
+        else:
+            suffix = None
         filename = self.absoutput(suffix=suffix)
         dirname = os.path.dirname(filename)
         basename, ext = os.path.splitext(os.path.basename(filename))
-        return loadxrmcresult(dirname, basename, ext)
+        return loadxrmcresults(dirname, basename, ext)
 
     def removeoutput(self):
         filename = self.absoutput()
@@ -999,12 +1079,12 @@ class SDD(SingleElementDetector):
             self.pulseproctime = pulseproctime
 
 
-class Sample(xrmc_device):
+class Sample(WithObjects, xrmc_positional_device):
 
     TYPE = 'sample'
 
-    def __init__(self, parent, name, multiplicity=(1, 1)):
-        super(Sample, self).__init__(parent, name)
+    def __init__(self, parent, name, multiplicity=(1, 1), **kwargs):
+        super(Sample, self).__init__(parent, name, **kwargs)
         self.multiplicity = multiplicity
 
     @property
@@ -1051,6 +1131,8 @@ class Objects(xrmc_device):
 
     @property
     def code(self):
+        if not self._dict:
+            return []
         lines = super(Objects, self).code
         lines += [('QArrName {}'.format(self.parent.quadrics().name), 'Quadric array input device name', True), 
                   ('CompName {}'.format(self.parent.compositions().name), 'Composition input device name', True)]
@@ -1064,12 +1146,16 @@ class Objects(xrmc_device):
                       (' '.join(quadricnames), 'Quadric names', True)]
         return lines
 
-    def add(self, name, compoundin, compoundout, quadricnames):
+    def add(self, name, compoundin, quadricnames):
+        try:
+            compoundout = self.parent.compositions().atmosphere
+        except AttributeError:
+            compoundout = None
         self._dict[name] = [compoundin, compoundout, quadricnames]
 
-    def change_atmosphere(self, atmosphere):
+    def change_atmosphere(self, compoundout):
         for lst in self._dict.values():
-            lst[1] = atmosphere
+            lst[1] = compoundout
 
     def clear(self):
         self._dict = {}
@@ -1080,8 +1166,21 @@ class Quadrics(xrmc_positional_device):
     TYPE = 'quadricarray'
 
     def __init__(self, parent, name, **kwargs):
-        super(Quadrics, self).__init__(parent, name, radius=0, **kwargs)
+        """
+        Args:
+            parent
+            name
+            position: position of the first layer
+        """
+        super(Quadrics, self).__init__(parent, name, **kwargs)
         self.clear()
+ 
+    @property
+    def position(self):
+        try:
+            return [0, self.lock_to.position, 0]
+        except AttributeError:
+            return [0, 0, 0]
 
     @property
     def header(self):
@@ -1093,14 +1192,24 @@ class Quadrics(xrmc_positional_device):
 
     @property
     def code(self):
+        if not self._lst:
+            return []
         lines = super(Quadrics, self).code
         for quadric in self._lst:
             name, typ, params = quadric
+            params = list(params)
             lines.append(('{} {}'.format(typ, name), '', True))
             if typ == 'Plane':
+                for i in range(3):
+                    params[i] += self.position[i]
                 comment = 'Plane through (x0,y0,z0) with normal vector (nx,ny,nz)'
             elif typ.startswith('Cylinder'):
-                comment = 'Cylinder with main axis along {} and with coordinates (d0, d1) in the perpendicular plane. (R0, R1) are the elliptical semi-axes.'.format(typ[-1])
+                axis = typ[-1]
+                iaxis = ['X', 'Y', 'Z'].index(axis)
+                idx = [j for j in range(3) if j != iaxis]
+                for i, j in enumerate(idx):
+                    params[i] += self.position[j]
+                comment = 'Cylinder with main axis along {} and with coordinates (xa, xb) in the perpendicular plane. (Ra, Rb) are the elliptical semi-axes.'.format(axis)
             else:
                 comment = ''
             lines.append((' '.join(list(map(str, params))), comment, True))
@@ -1115,44 +1224,49 @@ class Quadrics(xrmc_positional_device):
             params.append('BlockTransformAll')
         self._lst.append((name, 'Plane', params))
 
-    def add_cylinder(self, name, axis, d0, d1, R0, R1, fixed=False):
+    def add_cylinder(self, name, axis, xa, xb, Ra, Rb, fixed=False):
         if name in self.names:
             raise ValueError('Cylinder {} already exists'.format(repr(name)))
         axis = axis.upper()
         if axis not in ['X', 'Y', 'Z']:
             raise ValueError("Axis must be 'X', 'Y' or 'Z'")
-        params = [d0, d1, R0, R1]
+        params = [xa, xb, Ra, Rb]
         if fixed:
             params.append('BlockTransformAll')
         self._lst.append((name, 'Cylinder'+axis, params))
 
-    def add_layer(self, thickness, dhor, dvert, ohor, overt, dthickness=1e-10, **kwargs):
+    def add_layer(self, thickness, dhor, dvert, ohor, overt, dthickness=1e-10,
+                  **kwargs):
         """
-        Norm parallel with the beam direction
+        Norm parallel with the beam direction (Y-axis)
         Beam runs though the geometric center
 
         Args:
-            thickness:
+            thickness: can be negative
             dhor: length along the horizontal axis
             dvert: length along the vertical axis
             ohor: shift along horizontal axis
             overt: shift along vertical axis
             dthickness: layers cannot be touching
         """
-        t = 0
+        surface = 0
         ilayer = -1
+        if thickness*dthickness < 0:
+            dthickness = -dthickness
         for name, clsname, params in self._lst:
             if clsname != 'Plane':
                 continue
-            m = re.match('layer(\d+)b', name)
+            m = re.match(r'layer(\d+)b', name)
             if m:
                 i = int(m.groups()[0])
                 if i > ilayer:
                     ilayer = i
-                    t = params[1]  # thickness of previous layer
+                    surface = params[1]  # end of previous layer
         ilayer += 1
-        self.add_plane('layer{}a'.format(ilayer), 0, t+dthickness, 0, 0, -1, 0, **kwargs)
-        self.add_plane('layer{}b'.format(ilayer), 0, t+thickness, 0, 0, 1, 0, **kwargs)
+        ta = surface + dthickness
+        tb = ta + thickness
+        self.add_plane('layer{}a'.format(ilayer), 0, ta, 0, 0, -1, 0, **kwargs)
+        self.add_plane('layer{}b'.format(ilayer), 0, tb, 0, 0, 1, 0, **kwargs)
         self.add_plane('blayer{}_xmin'.format(ilayer), ohor-dhor/2, 0, 0, -1, 0, 0, **kwargs)
         self.add_plane('blayer{}_xmax'.format(ilayer), ohor+dhor/2, 0, 0, 1, 0, 0, **kwargs)
         self.add_plane('blayer{}_zmin'.format(ilayer), 0, 0, overt-dvert/2, 0, 0, -1, **kwargs)
@@ -1172,7 +1286,10 @@ def materialname(material):
         name = material.name
     except AttributeError:
         name = material
-    if 'vacuum' in name.lower():
+    try:
+        if 'vacuum' in name.lower():
+            name = 'Vacuum'
+    except AttributeError:
         name = 'Vacuum'
     name = name.replace(' ', '_')
     return name
@@ -1182,9 +1299,10 @@ class Compositions(xrmc_device):
 
     TYPE = 'composition'
 
-    def __init__(self, parent, name):
+    def __init__(self, parent, name, atmosphere=None):
         super(Compositions, self).__init__(parent, name)
         self.clear()
+        self.atmosphere = atmosphere
 
     @property
     def header(self):
@@ -1194,6 +1312,8 @@ class Compositions(xrmc_device):
 
     @property
     def code(self):
+        if not self._dict:
+            return []
         lines = super(Compositions, self).code
         for name, (elements, massfractions, density) in self._dict.items():
             lines += [None,
@@ -1207,41 +1327,51 @@ class Compositions(xrmc_device):
     def add(self, name, elements, massfractions, density):
         self._dict[name] = list(map(str, elements)), massfractions, density
 
+    def clear(self):
+        self._dict = {}
+
     def addmaterial(self, material, name=None):
+        """
+        Args:
+            material(str or Element/Compound/Mixture)
+            name(str)
+        Returns:
+            str: xrmc composition name
+        """
+        if material is None:
+            material = 'vacuum'
         if name is None:
-            name = material
-        name = materialname(name)
+            name = materialname(material)
+        if instance.isstring(material):
+            if 'vacuum' in material.lower():
+                return 'Vacuum'  # No need to add this
+            material = compoundfromname(material)
         wfrac = material.elemental_massfractions()
         self.add(name, list(wfrac.keys()), list(wfrac.values()), material.density)
         return name
 
-    def clear(self):
-        self._dict = {}
+    @property
+    def atmosphere(self):
+        return self._atmosphere
+
+    @atmosphere.setter
+    def atmosphere(self, material):
+        self._atmosphere = self.addmaterial(material)
+        for objects in self.parent.objects(first=False):
+            objects.change_atmosphere(material)
 
 
 class XrmcWorldBuilder(object):
 
-    def __init__(self, path, atmosphere='Vacuum'):
+    def __init__(self, path, atmosphere=None):
         self.main = main = xrmc_main(path)
-        self.quadrics = main.add_device(Quadrics, 'quadrics')
-        self.objects = main.add_device(Objects, 'objects')
-        self.compoundlib = main.add_device(Compositions, 'compoundlib')
-        self.atmosphere = atmosphere
+        self.sample = main.add_device(Sample, 'sample')
+        main.add_device(Compositions, 'compoundlib', atmosphere=atmosphere)
 
     def __repr__(self):
         return repr(self.main)
 
-    def addelement(self, symb):
-        return self.compoundlib.addmaterial(Element(symb))
-
-    def addmaterial(self, material):
-        if instance.isstring(material):
-            if material.lower() == 'vacuum':
-                return
-            material = compoundfromname(material)
-        return self.compoundlib.addmaterial(material)
-
-    def definesource(self, flux=None, energy=None, distance=None, beamsize=None, multiplicity=1):
+    def define_source(self, flux=None, energy=None, distance=None, beamsize=None, multiplicity=1):
         self.main.removedevice(cls=Source)
         self.source = self.main.add_device(Source, 'synchrotron',
                                            beamsize=beamsize, distance=distance)
@@ -1249,9 +1379,9 @@ class XrmcWorldBuilder(object):
                                              lines=[[energy, 0, flux]],
                                              multiplicity=multiplicity)
 
-    def adddiode(self, distance=None, activearea=None, ebinsize=None,
-                 polar=0, azimuth=0, poissonnoise=False, forcedetect=False,
-                 multiplicity=1, time=1):
+    def add_diode(self, distance=None, activearea=None, ebinsize=None,
+                  polar=0, azimuth=0, poissonnoise=False, forcedetect=False,
+                  multiplicity=1, time=1):
         self.main.removedevice(cls=Detector)
         self.detector = self.main.add_device(SingleElementDetector, 'detector',
                                     distance=distance, activearea=activearea,
@@ -1259,11 +1389,11 @@ class XrmcWorldBuilder(object):
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity, time=time)
 
-    def addxrfdetector(self, distance=None, activearea=None, ebinsize=None,
-                       polar=0, azimuth=0, hoffset=0, voffset=0,
-                       poissonnoise=False, forcedetect=True,
-                       multiplicity=1, time=1, response=None,
-                       emin=None, emax=None):
+    def add_xrfdetector(self, distance=None, activearea=None, ebinsize=None,
+                        polar=0, azimuth=0, hoffset=0, voffset=0,
+                        poissonnoise=False, forcedetect=True,
+                        multiplicity=1, time=1, response=None,
+                        emin=None, emax=None):
         self.main.removedevice(cls=Detector)
         if response:
             cls = SDD
@@ -1279,10 +1409,10 @@ class XrmcWorldBuilder(object):
                                     emin=emin, emax=emax,
                                     time=time, **response)
 
-    def addareadetector(self, distance=None, activearea=None, ebinsize=None,
-                        polar=0, azimuth=0, hpoffset=0, vpoffset=0,
-                        poissonnoise=False, forcedetect=True,
-                        multiplicity=1, time=1, pixelsize=None, dims=None):
+    def add_areadetector(self, distance=None, activearea=None, ebinsize=None,
+                         polar=0, azimuth=0, hpoffset=0, vpoffset=0,
+                         poissonnoise=False, forcedetect=True,
+                         multiplicity=1, time=1, pixelsize=None, dims=None):
         self.main.removedevice(cls=Detector)
         self.detector = self.main.add_device(AreaDetector, 'detector',
                                     distance=distance,
@@ -1292,38 +1422,13 @@ class XrmcWorldBuilder(object):
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity, time=time)
 
-    def addlayer(self, material=None, thickness=None, dhor=None, dvert=None, ohor=0, overt=0):
-        if not material:
-            material = 'Vacuum'
-        ilayer = self.quadrics.add_layer(thickness, dhor, dvert, ohor, overt)
-        box = ['layer{}a'.format(ilayer), 'layer{}b'.format(ilayer),
-               'blayer{}_xmin'.format(ilayer), 'blayer{}_xmax'.format(ilayer),
-               'blayer{}_zmin'.format(ilayer), 'blayer{}_zmax'.format(ilayer)]
-        name = self.addmaterial(material)
-        self.objects.add('layer{}'.format(ilayer), material, self.atmosphere, box)
-        return name
-
-    @property
-    def atmosphere(self):
-        return self._atmosphere
-
-    @atmosphere.setter
-    def atmosphere(self, material):
-        self.addmaterial(material)
-        self._atmosphere = material
-        self.objects.change_atmosphere(material)
-
-    def removesample(self):
-        self.quadrics.clear()
-        self.objects.clear()
+    def addmaterial(self, material, name=None):
+        return self.main.compositions().addmaterial(material, name=name)
 
     def finalize(self, interactions=None):
-        sample = self.main.sample()
-        if sample:
-            sample.multiplicity = interactions
-        else:
-            self.main.add_device(Sample, 'sample', multiplicity=interactions)
+        sample = self.sample
+        sample.multiplicity = interactions
         self.main.save()
 
-    def simulate(self):
+    def simulate(self, interactions=None):
         return self.main.simulate()
