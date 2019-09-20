@@ -48,7 +48,7 @@ def saveemptyresult(filename, header):
         np.zeros(np.product(shape), dtype=np.float64).tofile(f)
 
 
-def loadxrmcresult(filename):
+def _loadxrmcresult(filename):
     """
     returns: Ninteractions, Nrows, Ncolumns, Nchannels
     """
@@ -72,7 +72,7 @@ def loadxrmcresult(filename):
     return np.transpose(data, (0, 3, 2, 1)), info
 
 
-def loadxrmcresults(path, basename, ext='.dat'):
+def loadxrmcresult(path, basename, ext='.dat'):
     """
     returns: Ninteractions, Nstack, Nrows, Ncolumns, Nchannels
     """
@@ -80,7 +80,7 @@ def loadxrmcresults(path, basename, ext='.dat'):
     data = []
     info = {}
     for filename in sorted(filenames):
-        datai, infoi = loadxrmcresult(filename)
+        datai, infoi = _loadxrmcresult(filename)
         data.append(datai)
         if not info:
             info = infoi
@@ -92,13 +92,14 @@ def xrmcresult_to_mca(xrmcfile, mcafile, mode='w'):
     """
     Save sum spectrum as mca
     """
-    data, info = loadxrmcresult(xrmcfile)
+    data, info = _loadxrmcresult(xrmcfile)
     mcadata = data.sum(axis=tuple(range(data.ndim - 1)))
     mca.save(mcadata, mcafile, mode=mode,
              zero=info['zero'], gain=info['gain'])
 
 
-def showxrmcresult(data, x0=None, x1=None, xenergy=None, time=None, ylog=False):
+def showxrmcresult(data, x0=None, x1=None, xenergy=None, time=None,
+                   ylog=False, **kwargs):
     print('Data shape: {}'.format(data.shape))
 
     if len(x0) > 1:
@@ -971,7 +972,7 @@ class Detector(WithObjects, xrmc_positional_device):
         filename = self.absoutput(suffix=suffix)
         dirname = os.path.dirname(filename)
         basename, ext = os.path.splitext(os.path.basename(filename))
-        return loadxrmcresults(dirname, basename, ext)
+        return loadxrmcresult(dirname, basename, ext)
 
     def removeoutput(self):
         filename = self.absoutput()
@@ -1421,7 +1422,7 @@ class XrmcWorldBuilder(object):
                                     hpoffset=hpoffset, vpoffset=vpoffset,
                                     ebinsize=ebinsize, poissonnoise=poissonnoise,
                                     forcedetect=forcedetect, multiplicity=multiplicity, time=time)
-
+    
     def addmaterial(self, material, name=None):
         return self.main.compositions().addmaterial(material, name=name)
 
@@ -1432,3 +1433,23 @@ class XrmcWorldBuilder(object):
 
     def simulate(self, interactions=None):
         return self.main.simulate()
+
+    # Legacy notebooks:
+    definesource = define_source
+    adddiode = add_diode
+    addxrfdetector = add_xrfdetector
+    addareadetector = add_areadetector
+    
+    def removesample(self):
+        pass
+
+    def addlayer(self, **kwargs):
+        self.sample.add_layer(**kwargs)
+    
+    @property
+    def quadrics(self):
+        return self.sample.quadrics
+    
+    @property
+    def objects(self):
+        return self.sample.objects
