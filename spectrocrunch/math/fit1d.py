@@ -35,7 +35,7 @@ def leastsq(x, data, guessfunc=None, fitfunc=None):
 
 def xyremovenan(x, y):
     b = np.logical_and(~np.isnan(x), ~np.isnan(y))
-    x[b], y[b]
+    return x[b], y[b]
 
 
 def cor_from_cov(cov):
@@ -44,40 +44,52 @@ def cor_from_cov(cov):
 
 
 def lstsq_cov(A, vare=None, cove=None):
+    """Covariance matrix of the least squares solution
+    of a linear system.
+
+    .. math::
+
+        A.x = b + e
+
+        E(e) = 0
+
+    Args:
+        A(array): (m x n)
+        vare(array): variance on e (m)
+        cove(array): covariance matrix of e (m x m)
+
+    Returns:
+        covx(array): (n x n)
+    """
     # A.x = b + e
     # E(e) = 0
     #
-    # x = A^(-1).(b+e)
-    # COVx = A^(-1).COVe.A^(-T)
-    # COVx = (A^T.COVe^(-1).A)^(-1)
+    # Least squares estimator of x:
+    #  x = M.b
+    #  M = (A^T.A)^(-1).A^T
+    #  COV(x) = M.COV(e).M^T
+    # https://stat.ethz.ch/~geer/bsa199_o.pdf
 
-    # try:
+    m, n = A.shape
+    if m == n:
+        try:
+            # M = A^(-1)
+            if cove is None:
+                return np.linalg.inv(A.T.dot(A/vare.reshape((m, 1))))
+            else:
+                iA = np.linalg.inv(A)
+                return iA.dot(cove.dot(iA.T))
+        except np.linalg.linalg.LinAlgError:
+            pass
+    # TODO: this matrix has been already calculated before
+    M = np.linalg.inv((A.T.dot(A))).dot(A.T)
     if cove is None:
-        return np.linalg.inv(np.dot(A.T, A/vare.reshape((vare.size, 1))))
+        return (M*vare.reshape((1, m))).dot(M.T)
     else:
-        iA = np.linalg.inv(A)
-        return invA.dot(COVe.dot(invA.T))
-    # except np.linalg.linalg.LinAlgError:
-    #    _,n = A.shape
-    #    return np.ones((n,n))
+        return M.dot(cove).dot(M.T)
 
 
-def lstsq_cov_est(A, b, x):
-    # A.x = b + e
-    # E(e) = 0
-    #
-    # x = A^(-1).(b+e)
-    # COVx = A^(-1).COVe.A^(-T)
-    # COVx = (A^T.COVe^(-1).A)^(-1)
-    #
-    # COVe diagonal (with VARe on the diagonal)
-    # VAR(e) ≃ VAR(A.x-b)
-
-    vare = np.var(np.dot(A, x)-b, ddof=x.size)
-    return np.linalg.inv(np.dot(A.T, A)) * vare
-
-
-def lstsq_std(A, b=None, x=None, vare=None):
+def lstsq_std(A, b=None, x=None, vare=None, cove=None):
     """Estimated error of solution to linear system
 
     .. math::
@@ -88,17 +100,17 @@ def lstsq_std(A, b=None, x=None, vare=None):
 
     Args:
         A(array): (m x n)
-        b(array): (m)
-        x(array): (n)
+        b(array): only needed when neither vare nor cove are given (m)
+        x(array): only needed when neither vare nor cove are given (n)
         vare(array): variance on e (m)
+        cove(array): covariance matrix of e (m x m)
 
     Returns:
         stdx(array): errors (n)
     """
-    if vare is None:
-        return np.sqrt(np.diag(lstsq_cov_est(A, b, x)))
-    else:
-        return np.sqrt(np.diag(lstsq_cov(A, vare)))
+    if vare is None and cove is None:
+        vare = np.var(np.dot(A, x)-b, ddof=x.size)
+    return np.sqrt(np.diag(lstsq_cov(A, vare=vare, cove=cove)))
 
 
 def lstsq_std_indep(A, b=None, x=None, vare=None):
@@ -114,7 +126,7 @@ def lstsq_std_indep(A, b=None, x=None, vare=None):
     there variances are found by solving another linear system
 
     .. math::
-        (A*A).VARx = VARe
+        (A*A).VAR(x) = VAR(e)
 
     Args:
         A(array): (m x n)
@@ -131,7 +143,7 @@ def lstsq_std_indep(A, b=None, x=None, vare=None):
     return np.sqrt(lstsq(A*A, vare))
 
 
-def lstsq(A, b, errors=False, vare=None):
+def lstsq(A, b, errors=False, vare=None, cove=None):
     """Solve the following linear system
 
     .. math::
@@ -145,6 +157,7 @@ def lstsq(A, b, errors=False, vare=None):
         b(array): (m)
         errors(Optional(bool)): return solution with estimated error
         vare(array): variance on e (m)
+        cove(array): covariance matrix of e (m x m)
 
     Returns:
         x(array): solution (n)
@@ -152,7 +165,7 @@ def lstsq(A, b, errors=False, vare=None):
     """
     x = np.linalg.lstsq(A, b, rcond=-1)[0]
     if errors:
-        return x, lstsq_std(A, b=b, x=x, vare=vare)
+        return x, lstsq_std(A, b=b, x=x, vare=vare, cove=cove)
     else:
         return x
 
