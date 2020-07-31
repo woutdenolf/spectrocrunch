@@ -2,12 +2,11 @@
 
 import unittest
 
-from ..import flatarea
+from .. import flatarea
 from ...patch import jsonpickle
 
 
 class test_flatarea(unittest.TestCase):
-
     def test_serialize(self):
         exclude = ()
         for name, cls in flatarea.Geometry.clsregistry.items():
@@ -24,7 +23,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

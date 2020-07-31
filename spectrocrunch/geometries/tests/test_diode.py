@@ -2,15 +2,14 @@
 
 import unittest
 
-from ..import diode
+from .. import diode
 from ...utils import units
 from ...patch import jsonpickle
 
 
 class test_diode(unittest.TestCase):
-
     def test_serialize(self):
-        exclude = 'DiodeGeometry',
+        exclude = ("DiodeGeometry",)
         for name, cls in diode.DiodeGeometry.clsregistry.items():
             if name not in exclude:
                 d1 = cls()
@@ -25,7 +24,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

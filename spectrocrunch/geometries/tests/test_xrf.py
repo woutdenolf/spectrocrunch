@@ -2,20 +2,21 @@
 
 import unittest
 
-from ..import xrf
+from .. import xrf
 from ...utils import units
 from ...patch import jsonpickle
 
 
 class test_xrf(unittest.TestCase):
-
     def test_distance(self):
-        geometry = xrf.factory("LinearXRFGeometry",
-                               zerodistance=60.,
-                               detectorposition=-10,
-                               positionunits="mm",
-                               detector=None,
-                               source=None)
+        geometry = xrf.factory(
+            "LinearXRFGeometry",
+            zerodistance=60.0,
+            detectorposition=-10,
+            positionunits="mm",
+            detector=None,
+            source=None,
+        )
 
         self.assertEqual(geometry.distance.to("cm").magnitude, 5)
         self.assertEqual(geometry.detectorposition.to("cm").magnitude, -1)
@@ -44,10 +45,9 @@ class test_xrf(unittest.TestCase):
         self.assertEqual(geometry.distance.to("cm").magnitude, 5)
         self.assertEqual(geometry.detectorposition.to("cm").magnitude, 1)
 
-    @unittest.skipIf(xrf.compoundfromname.xraylib is None,
-                     "xraylib not installed")
+    @unittest.skipIf(xrf.compoundfromname.xraylib is None, "xraylib not installed")
     def test_serialize(self):
-        exclude = 'XRFGeometry', 'LinearXRFGeometry'
+        exclude = "XRFGeometry", "LinearXRFGeometry"
         for name, cls in xrf.XRFGeometry.clsregistry.items():
             if name not in exclude:
                 g1 = cls()
@@ -63,7 +63,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()
