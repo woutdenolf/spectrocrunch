@@ -18,8 +18,8 @@ def execrebin(img, rebin):
     Returns:
         np.array: rebinned image
     """
-    shaperebin = (data.shape[0]//rebin[0], data.shape[1]//rebin[1])
-    view = data[:shaperebin[0] * rebin[0], :shaperebin[1] * rebin[1]]
+    shaperebin = (data.shape[0] // rebin[0], data.shape[1] // rebin[1])
+    view = data[: shaperebin[0] * rebin[0], : shaperebin[1] * rebin[1]]
     view = view.reshape(shaperebin[0], rebin[0], shaperebin[1], rebin[1])
     return view.sum(axis=3).sum(axis=1)
 
@@ -32,7 +32,7 @@ def execroi(img, roi):
     Returns:
         np.array: cropped image
     """
-    return img[roi[0][0]:roi[0][1], roi[1][0]:roi[1][1]]
+    return img[roi[0][0] : roi[0][1], roi[1][0] : roi[1][1]]
 
 
 def procraw(img, parameters):
@@ -67,8 +67,13 @@ def darklibrary(parameters):
 
     # Library
     dark = defaultdict()
-    dark.setdefaultfactory(lambda frametime: {
-                           "data": parameters["darkcurrentzero"] + parameters["darkcurrentgain"]*float(frametime), "nframes": 1})
+    dark.setdefaultfactory(
+        lambda frametime: {
+            "data": parameters["darkcurrentzero"]
+            + parameters["darkcurrentgain"] * float(frametime),
+            "nframes": 1,
+        }
+    )
 
     for f in darkfiles:
         fh = fabio.open(f)
@@ -109,8 +114,7 @@ def getroi(roilabel, h, fh):
     # ROI from label
     roi = []
     if roilabel in h:
-        roi = [int(s)
-               for s in re.split('[<>,\-x ]+', h[roilabel]) if len(s) != 0]
+        roi = [int(s) for s in re.split("[<>,\-x ]+", h[roilabel]) if len(s) != 0]
         # camera takes x as the first dimension, python takes y
         roi = [roi[1], roi[0], roi[3], roi[2]]
 
@@ -160,8 +164,8 @@ def axesvalues(roi, parameters):
 
         x0 += ax
         y0 += ay
-        nx = bx-ax
-        ny = by-ay
+        nx = bx - ax
+        ny = by - ay
 
     # Rebin
     dx = parameters["rebin"][1]
@@ -170,11 +174,11 @@ def axesvalues(roi, parameters):
     nx //= dx
     ny //= dy
 
-    x0 += (dx-1)/2.
-    y0 += (dy-1)/2.
+    x0 += (dx - 1) / 2.0
+    y0 += (dy - 1) / 2.0
 
-    x1 = x0 + (nx-1)*dx
-    y1 = y0 + (ny-1)*dy
+    x1 = x0 + (nx - 1) * dx
+    y1 = y0 + (ny - 1) * dy
 
     # axes in pixels
     col = np.linspace(x0, x1, nx)
@@ -281,18 +285,17 @@ def dataflatlibrary(parameters):
             flat[key].append(f)
 
     if len(data) == 0:
-        raise IOError("No data files found ({})".format(
-            parameters["datalist"][0]))
+        raise IOError("No data files found ({})".format(parameters["datalist"][0]))
 
     # Remove entries with missing images
-    #ndata = list(map(lambda x:len(data[x]),data))
-    #ndatafiles = max(ndata,key=ndata.count)
-    #nflat = list(map(lambda x:len(flat[x]),flat))
-    #nflatfiles = max(nflat,key=nflat.count)
-    #tmp1 = {k:data[k] for k in data if len(data[k])==ndatafiles and len(flat[k])==nflatfiles}
-    #tmp2 = {k:flat[k] for k in flat if len(data[k])==ndatafiles and len(flat[k])==nflatfiles}
-    #data = tmp1
-    #flat = tmp2
+    # ndata = list(map(lambda x:len(data[x]),data))
+    # ndatafiles = max(ndata,key=ndata.count)
+    # nflat = list(map(lambda x:len(flat[x]),flat))
+    # nflatfiles = max(nflat,key=nflat.count)
+    # tmp1 = {k:data[k] for k in data if len(data[k])==ndatafiles and len(flat[k])==nflatfiles}
+    # tmp2 = {k:flat[k] for k in flat if len(data[k])==ndatafiles and len(flat[k])==nflatfiles}
+    # data = tmp1
+    # flat = tmp2
 
     # Split up flat images
     if parameters["flatbeforeafter"]:
@@ -305,8 +308,8 @@ def dataflatlibrary(parameters):
                 flat1[k] = files
                 flat2[k] = []
             else:
-                flat1[k] = files[0:n//2]
-                flat2[k] = files[n//2:]
+                flat1[k] = files[0 : n // 2]
+                flat2[k] = files[n // 2 :]
     else:
         flat1 = flat
         flat2 = None
@@ -319,7 +322,7 @@ def dataflatlibrary(parameters):
 
     stackdim = parameters["stackdim"]
     imgdim = [i for i in range(3) if i != stackdim]
-    stackaxes = [None]*3
+    stackaxes = [None] * 3
     stackaxes[imgdim[0]] = {"name": "row", "data": row}
     stackaxes[imgdim[1]] = {"name": "col", "data": col}
     stackaxes[stackdim] = {"name": stacklabel, "data": stackvalues}
@@ -401,14 +404,13 @@ def getnormalizedimage(fileslist, darklib, parameters):
         else:
             nframes = dtype(1)
 
-        data -= darklib[frametime]["data"] / \
-            darklib[frametime]["nframes"]*nframes
+        data -= darklib[frametime]["data"] / darklib[frametime]["nframes"] * nframes
         if img is None:
             img = data
-            time = dtype(frametime)*nframes
+            time = dtype(frametime) * nframes
         else:
             img += data
-            time += dtype(frametime)*nframes
+            time += dtype(frametime) * nframes
 
     img /= time
     return img

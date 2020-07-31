@@ -2,12 +2,14 @@
 
 import unittest
 
+
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     return testSuite
-    
-if __name__ == '__main__':
+
+
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()
