@@ -8,13 +8,14 @@ import matplotlib.patches as pltpatches
 import mpl_toolkits.axisartist as plta
 import mpl_toolkits.axisartist.grid_helper_curvelinear as pltahelper
 
-CartesianCoordinates = collections.namedtuple(
-    'CartesianCoordinates', ['x', 'y'])
+CartesianCoordinates = collections.namedtuple("CartesianCoordinates", ["x", "y"])
 TernaryCoordinates = collections.namedtuple(
-    'TernaryCoordinates', ['left', 'right', 'top'])
+    "TernaryCoordinates", ["left", "right", "top"]
+)
 TernaryComponent = collections.namedtuple(
-    'TernaryComponent', ['name', 'min', 'max', 'color', 'shift'])
-TernaryInfo = collections.namedtuple('TernaryInfo', ['left', 'right', 'top'])
+    "TernaryComponent", ["name", "min", "max", "color", "shift"]
+)
+TernaryInfo = collections.namedtuple("TernaryInfo", ["left", "right", "top"])
 
 
 def transformations(M):
@@ -27,8 +28,12 @@ def transformations(M):
         xy = m.transform(xy)
         return xy[:, 0], xy[:, 1]
 
-    def f(x, y): return transform(M, x, y)
-    def fi(x, y): return transform(Mi, x, y)
+    def f(x, y):
+        return transform(M, x, y)
+
+    def fi(x, y):
+        return transform(Mi, x, y)
+
     return f, fi
 
 
@@ -40,14 +45,14 @@ def axesLeft(fig, rect, ternaryinfo, grid=False, debug=False):
 
     ox = vminx
     oy = vminy
-    sx = float(vmaxx-vminx)
-    sy = float(vmaxy-vminy)
+    sx = float(vmaxx - vminx)
+    sy = float(vmaxy - vminy)
 
     M = plttransforms.Affine2D()
     M += plttransforms.Affine2D().translate(-ox, -oy)
-    M += plttransforms.Affine2D().scale(1, sx/sy)
+    M += plttransforms.Affine2D().scale(1, sx / sy)
     M += plttransforms.Affine2D().skew_deg(15, 15)
-    M += plttransforms.Affine2D().rotate_deg(-120-15)
+    M += plttransforms.Affine2D().rotate_deg(-120 - 15)
     f, fi = transformations(M)
 
     grid_helper = pltahelper.GridHelperCurveLinear((f, fi))
@@ -87,12 +92,12 @@ def axesTop(fig, rect, ternaryinfo, grid=False, debug=False):
 
     ox = vminx
     oy = vminy
-    sx = float(vmaxx-vminx)
-    sy = float(vmaxy-vminy)
+    sx = float(vmaxx - vminx)
+    sy = float(vmaxy - vminy)
 
     M = plttransforms.Affine2D()
     M += plttransforms.Affine2D().translate(-ox, -oy)
-    M += plttransforms.Affine2D().scale(1, sx/sy)
+    M += plttransforms.Affine2D().scale(1, sx / sy)
     M += plttransforms.Affine2D().skew_deg(15, 15)
     M += plttransforms.Affine2D().rotate_deg(-15)
     f, fi = transformations(M)
@@ -135,12 +140,12 @@ def axesRight(fig, rect, ternaryinfo, grid=False, debug=False):
 
     ox = vminx
     oy = vminy
-    sx = float(vmaxx-vminx)
-    sy = float(vmaxy-vminy)
+    sx = float(vmaxx - vminx)
+    sy = float(vmaxy - vminy)
 
     M = plttransforms.Affine2D()
     M += plttransforms.Affine2D().translate(-ox, -oy)
-    M += plttransforms.Affine2D().scale(1, sx/sy)
+    M += plttransforms.Affine2D().scale(1, sx / sy)
     M += plttransforms.Affine2D().skew_deg(-15, -15)
     M += plttransforms.Affine2D().rotate_deg(15)
     f, fi = transformations(M)
@@ -176,61 +181,61 @@ def axesRight(fig, rect, ternaryinfo, grid=False, debug=False):
 
 
 def NormTernary(p, ternaryinfo):
-    def clip(x): return np.clip(x, 0, 1)
+    def clip(x):
+        return np.clip(x, 0, 1)
 
     mi, ma = ternaryinfo.top.min, ternaryinfo.top.max
-    top = clip((p.top-mi)/(ma-mi))
+    top = clip((p.top - mi) / (ma - mi))
 
     mi, ma = ternaryinfo.left.min, ternaryinfo.left.max
-    left = clip((p.left-mi)/(ma-mi))
+    left = clip((p.left - mi) / (ma - mi))
 
     mi, ma = ternaryinfo.right.min, ternaryinfo.right.max
-    right = clip((p.right-mi)/(ma-mi))
+    right = clip((p.right - mi) / (ma - mi))
 
     return TernaryCoordinates(left=left, right=right, top=top)
 
 
 def TernaryToCartesian(p):
-    H = np.sqrt(3)/2
-    tot = p.left+p.right+p.top
-    return CartesianCoordinates(x=(2*p.right+p.top)/(2.*tot), y=H*p.top/tot)
+    H = np.sqrt(3) / 2
+    tot = p.left + p.right + p.top
+    return CartesianCoordinates(
+        x=(2 * p.right + p.top) / (2.0 * tot), y=H * p.top / tot
+    )
 
 
 def CartesianToTernary(p):
-    H = np.sqrt(3)/2
-    top = p.y/H
-    right = p.x-top/2
-    left = 1-top-right
+    H = np.sqrt(3) / 2
+    top = p.y / H
+    right = p.x - top / 2
+    left = 1 - top - right
     return TernaryCoordinates(left=left, right=right, top=top)
 
 
 def TernaryPoint(ax, ternaryinfo, point):
-    H = np.sqrt(3)/2
+    H = np.sqrt(3) / 2
 
     x0, y0 = TernaryToCartesian(point)
 
-    x1, y1 = TernaryToCartesian(
-        point._replace(left=point.left+point.top, top=0))
+    x1, y1 = TernaryToCartesian(point._replace(left=point.left + point.top, top=0))
     ax.plot([x0, x1], [y0, y1], color=ternaryinfo.right.color)
 
-    x1, y1 = TernaryToCartesian(point._replace(
-        top=point.top+point.right, right=0))
+    x1, y1 = TernaryToCartesian(point._replace(top=point.top + point.right, right=0))
     ax.plot([x0, x1], [y0, y1], color=ternaryinfo.left.color)
 
-    x1, y1 = TernaryToCartesian(point._replace(
-        right=point.right+point.left, left=0))
+    x1, y1 = TernaryToCartesian(point._replace(right=point.right + point.left, left=0))
     ax.plot([x0, x1], [y0, y1], color=ternaryinfo.top.color)
 
-    ax.plot([x0], [y0], marker='o', markersize=10, color="#000000")
+    ax.plot([x0], [y0], marker="o", markersize=10, color="#000000")
 
 
 def TernaryGrid(ax, ternaryinfo, n=5):
 
-    p = np.repeat(np.linspace(0, 1, n+2)[1:-1], 2).reshape((n, 2))
+    p = np.repeat(np.linspace(0, 1, n + 2)[1:-1], 2).reshape((n, 2))
 
     right = p.copy()
-    left = 1-right
-    top = 1-right
+    left = 1 - right
+    top = 1 - right
     left[:, 0] = 0
     top[:, 1] = 0
     pts = TernaryCoordinates(left=left, right=right, top=top)
@@ -239,8 +244,8 @@ def TernaryGrid(ax, ternaryinfo, n=5):
         ax.plot(xi, yi, color=ternaryinfo.right.color)
 
     left = p.copy()
-    right = 1-left
-    top = 1-left
+    right = 1 - left
+    top = 1 - left
     right[:, 0] = 0
     top[:, 1] = 0
     pts = TernaryCoordinates(left=left, right=right, top=top)
@@ -249,8 +254,8 @@ def TernaryGrid(ax, ternaryinfo, n=5):
         ax.plot(xi, yi, color=ternaryinfo.left.color)
 
     top = p.copy()
-    right = 1-top
-    left = 1-top
+    right = 1 - top
+    left = 1 - top
     right[:, 0] = 0
     left[:, 1] = 0
     pts = TernaryCoordinates(left=left, right=right, top=top)
@@ -266,10 +271,12 @@ def TernaryLegend(ax, ternaryinfo, left, right, top, names, colors):
     if False:
         x, y = TernaryToCartesian(pts)
         for xi, yi, name, c in zip(x, y, names, colors):
-            ax.plot(x, y, 'o', color="#000000")
+            ax.plot(x, y, "o", color="#000000")
     else:
         TernaryPoint(ax, ternaryinfo, pts)
 
-    patches = [pltpatches.Patch(color=color, label=label)
-               for label, color in zip(names, colors)]
+    patches = [
+        pltpatches.Patch(color=color, label=label)
+        for label, color in zip(names, colors)
+    ]
     ax.legend(patches, names, loc="upper right", frameon=False)

@@ -9,7 +9,6 @@ import pandas as pd
 
 
 class Image(scene.Image):
-
     def updatedata(self, **params):
         data, channels, labels = self.datahandle.displaydata(index=self.index)
         params["channels"] = channels
@@ -22,17 +21,16 @@ class Image(scene.Image):
 
 
 class Text(scene.Text):
-
     def updatedata(self, **params):
         params["labels"] = self.datahandle.labels
         params["axis0name"] = self.datahandle.axis0name
         params["axis1name"] = self.datahandle.axis1name
-        super(Text, self).updatedata(self.datahandle.coordinates0,
-                                     self.datahandle.coordinates1, **params)
+        super(Text, self).updatedata(
+            self.datahandle.coordinates0, self.datahandle.coordinates1, **params
+        )
 
 
 class ZapRoiMap(Image):
-
     def __init__(self, filenames, items, plotparams=None, **dataparams):
         """
         Args:
@@ -45,18 +43,17 @@ class ZapRoiMap(Image):
         data, channels, labels = self.datahandle.displaydata(index=index)
         plotparams["channels"] = channels
         plotparams["labels"] = plotparams.get("labels", labels)
-        plotparams["axis0name"] = plotparams.get(
-            "axis0name", self.datahandle.axis0name)
-        plotparams["axis1name"] = plotparams.get(
-            "axis1name", self.datahandle.axis1name)
-        super(ZapRoiMap, self).__init__(data, lim0=self.datahandle.axis0values[[0, -1]],
-                                        lim1=self.datahandle.axis1values[[
-                                            0, -1]],
-                                        **plotparams)
+        plotparams["axis0name"] = plotparams.get("axis0name", self.datahandle.axis0name)
+        plotparams["axis1name"] = plotparams.get("axis1name", self.datahandle.axis1name)
+        super(ZapRoiMap, self).__init__(
+            data,
+            lim0=self.datahandle.axis0values[[0, -1]],
+            lim1=self.datahandle.axis1values[[0, -1]],
+            **plotparams
+        )
 
 
 class Nexus(Image):
-
     def __init__(self, nxgroup, items, plotparams=None, **dataparams):
         """
         Args:
@@ -66,22 +63,23 @@ class Nexus(Image):
         if plotparams is None:
             plotparams = {}
         self.datahandle = scene_data.NexusStack(
-            nxfs.factory(nxgroup), items, **dataparams)
+            nxfs.factory(nxgroup), items, **dataparams
+        )
         self.index = plotparams.pop("channels", None)
         data, channels, labels = self.datahandle.displaydata(index=self.index)
         plotparams["channels"] = channels
         plotparams["labels"] = plotparams.get("labels", labels)
-        plotparams["axis0name"] = plotparams.get(
-            "axis0name", self.datahandle.axis0name)
-        plotparams["axis1name"] = plotparams.get(
-            "axis1name", self.datahandle.axis1name)
-        super(Nexus, self).__init__(data, lim0=self.datahandle.axis0values[[0, -1]],
-                                    lim1=self.datahandle.axis1values[[0, -1]],
-                                    **plotparams)
+        plotparams["axis0name"] = plotparams.get("axis0name", self.datahandle.axis0name)
+        plotparams["axis1name"] = plotparams.get("axis1name", self.datahandle.axis1name)
+        super(Nexus, self).__init__(
+            data,
+            lim0=self.datahandle.axis0values[[0, -1]],
+            lim1=self.datahandle.axis1values[[0, -1]],
+            **plotparams
+        )
 
 
 class XanesSpec(Text):
-
     def __init__(self, filenames, specnumbers, plotparams=None, **dataparams):
         """
         Args:
@@ -91,29 +89,28 @@ class XanesSpec(Text):
         if plotparams is None:
             plotparams = {}
         self.output = dataparams.pop("output", None)
-        self.datahandle = scene_data.XanesSpec(
-            filenames, specnumbers, **dataparams)
+        self.datahandle = scene_data.XanesSpec(filenames, specnumbers, **dataparams)
         plotparams["labels"] = plotparams.get("labels", self.datahandle.labels)
-        plotparams["axis0name"] = plotparams.get(
-            "axis0name", self.datahandle.axis0name)
-        plotparams["axis1name"] = plotparams.get(
-            "axis1name", self.datahandle.axis1name)
-        super(XanesSpec, self).__init__(self.datahandle.coordinates0, self.datahandle.coordinates1,
-                                        **plotparams)
+        plotparams["axis0name"] = plotparams.get("axis0name", self.datahandle.axis0name)
+        plotparams["axis1name"] = plotparams.get("axis1name", self.datahandle.axis1name)
+        super(XanesSpec, self).__init__(
+            self.datahandle.coordinates0, self.datahandle.coordinates1, **plotparams
+        )
 
     def interpolate(self):
         result = collections.OrderedDict()
 
-        k = "{}({:~})".format(self.axis0name,
-                              self.datahandle.coordinates0.units)
+        k = "{}({:~})".format(self.axis0name, self.datahandle.coordinates0.units)
         result[k] = self.datahandle.coordinates0.magnitude
-        k = "{}({:~})".format(self.axis1name,
-                              self.datahandle.coordinates1.units)
+        k = "{}({:~})".format(self.axis1name, self.datahandle.coordinates1.units)
         result[k] = self.datahandle.coordinates1.magnitude
         for item in self.scene:
             try:
-                result.update(item.datahandle.interpolate(
-                    self.datahandle.coordinates0, self.datahandle.coordinates1))
+                result.update(
+                    item.datahandle.interpolate(
+                        self.datahandle.coordinates0, self.datahandle.coordinates1
+                    )
+                )
             except AttributeError:
                 pass
         return result
@@ -126,5 +123,5 @@ class XanesSpec(Text):
                 df = pd.DataFrame(self.interpolate(), index=self.labels)
                 df.to_excel(writer, sheet)
                 worksheet = writer.sheets[sheet]
-                worksheet.set_column(0, len(df.columns)+1, 25)
+                worksheet.set_column(0, len(df.columns) + 1, 25)
                 worksheet.freeze_panes(1, 1)

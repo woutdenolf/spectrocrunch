@@ -8,16 +8,27 @@ from . import ternary_diagram
 from . import chromaticity_triangle
 
 
-def triangle(fig=None, vmin=[0, 0, 0], vmax=[1, 1, 1], names=['R', 'G', 'B'], rect=[0.1, 0.1, 0.8, 0.8], grid=True, compositions=None):
+def triangle(
+    fig=None,
+    vmin=[0, 0, 0],
+    vmax=[1, 1, 1],
+    names=["R", "G", "B"],
+    rect=[0.1, 0.1, 0.8, 0.8],
+    grid=True,
+    compositions=None,
+):
 
     names = ["None" if name is None else name for name in names]
 
     right = ternary_diagram.TernaryComponent(
-        name=names[0], min=vmin[0], max=vmax[0], color='r', shift=0)
+        name=names[0], min=vmin[0], max=vmax[0], color="r", shift=0
+    )
     top = ternary_diagram.TernaryComponent(
-        name=names[1], min=vmin[1], max=vmax[1], color='g', shift=8)
+        name=names[1], min=vmin[1], max=vmax[1], color="g", shift=8
+    )
     left = ternary_diagram.TernaryComponent(
-        name=names[2], min=vmin[2], max=vmax[2], color='b', shift=16)
+        name=names[2], min=vmin[2], max=vmax[2], color="b", shift=16
+    )
 
     ternaryinfo = ternary_diagram.TernaryInfo(left=left, right=right, top=top)
 
@@ -26,11 +37,11 @@ def triangle(fig=None, vmin=[0, 0, 0], vmax=[1, 1, 1], names=['R', 'G', 'B'], re
 
     items = {}
     items["colorbar"] = chromaticity_triangle.ChromaticityTriangle(
-        fig, rect, ternaryinfo, additive=True)
+        fig, rect, ternaryinfo, additive=True
+    )
     items["colorbar_axleft"] = ternary_diagram.axesLeft(fig, rect, ternaryinfo)
     items["colorbar_axtop"] = ternary_diagram.axesTop(fig, rect, ternaryinfo)
-    items["colorbar_axright"] = ternary_diagram.axesRight(
-        fig, rect, ternaryinfo)
+    items["colorbar_axright"] = ternary_diagram.axesRight(fig, rect, ternaryinfo)
 
     for item in items.values():
         fig.add_axes(item)
@@ -41,16 +52,27 @@ def triangle(fig=None, vmin=[0, 0, 0], vmax=[1, 1, 1], names=['R', 'G', 'B'], re
     if compositions:
         names, compositions, colors = zip(*compositions)
         right, top, left = zip(*compositions)
-        ternary_diagram.TernaryLegend(items["colorbar"], ternaryinfo, np.array(
-            left), np.array(right), np.array(top), names, colors)
+        ternary_diagram.TernaryLegend(
+            items["colorbar"],
+            ternaryinfo,
+            np.array(left),
+            np.array(right),
+            np.array(top),
+            names,
+            colors,
+        )
 
     return items
 
 
-def bars(ax=None, vmin=[0, 0, 0], vmax=[1, 1, 1], names=['R', 'G', 'B'], norms=[None, None, None]):
-    cms = ([(0, 0, 0), (1, 0, 0)],
-           [(0, 0, 0), (0, 1, 0)],
-           [(0, 0, 0), (0, 0, 1)])
+def bars(
+    ax=None,
+    vmin=[0, 0, 0],
+    vmax=[1, 1, 1],
+    names=["R", "G", "B"],
+    norms=[None, None, None],
+):
+    cms = ([(0, 0, 0), (1, 0, 0)], [(0, 0, 0), (0, 1, 0)], [(0, 0, 0), (0, 0, 1)])
 
     pad = 0.05
     ret = {}

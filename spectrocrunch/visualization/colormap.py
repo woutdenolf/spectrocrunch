@@ -16,7 +16,7 @@ def NormalizedToRGB(x):
         b(array):
     """
     x, f = instance.asarrayf(x)
-    x = np.round(x*(2**24-1)).astype(int)
+    x = np.round(x * (2 ** 24 - 1)).astype(int)
 
     red = f(x & 255)
     green = f((x >> 8) & 255)
@@ -25,7 +25,6 @@ def NormalizedToRGB(x):
 
 
 class LambdaColormap(pltcolors.Colormap):
-
     def __init__(self, name, func, N=256):
         self._func = func
         super(LambdaColormap, self).__init__(name, N=N)
@@ -42,9 +41,9 @@ class LambdaColormap(pltcolors.Colormap):
         """
         r, g, b = self._func(x)
         if not bytes:
-            r = r/255.
-            g = g/255.
-            b = b/255.
+            r = r / 255.0
+            g = g / 255.0
+            b = b / 255.0
         if instance.isarray(r):
             return np.stack([r, g, b, np.full(r.shape, alpha)], axis=-1)
         else:
@@ -52,18 +51,16 @@ class LambdaColormap(pltcolors.Colormap):
 
 
 def RGBcolormap():
-    return LambdaColormap("RGB", NormalizedToRGB, N=2**24-1)
+    return LambdaColormap("RGB", NormalizedToRGB, N=2 ** 24 - 1)
 
 
 def Linearcolormap(name, a, b, alpha=None):
     a = pltcolors.to_rgba(a, alpha=alpha)
     b = pltcolors.to_rgba(b, alpha=alpha)
-    cdict = {'red':  [(0.0, a[0], a[0]),
-                      (1.0, b[0], b[0])],
-             'green': [(0.0, a[1], a[1]),
-                       (1.0, b[1], b[1])],
-             'blue': [(0.0, a[2], a[2]),
-                      (1.0, b[2], b[2])],
-             'alpha': [(0.0, a[3], a[3]),
-                       (1.0, b[3], b[3])]}
+    cdict = {
+        "red": [(0.0, a[0], a[0]), (1.0, b[0], b[0])],
+        "green": [(0.0, a[1], a[1]), (1.0, b[1], b[1])],
+        "blue": [(0.0, a[2], a[2]), (1.0, b[2], b[2])],
+        "alpha": [(0.0, a[3], a[3]), (1.0, b[3], b[3])],
+    }
     return pltcolors.ListedColormap(name, cdict)

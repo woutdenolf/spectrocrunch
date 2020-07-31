@@ -46,7 +46,6 @@ def ColorNormLinear(name):
 
 
 class Geometry2D(object):
-
     def dataaxis(self, displayaxis):
         """
         Args:
@@ -56,10 +55,10 @@ class Geometry2D(object):
             dataaxis(num): data axis (0 or 1)
         """
         if instance.isstring(displayaxis):
-            displayaxis = int(displayaxis == 'x')
+            displayaxis = int(displayaxis == "x")
 
         if self.transposed:
-            return 1-displayaxis
+            return 1 - displayaxis
         else:
             return displayaxis
 
@@ -67,24 +66,26 @@ class Geometry2D(object):
     def dataaxisx(self):
         """Data axis corresponding to the X-axis
         """
-        return self.dataaxis('x')
+        return self.dataaxis("x")
 
     @property
     def dataaxisy(self):
         """Data axis corresponding to the Y-axis
         """
-        return self.dataaxis('y')
+        return self.dataaxis("y")
 
 
 class Scene(CompHashable, Geometry2D):
     """Each scene can have a number of registered items with associalted plot settings.
     """
 
-    def __init__(self, ax=None, unit0=ureg.dimensionless, unit1=ureg.dimensionless, title=""):
+    def __init__(
+        self, ax=None, unit0=ureg.dimensionless, unit1=ureg.dimensionless, title=""
+    ):
         self.ax = ax
         self._items = OrderedDict()
         self.transposed = False
-        self.cmap = plt.get_cmap('jet')
+        self.cmap = plt.get_cmap("jet")
         self.title = title
         self._aspectratio_display = None
 
@@ -173,17 +174,19 @@ class Scene(CompHashable, Geometry2D):
         self.ax = ax
 
         # TODO: wsize is already set when callback is called, but asize is not (and we need asize)
-        def func(event): return self.updateview()
+        def func(event):
+            return self.updateview()
+
         # def func(event):
         #    print self.wsize_pixels
         #    print self.asize_pixels
         #    self.updateview()
 
-        self.ax.figure.canvas.mpl_connect('resize_event', func)
+        self.ax.figure.canvas.mpl_connect("resize_event", func)
 
         # TODO: for scalebar
-        #self.ax.callbacks.connect('xlim_changed', func)
-        #self.ax.callbacks.connect('ylim_changed', func)
+        # self.ax.callbacks.connect('xlim_changed', func)
+        # self.ax.callbacks.connect('ylim_changed', func)
 
     def showaxes(self):
         self.ax.set_axis_on()
@@ -225,8 +228,8 @@ class Scene(CompHashable, Geometry2D):
         self.dataoffset[dataaxis] = self.dimquantity(0, dataaxis)
         self.datascale[dataaxis] = 1
         ranorg = sorted(self.datarange(dataaxis))
-        scale = (ran[1]-ran[0])/(ranorg[1]-ranorg[0])
-        off = scale*ranorg[0]-ran[0]
+        scale = (ran[1] - ran[0]) / (ranorg[1] - ranorg[0])
+        off = scale * ranorg[0] - ran[0]
         self.dataoffset[dataaxis] = off
         self.datascale[dataaxis] = scale
 
@@ -256,7 +259,7 @@ class Scene(CompHashable, Geometry2D):
                 self._increasing[dataaxis] = not self._increasing[dataaxis]
 
     def origin(self, dataaxis, off):
-        self.dataoffset[dataaxis] = off-self.dataoffset[dataaxis]
+        self.dataoffset[dataaxis] = off - self.dataoffset[dataaxis]
 
     def originreset(self):
         self.origin(0, self.q0(0))
@@ -268,7 +271,7 @@ class Scene(CompHashable, Geometry2D):
 
     def datatransform(self, arr, dataaxis):
         arr = units.asqarray(arr)
-        return arr*self.datascale[dataaxis] - self.dataoffset[dataaxis]
+        return arr * self.datascale[dataaxis] - self.dataoffset[dataaxis]
 
     def displaylim(self, lim, dataaxis):
         if self._increasing[dataaxis]:
@@ -290,7 +293,7 @@ class Scene(CompHashable, Geometry2D):
     def aspectcorrect(self):
         if self._aspectratio_display is None:
             return None  # same as 1: aspect ratio of display and data are the same
-        return self._aspectratio_display/self.aspectratio_data
+        return self._aspectratio_display / self.aspectratio_data
 
     @property
     def aspectratio(self):
@@ -307,9 +310,9 @@ class Scene(CompHashable, Geometry2D):
     def aspectratio_data(self):
         displaylimy = self.displaylimy
         displaylimx = self.displaylimx
-        dx = abs(displaylimx[1]-displaylimx[0])
-        dy = abs(displaylimy[1]-displaylimy[0])
-        return (dy/dx).to("dimensionless").magnitude
+        dx = abs(displaylimx[1] - displaylimx[0])
+        dy = abs(displaylimy[1] - displaylimy[0])
+        return (dy / dx).to("dimensionless").magnitude
 
     def crop(self):
         lim = self.xmagnitude(self.displaylimx)
@@ -335,7 +338,7 @@ class Scene(CompHashable, Geometry2D):
     def vminmax(self):
         vmin = None
         vmax = None
-        tmp = [item.vminmax for item in self if hasattr(item, 'vminmax')]
+        tmp = [item.vminmax for item in self if hasattr(item, "vminmax")]
         if not tmp:
             return None, None
 
@@ -346,7 +349,7 @@ class Scene(CompHashable, Geometry2D):
 
         def reshape(v):
             if len(v) != n:
-                v.extend([np.nan]*(n-len(v)))
+                v.extend([np.nan] * (n - len(v)))
             return v
 
         vmin = np.array([reshape(v) for v in vmin])
@@ -371,27 +374,35 @@ class Scene(CompHashable, Geometry2D):
     @property
     def wsize_pixels(self):
         bbox = self.ax.figure.get_window_extent().transformed(
-            self.ax.figure.dpi_scale_trans.inverted())
-        width, height = bbox.width * self.ax.figure.dpi, bbox.height * self.ax.figure.dpi
+            self.ax.figure.dpi_scale_trans.inverted()
+        )
+        width, height = (
+            bbox.width * self.ax.figure.dpi,
+            bbox.height * self.ax.figure.dpi,
+        )
         return width, height
 
     @property
     def asize_pixels(self):
         bbox = self.ax.get_window_extent().transformed(
-            self.ax.figure.dpi_scale_trans.inverted())
-        width, height = bbox.width * self.ax.figure.dpi, bbox.height * self.ax.figure.dpi
+            self.ax.figure.dpi_scale_trans.inverted()
+        )
+        width, height = (
+            bbox.width * self.ax.figure.dpi,
+            bbox.height * self.ax.figure.dpi,
+        )
         return width, height
 
     @property
     def asize_data(self):
         x1, x2 = self.xmagnitude(self.displaylimx)
         y1, y2 = self.ymagnitude(self.displaylimy)
-        return x2-x1, y2-y1
+        return x2 - x1, y2 - y1
 
     def fontsize_data(self, pt):
         xp, yp = self.asize_pixels
         xd, yd = self.asize_data
-        return pt*xd/float(xp), pt*yd/float(yp)
+        return pt * xd / float(xp), pt * yd / float(yp)
 
 
 class Item(CompHashable, Geometry2D):
@@ -451,8 +462,7 @@ class Item(CompHashable, Geometry2D):
         try:
             self._sceneindex = list(self._scenes.keys()).index(s)
         except:
-            raise RuntimeError(
-                "This object is not registered with scene {}".format(s))
+            raise RuntimeError("This object is not registered with scene {}".format(s))
 
     @property
     def scene(self):
@@ -509,7 +519,6 @@ class Item(CompHashable, Geometry2D):
 
 
 class Image(Item):
-
     def __init__(self, data, lim0=None, lim1=None, labels=None, **kwargs):
         super(Image, self).__init__(**kwargs)
         Image._updatedata(self, data, lim0=lim0, lim1=lim1, labels=labels)
@@ -519,12 +528,12 @@ class Image(Item):
         self.labels = labels
 
         if lim0 is None:
-            lim0 = [0, data.shape[0]-1]
+            lim0 = [0, data.shape[0] - 1]
         else:
             lim0 = [lim0[0], lim0[-1]]
 
         if lim1 is None:
-            lim1 = [0, data.shape[1]-1]
+            lim1 = [0, data.shape[1] - 1]
         else:
             lim1 = [lim1[0], lim1[-1]]
 
@@ -548,7 +557,7 @@ class Image(Item):
             data = data[..., 0]
         u = self.get_setting("colorbar_units")
         if u:
-            data = data/float(units.Quantity(1, u).to('dimensionless').magnitude)
+            data = data / float(units.Quantity(1, u).to("dimensionless").magnitude)
         return data
 
     def _get_data(self, index):
@@ -557,7 +566,10 @@ class Image(Item):
         else:
             if index != 0:
                 raise IndexError(
-                    "Raw data has only one channel, you tried to select channel {}".format(index))
+                    "Raw data has only one channel, you tried to select channel {}".format(
+                        index
+                    )
+                )
             return self._data
 
     @data.setter
@@ -572,7 +584,7 @@ class Image(Item):
     def labels(self):
         """Labels for the selected channels
         """
-        labels = [None]*self.nchannels
+        labels = [None] * self.nchannels
         for ch, i in enumerate(self.channels):
             if i is not None:
                 try:
@@ -602,7 +614,7 @@ class Image(Item):
             nchannels = 3
 
         if len(channels) < nchannels:
-            channels.extend([None]*(nchannels-len(channels)))
+            channels.extend([None] * (nchannels - len(channels)))
         else:
             channels = channels[0:nchannels]
         return channels
@@ -630,10 +642,8 @@ class Image(Item):
         img = self.data
         if self.data.ndim == 3:
             nchannels = self.data.shape[-1]
-            vmin = np.asarray([np.nanmin(img[..., i])
-                               for i in range(nchannels)])
-            vmax = np.asarray([np.nanmax(img[..., i])
-                               for i in range(nchannels)])
+            vmin = np.asarray([np.nanmin(img[..., i]) for i in range(nchannels)])
+            vmax = np.asarray([np.nanmax(img[..., i]) for i in range(nchannels)])
         else:
             vmin = np.nanmin(img)
             vmax = np.nanmax(img)
@@ -651,61 +661,63 @@ class Image(Item):
             p = instance.asarray(p)
             if instance.isarray(v):
                 if p.size < v.size:
-                    p = np.append(p, [0]*(v.size-p.size))
+                    p = np.append(p, [0] * (v.size - p.size))
                 else:
-                    p = p[0:v.size]
+                    p = p[0 : v.size]
             else:
                 p = p[0]
         return p, v
 
     def selfscale(self, pmin=0, pmax=1):
         vmin, vmax = self.vminmax
-        d = vmax-vmin
+        d = vmax - vmin
         pmin, vmin = self._pminmaxparse(pmin, vmin)
         pmax, vmax = self._pminmaxparse(pmax, vmax)
-        vmax = vmin + d*pmax
-        vmin = vmin + d*pmin
+        vmax = vmin + d * pmax
+        vmin = vmin + d * pmin
         self.scale(vmin=vmin, vmax=vmax)
 
     @staticmethod
     def defaultsettings():
-        return {"cmap": None,
-                "aspectcorrect": None,
-                "border": False,
-                "color": None,
-                "image": True,
-                "linewidth": 2,
-                "alpha": 1,
-                "vmin": None,
-                "vmax": None,
-                "cnorm": None,
-                "cnormargs": (),
-                "legend": False,
-                "legend_position": "RT",
-                "legend_spacing": 2.,
-                "legend_labels": True,
-                "scalebar": False,
-                "scalebar_position": "lower right",
-                "scalebar_ratio": 1/5.,
-                "scalebar_fraction": 0.1,  # fraction of display
-                "scalebar_pad": 0.1,  # fraction of font size
-                "scalebar_labelsep": 2,  # points
-                "scalebar_color": "#ffffff",
-                "scalebar_size": 0.,
-                "scalebar_unit": None,
-                "fontsize": matplotlib.rcParams['font.size'],
-                "fontweight": 500,
-                "channels": None,
-                "colorbar": False,
-                "colorbar_units": "",
-                "compositions": {},
-                "title": None}
+        return {
+            "cmap": None,
+            "aspectcorrect": None,
+            "border": False,
+            "color": None,
+            "image": True,
+            "linewidth": 2,
+            "alpha": 1,
+            "vmin": None,
+            "vmax": None,
+            "cnorm": None,
+            "cnormargs": (),
+            "legend": False,
+            "legend_position": "RT",
+            "legend_spacing": 2.0,
+            "legend_labels": True,
+            "scalebar": False,
+            "scalebar_position": "lower right",
+            "scalebar_ratio": 1 / 5.0,
+            "scalebar_fraction": 0.1,  # fraction of display
+            "scalebar_pad": 0.1,  # fraction of font size
+            "scalebar_labelsep": 2,  # points
+            "scalebar_color": "#ffffff",
+            "scalebar_size": 0.0,
+            "scalebar_unit": None,
+            "fontsize": matplotlib.rcParams["font.size"],
+            "fontweight": 500,
+            "channels": None,
+            "colorbar": False,
+            "colorbar_units": "",
+            "compositions": {},
+            "title": None,
+        }
 
     def datarange(self, dataaxis, border=False):
         lim = self.scene.datatransform(self.lim[dataaxis], dataaxis)
         if border:
-            d = (lim[1]-lim[0])/(2.*(self._data.shape[dataaxis]-1))
-            return lim[0]-d, lim[1]+d
+            d = (lim[1] - lim[0]) / (2.0 * (self._data.shape[dataaxis] - 1))
+            return lim[0] - d, lim[1] + d
         else:
             return lim[0], lim[1]
 
@@ -763,7 +775,14 @@ class Image(Item):
         y = scene.ymagnitude(o.displaylimy[y])
         xchar, ychar = scene.fontsize_data(settings["fontsize"])
 
-        return x+xchar*ox, y+ychar*oy, xchar*dx, ychar*dy, horizontalalignment, verticalalignment
+        return (
+            x + xchar * ox,
+            y + ychar * oy,
+            xchar * dx,
+            ychar * dy,
+            horizontalalignment,
+            verticalalignment,
+        )
 
     def bordercoord(self):
         x = sorted(self.datalimx)
@@ -779,8 +798,8 @@ class Image(Item):
         for i, (c, mi, ma) in enumerate(zip(v, vmin, vmax)):
             v2[i] = c
             if mi is not None and ma is not None:
-                color[i] = max(min((c-mi)/(ma-mi), 1), 0)
-                v2[i] = color[i]*(ma-mi) + mi
+                color[i] = max(min((c - mi) / (ma - mi), 1), 0)
+                v2[i] = color[i] * (ma - mi) + mi
         return name, v2, color
 
     def updateview(self):
@@ -809,14 +828,15 @@ class Image(Item):
         nchannels = self.nchannels
         if image.ndim == 3:
             if not instance.isarray(vmin):
-                vmin = [vmin]*nchannels
+                vmin = [vmin] * nchannels
             if not instance.isarray(vmax):
-                vmax = [vmax]*nchannels
+                vmax = [vmax] * nchannels
             normcb = []
 
             for i in range(nchannels):
-                norm = ColorNorm(
-                    settings["cnorm"], *settings["cnormargs"])(vmin=vmin[i], vmax=vmax[i], clip=True)
+                norm = ColorNorm(settings["cnorm"], *settings["cnormargs"])(
+                    vmin=vmin[i], vmax=vmax[i], clip=True
+                )
                 image[..., i] = norm(image[..., i]).data
                 normcb.append(norm)
             norm = None
@@ -825,13 +845,15 @@ class Image(Item):
                 vmin = vmin[0]
             if instance.isarray(vmax):
                 vmax = vmax[0]
-            norm = ColorNorm(
-                settings["cnorm"], *settings["cnormargs"])(vmin=vmin, vmax=vmax, clip=True)
+            norm = ColorNorm(settings["cnorm"], *settings["cnormargs"])(
+                vmin=vmin, vmax=vmax, clip=True
+            )
             normcb = []
 
         # Coordinates and borders
-        extent = list(scene.xmagnitude(self.datalimx)) + \
-            list(scene.ymagnitude(self.datalimy))
+        extent = list(scene.xmagnitude(self.datalimx)) + list(
+            scene.ymagnitude(self.datalimy)
+        )
         x, y = self.bordercoord()
         x = scene.xmagnitude(x)
         y = scene.ymagnitude(y)
@@ -843,20 +865,25 @@ class Image(Item):
         # Image
         if "image" in items:
             newitems["image"] = items["image"]
-            plt.setp(newitems["image"], interpolation='nearest',
-                     extent=extent,
-                     norm=norm,
-                     alpha=alpha,
-                     cmap=cmap)
+            plt.setp(
+                newitems["image"],
+                interpolation="nearest",
+                extent=extent,
+                norm=norm,
+                alpha=alpha,
+                cmap=cmap,
+            )
         else:
-            newitems["image"] = scene.ax.imshow(image,
-                                                interpolation='nearest',
-                                                extent=extent,
-                                                cmap=cmap,
-                                                origin='lower',
-                                                norm=norm,
-                                                alpha=alpha,
-                                                aspect=aspectcorrect)
+            newitems["image"] = scene.ax.imshow(
+                image,
+                interpolation="nearest",
+                extent=extent,
+                cmap=cmap,
+                origin="lower",
+                norm=norm,
+                alpha=alpha,
+                aspect=aspectcorrect,
+            )
         newitems["image"].set_visible(settings["image"])
 
         # Border
@@ -873,21 +900,32 @@ class Image(Item):
 
         # Colorbar
         legend, colors, lvisible = self.addcolorbar(
-            scene, settings, items, newitems, normcb, vmin, vmax, color=kwargs["color"])
+            scene, settings, items, newitems, normcb, vmin, vmax, color=kwargs["color"]
+        )
 
         # Add composition to legend
         self.addcomposition(settings, legend, colors, vmin, vmax)
 
         # Legend
-        self.addlegend(scene, settings, items, newitems,
-                       legend, colors, visible=lvisible)
+        self.addlegend(
+            scene, settings, items, newitems, legend, colors, visible=lvisible
+        )
 
         # Scalebar
-        self.addscalebar(scene, items, newitems, position=settings["scalebar_position"],
-                         visible=settings["scalebar"], ratio=settings["scalebar_ratio"],
-                         xfrac=settings["scalebar_fraction"], pad=settings["scalebar_pad"],
-                         color=settings["scalebar_color"], size=settings["scalebar_size"],
-                         unit=settings["scalebar_unit"], sep=settings["scalebar_labelsep"])
+        self.addscalebar(
+            scene,
+            items,
+            newitems,
+            position=settings["scalebar_position"],
+            visible=settings["scalebar"],
+            ratio=settings["scalebar_ratio"],
+            xfrac=settings["scalebar_fraction"],
+            pad=settings["scalebar_pad"],
+            color=settings["scalebar_color"],
+            size=settings["scalebar_size"],
+            unit=settings["scalebar_unit"],
+            sep=settings["scalebar_labelsep"],
+        )
 
         self.refreshscene(newitems)
 
@@ -895,14 +933,15 @@ class Image(Item):
         compositions = []
         if self.nchannels > 1:
             for name, comp in settings["compositions"].items():
-                compositions.append(
-                    self.compositioncolor(name, comp, vmin, vmax))
+                compositions.append(self.compositioncolor(name, comp, vmin, vmax))
         for name, value, color in compositions:
             if name not in legend:
                 legend.append(name)
                 colors.append(color)
 
-    def addcolorbar(self, scene, settings, items, newitems, normcb, vmin, vmax, color=None):
+    def addcolorbar(
+        self, scene, settings, items, newitems, normcb, vmin, vmax, color=None
+    ):
         visible = settings["legend"]
 
         legend = []
@@ -927,15 +966,15 @@ class Image(Item):
                         if ma > 0.01:
                             fmt = floatformat(ma, 3)
                         else:
-                            fmt = ':.2E'
+                            fmt = ":.2E"
 
                         visible = True
                         u = settings["colorbar_units"]
                         if u:
-                            u = '{:~}'.format(units.ureg.Unit(u))
-                            u = ' ' + u.replace(' ', '')
+                            u = "{:~}".format(units.ureg.Unit(u))
+                            u = " " + u.replace(" ", "")
                         else:
-                            u = ''
+                            u = ""
                         if settings["legend"]:
                             fmt = "{{}} [{{{}}},{{{}}}]{}".format(fmt, fmt, u)
                             legend[i] = fmt.format(name, mi, ma)
@@ -946,29 +985,47 @@ class Image(Item):
                 divider = make_axes_locatable(scene.ax)
                 cax = divider.append_axes("right", size="5%", pad=0.05)
                 newitems["colorbar"] = plt.colorbar(
-                    newitems["image"], label=settings["colorbar_units"], cax=cax)
+                    newitems["image"], label=settings["colorbar_units"], cax=cax
+                )
 
         nchannels = self.nchannels
         if nchannels == 1:
             colors = [color]
         else:
-            colors = ['r', 'g', 'b']
+            colors = ["r", "g", "b"]
             if nchannels > 3:
-                colors.extend([None]*(nchannels-3))
+                colors.extend([None] * (nchannels - 3))
             colors = colors[0:nchannels]
 
         if settings["title"]:
-            colors = [settings["color"]]+colors
+            colors = [settings["color"]] + colors
 
         return legend, colors, visible
 
-    def addlegend(self, scene, settings, items, newitems, labels, colors,
-                  visible=True, astext=False, withpatch=False):
+    def addlegend(
+        self,
+        scene,
+        settings,
+        items,
+        newitems,
+        labels,
+        colors,
+        visible=True,
+        astext=False,
+        withpatch=False,
+    ):
         if not labels or not visible:
             return
 
         if astext:
-            xlabel, ylabel, dx, dy, horizontalalignment, verticalalignment = self.labelxy
+            (
+                xlabel,
+                ylabel,
+                dx,
+                dy,
+                horizontalalignment,
+                verticalalignment,
+            ) = self.labelxy
             kwargs = {k: settings[k] for k in ["color", "alpha"]}
             kwargs["horizontalalignment"] = horizontalalignment
             kwargs["verticalalignment"] = verticalalignment
@@ -993,11 +1050,12 @@ class Image(Item):
                 if name in items:
                     newitems[name] = items[name]
                     newitems[name].set_text(label)
-                    newitems[name].set_position((xlabel+i*dx, ylabel+i*dy))
+                    newitems[name].set_position((xlabel + i * dx, ylabel + i * dy))
                     plt.setp(newitems[name], **kwargs)
                 else:
                     newitems[name] = scene.ax.text(
-                        xlabel+i*dx, ylabel+i*dy, label, **kwargs)
+                        xlabel + i * dx, ylabel + i * dy, label, **kwargs
+                    )
                 newitems[name].set_visible(visible)
             else:
                 if withpatch:
@@ -1006,7 +1064,8 @@ class Image(Item):
                     labels2.append(label)
                     colors2.append(color)
                     p = pltpatches.Rectangle(
-                        (0, 0), 1, 1, fill=False, visible=False, **kwargs)
+                        (0, 0), 1, 1, fill=False, visible=False, **kwargs
+                    )
                 patches.append(p)
 
         if not astext and patches:
@@ -1015,22 +1074,45 @@ class Image(Item):
             #    bbox_to_anchor[0] = 1.05
 
             if withpatch:
-                legend = plt.legend(handles=patches, loc=2, frameon=False,
-                                    borderaxespad=0,
-                                    bbox_to_anchor=bbox_to_anchor)
+                legend = plt.legend(
+                    handles=patches,
+                    loc=2,
+                    frameon=False,
+                    borderaxespad=0,
+                    bbox_to_anchor=bbox_to_anchor,
+                )
             else:
-                legend = plt.legend(handles=patches, labels=labels2, loc=2, frameon=False,
-                                    borderaxespad=0,
-                                    bbox_to_anchor=bbox_to_anchor,
-                                    handlelength=0, handletextpad=0)
+                legend = plt.legend(
+                    handles=patches,
+                    labels=labels2,
+                    loc=2,
+                    frameon=False,
+                    borderaxespad=0,
+                    bbox_to_anchor=bbox_to_anchor,
+                    handlelength=0,
+                    handletextpad=0,
+                )
                 for text, c in zip(legend.get_texts(), colors2):
                     plt.setp(text, color=c)
 
             legend.set_visible(visible)
             newitems["legend"] = legend
 
-    def addscalebar(self, scene, items, newitems, position="lower right", visible=True,
-                    ratio=8., xfrac=0.1, pad=0.1, sep=2, color="#ffffff", size=0, unit=None):
+    def addscalebar(
+        self,
+        scene,
+        items,
+        newitems,
+        position="lower right",
+        visible=True,
+        ratio=8.0,
+        xfrac=0.1,
+        pad=0.1,
+        sep=2,
+        color="#ffffff",
+        size=0,
+        unit=None,
+    ):
         if not visible:
             return
 
@@ -1040,13 +1122,12 @@ class Image(Item):
 
         # Scalebar horizontal size
         sx = scene.xmagnitude(self.displaylimx)
-        sx = units.Quantity(abs(sx[1]-sx[0]), scene.xunit)
+        sx = units.Quantity(abs(sx[1] - sx[0]), scene.xunit)
         if size:
             xsize = units.Quantity(size, scene.xunit)
         else:
-            xsize = units.Quantity(round_sig(sx.magnitude*xfrac, 1),
-                                   scene.xunit)
-        xfrac = (xsize/sx).to('dimensionless').magnitude
+            xsize = units.Quantity(round_sig(sx.magnitude * xfrac, 1), scene.xunit)
+        xfrac = (xsize / sx).to("dimensionless").magnitude
 
         # Integer if possible
         xsize = xsize.to(unit)
@@ -1057,23 +1138,25 @@ class Image(Item):
 
         # Scalebar vertical size
         sy = scene.ymagnitude(self.displaylimy)
-        sy = units.Quantity(abs(sy[1]-sy[0]), scene.yunit)
-        yfrac = ratio*xfrac
-        ysize = sy*yfrac
+        sy = units.Quantity(abs(sy[1] - sy[0]), scene.yunit)
+        yfrac = ratio * xfrac
+        ysize = sy * yfrac
 
         # TODO: handle zoom
         mxsize = xsize.to(scene.xunit).magnitude
         mysize = ysize.to(scene.yunit).magnitude
-        scalebar = AnchoredSizeBar(scene.ax.transData,
-                                   mxsize,
-                                   label,
-                                   position,
-                                   pad=pad,
-                                   color=color,
-                                   fill_bar=True,
-                                   frameon=False,
-                                   sep=sep,
-                                   size_vertical=mysize)
+        scalebar = AnchoredSizeBar(
+            scene.ax.transData,
+            mxsize,
+            label,
+            position,
+            pad=pad,
+            color=color,
+            fill_bar=True,
+            frameon=False,
+            sep=sep,
+            size_vertical=mysize,
+        )
 
         newitems[name] = scalebar
         newitems[name].set_visible(visible)
@@ -1082,16 +1165,17 @@ class Image(Item):
 
 
 class Scatter(Item):
-
     def __init__(self, coordinate0, coordinate1, labels=None, **kwargs):
         super(Scatter, self).__init__(**kwargs)
         Scatter._updatedata(self, coordinate0, coordinate1, labels=labels)
 
     def _updatedata(self, coordinate0, coordinate1, labels=None):
-        self._coordinate = [instance.asarray(
-            coordinate0), instance.asarray(coordinate1)]
-        #self._coordinate = [units.asqarray(coordinate0),units.asqarray(coordinate1)]
-        #self._coordinate = [coordinate0,coordinate1]
+        self._coordinate = [
+            instance.asarray(coordinate0),
+            instance.asarray(coordinate1),
+        ]
+        # self._coordinate = [units.asqarray(coordinate0),units.asqarray(coordinate1)]
+        # self._coordinate = [coordinate0,coordinate1]
         if labels is None:
             self.labels = []
         else:
@@ -1110,11 +1194,21 @@ class Scatter(Item):
 
     @staticmethod
     def defaultsettings():
-        return {"color": None, "marker": "+", "linestyle": "", "linewidth": 2,
-                "fill": False, "alpha": None, "closed": False, "labels": True,
-                "horizontalalignment": "left", "verticalalignment": "bottom",
-                "fontsize": matplotlib.rcParams['font.size'], "labeloffset": 0.1,
-                "fontweight": 500}
+        return {
+            "color": None,
+            "marker": "+",
+            "linestyle": "",
+            "linewidth": 2,
+            "fill": False,
+            "alpha": None,
+            "closed": False,
+            "labels": True,
+            "horizontalalignment": "left",
+            "verticalalignment": "bottom",
+            "fontsize": matplotlib.rcParams["font.size"],
+            "labeloffset": 0.1,
+            "fontweight": 500,
+        }
 
     def updateview(self):
         scene = self.scene
@@ -1129,8 +1223,10 @@ class Scatter(Item):
 
         # Polygon
         if settings["fill"]:
-            kwargs = {k: settings[k] for k in [
-                "linestyle", "linewidth", "color", "alpha", "closed"]}
+            kwargs = {
+                k: settings[k]
+                for k in ["linestyle", "linewidth", "color", "alpha", "closed"]
+            }
             if not kwargs["linestyle"]:
                 kwargs["linestyle"] = None
 
@@ -1139,15 +1235,16 @@ class Scatter(Item):
                 newitems["patch"].set_xy = zip(x, y)
                 plt.setp(newitems["patch"], **kwargs)
             else:
-                newitems["patch"] = matplotlib.patches.Polygon(
-                    zip(x, y), **kwargs)
+                newitems["patch"] = matplotlib.patches.Polygon(zip(x, y), **kwargs)
                 scene.ax.add_patch(newitems["patch"])
             settings["color"] = newitems["patch"].get_facecolor()
 
         # Polyline/points
         if settings["linestyle"] or settings["marker"]:
-            kwargs = {k: settings[k] for k in [
-                "marker", "linestyle", "alpha", "color", "linewidth"]}
+            kwargs = {
+                k: settings[k]
+                for k in ["marker", "linestyle", "alpha", "color", "linewidth"]
+            }
 
             if settings["closed"] and settings["linestyle"]:
                 xcl = np.append(x, x[0])
@@ -1171,8 +1268,17 @@ class Scatter(Item):
             xo *= settings["labeloffset"]
             yo *= settings["labeloffset"]
 
-            kwargs = {k: settings[k] for k in [
-                "horizontalalignment", "verticalalignment", "alpha", "color", "fontsize", "fontweight"]}
+            kwargs = {
+                k: settings[k]
+                for k in [
+                    "horizontalalignment",
+                    "verticalalignment",
+                    "alpha",
+                    "color",
+                    "fontsize",
+                    "fontweight",
+                ]
+            }
 
             for i, (xi, yi, label) in enumerate(zip(x, y, self.labels)):
                 name = "label{}".format(i)
@@ -1180,19 +1286,22 @@ class Scatter(Item):
                     newitems[name] = items[name]
                     newitems[name].set_text(label)
                     newitems[name].set_position((xi, yi))
-                    newitems[name].xytext = (xi+xo, yi+yo)  # has no effect!!!!
+                    newitems[name].xytext = (xi + xo, yi + yo)  # has no effect!!!!
                     plt.setp(newitems[name], **kwargs)
                 else:
-                    newitems[name] = scene.ax.annotate(label,
-                                                       xy=(xi, yi), xytext=(
-                                                           xi+xo, yi+yo),
-                                                       xycoords="data", textcoords="data", **kwargs)
+                    newitems[name] = scene.ax.annotate(
+                        label,
+                        xy=(xi, yi),
+                        xytext=(xi + xo, yi + yo),
+                        xycoords="data",
+                        textcoords="data",
+                        **kwargs
+                    )
 
         self.refreshscene(newitems)
 
 
 class Polyline(Scatter):
-
     @staticmethod
     def defaultsettings():
         settings = Scatter.defaultsettings()
@@ -1203,7 +1312,6 @@ class Polyline(Scatter):
 
 
 class Polygon(Scatter):
-
     @staticmethod
     def defaultsettings():
         settings = Scatter.defaultsettings()
@@ -1214,7 +1322,6 @@ class Polygon(Scatter):
 
 
 class Text(Scatter):
-
     @staticmethod
     def defaultsettings():
         settings = Scatter.defaultsettings()

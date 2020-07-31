@@ -17,7 +17,7 @@ def default(name):
     return matplotlib.rcParams[name]
 
 
-def figsize(publish='screen', aspect=0.75, nsidebyside=1, space=0., widescreen=True):
+def figsize(publish="screen", aspect=0.75, nsidebyside=1, space=0.0, widescreen=True):
     """
     Args:
         publish(Optional(str)): word, powerpoint, screen
@@ -28,9 +28,9 @@ def figsize(publish='screen', aspect=0.75, nsidebyside=1, space=0., widescreen=T
     Returns:
         tuple: width, height (inch)
     """
-    if publish == 'word':
+    if publish == "word":
         width = 6.24
-    elif publish == 'powerpoint':
+    elif publish == "powerpoint":
         if widescreen:
             width = 33.867
         else:
@@ -40,8 +40,8 @@ def figsize(publish='screen', aspect=0.75, nsidebyside=1, space=0., widescreen=T
             width = publish
         else:
             width = 6.4
-    width *= (1-space)/nsidebyside
-    return width, width*aspect
+    width *= (1 - space) / nsidebyside
+    return width, width * aspect
 
 
 def adapttofigsize(size, fontsize=None, **kwargs):
@@ -52,37 +52,38 @@ def adapttofigsize(size, fontsize=None, **kwargs):
     """
     if fontsize:  # in inch
         # 1 inch = 72 points
-        fontsize = fontsize*72
+        fontsize = fontsize * 72
     else:
-        fontsize = min(size)*10/4.8
-    linewidth = fontsize*0.08
+        fontsize = min(size) * 10 / 4.8
+    linewidth = fontsize * 0.08
     wtick = linewidth
     cwtick = 0.75
-    stick = linewidth*4.375
-    cstick = 1/1.75
-    ptick = linewidth*4.375
-    cptick = 3.4/3.5
-    parameters = {'font.size': fontsize,
-                  'axes.linewidth': linewidth,
-                  'lines.linewidth': linewidth*1.875,
-                  'patch.linewidth': linewidth*1.25,
-                  'axes.titlepad': fontsize*0.6,
-                  'axes.labelpad': fontsize*0.4,
-                  'xtick.major.width': wtick,
-                  'xtick.minor.width': wtick*cwtick,
-                  'ytick.major.width': wtick,
-                  'ytick.minor.width': wtick*cwtick,
-                  'xtick.major.size': stick,
-                  'xtick.minor.size': stick*cstick,
-                  'ytick.major.size': stick,
-                  'ytick.minor.size': stick*cstick,
-                  'xtick.major.pad': ptick,
-                  'xtick.minor.pad': ptick*cptick,
-                  'ytick.major.pad': ptick,
-                  'ytick.minor.pad': ptick*cptick,
-                  'xtick.direction': kwargs.get('tick.direction', 'out'),
-                  'ytick.direction': kwargs.get('tick.direction', 'out'),
-                  }
+    stick = linewidth * 4.375
+    cstick = 1 / 1.75
+    ptick = linewidth * 4.375
+    cptick = 3.4 / 3.5
+    parameters = {
+        "font.size": fontsize,
+        "axes.linewidth": linewidth,
+        "lines.linewidth": linewidth * 1.875,
+        "patch.linewidth": linewidth * 1.25,
+        "axes.titlepad": fontsize * 0.6,
+        "axes.labelpad": fontsize * 0.4,
+        "xtick.major.width": wtick,
+        "xtick.minor.width": wtick * cwtick,
+        "ytick.major.width": wtick,
+        "ytick.minor.width": wtick * cwtick,
+        "xtick.major.size": stick,
+        "xtick.minor.size": stick * cstick,
+        "ytick.major.size": stick,
+        "ytick.minor.size": stick * cstick,
+        "xtick.major.pad": ptick,
+        "xtick.minor.pad": ptick * cptick,
+        "ytick.major.pad": ptick,
+        "ytick.minor.pad": ptick * cptick,
+        "xtick.direction": kwargs.get("tick.direction", "out"),
+        "ytick.direction": kwargs.get("tick.direction", "out"),
+    }
     update(parameters)
     parameters = {k: v for k, v in kwargs.items() if k in matplotlib.rcParams}
     update(parameters)
@@ -99,25 +100,25 @@ def screensize():
     return w, h
 
 
-def dpi(publish='photo&text', best=True):
+def dpi(publish="photo&text", best=True):
     """
     Args:
         publish(str,tuple): publication medium (WxH when a tuple)
         best(bool):
     """
-    if publish == 'powerpoint':
+    if publish == "powerpoint":
         publish = screensize()
-    if publish == 'color':
+    if publish == "color":
         ret = 300
-    elif publish == 'b&w':
+    elif publish == "b&w":
         ret = 600 if best else 300
-    elif publish == 'photo&text':
+    elif publish == "photo&text":
         ret = 900 if best else 600
-    elif publish == 'lineart':
+    elif publish == "lineart":
         ret = 1200 if best else 900
     elif instance.issequence(publish):
         width, height = publish
-        publish = 'width x height = {} x {} inch'.format(width, height)
+        publish = "width x height = {} x {} inch".format(width, height)
         # Powerpoint: normal and widescreen
         # 50	 500 × 375   667 × 375   50 dpi
         # 96  960 × 720   1280 × 720  96 dpi
@@ -140,6 +141,5 @@ def dpi(publish='photo&text', best=True):
             ret = 300
     else:  # screen
         ret = 96
-    logger.info('Image publication: {}, {} DPI'
-                .format(publish, ret))
+    logger.info("Image publication: {}, {} DPI".format(publish, ret))
     return ret
