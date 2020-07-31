@@ -180,7 +180,7 @@ function pyopencl_install()
         mapt-get install ocl-icd-libopencl1
         mapt-get install opencl-headers
         mapt-get install libffi-dev
-        
+
         intel_install_opencldrivers
         pip_install numpy
         pip_install pybind11

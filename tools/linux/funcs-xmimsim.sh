@@ -126,6 +126,7 @@ function xmimsim_build_dependencies()
 {
     mapt-get install gfortran
     mapt-get install libglib2.0-dev
+    require_hdf5
     require_build_essentials
     require_easyrng
     require_libxslt
@@ -170,7 +171,10 @@ function xmimsim_source_install()
         cprint "Skipping xmimsim installation"
         return
     fi
-    source_install xmimsim "${1}"
+    # gfortran does not take CPATH
+    local fcpath=$(echo -I$CPATH | sed -e 's/:/ -I/g')
+    source_install xmimsim "${1}" \
+        FCFLAGS="\\\"$fcpath\\\""
 }
 
 

@@ -308,6 +308,7 @@ function easymake_configure()
         if [[ ! -f "../${base}/configure" && -f "../${base}/configure.ac" ]]; then
             local restorewd=$(pwd)
             cd ../${base}
+            #autoreconfig -i
             libtoolize --force
             aclocal
             autoheader
@@ -318,7 +319,7 @@ function easymake_configure()
         
         # Configure
         ../${base}/configure --help
-        ../${base}/configure --prefix="${prefix}" ${cfgparams}
+        eval "../${base}/configure --prefix="${prefix}" ${cfgparams}"
         
         if [[ $? != 0 ]]; then
             cerror "Configuring ${program} (${version}) failed"
@@ -398,7 +399,6 @@ function easymake()
 
     cprint "Configure ${program} (${version}) with options:"
     local prefix=$(easymake_prefix ${program} ${version})
-    cfgparams=$(eval echo ${cfgparams})
     cprint "${cfgparams}"
     if [[ $(cmdexists ${func_configure}) == true ]];then
         eval ${func_configure} ${program} ${version} ${cfgparams}

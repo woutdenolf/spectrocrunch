@@ -15,7 +15,6 @@ function simpleelastix_build_dependencies()
 {
     mapt-get install lua5.1 liblua5.1-dev
     require_pythondev
-    pip_install virtualenv>=13.0 # does not work on rnice
     require_cmake 3.10
     require_swig 3
 }
@@ -27,7 +26,8 @@ function simpleelastix_download()
 
     cd ${1}
     
-    git reset --hard 2a79d15
+    #git reset --hard 2a79d15
+    git checkout v1.2.4  #Nov 13, 2019
     #git checkout v1.1.0
     #git reset --hard 49af818 # Sep 10, 2018  (v1.1.0)
     #git reset --hard cf75ff4 # Dec 21, 2017  (Git ITK v4.13.0)
@@ -91,7 +91,7 @@ function simpleelastix_source_install()
                   -DBUILD_TESTING:BOOL=OFF \
                   ${_SYSTEM_SWIG} \
                   ${_SYSTEM_LUA} \
-                  ${_SYSTEM_VIRTUALENV} \
+                  -DSimpleITK_PYTHON_USE_VIRTUALENV:BOOL=OFF \
                   -DSimpleITK_USE_SYSTEM_ELASTIX:BOOL=OFF \
                   -DSimpleITK_USE_SYSTEM_ITK:BOOL=OFF \
                   -DPYTHON_EXECUTABLE:FILEPATH=$(python_full_bin) \

@@ -41,3 +41,11 @@ function require_web_access()
         export use_proxy=yes
     fi
 }
+
+
+function require_hdf5()
+{
+    mapt-get install libhdf5
+    mapt-get install libhdf5-dev
+}
+

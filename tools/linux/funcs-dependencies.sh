@@ -47,7 +47,7 @@ function install_system_dependencies_dev()
 
 function install_nopypi_dependencies()
 {
-    require_xraylib
+    require_xraylib 4
     require_xmimsim
     require_xrmc
     require_simpleelastix
