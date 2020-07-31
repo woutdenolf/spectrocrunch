@@ -24,18 +24,18 @@ class Filter(XrayOptics):
 
     def __init__(self, material=None, thickness=None):
         geom = FlatSample(anglein=90)
-        self.multilayer = multilayer.Multilayer(material=material,
-                                                thickness=thickness,
-                                                geometry=geom)
+        self.multilayer = multilayer.Multilayer(
+            material=material, thickness=thickness, geometry=geom
+        )
         super(Filter, self).__init__(uselut=False)
 
     def __getstate__(self):
         state = super(Filter, self).__getstate__()
-        state['multilayer'] = self.multilayer
+        state["multilayer"] = self.multilayer
         return state
 
     def __setstate__(self, state):
-        self.multilayer = state['multilayer']
+        self.multilayer = state["multilayer"]
         super(Filter, self).__setstate__(state)
 
     def __eq__(self, other):

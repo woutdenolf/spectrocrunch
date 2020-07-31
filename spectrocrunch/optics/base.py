@@ -6,22 +6,21 @@ from ..utils.copyable import Copyable
 
 
 class Optics(Copyable):
-
     def __init__(self, uselut=True, default=1, **kwargs):
         if uselut:
             self.lut = lut.LUT(default=default, **kwargs)
         self.uselut = uselut
 
     def __getstate__(self):
-        state = {'uselut': self.uselut}
+        state = {"uselut": self.uselut}
         if self.uselut:
-            state['lut'] = self.lut
+            state["lut"] = self.lut
         return state
-        
+
     def __setstate__(self, state):
-        self.uselut = state['uselut']
-        if 'lut' in state:
-            self.lut = state['lut']
+        self.uselut = state["uselut"]
+        if "lut" in state:
+            self.lut = state["lut"]
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -39,8 +38,9 @@ class Optics(Copyable):
 
     def __str__(self):
         name = type(self).__name__
-        s = '\n '.join("{:~}: {} %".format(k, v*100)
-                       for k, v in self.lut.zip('keV', None))
+        s = "\n ".join(
+            "{:~}: {} %".format(k, v * 100) for k, v in self.lut.zip("keV", None)
+        )
         if s:
             return "{}:\n transmission:\n {}".format(name, s)
         else:
@@ -52,16 +52,16 @@ class Optics(Copyable):
 
     def transmission(self, energy):
         self.checklut()
-        energy = units.Quantity(energy, 'keV')
+        energy = units.Quantity(energy, "keV")
         T = self.lut(energy)
         return T.to(units.dimensionless).magnitude
 
     def set_transmission(self, energy, transmission):
         self.checklut()
-        self.lut.replace(units.Quantity(energy, 'keV'), transmission)
+        self.lut.replace(units.Quantity(energy, "keV"), transmission)
 
     def checklut(self):
         if not self.uselut:
             raise RuntimeError(
-                "{} has no transmission lookup table."
-                .format(type(self).__name__))
+                "{} has no transmission lookup table.".format(type(self).__name__)
+            )
