@@ -6,14 +6,14 @@ import warnings
 
 
 def gaussian(x, x0, sx, A):
-    return A/(np.sqrt(2*np.pi)*sx)*np.exp(-(x-x0)**2/(2*sx**2))
+    return A / (np.sqrt(2 * np.pi) * sx) * np.exp(-((x - x0) ** 2) / (2 * sx ** 2))
 
 
 def guess_gaussian(x, data):
     x0i = np.argmax(data)
     x0 = x[x0i]
-    sx = np.sqrt(abs((x-x0)**2*data).sum()/data.sum())
-    A = data[x0]*np.sqrt(2*np.pi)*sx
+    sx = np.sqrt(abs((x - x0) ** 2 * data).sum() / data.sum())
+    A = data[x0] * np.sqrt(2 * np.pi) * sx
     return np.array([x0, sx, A], dtype=np.float32)
 
 
@@ -23,7 +23,9 @@ def fitgaussian(x, data):
 
 def leastsq(x, data, guessfunc=None, fitfunc=None):
     guess = guessfunc(x, data)
-    def errorfunc(p, x, data): return np.ravel(fitfunc(x, *p)-data)
+
+    def errorfunc(p, x, data):
+        return np.ravel(fitfunc(x, *p) - data)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -39,7 +41,7 @@ def xyremovenan(x, y):
 
 
 def cor_from_cov(cov):
-    D = np.diag(1/np.sqrt(np.diag(cov)))
+    D = np.diag(1 / np.sqrt(np.diag(cov)))
     return D.dot(cov.dot(D))
 
 
@@ -75,7 +77,7 @@ def lstsq_cov(A, vare=None, cove=None):
         try:
             # M = A^(-1)
             if cove is None:
-                return np.linalg.inv(A.T.dot(A/vare.reshape((m, 1))))
+                return np.linalg.inv(A.T.dot(A / vare.reshape((m, 1))))
             else:
                 iA = np.linalg.inv(A)
                 return iA.dot(cove.dot(iA.T))
@@ -84,7 +86,7 @@ def lstsq_cov(A, vare=None, cove=None):
     # TODO: this matrix has been already calculated before
     M = np.linalg.inv((A.T.dot(A))).dot(A.T)
     if cove is None:
-        return (M*vare.reshape((1, m))).dot(M.T)
+        return (M * vare.reshape((1, m))).dot(M.T)
     else:
         return M.dot(cove).dot(M.T)
 
@@ -109,7 +111,8 @@ def lstsq_std(A, b=None, x=None, vare=None, cove=None):
         stdx(array): errors (n)
     """
     if vare is None and cove is None:
-        vare = np.var(np.dot(A, x)-b, ddof=x.size)
+        vare = np.var(np.dot(A, x) - b, ddof=x.size)
+        vare = np.array([vare] * b.size)
     return np.sqrt(np.diag(lstsq_cov(A, vare=vare, cove=cove)))
 
 
@@ -138,9 +141,9 @@ def lstsq_std_indep(A, b=None, x=None, vare=None):
         stdx(array): sqrt(VARX) (n)
     """
     if vare is None:
-        vare = np.var(np.dot(A, x)-b, ddof=x.size)
+        vare = np.var(np.dot(A, x) - b, ddof=x.size)
         vare = np.full(vare, x.size)
-    return np.sqrt(lstsq(A*A, vare))
+    return np.sqrt(lstsq(A * A, vare))
 
 
 def lstsq(A, b, errors=False, vare=None, cove=None):
@@ -251,21 +254,21 @@ def linfit2(x, y, errors=False, vare=None):
     if vare is not None:
         raise NotImplementedError("Use linfit instead")
     n = len(x)
-    Sxy = (x*y).sum()
-    Sxx = (x*x).sum()
+    Sxy = (x * y).sum()
+    Sxx = (x * x).sum()
     Sx = x.sum()
     Sy = y.sum()
-    denom = float(n*Sxx-Sx*Sx)
-    mnum = n*Sxy-Sx*Sy
-    bnum = Sxx*Sy-Sx*Sxy
+    denom = float(n * Sxx - Sx * Sx)
+    mnum = n * Sxy - Sx * Sy
+    bnum = Sxx * Sy - Sx * Sxy
     m = mnum / denom
     b = bnum / denom
 
     if errors:
-        Syy = (y*y).sum()
-        num = n*Syy-Sy*Sy-m*mnum
-        mstd = np.sqrt(num / ((n-2.)*denom))
-        bstd = np.sqrt(num*Sxx / (n*(n-2.)*denom))
+        Syy = (y * y).sum()
+        num = n * Syy - Sy * Sy - m * mnum
+        mstd = np.sqrt(num / ((n - 2.0) * denom))
+        bstd = np.sqrt(num * Sxx / (n * (n - 2.0) * denom))
         return [m, b], [mstd, bstd]
     else:
         return [m, b]
@@ -309,12 +312,14 @@ def linfit_zerointercept(x, y, errors=False, vare=None):
 
 
 def linfit_zerointercept2(x, y, errors=False, vare=None):
-    Sxy = (x*y).sum()
-    Sxx = float((x*x).sum())
-    m = Sxy/Sxx
+    Sxy = (x * y).sum()
+    Sxx = float((x * x).sum())
+    m = Sxy / Sxx
     if errors:
         n = len(x)
-        Syy = (y*y).sum()
-        mstd = np.sqrt((Syy+m*m*Sxx-2*m*Sxy) / ((n-1.)*Sxx))  # Not sure
+        Syy = (y * y).sum()
+        mstd = np.sqrt(
+            (Syy + m * m * Sxx - 2 * m * Sxy) / ((n - 1.0) * Sxx)
+        )  # Not sure
         return m, mstd
     return m

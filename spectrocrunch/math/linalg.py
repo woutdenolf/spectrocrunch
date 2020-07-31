@@ -10,10 +10,10 @@ def cramer(A, b):
         raise RuntimeError("Singular matrix")
     nrow, ncol = A.shape
 
-    sol = [None]*ncol
+    sol = [None] * ncol
     for i in range(ncol):
         Ai = numpy.array(A, copy=True)
         Ai[:, i] = b
         sol[i] = numpy.linalg.det(Ai)
 
-    return numpy.asarray(sol)/detA
+    return numpy.asarray(sol) / detA

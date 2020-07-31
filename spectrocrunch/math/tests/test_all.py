@@ -9,6 +9,8 @@ from . import test_lazy
 from . import test_noisepropagation
 from . import test_distributions
 from . import test_interpolate
+from . import test_lsqlin
+from . import test_quadrics
 
 
 def test_suite():
@@ -22,10 +24,12 @@ def test_suite():
     testSuite.addTest(test_noisepropagation.test_suite())
     testSuite.addTest(test_distributions.test_suite())
     testSuite.addTest(test_interpolate.test_suite())
+    testSuite.addTest(test_lsqlin.test_suite())
+    testSuite.addTest(test_quadrics.test_suite())
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

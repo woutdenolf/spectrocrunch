@@ -22,12 +22,12 @@ def fmin(data):
 def _centroid(data):
     if data.size in data.shape:
         x = np.arange(data.size).reshape(data.shape)
-        return (x*data).sum()/data.sum()
+        return (x * data).sum() / data.sum()
     else:
         ny, nx = np.shape(data)
         y, x = np.indices((ny, nx))
-        cx = np.sum(x*data)/np.sum(data)
-        cy = np.sum(y*data)/np.sum(data)
+        cx = np.sum(x * data) / np.sum(data)
+        cy = np.sum(y * data) / np.sum(data)
         return np.array((cx, cy))
 
 
@@ -63,20 +63,37 @@ def foptimize(data, proc, threshold=0.9):
                 shiftb -= 1
                 break
         if shifta != shiftb:
-            shift = proc(data.flat[shifta:shiftb+1])+shifta
+            shift = proc(data.flat[shifta : shiftb + 1]) + shifta
     else:
         off = 0
         s = data.shape
-        while (data[shift[0]-off:shift[0]+off+1, shift[1]-off:shift[1]+off+1] < thres).sum(dtype=int) == 0:
+        while (
+            data[
+                shift[0] - off : shift[0] + off + 1, shift[1] - off : shift[1] + off + 1
+            ]
+            < thres
+        ).sum(dtype=int) == 0:
             off += 1
-            if shift[0] < off or shift[1] < off or shift[0]+off >= s[0] or shift[1]+off >= s[1]:
+            if (
+                shift[0] < off
+                or shift[1] < off
+                or shift[0] + off >= s[0]
+                or shift[1] + off >= s[1]
+            ):
                 off -= 1
                 break
 
         if off != 0:
-            shift = shift + \
-                proc(data[shift[0]-off:shift[0]+off+1,
-                          shift[1]-off:shift[1]+off+1])-off
+            shift = (
+                shift
+                + proc(
+                    data[
+                        shift[0] - off : shift[0] + off + 1,
+                        shift[1] - off : shift[1] + off + 1,
+                    ]
+                )
+                - off
+            )
 
     return shift
 

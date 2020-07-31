@@ -10,38 +10,47 @@ from .. import lazy
 
 
 class test_lazy(unittest.TestCase):
-
     def _gencase(self, ncases=100, logical=False):
-        ops = [(operator.mul, 2),
-               (operator.add, 2),
-               (operator.sub, 2),
-               (operator.pow, 2),
-               (operator.truediv, 2),
-               (operator.floordiv, 2),
-               (operator.mod, 2),
-               (abs, 1),
-               (operator.pos, 1),
-               (operator.neg, 1)]
+        ops = [
+            (operator.mul, 2),
+            (operator.add, 2),
+            (operator.sub, 2),
+            (operator.pow, 2),
+            (operator.truediv, 2),
+            (operator.floordiv, 2),
+            (operator.mod, 2),
+            (abs, 1),
+            (operator.pos, 1),
+            (operator.neg, 1),
+        ]
 
         if logical:
-            ops += [(operator.lt, 2),
-                    (operator.le, 2),
-                    (operator.gt, 2),
-                    (operator.lt, 2),
-                    (operator.and_, 2),
-                    (operator.or_, 2),
-                    (operator.not_, 2),
-                    (operator.truth, 2)]
+            ops += [
+                (operator.lt, 2),
+                (operator.le, 2),
+                (operator.gt, 2),
+                (operator.lt, 2),
+                (operator.and_, 2),
+                (operator.or_, 2),
+                (operator.not_, 2),
+                (operator.truth, 2),
+            ]
 
         for i in range(ncases):
             n = random.randint(1, 50)
             yield [random.choice(ops) for i in range(n)]
 
     def _test_combine(self, logical=False):
-        def randnr(): return random.randint(0, 100)/10.-5
-        def randbool(): return random.choice([False, True])
+        def randnr():
+            return random.randint(0, 100) / 10.0 - 5
+
+        def randbool():
+            return random.choice([False, True])
+
         m = randnr()
-        def randfunc(): return lazy.Function(lambda x: m*x, "f(x0)")
+
+        def randfunc():
+            return lazy.Function(lambda x: m * x, "f(x0)")
 
         for ops in self._gencase(ncases=500, logical=logical):
             f = randfunc()
@@ -99,7 +108,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

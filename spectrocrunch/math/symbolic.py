@@ -14,7 +14,6 @@ def eval(expr, subs):
 
 
 class clip(sympy.Function):
-
     def _eval_evalf(self, prec):
         return np.clip(*self.args)
 
@@ -23,7 +22,6 @@ class clip(sympy.Function):
 
 
 class iclip(sympy.Function):
-
     def _eval_evalf(self, prec):
         x, cmin, cmax = self.args
         y, func = instance.asarrayf(x)

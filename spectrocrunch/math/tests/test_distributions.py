@@ -10,10 +10,9 @@ import scipy.stats
 
 
 class test_distributions(unittest.TestCase):
-
     def _check_pdfintegral(self, integral, integrale, theory):
         integrale = max(integrale, 1e-5)
-        limits = integral+integrale*np.array([-1, 1])
+        limits = integral + integrale * np.array([-1, 1])
         self.assertTrue(limits[0] <= theory <= limits[1])
 
     def quad(self, func, a, b):
@@ -21,7 +20,7 @@ class test_distributions(unittest.TestCase):
         if b >= a:
             return quad(func, a, b)
         else:
-            return 0., 1e-16
+            return 0.0, 1e-16
 
     def func(self, func, args=None):
         if args:
@@ -59,9 +58,9 @@ class test_distributions(unittest.TestCase):
         ppf = self.func(rv.ppf, args=args)
 
         x = np.linspace(xmin, xmax, xn)
-        plt.plot(x, pdf(x), 'o-')
-        plt.plot(x, cdf(x), 'o-')
-        plt.plot(x, [self.quad(pdf, qmin, xi)[0] for xi in x], 'o-')
+        plt.plot(x, pdf(x), "o-")
+        plt.plot(x, cdf(x), "o-")
+        plt.plot(x, [self.quad(pdf, qmin, xi)[0] for xi in x], "o-")
         plt.show()
 
     def test_pdf(self):
@@ -70,10 +69,10 @@ class test_distributions(unittest.TestCase):
         rv = scipy.stats.norm
         self.checkpdf(rv, qmin, qmax, xmin, xmax, xn)
 
-        #k = 1
-        #qmin,qmax = -k,k
-        #xmin,xmax,xn = -10,10,50
-        #rv = scipy.stats.truncnorm(a=qmin,b=qmax)
+        # k = 1
+        # qmin,qmax = -k,k
+        # xmin,xmax,xn = -10,10,50
+        # rv = scipy.stats.truncnorm(a=qmin,b=qmax)
         # self.checkpdf(rv,qmin,qmax,xmin,xmax,xn)
 
         k = 1
@@ -90,7 +89,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

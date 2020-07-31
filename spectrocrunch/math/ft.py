@@ -2,7 +2,8 @@
 
 import numpy as np
 from ..utils.Enum import Enum
-fftConvention = Enum(['numpy', 'idl'])
+
+fftConvention = Enum(["numpy", "idl"])
 
 FFT_FREQ_CONVENTION = fftConvention.numpy
 # n: number of data points in real space
@@ -36,11 +37,11 @@ def fft_freqind(n, freqconvention=FFT_FREQ_CONVENTION):
     """
     # frequencies = [0,...,imax,imin,...,-1]/(n.d)
     if freqconvention == fftConvention.idl:
-        imin = -(n//2)+(1-(n % 2))
-        imax = (n+1)//2-(n % 2)
+        imin = -(n // 2) + (1 - (n % 2))
+        imax = (n + 1) // 2 - (n % 2)
     else:
-        imin = -(n//2)
-        imax = (n+1)//2-1
+        imin = -(n // 2)
+        imax = (n + 1) // 2 - 1
     return imin, imax
 
 
@@ -54,13 +55,13 @@ def fftfreq(n, d=1, centered=False, freqconvention=FFT_FREQ_CONVENTION):
     """
     imin, imax = fft_freqind(n, freqconvention=freqconvention)
     if centered:
-        freq = np.arange(imin, imax+1, dtype=int)
+        freq = np.arange(imin, imax + 1, dtype=int)
     else:
         freq = np.empty(n, dtype=int)
-        npos = imax+1
+        npos = imax + 1
         freq[:npos] = np.arange(npos, dtype=int)
         freq[npos:] = np.arange(imin, 0, dtype=int)
-    return freq/float(n*d)
+    return freq / float(n * d)
 
 
 def fftshift(sigft, freqconvention=FFT_FREQ_CONVENTION):
@@ -73,11 +74,11 @@ def fftshift(sigft, freqconvention=FFT_FREQ_CONVENTION):
     """
     dim = np.array(sigft.shape)
     _, imax = fft_freqind(dim, freqconvention=freqconvention)
-    npos = imax+1
+    npos = imax + 1
     out = sigft.copy()
     for k in range(len(dim)):
         ind = np.empty(dim[k], int)
-        off = dim[k]-npos[k]
+        off = dim[k] - npos[k]
         ind[:off] = np.arange(npos[k], dim[k], dtype=int)
         ind[off:] = np.arange(npos[k], dtype=int)
         out = np.take(out, ind, axis=k)
@@ -97,7 +98,7 @@ def ifftshift(sigft, freqconvention=FFT_FREQ_CONVENTION):
     out = sigft.copy()
     for k in range(len(dim)):
         ind = np.empty(dim[k], int)
-        off = dim[k]-npos[k]
+        off = dim[k] - npos[k]
         ind[:off] = np.arange(npos[k], dim[k], dtype=int)
         ind[off:] = np.arange(npos[k], dtype=int)
         out = np.take(out, ind, axis=k)
@@ -114,13 +115,22 @@ def _realspace(N, dx, x0, x1):
             x1 (int): real space end integer index
     """
     if x1 is None:
-        x1 = N-1
+        x1 = N - 1
     if x0 > x1:
         raise ValueError("Wrong real space coordinates ({},{})".format(x0, x1))
-    return np.arange(x0, x1+1)*dx
+    return np.arange(x0, x1 + 1) * dx
 
 
-def _dft(f, dx=1, x0=0, x1=None, u=[], centered=False, inverse=False, normconvention=FFT_NORM_CONVENTION):
+def _dft(
+    f,
+    dx=1,
+    x0=0,
+    x1=None,
+    u=[],
+    centered=False,
+    inverse=False,
+    normconvention=FFT_NORM_CONVENTION,
+):
     """Fourier transform with fixed frequencies
 
         Args:
@@ -155,15 +165,17 @@ def _dft(f, dx=1, x0=0, x1=None, u=[], centered=False, inverse=False, normconven
         if inverse:
             if len(u) != len(f):
                 raise ValueError(
-                    "Number of frequencies should be equal to the number of data points in Fourier space")
+                    "Number of frequencies should be equal to the number of data points in Fourier space"
+                )
             c = 2j * np.pi
-            ret = np.exp(c*np.outer(x, u)).dot(f)  # nx x nu x nu
+            ret = np.exp(c * np.outer(x, u)).dot(f)  # nx x nu x nu
         else:
             if len(x) != len(f):
                 raise ValueError(
-                    "Number of times should be equal to the number of data points in real space")
+                    "Number of times should be equal to the number of data points in real space"
+                )
             c = -2j * np.pi
-            ret = np.exp(c*np.outer(u, x)).dot(f)  # nu x nx x nx
+            ret = np.exp(c * np.outer(u, x)).dot(f)  # nu x nx x nx
 
         # Normalization:
         if (normconvention == fftConvention.idl) ^ inverse:
@@ -172,10 +184,20 @@ def _dft(f, dx=1, x0=0, x1=None, u=[], centered=False, inverse=False, normconven
     return ret
 
 
-def _dft2(f, dx=1, x0=0, x1=None, u=[],
-          dy=1, y0=0, y1=None, v=[],
-          centered=False, inverse=False,
-          normconvention=FFT_NORM_CONVENTION):
+def _dft2(
+    f,
+    dx=1,
+    x0=0,
+    x1=None,
+    u=[],
+    dy=1,
+    y0=0,
+    y1=None,
+    v=[],
+    centered=False,
+    inverse=False,
+    normconvention=FFT_NORM_CONVENTION,
+):
     """Fourier transform with fixed frequencies
         Sub-region inverse Fourier transform with subpixel interpolation using the matrix for of the 2D-DFT
             Manuel Guizar-Sicairos, Samuel T. Thurman, and James R. Fienup,
@@ -197,16 +219,25 @@ def _dft2(f, dx=1, x0=0, x1=None, u=[],
             normconvention (Optional(bool)): fft normalization 1=numpy, 2=IDL
     """
 
-    if dx == 1 and x0 == 0 and x1 is None and len(u) == 0 and\
-       dy == 1 and y0 == 0 and y1 is None and len(v) == 0 and not centered:
+    if (
+        dx == 1
+        and x0 == 0
+        and x1 is None
+        and len(u) == 0
+        and dy == 1
+        and y0 == 0
+        and y1 is None
+        and len(v) == 0
+        and not centered
+    ):
         if inverse:
             ret = np.fft.ifft2(f)
             if normconvention == fftConvention.idl:
-                ret *= f.shape[0]*f.shape[1]
+                ret *= f.shape[0] * f.shape[1]
         else:
             ret = np.fft.fft2(f)
             if normconvention == fftConvention.idl:
-                ret /= f.shape[0]*f.shape[1]
+                ret /= f.shape[0] * f.shape[1]
     else:
         # Real space
         x = _realspace(f.shape[1], dx, x0, x1)
@@ -222,7 +253,8 @@ def _dft2(f, dx=1, x0=0, x1=None, u=[],
         if inverse:
             if len(u) != f.shape[1] or len(v) != f.shape[0]:
                 raise ValueError(
-                    "Number of frequencies should be equal to the number of data points in Fourier space")
+                    "Number of frequencies should be equal to the number of data points in Fourier space"
+                )
             c = 2j * np.pi
             col_kernel = np.exp(c * u[:, None].dot(x[None, :]))  # nu x nx
             row_kernel = np.exp(c * y[:, None].dot(v[None, :]))  # ny x nv
@@ -230,16 +262,17 @@ def _dft2(f, dx=1, x0=0, x1=None, u=[],
         else:
             if len(x) != f.shape[1] or len(y) != f.shape[0]:
                 raise ValueError(
-                    "Number of times should be equal to the number of data points in Fourier space")
+                    "Number of times should be equal to the number of data points in Fourier space"
+                )
             c = -2j * np.pi
             col_kernel = np.exp(c * x[:, None].dot(u[None, :]))  # nx x nu
             row_kernel = np.exp(c * v[:, None].dot(y[None, :]))  # nv x ny
             # nv x ny . ny x nx . nx x nu
-        ret = (row_kernel.dot(f).dot(col_kernel))
+        ret = row_kernel.dot(f).dot(col_kernel)
 
         # Normalization:
         if (normconvention == fftConvention.idl) ^ inverse:
-            ret /= (len(u)*len(v))
+            ret /= len(u) * len(v)
 
     return ret
 

@@ -27,8 +27,9 @@ from uncertainties import unumpy
 
 class Bernouilli(RandomVariable):
     def __init__(self, probsuccess, **kwargs):
-        super(Bernouilli, self).__init__(probsuccess,
-                                         np.sqrt(probsuccess*(1-probsuccess)), **kwargs)
+        super(Bernouilli, self).__init__(
+            probsuccess, np.sqrt(probsuccess * (1 - probsuccess)), **kwargs
+        )
 
 
 class Poisson(RandomVariable):
@@ -78,23 +79,23 @@ def S(X):
     elif instance.isarray(X):
         return unumpy.std_devs(X)
     else:
-        return X*0
+        return X * 0
 
 
 def VAR(X):
-    return S(X)**2
+    return S(X) ** 2
 
 
 def SNR(X):
-    return E(X)/S(X)
+    return E(X) / S(X)
 
 
 def NSR(X):
-    return S(X)/E(X)
+    return S(X) / E(X)
 
 
 def RVAR(X):
-    return VAR(X)/E(X)**2
+    return VAR(X) / E(X) ** 2
 
 
 def repeat(N, X, forward=True):
@@ -128,9 +129,9 @@ def repeat(N, X, forward=True):
     # => SNR[n.X] = SNR[X] * sqrt(n)
 
     if forward:
-        return randomvariable(E(X)*N, S(X)*np.sqrt(N))
+        return randomvariable(E(X) * N, S(X) * np.sqrt(N))
     else:
-        return randomvariable(E(X)/N, S(X)/np.sqrt(N))
+        return randomvariable(E(X) / N, S(X) / np.sqrt(N))
 
 
 def compound(N, X, forward=True):
@@ -177,12 +178,12 @@ def compound(N, X, forward=True):
     #    VARX = np.broadcast_to(VARX,[nN,nX]).T
 
     if forward:
-        EY = EN*EX
-        VARY = VARN*EX*EX + VARX*EN
+        EY = EN * EX
+        VARY = VARN * EX * EX + VARX * EN
     else:
         # Y <-> N
-        EY = EN/EX
-        VARY = (VARN - VARX*EY)/(EX*EX)
+        EY = EN / EX
+        VARY = (VARN - VARX * EY) / (EX * EX)
 
     return randomvariable(EY, np.sqrt(VARY))
 
@@ -195,7 +196,7 @@ def reverse_add(Z, Y):
        VARX = VARZ - VARY
 
     """
-    return randomvariable(E(Z)-E(Y), (VAR(Z)-VAR(Y))**0.5)
+    return randomvariable(E(Z) - E(Y), (VAR(Z) - VAR(Y)) ** 0.5)
 
 
 def reverse_sub(Z, Y):
@@ -206,7 +207,7 @@ def reverse_sub(Z, Y):
        VARX = VARZ - VARY
 
     """
-    return randomvariable(E(Z)+E(Y), (VAR(Z)-VAR(Y))**0.5)
+    return randomvariable(E(Z) + E(Y), (VAR(Z) - VAR(Y)) ** 0.5)
 
 
 def reverse_mult(Z, Y):
@@ -218,8 +219,8 @@ def reverse_mult(Z, Y):
 
     """
     EY = E(Y)
-    EX = E(Z)/EY
-    return randomvariable(EX, ((VAR(Z)-EX*EX*VAR(Y))/(EY*EY))**0.5)
+    EX = E(Z) / EY
+    return randomvariable(EX, ((VAR(Z) - EX * EX * VAR(Y)) / (EY * EY)) ** 0.5)
 
 
 def reverse_div(Z, Y):
@@ -230,8 +231,8 @@ def reverse_div(Z, Y):
        VARX = VARZ*Y^2 - X^2/Y^2 * VARY
     """
     EY = E(Y)
-    EX = E(Z)*EY
-    return randomvariable(EX, (VAR(Z)*EY*EY - EX*EX*VAR(Y)/(EY*EY))**0.5)
+    EX = E(Z) * EY
+    return randomvariable(EX, (VAR(Z) * EY * EY - EX * EX * VAR(Y) / (EY * EY)) ** 0.5)
 
 
 def reverse_log(Z):
@@ -242,4 +243,4 @@ def reverse_log(Z):
        VARX = X^2*VARZ
     """
     EX = np.exp(E(Z))
-    return randomvariable(EX, (VAR(Z)*EX*EX)**0.5)
+    return randomvariable(EX, (VAR(Z) * EX * EX) ** 0.5)

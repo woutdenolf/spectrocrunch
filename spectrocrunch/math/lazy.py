@@ -26,8 +26,7 @@ class Function(object):
         lazya = isinstance(a, cls)
         lazyb = isinstance(b, cls)
         if lazya and lazyb:
-            f = lambda *args, **kwargs: op(a(*
-                                             args, **kwargs), b(*args, **kwargs))
+            f = lambda *args, **kwargs: op(a(*args, **kwargs), b(*args, **kwargs))
         elif lazya:
             f = lambda *args, **kwargs: op(a(*args, **kwargs), b)
         elif lazyb:
@@ -53,94 +52,94 @@ class Function(object):
             return cls(f, name="({}{})".format(symb1, a))
 
     def __mul__(self, rother):
-        return self._binary_op(self, rother, operator.mul, '*')
+        return self._binary_op(self, rother, operator.mul, "*")
 
     def __div__(self, rother):
-        return self._binary_op(self, rother, operator.truediv, '/')
+        return self._binary_op(self, rother, operator.truediv, "/")
 
     def __truediv__(self, rother):
-        return self._binary_op(self, rother, operator.truediv, '/')
+        return self._binary_op(self, rother, operator.truediv, "/")
 
     def __floordiv__(self, rother):
-        return self._binary_op(self, rother, operator.floordiv, '//')
+        return self._binary_op(self, rother, operator.floordiv, "//")
 
     def __mod__(self, rother):
-        return self._binary_op(self, rother, operator.mod, '%')
+        return self._binary_op(self, rother, operator.mod, "%")
 
     def __divmod__(self, rother):
-        return self._binary_op(self, rother, operator.divmod, 'divmod(', ')')
+        return self._binary_op(self, rother, operator.divmod, "divmod(", ")")
 
     def __add__(self, rother):
-        return self._binary_op(self, rother, operator.add, '+')
+        return self._binary_op(self, rother, operator.add, "+")
 
     def __sub__(self, rother):
-        return self._binary_op(self, rother, operator.sub, '-')
+        return self._binary_op(self, rother, operator.sub, "-")
 
     def __pow__(self, rother):
-        return self._binary_op(self, rother, operator.pow, '^')
+        return self._binary_op(self, rother, operator.pow, "^")
 
     def __rmul__(self, lother):
-        return self._binary_op(lother, self, operator.mul, '*')
+        return self._binary_op(lother, self, operator.mul, "*")
 
     def __rdiv__(self, lother):
-        return self._binary_op(lother, self, operator.truediv, '/')
+        return self._binary_op(lother, self, operator.truediv, "/")
 
     def __rtruediv__(self, lother):
-        return self._binary_op(lother, self, operator.truediv, '/')
+        return self._binary_op(lother, self, operator.truediv, "/")
 
     def __rfloordiv__(self, lother):
-        return self._binary_op(lother, self, operator.floordiv, '//')
+        return self._binary_op(lother, self, operator.floordiv, "//")
 
     def __rmod__(self, lother):
-        return self._binary_op(lother, self, operator.mod, '%')
+        return self._binary_op(lother, self, operator.mod, "%")
 
     def __rdivmod__(self, lother):
-        return self._binary_op(lother, self, operator.mod, 'divmod(', ')')
+        return self._binary_op(lother, self, operator.mod, "divmod(", ")")
 
     def __radd__(self, lother):
-        return self._binary_op(lother, self, operator.add, '+')
+        return self._binary_op(lother, self, operator.add, "+")
 
     def __rsub__(self, lother):
-        return self._binary_op(lother, self, operator.sub, '-')
+        return self._binary_op(lother, self, operator.sub, "-")
 
     def __rpow__(self, lother):
-        return self._binary_op(lother, self, operator.pow, '^')
+        return self._binary_op(lother, self, operator.pow, "^")
 
     def __lt__(self, rother):
-        return self._binary_op(self, rother, operator.lt, '<')
+        return self._binary_op(self, rother, operator.lt, "<")
 
     def __le__(self, rother):
-        return self._binary_op(self, rother, operator.le, '<=')
+        return self._binary_op(self, rother, operator.le, "<=")
 
     def __gt__(self, rother):
-        return self._binary_op(self, rother, operator.gt, '>')
+        return self._binary_op(self, rother, operator.gt, ">")
 
     def __ge__(self, rother):
-        return self._binary_op(self, rother, operator.ge, '>=')
+        return self._binary_op(self, rother, operator.ge, ">=")
 
     def __eq__(self, rother):
-        return self._binary_op(self, rother, operator.eq, '==')
+        return self._binary_op(self, rother, operator.eq, "==")
 
     def __ne__(self, rother):
-        return self._binary_op(self, rother, operator.ne, '!=')
+        return self._binary_op(self, rother, operator.ne, "!=")
 
     def __and__(self, rother):
-        return self._binary_op(self, rother, operator.and_, ' and ')
+        return self._binary_op(self, rother, operator.and_, " and ")
 
     def __or__(self, rother):
-        return self._binary_op(self, rother, operator.or_, ' or ')
+        return self._binary_op(self, rother, operator.or_, " or ")
 
     def __not__(self):
-        return self._unitary_op(self, operator.not_, 'not ')
+        return self._unitary_op(self, operator.not_, "not ")
 
     def __neg__(self):
-        return self._unitary_op(self, operator.neg, '-')
+        return self._unitary_op(self, operator.neg, "-")
 
     def __pos__(self):
-        return self._unitary_op(self, operator.pos, '+')
+        return self._unitary_op(self, operator.pos, "+")
 
     def __abs__(self):
-        return self._unitary_op(self, operator.abs, 'abs(', ')')
+        return self._unitary_op(self, operator.abs, "abs(", ")")
 
     # def __float__(self):
     #    return self._unitary_op(self,float,'float(',')')

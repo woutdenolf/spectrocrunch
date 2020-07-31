@@ -100,11 +100,10 @@ class Operator(object):
 
     def tofloat(self, x):
         # Because x could be a pint.Quantity
-        return x*np.float64(1)
+        return x * np.float64(1)
 
 
 class Identity(Operator):
-
     @property
     def _op_name(self):
         return "id"
@@ -124,7 +123,6 @@ class Identity(Operator):
 
 
 class Lambda(Operator):
-
     def __init__(self, name, iname, func, ifunc):
         self.name, self.iname, self.func, self.ifunc = name, iname, func, ifunc
         super(Lambda, self).__init__()
@@ -189,13 +187,13 @@ class ClipOperator(CommutativeOperator):
 
     def _commute_linop(self, linop):
         m = self.tofloat(linop.m)
-        with np.errstate(divide='ignore', invalid='ignore'):
+        with np.errstate(divide="ignore", invalid="ignore"):
             if self._valid_limit(self.cmin):
-                cmin = (self.cmin-linop.b)/m
+                cmin = (self.cmin - linop.b) / m
             else:
                 cmin = None
             if self._valid_limit(self.cmax):
-                cmax = (self.cmax-linop.b)/m
+                cmax = (self.cmax - linop.b) / m
             else:
                 cmax = None
             if units.binary_operator(m, 0, operator.lt):
@@ -345,13 +343,13 @@ class LinearOperator(Operator):
             return b
 
     def _eval(self, x):
-        return self.m*x + self.b
+        return self.m * x + self.b
 
     def __mul__(self, rother):
         if isinstance(rother, self.__class__):
             if self._opright is not None:
                 return super(LinearOperator, self).__mul__(rother)
-            op = self.__class__(self.m*rother.m, rother.b*self.m+self.b)
+            op = self.__class__(self.m * rother.m, rother.b * self.m + self.b)
             op._opright = rother._opright
             return op
         else:
@@ -374,8 +372,8 @@ class LinearOperator(Operator):
     @property
     def inverse(self):
         m = self.tofloat(self.m)
-        with np.errstate(divide='ignore', invalid='ignore'):
-            selfi = self.__class__(1/m, -self.b/m)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            selfi = self.__class__(1 / m, -self.b / m)
         if self._opright is None:
             return selfi
         else:
