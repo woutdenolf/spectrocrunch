@@ -7,32 +7,31 @@ from ..io import fs
 
 
 class Task(nxregulargrid.Task):
-
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
         self.required_parameters |= {
-            'alignmethod',
-            'reference',
-            'refimageindex',
-            'crop',
-            'roi',
-            'plot',
-            'pad',
-            'onraw',
+            "alignmethod",
+            "reference",
+            "refimageindex",
+            "crop",
+            "roi",
+            "plot",
+            "pad",
+            "onraw",
             "alignmultiplier",
-            "alignoffset"
+            "alignoffset",
         }
         parameters = self.parameters
-        parameters['refimageindex'] = parameters.get('refimageindex', -1)
-        parameters['crop'] = parameters.get('crop', False)
-        parameters['roi'] = parameters.get('roi', None)
-        parameters['plot'] = parameters.get('plot', False)
-        parameters['pad'] = not parameters['crop']
-        parameters['onraw'] = True
-        parameters['alignmultiplier'] = parameters.get('alignmultiplier', None)
-        parameters['alignoffset'] = parameters.get('alignoffset', None)
+        parameters["refimageindex"] = parameters.get("refimageindex", -1)
+        parameters["crop"] = parameters.get("crop", False)
+        parameters["roi"] = parameters.get("roi", None)
+        parameters["plot"] = parameters.get("plot", False)
+        parameters["pad"] = not parameters["crop"]
+        parameters["onraw"] = True
+        parameters["alignmultiplier"] = parameters.get("alignmultiplier", None)
+        parameters["alignoffset"] = parameters.get("alignoffset", None)
 
-        alignmethod = parameters.get('alignmethod', None)
+        alignmethod = parameters.get("alignmethod", None)
         if alignmethod == "sift":
             from ..align.alignSift import alignSift as alignclass
         elif alignmethod == "elastix":
@@ -47,7 +46,8 @@ class Task(nxregulargrid.Task):
             from ..align.alignSimple import alignMax as alignclass
         else:
             raise basetask.ParameterError(
-                'Unknown alignmethod {}'.format(repr(alignmethod)))
+                "Unknown alignmethod {}".format(repr(alignmethod))
+            )
         self.alignclass = alignclass
 
     def _prepare_process(self):
@@ -73,15 +73,17 @@ class Task(nxregulargrid.Task):
 
     def rawcalc(self):
         parameters = self.parameters
-        multiplier = parameters['alignmultiplier']
-        offset = parameters['alignoffset']
+        multiplier = parameters["alignmultiplier"]
+        offset = parameters["alignoffset"]
         if multiplier is not None or offset is not None:
             if multiplier is None:
                 multiplier = 1
             if offset is None:
                 offset = 0
+
             def rawcalc(img):
-                return multiplier*img + offset
+                return multiplier * img + offset
+
             return rawcalc
         return None
 
@@ -89,20 +91,20 @@ class Task(nxregulargrid.Task):
         # Align image stacks
         with self.grid.open_signals() as datasets:
             parameters = self.parameters
-            kwargs = {k: parameters[k] for k in ['stackdim', 'plot']}
+            kwargs = {k: parameters[k] for k in ["stackdim", "plot"]}
             with self.signalsout[0].h5open() as fout:
                 signalsout = [sig.path for sig in self.signalsout]
-                o = self.alignclass(datasets, None, fout,
-                                    signalsout, "", **kwargs)
-                kwargs = {k: parameters[k] for k in [
-                    'onraw', 'pad', 'crop', 'roi', 'refimageindex']}
-                kwargs['rawcalc'] = self.rawcalc()
+                o = self.alignclass(datasets, None, fout, signalsout, "", **kwargs)
+                kwargs = {
+                    k: parameters[k]
+                    for k in ["onraw", "pad", "crop", "roi", "refimageindex"]
+                }
+                kwargs["rawcalc"] = self.rawcalc()
                 self._prepare_reference(kwargs)
                 o.align(self.reference_signal_index, **kwargs)
                 axes = self._process_axes(o)
                 axes = self._create_axes(axes)
-                self.temp_nxresults['change-of-frame'].write(
-                    data=o.absolute_cofs())
+                self.temp_nxresults["change-of-frame"].write(data=o.absolute_cofs())
 
         # Set NXdata signal and axes attributes
         for signalout in self.signalsout:
@@ -112,23 +114,23 @@ class Task(nxregulargrid.Task):
                 nxdata.set_axes(*axes)
 
     def _prepare_reference(self, parameters):
-        refimageindex = parameters['refimageindex']
+        refimageindex = parameters["refimageindex"]
         refgrid = self.reference_signal
         if instance.isstring(refimageindex):
-            if refimageindex == 'first':
+            if refimageindex == "first":
                 refimageindex = 0
-            elif refimageindex == 'last':
+            elif refimageindex == "last":
                 refimageindex = -1
-            elif refimageindex == 'middle':
-                refimageindex = refgrid.shape[refgrid.stackdim]//2
+            elif refimageindex == "middle":
+                refimageindex = refgrid.shape[refgrid.stackdim] // 2
             else:
                 raise basetask.ParameterError(
-                    'Unknown refimageindex {}'.format(repr(refimageindex)))
+                    "Unknown refimageindex {}".format(repr(refimageindex))
+                )
         elif instance.isinteger(refimageindex):
             pass
         elif refimageindex is None:  # pair-wise
             refimageindex = None
         else:  # fraction
-            refimageindex = int(
-                round(refimageindex*refgrid.shape[refgrid.stackdim]))
-        parameters['refimageindex'] = refimageindex
+            refimageindex = int(round(refimageindex * refgrid.shape[refgrid.stackdim]))
+        parameters["refimageindex"] = refimageindex

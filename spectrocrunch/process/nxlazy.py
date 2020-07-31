@@ -7,7 +7,6 @@ from ..io import xiaedf
 
 
 class LazyFunction(object):
-
     def __init__(self, samemerge=False):
         self.samemerge = samemerge
 
@@ -28,9 +27,8 @@ class LazyFunction(object):
 
 
 class lazy_transmission(LazyFunction):
-
     def __call__(self, fluxt, flux0):
-        with np.errstate(divide='ignore', invalid='ignore'):
+        with np.errstate(divide="ignore", invalid="ignore"):
             return np.divide(fluxt, flux0)
 
     def __str__(self):
@@ -41,9 +39,8 @@ transmission_func = lazy_transmission()
 
 
 class lazy_absorbance(LazyFunction):
-
     def __call__(self, transmission):
-        with np.errstate(divide='ignore', invalid='ignore'):
+        with np.errstate(divide="ignore", invalid="ignore"):
             return -np.log(np.clip(transmission, 0, 1))
 
     def __str__(self):
@@ -54,10 +51,9 @@ absorbance_func = lazy_absorbance()
 
 
 class lazy_xrfnorm(LazyFunction):
-
     def __call__(self, xrf, flux, fluxref, xiaimage, detnr):
         if fluxref:
-            norm = fluxref.to('Hz').magnitude/xiaedf.normalizer(flux)
+            norm = fluxref.to("Hz").magnitude / xiaedf.normalizer(flux)
         else:
             norm = 1
         if xiaimage:
@@ -65,13 +61,12 @@ class lazy_xrfnorm(LazyFunction):
             xiaimage.exclude_detectors = []
             xiaimage.include_detectors = [detnr]
             stats = xiaimage.stats
-            dtcor = xiaedf.deadtimecorrector(
-                stats[..., 0, 0], stats[..., 1, 0])
+            dtcor = xiaedf.deadtimecorrector(stats[..., 0, 0], stats[..., 1, 0])
             dtcor = dtcor.reshape(xrf.shape)
         else:
             dtcor = 1
 
-        return xrf*norm*dtcor
+        return xrf * norm * dtcor
 
     def __str__(self):
         return "xrfnorm"
@@ -81,7 +76,6 @@ xrfnorm_func = lazy_xrfnorm()
 
 
 class lazy_nanmean(LazyFunction):
-
     def __init__(self):
         super(lazy_nanmean, self).__init__(samemerge=True)
 
@@ -96,7 +90,6 @@ nanmean_func = lazy_nanmean()
 
 
 class lazy_nansum(LazyFunction):
-
     def __init__(self):
         super(lazy_nansum, self).__init__(samemerge=True)
 
@@ -111,7 +104,6 @@ nansum_func = lazy_nansum()
 
 
 class lazy_nanmax(LazyFunction):
-
     def __init__(self):
         super(lazy_nanmax, self).__init__(samemerge=True)
 
@@ -126,7 +118,6 @@ nanmax_func = lazy_nanmax()
 
 
 class lazy_sum(LazyFunction):
-
     def __init__(self):
         super(lazy_sum, self).__init__(samemerge=True)
 
@@ -141,7 +132,6 @@ sum_func = lazy_sum()
 
 
 class lazy_readedf(LazyFunction):
-
     def __init__(self):
         super(lazy_readedf, self).__init__(samemerge=True)
 
@@ -156,7 +146,6 @@ readedf_func = lazy_readedf()
 
 
 class LazyArgument(object):
-
     def __init__(self, arg):
         self._arg = arg
 
@@ -171,7 +160,6 @@ class LazyArgument(object):
 
 
 class LazyArgumentEdf(LazyArgument):
-
     def __init__(self, filename):
         self._filename = filename
 
@@ -183,12 +171,11 @@ class LazyArgumentEdf(LazyArgument):
 
 
 class LazyArgumentH5Dataset(LazyArgument):
-
     def __init__(self, path):
         self._path = path
 
     def data(self, islice, stackdim):
-        with self._path.open(mode='r') as dset:
+        with self._path.open(mode="r") as dset:
 
             if stackdim == 0:
                 data = dset[islice, ...]
@@ -207,7 +194,6 @@ class LazyArgumentH5Dataset(LazyArgument):
 
 
 class LazyStackSlice(LazyArgument):
-
     def __init__(self, func=None, unpackargs=True):
         if func is None:
             self._func = readedf_func

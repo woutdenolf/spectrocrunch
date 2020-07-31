@@ -18,29 +18,24 @@ logger = logging.getLogger(__name__)
 
 
 class Task(nxregulargrid.Task):
-
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
-        self.required_parameters |= {
-            'expression',
-            'copy'
-        }
+        self.required_parameters |= {"expression", "copy"}
         parameters = self.parameters
-        parameters['copy'] = parameters.get('copy', [])
+        parameters["copy"] = parameters.get("copy", [])
 
     def _prepare_process(self):
         super(Task, self)._prepare_process()
         parameters = self.parameters
-        self.copyfuncs = [self._rematch_func(
-            redict) for redict in parameters['copy']]
+        self.copyfuncs = [self._rematch_func(redict) for redict in parameters["copy"]]
         self.mathparser = MathParser()
         self._parse_expression()
-        logger.info('Copy signals: {}'.format(parameters['copy']))
-        logger.info('Expression: {}'.format(parameters['expression']))
+        logger.info("Copy signals: {}".format(parameters["copy"]))
+        logger.info("Expression: {}".format(parameters["expression"]))
 
     def _process_data(self, data):
         if self.variables:
-            variables = {'a': data}
+            variables = {"a": data}
             for name, path in self.variables.items():
                 with path.open() as dset:
                     variables[name] = dset[tuple(self.indexin)]
@@ -53,13 +48,14 @@ class Task(nxregulargrid.Task):
         #  namemap = {'var_b':'xmap_icr','var_c':'arr_iodet','var_d':'xmap_ocr'}
 
         varnames = self._extract_variable_names()
-        if '' not in varnames:
+        if "" not in varnames:
             raise ValueError(
-                'The expression does not contain {} which indicates the variable argument.')
+                "The expression does not contain {} which indicates the variable argument."
+            )
 
         # Rename variable argument
-        expression = self.parameters['expression']
-        expression = expression.replace('{}', 'var_a')
+        expression = self.parameters["expression"]
+        expression = expression.replace("{}", "var_a")
         varnames.remove("")
 
         # Rename fixed arguments
@@ -68,7 +64,8 @@ class Task(nxregulargrid.Task):
         for i, oldname in enumerate(varnames, 1):
             newname = o.int2base(i)
             expression = expression.replace(
-                '{{{}}}'.format(oldname), 'var_{}'.format(newname))
+                "{{{}}}".format(oldname), "var_{}".format(newname)
+            )
             namemap[oldname] = newname
         self.expression = expression
         self.namemap = namemap
@@ -79,20 +76,19 @@ class Task(nxregulargrid.Task):
         for signal in self.grid.signals:
             varcount[signal.name] += 1
             vardefault[signal.name] = signal
-        self.vardefault = {k: vardefault[k]
-                           for k, v in varcount.items() if v == 1}
+        self.vardefault = {k: vardefault[k] for k, v in varcount.items() if v == 1}
 
     def _prepare_signal(self, signal):
         if self._skip(signal):
             self.variables = {}
-            logger.info('skip {}'.format(signal.name))
+            logger.info("skip {}".format(signal.name))
             return False
         elif self._copy(signal):
             self.variables = {}
-            logger.info('copy {}'.format(signal.name))
+            logger.info("copy {}".format(signal.name))
             return True
         else:
-            logger.info('calculate {}'.format(signal.name))
+            logger.info("calculate {}".format(signal.name))
             # For example: 'xmap_icr':'var_c' -> 'var_c':.../detector00/xmap_icr
             self.variables = {}
             for oldname, newname in self.namemap.items():
@@ -109,11 +105,11 @@ class Task(nxregulargrid.Task):
         return False
 
     def _extract_variable_names(self, allowempty=True):
-        expression = self.parameters['expression']
+        expression = self.parameters["expression"]
         if allowempty:
-            return list(set(re.findall(r'\{(.*?)\}', expression)))
+            return list(set(re.findall(r"\{(.*?)\}", expression)))
         else:
-            return list(set(re.findall(r'\{([^\{\}]+)\}', expression)))
+            return list(set(re.findall(r"\{([^\{\}]+)\}", expression)))
 
 
 class MathParser(object):
@@ -126,8 +122,8 @@ class MathParser(object):
         self.exprStack.append(toks[0])
 
     def pushUMinus(self, strg, loc, toks):
-        if toks and toks[0] == '-':
-            self.exprStack.append('unary -')
+        if toks and toks[0] == "-":
+            self.exprStack.append("unary -")
 
     def __init__(self, dtype=np.float32):
         """
@@ -148,14 +144,20 @@ class MathParser(object):
         e = pyparsing.CaselessLiteral("E")
         pi = pyparsing.CaselessLiteral("PI")
 
-        fnumber = pyparsing.Combine(pyparsing.Word("+-"+pyparsing.nums, pyparsing.nums) +
-                                    pyparsing.Optional(point + pyparsing.Optional(pyparsing.Word(pyparsing.nums))) +
-                                    pyparsing.Optional(e + pyparsing.Word("+-"+pyparsing.nums, pyparsing.nums)))
+        fnumber = pyparsing.Combine(
+            pyparsing.Word("+-" + pyparsing.nums, pyparsing.nums)
+            + pyparsing.Optional(
+                point + pyparsing.Optional(pyparsing.Word(pyparsing.nums))
+            )
+            + pyparsing.Optional(
+                e + pyparsing.Word("+-" + pyparsing.nums, pyparsing.nums)
+            )
+        )
 
         ident = pyparsing.Word(
-            pyparsing.alphas, pyparsing.alphas+pyparsing.nums+"_$")
-        var = pyparsing.Literal("var_").suppress() + \
-            pyparsing.Word(pyparsing.alphas)
+            pyparsing.alphas, pyparsing.alphas + pyparsing.nums + "_$"
+        )
+        var = pyparsing.Literal("var_").suppress() + pyparsing.Word(pyparsing.alphas)
 
         plus = pyparsing.Literal("+")
         minus = pyparsing.Literal("-")
@@ -168,24 +170,31 @@ class MathParser(object):
         expop = pyparsing.Literal("^")
 
         expr = pyparsing.Forward()
-        atom = ((pyparsing.Optional(pyparsing.oneOf("- +")) +
-                 (pi | e | fnumber | ident+lpar+expr+rpar | var).setParseAction(self.pushFirst))
-                | pyparsing.Optional(pyparsing.oneOf("- +")) + pyparsing.Group(lpar+expr+rpar)
-                ).setParseAction(self.pushUMinus)
+        atom = (
+            (
+                pyparsing.Optional(pyparsing.oneOf("- +"))
+                + (pi | e | fnumber | ident + lpar + expr + rpar | var).setParseAction(
+                    self.pushFirst
+                )
+            )
+            | pyparsing.Optional(pyparsing.oneOf("- +"))
+            + pyparsing.Group(lpar + expr + rpar)
+        ).setParseAction(self.pushUMinus)
 
         # by defining exponentiation as "atom [ ^ factor ]..." instead of
         # "atom [ ^ atom ]...", we get right-to-left exponents, instead of left-to-right
         # that is, 2^3^2 = 2^(3^2), not (2^3)^2.
         factor = pyparsing.Forward()
-        factor << atom + \
-            pyparsing.ZeroOrMore(
-                (expop + factor).setParseAction(self.pushFirst))
+        factor << atom + pyparsing.ZeroOrMore(
+            (expop + factor).setParseAction(self.pushFirst)
+        )
 
-        term = factor + \
-            pyparsing.ZeroOrMore(
-                (multop + factor).setParseAction(self.pushFirst))
-        expr << term + \
-            pyparsing.ZeroOrMore((addop + term).setParseAction(self.pushFirst))
+        term = factor + pyparsing.ZeroOrMore(
+            (multop + factor).setParseAction(self.pushFirst)
+        )
+        expr << term + pyparsing.ZeroOrMore(
+            (addop + term).setParseAction(self.pushFirst)
+        )
         # addop_term = ( addop + term ).setParseAction( self.pushFirst )
         # general_term = term + ZeroOrMore( addop_term ) | OneOrMore( addop_term)
         # expr <<  general_term
@@ -194,28 +203,34 @@ class MathParser(object):
         # map operator symbols to corresponding arithmetic operations
         epsilon = 1e-12
 
-        self.opn = {"+": np.add,
-                    "-": np.subtract,
-                    "*": np.multiply,
-                    "/": np.true_divide,
-                    "^": np.power}
+        self.opn = {
+            "+": np.add,
+            "-": np.subtract,
+            "*": np.multiply,
+            "/": np.true_divide,
+            "^": np.power,
+        }
 
-        self.fn = {"sin": np.sin,
-                   "cos": np.cos,
-                   "tan": np.tan,
-                   "abs": abs,
-                   "trunc": lambda a: int(a),
-                   "round": round,
-                   # TODO: or 0?
-                   "sgn": lambda a: abs(a) > epsilon and cmp(a, 0) or 0,
-                   "max": np.nanmax,
-                   "min": np.nanmin,
-                   "nanone": lambda a: self._fn_nan(a, 1),
-                   "nanzero": lambda a: self._fn_nan(a, 0),
-                   "mean": np.nanmean,
-                   "median": np.nanmedian if hasattr(np, 'nanmedian') else np.median,
-                   "ln": np.log,
-                   "sobel": lambda a: filters.sobel(a, axis=-1, output=None, mode='constant', cval=np.nan)}
+        self.fn = {
+            "sin": np.sin,
+            "cos": np.cos,
+            "tan": np.tan,
+            "abs": abs,
+            "trunc": lambda a: int(a),
+            "round": round,
+            # TODO: or 0?
+            "sgn": lambda a: abs(a) > epsilon and cmp(a, 0) or 0,
+            "max": np.nanmax,
+            "min": np.nanmin,
+            "nanone": lambda a: self._fn_nan(a, 1),
+            "nanzero": lambda a: self._fn_nan(a, 0),
+            "mean": np.nanmean,
+            "median": np.nanmedian if hasattr(np, "nanmedian") else np.median,
+            "ln": np.log,
+            "sobel": lambda a: filters.sobel(
+                a, axis=-1, output=None, mode="constant", cval=np.nan
+            ),
+        }
 
         self.variables = {}
 
@@ -226,7 +241,7 @@ class MathParser(object):
 
     def evaluateStack(self, s):
         op = s.pop()
-        if op == 'unary -':
+        if op == "unary -":
             return -self.evaluateStack(s)
         if op in "+-*/^":
             op2 = self.evaluateStack(s)
@@ -246,7 +261,7 @@ class MathParser(object):
                         with open(var) as dset:
                             return dset[:]
                     else:
-                        raise ValueError('{} must be a file'.format(var))
+                        raise ValueError("{} must be a file".format(var))
                 elif isinstance(var, h5py.Dataset):
                     return var[:]
                 else:

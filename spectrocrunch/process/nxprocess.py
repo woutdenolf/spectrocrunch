@@ -19,20 +19,22 @@ class Task(basetask.Task):
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
-        self.parameters['default'] = self.parameters.get('default', None)
-        self.required_parameters.add('default')
+        self.parameters["default"] = self.parameters.get("default", None)
+        self.required_parameters.add("default")
 
     @property
     def default(self):
-        return self.parameters['default']
+        return self.parameters["default"]
 
     def _atomic_context_enter(self):
         while True:
             try:
-                self.temp_nxprocess = self.outputparent.nxprocess(randomstring(),
-                                                                  noincrement=True,
-                                                                  parameters=self.parameters,
-                                                                  dependencies=list(self.previous_outputs))
+                self.temp_nxprocess = self.outputparent.nxprocess(
+                    randomstring(),
+                    noincrement=True,
+                    parameters=self.parameters,
+                    dependencies=list(self.previous_outputs),
+                )
             except fs.AlreadyExists:
                 pass  # already exists
             else:
@@ -43,8 +45,8 @@ class Task(basetask.Task):
         """
         NXprocess name (non-existent unless locked)
         """
-        if not hasattr(self, '_target'):
-            self._target = target.Name(self.parameters['name'])
+        if not hasattr(self, "_target"):
+            self._target = target.Name(self.parameters["name"])
         if self._target.locked:
             return str(self._target)
         else:
@@ -52,10 +54,12 @@ class Task(basetask.Task):
         entry = self.outputparent
         if not entry.exists:
             return str(self._target)
-        process = entry.find_nxprocess(name=str(self._target),
-                                       parameters=self.parameters,
-                                       dependencies=self.dependencies,
-                                       searchallentries=False)
+        process = entry.find_nxprocess(
+            name=str(self._target),
+            parameters=self.parameters,
+            dependencies=self.dependencies,
+            searchallentries=False,
+        )
         if process is None:
             while entry[str(self._target)].exists:
                 self._target += 1
@@ -84,13 +88,14 @@ class Task(basetask.Task):
 
     @property
     def output_localpath(self):
-        name = self.outputparent.name + '_' + self.outputname
+        name = self.outputparent.name + "_" + self.outputname
         return self.localpath[name]
 
     def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
         if exc_type:
-            logger.error(''.join(traceback.format_exception(
-                exc_type, exc_value, exc_traceback)))
+            logger.error(
+                "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            )
             self._remove_temp_output()
         else:
             self._rename_temp_output()
@@ -112,10 +117,10 @@ class Task(basetask.Task):
                     # Already done by someone else
                     self._remove_temp_output()
             else:
-                logger.info('Renamed {} to {}'.format(old, new))
+                logger.info("Renamed {} to {}".format(old, new))
                 self._lock_outputname()
         old = self.temp_localpath
         if old.exists:
             new = self.output_localpath
             old.move(new, force=True)
-            logger.info('Renamed {} to {}'.format(old, new))
+            logger.info("Renamed {} to {}".format(old, new))

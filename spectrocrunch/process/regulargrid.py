@@ -51,24 +51,34 @@ class RegularGrid(object):
         """
         if slicedim < 0:
             slicedim += self.ndim
-        maxdim = self.ndim-1
+        maxdim = self.ndim - 1
 
         if slicedim < 0 or slicedim > maxdim:
             raise ValueError(
-                'Slice dimension should be between 0 and {}'.format(slicedim))
+                "Slice dimension should be between 0 and {}".format(slicedim)
+            )
 
         if slicedim == 0:
-            def indexgen(i): return (i, Ellipsis)
+
+            def indexgen(i):
+                return (i, Ellipsis)
+
             shape = self.shape[1:]
 
         elif slicedim == maxdim:
-            def indexgen(i): return (Ellipsis, i)
+
+            def indexgen(i):
+                return (Ellipsis, i)
+
             shape = self.shape[:-1]
         else:
-            a = (slice(None),)*slicedim
-            b = (slice(None),)*(maxdim-slicedim)
-            def indexgen(i): return a+(i,)+b
-            shape = self.shape[:slicedim]+self.shape[slicedim+1:]
+            a = (slice(None),) * slicedim
+            b = (slice(None),) * (maxdim - slicedim)
+
+            def indexgen(i):
+                return a + (i,) + b
+
+            shape = self.shape[:slicedim] + self.shape[slicedim + 1 :]
 
         return shape, indexgen
 
@@ -80,7 +90,7 @@ class RegularGrid(object):
         return tuple([ax.locate(x) for x, ax in zip(ordinates, self.axes)])
 
     def __getitem__(self, index):
-        with self.open(mode='r') as data:
+        with self.open(mode="r") as data:
             try:
                 return data[index]
             except ValueError as e:
@@ -108,20 +118,19 @@ class RegularGrid(object):
 
     @property
     def dtype(self):
-        with self.open(mode='r') as data:
+        with self.open(mode="r") as data:
             return data.dtype
 
     @property
     def values(self):
-        with self.open(mode='r') as data:
+        with self.open(mode="r") as data:
             return data
 
     def interpolate(self, *axes, **kwargs):
         ndim = self.ndim
         if len(axes) != ndim:
-            raise ValueError('Expected {} dimensions'.format(ndim))
-        axes = [axold.interpolate(axnew)
-                for axold, axnew in zip(self.axes, axes)]
+            raise ValueError("Expected {} dimensions".format(ndim))
+        axes = [axold.interpolate(axnew) for axold, axnew in zip(self.axes, axes)]
         axold, axnew = zip(*axes)
         return interpolate_regular(self, axold, axnew, **kwargs)
 

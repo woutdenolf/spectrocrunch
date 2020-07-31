@@ -45,7 +45,8 @@ class Task(with_metaclass(ABCMeta, object)):
         self.parameters = parameters
         if not self.hasdependencies and self.outputparent is None:
             raise ValueError(
-                'Specify "outputparent" when task does not have dependencies')
+                'Specify "outputparent" when task does not have dependencies'
+            )
 
     def __str__(self):
         return "Task '{}'".format(self.output.name)
@@ -59,27 +60,28 @@ class Task(with_metaclass(ABCMeta, object)):
         if self.dependencies_done:
             self._ensure_outputdeviceparent()
             if self.exists:
-                logger.info('{} already done'.format(self))
+                logger.info("{} already done".format(self))
             else:
-                logger.info('{} started ...'.format(self))
+                logger.info("{} started ...".format(self))
                 with timing.timeit_logger(logger, name=str(self)):
                     with self._atomic_context():
                         self._execute()
         else:
-            logger.warning(
-                '{} not executed (missing dependencies)'.format(self))
+            logger.warning("{} not executed (missing dependencies)".format(self))
 
     def _atomic_context(self):
-        return HandleTermination(setup=self._atomic_context_enter,
-                                 teardown=self._atomic_context_exit)
+        return HandleTermination(
+            setup=self._atomic_context_enter, teardown=self._atomic_context_exit
+        )
 
     def _atomic_context_enter(self):
         pass
 
     def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
         if exc_type:
-            logger.error(''.join(traceback.format_exception(
-                exc_type, exc_value, exc_traceback)))
+            logger.error(
+                "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            )
         return 1  # Exception is handled (do not raise it)
 
     @property
@@ -92,7 +94,7 @@ class Task(with_metaclass(ABCMeta, object)):
     @property
     def dependencies_done(self):
         for dependency in self.dependencies:
-            if hasattr(dependency, 'output'):
+            if hasattr(dependency, "output"):
                 if not dependency.done:
                     return False
             else:
@@ -130,8 +132,7 @@ class Task(with_metaclass(ABCMeta, object)):
         #      and return None to skip this step
         lst = self._parameters_filter()
         if lst:
-            self._parameters = {k: v for k,
-                                v in self._parameters.items() if k in lst}
+            self._parameters = {k: v for k, v in self._parameters.items() if k in lst}
 
     @property
     def dependencies(self):
@@ -201,19 +202,19 @@ class Task(with_metaclass(ABCMeta, object)):
         return bool([x for x in self.dependencies])
 
     def _parameters_defaults(self):
-        self.parameters['name'] = self.parameters.get('name', self.method)
-        self.required_parameters |= {'name', 'method'}
+        self.parameters["name"] = self.parameters.get("name", self.method)
+        self.required_parameters |= {"name", "method"}
 
     def _parameters_filter(self):
         return self.required_parameters | self.optional_parameters
 
     @property
     def method(self):
-        return self.parameters['method']
+        return self.parameters["method"]
 
     @property
     def outputname(self):
-        return self.parameters['name']
+        return self.parameters["name"]
 
     @property
     def outputparent(self):
@@ -241,10 +242,9 @@ class Task(with_metaclass(ABCMeta, object)):
             nxfs._NXprocess or None
         """
         for nxprocess in self.previous_outputs_iter():
-            if nxprocess.is_nxclass(u'NXprocess'):
+            if nxprocess.is_nxclass(u"NXprocess"):
                 config = nxprocess.config.read()
-                if all(config.get(k, None) == v
-                       for k, v in parameters.items()):
+                if all(config.get(k, None) == v for k, v in parameters.items()):
                     return nxprocess
         return None
 

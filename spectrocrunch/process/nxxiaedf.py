@@ -20,20 +20,20 @@ class Task(nxqxrf_dependent.Task):
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
         self.required_parameters |= {
-            'path',
-            'radix',
-            'number',
-            'instrument',
-            'include_counters',
-            'exclude_counters',
-            'fluxid',
-            'transmissionid'
+            "path",
+            "radix",
+            "number",
+            "instrument",
+            "include_counters",
+            "exclude_counters",
+            "fluxid",
+            "transmissionid",
         }
         parameters = self.parameters
-        parameters['fluxid'] = parameters.get('fluxid', None)
-        parameters['transmissionid'] = parameters.get('transmissionid', None)
-        parameters['include_counters'] = parameters.get('include_counters', [])
-        parameters['exclude_counters'] = parameters.get('exclude_counters', [])
+        parameters["fluxid"] = parameters.get("fluxid", None)
+        parameters["transmissionid"] = parameters.get("transmissionid", None)
+        parameters["include_counters"] = parameters.get("include_counters", [])
+        parameters["exclude_counters"] = parameters.get("exclude_counters", [])
 
     def _atomic_context_enter(self):
         name = randomstring()
@@ -44,8 +44,9 @@ class Task(nxqxrf_dependent.Task):
 
     def _atomic_context_exit(self, exc_type, exc_value, exc_traceback):
         if exc_type:
-            logger.error(''.join(traceback.format_exception(
-                exc_type, exc_value, exc_traceback)))
+            logger.error(
+                "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            )
             self.temp_nxentry.remove(recursive=True)
         else:
             self.temp_nxentry = self.temp_nxentry.renameremove(self.output)
@@ -55,16 +56,20 @@ class Task(nxqxrf_dependent.Task):
 
     def _execute(self):
         parameters = self.parameters
-        include_counters = [self._rematch_func(
-            redict) for redict in parameters['include_counters']]
-        exclude_counters = [self._rematch_func(
-            redict) for redict in parameters['exclude_counters']]
-        path, radix, number = (parameters['path'],
-                               parameters['radix'],
-                               parameters['number'])
-        instrument = parameters['instrument']
-        fluxid = parameters['fluxid']
-        transmissionid = parameters['transmissionid']
+        include_counters = [
+            self._rematch_func(redict) for redict in parameters["include_counters"]
+        ]
+        exclude_counters = [
+            self._rematch_func(redict) for redict in parameters["exclude_counters"]
+        ]
+        path, radix, number = (
+            parameters["path"],
+            parameters["radix"],
+            parameters["number"],
+        )
+        instrument = parameters["instrument"]
+        fluxid = parameters["fluxid"]
+        transmissionid = parameters["transmissionid"]
         xiaimage = xiaedf.xiaimage_number(path, radix, number)
         converter = xiaedftonexus.Converter(
             nxentry=self.temp_nxentry,
@@ -73,21 +78,22 @@ class Task(nxqxrf_dependent.Task):
             exclude_counters=exclude_counters,
             instrument=instrument,
             fluxid=fluxid,
-            transmissionid=transmissionid)
+            transmissionid=transmissionid,
+        )
         nxentry = converter(xiaimage)
 
     @property
     def name(self):
         parameters = self.parameters
-        radix, number = parameters['radix'], parameters['number']
-        return radix+'.{}'.format(number)
+        radix, number = parameters["radix"], parameters["number"]
+        return radix + ".{}".format(number)
 
     @staticmethod
     def _rematch_func(redict):
-        method = redict.get('method', 'regex')
-        if method == 'regex':
-            return lambda ctrname: re.match(redict['pattern'], ctrname)
-        elif method == 'equal':
-            return lambda ctrname: redict['value'] == ctrname
+        method = redict.get("method", "regex")
+        if method == "regex":
+            return lambda ctrname: re.match(redict["pattern"], ctrname)
+        elif method == "equal":
+            return lambda ctrname: redict["value"] == ctrname
         else:
             return lambda ctrname: False

@@ -34,7 +34,11 @@ class Group(CompHashable):
                 name = "detectorS{:01d}".format(number)
                 category = 1
         elif isinstance(groupname, self.__class__):
-            name, number, category = groupname.name, groupname.number, groupname.category
+            name, number, category = (
+                groupname.name,
+                groupname.number,
+                groupname.category,
+            )
         elif groupname:
             raise ValueError("Unexpected detector name {}".format(groupname))
         self.name = name
@@ -59,9 +63,9 @@ class Group(CompHashable):
     @property
     def xialabel(self):
         if self.issingledetector:
-            return 'xia{:02d}'.format(self.number)
+            return "xia{:02d}".format(self.number)
         elif self.issum:
-            return 'xiaS{:d}'.format(self.number)
+            return "xiaS{:d}".format(self.number)
         else:
             return None
 
@@ -83,20 +87,20 @@ def regulargriddata(nxgroup):
     axes = []
     groups = {}
 
-    if nxgroup.nxclass == 'NXdata':
+    if nxgroup.nxclass == "NXdata":
         it = [nxgroup]
         stackdim = None
-    elif nxgroup.nxclass == 'NXprocess':
-        progname = nxgroup['program'].read()
+    elif nxgroup.nxclass == "NXprocess":
+        progname = nxgroup["program"].read()
         if progname == nxfs.PROGRAM_NAME:
-            stackdim = nxgroup.config.read().get('stackdim', None)
+            stackdim = nxgroup.config.read().get("stackdim", None)
         else:
             raise ValueError(
-                'NXprocess from program "{}" is not known'.format(progname))
-        it = nxgroup.results.iter_is_nxclass('NXdata')
+                'NXprocess from program "{}" is not known'.format(progname)
+            )
+        it = nxgroup.results.iter_is_nxclass("NXdata")
     else:
-        raise ValueError(
-            '{} should be an NXdata or NXprocess group'.format(nxgroup))
+        raise ValueError("{} should be an NXdata or NXprocess group".format(nxgroup))
 
     for nxdata in it:
         if nxdata.islink:
@@ -105,12 +109,14 @@ def regulargriddata(nxgroup):
             stackdim = nxdata.stackdim()
         group = Group(nxdata.name)
         if group in groups:
-            raise RuntimeError('Group {} appears more than once'.format(group))
-        axs = [axis.factory(values, name=name, title=attrs['title'], type='quantitative')
-               for name, values, attrs in nxdata.axes]
+            raise RuntimeError("Group {} appears more than once".format(group))
+        axs = [
+            axis.factory(values, name=name, title=attrs["title"], type="quantitative")
+            for name, values, attrs in nxdata.axes
+        ]
         if axes:
             if axes != axs:
-                raise RuntimeError('{} has different axes'.format(nxdata))
+                raise RuntimeError("{} has different axes".format(nxdata))
         else:
             axes = axs
         groups[group] = list(nxdata.signals)

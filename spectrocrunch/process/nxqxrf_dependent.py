@@ -11,40 +11,40 @@ class Task(basetask.Task):
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
         self.optional_parameters |= {
-            'diodeI0gain',
-            'diodeItgain',
-            'xrf_positions',
-            'referenceflux',
-            'referencetime',
-            'defaultexpotime',
-            'samplecovers',
-            'transmissionfilters'
+            "diodeI0gain",
+            "diodeItgain",
+            "xrf_positions",
+            "referenceflux",
+            "referencetime",
+            "defaultexpotime",
+            "samplecovers",
+            "transmissionfilters",
         }
 
     @property
     def qxrfgeometry(self):
-        if not hasattr(self, '_qxrfgeometry'):
+        if not hasattr(self, "_qxrfgeometry"):
             self._qxrfgeometry = None
         if self._qxrfgeometry is None:
-            nxprocess = self.find_dependency(method='xrfgeometry')
+            nxprocess = self.find_dependency(method="xrfgeometry")
             if nxprocess:
-                geometry = nxprocess.results['geometry'].read(parse=True)
-                geometry.diodeI0.gain = self._qxrf_parameter('diodeI0gain')
-                geometry.diodeIt.gain = self._qxrf_parameter('diodeItgain')
-                geometry.xrf_positions = self._qxrf_parameter('xrf_positions')
-                value = self._qxrf_parameter('referenceflux', optional=True)
+                geometry = nxprocess.results["geometry"].read(parse=True)
+                geometry.diodeI0.gain = self._qxrf_parameter("diodeI0gain")
+                geometry.diodeIt.gain = self._qxrf_parameter("diodeItgain")
+                geometry.xrf_positions = self._qxrf_parameter("xrf_positions")
+                value = self._qxrf_parameter("referenceflux", optional=True)
                 if value is not None:
-                    geometry.reference = units.Quantity(value, 'Hz')
-                value = self._qxrf_parameter('referencetime', optional=True)
+                    geometry.reference = units.Quantity(value, "Hz")
+                value = self._qxrf_parameter("referencetime", optional=True)
                 if value is not None:
                     geometry.defaultreferencetime = value
-                value = self._qxrf_parameter('defaultexpotime', optional=True)
+                value = self._qxrf_parameter("defaultexpotime", optional=True)
                 if value is not None:
                     geometry.defaultexpotime = value
-                value = self._qxrf_parameter('samplecovers', optional=True)
+                value = self._qxrf_parameter("samplecovers", optional=True)
                 if value:
                     geometry.addsamplecovers(value)
-                value = self._qxrf_parameter('transmissionfilters', optional=True)
+                value = self._qxrf_parameter("transmissionfilters", optional=True)
                 if value:
                     geometry.addtransmissionfilters(value)
                 self._qxrfgeometry = geometry

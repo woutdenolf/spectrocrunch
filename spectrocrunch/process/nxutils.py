@@ -4,7 +4,7 @@ from ..io import nxfs
 
 
 def set_default(nxprocess, default):
-    it = nxprocess.results.iter_is_nxclass('NXdata')
+    it = nxprocess.results.iter_is_nxclass("NXdata")
     # Default signal
     nxdataselect = None
     for nxdata in it:

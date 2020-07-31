@@ -13,7 +13,7 @@ def arg_closest_num(arr, value, check):
     if check(value):
         return value
     else:
-        return np.argmin(np.abs(arr-value))
+        return np.argmin(np.abs(arr - value))
 
 
 def arg_closest_string(arr, value, check):
@@ -39,14 +39,13 @@ def arg_index(arr, value, check):
 
 
 class Axis(object):
-
     def __init__(self, params, type=None, name=None, title=None, precision=None):
         if type is None:
-            type = 'quantitative'
-            #quantitative: number
+            type = "quantitative"
+            # quantitative: number
             # nominal: unordered categorical
             # ordinal: ordered categorical
-            #temporal: date/time
+            # temporal: date/time
         self.type = type
         self.name = name
         self.title = title
@@ -57,7 +56,7 @@ class Axis(object):
         return self.values[index]
 
     def __setitem__(self, index, values):
-        if self.type == 'quantitative':
+        if self.type == "quantitative":
             values = units.Quantity(values, units=self.units)
             self.values[index] = values
         else:
@@ -68,32 +67,36 @@ class Axis(object):
         if isinstance(self._params, tuple):
             return self._params
         else:
-            return self._params,
+            return (self._params,)
 
     @property
     def initkwargs(self):
-        return {'type': self.type, 'name': self.name,
-                'title': self.title, 'precision': self.precision}
+        return {
+            "type": self.type,
+            "name": self.name,
+            "title": self.title,
+            "precision": self.precision,
+        }
 
     @property
     def units(self):
-        if self.type == 'quantitative':
+        if self.type == "quantitative":
             return self.values.units
         else:
             return None
 
     @units.setter
     def units(self, value):
-        if self.type != 'quantitative':
-            raise RuntimeError('{} axis has no units'.format(self.type))
+        if self.type != "quantitative":
+            raise RuntimeError("{} axis has no units".format(self.type))
         self.values.ito(value)
 
     @property
     def unit_suffix(self):
         if self.units:
-            return '({:~})'.format(self.units)
+            return "({:~})".format(self.units)
         else:
-            return ''
+            return ""
 
     @property
     def name(self):
@@ -114,9 +117,9 @@ class Axis(object):
             title = self.name
         suffix = self.unit_suffix
         if suffix:
-            title = title.replace(suffix, '')
+            title = title.replace(suffix, "")
         return title
-    
+
     @property
     def title(self):
         if self._title:
@@ -126,7 +129,7 @@ class Axis(object):
         suffix = self.unit_suffix
         if suffix:
             if suffix not in title:
-                title = '{} {}'.format(title, suffix)
+                title = "{} {}".format(title, suffix)
         return title
 
     @title.setter
@@ -137,13 +140,13 @@ class Axis(object):
     def magnitude(self):
         """np.ndarray or pandas.Index
         """
-        if self.type == 'quantitative':
+        if self.type == "quantitative":
             return self.values.magnitude
         else:
             return self.values
 
     def umagnitude(self, u):
-        if self.type == 'quantitative':
+        if self.type == "quantitative":
             return self.values.to(u).magnitude
         else:
             return self.values
@@ -158,7 +161,7 @@ class Axis(object):
         """
         self._params = params
         self._values = params
-        if self.type == 'quantitative':
+        if self.type == "quantitative":
             self._values = units.asqarray(self._values)
 
     @property
@@ -179,12 +182,12 @@ class Axis(object):
 
     @property
     def nsteps(self):
-        return self.size-1
+        return self.size - 1
 
     @property
     def precision(self):
         p = self._precision
-        if self.type == 'quantitative':
+        if self.type == "quantitative":
             p = p.to(self.units)
         return p
 
@@ -192,7 +195,7 @@ class Axis(object):
     def precision(self, value):
         if value is None:
             value = 0
-        if self.type == 'quantitative':
+        if self.type == "quantitative":
             value = units.Quantity(value, units=self.units)
         self._precision = value
 
@@ -208,10 +211,9 @@ class Axis(object):
     def __eq__(self, other):
         if self.size != other.size:
             return False
-        if self.type == 'quantitative':
-            diff = max(abs(self.magnitude-other.umagnitude(self.units)))
-            threshold = max(
-                self.precision, other.precision.to(self.units)).magnitude
+        if self.type == "quantitative":
+            diff = max(abs(self.magnitude - other.umagnitude(self.units)))
+            threshold = max(self.precision, other.precision.to(self.units)).magnitude
             return diff <= self.precision.magnitude
         else:
             return self.values == other.values
@@ -246,7 +248,7 @@ class Axis(object):
 
         # Axis values (always an array)
         xold = self.magnitude
-        if self.type == 'quantitative':
+        if self.type == "quantitative":
             func = arg_closest_num
         elif instance.isstring(xold[0]):
             func = arg_closest_string
@@ -257,11 +259,15 @@ class Axis(object):
             except AttributeError:
                 pass
 
-        def isindex(v): return False
+        def isindex(v):
+            return False
+
         if detectindex:
-            if self.type == 'quantitative':
+            if self.type == "quantitative":
                 if instance.isinteger(xold[0]):
-                    def isindex(v): return instance.isinteger(v)
+
+                    def isindex(v):
+                        return instance.isinteger(v)
 
         xnew = self._extract_magnitude(values)
         if instance.isarray(xnew):
@@ -282,13 +288,13 @@ class Axis(object):
         """
         xold = self.magnitude
         xnew = self._extract_magnitude(values)
-        if self.type == 'quantitative':
+        if self.type == "quantitative":
             if xold[1] < xold[0]:
                 # Reverse axis
                 m = np.nanmax(xold)
-                xold = m-xold
+                xold = m - xold
                 if xnew is not None:
-                    xnew = m-xnew
+                    xnew = m - xnew
             if xnew is None:
                 return xold, xold
             else:
@@ -314,15 +320,15 @@ class Axis(object):
                 return ind, indnew
 
     def to(self, u):
-        if self.type != 'quantitative':
-            raise RuntimeError('{} axis has no units'.format(self.type))
+        if self.type != "quantitative":
+            raise RuntimeError("{} axis has no units".format(self.type))
         ret = self.__class__(*self.initargs, **self.initkwargs)
         ret.units = u
         return ret
 
     def simplify(self):
         ax = self
-        if self.type == 'quantitative':
+        if self.type == "quantitative":
             kwargs = {}
             if self.size == 1:
                 return AxisNumber(self.start, **self.initkwargs)
@@ -331,13 +337,18 @@ class Axis(object):
             else:
                 diff = abs(np.diff(np.diff(self.magnitude)))
                 if max(diff) <= self.precision.magnitude:
-                    return AxisRegular(self.start, self.end, self.size-1, **self.initkwargs)
+                    return AxisRegular(
+                        self.start, self.end, self.size - 1, **self.initkwargs
+                    )
                 else:
                     n = len(self)
                     ind = np.array(
-                        [0] + (np.where(diff > self.precision.magnitude)[0]+1).tolist() + [n-1])
-                    nseg = len(ind)-1
-                    if nseg < n/3.:
+                        [0]
+                        + (np.where(diff > self.precision.magnitude)[0] + 1).tolist()
+                        + [n - 1]
+                    )
+                    nseg = len(ind) - 1
+                    if nseg < n / 3.0:
                         # Limit the number of segments to 1/3 of the number of values
                         limits = self.values[ind]
                         nsteps = np.diff(ind)
@@ -347,11 +358,11 @@ class Axis(object):
 
     @property
     def start_stepsize(self):
-        return self[1]-self[0]
+        return self[1] - self[0]
 
     @property
     def end_stepsize(self):
-        return self[-1]-self[-2]
+        return self[-1] - self[-2]
 
     @classmethod
     def factory(cls, data, **kwargs):
@@ -372,10 +383,10 @@ class Axis(object):
         stepsize = self.start_stepsize
         newstart = units.Quantity(newstart, units=self.units)
         oldstart = self.start
-        nstepsadd = (oldstart-newstart)/stepsize
-        nstepsadd = int(np.ceil(nstepsadd.to('dimensionless').magnitude))
+        nstepsadd = (oldstart - newstart) / stepsize
+        nstepsadd = int(np.ceil(nstepsadd.to("dimensionless").magnitude))
         if nstepsadd > 0:
-            add = oldstart - np.arange(1, nstepsadd+1)[::-1]*stepsize
+            add = oldstart - np.arange(1, nstepsadd + 1)[::-1] * stepsize
             x = np.append(add.magnitude, x)
         elif nstepsadd < 0:
             x = x[-nstepsadd:]
@@ -397,10 +408,10 @@ class Axis(object):
         stepsize = self.end_stepsize
         newend = units.Quantity(newend, units=self.units)
         oldend = self.end
-        nstepsadd = (newend-oldend)/stepsize
-        nstepsadd = int(np.ceil(nstepsadd.to('dimensionless').magnitude))
+        nstepsadd = (newend - oldend) / stepsize
+        nstepsadd = int(np.ceil(nstepsadd.to("dimensionless").magnitude))
         if nstepsadd > 0:
-            add = oldend + np.arange(1, nstepsadd+1)*stepsize
+            add = oldend + np.arange(1, nstepsadd + 1) * stepsize
             x = np.append(x, add.magnitude)
         elif nstepsadd < 0:
             x = x[:nstepsadd]
@@ -429,13 +440,12 @@ factory = Axis.factory
 
 
 class _AxisRegular(Axis):
-
     def __init__(self, *params, **kwargs):
-        kwargs['type'] = 'quantitative'
+        kwargs["type"] = "quantitative"
         super(_AxisRegular, self).__init__(params, **kwargs)
 
     def __setitem__(self, ind, values):
-        raise RuntimeError('Axis values are not editable')
+        raise RuntimeError("Axis values are not editable")
 
     @property
     def start(self):
@@ -479,11 +489,11 @@ class _AxisRegular(Axis):
 
     @property
     def nsteps(self):
-        return self._size-1
+        return self._size - 1
 
     @nsteps.setter
     def nsteps(self, value):
-        self._size = value+1
+        self._size = value + 1
 
     @property
     def units(self):
@@ -497,7 +507,9 @@ class _AxisRegular(Axis):
         self.stepsize.ito(value)
 
     def __repr__(self):
-        return "{}(start={:~},end={:~},step={:~},size={})".format(self.name, self.start, self.end, self.stepsize, len(self))
+        return "{}(start={:~},end={:~},step={:~},size={})".format(
+            self.name, self.start, self.end, self.stepsize, len(self)
+        )
 
 
 class AxisRegular(_AxisRegular):
@@ -514,7 +526,7 @@ class AxisRegular(_AxisRegular):
 
     @_AxisRegular.size.setter
     def size(self, value):
-        self.values = self.start, self.end, value-1
+        self.values = self.start, self.end, value - 1
 
     @_AxisRegular.nsteps.setter
     def nsteps(self, value):
@@ -526,13 +538,14 @@ class AxisRegular(_AxisRegular):
         self._start = units.Quantity(params[0])
         u = self._start.units
         self._end = units.Quantity(params[1], units=u).to(u)
-        self._size = params[2]+1
+        self._size = params[2] + 1
         if self.size == 1:
             self._stepsize = units.Quantity(0, units=u).to(u)
         else:
-            self._stepsize = (self.end-self.start)/self.nsteps
-        self._values = units.Quantity(np.linspace(
-            self.start.magnitude, self.end.magnitude, self.size), units=u)
+            self._stepsize = (self.end - self.start) / self.nsteps
+        self._values = units.Quantity(
+            np.linspace(self.start.magnitude, self.end.magnitude, self.size), units=u
+        )
 
 
 class AxisRegularInc(_AxisRegular):
@@ -549,7 +562,7 @@ class AxisRegularInc(_AxisRegular):
 
     @_AxisRegular.size.setter
     def size(self, value):
-        self.values = self.start, self.stepsize, value-1
+        self.values = self.start, self.stepsize, value - 1
 
     @_AxisRegular.nsteps.setter
     def nsteps(self, value):
@@ -561,9 +574,9 @@ class AxisRegularInc(_AxisRegular):
         self._start = units.Quantity(params[0])
         u = self._start.units
         self._stepsize = units.Quantity(params[1], units=u).to(u)
-        self._size = params[2]+1
-        self._end = self.start + self.stepsize*self.nsteps
-        self._values = np.arange(self.size)*self.stepsize+self.start
+        self._size = params[2] + 1
+        self._end = self.start + self.stepsize * self.nsteps
+        self._values = np.arange(self.size) * self.stepsize + self.start
 
 
 def arange(*args):
@@ -571,25 +584,24 @@ def arange(*args):
 
 
 def zapscan(start, end, npixels, unit=None, **kwargs):
-    pixelsize = (end-start)/float(npixels)
+    pixelsize = (end - start) / float(npixels)
     if unit is None:
-        unit = 'dimensionless'
-    start = units.Quantity(start+pixelsize/2, units=unit)
-    return AxisRegularInc(start, pixelsize, npixels-1, **kwargs)
+        unit = "dimensionless"
+    start = units.Quantity(start + pixelsize / 2, units=unit)
+    return AxisRegularInc(start, pixelsize, npixels - 1, **kwargs)
 
 
 def ascan(start, end, intervals, unit=None, **kwargs):
     if unit is None:
-        unit = 'dimensionless'
+        unit = "dimensionless"
     start = units.Quantity(start, units=unit)
     return AxisRegular(start, end, intervals, **kwargs)
 
 
 class AxisNumber(_AxisRegular):
-
     @_AxisRegular.start.setter
     def start(self, value):
-        self.values = value,
+        self.values = (value,)
 
     @_AxisRegular.values.setter
     def values(self, params):
@@ -606,13 +618,12 @@ class AxisNumber(_AxisRegular):
 
 
 class AxisSegments(Axis):
-
     def __init__(self, *params, **kwargs):
-        kwargs['type'] = 'quantitative'
+        kwargs["type"] = "quantitative"
         super(AxisSegments, self).__init__(params, **kwargs)
 
     def __setitem__(self, ind, values):
-        raise RuntimeError('Axis values are not editable')
+        raise RuntimeError("Axis values are not editable")
 
     @property
     def start(self):
@@ -639,16 +650,17 @@ class AxisSegments(Axis):
         limits = self.limits
 
         u = units.Quantity(values[0]).units
-        if u == 'dimensionless':
+        if u == "dimensionless":
             u = limits.units
 
-        def func(x): return units.Quantity(x, units=u)
+        def func(x):
+            return units.Quantity(x, units=u)
 
         nsteps = []
         for i, stepsize in enumerate(values):
             stepsize = func(stepsize)
-            a, b = limits[i], limits[i+1]
-            nsteps.append(int(round((b-a)/stepsize)))
+            a, b = limits[i], limits[i + 1]
+            nsteps.append(int(round((b - a) / stepsize)))
 
         self.values = limits, nsteps
 
@@ -670,7 +682,7 @@ class AxisSegments(Axis):
 
     @staticmethod
     def mergeargs(limits, nsteps):
-        nsteps = np.asarray(nsteps).tolist()+[None]
+        nsteps = np.asarray(nsteps).tolist() + [None]
         return tuple(list(listtools.flatten(zip(limits, nsteps)))[:-1])
 
     @property
@@ -680,22 +692,23 @@ class AxisSegments(Axis):
     @Axis.values.setter
     def values(self, params):
         limits, nsteps = params
-        if len(limits) != len(nsteps)+1:
-            raise ValueError(
-                "Number of segments does not match the number of limits")
+        if len(limits) != len(nsteps) + 1:
+            raise ValueError("Number of segments does not match the number of limits")
         self._params = params
 
         u = units.Quantity(limits[0]).units
-        def func(x): return units.Quantity(x, units=u).to(u).magnitude
+
+        def func(x):
+            return units.Quantity(x, units=u).to(u).magnitude
 
         lmts = []
         stepsizes = []
         values = []
         for i in range(len(nsteps)):
-            start, end = func(limits[i]), func(limits[i+1])
+            start, end = func(limits[i]), func(limits[i + 1])
             nspt = func(nsteps[i])
-            inc = (end-start)/float(nspt)
-            values += (start+inc*np.arange(nspt)).tolist()
+            inc = (end - start) / float(nspt)
+            values += (start + inc * np.arange(nspt)).tolist()
             lmts.append(start)
             stepsizes.append(inc)
         lmts.append(end)
@@ -707,7 +720,11 @@ class AxisSegments(Axis):
         self._values = units.Quantity(values, units=u)
 
     def __repr__(self):
-        s = ''.join(list('{:~}--({}x{:~})--'.format(lim, n, step)
-                         for lim, step, n in zip(self.limits, self.stepsizes, self.nsteps)))
-        s = '{}{:~}'.format(s, self.limits[-1])
+        s = "".join(
+            list(
+                "{:~}--({}x{:~})--".format(lim, n, step)
+                for lim, step, n in zip(self.limits, self.stepsizes, self.nsteps)
+            )
+        )
+        s = "{}{:~}".format(s, self.limits[-1])
         return "{}({})".format(self.name, s)

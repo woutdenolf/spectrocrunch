@@ -6,6 +6,7 @@ from . import test_regulargrid
 from . import test_task_generic
 from . import test_task_xrf
 
+
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
@@ -16,7 +17,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

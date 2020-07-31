@@ -6,7 +6,6 @@ from .. import utils
 
 
 class test_task(unittest.TestCase):
-
     def setUp(self):
         self.dir = TempDirectory()
 
@@ -61,5 +60,5 @@ class test_task(unittest.TestCase):
 
     def _check_reproc(self, proc1, proc2):
         self.assertNotEqual(proc1, proc2)
-        self.assertEqual(proc1.name.split('.')[-1], '1')
-        self.assertEqual(proc2.name.split('.')[-1], '2')
+        self.assertEqual(proc1.name.split(".")[-1], "1")
+        self.assertEqual(proc2.name.split(".")[-1], "2")
