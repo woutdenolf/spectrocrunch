@@ -3,7 +3,8 @@
 """Resource files
 """
 
-import os 
+import os
+
 
 def resource_filename(resource):
     """
@@ -13,6 +14,6 @@ def resource_filename(resource):
     Returns:
         str: absolute resource path in the file system
     """
-    return os.path.join(os.path.abspath(os.path.dirname(__file__)),
-                            *resource.split('/'))
-
+    return os.path.join(
+        os.path.abspath(os.path.dirname(__file__)), *resource.split("/")
+    )
