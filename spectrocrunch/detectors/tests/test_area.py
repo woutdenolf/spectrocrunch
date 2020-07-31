@@ -6,9 +6,8 @@ from ...patch import jsonpickle
 
 
 class test_area(unittest.TestCase):
-
     def test_serialize(self):
-        exclude = 'AreaDetector',
+        exclude = ("AreaDetector",)
         for name, cls in area.AreaDetector.clsregistry.items():
             if name not in exclude:
                 d1 = cls()
@@ -23,7 +22,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

@@ -11,51 +11,68 @@ from ...patch import jsonpickle
 
 
 class test_xrf(unittest.TestCase):
-
     def plot(self, x, y1, y2):
         import matplotlib.pyplot as plt
-        plt.plot(x, y1+1)
-        plt.plot(x, y2+1)
+
+        plt.plot(x, y1 + 1)
+        plt.plot(x, y2 + 1)
         plt.show()
 
     def test_lineprofile(self):
         u = 10
-        xmin = 0.  # not negative, otherwise assert fails (due to step)
-        xmax = 2*u
+        xmin = 0.0  # not negative, otherwise assert fails (due to step)
+        xmax = 2 * u
         x = np.linspace(xmin, xmax, 1000)
 
         kwargs = {}
-        kwargs["mcazero"] = 0.  # keV
+        kwargs["mcazero"] = 0.0  # keV
         kwargs["mcagain"] = 5e-3  # keV
         kwargs["mcanoise"] = 50e-3  # keV
         kwargs["mcafano"] = 0.19
         kwargs["ehole"] = 3.8
-        kwargs["activearea"] = 80e-2*0.75  # cm^2
+        kwargs["activearea"] = 80e-2 * 0.75  # cm^2
 
         kwargs["shape_conversionenergy"] = u
 
-        kwargs["shape_fixedarearatios"] = {"stailbroadening": 0.1, "stailfraction": 0.05,
-                                           "ltailbroadening": 0.5, "ltailfraction": 0.01,
-                                           "stepfraction": 0.005,
-                                           "bpeak": True, "bstail": True, "bltail": True, "bstep": True}
+        kwargs["shape_fixedarearatios"] = {
+            "stailbroadening": 0.1,
+            "stailfraction": 0.05,
+            "ltailbroadening": 0.5,
+            "ltailfraction": 0.01,
+            "stepfraction": 0.005,
+            "bpeak": True,
+            "bstail": True,
+            "bltail": True,
+            "bstep": True,
+        }
         detector1 = xrf.XRFDetector(**kwargs)
 
         kwargs.pop("shape_fixedarearatios")
-        kwargs["shape_pymca"] = {"stailarea_ratio": detector1.ratios[0],
-                                 "stailslope_ratio": detector1.stailslope_ratio,
-                                 "ltailarea_ratio": detector1.ratios[1],
-                                 "ltailslope_ratio": detector1.ltailslope_ratio,
-                                 "stepheight_ratio": detector1.ratios[2],
-                                 "bpeak": True, "bstail": True, "bltail": True, "bstep": True}
+        kwargs["shape_pymca"] = {
+            "stailarea_ratio": detector1.ratios[0],
+            "stailslope_ratio": detector1.stailslope_ratio,
+            "ltailarea_ratio": detector1.ratios[1],
+            "ltailslope_ratio": detector1.ltailslope_ratio,
+            "stepheight_ratio": detector1.ratios[2],
+            "bpeak": True,
+            "bstail": True,
+            "bltail": True,
+            "bstep": True,
+        }
         detector2 = xrf.XRFDetector(**kwargs)
 
         kwargs.pop("shape_pymca")
-        kwargs["shape_fixedarearatios"] = {"stailbroadening": detector1.stailbroadening,
-                                           "stailfraction": detector1.fractions[0],
-                                           "ltailbroadening": detector1.ltailbroadening,
-                                           "ltailfraction": detector1.fractions[1],
-                                           "stepfraction": detector1.fractions[2],
-                                           "bpeak": True, "bstail": True, "bltail": True, "bstep": True}
+        kwargs["shape_fixedarearatios"] = {
+            "stailbroadening": detector1.stailbroadening,
+            "stailfraction": detector1.fractions[0],
+            "ltailbroadening": detector1.ltailbroadening,
+            "ltailfraction": detector1.fractions[1],
+            "stepfraction": detector1.fractions[2],
+            "bpeak": True,
+            "bstail": True,
+            "bltail": True,
+            "bstep": True,
+        }
         detector3 = xrf.XRFDetector(**kwargs)
 
         for a, b in itertools.permutations([detector1, detector2, detector3], 2):
@@ -70,15 +87,25 @@ class test_xrf(unittest.TestCase):
         tmp = str(detector2)
         tmp = str(detector2)
 
-        parameters = [[False, True],
-                      [2.5],  # assert when too large
-                      [1.5],  # assert when too large
-                      [0, 1, 0.2, 0.4, 0.6],
-                      [0, 1, 0.2, 0.4, 0.6],
-                      [0, 1, 0.2, 0.4, 0.6],
-                      [False, True]]
+        parameters = [
+            [False, True],
+            [2.5],  # assert when too large
+            [1.5],  # assert when too large
+            [0, 1, 0.2, 0.4, 0.6],
+            [0, 1, 0.2, 0.4, 0.6],
+            [0, 1, 0.2, 0.4, 0.6],
+            [False, True],
+        ]
         for params in itertools.product(*parameters):
-            voigt, ltailbroadening, stailbroadening, wstep, wstail, wltail, normalized = params
+            (
+                voigt,
+                ltailbroadening,
+                stailbroadening,
+                wstep,
+                wstail,
+                wltail,
+                normalized,
+            ) = params
             # Spectrocrunch arguments
             try:
                 wpeak = detector1.wpeak(wstail, wltail, wstep)
@@ -106,8 +133,12 @@ class test_xrf(unittest.TestCase):
             detector2.ratios = detector1.ratios
 
             # Silx arguments
-            kwargs = {"gaussian_term": wpeak > 0, "st_term": wstail >
-                      0, "lt_term": wltail > 0, "step_term": wstep > 0}
+            kwargs = {
+                "gaussian_term": wpeak > 0,
+                "st_term": wstail > 0,
+                "lt_term": wltail > 0,
+                "step_term": wstep > 0,
+            }
             if bpeak and normalized:
                 garea = wpeak
             else:
@@ -115,22 +146,28 @@ class test_xrf(unittest.TestCase):
             stailarea_ratio, ltailarea_ratio, stepheight_ratio = detector1.ratios
             stailslope_ratio = detector1.stailslope_ratio
             ltailslope_ratio = detector1.ltailslope_ratio
-            args = (garea, u, detector1.gaussianFWHM(u),
-                    stailarea_ratio, stailslope_ratio,
-                    ltailarea_ratio, ltailslope_ratio,
-                    stepheight_ratio)
+            args = (
+                garea,
+                u,
+                detector1.gaussianFWHM(u),
+                stailarea_ratio,
+                stailslope_ratio,
+                ltailarea_ratio,
+                ltailslope_ratio,
+                stepheight_ratio,
+            )
 
             # Compare
             y1 = np.squeeze(detector1.lineprofile(x, u, normalized=normalized))
             y2 = silx.math.fit.sum_ahypermet(x, *args, **kwargs)
             y3 = np.squeeze(detector2.lineprofile(x, u, normalized=normalized))
 
-            a = np.max(y1)*0.1
+            a = np.max(y1) * 0.1
             # print wpeak,wstail,wltail,wstep
             # self.plot(x,y2,y3)
             rtol = 1e-6
-            np.testing.assert_allclose(y1+a, y2+a, rtol=rtol)
-            np.testing.assert_allclose(y2+a, y3+a, rtol=rtol)
+            np.testing.assert_allclose(y1 + a, y2 + a, rtol=rtol)
+            np.testing.assert_allclose(y2 + a, y3 + a, rtol=rtol)
 
             # Check unit area
             if voigt:
@@ -139,12 +176,27 @@ class test_xrf(unittest.TestCase):
             else:
                 linewidth = 0
                 rtol = 1e-7
-            area1, error1 = integrate.quad(lambda x: detector1.lineprofile(
-                x, u, linewidth=linewidth, normalized=normalized), xmin, xmax)
-            area2, error2 = integrate.quad(lambda x: silx.math.fit.sum_ahypermet(
-                np.asarray([x]), *args, **kwargs)[0], xmin, xmax)
-            area3, error3 = integrate.quad(lambda x: detector2.lineprofile(
-                x, u, linewidth=linewidth, normalized=normalized), xmin, xmax)
+            area1, error1 = integrate.quad(
+                lambda x: detector1.lineprofile(
+                    x, u, linewidth=linewidth, normalized=normalized
+                ),
+                xmin,
+                xmax,
+            )
+            area2, error2 = integrate.quad(
+                lambda x: silx.math.fit.sum_ahypermet(np.asarray([x]), *args, **kwargs)[
+                    0
+                ],
+                xmin,
+                xmax,
+            )
+            area3, error3 = integrate.quad(
+                lambda x: detector2.lineprofile(
+                    x, u, linewidth=linewidth, normalized=normalized
+                ),
+                xmin,
+                xmax,
+            )
             if normalized:
                 np.testing.assert_allclose(area1, 1, rtol=rtol)
                 np.testing.assert_allclose(area2, 1, rtol=1e-7)
@@ -155,13 +207,12 @@ class test_xrf(unittest.TestCase):
             #    np.testing.assert_raises(AssertionError, np.testing.assert_allclose, area2,1,rtol=1e-7)
             #    np.testing.assert_raises(AssertionError, np.testing.assert_allclose, area3,1,rtol=rtol)
 
-    @unittest.skipIf(xrf.compoundfromname.xraylib is None,
-                     "xraylib not installed")
+    @unittest.skipIf(xrf.compoundfromname.xraylib is None, "xraylib not installed")
     def test_convert(self):
-        exclude = 'XRFDetector',
+        exclude = ("XRFDetector",)
         for name, cls in xrf.XRFDetector.clsregistry.items():
             if name not in exclude:
-                a = cls(shape_conversionenergy=7.)
+                a = cls(shape_conversionenergy=7.0)
                 b = a.convert(inplace=False)
                 b.convert(inplace=True)
                 c = b.convert(inplace=False)
@@ -179,10 +230,9 @@ class test_xrf(unittest.TestCase):
                 np.testing.assert_allclose(a.ltailslope_ratio, b.ltailslope_ratio)
                 np.testing.assert_allclose(c.ltailslope_ratio, b.ltailslope_ratio)
 
-    @unittest.skipIf(xrf.compoundfromname.xraylib is None,
-                     "xraylib not installed")
+    @unittest.skipIf(xrf.compoundfromname.xraylib is None, "xraylib not installed")
     def test_serialize(self):
-        exclude = 'XRFDetector',
+        exclude = ("XRFDetector",)
         for name, cls in xrf.XRFDetector.clsregistry.items():
             if name not in exclude:
                 d1 = cls()
@@ -199,7 +249,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

@@ -12,9 +12,16 @@ from ..utils import lut
 
 
 class AreaDetector(with_metaclass()):
-
-    def __init__(self, etoDU=None, qe=None, DUoffset=None, darkcurrent=None,
-                 readoutnoise=None, geometry=None, **kwargs):
+    def __init__(
+        self,
+        etoDU=None,
+        qe=None,
+        DUoffset=None,
+        darkcurrent=None,
+        readoutnoise=None,
+        geometry=None,
+        **kwargs
+    ):
         """
         Args:
             etoDU(num): number of DU per electron (DU/e)
@@ -33,20 +40,22 @@ class AreaDetector(with_metaclass()):
         super(AreaDetector, self).__init__(**kwargs)
 
     def __getstate__(self):
-        return {'etoDU': self.etoDU,
-                'qe': self.qe,
-                'DUoffset': self.DUoffset,
-                'darkcurrent': self.darkcurrent,
-                'readoutnoise': self.readoutnoise,
-                'geometry': self.geometry}
+        return {
+            "etoDU": self.etoDU,
+            "qe": self.qe,
+            "DUoffset": self.DUoffset,
+            "darkcurrent": self.darkcurrent,
+            "readoutnoise": self.readoutnoise,
+            "geometry": self.geometry,
+        }
 
     def __setstate__(self, state):
-        self.etoDU = state['etoDU']
-        self.qe = state['qe']
-        self.DUoffset = state['DUoffset']
-        self.darkcurrent = state['darkcurrent']
-        self.readoutnoise = state['readoutnoise']
-        self.geometry = state['geometry']
+        self.etoDU = state["etoDU"]
+        self.qe = state["qe"]
+        self.DUoffset = state["DUoffset"]
+        self.darkcurrent = state["darkcurrent"]
+        self.readoutnoise = state["readoutnoise"]
+        self.geometry = state["geometry"]
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -60,11 +69,13 @@ class AreaDetector(with_metaclass()):
             else:
                 if self.qe != other.qe:
                     return False
-            return self.etoDU == other.etoDU and \
-                self.DUoffset == other.DUoffset and \
-                self.darkcurrent == other.darkcurrent and \
-                self.readoutnoise == other.readoutnoise and \
-                self.geometry == other.geometry
+            return (
+                self.etoDU == other.etoDU
+                and self.DUoffset == other.DUoffset
+                and self.darkcurrent == other.darkcurrent
+                and self.readoutnoise == other.readoutnoise
+                and self.geometry == other.geometry
+            )
         else:
             return False
 
@@ -72,11 +83,23 @@ class AreaDetector(with_metaclass()):
         return not self.__eq__(other)
 
     def __str__(self):
-        return "qe = {} e-/DU\n conv = {} e-/DU\n off = {} DU\n dark = {} e-/sec\n noise = {} e-\n{}"\
-               .format(self.qeself.etoDU, self.DUoffset, self.darkcurrent, self.readoutnoise, str(self.geometry))
+        return "qe = {} e-/DU\n conv = {} e-/DU\n off = {} DU\n dark = {} e-/sec\n noise = {} e-\n{}".format(
+            self.qeself.etoDU,
+            self.DUoffset,
+            self.darkcurrent,
+            self.readoutnoise,
+            str(self.geometry),
+        )
 
-    def propagate(self, N, visspectrum, tframe=None, nframe=None,
-                  forward=True, poissonapprox=False):
+    def propagate(
+        self,
+        N,
+        visspectrum,
+        tframe=None,
+        nframe=None,
+        forward=True,
+        poissonapprox=False,
+    ):
         """Error propagation of a number of photons.
 
         Args:
@@ -88,40 +111,42 @@ class AreaDetector(with_metaclass()):
         Returns:
             numpy.array:
         """
-        qe = visspectrum.sample(self.qe).to('dimensionless').magnitude
+        qe = visspectrum.sample(self.qe).to("dimensionless").magnitude
         N, qe = self.propagate_broadcast(N, qe)
         if instance.isuscalar(N):
             darkcurrent = noisepropagation.poisson(self.darkcurrent)
-            readoutnoise = noisepropagation.randomvariable(
-                0, self.readoutnoise)
+            readoutnoise = noisepropagation.randomvariable(0, self.readoutnoise)
 
             process = noisepropagation.poisson(qe)
             if forward:
                 Nout = noisepropagation.compound(N, process, forward=forward)
                 if poissonapprox:
                     ENout = noisepropagation.E(Nout)
-                    Nout = noisepropagation.randomvariable(ENout, ENout**0.5)
-                Nout = (Nout + darkcurrent*tframe + readoutnoise) * \
-                    self.etoDU + self.DUoffset
+                    Nout = noisepropagation.randomvariable(ENout, ENout ** 0.5)
+                Nout = (
+                    Nout + darkcurrent * tframe + readoutnoise
+                ) * self.etoDU + self.DUoffset
                 Nout = noisepropagation.repeat(nframe, Nout, forward=forward)
             else:
                 Nout = noisepropagation.repeat(nframe, N, forward=forward)
                 Nout = noisepropagation.reverse_add(Nout, self.DUoffset)
                 Nout = noisepropagation.reverse_mult(Nout, self.etoDU)
-                Nout = noisepropagation.reverse_add(Nout, darkcurrent*tframe)
+                Nout = noisepropagation.reverse_add(Nout, darkcurrent * tframe)
                 Nout = noisepropagation.reverse_add(Nout, readoutnoise)
                 if poissonapprox:
                     ENout = noisepropagation.E(Nout)
-                    Nout = noisepropagation.randomvariable(ENout, ENout**0.5)
-                Nout = noisepropagation.compound(
-                    Nout, process, forward=forward)
+                    Nout = noisepropagation.randomvariable(ENout, ENout ** 0.5)
+                Nout = noisepropagation.compound(Nout, process, forward=forward)
         else:
             if forward:
-                Nout = nframe * ((N*qe + self.darkcurrent*tframe)
-                                 * self.etoDU + self.DUoffset)
+                Nout = nframe * (
+                    (N * qe + self.darkcurrent * tframe) * self.etoDU + self.DUoffset
+                )
             else:
-                Nout = ((N/nframe - self.DUoffset) /
-                        self.etoDU - self.darkcurrent*tframe)/qe
+                Nout = (
+                    (N / nframe - self.DUoffset) / self.etoDU
+                    - self.darkcurrent * tframe
+                ) / qe
         return Nout
 
 
@@ -129,45 +154,66 @@ class pcoedge55(AreaDetector):
     """
     PCO Edge 5.5
     """
+
     aliases = ["PCO Edge 5.5"]
 
     def __init__(self, geometry=None):
-        with open(resource_filename('id21/pcoedge5.5.json'), 'r') as json_file:
+        with open(resource_filename("id21/pcoedge5.5.json"), "r") as json_file:
             data = json.load(json_file)
-            x = data['x']
-            y = data['qe']
-            x = units.Quantity(x, data['xunit'])
+            x = data["x"]
+            y = data["qe"]
+            x = units.Quantity(x, data["xunit"])
             qe = lut.LUT(x=x, y=y, default=0)
-        super(pcoedge55, self).__init__(etoDU=65536/30000., qe=qe, DUoffset=95.5,
-                                        darkcurrent=7.4, readoutnoise=0.95, geometry=geometry)
+        super(pcoedge55, self).__init__(
+            etoDU=65536 / 30000.0,
+            qe=qe,
+            DUoffset=95.5,
+            darkcurrent=7.4,
+            readoutnoise=0.95,
+            geometry=geometry,
+        )
 
 
 class frelon2k16(AreaDetector):
     """
     Frelon 2K 16
     """
+
     aliases = ["Frelon 2K 16"]
 
     def __init__(self, geometry=None):
         # https://doi.org/10.1063/1.2783112
         # https://doi.org/10.1107/S0909049506000550
         qe = lut.LUT(default=0.7)
-        super(frelon2k16, self).__init__(etoDU=65536/320000., qe=qe, DUoffset=100.,
-                                         darkcurrent=1., readoutnoise=19., geometry=geometry)
+        super(frelon2k16, self).__init__(
+            etoDU=65536 / 320000.0,
+            qe=qe,
+            DUoffset=100.0,
+            darkcurrent=1.0,
+            readoutnoise=19.0,
+            geometry=geometry,
+        )
 
 
 class frelon2k14(AreaDetector):
     """
     Frelon 2K 14
     """
+
     aliases = ["Frelon 2K 14"]
 
     def __init__(self, geometry=None):
         # https://doi.org/10.1063/1.2783112
         # https://doi.org/10.1107/S0909049506000550
         qe = lut.LUT(default=0.7)
-        super(frelon2k14, self).__init__(etoDU=16384/320000., qe=qe, DUoffset=100.,
-                                         darkcurrent=1., readoutnoise=24., geometry=geometry)
+        super(frelon2k14, self).__init__(
+            etoDU=16384 / 320000.0,
+            qe=qe,
+            DUoffset=100.0,
+            darkcurrent=1.0,
+            readoutnoise=24.0,
+            geometry=geometry,
+        )
 
 
 factory = AreaDetector.factory
