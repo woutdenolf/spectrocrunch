@@ -16,21 +16,19 @@ logger = logging.getLogger(__name__)
 
 
 def ensure_geometry_outputparent(parameters):
-    params = mfluoxas.task_parameters(parameters, 'geometry')
-    if params.get('outputparent', None):
+    params = mfluoxas.task_parameters(parameters, "geometry")
+    if params.get("outputparent", None):
         return
-    nxroot = os.path.join(parameters.get('resultsdir', ''),
-                          'geometries.h5')
-    params['outputparent'] = nxroot+'::/xrf'
+    nxroot = os.path.join(parameters.get("resultsdir", ""), "geometries.h5")
+    params["outputparent"] = nxroot + "::/xrf"
 
 
 def ensure_outputparent(parameters, filename, entryname, scannumbers):
     ensure_geometry_outputparent(parameters)
-    params = mfluoxas.task_parameters(parameters, 'common')
-    if params.get('outputparent', None):
+    params = mfluoxas.task_parameters(parameters, "common")
+    if params.get("outputparent", None):
         return
-    nxroot = os.path.join(parameters.get('resultsdir', ''),
-                          filename+'.h5')
+    nxroot = os.path.join(parameters.get("resultsdir", ""), filename + ".h5")
     if len(scannumbers) > 1:
         a, b = scannumbers[0], scannumbers[-1]
     else:
@@ -43,89 +41,99 @@ def ensure_outputparent(parameters, filename, entryname, scannumbers):
         nxentry = "{}{}_{}".format(entryname, a, b)
     else:
         nxentry = "{}{}".format(entryname, a)
-    params['outputparent'] = nxroot+'::/'+nxentry
+    params["outputparent"] = nxroot + "::/" + nxentry
 
 
-def fluoxas(samplename, datasetname, scannumbers, mapnumbers, cfgfiles,
-            **parameters):
+def fluoxas(samplename, datasetname, scannumbers, mapnumbers, cfgfiles, **parameters):
     if len(scannumbers) != len(mapnumbers):
-        raise RuntimeError(
-            "fluoXAS map numbers must be equal to the mapnumbers")
+        raise RuntimeError("fluoXAS map numbers must be equal to the mapnumbers")
     jobname = batch.jobname(
         "fluoxas",
         (samplename, datasetname, scannumbers, mapnumbers, cfgfiles),
-        parameters)
+        parameters,
+    )
 
-    params = mfluoxas.task_parameters(parameters, 'common')
+    params = mfluoxas.task_parameters(parameters, "common")
     instrument = getinstrument(**params)
-    radix, subdir = instrument.xrflocation(
-        samplename, datasetname, type="dynamic")
+    radix, subdir = instrument.xrflocation(samplename, datasetname, type="dynamic")
 
-    sourcepaths = [os.path.join(parameters["proposaldir"], subdir, 
-                   "{}_fluoXAS_{}".format(radix, nr)) for nr in scannumbers]
+    sourcepaths = [
+        os.path.join(
+            parameters["proposaldir"], subdir, "{}_fluoXAS_{}".format(radix, nr)
+        )
+        for nr in scannumbers
+    ]
     scannames = ["{}_fluoXAS_{}".format(radix, nr) for nr in scannumbers]
 
-    ensure_outputparent(parameters, samplename, radix+'.fluoxas', scannumbers)
-    processdata(jobname, sourcepaths, scannames, mapnumbers,
-                cfgfiles, fluoxas=True, **parameters)
+    ensure_outputparent(parameters, samplename, radix + ".fluoxas", scannumbers)
+    processdata(
+        jobname,
+        sourcepaths,
+        scannames,
+        mapnumbers,
+        cfgfiles,
+        fluoxas=True,
+        **parameters
+    )
 
 
 def multi(samplename, datasetname, mapnumbers, cfgfiles, **parameters):
     jobname = batch.jobname(
-        "multi",
-        (samplename, datasetname, mapnumbers, cfgfiles),
-        parameters)
+        "multi", (samplename, datasetname, mapnumbers, cfgfiles), parameters
+    )
 
-    params = mfluoxas.task_parameters(parameters, 'common')
+    params = mfluoxas.task_parameters(parameters, "common")
     instrument = getinstrument(**params)
-    radix, subdir = instrument.xrflocation(
-        samplename, datasetname, type="dynamic")
+    radix, subdir = instrument.xrflocation(samplename, datasetname, type="dynamic")
     sourcepaths = [os.path.join(parameters["proposaldir"], subdir)]
 
     scannames = [radix]
     scannumbers = [mapnumbers]
-    ensure_outputparent(parameters, samplename, radix+'.sixes', mapnumbers)
-    processdata(jobname, sourcepaths, scannames, scannumbers,
-                cfgfiles, multi=True, **parameters)
+    ensure_outputparent(parameters, samplename, radix + ".sixes", mapnumbers)
+    processdata(
+        jobname, sourcepaths, scannames, scannumbers, cfgfiles, multi=True, **parameters
+    )
 
 
 def single(samplename, datasetname, mapnumber, cfgfiles, **parameters):
     jobname = batch.jobname(
-        "single",
-        (samplename, datasetname, mapnumber, cfgfiles),
-        parameters)
+        "single", (samplename, datasetname, mapnumber, cfgfiles), parameters
+    )
 
-    params = mfluoxas.task_parameters(parameters, 'common')
+    params = mfluoxas.task_parameters(parameters, "common")
     instrument = getinstrument(**params)
-    radix, subdir = instrument.xrflocation(
-        samplename, datasetname, type="dynamic")
+    radix, subdir = instrument.xrflocation(samplename, datasetname, type="dynamic")
     sourcepaths = [os.path.join(parameters["proposaldir"], subdir)]
 
     scannames = [radix]
     scannumbers = [[mapnumber]]
-    ensure_outputparent(parameters, samplename, radix+'.map', [mapnumber])
-    processdata(jobname, sourcepaths, scannames,
-                scannumbers, cfgfiles, **parameters)
+    ensure_outputparent(parameters, samplename, radix + ".map", [mapnumber])
+    processdata(jobname, sourcepaths, scannames, scannumbers, cfgfiles, **parameters)
 
 
-def manualselection(sourcepaths, scannames, scannumbers, cfgfiles,
-                    outname=None, outsuffix=None, **parameters):
+def manualselection(
+    sourcepaths,
+    scannames,
+    scannumbers,
+    cfgfiles,
+    outname=None,
+    outsuffix=None,
+    **parameters
+):
     jobname = batch.jobname(
-        "manualselection",
-        (sourcepaths, scannames, scannumbers, cfgfiles),
-        parameters)
+        "manualselection", (sourcepaths, scannames, scannumbers, cfgfiles), parameters
+    )
 
     if outname is None:
         outname = scannames[0]
     if outsuffix is None:
-        outsuffix = '.map'
-    ensure_outputparent(parameters, outname, outname+outsuffix, scannumbers)
-    processdata(jobname, sourcepaths, scannames,
-                scannumbers, cfgfiles, **parameters)
+        outsuffix = ".map"
+    ensure_outputparent(parameters, outname, outname + outsuffix, scannumbers)
+    processdata(jobname, sourcepaths, scannames, scannumbers, cfgfiles, **parameters)
 
 
 def processdata(jobname, *args, **kwargs):
-    jobs = kwargs.pop('jobs', None)
+    jobs = kwargs.pop("jobs", None)
     if jobs is None:
         # Execute immediately
         processdata_exec(*args, **kwargs)
@@ -134,26 +142,34 @@ def processdata(jobname, *args, **kwargs):
         jobs.append((jobname, processdata_exec, args, kwargs))
 
 
-def processdata_exec(sourcepaths, scannames, scannumbers, cfgfiles,
-                     fluoxas=False, multi=False, resultsdir=None,
-                     edfexport=False, **parameters):
+def processdata_exec(
+    sourcepaths,
+    scannames,
+    scannumbers,
+    cfgfiles,
+    fluoxas=False,
+    multi=False,
+    resultsdir=None,
+    edfexport=False,
+    **parameters
+):
     # Basic input
-    params = mfluoxas.task_parameters(parameters, 'pymca')
-    params['sourcepaths'] = sourcepaths
-    params['scannames'] = scannames
-    params['scannumbers'] = scannumbers
+    params = mfluoxas.task_parameters(parameters, "pymca")
+    params["sourcepaths"] = sourcepaths
+    params["scannames"] = scannames
+    params["scannumbers"] = scannumbers
     if not resultsdir:
-        resultsdir = ''
+        resultsdir = ""
     if instance.isstring(cfgfiles):
         cfgfiles = [cfgfiles]
-    params['pymcacfg'] = [cfg if os.path.isabs(cfg)
-                          else os.path.join(resultsdir, cfg)
-                          for cfg in cfgfiles]
+    params["pymcacfg"] = [
+        cfg if os.path.isabs(cfg) else os.path.join(resultsdir, cfg) for cfg in cfgfiles
+    ]
 
     # Image aligment
-    params = mfluoxas.task_parameters(parameters, 'align')
+    params = mfluoxas.task_parameters(parameters, "align")
     if not fluoxas and not multi:
-        params['alignmethod'] = None
+        params["alignmethod"] = None
 
     # Process
     tasks = mfluoxas.tasks(**parameters)
@@ -161,19 +177,19 @@ def processdata_exec(sourcepaths, scannames, scannumbers, cfgfiles,
         edfoutput = not fluoxas and not tasks[-1].done
     else:
         edfoutput = False
-    if run_sequential(tasks, name='fluoxas'):
+    if run_sequential(tasks, name="fluoxas"):
         if edfoutput:
             exportedf(tasks[-1].output)
     else:
         unfinished = [task for task in tasks if not task.done]
         raise RuntimeError(
-            'The following tasks are not finished: {}'.format(unfinished))
+            "The following tasks are not finished: {}".format(unfinished)
+        )
 
 
 def exportedf(nxprocess):
-    outdir = nxprocess.device.parent[nxprocess.device.name+'_edfresults']
-    logger.info("EDF export:\n Input: {}\n Output: {}".format(
-        nxprocess, outdir))
+    outdir = nxprocess.device.parent[nxprocess.device.name + "_edfresults"]
+    logger.info("EDF export:\n Input: {}\n Output: {}".format(nxprocess, outdir))
     outdir.remove(recursive=True)
     outdir.mkdir()
 
@@ -182,18 +198,19 @@ def exportedf(nxprocess):
     for group, paths in groups.items():
         if group.isdetector:
             for path in paths:
-                with path.open(mode='r') as dset:
+                with path.open(mode="r") as dset:
                     shape = dset.shape
-                    index = [slice(None)]*dset.ndim
+                    index = [slice(None)] * dset.ndim
                     if shape[stackdim] == 1:
-                        filename = group.xialabel+'_'+path.name+'.edf'
+                        filename = group.xialabel + "_" + path.name + ".edf"
                     else:
-                        filename = group.xialabel+'_'+path.name+'_{}keV.edf'
+                        filename = group.xialabel + "_" + path.name + "_{}keV.edf"
                     for i in range(shape[stackdim]):
                         index[stackdim] = i
                         image = dset[tuple(index)]
                         name = filename.format(stackaxes[i])
-                        title = '{}@{}keV'.format(group.xialabel, stackaxes[i])
-                        logger.info(' saving {}'.format(filename))
-                        saveedf(outdir[name].path, image, {
-                                'Title': title}, overwrite=True)
+                        title = "{}@{}keV".format(group.xialabel, stackaxes[i])
+                        logger.info(" saving {}".format(filename))
+                        saveedf(
+                            outdir[name].path, image, {"Title": title}, overwrite=True
+                        )

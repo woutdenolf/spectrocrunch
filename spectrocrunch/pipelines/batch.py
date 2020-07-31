@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def _asstring(x):
     if instance.isstring(x):
-        return "\"{}\"".format(x)
+        return '"{}"'.format(x)
     else:
         return str(x)
 
@@ -27,17 +27,15 @@ def jobname(name, args, more=True):
 
 
 class Job(object):
-
     def __init__(self, name, func, args, kwargs):
         if not instance.iscallable(func):
-            raise TypeError(
-                "Job second argument \"{}\" must be callable".format(func))
+            raise TypeError('Job second argument "{}" must be callable'.format(func))
         if not instance.isiterable(args):
-            raise TypeError(
-                "Job third argument \"{}\" must be iterable".format(args))
+            raise TypeError('Job third argument "{}" must be iterable'.format(args))
         if not isinstance(kwargs, dict):
             raise TypeError(
-                "Job forth argument \"{}\" must be a dictionary".format(kwargs))
+                'Job forth argument "{}" must be a dictionary'.format(kwargs)
+            )
         self.name = name
         self.func = func
         self.args = args
@@ -55,7 +53,6 @@ class Job(object):
 
 
 class Jobs(collections.MutableSequence):
-
     def __init__(self, *args):
         self.list = list()
         self.extend(list(args))
@@ -76,7 +73,7 @@ class Jobs(collections.MutableSequence):
         self.list.insert(i, Job(*v))
 
     def __str__(self):
-        fmt = "{{:{}}}. {{}}".format(len(str(max(len(self)-1, 1))))
+        fmt = "{{:{}}}. {{}}".format(len(str(max(len(self) - 1, 1))))
 
         return "\n".join([fmt.format(i, item) for i, item in enumerate(self.list, 1)])
 
@@ -84,14 +81,12 @@ class Jobs(collections.MutableSequence):
 @contextmanager
 def context():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-j", "--jobs", type=int, default=[],
-                        nargs='+', help="execute jobs")
-    parser.add_argument("-a", "--ajob", type=int,
-                        default=0, help="execute jobs from a")
-    parser.add_argument("-b", "--bjob", type=int,
-                        default=0, help="execute jobs from b")
-    parser.add_argument("-n", "--njobs", action="store_true",
-                        help="number of jobs")
+    parser.add_argument(
+        "-j", "--jobs", type=int, default=[], nargs="+", help="execute jobs"
+    )
+    parser.add_argument("-a", "--ajob", type=int, default=0, help="execute jobs from a")
+    parser.add_argument("-b", "--bjob", type=int, default=0, help="execute jobs from b")
+    parser.add_argument("-n", "--njobs", action="store_true", help="number of jobs")
     parser.add_argument("-l", "--ljobs", action="store_true", help="list jobs")
     args, unknown = parser.parse_known_args()
 
@@ -115,11 +110,11 @@ def context():
             else:
                 b = len(jobs)
             a, b = min(a, b), max(a, b)
-            ind = ind+range(a, b+1)
+            ind = ind + range(a, b + 1)
 
         for i in ind:
             try:
-                job = jobs[i-1]
+                job = jobs[i - 1]
             except IndexError:
                 logger.error("Invalid job {} of {}".format(i, len(jobs)))
             else:

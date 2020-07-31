@@ -9,23 +9,25 @@ from ..instruments.configuration import getinstrument
 
 
 def staticscan(samplename, datasetname, radix, **parameters):
-    jobname = batch.jobname(
-        "static", (samplename, datasetname, radix), parameters)
+    jobname = batch.jobname("static", (samplename, datasetname, radix), parameters)
 
     instrument = getinstrument(**parameters)
-    mradix, subdir = instrument.fflocation(
-        samplename, datasetname, type="static")
+    mradix, subdir = instrument.fflocation(samplename, datasetname, type="static")
     if not instance.isarray(radix):
         radix = [radix]
-    sourcepaths = [os.path.join(
-        parameters["proposaldir"], subdir, rdx) for rdx in radix]
+    sourcepaths = [
+        os.path.join(parameters["proposaldir"], subdir, rdx) for rdx in radix
+    ]
 
     if len(radix) > 1:
-        nxentry = '{}_{}'.format(mradix, radix[0], radix[-1])
+        nxentry = "{}_{}".format(mradix, radix[0], radix[-1])
     else:
-        nxentry = '{}_{}'.format(mradix, radix[0])
-    nxentry = os.path.join(parameters.get(
-        'resultsdir', ''), samplename+'.h5')+'::/'+nxentry
+        nxentry = "{}_{}".format(mradix, radix[0])
+    nxentry = (
+        os.path.join(parameters.get("resultsdir", ""), samplename + ".h5")
+        + "::/"
+        + nxentry
+    )
     processdata(jobname, sourcepaths, radix, nxentry, **parameters)
 
 
@@ -38,13 +40,14 @@ def processdata(jobname, *args, **kwargs):
 
 def processdata_exec(sourcepaths, radix, nxentry, **kwargs):
     parameters = dict(kwargs)
-    parameters['sourcepaths'] = sourcepaths
-    parameters['radix'] = radix
-    parameters['nxentry'] = nxentry
+    parameters["sourcepaths"] = sourcepaths
+    parameters["radix"] = radix
+    parameters["nxentry"] = nxentry
     tasks = ffxas_tasks(**parameters)
-    if run_sequential(tasks, name='fullfield'):
+    if run_sequential(tasks, name="fullfield"):
         pass
     else:
         unfinished = [task for task in tasks if not task.done]
         raise RuntimeError(
-            'The following tasks are not finished: {}'.format(unfinished))
+            "The following tasks are not finished: {}".format(unfinished)
+        )

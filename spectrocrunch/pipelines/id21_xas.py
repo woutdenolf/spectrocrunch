@@ -28,9 +28,24 @@ import logging
 #    return hc/(2*dspacing*np.sin(angle*np.pi/180))
 
 
-def processNotSynchronized(specfile, specnumbers, destpath, detectorcfg,
-                           mlines={}, replacebasedir=None, showelement=None, dtcor=True, fastfitting=True,
-                           energyshift=0, plot=False, bkgxas=0, bkgflux=0, normmedian=False, rois=None, counters=None):
+def processNotSynchronized(
+    specfile,
+    specnumbers,
+    destpath,
+    detectorcfg,
+    mlines={},
+    replacebasedir=None,
+    showelement=None,
+    dtcor=True,
+    fastfitting=True,
+    energyshift=0,
+    plot=False,
+    bkgxas=0,
+    bkgflux=0,
+    normmedian=False,
+    rois=None,
+    counters=None,
+):
     """
     XRF fitting of XANES spectra (fit repeats separately and add interpolated results because no energy synchronization)
 
@@ -53,10 +68,12 @@ def processNotSynchronized(specfile, specnumbers, destpath, detectorcfg,
         counters(Optional(dict)): list of counters to be treated as the XRF counts
     """
 
-    energylabel = 'arr_energyM'
-    iodetlabel = 'arr_iodet'
-    timelabel = 'arr_mtime'
-    addbeforefit = True  # refers to multiple detectors, repeats are always added afterwards
+    energylabel = "arr_energyM"
+    iodetlabel = "arr_iodet"
+    timelabel = "arr_mtime"
+    addbeforefit = (
+        True  # refers to multiple detectors, repeats are always added afterwards
+    )
 
     # Open spec file
     sf = spec(specfile)
@@ -95,18 +112,18 @@ def processNotSynchronized(specfile, specnumbers, destpath, detectorcfg,
         for j in range(nrepeats):
             # Get energy and iodet
             data, info = sf.getdata(
-                specnumbers[i][j], [energylabel, iodetlabel, timelabel]+counterinnames)
+                specnumbers[i][j], [energylabel, iodetlabel, timelabel] + counterinnames
+            )
             realtime = sf.scancommand(specnumbers[i][j])["time"]
 
             data[:, 0] += energyshift
             energyj = data[:, 0][:, np.newaxis]
-            norm = (data[:, 1]/realtime - bkgflux)*data[:, 2]
+            norm = (data[:, 1] / realtime - bkgflux) * data[:, 2]
 
             if ncounters > 0:
                 ctrs = data[:, 2:]
                 for c in range(ncounters):
-                    ctrs[:, c] = (ctrs[:, c]/realtime -
-                                  counterbkg[c])*data[:, 2]
+                    ctrs[:, c] = (ctrs[:, c] / realtime - counterbkg[c]) * data[:, 2]
 
             if normmedian:
                 norm /= np.median(norm)
@@ -116,7 +133,8 @@ def processNotSynchronized(specfile, specnumbers, destpath, detectorcfg,
             if len(replacebasedir) == 2:
                 datadir = datadir.replace(replacebasedir[0], replacebasedir[1])
                 detectorcfg = [
-                    f.replace(replacebasedir[0], replacebasedir[1]) for f in detectorcfg]
+                    f.replace(replacebasedir[0], replacebasedir[1]) for f in detectorcfg
+                ]
 
             scanname = info["RADIX"]
             scannumber = int(info["ZAP SCAN NUMBER"])
@@ -124,18 +142,28 @@ def processNotSynchronized(specfile, specnumbers, destpath, detectorcfg,
                 parsename = "dtcor"
             else:
                 parsename = "copy"
-            parsename = "%%0%dd_%s" % (
-                np.int(np.floor(np.log10(nxasspectraT)))+1, parsename) % (off)
+            parsename = (
+                "%%0%dd_%s"
+                % (np.int(np.floor(np.log10(nxasspectraT))) + 1, parsename)
+                % (off)
+            )
             if j == 0:
                 destradix = scanname
-                outdir = os.path.join(destpath, destradix+"_data")
+                outdir = os.path.join(destpath, destradix + "_data")
             filestofit, detnums = parse_xia_esrf(
-                datadir, scanname, scannumber, outdir, parsename, deadtime=dtcor, add=addbeforefit)
+                datadir,
+                scanname,
+                scannumber,
+                outdir,
+                parsename,
+                deadtime=dtcor,
+                add=addbeforefit,
+            )
             ndets = len(filestofit)
 
             # Intialize progress counter
             if i == 0 and j == 0:
-                prog.setn(nxasspectraT*ndets)
+                prog.setn(nxasspectraT * ndets)
 
             # Fit, normalize and add spectra from all detector
             xasspectrumj = {}
@@ -152,7 +180,15 @@ def processNotSynchronized(specfile, specnumbers, destpath, detectorcfg,
 
                         # Perform fitting
                         xasresults = fitter(
-                            filestofit[k], cfg, energyj, mlines=mlines, norm=norm, fast=fastfitting, prog=prog, plot=plot)
+                            filestofit[k],
+                            cfg,
+                            energyj,
+                            mlines=mlines,
+                            norm=norm,
+                            fast=fastfitting,
+                            prog=prog,
+                            plot=plot,
+                        )
                     else:
                         if len(rois) == 1:
                             roisk = rois[0]
@@ -182,7 +218,8 @@ def processNotSynchronized(specfile, specnumbers, destpath, detectorcfg,
             else:
                 for group in xasspectrumj:
                     spl = InterpolatedUnivariateSpline(
-                        energyj, xasspectrumj[group], ext=0)
+                        energyj, xasspectrumj[group], ext=0
+                    )
                     xasspectrum[group] += spl(energy)
 
             # Show
@@ -190,7 +227,10 @@ def processNotSynchronized(specfile, specnumbers, destpath, detectorcfg,
                 pylab.clf()
                 pylab.plot(energy, xasspectrum[showelement][:, 0])
                 pylab.title(
-                    "Spec #{}: {}/I0 (Summed repeats = {})".format(specnumbers[i][j], showelement, j+1))
+                    "Spec #{}: {}/I0 (Summed repeats = {})".format(
+                        specnumbers[i][j], showelement, j + 1
+                    )
+                )
                 pylab.pause(0.01)
 
             # Show progress
@@ -206,24 +246,39 @@ def processNotSynchronized(specfile, specnumbers, destpath, detectorcfg,
 
         # Save XAS spectrum (for each element)
         if specnumbers[i][0] == specnumbers[i][-1]:
-            outname = '{}_{:03d}'.format(destradix, specnumbers[i][0])
+            outname = "{}_{:03d}".format(destradix, specnumbers[i][0])
         else:
-            outname = '{}_{:03d}_{:03d}.sum'.format(
-                destradix, specnumbers[i][0], specnumbers[i][-1])
-        fileName = os.path.join(destpath, outname+".dat")
+            outname = "{}_{:03d}_{:03d}.sum".format(
+                destradix, specnumbers[i][0], specnumbers[i][-1]
+            )
+        fileName = os.path.join(destpath, outname + ".dat")
         if not os.path.exists(destpath):
             os.makedirs(destpath)
 
         xasspectrum["energyM"] = energy
-        labels = [k.replace(' ', '-') for k in xasspectrum]
-        ArraySave.save2DArrayListAsASCII(
-            xasspectrum.values(), fileName, labels=labels)
+        labels = [k.replace(" ", "-") for k in xasspectrum]
+        ArraySave.save2DArrayListAsASCII(xasspectrum.values(), fileName, labels=labels)
         logger.info("Saved XAS spectrum {}.".format(fileName))
 
 
-def processEnergySynchronized(specfile, specnumbers, destpath, pymcacfg, mlines={}, replacebasedir=(),
-                              showelement=None, dtcor=True, fastfitting=True, energyshift=0, plot=False,
-                              bkgxas=0, bkgflux=0, normmedian=False, rois=None, counters=None):
+def processEnergySynchronized(
+    specfile,
+    specnumbers,
+    destpath,
+    pymcacfg,
+    mlines={},
+    replacebasedir=(),
+    showelement=None,
+    dtcor=True,
+    fastfitting=True,
+    energyshift=0,
+    plot=False,
+    bkgxas=0,
+    bkgflux=0,
+    normmedian=False,
+    rois=None,
+    counters=None,
+):
     """
     XRF fitting of XANES spectra (add spectra from repeats because of energy synchronization)
 
@@ -255,9 +310,9 @@ def processEnergySynchronized(specfile, specnumbers, destpath, pymcacfg, mlines=
     #
     # -> xanes = sum(XRF[a:b])/(mtime*arr_iodet)*time
 
-    energylabel = 'arr_energyM'
-    iodetlabel = 'arr_iodet'
-    timelabel = 'arr_mtime'
+    energylabel = "arr_energyM"
+    iodetlabel = "arr_iodet"
+    timelabel = "arr_mtime"
 
     # Open spec file
     sf = spec(specfile)
@@ -284,13 +339,14 @@ def processEnergySynchronized(specfile, specnumbers, destpath, pymcacfg, mlines=
         # XAS spectrum: sum of all repeats and detectors
         xasspectrum = {}
         nrepeats = len(specnumbers[i])
-        xrfinfo = [{}]*nrepeats
+        xrfinfo = [{}] * nrepeats
 
         # Get spec info
         for j in range(nrepeats):
             # Get energy and iodet
             data, info = sf.getdata(
-                specnumbers[i][j], [energylabel, iodetlabel, timelabel]+counterinnames)
+                specnumbers[i][j], [energylabel, iodetlabel, timelabel] + counterinnames
+            )
             realtime = sf.scancommand(specnumbers[i][j])["time"]
 
             data[:, 0] += energyshift
@@ -298,31 +354,41 @@ def processEnergySynchronized(specfile, specnumbers, destpath, pymcacfg, mlines=
             # Check energy synchronization
             if "energy" in xasspectrum:
                 if xasspectrum["nenergy"] != data.shape[0]:
-                    raise ValueError("Number of energies in spec scan {} are not the same as for spec scan {}".format(
-                        specnumbers[i], specnumbers[0]))
-                if not np.allclose(xasspectrum["energy"], data[:, 0], rtol=0, atol=1e-6):
-                    raise ValueError("Energies in spec scan {} are not synchronized with energies in {}".format(
-                        specnumbers[i], specnumbers[0]))
+                    raise ValueError(
+                        "Number of energies in spec scan {} are not the same as for spec scan {}".format(
+                            specnumbers[i], specnumbers[0]
+                        )
+                    )
+                if not np.allclose(
+                    xasspectrum["energy"], data[:, 0], rtol=0, atol=1e-6
+                ):
+                    raise ValueError(
+                        "Energies in spec scan {} are not synchronized with energies in {}".format(
+                            specnumbers[i], specnumbers[0]
+                        )
+                    )
             else:
                 xasspectrum["nenergy"] = data.shape[0]
                 xasspectrum["energy"] = data[:, 0]
                 xasspectrum["norm"] = np.empty(
-                    (data.shape[0], nrepeats), dtype=data.dtype)
+                    (data.shape[0], nrepeats), dtype=data.dtype
+                )
                 if ncounters != 0:
                     for c in counterinnames:
-                        xasspectrum["counter_"+c] = np.empty(
-                            (data.shape[0], nrepeats), dtype=data.dtype)
+                        xasspectrum["counter_" + c] = np.empty(
+                            (data.shape[0], nrepeats), dtype=data.dtype
+                        )
 
             # data[:,1] = iodet/data[:,2]*realtime
             # norm = (data[:,1]/realtime - bkgflux)*data[:,2]
             #      = iodet - bkgflux*data[:,2]
-            xasspectrum["norm"][:, j] = (
-                data[:, 1]/realtime - bkgflux)*data[:, 2]
+            xasspectrum["norm"][:, j] = (data[:, 1] / realtime - bkgflux) * data[:, 2]
             xrfinfo[j] = info
             if ncounters != 0:
                 for c in range(ncounters):
-                    xasspectrum["counter_"+counterinnames[c]][:,
-                                                              j] = (data[:, 3+c]/realtime - counterbkg[c])*data[:, 2]
+                    xasspectrum["counter_" + counterinnames[c]][:, j] = (
+                        data[:, 3 + c] / realtime - counterbkg[c]
+                    ) * data[:, 2]
 
         if normmedian:
             xasspectrum["norm"] /= np.median(xasspectrum["norm"])
@@ -338,19 +404,20 @@ def processEnergySynchronized(specfile, specnumbers, destpath, pymcacfg, mlines=
             if len(replacebasedir) == 2:
                 datadir = datadir.replace(replacebasedir[0], replacebasedir[1])
                 if pymcacfg is not None:
-                    pymcacfg = pymcacfg.replace(
-                        replacebasedir[0], replacebasedir[1])
+                    pymcacfg = pymcacfg.replace(replacebasedir[0], replacebasedir[1])
             scanname = info["RADIX"]
             scannumber = int(info["ZAP SCAN NUMBER"])
 
             # Sum, dt correction and I0 normalize
             fs = os.path.join(
-                datadir, "%s_xia[0-9]*_%04d_0000_*.edf" % (scanname, scannumber))
+                datadir, "%s_xia[0-9]*_%04d_0000_*.edf" % (scanname, scannumber)
+            )
             detfiles = sorted(glob(fs))
             if len(detfiles) == 0:
                 logger.warning("No files found with filter {}".format(fs))
-            fs = os.path.join(datadir, "%s_xiast_%04d_0000_*.edf" %
-                              (scanname, scannumber))
+            fs = os.path.join(
+                datadir, "%s_xiast_%04d_0000_*.edf" % (scanname, scannumber)
+            )
             stfile = glob(fs)
             if len(stfile) == 0:
                 logger.warning("No files found with filter {}".format(fs))
@@ -358,14 +425,14 @@ def processEnergySynchronized(specfile, specnumbers, destpath, pymcacfg, mlines=
             if len(detfiles) == 0:
                 xia = None
                 if "data" not in xasspectrum:
-                    xasspectrum["data"] = norm*0
+                    xasspectrum["data"] = norm * 0
             else:
                 xia = XiaEdf.XiaEdfScanFile(stfile[0], detfiles)
                 err = xia.sum(deadtime=dtcor)
                 if "data" in xasspectrum:
-                    xasspectrum["data"] += xia.data/norm
+                    xasspectrum["data"] += xia.data / norm
                 else:
-                    xasspectrum["data"] = xia.data/norm
+                    xasspectrum["data"] = xia.data / norm
 
         # What we want:
         #    XAS = sum(I)/sum(I0) = mu(fluo).rho.d
@@ -380,32 +447,43 @@ def processEnergySynchronized(specfile, specnumbers, destpath, pymcacfg, mlines=
         # Fit spectrum or take ROI
         energy = xasspectrum["energy"]
         if specnumbers[i][0] == specnumbers[i][-1]:
-            outname = '{}_{:03d}'.format(scanname, specnumbers[i][0])
+            outname = "{}_{:03d}".format(scanname, specnumbers[i][0])
         else:
-            outname = '{}_{:03d}_{:03d}.sum'.format(
-                scanname, specnumbers[i][0], specnumbers[i][-1])
+            outname = "{}_{:03d}_{:03d}.sum".format(
+                scanname, specnumbers[i][0], specnumbers[i][-1]
+            )
 
         if rois is None and xia is not None:
             # Save XRF spectra to be fitted (not needed, just for checking the fit afterwards)
-            fileName = os.path.join(destpath, outname+".edf")
+            fileName = os.path.join(destpath, outname + ".edf")
             xia.data = xasspectrum["data"]
             xia.save(fileName, 1)
 
             # Fit xas spectrum
             datastack = xasspectrum["data"][np.newaxis, ...]
-            xasresults = fitter(datastack, pymcacfg, energy,
-                                mlines=mlines, fast=fastfitting, prog=prog, plot=plot)
+            xasresults = fitter(
+                datastack,
+                pymcacfg,
+                energy,
+                mlines=mlines,
+                fast=fastfitting,
+                prog=prog,
+                plot=plot,
+            )
 
             # Show fit result
             if showelement in xasresults and plot:
                 pylab.clf()
                 pylab.plot(energy, xasresults[showelement][:, 0])
-                pylab.title("Spec #{}-#{}: {}/I0 ({} repeats)".format(
-                    specnumbers[i][0], specnumbers[i][-1], showelement, nrepeats))
+                pylab.title(
+                    "Spec #{}-#{}: {}/I0 ({} repeats)".format(
+                        specnumbers[i][0], specnumbers[i][-1], showelement, nrepeats
+                    )
+                )
                 pylab.pause(0.01)
         else:
-            #datastack = xasspectrum["data"][np.newaxis,...]
-            #xasresults = roisummer(datastack,rois)
+            # datastack = xasspectrum["data"][np.newaxis,...]
+            # xasresults = roisummer(datastack,rois)
 
             # More straightforward:
             xasresults = {}
@@ -413,7 +491,8 @@ def processEnergySynchronized(specfile, specnumbers, destpath, pymcacfg, mlines=
                 nen, nchan = xasspectrum["data"].shape
                 for label, roi in rois.items():
                     xasresults[label] = np.sum(
-                        xasspectrum["data"][:, roi[0]:roi[1]], axis=1)[:, None]
+                        xasspectrum["data"][:, roi[0] : roi[1]], axis=1
+                    )[:, None]
 
         # if True:
         #    import matplotlib.pyplot as plt
@@ -430,7 +509,9 @@ def processEnergySynchronized(specfile, specnumbers, destpath, pymcacfg, mlines=
         # Add normalized sum of counters
         for c in counters:
             tmp = np.sum(
-                xasspectrum["counter_"+counters[c]["name"]]/xasspectrum["norm"], axis=1)
+                xasspectrum["counter_" + counters[c]["name"]] / xasspectrum["norm"],
+                axis=1,
+            )
             tmp /= nrepeats
 
             if counters[c]["minlog"]:
@@ -442,10 +523,9 @@ def processEnergySynchronized(specfile, specnumbers, destpath, pymcacfg, mlines=
         xasresults["norm"] = xasspectrum["norm"]
 
         # Save XAS spectrum (for each element)
-        fileName = os.path.join(destpath, outname+".dat")
-        labels = [k.replace(' ', '-') for k in xasresults]
-        ArraySave.save2DArrayListAsASCII(
-            xasresults.values(), fileName, labels=labels)
+        fileName = os.path.join(destpath, outname + ".dat")
+        labels = [k.replace(" ", "-") for k in xasresults]
+        ArraySave.save2DArrayListAsASCII(xasresults.values(), fileName, labels=labels)
         logger.info("Saved XAS spectrum {}.".format(fileName))
 
         # Show progress

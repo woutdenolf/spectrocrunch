@@ -16,7 +16,6 @@ from ..utils import listtools
 
 
 class AnnotatedKey(object):
-
     def __init__(self, key, localcontext=False, changed=False):
         self.original = key
         self.localcontext = localcontext
@@ -32,7 +31,7 @@ class AnnotatedKey(object):
         else:
             s = "I"
         if self.changed:
-            s = s+"*"
+            s = s + "*"
         if s:
             return "{}({})".format(self.original, s)
         else:
@@ -108,9 +107,20 @@ class BaseNode(collections.MutableMapping):
         _map = self._local_map
         if annotated:
             if self.dtype is dict:
-                return {self._annotate_key(k, localcontext=localcontext): v for k, v in _map.items()}
+                return {
+                    self._annotate_key(k, localcontext=localcontext): v
+                    for k, v in _map.items()
+                }
             else:
-                return self.dtype(map(lambda item: (self._annotate_key(item[0], localcontext=localcontext), item[1]), _map.items()))
+                return self.dtype(
+                    map(
+                        lambda item: (
+                            self._annotate_key(item[0], localcontext=localcontext),
+                            item[1],
+                        ),
+                        _map.items(),
+                    )
+                )
         else:
             return _map
 
@@ -192,7 +202,9 @@ class BaseNode(collections.MutableMapping):
         except KeyError:
             pass
 
-        if isinstance(value, collections.MutableMapping) and not isinstance(value, Node):
+        if isinstance(value, collections.MutableMapping) and not isinstance(
+            value, Node
+        ):
             self._setitem_subnode(key, value)
         else:
             self._setitem(key, value)
@@ -219,7 +231,10 @@ class BaseNode(collections.MutableMapping):
         else:
             if not isinstance(subnode, BaseSubNode):
                 raise RuntimeError(
-                    "Key {} of {} should be undefined or a SubNode".format(key, self.name))
+                    "Key {} of {} should be undefined or a SubNode".format(
+                        key, self.name
+                    )
+                )
         return subnode
 
     def delete_local(self, key):
@@ -253,9 +268,13 @@ class BaseNode(collections.MutableMapping):
     def iter(self, withself=True, annotated=False):
         # Iterate over keys
         it = itertools.chain.from_iterable(
-            self._maps(withself=withself, annotated=annotated))
+            self._maps(withself=withself, annotated=annotated)
+        )
         if annotated:
-            def key(key): return key.original
+
+            def key(key):
+                return key.original
+
         else:
             key = None
         return listtools.unique_everseen(it, key=key)
@@ -265,12 +284,18 @@ class BaseNode(collections.MutableMapping):
 
     def items(self, withself=True, annotated=False):
         if annotated:
-            return map(lambda key: (key, self._getitem(key.original, withself=withself)), self.keys(withself=withself, annotated=annotated))
+            return map(
+                lambda key: (key, self._getitem(key.original, withself=withself)),
+                self.keys(withself=withself, annotated=annotated),
+            )
         else:
             if withself:
                 return super(BaseNode, self).items()
             else:
-                return map(lambda key: (key, self._getitem(key, withself=withself)), self.keys(withself=withself, annotated=annotated))
+                return map(
+                    lambda key: (key, self._getitem(key, withself=withself)),
+                    self.keys(withself=withself, annotated=annotated),
+                )
 
     def __contains__(self, key):
         return any(key in m for m in self._maps())
@@ -284,14 +309,15 @@ class BaseNode(collections.MutableMapping):
     def tree(self, level=0, onlychanged=False):
         """Show inheritance tree of this node
         """
-        tab = "  "*level
+        tab = "  " * level
         if tab:
             tab += "> "
 
-        lst = [child.tree(level=level+1, onlychanged=onlychanged)
-               for child in self.children]
-        lst.insert(0, tab+self._prefix +
-                   self._repr_local(onlychanged=onlychanged))
+        lst = [
+            child.tree(level=level + 1, onlychanged=onlychanged)
+            for child in self.children
+        ]
+        lst.insert(0, tab + self._prefix + self._repr_local(onlychanged=onlychanged))
 
         return "\n".join(lst)
 
@@ -304,23 +330,28 @@ class BaseNode(collections.MutableMapping):
 
     def _repr_local(self, onlychanged=False):
         if onlychanged:
-            lst = ["{}: {}".format(k, v) for k, v in self._map(
-            ).items() if self._item_changed(k, v)]
+            lst = [
+                "{}: {}".format(k, v)
+                for k, v in self._map().items()
+                if self._item_changed(k, v)
+            ]
         else:
-            lst = ["{}{}: {}".format(
-                k, "(*)" if self._item_changed(k, v) else "", v) for k, v in self._map().items()]
+            lst = [
+                "{}{}: {}".format(k, "(*)" if self._item_changed(k, v) else "", v)
+                for k, v in self._map().items()
+            ]
 
         if self.changed:
-            return "{"+", ".join(lst)+"}(*)"
+            return "{" + ", ".join(lst) + "}(*)"
         else:
-            return "{"+", ".join(lst)+"}"
+            return "{" + ", ".join(lst) + "}"
 
     def _repr_all(self, onlychanged=False):
         lst = ["{}: {}".format(k, v) for k, v in self.items(annotated=True)]
         if self.changed:
-            return "{"+", ".join(lst)+"}(*)"
+            return "{" + ", ".join(lst) + "}(*)"
         else:
-            return "{"+", ".join(lst)+"}"
+            return "{" + ", ".join(lst) + "}"
 
     def _repr_inheritance(self):
         return " -> ".join([node._repr_local() for node in self.iter_up()])
@@ -364,7 +395,6 @@ class BaseNode(collections.MutableMapping):
 
 
 class Node(BaseNode):
-
     def __init__(self, parent=None, name=None):
         super(Node, self).__init__()
 
@@ -421,7 +451,8 @@ class Node(BaseNode):
         # Remove self from self.parent:
         if self.parent is not None:
             self.parent.children = [
-                child for child in self.parent.children if child is not self]
+                child for child in self.parent.children if child is not self
+            ]
         # Change self.parent:
         self._parent = node
         #
@@ -478,7 +509,6 @@ class Node(BaseNode):
 
 
 class BaseSubNode(BaseNode):
-
     def __init__(self):
         super(BaseSubNode, self).__init__()
 
@@ -488,7 +518,6 @@ class BaseSubNode(BaseNode):
 
 
 class SubNode(BaseSubNode):
-
     def __init__(self, key, parent):
         self._key = key
         self._data = {}
@@ -517,7 +546,6 @@ class SubNode(BaseSubNode):
 
 
 class SubNodeReference(BaseSubNode):
-
     def __init__(self):
         super(SubNodeReference, self).__init__()
 
@@ -559,7 +587,6 @@ class SubNodeReference(BaseSubNode):
 
 
 class SubNodeReferenceUp(SubNodeReference):
-
     def __init__(self, subnode):
         self._subnode = subnode
         self._getnode()
@@ -588,7 +615,6 @@ class SubNodeReferenceUp(SubNodeReference):
 
 
 class SubNodeReferenceDown(SubNodeReference):
-
     def __init__(self, node, subkeys):
         self._node = node
         self._subkeys = subkeys
