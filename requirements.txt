@@ -26,3 +26,4 @@ contextlib2; python_version < '3'
 psutil
 python-dateutil
 jsonpickle
+cvxopt
