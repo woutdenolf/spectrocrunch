@@ -12,7 +12,7 @@ from ..patch.pint import ureg
 MAXDEPTH = 4
 MAXITEMS = 5
 NTRIES = 1000
-TYPES = 'numpy', 'uncertainties', 'pint'
+TYPES = "numpy", "uncertainties", "pint"
 
 
 try:
@@ -32,8 +32,9 @@ def try_unique_range(name, seq):
         for i in range(NTRIES):
             yield i
         else:
-            raise RuntimeError('Could not find unique {} in {} tries:\n {}'
-                .format(name, NTRIES, seq))
+            raise RuntimeError(
+                "Could not find unique {} in {} tries:\n {}".format(name, NTRIES, seq)
+            )
     else:
         i = 0
         while True:
@@ -42,7 +43,6 @@ def try_unique_range(name, seq):
 
 
 class DataBase(with_metaclass(ABCMeta)):
-
     def __init__(self, **kwargs):
         self.generate()
 
@@ -75,7 +75,6 @@ class DataBase(with_metaclass(ABCMeta)):
 
 
 class RandomNone(DataBase):
-
     def generate(self):
         self.data = None
 
@@ -108,7 +107,6 @@ def numequal(a, b):
 
 
 class NumberBase(DataBase):
-
     def __eq__(self, other):
         if not self.isinstance(other, NumberBase):
             return False
@@ -117,13 +115,11 @@ class NumberBase(DataBase):
 
 
 class RandomBool(NumberBase):
-
     def generate(self):
         self.data = bool(random.getrandbits(1))
 
 
 class RandomInt(NumberBase):
-
     def generate(self):
         self.data = random.randint(-100, 100)
 
@@ -132,17 +128,15 @@ def randomfloat(finite=False):
     if finite:
         return random.random()
     else:
-        return random.choice([random.random()]*5 + [float('nan'), float('inf')])
+        return random.choice([random.random()] * 5 + [float("nan"), float("inf")])
 
 
 class RandomFloat(NumberBase):
-
     def generate(self):
         self.data = randomfloat()
 
 
 class RandomComplex(NumberBase):
-
     def generate(self):
         self.data = complex(randomfloat(), randomfloat())
 
@@ -160,8 +154,7 @@ class StringBase(DataBase):
         super(StringBase, self).__init__(maxitems=MAXITEMS, **kwargs)
 
     def generate(self):
-        self.data = self._join(random.choice(self.ALPHABET)
-                               for _ in range(self.n))
+        self.data = self._join(random.choice(self.ALPHABET) for _ in range(self.n))
 
     @classmethod
     @abstractmethod
@@ -176,28 +169,22 @@ class StringBase(DataBase):
         bbytes = isinstance(b, bytes)
         if not (abytes ^ bbytes):
             if not abytes:
-                a = a.encode('utf-8')
+                a = a.encode("utf-8")
             if not bbytes:
-                b = b.encode('utf-8')
+                b = b.encode("utf-8")
         return a == b
 
     def __repr__(self):
         s = super(StringBase, self).__repr__()
-        return '{}_{}'.format(s, self.n)
+        return "{}_{}".format(s, self.n)
 
 
-def alphabet_bytes(encoding='ascii'):
-    include_ranges = [
-        (0x0021, 0x0021),
-        (0x0023, 0x0026),
-        (0x0028, 0x007E),
-    ]
-    if encoding != 'ascii':
-        include_ranges += [
-            (0x00A1, 0x00AC),
-            (0x00AE, 0x00FF)
-        ]
-    alphabet = [unichr(code_point).encode(encoding)
+def alphabet_bytes(encoding="ascii"):
+    include_ranges = [(0x0021, 0x0021), (0x0023, 0x0026), (0x0028, 0x007E)]
+    if encoding != "ascii":
+        include_ranges += [(0x00A1, 0x00AC), (0x00AE, 0x00FF)]
+    alphabet = [
+        unichr(code_point).encode(encoding)
         for current_range in include_ranges
         for code_point in range(current_range[0], current_range[1] + 1)
     ]
@@ -210,17 +197,17 @@ class RandomBytes(StringBase):
 
     @classmethod
     def _join(cls, iterable):
-        return cls.CLASS(b''.join(iterable))
+        return cls.CLASS(b"".join(iterable))
 
 
 class RandomBytesAscii(RandomBytes):
 
-    ALPHABET = alphabet_bytes(encoding='ascii')
+    ALPHABET = alphabet_bytes(encoding="ascii")
 
 
 class RandomBytesExt(RandomBytes):
 
-    ALPHABET = alphabet_bytes(encoding='latin1')
+    ALPHABET = alphabet_bytes(encoding="latin1")
 
 
 def alphabet_unicode():
@@ -239,7 +226,8 @@ def alphabet_unicode():
         (0x0384, 0x038A),
         (0x038C, 0x038C),
     ]
-    alphabet = [unichr(code_point)
+    alphabet = [
+        unichr(code_point)
         for current_range in include_ranges
         for code_point in range(current_range[0], current_range[1] + 1)
     ]
@@ -253,14 +241,21 @@ class RandomUnicode(StringBase):
 
     @classmethod
     def _join(cls, iterable):
-        return cls.CLASS(u''.join(iterable))
+        return cls.CLASS(u"".join(iterable))
 
 
 # ====== Native sequences ======
 
 
-def init_sequence(seq_types, unique=False, _depth=0, nitems=None,
-                  maxdepth=MAXDEPTH, maxitems=MAXITEMS, **kwargs):
+def init_sequence(
+    seq_types,
+    unique=False,
+    _depth=0,
+    nitems=None,
+    maxdepth=MAXDEPTH,
+    maxitems=MAXITEMS,
+    **kwargs
+):
     """
     Generate a sequence with random length, random types
     Args:
@@ -277,20 +272,22 @@ def init_sequence(seq_types, unique=False, _depth=0, nitems=None,
     else:
         n = nitems
     kwargs = kwargs.copy()
-    kwargs['_depth'] = _depth+1
-    kwargs['maxdepth'] = maxdepth
-    kwargs['maxitems'] = maxitems
+    kwargs["_depth"] = _depth + 1
+    kwargs["maxdepth"] = maxdepth
+    kwargs["maxitems"] = maxitems
     if unique:
         # Make sure the sequence could (but not always) have unique values
         seq = []
         reprs = collections.Counter()
-        reprmax = {'bool': 2, 'emptystring': 1}
-        reprmap = {'RandomBool': 'bool',
-                   'RandomNumpyBool': 'bool',
-                   'RandomBytesAscii_0': 'emptystring',
-                   'RandomBytesExt_0': 'emptystring',
-                   'RandomUnicode_0': 'emptystring'}
-        for _ in try_unique_range('sequence', seq):
+        reprmax = {"bool": 2, "emptystring": 1}
+        reprmap = {
+            "RandomBool": "bool",
+            "RandomNumpyBool": "bool",
+            "RandomBytesAscii_0": "emptystring",
+            "RandomBytesExt_0": "emptystring",
+            "RandomUnicode_0": "emptystring",
+        }
+        for _ in try_unique_range("sequence", seq):
             if len(seq) == n:
                 break
             item = random.choice(seq_types)(**kwargs)
@@ -307,7 +304,7 @@ def init_sequence(seq_types, unique=False, _depth=0, nitems=None,
 
 def generate_sequence(seq, unique=False):
     if unique:
-        for _ in try_unique_range('generate_sequence', seq):
+        for _ in try_unique_range("generate_sequence", seq):
             for item in seq:
                 item.generate()
             useq = []
@@ -327,15 +324,13 @@ class SequenceBase(DataBase):
     CLASS = None
 
     def __init__(self, **kwargs):
-        if not hasattr(self, '_values'):
-            self._values = init_sequence(self.seq_types(),
-                                         unique=False,
-                                         **kwargs)
+        if not hasattr(self, "_values"):
+            self._values = init_sequence(self.seq_types(), unique=False, **kwargs)
         super(SequenceBase, self).__init__(**kwargs)
 
     @classmethod
     def seq_types(cls):
-        return RandomData,
+        return (RandomData,)
 
     def __eq__(self, other):
         if not self.isinstance(other):
@@ -345,16 +340,15 @@ class SequenceBase(DataBase):
     @property
     def data(self):
         return self.CLASS(v.data for v in self._values)
-        
+
     def generate(self):
         generate_sequence(self._values, unique=False)
 
 
 class HashableSequenceBase(SequenceBase):
-
     @classmethod
     def seq_types(cls):
-        return RandomHashable,
+        return (RandomHashable,)
 
 
 class RandomTuple(SequenceBase):
@@ -385,11 +379,8 @@ def sort_equal(a, b):
 
 
 class SetBase(HashableSequenceBase):
-
     def __init__(self, **kwargs):
-        self._values = init_sequence(self.seq_types(),
-                                     unique=True,
-                                     **kwargs)
+        self._values = init_sequence(self.seq_types(), unique=True, **kwargs)
         super(SetBase, self).__init__(**kwargs)
 
     def __eq__(self, other):
@@ -403,7 +394,7 @@ class SetBase(HashableSequenceBase):
         if values:
             random.shuffle(values)
         return self.CLASS(values)
-        
+
     def generate(self):
         generate_sequence(self._values, unique=True)
 
@@ -426,20 +417,16 @@ class OrderedMappingBase(DataBase):
     CLASS = None
 
     def __init__(self, **kwargs):
-        keys = init_sequence((RandomHashable,),
-                             unique=True,
-                             **kwargs)
-        self._values = init_sequence((RandomData,),
-                                     unique=False,
-                                     nitems=len(keys),
-                                     **kwargs)
+        keys = init_sequence((RandomHashable,), unique=True, **kwargs)
+        self._values = init_sequence(
+            (RandomData,), unique=False, nitems=len(keys), **kwargs
+        )
         self._keys = keys
 
     def __eq__(self, other):
         if not self.isinstance(other):
             return False
-        return self._keys == other._keys and\
-               self._values == other._values
+        return self._keys == other._keys and self._values == other._values
 
     def generate(self):
         generate_sequence(self._keys, unique=True)
@@ -456,7 +443,6 @@ class OrderedMappingBase(DataBase):
 
 
 class UnorderedMappingBase(OrderedMappingBase):
-
     def __eq__(self, other):
         if not self.isinstance(other):
             return False
@@ -490,7 +476,6 @@ class RandomOrderedDict(OrderedMappingBase):
 
 
 class NumpyScalarBase(NumberBase):
-
     def __init__(self, **kwargs):
         self._class = random.choice(self.NPTYPES)
         super(NumpyScalarBase, self).__init__(**kwargs)
@@ -506,46 +491,61 @@ class NumpyScalarBase(NumberBase):
 
 class RandomNumpyBool(NumpyScalarBase):
 
-    NPTYPES = np.bool,
+    NPTYPES = (np.bool,)
 
     @classmethod
     def datagen(cls):
-        return random.getrandbits(1),
+        return (random.getrandbits(1),)
 
 
 class RandomNumpyInt(NumpyScalarBase):
 
-    NPTYPES = (np.byte, np.short, np.int, np.longlong,
-               np.int8, np.int16, np.int32, np.int64)
+    NPTYPES = (
+        np.byte,
+        np.short,
+        np.int,
+        np.longlong,
+        np.int8,
+        np.int16,
+        np.int32,
+        np.int64,
+    )
 
     @classmethod
     def datagen(cls):
-        return random.randint(-100, 100),
+        return (random.randint(-100, 100),)
 
 
 class RandomNumpyUInt(NumpyScalarBase):
 
-    NPTYPES = (np.ubyte, np.ushort, np.uint, np.ulonglong,
-               np.uint8, np.uint16, np.uint32, np.uint64)
+    NPTYPES = (
+        np.ubyte,
+        np.ushort,
+        np.uint,
+        np.ulonglong,
+        np.uint8,
+        np.uint16,
+        np.uint32,
+        np.uint64,
+    )
 
     @classmethod
     def datagen(cls):
-        return random.randint(0, 100),
+        return (random.randint(0, 100),)
 
 
 class RandomNumpyFloat(NumpyScalarBase):
 
-    NPTYPES = (np.single, np.double, np.float,
-               np.float16, np.float32, np.float64)
+    NPTYPES = (np.single, np.double, np.float, np.float16, np.float32, np.float64)
 
     @classmethod
     def datagen(cls):
-        return randomfloat(),
+        return (randomfloat(),)
 
 
 class RandomNumpyComplex(NumpyScalarBase):
 
-    NPTYPES = np.complex,
+    NPTYPES = (np.complex,)
 
     @classmethod
     def datagen(cls):
@@ -558,7 +558,7 @@ class RandomNumpyArray(SequenceBase):
 
     @classmethod
     def seq_types(cls):
-        return RandomNumber,
+        return (RandomNumber,)
 
     @property
     def data(self):
@@ -566,7 +566,6 @@ class RandomNumpyArray(SequenceBase):
 
 
 class RandomNumpyArray0(RandomNumpyArray):
-
     def __init__(self, **kwargs):
         super(RandomNumpyArray0, self).__init__(nitems=1, **kwargs)
 
@@ -580,7 +579,7 @@ class RandomNumpyArray0(RandomNumpyArray):
 
 class RandomUNumber(NumpyScalarBase):
 
-    NPTYPES = ufloat,
+    NPTYPES = (ufloat,)
 
     @classmethod
     def datagen(cls):
@@ -600,7 +599,7 @@ class RandomPintNumber(NumberBase):
 
     def generate(self):
         self._magnitude.generate()
-    
+
     @property
     def data(self):
         return ureg.Quantity(self._magnitude.data, self.UNIT)
@@ -613,7 +612,7 @@ class RandomPintArray(SequenceBase):
 
     @classmethod
     def seq_types(cls):
-        return RandomPintMagnitude,
+        return (RandomPintMagnitude,)
 
     @property
     def data(self):
@@ -622,7 +621,6 @@ class RandomPintArray(SequenceBase):
 
 
 class RandomPintArray0(RandomPintArray):
-
     def __init__(self, **kwargs):
         super(RandomPintArray0, self).__init__(nitems=1, **kwargs)
 
@@ -636,7 +634,6 @@ class RandomPintArray0(RandomPintArray):
 
 
 class ChoiceBase(DataBase):
-
     def __init__(self, **kwargs):
         self.data = random.choice(self.choices(**kwargs))(**kwargs)
         super(ChoiceBase, self).__init__(**kwargs)
@@ -669,142 +666,132 @@ class ChoiceBase(DataBase):
 
 
 class RandomNativeNumber(ChoiceBase):
-
     @classmethod
     def choices(cls, **kwargs):
-        return (RandomBool, RandomInt, RandomFloat,
-                RandomComplex)
+        return (RandomBool, RandomInt, RandomFloat, RandomComplex)
 
 
 class RandomNumpyNumber(ChoiceBase):
-
     @classmethod
     def choices(cls, **kwargs):
-        return (RandomNumpyBool, RandomNumpyInt,
-                RandomNumpyFloat, RandomNumpyComplex)
+        return (RandomNumpyBool, RandomNumpyInt, RandomNumpyFloat, RandomNumpyComplex)
 
 
 class RandomHashableNumber(ChoiceBase):
-
     @classmethod
     def choices(cls, types=TYPES, **kwargs):
         ret = [RandomNativeNumber]
-        if 'numpy' in types:
+        if "numpy" in types:
             ret.append(RandomNumpyNumber)
         return tuple(ret)
 
 
 class RandomNumber(ChoiceBase):
-
     @classmethod
     def choices(cls, types=TYPES, **kwargs):
         ret = [RandomNativeNumber]
-        if 'numpy' in types:
+        if "numpy" in types:
             ret.append(RandomNumpyNumber)
-        if 'uncertainties' in types:
+        if "uncertainties" in types:
             ret.append(RandomUNumber)
-        if 'pint' in types:
+        if "pint" in types:
             ret.append(RandomPintNumber)
         return tuple(ret)
 
 
 class RandomPintMagnitude(ChoiceBase):
-
     @classmethod
     def choices(cls, types=TYPES, **kwargs):
         ret = RandomInt, RandomFloat
-        if 'numpy' in types:
+        if "numpy" in types:
             ret += RandomNumpyInt, RandomNumpyFloat
-        if 'uncertainties' in types:
-            ret += RandomUNumber,
+        if "uncertainties" in types:
+            ret += (RandomUNumber,)
         return ret
 
 
 class RandomString(ChoiceBase):
-
     @classmethod
     def choices(cls, **kwargs):
         return RandomBytesAscii, RandomBytesExt, RandomUnicode
 
 
 class RandomAtom(ChoiceBase):
-
     @classmethod
     def choices(cls, **kwargs):
-        return (RandomNone,) +\
-                RandomNumber.choices(**kwargs) +\
-                RandomString.choices(**kwargs)
+        return (
+            (RandomNone,)
+            + RandomNumber.choices(**kwargs)
+            + RandomString.choices(**kwargs)
+        )
 
 
 class RandomHashableAtom(ChoiceBase):
-
     @classmethod
     def choices(cls, **kwargs):
-        return (RandomNone,) +\
-                RandomHashableNumber.choices(**kwargs) +\
-                RandomString.choices(**kwargs)
+        return (
+            (RandomNone,)
+            + RandomHashableNumber.choices(**kwargs)
+            + RandomString.choices(**kwargs)
+        )
 
 
 class RandomMutableSequence(ChoiceBase):
-
     @classmethod
     def choices(cls, **kwargs):
         return RandomList, RandomSet
 
 
 class RandomImmutableSequence(ChoiceBase):
-
     @classmethod
     def choices(cls, **kwargs):
         return RandomTuple, RandomFrozenSet
 
 
 class RandomNumpySequence(ChoiceBase):
-
     @classmethod
     def choices(cls, **kwargs):
         return RandomNumpyArray, RandomNumpyArray0
 
 
 class RandomPintSequence(ChoiceBase):
-
     @classmethod
     def choices(cls, **kwargs):
         return RandomPintArray, RandomPintArray0
 
 
 class RandomSequence(ChoiceBase):
-
     @classmethod
     def choices(cls, **kwargs):
-        return (RandomMutableSequence, RandomImmutableSequence,
-                RandomNumpySequence, RandomPintSequence)
+        return (
+            RandomMutableSequence,
+            RandomImmutableSequence,
+            RandomNumpySequence,
+            RandomPintSequence,
+        )
 
 
 class RandomHashableSequence(ChoiceBase):
-
     @classmethod
     def choices(cls, **kwargs):
         return RandomHashableTuple, RandomFrozenSet
 
 
 class RandomHashable(ChoiceBase):
-
     @classmethod
     def choices(cls, **kwargs):
-        return RandomHashableAtom.choices(**kwargs) +\
-               RandomHashableSequence.choices(**kwargs)
+        return RandomHashableAtom.choices(**kwargs) + RandomHashableSequence.choices(
+            **kwargs
+        )
 
 
 class RandomMapping(ChoiceBase):
-
     @classmethod
     def choices(cls, **kwargs):
         return RandomDict, RandomOrderedDict
 
 
 class RandomData(ChoiceBase):
-
     @classmethod
     def choices(cls, **kwargs):
         return RandomAtom, RandomSequence, RandomMapping

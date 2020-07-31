@@ -8,17 +8,16 @@ from .. import randomdata
 
 
 class test_randomdata(unittest.TestCase):
-
     def test_native(self):
         for _ in range(500):
-            o = randomdata.factory(types=('native',))
+            o = randomdata.factory(types=("native",))
             # Check equality (shuffles unsorted types)
             self.assertEqual(o, o)
 
     def test_all(self):
         for _ in range(500):
             o = randomdata.factory()
-            self.assertTrue('random' in str(o).lower())
+            self.assertTrue("random" in str(o).lower())
             # Make sure raw data is generated
             data = o.data
             try:
@@ -26,8 +25,8 @@ class test_randomdata(unittest.TestCase):
             except NameError:
                 us = str(data)
             except UnicodeDecodeError as e:
-                us = data.decode('latin1')
-            self.assertFalse(u'random' in us.lower())
+                us = data.decode("latin1")
+            self.assertFalse(u"random" in us.lower())
             # Check equality (shuffles unsorted types)
             self.assertEqual(o, o)
 
@@ -40,7 +39,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

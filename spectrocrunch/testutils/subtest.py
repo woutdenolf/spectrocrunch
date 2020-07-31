@@ -14,11 +14,11 @@ class TestCase(unittest.TestCase):
     """Adds subTest for python 2
     """
 
-    hasSubTest = hasattr(unittest.TestCase, 'subTest')
+    hasSubTest = hasattr(unittest.TestCase, "subTest")
 
     def __init__(self, *args, **kwargs):
         self._inSubTest = False
-        self._skipReason = ''
+        self._skipReason = ""
         super(TestCase, self).__init__(*args, **kwargs)
 
     @contextmanager
@@ -26,7 +26,7 @@ class TestCase(unittest.TestCase):
         if self.hasSubTest:
             with super(TestCase, self).subTest(**kwargs):
                 yield
-            sys.stdout.write('.')
+            sys.stdout.write(".")
             sys.stdout.flush()
         else:
             self._inSubTest = True
@@ -36,7 +36,7 @@ class TestCase(unittest.TestCase):
                 pass
             finally:
                 self._inSubTest = False
-            sys.stdout.write('.')
+            sys.stdout.write(".")
             sys.stdout.flush()
 
     def skipTest(self, reason):
@@ -48,11 +48,11 @@ class TestCase(unittest.TestCase):
 
     @contextmanager
     def skipContext(self):
-        self._skipReason = ''
+        self._skipReason = ""
         yield
         if self._skipReason:
             reason = self._skipReason
-            self._skipReason = ''
+            self._skipReason = ""
             raise unittest.SkipTest(reason)
 
     def run_subtests(self, parameters, func):
