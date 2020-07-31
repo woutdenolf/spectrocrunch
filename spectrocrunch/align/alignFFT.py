@@ -10,7 +10,6 @@ from ..math import ft
 
 
 class alignFFT(align):
-
     def __init__(self, *args, **kwargs):
         super(alignFFT, self).__init__(*args, **kwargs)
 
@@ -81,7 +80,7 @@ class alignFFT(align):
         imgftmod = self.ftmodulus(imgft)
         # self.plot2(ft.fftshift(imgftmod),fourierlines=True,title="|FFT|")
         imgftmod = self.highpassfilter(imgftmod)
-        #self.plot2(ft.fftshift(imgftmod),fourierlines=True,title="|FFT| with HP filter")
+        # self.plot2(ft.fftshift(imgftmod),fourierlines=True,title="|FFT| with HP filter")
         imgftmod = ft.fftshift(imgftmod)
 
         # Size and frequency limits
@@ -93,22 +92,21 @@ class alignFFT(align):
         if scale_estimate:
             sclmin = scale_estimate
 
-        rmax = np.maximum(s-1-pmax, pmax)
+        rmax = np.maximum(s - 1 - pmax, pmax)
         rmax = np.linalg.norm(rmax)
 
-        dt = np.pi/(sy-1)
-        b = 10**(np.log10(rmax)/(sx-1))
-        r = b**np.arange(sx)
-        t = dt*np.arange(sy)
+        dt = np.pi / (sy - 1)
+        b = 10 ** (np.log10(rmax) / (sx - 1))
+        r = b ** np.arange(sx)
+        t = dt * np.arange(sy)
 
         # Log-polar to Cartesian
-        x = np.outer(np.cos(t), r)-pmin[1]
-        y = np.outer(np.sin(t), r)-pmin[0]
+        x = np.outer(np.cos(t), r) - pmin[1]
+        y = np.outer(np.sin(t), r) - pmin[0]
 
         # Interpolation
         out = np.empty_like(x)
-        scipy.ndimage.interpolation.map_coordinates(
-            imgftmod, [y, x], output=out)
+        scipy.ndimage.interpolation.map_coordinates(imgftmod, [y, x], output=out)
 
         return out, b, dt
 
@@ -116,9 +114,11 @@ class alignFFT(align):
         """For testing purposes
         """
         import matplotlib.pyplot as plt
+
         fig = plt.figure(index)
         if 0:
             import mpl_toolkits.mplot3d as p3
+
             ax = p3.Axes3D(fig)
             yy, xx = np.indices(img.shape)
             ax.plot_surface(yy, xx, img)
@@ -129,13 +129,13 @@ class alignFFT(align):
                 x = ft.fftfreq(len(img), 1, centered=True)
                 ax.plot(x, img)
             else:
-                ax.imshow(img, origin='lower', interpolation='nearest')
+                ax.imshow(img, origin="lower", interpolation="nearest")
                 if fourierlines:
                     s = np.asarray(img.shape)
                     fmin, fmax = ft.fft_freqind(s)
                     cen = -fmin
-                    ax.plot([cen[1], cen[1]], [0, s[0]-1])
-                    ax.plot([0, s[1]-1], [cen[0], cen[0]])
+                    ax.plot([cen[1], cen[1]], [0, s[0] - 1])
+                    ax.plot([0, s[1] - 1], [cen[0], cen[0]])
 
         plt.title(title)
         plt.pause(0.1)
@@ -189,13 +189,14 @@ class alignFFT(align):
         """
         nu = imgft.shape[1]
         nv = imgft.shape[0]
-        h = np.outer(np.cos(ft.fftfreq(nv, d=1/np.pi)),
-                     np.cos(ft.fftfreq(nu, d=1/np.pi)))
-        return imgft*(1-h)/(2-h)
+        h = np.outer(
+            np.cos(ft.fftfreq(nv, d=1 / np.pi)), np.cos(ft.fftfreq(nu, d=1 / np.pi))
+        )
+        return imgft * (1 - h) / (2 - h)
 
     def cc_maximum(self, cross_correlation, maxmethod="max"):
         data = self.ftmodulus(cross_correlation)
-        #data = cross_correlation.real
+        # data = cross_correlation.real
 
         if maxmethod == "centroid":
             shift = center.fcentroid(data)
@@ -215,13 +216,13 @@ class alignFFT(align):
         # Ideally this should be a delta function: real(F.G*/(|F|.|G|))
         # In reality this doesn't seem to work, somehow |F.G*| is better, no idea why
         image_product = img1ft * img2ft.conj()
-        #image_product /= self.ftmodulus(image_product)
+        # image_product /= self.ftmodulus(image_product)
         if is1D:
             cross_correlation = ft.ifft(image_product)
         else:
             cross_correlation = ft.ifft2(image_product)
         shift = self.cc_maximum(cross_correlation)
-        #self.plot2(ft.fftshift(self.ftmodulus(cross_correlation)),fourierlines=True,title='|cross correlation|')
+        # self.plot2(ft.fftshift(self.ftmodulus(cross_correlation)),fourierlines=True,title='|cross correlation|')
 
         # Shift indices = [0,...,imax,imin,...,-1]
         if is1D:
@@ -233,7 +234,7 @@ class alignFFT(align):
             _, imax = ft.fft_freqind(s)
             shift[shift > imax] -= s[shift > imax]
 
-        #print("Initial shift {}".format(shift))
+        # print("Initial shift {}".format(shift))
 
         # Calculate shift with subpixel precision by interpolating
         # the cross-correlation around the maximum (or center-of-mass).
@@ -241,32 +242,30 @@ class alignFFT(align):
             # real-space: n, d=1, shift=s
             # super-space: n.sampling, d=1, shift=s.sampling
             if is1D:
-                ROIsize = 4*self.sampling
+                ROIsize = 4 * self.sampling
             else:
                 # ROI in super-space = 3x3 pixels in real-space
                 ROIsize = self.sampling * np.array((3, 3))
             _, ksampled = ft.fft_freqind(ROIsize)  # ROI center
 
             # ROI = [0,1,...,ROIsize-1] - ksampled + shift*self.sampling  (so that maximum in the middle)
-            ROIoffset = self.dtype(ksampled) - shift*self.sampling
-            cross_correlation = self.ifft_interpolate(
-                image_product, ROIoffset, ROIsize)
-            #cross_correlation /= img2ft.shape[0]*img2ft.shape[1] * self.sampling ** 2
-            #self.plot2(self.ftmodulus(cross_correlation),title='|cross correlation super space|')
+            ROIoffset = self.dtype(ksampled) - shift * self.sampling
+            cross_correlation = self.ifft_interpolate(image_product, ROIoffset, ROIsize)
+            # cross_correlation /= img2ft.shape[0]*img2ft.shape[1] * self.sampling ** 2
+            # self.plot2(self.ftmodulus(cross_correlation),title='|cross correlation super space|')
 
             # Get fit, maximum, centroid, ...
-            shiftsampled = self.cc_maximum(
-                cross_correlation, maxmethod=self.maxmethod)
+            shiftsampled = self.cc_maximum(cross_correlation, maxmethod=self.maxmethod)
 
             # Shift from super space to real space
-            shift = (shiftsampled-ROIoffset)/self.dtype(self.sampling)
+            shift = (shiftsampled - ROIoffset) / self.dtype(self.sampling)
 
-        #import skimage.feature
-        #shft,tmp1,tmp2 = skimage.feature.register_translation(img1ft, img2ft, upsample_factor=self.sampling,space="fourier")
+        # import skimage.feature
+        # shft,tmp1,tmp2 = skimage.feature.register_translation(img1ft, img2ft, upsample_factor=self.sampling,space="fourier")
         # print(shft,shift)
         # assert(np.array_equal(shft,shift))
 
-        #print("Final shift {}".format(shift))
+        # print("Final shift {}".format(shift))
 
         return shift
 
@@ -288,13 +287,16 @@ class alignFFT(align):
             if self.transfotype == transformationType.translation:
                 shift = self.determine_shift(self.movingft, self.fixedft)
                 self._transform.settranslation(shift[1], shift[0])
-            elif self.transfotype == transformationType.similarity or self.transfotype == transformationType.rigid:
-                #raise NotImplementedError("alignFFT doesn't support this type transformation.")
+            elif (
+                self.transfotype == transformationType.similarity
+                or self.transfotype == transformationType.rigid
+            ):
+                # raise NotImplementedError("alignFFT doesn't support this type transformation.")
 
                 # Fourier transforms in log-polar coordinates
                 fixedft_lp, _, _ = self.logpolar(self.fixedft)
                 movingft_lp, b, dt = self.logpolar(self.movingft)
-                self.plot2(fixedft_lp, title='Fixed LP')
+                self.plot2(fixedft_lp, title="Fixed LP")
 
                 # Determine shift between the log-polar images
                 fixedft_lp = ft.fft2(fixedft_lp)
@@ -305,19 +307,19 @@ class alignFFT(align):
                 if self.transfotype == transformationType.rigid:
                     scale = 1
                 else:
-                    scale = b**(-shift[1])
-                angle = -shift[0]*dt
+                    scale = b ** (-shift[1])
+                angle = -shift[0] * dt
 
-                print(b**(np.arange(-shift[1]-2, -shift[1]+5)))
-                print(-np.arange(shift[0]-2, shift[0]+5)*dt*180/np.pi)
-                print(scale, angle*180/np.pi)
-                #scale = 1.3
-                #angle = 2*np.pi/180
+                print(b ** (np.arange(-shift[1] - 2, -shift[1] + 5)))
+                print(-np.arange(shift[0] - 2, shift[0] + 5) * dt * 180 / np.pi)
+                print(scale, angle * 180 / np.pi)
+                # scale = 1.3
+                # angle = 2*np.pi/180
                 # print(scale,angle*180/np.pi)
 
                 # Linear part of the similarity transform
-                a = scale*np.cos(angle)
-                b = scale*np.sin(angle)
+                a = scale * np.cos(angle)
+                b = scale * np.sin(angle)
                 self._transform.setaffine(np.array([[a, b, 0], [-b, a, 0]]))
 
                 # Remove rotation and scaling from moving image
@@ -326,19 +328,20 @@ class alignFFT(align):
 
                 # Determine shift (this doesn't work well, maybe because of missing data?)
                 shift = self.determine_shift(movingft, self.fixedft)
-                shift = [-48., -84.]
+                shift = [-48.0, -84.0]
                 self._transform.settranslation(shift[1], shift[0])
 
                 moving = self.execute_transformkernel(img)
-                tmp = np.zeros(self.fixedft.shape+(3,), dtype=moving.dtype)
+                tmp = np.zeros(self.fixedft.shape + (3,), dtype=moving.dtype)
                 tmp[..., 0] = ft.ifft2(self.fixedft).real
                 tmp[..., 1] = moving
                 tmp /= np.nanmax(tmp)
-                self.plot2(tmp, title='RGB')
+                self.plot2(tmp, title="RGB")
 
             else:
                 raise NotImplementedError(
-                    "alignFFT doesn't support this type transformation.")
+                    "alignFFT doesn't support this type transformation."
+                )
 
         return self.execute_transformkernel(img)
 

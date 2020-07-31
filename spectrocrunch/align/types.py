@@ -2,11 +2,12 @@
 
 from ..utils.Enum import Enum
 
-dataType = Enum(['h5', 'h5ext', 'singlefile', 'nparray'])
-alignType = Enum(['full', 'usetransfo', 'calctransfo'])
+dataType = Enum(["h5", "h5ext", "singlefile", "nparray"])
+alignType = Enum(["full", "usetransfo", "calctransfo"])
 # B-spline, moving least-squares
 transformationType = Enum(
-    ['translation', 'rigid', 'similarity', 'affine', 'projective'])
+    ["translation", "rigid", "similarity", "affine", "projective"]
+)
 
 # Affine transformation:
 #   Coordinate transformation: X' = R.X + T

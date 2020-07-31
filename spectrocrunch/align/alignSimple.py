@@ -7,9 +7,9 @@ from ..math import center
 
 
 class alignSimple(align):
-
     def __init__(self, *args, **kwargs):
         super(alignSimple, self).__init__(*args, **kwargs)
+        self.xytype = None
 
         # Images
         self.fixedxy = None
@@ -28,10 +28,11 @@ class alignSimple(align):
         """
         if self.transfotype != transformationType.translation:
             raise NotImplementedError(
-                "Sift doesn't support this type of transformation.")
+                "Sift doesn't support this type of transformation."
+            )
 
         self.movingxy = self.getxy(img)
-        self._transform.settranslation(self.movingxy-self.fixedxy)
+        self._transform.settranslation(self.movingxy - self.fixedxy)
         return self.execute_transformkernel(img)
 
     def handle_missing(self, img, newval):
@@ -62,23 +63,23 @@ class alignSimple(align):
     def getxy(self, img):
         """Get marker (min, max, centroid)
         """
-        xy = None
+        yx = None
         if self.xytype == "centroid":
-            xy = center.fcentroid(self.handle_missing(img, 0))
+            yx = center.fcentroid(self.handle_missing(img, 0))
         elif self.xytype == "min":
-            xy = center.fmin(self.handle_missing(img, np.nan))
+            yx = center.fmin(self.handle_missing(img, np.nan))
         elif self.xytype == "gaussmax":
-            xy = center.fgaussmax(self.handle_missing(img, np.nan))
+            yx = center.fgaussmax(self.handle_missing(img, np.nan))
         else:  # self.xytype=="max"
-            xy = center.fmax(self.handle_missing(img, np.nan))
-
+            yx = center.fmax(self.handle_missing(img, np.nan))
         if img.size in img.shape:
             if img.shape[0] == 1:
-                xy = (0, xy)
+                # only x
+                yx = (0, yx)
             else:
-                xy = (xy, 0)
-
-        return np.array(xy)[::-1]
+                # only y
+                yx = (yx, 0)
+        return np.array(yx)[::-1]
 
     def set_reference(self, img, previous=False):
         """Reference for alignment

@@ -4,7 +4,7 @@ import unittest
 
 from ..transform import transform
 from ..types import transformationType
-from .import helper_teststack
+from . import helper_teststack
 
 import numpy as np
 from skimage import data
@@ -13,15 +13,14 @@ import skimage.transform as sktransform
 
 
 class test_transform(unittest.TestCase):
-
     def genkeypoints(self, N=10):
         N = 10
-        xsrc = np.random.random(N)*100
-        ysrc = np.random.random(N)*100
+        xsrc = np.random.random(N) * 100
+        ysrc = np.random.random(N) * 100
         return np.vstack((xsrc, ysrc, np.ones(N)))
 
     def getxy(self, Y):
-        return Y[0, :]/Y[2, :], Y[1, :]/Y[2, :]
+        return Y[0, :] / Y[2, :], Y[1, :] / Y[2, :]
 
     def test_linearmapping(self):
         # Generate points
@@ -29,8 +28,12 @@ class test_transform(unittest.TestCase):
         xsrc, ysrc = self.getxy(X)
 
         # TODO: improve on rigid transformation
-        types = [transformationType.translation, transformationType.rigid,
-                 transformationType.similarity, transformationType.affine]
+        types = [
+            transformationType.translation,
+            transformationType.rigid,
+            transformationType.similarity,
+            transformationType.affine,
+        ]
         rtols = [1e-7, 0.5, 1e-5, 1e-5]
         atols = [1e-6, 0.5, 1e-5, 1e-5]
 
@@ -43,8 +46,8 @@ class test_transform(unittest.TestCase):
                 xdest, ydest = self.getxy(Y)
 
                 # Add noise
-                #xdest += np.random.random(N)-0.5
-                #ydest += np.random.random(N)-0.5
+                # xdest += np.random.random(N)-0.5
+                # ydest += np.random.random(N)-0.5
 
                 # Get transformation
                 o = transform(t, dtype=X.dtype, cval=np.nan)
@@ -58,10 +61,11 @@ class test_transform(unittest.TestCase):
         return
         # REMARK: sktransform.warp needs change-of-frame (i.e. map dest keypoints -> src keypoints)
         o1 = sktransform.EuclideanTransform(
-            translation=[10, 20], rotation=np.radians(0.1))
+            translation=[10, 20], rotation=np.radians(0.1)
+        )
 
         o2 = sktransform.EuclideanTransform()
-        src = np.vstack([[0, 0.], [5, 3.]])
+        src = np.vstack([[0, 0.0], [5, 3.0]])
         dest = src + np.array([[10, 20]])
         o2.estimate(dest, src)
 
@@ -75,7 +79,8 @@ class test_transform(unittest.TestCase):
                 img1 = ndtransform.shift(img, -cof[1::-1, 2], **kwargs)
                 # affine_transform: takes change-of-frame matrix for coordinates (y,x)
                 img2 = ndtransform.affine_transform(
-                    img, cof[0:2, 0:2].T, offset=cof[1::-1, 2], **kwargs)
+                    img, cof[0:2, 0:2].T, offset=cof[1::-1, 2], **kwargs
+                )
                 # warp: takes change-of-frame matrix
                 img3 = sktransform.warp(img, o, **kwargs)
 
@@ -85,8 +90,10 @@ class test_transform(unittest.TestCase):
 
             if False:
                 import matplotlib.pyplot as plt
-                fig, (ax1, ax2, ax3) = plt.subplots(ncols=3, figsize=(8, 4),
-                                                    sharex=True, sharey=True)
+
+                fig, (ax1, ax2, ax3) = plt.subplots(
+                    ncols=3, figsize=(8, 4), sharex=True, sharey=True
+                )
                 ax1.imshow(img1, origin="lower")
                 ax2.imshow(img2, origin="lower")
                 ax3.imshow(img3, origin="lower")
@@ -124,7 +131,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

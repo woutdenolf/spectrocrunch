@@ -10,10 +10,14 @@ import matplotlib.pyplot as plt
 
 
 class test_teststack(unittest.TestCase):
-
     def test_data(self):
-        types = [transformationType.translation, transformationType.rigid,
-                 transformationType.similarity, transformationType.affine, transformationType.projective]
+        types = [
+            transformationType.translation,
+            transformationType.rigid,
+            transformationType.similarity,
+            transformationType.affine,
+            transformationType.projective,
+        ]
         for t in types:
             if t == transformationType.translation:
                 lst = [True, False]
@@ -23,12 +27,14 @@ class test_teststack(unittest.TestCase):
             for vector in lst:
                 for transposed in lst:
                     listofstacks, COFrelative, stackdim = helper_teststack.data(
-                        t, vector=vector, transposed=transposed)
+                        t, vector=vector, transposed=transposed
+                    )
                     self.assertIsInstance(listofstacks, list)
                     self.assertIsInstance(listofstacks[0], np.ndarray)
                     self.assertEqual(len(listofstacks[0].shape), 3)
                     self.assertTrue(
-                        all(s.shape == listofstacks[0].shape for s in listofstacks))
+                        all(s.shape == listofstacks[0].shape for s in listofstacks)
+                    )
 
                     if False:
                         for s in listofstacks:
@@ -44,7 +50,7 @@ class test_teststack(unittest.TestCase):
     def plot(self, img):
         plt.figure(1)
         plt.subplot(111)
-        plt.imshow(img, origin='lower', interpolation='nearest')
+        plt.imshow(img, origin="lower", interpolation="nearest")
         plt.pause(0.1)
 
 
@@ -55,7 +61,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

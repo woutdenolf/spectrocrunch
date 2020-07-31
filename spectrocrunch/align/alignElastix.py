@@ -3,6 +3,7 @@
 import logging
 import warnings
 import numpy as np
+
 try:
     import SimpleITK as sitk
 except ImportError:
@@ -15,14 +16,12 @@ from .types import transformationType
 
 
 class alignElastix(align):
-
     def __init__(self, *args, **kwargs):
         super(alignElastix, self).__init__(*args, **kwargs)
 
         # No 1D
         if 1 in self.source.imgsize:
-            raise ValueError(
-                "Elastix can only be applied on images, not 1D vectors.")
+            raise ValueError("Elastix can only be applied on images, not 1D vectors.")
 
         # Prepare alignment kernel
         try:
@@ -53,16 +52,17 @@ class alignElastix(align):
 
     def SetParameterMap(self):
         if self.transfotype == transformationType.translation:
-            parameterMap = sitk.GetDefaultParameterMap('translation')
+            parameterMap = sitk.GetDefaultParameterMap("translation")
         elif self.transfotype == transformationType.rigid:
-            parameterMap = sitk.GetDefaultParameterMap('rigid')
+            parameterMap = sitk.GetDefaultParameterMap("rigid")
         # elif self.transfotype==transformationType.similarity:
         #    parameterMap = sitk.GetDefaultParameterMap('similarity') # in Elastix but not SimpleElastix
         elif self.transfotype == transformationType.affine:
-            parameterMap = sitk.GetDefaultParameterMap('affine')
+            parameterMap = sitk.GetDefaultParameterMap("affine")
         else:
             raise NotImplementedError(
-                "Elastix doesn't support this type transformation.")
+                "Elastix doesn't support this type transformation."
+            )
 
         self.defaultvalue = -999  # Elastix cannot handle NaN's!!!
         parameterMap["DefaultPixelValue"] = (str(self.defaultvalue),)
@@ -112,7 +112,7 @@ class alignElastix(align):
             n = self.elastix.GetNumberOfParameterMaps()
         else:
             n = 1
-        if (n == 0):
+        if n == 0:
             logger = logging.getLogger(__name__)
             logger.info("Elastix couldn't align images")
             return []
@@ -121,7 +121,7 @@ class alignElastix(align):
                 return self.elastix.GetTransformParameterMap()
             except:
                 logger = logging.getLogger(__name__)
-                #import traceback
+                # import traceback
                 # logger.debug(traceback.format_exc())
                 logger.info("Elastix couldn't align images")
                 return []
@@ -138,13 +138,16 @@ class alignElastix(align):
 
             if self.transfotype == transformationType.translation:
                 params = np.array(
-                    transformParameterMap[0]["TransformParameters"], self.dtype)
+                    transformParameterMap[0]["TransformParameters"], self.dtype
+                )
                 transform.settranslation(params[0:2])
             elif self.transfotype == transformationType.rigid:
                 theta, tx, ty = np.array(
-                    transformParameterMap[0]["TransformParameters"], self.dtype)
+                    transformParameterMap[0]["TransformParameters"], self.dtype
+                )
                 cx, cy = np.array(
-                    transformParameterMap[0]["CenterOfRotationPoint"], self.dtype)
+                    transformParameterMap[0]["CenterOfRotationPoint"], self.dtype
+                )
 
                 L = self.defaulttransform(ttype=transformationType.rigid)
                 L.setrigid(theta, tx, ty)
@@ -159,7 +162,8 @@ class alignElastix(align):
                 # TODO: not verified!
             else:
                 raise NotImplementedError(
-                    "Elastix doesn't support this type of transformation.")
+                    "Elastix doesn't support this type of transformation."
+                )
 
         return transform
 
@@ -171,31 +175,35 @@ class alignElastix(align):
             raise ValueError("Transformations must have the same type")
         if self.transfotype == transformationType.translation:
             tmp = transform.gettranslation()
-            transformParameterMap[0]["TransformParameters"] = (
-                str(tmp[0]), str(tmp[1]))
+            transformParameterMap[0]["TransformParameters"] = (str(tmp[0]), str(tmp[1]))
         elif self.transfotype == transformationType.rigid:
             transformParameterMap[0]["CenterOfRotationPoint"] = ("0", "0")
             theta, tx, ty = transform.getrigid()
             transformParameterMap[0]["TransformParameters"] = (
-                str(theta), str(tx), str(ty))
+                str(theta),
+                str(tx),
+                str(ty),
+            )
         elif self.transfotype == transformationType.affine:
             raise NotImplementedError
         else:
             raise NotImplementedError(
-                "Elastix doesn't support this type of transformation.")
+                "Elastix doesn't support this type of transformation."
+            )
         self.transformix.SetTransformParameterMap(transformParameterMap)
 
     def changefortransform(self, shape):
         transformParameterMap = self.elastix_GetTransformParameterMap()
 
-        oldshape = (int(transformParameterMap[0]["Size"][1]), int(
-            transformParameterMap[0]["Size"][0]))
+        oldshape = (
+            int(transformParameterMap[0]["Size"][1]),
+            int(transformParameterMap[0]["Size"][0]),
+        )
         if shape == oldshape:
             return
 
         # Not sure about this
         transformParameterMap[0]["Size"] = (str(shape[1]), str(shape[0]))
-        transformParameterMap[0]["Origin"] = (
-            str(self.origin[0]), str(self.origin[1]))
+        transformParameterMap[0]["Origin"] = (str(self.origin[0]), str(self.origin[1]))
 
         self.transformix.SetTransformParameterMap(transformParameterMap)

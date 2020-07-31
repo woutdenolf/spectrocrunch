@@ -25,16 +25,30 @@ class align(object):
     two images that should represent the same thing but transformed/deformed.
     """
 
-    def __init__(self, source, sourcelist, dest, destlist, extension,
-                 stackdim=None, overwrite=False, cval=np.nan, plot=False,
-                 transfotype=transformationType.translation):
+    def __init__(
+        self,
+        source,
+        sourcelist,
+        dest,
+        destlist,
+        extension,
+        stackdim=None,
+        overwrite=False,
+        cval=np.nan,
+        plot=False,
+        transfotype=transformationType.translation,
+    ):
         """
         """
         # Data IO
         self.source = alignSource(source, sourcelist, stackdim=stackdim)
-        self.dest = alignDest(dest, destlist, extension,
-                              stackdim=self.source.stackdim,
-                              overwrite=overwrite)
+        self.dest = alignDest(
+            dest,
+            destlist,
+            extension,
+            stackdim=self.source.stackdim,
+            overwrite=overwrite,
+        )
 
         # Missing data
         self.cval = cval
@@ -44,7 +58,7 @@ class align(object):
             one = self.source.dtype.type(1)
         except AttributeError:
             one = self.source.dtype(1)
-        self.dtype = (np.float32(1)*one).dtype.type
+        self.dtype = (np.float32(1) * one).dtype.type
         self.alignonraw = True
         self.usekernel = False  # Doesn't work well for Elastix!
         self.pre_align = {"roi": None, "func": None}
@@ -56,13 +70,16 @@ class align(object):
 
         # Transformation (change of frame matrices, not change of coordinates!)
         self.transfotype = transfotype
-        self.transfos = [self.defaulttransform()
-                         for _ in range(self.source.nimages)]
-        self.pre_transfos = [self.defaulttransform() for _ in range(self.source.nimages)]
-        self.prealign_to_raw = [self.defaulttransform()
-                                for _ in range(self.source.nimages)]
-        self.prealign_to_pretransform = [self.defaulttransform()
-                                         for _ in range(self.source.nimages)]
+        self.transfos = [self.defaulttransform() for _ in range(self.source.nimages)]
+        self.pre_transfos = [
+            self.defaulttransform() for _ in range(self.source.nimages)
+        ]
+        self.prealign_to_raw = [
+            self.defaulttransform() for _ in range(self.source.nimages)
+        ]
+        self.prealign_to_pretransform = [
+            self.defaulttransform() for _ in range(self.source.nimages)
+        ]
 
         # Plot
         self.plotinfo = {"ON": plot, "fig": None, "axes": None}
@@ -94,27 +111,31 @@ class align(object):
         if img.size in img.shape:
             ax.plot(img.flatten())
         else:
-            #img2 = img.copy()
-            #img2[np.isnan(img2)] = 0
-            ax.imshow(img, origin='lower', interpolation='nearest', cmap='jet')
+            # img2 = img.copy()
+            # img2[np.isnan(img2)] = 0
+            ax.imshow(img, origin="lower", interpolation="nearest", cmap="jet")
         ax.set_title(title)
 
         plt.pause(0.01)
 
     def padfromextend(self):
-        return ((max(self.extend[0][0], 0), max(self.extend[0][1], 0)),
-                (max(self.extend[1][0], 0), max(self.extend[1][1], 0)))
+        return (
+            (max(self.extend[0][0], 0), max(self.extend[0][1], 0)),
+            (max(self.extend[1][0], 0), max(self.extend[1][1], 0)),
+        )
 
     def cropfromextend(self, dim1, dim2):
-        return ((max(-self.extend[0][0], 0), dim1-max(-self.extend[0][1], 0)),
-                (max(-self.extend[1][0], 0), dim2-max(-self.extend[1][1], 0)))
+        return (
+            (max(-self.extend[0][0], 0), dim1 - max(-self.extend[0][1], 0)),
+            (max(-self.extend[1][0], 0), dim2 - max(-self.extend[1][1], 0)),
+        )
 
     def pad(self, img):
         """Apply padding
         """
         pad = self.padfromextend()
         if np.count_nonzero(pad) != 0:
-            return np.pad(img, pad, 'constant', constant_values=(self.cval, self.cval))
+            return np.pad(img, pad, "constant", constant_values=(self.cval, self.cval))
         else:
             return img
 
@@ -123,8 +144,13 @@ class align(object):
         """
         dim1, dim2 = img.shape
         crop = self.cropfromextend(dim1, dim2)
-        if crop[0][0] != 0 or crop[1][0] != 0 or crop[0][1] != dim1 or crop[1][1] != dim2:
-            return img[crop[0][0]:crop[0][1], crop[1][0]:crop[1][1]]
+        if (
+            crop[0][0] != 0
+            or crop[1][0] != 0
+            or crop[0][1] != dim1
+            or crop[1][1] != dim2
+        ):
+            return img[crop[0][0] : crop[0][1], crop[1][0] : crop[1][1]]
         else:
             return img
 
@@ -134,7 +160,8 @@ class align(object):
         [[ya, yb], [xa, xb]] = cliproi(img.shape, roi)
         if xb <= xa or yb <= ya:
             raise ValueError(
-                "ROI reduces image size to zero: [{}:{},{}:{}]".format(ya, yb, xa, xb))
+                "ROI reduces image size to zero: [{}:{},{}:{}]".format(ya, yb, xa, xb)
+            )
         return img[ya:yb, xa:xb]
 
     def writeimg(self, img, datasetindex, imageindex):
@@ -160,7 +187,8 @@ class align(object):
         img = self.dopre_align(img, imageindex)
         if 0 in img.shape or len(img.shape) != 2:
             raise ValueError(
-                "Image preprocessed for alignment has shape {}".format(img.shape))
+                "Image preprocessed for alignment has shape {}".format(img.shape)
+            )
         return img
 
     def nopre_align(self):
@@ -185,7 +213,9 @@ class align(object):
         Returns:
             bool: True when transformation is done on the raw image
         """
-        return np.all(np.asarray(self.extend) <= 0) and self.pre_transfos[i].isidentity()
+        return (
+            np.all(np.asarray(self.extend) <= 0) and self.pre_transfos[i].isidentity()
+        )
 
     def dopre_transform(self, img, i):
         """Manual transformation before the real transformation (not used in alignment)
@@ -218,12 +248,19 @@ class align(object):
         raise NotImplementedError()
 
     def absolute_cofs(self, homography=False, include_pre=False):
-        """Change-of-frame for each raw image (i.e. inverse of coordinate transformation matrix)
+        """Change-of-frame matrix (i.e. inverse of coordinate transformation matrix)
+        to convert each raw image to the its aligned version.
+
+        The columns of the COF matrix are the coordinates of the new basis vectors with
+        respect to the old basis vectors. The last column is the origin of the new frame
+        with respect to the old reference frame.
         """
         if self.source.nimages == 0:
             return None
         if include_pre:
-            transfos = [ptr.before(tr) for ptr, tr in zip(self.pre_transfos, self.transfos)]
+            transfos = [
+                ptr.before(tr) for ptr, tr in zip(self.pre_transfos, self.transfos)
+            ]
         else:
             transfos = self.transfos
         if homography:
@@ -262,8 +299,9 @@ class align(object):
             ty, tx = self.pre_align["roi"][:][0]
             # cof pre-align to raw
             CroiInv.settranslation(-tx, -ty)
-        for prealign_to_raw, prealign_to_pretransform, pretransfo in\
-            zip(self.prealign_to_raw, self.prealign_to_pretransform, self.pre_transfos):
+        for prealign_to_raw, prealign_to_pretransform, pretransfo in zip(
+            self.prealign_to_raw, self.prealign_to_pretransform, self.pre_transfos
+        ):
             prealign_to_raw.fromtransform(CroiInv)
             if not pretransfo.isidentity():
                 # raw to pre-transform
@@ -285,9 +323,10 @@ class align(object):
             # raw to pre-transform
             o2min = -max(self.extend[1][0], 0)
             o1min = -max(self.extend[0][0], 0)
-            Cpad.settranslation(o2min, o1min) 
-        for prealign_to_raw, prealign_to_pretransform, pretransfo in\
-            zip(self.prealign_to_raw, self.prealign_to_pretransform, self.pre_transfos):
+            Cpad.settranslation(o2min, o1min)
+        for prealign_to_raw, prealign_to_pretransform, pretransfo in zip(
+            self.prealign_to_raw, self.prealign_to_pretransform, self.pre_transfos
+        ):
             prealign_to_pretransform.fromtransform(prealign_to_raw)
             if not pretransfo.isidentity():
                 # raw to pre-transform
@@ -328,7 +367,11 @@ class align(object):
         """Is the transformation the identity, including the changes applied
            before (padding) and after (cropping)
         """
-        return self.nopre_transform(i) and self.nopost_transform() and self.transformidentity(i)
+        return (
+            self.nopre_transform(i)
+            and self.nopost_transform()
+            and self.transformidentity(i)
+        )
 
     def transform(self, img, i):
         """Apply image transformation
@@ -372,7 +415,7 @@ class align(object):
         # not pairwise: transfo relative to i=iref
         if pairwise and i != 0 and self.alignonraw:
             # make transfo relative to i=0
-            self.transfos[i].fromtransform(self.transfos[i-1].before(transfo))
+            self.transfos[i].fromtransform(self.transfos[i - 1].before(transfo))
         else:
             self.transfos[i].fromtransform(transfo)
 
@@ -394,31 +437,43 @@ class align(object):
             return p.length == 0
 
     def untransformedimagepolygon(self):
-        add0 = 0.
-        add1 = 0.
-        return self.genpolygon([(add0, add0),
-                                (self.source.imgsize[1]-1+add1, add0),
-                                (self.source.imgsize[1]-1+add1,
-                                 self.source.imgsize[0]-1+add1),
-                                (add0, self.source.imgsize[0]-1+add1)])
+        add0 = 0.0
+        add1 = 0.0
+        return self.genpolygon(
+            [
+                (add0, add0),
+                (self.source.imgsize[1] - 1 + add1, add0),
+                (self.source.imgsize[1] - 1 + add1, self.source.imgsize[0] - 1 + add1),
+                (add0, self.source.imgsize[0] - 1 + add1),
+            ]
+        )
 
     def transformedimagepolygons(self):
-        add0 = 0.
-        add1 = 0.
+        add0 = 0.0
+        add1 = 0.0
 
         # Corners of the image in the transformed frame: A'
         xy = np.empty((3, 4))
-        xy[0, :] = [add0, self.source.imgsize[1]-1+add1,
-                    self.source.imgsize[1]-1+add1, add0]  # x
-        xy[1, :] = [add0, add0, self.source.imgsize[0] -
-                    1+add1, self.source.imgsize[0]-1+add1]  # y
+        xy[0, :] = [
+            add0,
+            self.source.imgsize[1] - 1 + add1,
+            self.source.imgsize[1] - 1 + add1,
+            add0,
+        ]  # x
+        xy[1, :] = [
+            add0,
+            add0,
+            self.source.imgsize[0] - 1 + add1,
+            self.source.imgsize[0] - 1 + add1,
+        ]  # y
         xy[2, :] = [1, 1, 1, 1]
 
         # Corners of the image in the raw frame: A = C.A'
-        ret = [None]*self.source.nimages
+        ret = [None] * self.source.nimages
         for i in range(self.source.nimages):
             xy2 = self.cof_in_raw_frame(i).transformcoordinates(
-                xy)  # C1^(-1).C2^(-1).C1.XY
+                xy
+            )  # C1^(-1).C2^(-1).C1.XY
             xy2[0, :] /= xy2[2, :]
             xy2[1, :] /= xy2[2, :]
             ret[i] = self.genpolygon(xy2[0:2, :].T)
@@ -435,8 +490,7 @@ class align(object):
                 p = p.intersection(ps[i])
 
             if self.polygonempty(p):
-                logger.warning(
-                    "Cropping skipped because there would be nothing left.")
+                logger.warning("Cropping skipped because there would be nothing left.")
                 return ()
 
         xmin, ymin, xmax, ymax = p.bounds
@@ -472,16 +526,16 @@ class align(object):
 
         # Center
         trn = self.defaulttransform(ttype=transformationType.translation)
-        trn.settranslation(x-x0, y-y0)
+        trn.settranslation(x - x0, y - y0)
         for t in self.transfos:
             t.before_inplace(trn)
 
     def setextend(self, xmin, ymin, xmax, ymax):
         # Padding/cropping <> positive/negative
         o1min = -ymin
-        o1max = ymax-self.source.imgsize[0]+1
+        o1max = ymax - self.source.imgsize[0] + 1
         o2min = -xmin
-        o2max = xmax-self.source.imgsize[1]+1
+        o2max = xmax - self.source.imgsize[1] + 1
         self.extend = ((o1min, o1max), (o2min, o2max))
         self.pre_transform["pad"] = np.any(np.asarray(self.extend) > 0)
         self.post_transform["crop"] = np.any(np.asarray(self.extend) < 0)
@@ -492,8 +546,7 @@ class align(object):
         self.extend = ((0, 0), (0, 0))
         # Smallest rectangle that contains the union (pad)
         # or intersection (crop) of all polygons
-        tmp = self.polygoncollectionbounds(
-            ps, pad=self.pre_transform_requested["pad"])
+        tmp = self.polygoncollectionbounds(ps, pad=self.pre_transform_requested["pad"])
         if len(tmp) != 4:
             self.pre_transform["pad"] = False
             self.post_transform["crop"] = False
@@ -501,11 +554,15 @@ class align(object):
         self.setextend(*tmp)
 
     def bextendfrommask(self, pairwise):
-        return self.post_transform_requested["crop"] and\
-            self.cval is np.nan and\
-            (self.pre_align["roi"] is None or
-             self.transfotype == transformationType.translation) and\
-            not pairwise
+        return (
+            self.post_transform_requested["crop"]
+            and self.cval is np.nan
+            and (
+                self.pre_align["roi"] is None
+                or self.transfotype == transformationType.translation
+            )
+            and not pairwise
+        )
 
     def setextendmask(self, img, reset=False):
         mask = np.logical_not(np.isnan(img))
@@ -525,11 +582,9 @@ class align(object):
         indvalidcol = np.argwhere(self._extendmask.sum(axis=0))
         # When pre_align["roi"]: only valid for translations
         ymin = indvalidrow[0][0]
-        ymax = indvalidrow[-1][0] - \
-            self._extendmask.shape[0]+self.source.imgsize[0]
+        ymax = indvalidrow[-1][0] - self._extendmask.shape[0] + self.source.imgsize[0]
         xmin = indvalidcol[0][0]
-        xmax = indvalidcol[-1][0] - \
-            self._extendmask.shape[1]+self.source.imgsize[1]
+        xmax = indvalidcol[-1][0] - self._extendmask.shape[1] + self.source.imgsize[1]
         self.setextend(xmin, ymin, xmax, ymax)
 
     def parsetransformation_beforeapplication(self, pairwise):
@@ -545,7 +600,10 @@ class align(object):
             ps = self.transformedimagepolygons()
 
             # Adapt transformation
-            if self.pre_transform_requested["pad"] or self.post_transform_requested["crop"]:
+            if (
+                self.pre_transform_requested["pad"]
+                or self.post_transform_requested["crop"]
+            ):
                 # adapt self.extend to either crop or pad
                 self.extendfromtransformation(p0, ps)
             else:
@@ -592,16 +650,16 @@ class align(object):
             offn = off0 + axisn - axis0
 
             if nleft > 0:
-                delta = axes[j][1]-axes[j][0]
-                newaxis[0:nleft] = (axes[j][0] - delta *
-                                    nleft) + delta*np.arange(nleft)
+                delta = axes[j][1] - axes[j][0]
+                newaxis[0:nleft] = (axes[j][0] - delta * nleft) + delta * np.arange(
+                    nleft
+                )
 
             newaxis[off0:offn] = axes[j][axis0:axisn]
 
             if nright > 0:
-                delta = axes[j][-1]-axes[j][-2]
-                newaxis[offn:] = (axes[j][-1] + delta) + \
-                    delta*np.arange(nright)
+                delta = axes[j][-1] - axes[j][-2]
+                newaxis[offn:] = (axes[j][-1] + delta) + delta * np.arange(nright)
 
             out[j] = newaxis
         return out
@@ -641,24 +699,26 @@ class align(object):
             offn = off0 + axisn - axis0
 
             if nleft > 0:
-                delta = axes[j][1]-axes[j][0]
-                newaxis[0:nleft] = (axes[j][0] - delta *
-                                    nleft) + delta*np.arange(nleft)
+                delta = axes[j][1] - axes[j][0]
+                newaxis[0:nleft] = (axes[j][0] - delta * nleft) + delta * np.arange(
+                    nleft
+                )
 
             newaxis[off0:offn] = axes[j][axis0:axisn]
 
             if nright > 0:
-                delta = axes[j][-1]-axes[j][-2]
-                newaxis[offn:] = (axes[j][-1] + delta) + \
-                    delta*np.arange(nright)
+                delta = axes[j][-1] - axes[j][-2]
+                newaxis[offn:] = (axes[j][-1] + delta) + delta * np.arange(nright)
 
             axes[j] = newaxis
 
     def dest_imgsize(self, nopost=False):
         imgsize = self.source.imgsize
         if self.pre_transform["pad"] or (self.post_transform["crop"] and not nopost):
-            imgsize = (imgsize[0] + self.extend[0][0] + self.extend[0][1],
-                       imgsize[1] + self.extend[1][0] + self.extend[1][1])
+            imgsize = (
+                imgsize[0] + self.extend[0][0] + self.extend[0][1],
+                imgsize[1] + self.extend[1][0] + self.extend[1][1],
+            )
         return imgsize
 
     def preparedestination(self, img=None):
@@ -696,9 +756,9 @@ class align(object):
                 self.plot(rawprep, 0, "Reference %d (fixed)" % iref)
                 self.set_reference(rawprep)
 
-        #from pympler import tracker
-        #tr = tracker.SummaryTracker()
-        #s1 = None
+        # from pympler import tracker
+        # tr = tracker.SummaryTracker()
+        # s1 = None
 
         # Loop over the images
         bfirst = True
@@ -725,12 +785,11 @@ class align(object):
                     #    s1 = tr.create_summary()
 
                     imgaligned = self.execute_alignkernel(rawprep)
-                    #s2 = tr.create_summary()
+                    # s2 = tr.create_summary()
 
                     # tr.print_diff(summary1=s1,summary2=s2)
                     if pairwise:
-                        self.plot(
-                            imgref, 0, "Reference %d (pair-wise)" % (iref))
+                        self.plot(imgref, 0, "Reference %d (pair-wise)" % (iref))
                     self.plot(rawprep, 2, "To align %d" % i)
                     self.plot(imgaligned, 1, "Aligned %d" % i)
                     self.store_transformation(i, pairwise)
@@ -760,11 +819,13 @@ class align(object):
                     self.copyimg(j, i)
             else:
                 for j in range(self.source.nsets):
-                    usealignedimage = aligntype != alignType.usetransfo and \
-                        j == refdatasetindex and \
-                        self.nopre_align() and \
-                        self.nopre_transform(i) and \
-                        self.nopost_transform()
+                    usealignedimage = (
+                        aligntype != alignType.usetransfo
+                        and j == refdatasetindex
+                        and self.nopre_align()
+                        and self.nopre_transform(i)
+                        and self.nopost_transform()
+                    )
                     if usealignedimage:
                         img = imgaligned
                     else:
@@ -781,22 +842,37 @@ class align(object):
         if roi is None:
             self.pre_align["roi"] = None
         else:
+
             def bdefault(a):
                 if a is None:
                     return 0
                 else:
                     return a
+
             def edefault(a):
                 if a is None:
                     return -1
                 else:
                     return a
-            self.pre_align["roi"] = ((bdefault(roi[0][0]), edefault(roi[0][1])),
-                                     (bdefault(roi[1][0]), edefault(roi[1][1])))
+
+            self.pre_align["roi"] = (
+                (bdefault(roi[0][0]), edefault(roi[0][1])),
+                (bdefault(roi[1][0]), edefault(roi[1][1])),
+            )
         self.calccof_prealign_to_raw()
 
-    def align(self, refdatasetindex, refimageindex=None, onraw=False, pad=True,
-              crop=False, redo=False, roi=None, rawcalc=None, prealigntransfo=None):
+    def align(
+        self,
+        refdatasetindex,
+        refimageindex=None,
+        onraw=False,
+        pad=True,
+        crop=False,
+        redo=False,
+        roi=None,
+        rawcalc=None,
+        prealigntransfo=None,
+    ):
         """Alignment function that needs to be called 
 
         Args:
@@ -830,17 +906,18 @@ class align(object):
             self.post_transform_requested["crop"] = crop
             self.pre_transform["pad"] = pad
             self.post_transform["crop"] = crop
-            #center = False
+            # center = False
             if roi or pad or crop or callable(rawcalc) or prealigntransfo:
                 # Do not use transformed image of alignment procedure
                 self.pre_align["func"] = rawcalc
-                self.doalign(refdatasetindex,
-                             refimageindex=refimageindex,
-                             aligntype=alignType.calctransfo)
+                self.doalign(
+                    refdatasetindex,
+                    refimageindex=refimageindex,
+                    aligntype=alignType.calctransfo,
+                )
                 self.pre_align["func"] = None
                 self.parsetransformation_beforeapplication(pairwise)
-                self.doalign(refdatasetindex,
-                             aligntype=alignType.usetransfo)
+                self.doalign(refdatasetindex, aligntype=alignType.usetransfo)
             else:
                 # Use transformed image of alignment procedure
                 self.doalign(refdatasetindex, refimageindex=refimageindex)
