@@ -11,10 +11,10 @@ from .. import indexing
 def genindexing(dim, advanced=False, eco=False):
 
     if dim > 1:
-        a = random.randint(-dim, dim-1)
-        i = random.randint(1, dim-1)
+        a = random.randint(-dim, dim - 1)
+        i = random.randint(1, dim - 1)
         j = random.randint(-dim, -1)
-        k = random.randint(1, max(1, dim//2))
+        k = random.randint(1, max(1, dim // 2))
     else:
         a = 0
         i = 0
@@ -24,29 +24,33 @@ def genindexing(dim, advanced=False, eco=False):
     if eco:
         ret = [a, slice(i, j, k)]
     else:
-        ret = [0, i, j,
-               slice(i, j, k), slice(None, j, k), slice(
-                   i, None, k), slice(i, j, None),
-               slice(None, None, k), slice(
-                   i, None, None), slice(None, j, None),
-               slice(None),
-               slice(0)]
+        ret = [
+            0,
+            i,
+            j,
+            slice(i, j, k),
+            slice(None, j, k),
+            slice(i, None, k),
+            slice(i, j, None),
+            slice(None, None, k),
+            slice(i, None, None),
+            slice(None, j, None),
+            slice(None),
+            slice(0),
+        ]
 
     # Advanced indexing
     if advanced:
-        n = min(dim//2, 2)
-        iarr = [random.randint(-dim, dim-1) for i in range(n)]
-        barr = [True]*n+[False]*(n + n % 2)
+        n = min(dim // 2, 2)
+        iarr = [random.randint(-dim, dim - 1) for i in range(n)]
+        barr = [True] * n + [False] * (n + n % 2)
         random.shuffle(iarr)
         random.shuffle(barr)
 
         if eco:
-            ret += [iarr, barr,
-                    Ellipsis, np.newaxis]
+            ret += [iarr, barr, Ellipsis, np.newaxis]
         else:
-            ret += [[], [a],
-                    iarr, barr,
-                    Ellipsis, np.newaxis]
+            ret += [[], [a], iarr, barr, Ellipsis, np.newaxis]
     return ret
 
 

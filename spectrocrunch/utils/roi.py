@@ -24,7 +24,7 @@ def cliproi(shape, roi):
         else:
             if a < 0:
                 a += n
-            a = max(0, min(a, n-1))
+            a = max(0, min(a, n - 1))
 
         if b is None:
             b = n

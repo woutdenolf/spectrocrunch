@@ -27,7 +27,7 @@ def eholepair_si(T=21):
     x = units.Quantity([80, 270], ureg.kelvin)  # K
     y = units.Quantity([3.77, 3.68], "eV")
 
-    m = (y[1]-y[0])/(x[1]-x[0])
-    b = y[1]-m*x[1]
+    m = (y[1] - y[0]) / (x[1] - x[0])
+    b = y[1] - m * x[1]
 
-    return (m*T+b).to("eV")
+    return (m * T + b).to("eV")

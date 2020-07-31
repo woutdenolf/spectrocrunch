@@ -16,10 +16,10 @@ def taketimestamp():
 
 def hms(seconds):
     sec = seconds
-    hours = int(sec/3600.)
-    sec -= hours*3600
-    min = int(sec/60.)
-    sec -= min*60
+    hours = int(sec / 3600.0)
+    sec -= hours * 3600
+    min = int(sec / 60.0)
+    sec -= min * 60
     sec = int(sec)
     return (hours, min, sec)
 
@@ -31,7 +31,7 @@ def strseconds(seconds):
 def printtimeelapsed(T0, logger=None, text="Elapsed time"):
     if logger is None:
         logger = _logger
-    hours, min, sec = hms((datetime.datetime.now()-T0).seconds)
+    hours, min, sec = hms((datetime.datetime.now() - T0).seconds)
     logger.info("{}: {:d}h {:d}m {:d}s".format(text, hours, min, sec))
 
 
@@ -66,14 +66,16 @@ class ProgressLogger(object):
         # Ttot = Telapsed + Tleft
         # Telapsed/Ttot = ncurrent/nmax = pdone
         # Tleft = Ttot - Telapsed = Telapsed*(1/pdone - 1)
-        nmax = self.nmax*self.nmaxfine
-        ncurrent = self.ncurrent*self.nmaxfine + self.ncurrentfine
-        Telapsed = (datetime.datetime.now()-self.T0).seconds
+        nmax = self.nmax * self.nmaxfine
+        ncurrent = self.ncurrent * self.nmaxfine + self.ncurrentfine
+        Telapsed = (datetime.datetime.now() - self.T0).seconds
         hours, min, sec = hms(Telapsed)
-        hours2, min2, sec2 = hms(Telapsed*(nmax/float(ncurrent)-1))
-        pdone = int(ncurrent/float(nmax)*100)
-        self.logger.info("  Elapsed: %dh %dm %ds (%d%%)  Left: %dh %dm %ds (%d%%)" % (
-            hours, min, sec, pdone, hours2, min2, sec2, 100-pdone))
+        hours2, min2, sec2 = hms(Telapsed * (nmax / float(ncurrent) - 1))
+        pdone = int(ncurrent / float(nmax) * 100)
+        self.logger.info(
+            "  Elapsed: %dh %dm %ds (%d%%)  Left: %dh %dm %ds (%d%%)"
+            % (hours, min, sec, pdone, hours2, min2, sec2, 100 - pdone)
+        )
         sys.stdout.flush()
 
 
@@ -82,7 +84,7 @@ def timeit(name=""):
     t0 = time.time()
     yield
     t1 = time.time()
-    print("Execution time ({}): {}".format(name, t1-t0))
+    print("Execution time ({}): {}".format(name, t1 - t0))
 
 
 @contextmanager

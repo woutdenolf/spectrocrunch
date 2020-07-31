@@ -8,7 +8,6 @@ from .. import signalhandling
 
 
 class test_signalhandling(unittest.TestCase):
-
     def mysetup(self):
         self.state = 1
 
@@ -21,26 +20,34 @@ class test_signalhandling(unittest.TestCase):
         pass
 
     def _check_signal(self, sendsignal):
-        with signalhandling.HandleTermination(setup=self.mysetup, teardown=self.myteardown):
+        with signalhandling.HandleTermination(
+            setup=self.mysetup, teardown=self.myteardown
+        ):
             self.state += 1
             sendsignal()
             self.state += 1
         self.assertTrue(self.state == 0)
 
     def test_noerror(self):
-        with signalhandling.HandleTermination(setup=self.mysetup, teardown=self.myteardown):
+        with signalhandling.HandleTermination(
+            setup=self.mysetup, teardown=self.myteardown
+        ):
             self.state += 1
         self.assertTrue(self.state == 2)
 
     def test_error(self):
-        with signalhandling.HandleTermination(setup=self.mysetup, teardown=self.myteardown):
+        with signalhandling.HandleTermination(
+            setup=self.mysetup, teardown=self.myteardown
+        ):
             self.state += 1
             raise RuntimeError()
             self.state += 1
         self.assertTrue(self.state == 0)
 
         with self.assertRaises(RuntimeError):
-            with signalhandling.HandleTermination(setup=self.mysetup, teardown=self.myteardown_propagate):
+            with signalhandling.HandleTermination(
+                setup=self.mysetup, teardown=self.myteardown_propagate
+            ):
                 self.state += 1
                 raise RuntimeError()
                 self.state += 1
@@ -72,7 +79,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

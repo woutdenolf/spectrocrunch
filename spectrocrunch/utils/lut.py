@@ -21,7 +21,7 @@ class LUT(Copyable):
         if x is not None:
             if y is None:
                 try:
-                    y = [self.default.magnitude]*len(x)
+                    y = [self.default.magnitude] * len(x)
                 except TypeError:
                     y = self.default.magnitude
                 yunits = self.default.units
@@ -29,15 +29,12 @@ class LUT(Copyable):
             self.add(x, y)
 
     def __getstate__(self):
-        return {'kind': self.kind,
-                '_x': self.x,
-                '_y': self.y,
-                'default': self.default}
+        return {"kind": self.kind, "_x": self.x, "_y": self.y, "default": self.default}
 
     def __setstate__(self, state):
-        self.kind = state['kind']
-        self.clear(default=state['default'])
-        x, y = state['_x'], state['_y']
+        self.kind = state["kind"]
+        self.clear(default=state["default"])
+        x, y = state["_x"], state["_y"]
         if x is not None:
             self.add(x, y)
 
@@ -48,10 +45,10 @@ class LUT(Copyable):
             if (self.y is None) ^ (other.y is None):
                 return False
             if self.x is not None:
-                if not np.array_equal(self.x, other.x):
+                if not all(self.x == other.x):
                     return False
             if self.y is not None:
-                if not np.array_equal(self.y, other.y):
+                if not all(self.y == other.y):
                     return False
             if np.isnan(self.default) ^ np.isnan(other.default):
                 return False
@@ -66,7 +63,7 @@ class LUT(Copyable):
         return not self.__eq__(other)
 
     def __str__(self):
-        s = '\n '.join(["{:~}: {:~}".format(*xy) for xy in self])
+        s = "\n ".join(["{:~}: {:~}".format(*xy) for xy in self])
         if s:
             return "Lookup table:\n {}".format(s)
         else:
@@ -147,7 +144,7 @@ class LUT(Copyable):
         elif nargs == 2:
             x, y = args
         else:
-            raise TypeError('Expects one or two positional arguments')
+            raise TypeError("Expects one or two positional arguments")
         x = units.asqarray(x)
         y = units.asqarray(y)
         if self.isempty():
@@ -170,9 +167,9 @@ class LUT(Copyable):
             # Table has only one value
             self._func = lambda x: np.full_like(x, y, dtype=dtype)
         else:
-            self._func = interpolate.interp1d(x, y, bounds_error=False,
-                                              fill_value=(y[0], y[-1]),
-                                              kind=self.kind)
+            self._func = interpolate.interp1d(
+                x, y, bounds_error=False, fill_value=(y[0], y[-1]), kind=self.kind
+            )
 
     def add(self, *args):
         self._new_data(args, add=True)
@@ -194,9 +191,9 @@ class LUT(Copyable):
             x = self.x.magnitude
             y = self.y.magnitude
             plt.plot(x, y, **kwargs)
-            plt.xlabel('{:~}'.format(self.xunits))
-            plt.ylabel('{:~}'.format(self.yunits))
+            plt.xlabel("{:~}".format(self.xunits))
+            plt.ylabel("{:~}".format(self.yunits))
         else:
             plt.axhline(y=self.default.magnitude)
-            plt.xlabel('{:~}'.format(self.xunits))
-            plt.ylabel('{:~}'.format(self.yunits))
+            plt.xlabel("{:~}".format(self.xunits))
+            plt.ylabel("{:~}".format(self.yunits))

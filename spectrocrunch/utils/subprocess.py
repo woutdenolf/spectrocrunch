@@ -24,10 +24,10 @@ def installed(*args):
 
 def execute(*args, **kwargs):
     try:
-        if kwargs.pop('stdout', False):
-            kwargs['stdout'] = subprocess.PIPE
-        if kwargs.pop('stderr', False):
-            kwargs['stderr'] = subprocess.PIPE
+        if kwargs.pop("stdout", False):
+            kwargs["stdout"] = subprocess.PIPE
+        if kwargs.pop("stderr", False):
+            kwargs["stderr"] = subprocess.PIPE
         return _execute(*args, **kwargs)
     except OSError as e:
         return None, None, e.errno

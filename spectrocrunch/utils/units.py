@@ -121,9 +121,15 @@ def asqarrayf(x, **kwargs):
         func(callable): apply to x to restore scalars
     """
     if instance.isarray(x):
-        def func(x): return x
+
+        def func(x):
+            return x
+
     else:
-        def func(x): return x[0]
+
+        def func(x):
+            return x[0]
+
     return asqarray(x, **kwargs), func
 
 
@@ -170,8 +176,7 @@ def unitsto(x, units):
         except pinterrors.DimensionalityError:
             continue
     else:
-        raise RuntimeError(
-            "Units of {} cannot be converted to {}".format(x, units))
+        raise RuntimeError("Units of {} cannot be converted to {}".format(x, units))
     return x
 
 
@@ -186,12 +191,14 @@ def binary_operator(a, b, op):
     Returns:
         op(a,b)
     """
-    return op(Quantity(a, forcequantity=False), quantity_like(b, a, forcequantity=False))
+    return op(
+        Quantity(a, forcequantity=False), quantity_like(b, a, forcequantity=False)
+    )
 
 
 def astype(x, dtype):
     m = x.magnitude
-    if hasattr(m, 'astype'):
+    if hasattr(m, "astype"):
         m = m.astype(dtype)
     else:
         m = dtype(m)

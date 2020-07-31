@@ -95,8 +95,9 @@ def sort2lists(list1, list2):
     Returns:
         list,list
     """
-    return tuple(list(t) for t in zip(*sorted(zip(list1, list2),
-                                              key=operator.itemgetter(0))))
+    return tuple(
+        list(t) for t in zip(*sorted(zip(list1, list2), key=operator.itemgetter(0)))
+    )
 
 
 def unique2lists(list1, list2, add=False):
@@ -115,14 +116,22 @@ def unique2lists(list1, list2, add=False):
             b = x not in cntr
             cntr[x] += y
             return b
+
         list1 = [x1 for x1, x2 in zip(list1, list2) if cntr_add(x1, x2)]
         list2 = [cntr[x1] for x1 in list1]
         return list1, list2
     else:
         seen = set()
         seen_add = seen.add
-        list1, list2 = tuple(zip(*[[x1, x2] for x1, x2 in zip(list1, list2)
-                                   if not (x1 in seen or seen_add(x1))]))
+        list1, list2 = tuple(
+            zip(
+                *[
+                    [x1, x2]
+                    for x1, x2 in zip(list1, list2)
+                    if not (x1 in seen or seen_add(x1))
+                ]
+            )
+        )
         return list(list1), list(list2)
 
 
@@ -150,7 +159,7 @@ def swap(lst, i, j):
 def roll(lst, n):
     if n != 0:
         n = abs(n)
-        lst = list(itertools.islice(itertools.cycle(lst), n, n+len(lst)))
+        lst = list(itertools.islice(itertools.cycle(lst), n, n + len(lst)))
     return lst
 
 

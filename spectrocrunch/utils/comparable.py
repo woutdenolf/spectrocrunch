@@ -4,7 +4,6 @@ import operator
 
 
 class Comparable(object):
-
     @property
     def _repr(self):
         """Unique representation of an instance
@@ -36,10 +35,10 @@ class Comparable(object):
             return op(a, b)
 
     def _sort(self, other, op):
-        return self._compareop(other, op, '_sortkey')
+        return self._compareop(other, op, "_sortkey")
 
     def _compare(self, other, op):
-        return self._compareop(other, op, '_cmpkey')
+        return self._compareop(other, op, "_cmpkey")
 
     def __lt__(self, other):
         return self._sort(other, operator.lt)

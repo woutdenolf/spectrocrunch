@@ -5,12 +5,12 @@ import os
 
 
 class stdout_redirect(object):
-    '''
+    """
     A context manager that redirects stdout for its scope, usage:
 
     with stdout_redirect():
         os.system('ls -l')
-    '''
+    """
 
     def __init__(self, to=os.devnull):
         sys.stdout.flush()
@@ -22,7 +22,7 @@ class stdout_redirect(object):
         self._newstdout = os.dup(1)
         os.dup2(self._dest, 1)
         os.close(self._dest)
-        sys.stdout = os.fdopen(self._newstdout, 'w')
+        sys.stdout = os.fdopen(self._newstdout, "w")
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         sys.stdout = self._origstdout

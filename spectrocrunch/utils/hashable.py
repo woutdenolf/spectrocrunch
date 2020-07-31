@@ -4,7 +4,6 @@ from .comparable import Comparable
 
 
 class Hashable(Comparable):
-
     @property
     def _repr(self):
         return "{}{}".format(type(self).__name__, id(self))
@@ -14,7 +13,6 @@ class Hashable(Comparable):
 
 
 class CompHashable(Hashable, Comparable):
-
     @property
     def _repr(self):
         return "{}{}".format(type(self).__name__, id(self))

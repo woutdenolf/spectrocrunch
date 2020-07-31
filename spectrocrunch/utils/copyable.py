@@ -4,7 +4,6 @@ from copy import copy, deepcopy
 
 
 class Copyable(object):
-
     def __copy__(self):
         cls = self.__class__
         result = cls.__new__(cls)

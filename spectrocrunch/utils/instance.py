@@ -2,15 +2,20 @@
 
 import ast
 import collections
+
 try:
-    from collections import collections_abc
+    import collections.abc as collections_abc
 except ImportError:
-    collections_abc = collections
+    try:
+        from collections import collections_abc
+    except ImportError:
+        collections_abc = collections
 import numbers
 import math
 import numpy as np
 import uncertainties.core
 from ..patch.pint import ureg
+
 try:
     from array import array
 except ImportError:
@@ -18,13 +23,13 @@ except ImportError:
 
 # Builtin string types:
 #                  | Python 2       |  Python 3
-#-------------------------------------------------
-#<byte string>     | type:str       | class:bytes
+# -------------------------------------------------
+# <byte string>     | type:str       | class:bytes
 #                  | literal: ""    | literal: b""
-#-------------------------------------------------
-#<unicode string>  | type:unicode   | class:str
+# -------------------------------------------------
+# <unicode string>  | type:unicode   | class:str
 #                  | literal: u""   | literal: ""
-#-------------------------------------------------
+# -------------------------------------------------
 #
 # <byte string>: array of bytes
 # <unicode string>: array of code points
@@ -38,17 +43,17 @@ except ImportError:
 #           is represented by one or two code points
 # glyph: image to represent a grapheme or part thereof
 #
-#Conversion:
+# Conversion:
 # encode: <unicode string> --(encoding)--> <byte string>
 # decode: <byte string>    --(encoding)--> <unicode string>
 #
-#Implicit decoding/encoding in Python 2:
+# Implicit decoding/encoding in Python 2:
 # default = sys.getdefaultencoding()
 # str.encode(encoding)     -> str.decode(default).encode(encoding)
 # unicode.decode(encoding) -> unicode.encode(default).decode(encoding)
 #
 # Builtin sequence types:
-#------------------------
+# ------------------------
 #   list (mutable sequence)
 #   tuple (immutable sequence)
 #   bytes (immutable sequence of bytes)
@@ -106,7 +111,7 @@ def asunicode(x):
         UnicodeDecodeError: bytes with extended-ASCII characters
     """
     if isinstance(x, bytes):
-        return x.decode('utf-8')
+        return x.decode("utf-8")
     return x
 
 
@@ -120,7 +125,7 @@ def asbytes(s):
         UnicodeEncodeError: unicode with non-UTF8 characters
     """
     if isinstance(s, unicode):
-        return s.encode('utf-8')
+        return s.encode("utf-8")
     return s
 
 
@@ -128,8 +133,9 @@ def issequence(x):
     """
     Sequence (mutable, immutable, generator) except for strings and bytearray's
     """
-    return isinstance(x, collections_abc.Sequence) and \
-           not isinstance(x, (str, bytes, unicode, bytearray))
+    return isinstance(x, collections_abc.Sequence) and not isinstance(
+        x, (str, bytes, unicode, bytearray)
+    )
 
 
 def isset(x):
@@ -288,18 +294,26 @@ def asscalar(x):
 
 
 class _toarray(object):
-    restore = {"array": lambda x: x,
-               "scalar": lambda x: x[0],
-               "array0": lambda x: np.array(x[0])}
+    restore = {
+        "array": lambda x: x,
+        "scalar": lambda x: x[0],
+        "array0": lambda x: np.array(x[0]),
+    }
 
     def __call__(self, x):
         if isquantity(x):
             # Quantity(array/scalar) -> ndarray[Quantity(scalar),...]
             u = x.units
             x, frestore = self(x.magnitude)
-            def qscal(y): return ureg.Quantity(y, u)
+
+            def qscal(y):
+                return ureg.Quantity(y, u)
+
             x = np.vectorize(qscal, otypes=[object])(x)
-            def qrestore(y): return ureg.Quantity(frestore(y), u)
+
+            def qrestore(y):
+                return ureg.Quantity(frestore(y), u)
+
             return x, qrestore
         elif isarray(x):
             # Special case: numpy 0-d array

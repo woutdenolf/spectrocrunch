@@ -24,11 +24,11 @@ def termination_handlers():
     # SIGQUIT: SIGINT but do not cleanup
     # SIGKILL: immediate termination
     # SIGHUP: controlling process terminated
-    return gethandlers(['SIGTERM', 'SIGINT', 'SIGHUP'])
+    return gethandlers(["SIGTERM", "SIGINT", "SIGHUP"])
 
 
 def allhandlers():
-    return gethandlers([name for name in dir(signal) if name.startswith('SIG')])
+    return gethandlers([name for name in dir(signal) if name.startswith("SIG")])
 
 
 def replace_handlers(newhandler, handlers=None):
@@ -82,8 +82,7 @@ class HandleTermination(object):
         """Overwrite signal handlers and call user setup
         """
         self._needcleanup = True
-        self._oldhandlers = replace_handlers(self._newhandler,
-                                             termination_handlers())
+        self._oldhandlers = replace_handlers(self._newhandler, termination_handlers())
         if self._setup is not None:
             self._setup()
 
@@ -102,15 +101,15 @@ class HandleTermination(object):
         """Converts signal into exception and reset signals.
            Optionally resends the signal after user tear-down.
         """
-        msg = 'Signal {} received.'.format(signalname(signum))
-        logger.debug(msg+' Cleanup and resend...')
+        msg = "Signal {} received.".format(signalname(signum))
+        logger.debug(msg + " Cleanup and resend...")
 
         # Convert signal to exception for user tear-down function
         try:
             raise RuntimeError(msg)
         except RuntimeError:
             exc_type, exc_value, exc_traceback = sys.exc_info()
-            
+
         # User tear-down and reset signal handlers
         self._cleanup(exc_type, exc_value, exc_traceback)
 

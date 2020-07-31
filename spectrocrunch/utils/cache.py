@@ -6,7 +6,6 @@ import functools
 
 
 class LimitedSizeDict(OrderedDict):
-    
     def __init__(self, *args, **kwds):
         self.size_limit = kwds.pop("size_limit", None)
         OrderedDict.__init__(self, *args, **kwds)
@@ -23,7 +22,6 @@ class LimitedSizeDict(OrderedDict):
 
 
 class Cache(object):
-
     def __init__(self, force=False):
         self._store = {}
         self.force = force
@@ -39,8 +37,7 @@ class Cache(object):
     def _generate_cache(self, subject, *args, **kwargs):
         generator = self.cachegenerator(subject)
         if generator is None:
-            raise RuntimeError(
-                "Cache subject \"{}\" does not exist".format(subject))
+            raise RuntimeError('Cache subject "{}" does not exist'.format(subject))
         return generator(*args, **kwargs)
 
     @contextlib.contextmanager
@@ -53,8 +50,7 @@ class Cache(object):
 
         # Cache
         if cache:
-            self._store[subject] = self._generate_cache(
-                subject, *args, **kwargs)
+            self._store[subject] = self._generate_cache(subject, *args, **kwargs)
 
         # Use cache
         yield
@@ -72,10 +68,16 @@ class Cache(object):
             if self.force:
                 if self.cachegenerator(subject) is not None:
                     raise RuntimeError(
-                        "Cache \"{}\" can only be used in context \" self.cachectx(\"{}\") \"".format(subject, subject))
+                        'Cache "{}" can only be used in context " self.cachectx("{}") "'.format(
+                            subject, subject
+                        )
+                    )
                 else:
-                    raise AttributeError("'{}' object has no attribute '{}'".format(
-                        self.__class__.__name__, subject))
+                    raise AttributeError(
+                        "'{}' object has no attribute '{}'".format(
+                            self.__class__.__name__, subject
+                        )
+                    )
             else:
                 # generate the context
                 return self._generate_cache(subject)
@@ -84,6 +86,7 @@ class Cache(object):
 def withcache(subject):
     """Decorator to cache a subject
     """
+
     def cache(func):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
@@ -91,8 +94,13 @@ def withcache(subject):
                 ctx = getattr(self, "cachectx")
             except AttributeError:
                 raise RuntimeError(
-                    "Class \"{}\" must be derived from \"Cache\"".format(self.__class__.__name__))
+                    'Class "{}" must be derived from "Cache"'.format(
+                        self.__class__.__name__
+                    )
+                )
             with ctx(subject):
                 return func(self, *args, **kwargs)
+
         return wrapper
+
     return cache

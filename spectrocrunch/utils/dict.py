@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+
 class defaultdict(dict):
     """Dictionary with a lambda function on the key value as default value
     """

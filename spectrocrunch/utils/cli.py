@@ -16,12 +16,20 @@ def logging_cliconfig(logger):
         --stderr=...  Redirect stderr to a file
     """
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('--log', default="", type=str, help="Log level")
-    parser.add_argument('--logfile', default="", type=str, help="Log file")
-    parser.add_argument('--stdout', default="", type=str,
-                        help="Log file for what normally goes to stdout")
-    parser.add_argument('--stderr', default="", type=str,
-                        help="Log file for what normally goes to stderr")
+    parser.add_argument("--log", default="", type=str, help="Log level")
+    parser.add_argument("--logfile", default="", type=str, help="Log file")
+    parser.add_argument(
+        "--stdout",
+        default="",
+        type=str,
+        help="Log file for what normally goes to stdout",
+    )
+    parser.add_argument(
+        "--stderr",
+        default="",
+        type=str,
+        help="Log file for what normally goes to stderr",
+    )
     args, _ = parser.parse_known_args()
 
     hashandlers = bool(logger.handlers)
@@ -49,6 +57,7 @@ def logging_stdhandler(logger, error=True):
     """Add stdout handler
     """
     import sys
+
     if error:
         handler = sys.stderr
     else:
@@ -75,24 +84,28 @@ def logging_addfilter(handler, error=None):
     if error is None:
         return
     if error:
+
         def func(level):
             return level >= logging.WARNING
+
     else:
+
         def func(level):
             return level < logging.WARNING
 
     class Filter(logging.Filter):
         def filter(self, record):
             return func(record.levelno)
+
     handler.addFilter(Filter())
 
 
 def getLogger(name, filename):
-    if name == '__main__':
+    if name == "__main__":
         logname = filename
     else:
         logname = name
     logger = logging.getLogger(logname)
-    if name == '__main__':
+    if name == "__main__":
         logging_cliconfig(logger)
     return logger

@@ -9,7 +9,7 @@ from ..utils import listtools
 
 def string_repr_to_hash(x):
     if not isinstance(x, bytes):
-        return x.encode('utf-8')
+        return x.encode("utf-8")
     return x
 
 
@@ -42,14 +42,14 @@ def calchash(x, _depth=0):
         bytes: can be 'ascii' decoded
     """
     if _depth == 100:
-        raise RuntimeError('Maximal hash recursion depth is reached')
+        raise RuntimeError("Maximal hash recursion depth is reached")
     else:
         _depth += 1
     # Convert x to a list(bytes)
     if x is None:
         x = [class_repr_to_hash(x)]
     elif instance.isstring(x):
-        x = [classname_repr_to_hash('string'), string_repr_to_hash(x)]
+        x = [classname_repr_to_hash("string"), string_repr_to_hash(x)]
     elif instance.isnumber(x):
         try:
             intx = int(x)
@@ -57,7 +57,7 @@ def calchash(x, _depth=0):
                 x = intx
         except:
             pass
-        x = [classname_repr_to_hash('number'), string_repr_to_hash(str(x))]
+        x = [classname_repr_to_hash("number"), string_repr_to_hash(str(x))]
     elif instance.isarray(x):
         if instance.isarray0(x):
             x = [calchash(x.item(), _depth=_depth)]
@@ -80,13 +80,15 @@ def calchash(x, _depth=0):
             # Empty mapping
             x = [class_repr_to_hash(x)]
     elif instance.isquantity(x):
-        x = [calchash(x.magnitude, _depth=_depth),
-             calchash(str(x.units), _depth=_depth)]
+        x = [
+            calchash(x.magnitude, _depth=_depth),
+            calchash(str(x.units), _depth=_depth),
+        ]
     else:
         x = [calchash(getstate(x), _depth=_depth)]
     # MD5 hash of list of bytes
-    #print(x)
-    return string_repr_to_hash(hashlib.md5(b''.join(x)).hexdigest())
+    # print(x)
+    return string_repr_to_hash(hashlib.md5(b"".join(x)).hexdigest())
 
 
 def hashequal(a, b):

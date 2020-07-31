@@ -36,8 +36,11 @@ def clsfactory(cls, name):
     elif name in cls.aliasregistry:
         return cls.aliasregistry[name]
     else:
-        raise RuntimeError("Class {} is not known:\n registered classes: {}\n aliases: {}".format(
-            name, cls.clsnames(), cls.clsaliases()))
+        raise RuntimeError(
+            "Class {} is not known:\n registered classes: {}\n aliases: {}".format(
+                name, cls.clsnames(), cls.clsaliases()
+            )
+        )
 
 
 def factory(cls, name, *args, **kwargs):
@@ -88,7 +91,7 @@ def clsaliases(cls):
 def clsallnames(cls):
     """Registered class names+aliases
     """
-    return cls.clsnames()+cls.clsaliases()
+    return cls.clsnames() + cls.clsaliases()
 
 
 class FactoryMeta(type):

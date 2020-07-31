@@ -5,7 +5,6 @@ from .. import listtools
 
 
 class test_listtools(unittest.TestCase):
-
     def test_unique(self):
         a, b = [2, 0, 0, 1, 0, 1], [0, 1, 2, 3, 4, 5]
         x, y = listtools.unique2lists(a, b, add=False)
@@ -30,7 +29,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()
