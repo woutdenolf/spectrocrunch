@@ -17,15 +17,22 @@ import itertools
 import matplotlib.pyplot as plt
 
 
-def transmission(N, N0, D=0, D0=0,
-                 tframe_data=1, nframe_data=1,
-                 tframe_flat=1, nframe_flat=1,
-                 nframe_dark=1):
-    num = N - D/nframe_dark*nframe_data
-    num /= nframe_data*tframe_data
-    denom = N0 - D0/nframe_dark*nframe_flat
-    denom /= nframe_flat*tframe_flat
-    return num/denom
+def transmission(
+    N,
+    N0,
+    D=0,
+    D0=0,
+    tframe_data=1,
+    nframe_data=1,
+    tframe_flat=1,
+    nframe_flat=1,
+    nframe_dark=1,
+):
+    num = N - D / nframe_dark * nframe_data
+    num /= nframe_data * tframe_data
+    denom = N0 - D0 / nframe_dark * nframe_flat
+    denom /= nframe_flat * tframe_flat
+    return num / denom
 
 
 def absorbance(_transmission):
@@ -37,7 +44,6 @@ def absorbance(_transmission):
 
 
 class id21_ffsetup(object):
-
     def __init__(self, sample=None, scint="LSO", lens="x10", **kwargs):
         self.setsample(sample, **kwargs)
         if scint == "LSO":
@@ -56,10 +62,21 @@ class id21_ffsetup(object):
         if sample is not None:
             src = xraysources.factory("synchrotron")
             geometry = flatarea.factory(
-                "perpendicular", detector=self.odetector, source=src)
+                "perpendicular", detector=self.odetector, source=src
+            )
             self.sample.geometry = geometry
 
-    def propagate(self, N, E, tframe, nframe, samplein=False, withnoise=True, forward=True, poissonapprox=False):
+    def propagate(
+        self,
+        N,
+        E,
+        tframe,
+        nframe,
+        samplein=False,
+        withnoise=True,
+        forward=True,
+        poissonapprox=False,
+    ):
         if isarray(E):
             E = np.asarray(E)
         bsample = samplein and self.sample is not None
@@ -71,24 +88,39 @@ class id21_ffsetup(object):
             if isarray(N):
                 reshape = N.shape
                 N = N.flatten()
-            N = self.olens.propagate(N, self.oscint.visspectrum,
-                                     nrefrac=self.oscint.get_nrefrac(),
-                                     forward=forward)
-            N = self.odetector.propagate(N, self.oscint.visspectrum,
-                                         tframe=tframe, nframe=nframe,
-                                         forward=forward, poissonapprox=poissonapprox)
+            N = self.olens.propagate(
+                N,
+                self.oscint.visspectrum,
+                nrefrac=self.oscint.get_nrefrac(),
+                forward=forward,
+            )
+            N = self.odetector.propagate(
+                N,
+                self.oscint.visspectrum,
+                tframe=tframe,
+                nframe=nframe,
+                forward=forward,
+                poissonapprox=poissonapprox,
+            )
             if reshape:
                 N = N.reshape(reshape)
         else:
             if isarray(N):
                 reshape = N.shape
                 N = N.flatten()
-            N = self.odetector.propagate(N, self.oscint.visspectrum,
-                                         tframe=tframe, nframe=nframe,
-                                         forward=forward)
-            N = self.olens.propagate(N, self.oscint.visspectrum,
-                                     nrefrac=self.oscint.get_nrefrac(),
-                                     forward=forward)
+            N = self.odetector.propagate(
+                N,
+                self.oscint.visspectrum,
+                tframe=tframe,
+                nframe=nframe,
+                forward=forward,
+            )
+            N = self.olens.propagate(
+                N,
+                self.oscint.visspectrum,
+                nrefrac=self.oscint.get_nrefrac(),
+                forward=forward,
+            )
             if reshape:
                 N = N.reshape(reshape)
 
@@ -108,13 +140,21 @@ class id21_ffsetup(object):
         """
         N0 = self.propagate(1, energy, tframe, nframe, samplein=samplein)
         D0 = self.odetector.propagate(
-            0, emspectrum.Dark(), tframe=tframe, nframe=nframe)
-        return N0-D0, D0
+            0, emspectrum.Dark(), tframe=tframe, nframe=nframe
+        )
+        return N0 - D0, D0
 
-    def measurement(self, flux, energy,
-                    tframe_data=None, nframe_data=None,
-                    tframe_flat=None, nframe_flat=None,
-                    nframe_dark=None, withnoise=True):
+    def measurement(
+        self,
+        flux,
+        energy,
+        tframe_data=None,
+        nframe_data=None,
+        tframe_flat=None,
+        nframe_flat=None,
+        nframe_dark=None,
+        withnoise=True,
+    ):
         """ID21 fullfield noise propagation
 
         Args:
@@ -134,17 +174,16 @@ class id21_ffsetup(object):
         """
 
         # With sample
-        N = flux*tframe_data
+        N = flux * tframe_data
         if withnoise:
             N = noisepropagation.poisson(N)
         N = self.propagate(N, energy, tframe_data, nframe_data, samplein=True)
 
         # Without sample
-        N0 = flux*tframe_flat
+        N0 = flux * tframe_flat
         if withnoise:
             N0 = noisepropagation.poisson(N0)
-        N0 = self.propagate(N0, energy, tframe_flat,
-                            nframe_flat, samplein=False)
+        N0 = self.propagate(N0, energy, tframe_flat, nframe_flat, samplein=False)
 
         # Without beam
         if withnoise:
@@ -156,24 +195,37 @@ class id21_ffsetup(object):
 
         if nframe_dark != 0:
             D = self.odetector.propagate(
-                D, self.oscint.visspectrum, tframe=tframe_data, nframe=nframe_dark)
+                D, self.oscint.visspectrum, tframe=tframe_data, nframe=nframe_dark
+            )
             D0 = self.odetector.propagate(
-                D0, self.oscint.visspectrum, tframe=tframe_flat, nframe=nframe_dark)
+                D0, self.oscint.visspectrum, tframe=tframe_flat, nframe=nframe_dark
+            )
 
         return N, N0, D, D0
 
     def fluxfromflat(self, image, energy, tframe, nframe):
-        return self.propagate(image, energy, tframe, nframe,
-            samplein=False, withnoise=False, forward=False)/tframe
+        return (
+            self.propagate(
+                image,
+                energy,
+                tframe,
+                nframe,
+                samplein=False,
+                withnoise=False,
+                forward=False,
+            )
+            / tframe
+        )
 
     def flatfromflux(self, flux, energy, tframe, nframe):
-        return self.propagate(flux, energy, tframe, nframe,
-            samplein=False, withnoise=False, forward=True)
+        return self.propagate(
+            flux, energy, tframe, nframe, samplein=False, withnoise=False, forward=True
+        )
 
     @staticmethod
     def getnframes(totaltime, tframe_data, tframe_flat, fracflat):
-        ndata = max(int(round(totaltime/tframe_data*(1-fracflat))), 1)
-        nflat = max(int(round(totaltime/tframe_data*fracflat/2.)), 1)
+        ndata = max(int(round(totaltime / tframe_data * (1 - fracflat))), 1)
+        nflat = max(int(round(totaltime / tframe_data * fracflat / 2.0)), 1)
         nflat *= 2  # before and after
         return ndata, nflat
 
@@ -187,8 +239,8 @@ class id21_ffsetup(object):
 
     def costfunc(self, flux, energy, **kwargs):
         signal, noise = self.xanes(flux, energy, **kwargs)
-        jump = np.abs(signal[-1]-signal[0])
-        return np.max(noise)/jump
+        jump = np.abs(signal[-1] - signal[0])
+        return np.max(noise) / jump
 
     def __str__(self):
         return str(self.sample)
@@ -203,7 +255,7 @@ class id21_ffsetup(object):
 
     def plotxanesNSR(self, flux, energy, **kwargs):
         signal, noise = self.xanes(flux, energy, **kwargs)
-        p = plt.plot(energy, noise/signal*100)
+        p = plt.plot(energy, noise / signal * 100)
         plt.xlabel("Energy (keV)")
         plt.ylabel("N/S (%)")
         return p

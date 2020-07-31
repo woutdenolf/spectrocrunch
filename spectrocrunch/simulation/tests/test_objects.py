@@ -19,7 +19,6 @@ import numpy as np
 
 
 class test_objects(unittest.TestCase):
-
     def _assertRV(self, RV):
         if isarray(RV):
             tmp = noisepropagation.E(RV)
@@ -34,9 +33,9 @@ class test_objects(unittest.TestCase):
     def _checkprop1(self, o, vis=False, **kwargs):
         # Both arrays
         if vis:
-            s = emspectrum.Discrete(ureg.Quantity([500, 500], 'nm'), [1, 1])
+            s = emspectrum.Discrete(ureg.Quantity([500, 500], "nm"), [1, 1])
         else:
-            s = np.asarray([7., 7.])
+            s = np.asarray([7.0, 7.0])
         N = noisepropagation.poisson([1e5, 1e5, 1e5])
 
         Nout = o.propagate(N, s, **kwargs)
@@ -49,9 +48,9 @@ class test_objects(unittest.TestCase):
 
         # N array
         if vis:
-            s = emspectrum.Discrete(ureg.Quantity(500, 'nm'), 1)
+            s = emspectrum.Discrete(ureg.Quantity(500, "nm"), 1)
         else:
-            s = 7.
+            s = 7.0
         N = noisepropagation.poisson([1e5, 1e5, 1e5])
 
         Nout = o.propagate(N, s, **kwargs)
@@ -61,9 +60,9 @@ class test_objects(unittest.TestCase):
 
         # Energy array
         if vis:
-            s = emspectrum.Discrete(ureg.Quantity([500, 500], 'nm'), [1, 1])
+            s = emspectrum.Discrete(ureg.Quantity([500, 500], "nm"), [1, 1])
         else:
-            s = np.asarray([7., 7.])
+            s = np.asarray([7.0, 7.0])
         N = noisepropagation.poisson(1e5)
 
         Nout = o.propagate(N, s, **kwargs)
@@ -76,9 +75,9 @@ class test_objects(unittest.TestCase):
 
         # Not arrays
         if vis:
-            s = emspectrum.Discrete(ureg.Quantity(500, 'nm'), 1)
+            s = emspectrum.Discrete(ureg.Quantity(500, "nm"), 1)
         else:
-            s = 7.
+            s = 7.0
         N = noisepropagation.poisson(1e5)
 
         Nout = o.propagate(N, s, **kwargs)
@@ -88,9 +87,9 @@ class test_objects(unittest.TestCase):
 
     def _checkprop2(self, o, vis=False, **kwargs):
         if vis:
-            s = emspectrum.Discrete(ureg.Quantity(500, 'nm'), 1)
+            s = emspectrum.Discrete(ureg.Quantity(500, "nm"), 1)
         else:
-            s = 7.
+            s = 7.0
         N = noisepropagation.poisson(1e5)
         Nout = o.propagate(N, s, forward=True, **kwargs)
         N2 = o.propagate(Nout, s, forward=False, **kwargs)
@@ -106,8 +105,7 @@ class test_objects(unittest.TestCase):
 
         src = xraysources.factory("synchrotron")
         detector = area.factory("PCO Edge 5.5")
-        geometry = flatarea.factory(
-            "perpendicular", detector=detector, source=src)
+        geometry = flatarea.factory("perpendicular", detector=detector, source=src)
 
         self._checkprop(detector, tframe=2, nframe=10, vis=True)
 
@@ -125,11 +123,11 @@ class test_objects(unittest.TestCase):
         o = scintillators.factory("GGG ID21", thickness=13)
         self._checkprop(o)
 
-        #SNR = noisepropagation.SNR(N)
+        # SNR = noisepropagation.SNR(N)
 
-        #import matplotlib.pyplot as plt
+        # import matplotlib.pyplot as plt
         # plt.figure()
-        #energy = np.linspace(2,9,100,dtype=float)
+        # energy = np.linspace(2,9,100,dtype=float)
         # plt.plot(energy,o.transmission(energy))
 
         o = scintillators.factory("LSO ID21", thickness=10)
@@ -145,11 +143,13 @@ class test_objects(unittest.TestCase):
 
         detector = area.factory("PCO Edge 5.5")
         src = xraysources.factory("synchrotron")
-        geometry = flatarea.factory(
-            "perpendicular", detector=detector, source=src)
+        geometry = flatarea.factory("perpendicular", detector=detector, source=src)
 
-        o = multilayer.Multilayer(material=compoundfromname.compoundfromname("ultralene"),
-                                  thickness=4e-4, geometry=geometry)
+        o = multilayer.Multilayer(
+            material=compoundfromname.compoundfromname("ultralene"),
+            thickness=4e-4,
+            geometry=geometry,
+        )
         self._checkprop(o)
 
     def test_diodes(self):
@@ -170,7 +170,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

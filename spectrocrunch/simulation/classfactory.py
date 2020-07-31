@@ -8,7 +8,6 @@ import numpy as np
 
 
 class SimulClass(object):
-
     @staticmethod
     def propagate_broadcast(N, *args):
         """
@@ -28,7 +27,7 @@ class SimulClass(object):
             nenergy = np.asarray(args[0]).size
             N = np.broadcast_to(N, [nenergy, nN])
             args = tuple(np.broadcast_to(arg, [nN, nenergy]).T for arg in args)
-        return (N,)+args
+        return (N,) + args
 
 
 def with_metaclass(bases=None):
