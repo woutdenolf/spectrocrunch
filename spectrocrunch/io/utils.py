@@ -10,11 +10,10 @@ import string
 
 def randomstring(size=6, chars=string.ascii_letters + string.digits):
     # Number of combinations: n^size  (default: 62^6)
-    return ''.join(random.choice(chars) for _ in range(size))
+    return "".join(random.choice(chars) for _ in range(size))
 
 
 class Copy(object):
-
     def __init__(self, filename, copyname):
         self.filename = filename
         self.copyname = copyname
@@ -30,7 +29,6 @@ class Copy(object):
 
 
 class TemporaryCopy(object):
-
     def __init__(self, filename, ext=".tmp"):
         self.filename = filename
         self.tmpfilename = None
@@ -39,7 +37,7 @@ class TemporaryCopy(object):
     def __enter__(self):
         temp_dir = tempfile.gettempdir()
         temp_name = next(tempfile._get_candidate_names())
-        self.tmpfilename = os.path.join(temp_dir, temp_name+self.ext)
+        self.tmpfilename = os.path.join(temp_dir, temp_name + self.ext)
         shutil.copy2(self.filename, self.tmpfilename)
         return self.tmpfilename
 
@@ -50,9 +48,8 @@ class TemporaryCopy(object):
 
 
 class TemporaryFilename(object):
-
-    def __init__(self, path, suffix='.tmp', prefix=''):
-        self.tmpfilename = os.path.join(path, prefix+randomstring()+suffix)
+    def __init__(self, path, suffix=".tmp", prefix=""):
+        self.tmpfilename = os.path.join(path, prefix + randomstring() + suffix)
 
     def __enter__(self):
         return self.tmpfilename
@@ -63,6 +60,8 @@ class TemporaryFilename(object):
 
 
 def mkdir(path):
+    if not path:
+        return  # current working directory
     try:
         os.makedirs(path)
     except OSError as e:

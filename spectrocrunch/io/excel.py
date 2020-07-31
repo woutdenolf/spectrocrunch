@@ -12,18 +12,18 @@ import xlsxwriter
 import xlsxwriter.utility as xlsxutils
 from collections import OrderedDict
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class Writer(object):
-
     def __init__(self, filename=None):
         self.filename = filename
         self.open_file = None
 
     def __enter__(self):
         if self.filename:
-            self.open_file = pd.ExcelWriter(self.filename, engine='xlsxwriter')
+            self.open_file = pd.ExcelWriter(self.filename, engine="xlsxwriter")
         else:
             self.open_file = None
         return self
@@ -43,24 +43,31 @@ class Writer(object):
 
 
 class DataFrame(object):
-    indextypes = Enum(['index', 'name', 'xlsindex', 'xlscell'])
-    cellformats = Enum(['good', 'bad', 'select', 'scientific'])
-    critereatypes = Enum(['between', 'notbetween', 'condition', 'colorscale'])
-    priorities = Enum(['row', 'column'])
+    indextypes = Enum(["index", "name", "xlsindex", "xlscell"])
+    cellformats = Enum(["good", "bad", "select", "scientific"])
+    critereatypes = Enum(["between", "notbetween", "condition", "colorscale"])
+    priorities = Enum(["row", "column"])
 
-    def __init__(self, writer=None, sheet_name="Sheet1", priority="row", df=None,
-                 rowlevels=None, columnlevels=None, columnwidth=15, **kwargs):
+    def __init__(
+        self,
+        writer=None,
+        sheet_name="Sheet1",
+        priority="row",
+        df=None,
+        rowlevels=None,
+        columnlevels=None,
+        columnwidth=15,
+        **kwargs
+    ):
         self.writer = writer
         self.sheet_name = sheet_name
         self.priority = self.priorities(priority)
 
         if df is None:
             if rowlevels:
-                kwargs["index"] = pd.MultiIndex.from_tuples(
-                    [], names=rowlevels)
+                kwargs["index"] = pd.MultiIndex.from_tuples([], names=rowlevels)
             if columnlevels:
-                kwargs["columns"] = pd.MultiIndex.from_tuples(
-                    [], names=columnlevels)
+                kwargs["columns"] = pd.MultiIndex.from_tuples([], names=columnlevels)
             self.df = pd.DataFrame(**kwargs)
         else:
             self.df = df
@@ -72,8 +79,7 @@ class DataFrame(object):
         self.formulae_column = OrderedDict()
         self.formulae_row = OrderedDict()
         self.formulae_cell = OrderedDict()
-        self.headerfmt = {"bold": True,
-                          "bg_color": '#ffffff', "font_color": "#000000"}
+        self.headerfmt = {"bold": True, "bg_color": "#ffffff", "font_color": "#000000"}
         self.columnwidth = columnwidth
 
     @classmethod
@@ -85,7 +91,10 @@ class DataFrame(object):
                 return {}
             else:
                 raise
-        return {sheet_name: cls(df=df, sheet_name=sheet_name) for sheet_name, df in data.items()}
+        return {
+            sheet_name: cls(df=df, sheet_name=sheet_name)
+            for sheet_name, df in data.items()
+        }
 
     def addvalue(self, row, column, data):
         self._remove_formulae(row=row, column=column)
@@ -130,11 +139,13 @@ class DataFrame(object):
         if row is not None and column is not None:
             pass
         elif row is not None:
-            self.formulae_cell = {(r, c): v for (
-                r, c), v in self.formulae_cell.items() if r != row}
+            self.formulae_cell = {
+                (r, c): v for (r, c), v in self.formulae_cell.items() if r != row
+            }
         elif column is not None:
-            self.formulae_cell = {(r, c): v for (
-                r, c), v in self.formulae_cell.items() if c != column}
+            self.formulae_cell = {
+                (r, c): v for (r, c), v in self.formulae_cell.items() if c != column
+            }
 
     def addcolumn_formula(self, column, formula, columns):
         if not instance.isarray(columns):
@@ -142,7 +153,8 @@ class DataFrame(object):
         if column in columns:
             rhside = formula.format(*columns)
             raise RuntimeError(
-                "Self referencing formula: {} = {}".format(column, rhside))
+                "Self referencing formula: {} = {}".format(column, rhside)
+            )
         self.formulae_column[column] = formula, columns
         self._apply_column_formula(column, formula, columns)
         self._reapply_formulae(column=column)
@@ -152,8 +164,7 @@ class DataFrame(object):
             rows = [rows]
         if row in rows:
             rhside = formula.format(*rows)
-            raise RuntimeError(
-                "Self referencing formula: {} = {}".format(row, rhside))
+            raise RuntimeError("Self referencing formula: {} = {}".format(row, rhside))
         self.formulae_row[row] = formula, rows
         self._apply_row_formula(row, formula, rows)
         self._reapply_formulae(row=row)
@@ -166,7 +177,8 @@ class DataFrame(object):
         if row in rows or column in columns:
             rhside = formula.format(*[rc for rc in zip(rows, columns)])
             raise RuntimeError(
-                "Self referencing formula: {} = {}".format(row, column, rhside))
+                "Self referencing formula: {} = {}".format(row, column, rhside)
+            )
         self.formulae_cell[(row, column)] = formula, rows, columns
         self._apply_cell_formula(row, column, formula, rows, columns)
         self._reapply_formulae(row=row, column=column)
@@ -190,8 +202,7 @@ class DataFrame(object):
             self._addrow(row, data)
         else:
             for column in instance.arrayit(columns):
-                data = self._formula_eval(
-                    formula, indices, column, column=False)
+                data = self._formula_eval(formula, indices, column, column=False)
                 self._addvalue(row, column, data)
 
     def _apply_column_formulae(self, indices=None):
@@ -204,13 +215,24 @@ class DataFrame(object):
 
     def _apply_cell_formulae(self, row=None, column=None):
         if row is not None and column is not None:
-            def fapply(r, c): return r == row and c == column
+
+            def fapply(r, c):
+                return r == row and c == column
+
         elif row is not None:
-            def fapply(r, c): return r == row
+
+            def fapply(r, c):
+                return r == row
+
         elif column is not None:
-            def fapply(r, c): return c == column
+
+            def fapply(r, c):
+                return c == column
+
         else:
-            def fapply(r, c): return True
+
+            def fapply(r, c):
+                return True
 
         for (row, column), args in self.formulae_cell.items():
             if fapply(row, column):
@@ -230,9 +252,9 @@ class DataFrame(object):
         if swap:
             x, y = y, x
         if instance.isstring(x):
-            x = "\"{}\"".format(x)
+            x = '"{}"'.format(x)
         if instance.isstring(y):
-            y = "\"{}\"".format(y)
+            y = '"{}"'.format(y)
         return "self.df.at[{},{}]".format(x, y)  # row,column
 
     @classmethod
@@ -242,12 +264,12 @@ class DataFrame(object):
         else:
             add = ".loc"
         if instance.isstring(x):
-            return "self.df{}[\"{}\"]".format(add, x)
+            return 'self.df{}["{}"]'.format(add, x)
         else:
             return "self.df{}[{}]".format(add, x)
 
     def _eval_selfctx(self, expr):
-        expr = ast.parse(expr, mode='eval')
+        expr = ast.parse(expr, mode="eval")
         code = compile(expr, filename="<ast>", mode="eval")
         return eval(code, globals(), locals())
         # return eval(expr, globals(), locals())
@@ -255,7 +277,8 @@ class DataFrame(object):
     def _formula_eval_range(self, expr, args, column=True):
         # column refers to args
         expr = expr.format(
-            *[self._formula_argfunc_range(arg, column=column) for arg in args])
+            *[self._formula_argfunc_range(arg, column=column) for arg in args]
+        )
         return self._eval_selfctx(expr)
 
     def _formula_eval(self, expr, args, others, column=True):
@@ -263,9 +286,13 @@ class DataFrame(object):
         if not instance.isarray(args):
             args = [args]
         if not instance.isarray(others):
-            others = [others]*len(args)
-        expr = expr.format(*[self._formula_argfunc(arg, other, swap=column)
-                             for arg, other in zip(args, others)])
+            others = [others] * len(args)
+        expr = expr.format(
+            *[
+                self._formula_argfunc(arg, other, swap=column)
+                for arg, other in zip(args, others)
+            ]
+        )
         return self._eval_selfctx(expr)
 
     def addrowformat(self, index, fmt=None):
@@ -278,13 +305,11 @@ class DataFrame(object):
         if fmt:
             if column:
                 if index in self.formats_column:
-                    fmt = self._append_format(
-                        self.formats_column[index]["fmt"], fmt)
+                    fmt = self._append_format(self.formats_column[index]["fmt"], fmt)
                 self.formats_column[index] = {"fmt": fmt}
             else:
                 if index in self.formats_row:
-                    fmt = self._append_format(
-                        self.formats_row[index]["fmt"], fmt)
+                    fmt = self._append_format(self.formats_row[index]["fmt"], fmt)
                 self.formats_row[index] = {"fmt": fmt}
 
     def _append_format(self, fmt, add):
@@ -302,7 +327,9 @@ class DataFrame(object):
         else:
             self.criteria_row[index] = crit
 
-    def addcriterium_outliers(self, index, alpha=0.9, column=True, out=True, sided="double"):
+    def addcriterium_outliers(
+        self, index, alpha=0.9, column=True, out=True, sided="double"
+    ):
         crit = {}
         if sided == "single":
             m = scipy.stats.norm.ppf(alpha)
@@ -319,7 +346,7 @@ class DataFrame(object):
             else:
                 crit["mode"] = self.critereatypes.between
 
-        crit["func"] = lambda x: np.nanmean(x)+m*np.nanstd(x)
+        crit["func"] = lambda x: np.nanmean(x) + m * np.nanstd(x)
 
         if out:
             crit["fmt"] = self.cellformats.bad
@@ -331,17 +358,21 @@ class DataFrame(object):
     def addcriterium_colorscale(self, index, fmt=None, column=True, colors=None):
         if colors is None:
             # green,yellow,red
-            colors = ['#63be7b', '#ffeb84', '#f8696b']
+            colors = ["#63be7b", "#ffeb84", "#f8696b"]
 
         if len(colors) == 3:
-            cond = {'type': '3_color_scale',
-                    'min_color': colors[0],
-                    'mid_color': colors[1],
-                    'max_color': colors[2]}
+            cond = {
+                "type": "3_color_scale",
+                "min_color": colors[0],
+                "mid_color": colors[1],
+                "max_color": colors[2],
+            }
         else:
-            cond = {'type': '2_color_scale',
-                    'min_color': colors[0],
-                    'max_color': colors[-1]}
+            cond = {
+                "type": "2_color_scale",
+                "min_color": colors[0],
+                "max_color": colors[-1],
+            }
 
         crit = {"mode": self.critereatypes.colorscale, "cond": cond}
         if fmt:
@@ -377,12 +408,10 @@ class DataFrame(object):
             self._xls_save_colwidths()
 
     def sortrows(self, level=0):
-        self.df.sort_index(axis=0, level=level,
-                           sort_remaining=True, inplace=True)
+        self.df.sort_index(axis=0, level=level, sort_remaining=True, inplace=True)
 
     def sortcolumns(self, level=0):
-        self.df.sort_index(axis=1, level=level,
-                           sort_remaining=True, inplace=True)
+        self.df.sort_index(axis=1, level=level, sort_remaining=True, inplace=True)
 
     def sort(self, rowlevel=0, columnlevel=0):
         self.sortrows(level=rowlevel)
@@ -397,11 +426,9 @@ class DataFrame(object):
         width = self.columnwidth
         for c in range(c0):
             if c0 == 1:
-                width = max(width, max(len(rowindex)
-                                       for rowindex in self.df.index))
+                width = max(width, max(len(rowindex) for rowindex in self.df.index))
             else:
-                width = max(width, max(len(rowindex[c])
-                                       for rowindex in self.df.index))
+                width = max(width, max(len(rowindex[c]) for rowindex in self.df.index))
             hname = self.df.index.names[c]
             if hname:
                 width = max(width, len(hname))
@@ -449,22 +476,22 @@ class DataFrame(object):
             fmts = [fmts]
         for fmt in fmts:
             if fmt == self.cellformats.good:
-                fmtdict["bg_color"] = '#C6EFCE'
-                fmtdict["font_color"] = '#006100'
+                fmtdict["bg_color"] = "#C6EFCE"
+                fmtdict["font_color"] = "#006100"
             elif fmt == self.cellformats.bad:
-                fmtdict["bg_color"] = '#FFC7CE'
-                fmtdict["font_color"] = '#9C0006'
+                fmtdict["bg_color"] = "#FFC7CE"
+                fmtdict["font_color"] = "#9C0006"
             elif fmt == self.cellformats.select:
-                fmtdict["bg_color"] = '#FFEB9C'
-                fmtdict["font_color"] = '#9C6500'
+                fmtdict["bg_color"] = "#FFEB9C"
+                fmtdict["font_color"] = "#9C6500"
             elif fmt == self.cellformats.scientific:
                 fmtdict["num_format"] = "0.00E+00"
             else:
                 if isinstance(fmt, dict):
                     fmtdict.update(fmt)
                 elif fmt:
-                    fmtdict["bg_color"] = '#FFFFFF'
-                    fmtdict["font_color"] = '#000000'
+                    fmtdict["bg_color"] = "#FFFFFF"
+                    fmtdict["font_color"] = "#000000"
         return fmtdict
 
     def _xls_apply_criterium(self, index, crit, column=True):
@@ -475,13 +502,11 @@ class DataFrame(object):
         # Select data and excel range
         if column:
             head, ran = self._xls_column(index, fromtype)
-            name = self._convert_colindex(
-                index, fromtype, self.indextypes.name)
+            name = self._convert_colindex(index, fromtype, self.indextypes.name)
             values = self.df[name].values
         else:
             head, ran = self._xls_row(index, fromtype)
-            name = self._convert_rowindex(
-                index, fromtype, self.indextypes.name)
+            name = self._convert_rowindex(index, fromtype, self.indextypes.name)
             values = self.df.loc[name].values
 
         # Add condition
@@ -498,14 +523,18 @@ class DataFrame(object):
             elif ma == np.inf:
                 cond = {"type": "cell", "criteria": oma, "value": mi}
             else:
-                cond = {"type": "cell", "criteria": criteria,
-                        "minimum": mi, "maximum": ma}
+                cond = {
+                    "type": "cell",
+                    "criteria": criteria,
+                    "minimum": mi,
+                    "maximum": ma,
+                }
         elif mode == self.critereatypes.condition:
             func = crit.get("func", lambda x: np.nanmean(x))
             op = crit.get("operator", "==")
             cond = {"type": "cell", "criteria": op, "value": func(values)}
         elif mode == self.critereatypes.colorscale:
-            cond = crit.get("cond", {'type': '3_color_scale'})
+            cond = crit.get("cond", {"type": "3_color_scale"})
         else:
             cond = {"type": "cell", "criteria": ">", "value": -1e9}
 
@@ -518,12 +547,10 @@ class DataFrame(object):
 
         fmt = self._xls_add_format(fmt)
         if column:
-            coli = self._convert_colindex(
-                index, fromtype, self.indextypes.xlsindex)
+            coli = self._convert_colindex(index, fromtype, self.indextypes.xlsindex)
             self.worksheet.set_column(coli, coli, None, fmt)
         else:
-            rowi = self._convert_rowindex(
-                index, fromtype, self.indextypes.xlsindex)
+            rowi = self._convert_rowindex(index, fromtype, self.indextypes.xlsindex)
             self.worksheet.set_row(rowi, None, fmt)
 
     @property
@@ -554,21 +581,20 @@ class DataFrame(object):
                     y = self.df.columns[x]
             else:  # xlsindex, xlscell
                 if row:
-                    y = x+self._xls_rowoff
+                    y = x + self._xls_rowoff
                 else:
-                    y = x+self._xls_coloff
+                    y = x + self._xls_coloff
         elif fromtype == self.indextypes.name:
             if row:
                 y = self.df.index.get_loc(x)
             else:
                 y = self.df.columns.get_loc(x)
-            y = self._convert_singleindex(
-                y, self.indextypes.index, totype, row=row)
+            y = self._convert_singleindex(y, self.indextypes.index, totype, row=row)
         else:  # xlsindex, xlscell
             if row:
-                y = x-self._xls_rowoff
+                y = x - self._xls_rowoff
             else:
-                y = x-self._xls_coloff
+                y = x - self._xls_coloff
             y = self._convert_singleindex(y, indextypes.index, totype, row=row)
 
         return y
@@ -601,10 +627,12 @@ class DataFrame(object):
         head = xlsxutils.xl_rowcol_to_cell(0, coli, True, True)
         if absolute:
             ran = xlsxutils.xl_range_abs(
-                self._xls_rowoff, coli, self._xls_nrow+self._xls_rowoff-1, coli)
+                self._xls_rowoff, coli, self._xls_nrow + self._xls_rowoff - 1, coli
+            )
         else:
             ran = xlsxutils.xl_range(
-                self._xls_rowoff, coli, self._xls_nrow+self._xls_rowoff-1, coli)
+                self._xls_rowoff, coli, self._xls_nrow + self._xls_rowoff - 1, coli
+            )
         return head, ran
 
     def _xls_row(self, row, fromtype, absolute=True):
@@ -613,8 +641,10 @@ class DataFrame(object):
         head = xlsxutils.xl_rowcol_to_cell(rowi, 0, True, True)
         if absolute:
             ran = xlsxutils.xl_range_abs(
-                rowi, self._xls_coloff, rowi, self._xls_ncol+self._xls_coloff-1)
+                rowi, self._xls_coloff, rowi, self._xls_ncol + self._xls_coloff - 1
+            )
         else:
             ran = xlsxutils.xl_range(
-                rowi, self._xls_coloff, rowi, self._xls_ncol+self._xls_coloff-1)
+                rowi, self._xls_coloff, rowi, self._xls_ncol + self._xls_coloff - 1
+            )
         return head, ran

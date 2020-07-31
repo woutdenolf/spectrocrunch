@@ -5,20 +5,21 @@ import os
 import fabio
 
 
-class edfmemmap():
+class edfmemmap:
     """Access edf data with memmaps (cannot handle certain things like compression)
     """
 
-    def __init__(self, filename, mode='r'):
-        #f = fabio.edfimage.EdfImage(filename)
+    def __init__(self, filename, mode="r"):
+        # f = fabio.edfimage.EdfImage(filename)
         f = fabio.open(filename)
 
         self.dtype = f.bytecode
         self.shape = (f.dim2, f.dim1)
         self.ndim = len(self.shape)
         offset = f._frames[f.currentframe].start
-        self.mdata = np.memmap(filename, dtype=self.dtype,
-                               offset=offset, shape=self.shape, order='C')
+        self.mdata = np.memmap(
+            filename, dtype=self.dtype, offset=offset, shape=self.shape, order="C"
+        )
 
         if f.swap_needed():
             self.mdata.byteswap(True)
@@ -31,12 +32,12 @@ class edfmemmap():
         return self.data[index]
 
 
-class edfimage():
+class edfimage:
     """Access edf data with fabio
     """
 
-    def __init__(self, filename, mode='r'):
-        #self.f = fabio.edfimage.EdfImage(filename)
+    def __init__(self, filename, mode="r"):
+        # self.f = fabio.edfimage.EdfImage(filename)
         self.f = fabio.open(filename)
         self.ndim = 2
 

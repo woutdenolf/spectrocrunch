@@ -18,18 +18,16 @@ logger = logging.getLogger(__name__)
 
 
 def checkdata(f):
-    assert(f['data'][()] == 10)
+    assert f["data"][()] == 10
 
 
 def setdata(f):
-    f['data'] = 10
+    f["data"] = 10
 
 
 def createHolder(Base):
     class Holder(Base):
-
-        def __init__(self, destination, desttype, holdmode, startevent,
-                     exitevent):
+        def __init__(self, destination, desttype, holdmode, startevent, exitevent):
             super(Holder, self).__init__()
             self.destination = destination
             self.desttype = desttype
@@ -45,8 +43,11 @@ def createHolder(Base):
                 raise
 
         def _run(self):
-            logger.debug('\nDestination: type = {}, mode = {}'
-                         .format(self.desttype, self.holdmode))
+            logger.debug(
+                "\nDestination: type = {}, mode = {}".format(
+                    self.desttype, self.holdmode
+                )
+            )
 
             # Remove destination
             try:
@@ -63,21 +64,21 @@ def createHolder(Base):
                     raise
 
             # Hold destination
-            if self.desttype == 'file':
-                with open(self.destination, mode='w') as f:
-                    f.write('content')
+            if self.desttype == "file":
+                with open(self.destination, mode="w") as f:
+                    f.write("content")
                 if self.holdmode:
                     with open(self.destination, mode=self.holdmode) as f:
                         self._sendevent()
                 else:
                     self._sendevent()
-            elif self.desttype == 'dir':
+            elif self.desttype == "dir":
                 os.mkdir(self.destination)
                 self._sendevent()
-            elif self.desttype == 'hdf5':
+            elif self.desttype == "hdf5":
                 if self.holdmode:
-                    if self.holdmode.startswith('r'):
-                        with h5py.File(self.destination, mode='w') as f:
+                    if self.holdmode.startswith("r"):
+                        with h5py.File(self.destination, mode="w") as f:
                             setdata(f)
                         with h5py.File(self.destination, mode=self.holdmode) as f:
                             self._sendevent()
@@ -99,7 +100,6 @@ def createHolder(Base):
 
 def createClient(Base):
     class Client(Base):
-
         def __init__(self, destination, mode, output):
             super(Client, self).__init__()
             self.destination = destination
@@ -107,7 +107,7 @@ def createClient(Base):
             self.output = output
 
         def run(self):
-            logger.debug('Hdf5 open mode = {}'.format(self.mode))
+            logger.debug("Hdf5 open mode = {}".format(self.mode))
             output = self._testopen(self.mode)
             logger.debug(output)
             updatedata(self.output, output)
@@ -115,34 +115,36 @@ def createClient(Base):
         def _testopen(self, mode):
             try:
                 with h5py.File(self.destination, mode=mode) as f:
-                    output = 'OK'
-                    if mode == 'r':
+                    output = "OK"
+                    if mode == "r":
                         checkdata(f)
             except IOError as err:
                 output = errno.errorcode.get(err.errno, None)
                 if output is None:
                     errmsg = str(err)
-                    m = re.search('errno = ([0-9]+)', errmsg)
+                    m = re.search("errno = ([0-9]+)", errmsg)
                     if m:
                         output = errno.errorcode.get(int(m.groups()[0]), None)
                     if output is None:
-                        m = re.search('error message = \'(.+)\'', errmsg)
+                        m = re.search("error message = '(.+)'", errmsg)
                         if m:
                             output = m.groups()[0]
-                        elif 'file signature not found' in errmsg:
-                            output = 'H5_SIGERR'
-                        elif 'unable to truncate a file which is already open' in errmsg:
-                            output = 'H5_TRUNCERR'
-                        elif 'file exists' in errmsg:
-                            output = 'H5_EEXIST'
-                        elif 'file is already open' in errmsg:
-                            output = 'H5_OPENERR'
+                        elif "file signature not found" in errmsg:
+                            output = "H5_SIGERR"
+                        elif (
+                            "unable to truncate a file which is already open" in errmsg
+                        ):
+                            output = "H5_TRUNCERR"
+                        elif "file exists" in errmsg:
+                            output = "H5_EEXIST"
+                        elif "file is already open" in errmsg:
+                            output = "H5_OPENERR"
                         elif errmsg:
                             output = errmsg
                         else:
                             output = str(err)
             except (KeyError, AssertionError):
-                output += '_NODATA'
+                output += "_NODATA"
             return output
 
     return Client
@@ -157,15 +159,14 @@ def datainit(filename):
 
 
 def updatedata(info, value):
-    filename = info['filename']
-    sheet_name = info['sheet_name']
-    row = info['row']
-    column = info['column']
+    filename = info["filename"]
+    sheet_name = info["sheet_name"]
+    row = info["row"]
+    column = info["column"]
     data = excel.DataFrame.fromexcel(filename, index_col=[0, 1])
     df = data.get(sheet_name, None)
     if df is None:
-        df = excel.DataFrame(sheet_name=sheet_name,
-                             rowlevels=('Existing', 'Lock mode'))
+        df = excel.DataFrame(sheet_name=sheet_name, rowlevels=("Existing", "Lock mode"))
         data[sheet_name] = df
     df.addvalue(row, column, str(value))
     with excel.Writer(filename) as writer:
@@ -177,19 +178,23 @@ def updatedata(info, value):
 
 def run(Base, Event, destination, filename, sheet_name):
     locking = os.environ.get("HDF5_USE_FILE_LOCKING", None)
-    os.environ["HDF5_USE_FILE_LOCKING"] = 'FALSE'
+    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 
     Holder = createHolder(Base)
     Client = createClient(Base)
 
-    filemode = [None, 'r', 'r+', 'w', 'w+', 'a', 'a+']
+    filemode = [None, "r", "r+", "w", "w+", "a", "a+"]
     dirmode = [None]
-    lockmode = [None, 'r', 'r+', 'w', 'x', 'a']
+    lockmode = [None, "r", "r+", "w", "x", "a"]
     nonemode = [None]
-    clientmode = ['r', 'r+', 'w', 'x', 'a']
+    clientmode = ["r", "r+", "w", "x", "a"]
 
-    desttypes = ['file']*len(filemode) + ['dir']*len(dirmode) + \
-        ['hdf5']*len(lockmode) + ['None']*len(nonemode)
+    desttypes = (
+        ["file"] * len(filemode)
+        + ["dir"] * len(dirmode)
+        + ["hdf5"] * len(lockmode)
+        + ["None"] * len(nonemode)
+    )
     holdmodes = filemode + dirmode + lockmode + nonemode
 
     startevent = Event()
@@ -197,14 +202,16 @@ def run(Base, Event, destination, filename, sheet_name):
 
     for desttype, holdmode in zip(desttypes, holdmodes):
         for mode in clientmode:
-            output = {'filename': filename, 'row': (
-                desttype, str(holdmode)), 'column': mode}
-            holder = Holder(destination, desttype,
-                            holdmode, startevent, exitevent)
+            output = {
+                "filename": filename,
+                "row": (desttype, str(holdmode)),
+                "column": mode,
+            }
+            holder = Holder(destination, desttype, holdmode, startevent, exitevent)
             holder.start()
             startevent.wait()
 
-            output['sheet_name'] = sheet_name+'_locked'
+            output["sheet_name"] = sheet_name + "_locked"
             client = Client(destination, mode, output)
             client.start()
             client.join()
@@ -214,7 +221,7 @@ def run(Base, Event, destination, filename, sheet_name):
             startevent.clear()
             exitevent.clear()
 
-            output['sheet_name'] = sheet_name+'_unlocked'
+            output["sheet_name"] = sheet_name + "_unlocked"
             client = Client(destination, mode, output)
             client.start()
             client.join()
@@ -226,17 +233,21 @@ def run(Base, Event, destination, filename, sheet_name):
 def main(path=None):
     if path is None:
         path = TempDirectory().path
-    outfilename = os.path.join(path, 'test.xlsx')
-    h5filename = os.path.join(path, 'test.h5')
+    outfilename = os.path.join(path, "test.xlsx")
+    h5filename = os.path.join(path, "test.h5")
     datainit(outfilename)
-    run(multiprocessing.Process, multiprocessing.Event,
-        h5filename, outfilename, 'process')
-    logger.debug('---------------------------------')
-    run(threading.Thread, threading.Event, h5filename, outfilename, 'thread')
+    run(
+        multiprocessing.Process,
+        multiprocessing.Event,
+        h5filename,
+        outfilename,
+        "process",
+    )
+    logger.debug("---------------------------------")
+    run(threading.Thread, threading.Event, h5filename, outfilename, "thread")
 
 
 class test_h5py(unittest.TestCase):
-
     def setUp(self):
         self.dir = TempDirectory()
 
@@ -245,22 +256,32 @@ class test_h5py(unittest.TestCase):
 
     @property
     def outfilename(self):
-        return os.path.join(self.dir.path, 'test.xlsx')
+        return os.path.join(self.dir.path, "test.xlsx")
 
     @property
     def h5filename(self):
-        return os.path.join(self.dir.path, 'test.h5')
+        return os.path.join(self.dir.path, "test.h5")
 
     def test_thread(self):
         datainit(self.outfilename)
-        run(threading.Thread, threading.Event,
-            self.h5filename, self.outfilename, 'thread')
+        run(
+            threading.Thread,
+            threading.Event,
+            self.h5filename,
+            self.outfilename,
+            "thread",
+        )
 
     @unittest.skipIf(sys.platform.startswith("win"), "Does not work under Windows")
     def test_process(self):
         datainit(self.outfilename)
-        run(multiprocessing.Process, multiprocessing.Event,
-            self.h5filename, self.outfilename, 'process')
+        run(
+            multiprocessing.Process,
+            multiprocessing.Event,
+            self.h5filename,
+            self.outfilename,
+            "process",
+        )
 
 
 def test_suite():
@@ -271,7 +292,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

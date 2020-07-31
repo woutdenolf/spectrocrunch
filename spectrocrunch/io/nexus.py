@@ -17,13 +17,13 @@ def hdf5pathparse(path):
     Returns:
         tuple: (path,name)
     """
-    l = [x for x in path.split('/') if x]
+    l = [x for x in path.split("/") if x]
     if len(l) == 0:
-        return '/', ""
+        return "/", ""
     elif len(l) == 1:
-        return '/', l[0]
+        return "/", l[0]
     else:
-        return '/'+'/'.join(l[:-1]), l[-1]
+        return "/" + "/".join(l[:-1]), l[-1]
 
 
 def timestamp():
@@ -32,7 +32,6 @@ def timestamp():
 
 
 class File(h5py.File):
-
     def __init__(self, filename, **kwargs):
         """
         r: readonly, file must exist
@@ -82,7 +81,8 @@ def createlink(f, dest, linkdir, linkname, soft=True):
         bclose = True
     else:
         raise ValueError(
-            "The hdf5 file must be either a string or an hdf5 file object.")
+            "The hdf5 file must be either a string or an hdf5 file object."
+        )
 
     if dest in hdf5FileObject:
         if soft:
@@ -126,14 +126,13 @@ def addinfogroup(fout, name, datadict):
         ginfo = fout["processing"]
 
     # Add new info group
-    index = len(ginfo.keys())+1
+    index = len(ginfo.keys()) + 1
 
     name = "%d.%s" % (index, name)
     newgroup = ginfo.create_group(name)
     newgroup.attrs["NX_class"] = "NXprocess"
     newgroup.attrs["program"] = "spectrocrunch"
-    newgroup.attrs["version"] = pkg_resources.require("SpectroCrunch")[
-        0].version
+    newgroup.attrs["version"] = pkg_resources.require("SpectroCrunch")[0].version
     newgroup.attrs["sequence_index"] = index
     newgroup.attrs["date"] = timestamp()
 
@@ -148,12 +147,12 @@ def getinfogroups(fout):
     steps = ginfo.keys()
     if len(steps) == 0:
         return []
-    ret = [None]*len(steps)
+    ret = [None] * len(steps)
 
     # Get info
     for step in steps:
         tmp = step.split(".")
-        ind = int(tmp[0])-1
+        ind = int(tmp[0]) - 1
         name = ".".join(tmp[1:])
         ret[ind] = h5todict(fout, ginfo[step].name)
 
@@ -200,7 +199,7 @@ def NXdefault(child, up=True):
         return
 
     # Update all "default" attributes of the parents
-    while p.name != '/':
+    while p.name != "/":
         path, name = hdf5pathparse(p.name)
         p.parent.attrs["default"] = name
         p = p.parent
@@ -221,21 +220,22 @@ def defaultstack(f, nxdatagroup):
         bclose = True
     else:
         raise ValueError(
-            "The hdf5 file must be either a string or an hdf5 file object.")
+            "The hdf5 file must be either a string or an hdf5 file object."
+        )
 
     # Nexus default
     NXdefault(hdf5FileObject[nxdatagroup])
 
     # Pymca default: PyMcaGui/pymca/QHDF5StackWizard.py
     # It only expects 1 group (old txmwizard as well)
-    #default = "_defaultstack"
+    # default = "_defaultstack"
     # if default in hdf5FileObject:
     #    entry = hdf5FileObject[default]
     # else:
     #    entry = newNXentry(hdf5FileObject,default)
-    #entry.attrs["description"] = "For viewers who don't implement the new default data convention."
+    # entry.attrs["description"] = "For viewers who don't implement the new default data convention."
     # removesoftlinks(entry)
-    #path, name = hdf5pathparse(nxdatagroup)
+    # path, name = hdf5pathparse(nxdatagroup)
     # createlink(hdf5FileObject,nxdatagroup,entry.name,name)
 
     # Done
@@ -307,12 +307,16 @@ def createNXdataSignal(nxdatagrp, **kwargs):
         if isinstance(kwargs["data"], h5py.Dataset):
             if kwargs["data"].file == nxdatagrp.file:
                 # Dataset and NXdata group in the same file: create link
-                createlink(nxdatagrp, kwargs["data"].name,
-                           nxdatagrp.name, nxdatagrp.attrs["signal"])
+                createlink(
+                    nxdatagrp,
+                    kwargs["data"].name,
+                    nxdatagrp.name,
+                    nxdatagrp.attrs["signal"],
+                )
                 return
             else:
                 pass
-                #kwargs["data"] = kwargs["data"].value
+                # kwargs["data"] = kwargs["data"].value
 
     # Create dataset
     dset = nxdatagrp.create_dataset(nxdatagrp.attrs["signal"], **kwargs)
@@ -339,7 +343,7 @@ def createaxes(fout, axes):
     else:
         grp = newNXentry(fout, "axes")
     naxes = len(axes)
-    ret = [None]*naxes
+    ret = [None] * naxes
     for i in range(naxes):
         grp2 = newNXdata(grp, axes[i]["name"], "")
         dset = grp2.create_dataset(grp2.attrs["signal"], data=axes[i]["data"])
@@ -369,7 +373,7 @@ def newaxes(fout, axes, axesdata, extension):
         add = ""
 
     naxes = len(axes)
-    ret = [None]*naxes
+    ret = [None] * naxes
 
     for i in range(naxes):
         newname = axes[i]["fullname"].split(".")[0] + add
@@ -396,18 +400,17 @@ def linkaxes(fout, axes, groups):
         groups (list(str)): list of NXdata groups
     """
     for nxdatagrp in groups:
-        axesstr = ':'.join([a["name"] for a in axes])
+        axesstr = ":".join([a["name"] for a in axes])
         nxdatagrp.attrs["axes"] = axesstr
         nxdatagrp[nxdatagrp.attrs["signal"]].attrs["axes"] = axesstr
         for i in range(len(axes)):
             a = axes[i]
-            createlink(fout, a["fullname"], nxdatagrp.name,
-                       a["name"], soft=True)
-            nxdatagrp.attrs[a["name"]+"_indices"] = i
+            createlink(fout, a["fullname"], nxdatagrp.name, a["name"], soft=True)
+            nxdatagrp.attrs[a["name"] + "_indices"] = i
 
 
 def parse_NXdata(grp):
-    axesnames = grp.attrs["axes"].split(':')
+    axesnames = grp.attrs["axes"].split(":")
     data = grp[grp.attrs["signal"]]
     axes = [grp[a] for a in axesnames]
     return data, axes, axesnames

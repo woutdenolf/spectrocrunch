@@ -19,6 +19,7 @@ class FileSystemException(Exception):
     """
     Base class for generic file system exceptions.
     """
+
     pass
 
 
@@ -27,6 +28,7 @@ class Missing(FileSystemException):
     Raised when a file system operation can't be performed because
     a file or directory does not exist when it is required to.
     """
+
     pass
 
 
@@ -35,6 +37,7 @@ class AlreadyExists(FileSystemException):
     Raised when a file system operation can't be performed because
     a file or directory exists but is required to not exist.
     """
+
     pass
 
 
@@ -43,6 +46,7 @@ class MissingParentDirectory(FileSystemException):
     Raised when a parent directory doesn't exist.
     (Imagine mkdir without -p)
     """
+
     pass
 
 
@@ -51,6 +55,7 @@ class NotADirectory(FileSystemException):
     Raised when a file system operation can't be performed because
     an expected directory is actually a file.
     """
+
     pass
 
 
@@ -59,6 +64,7 @@ class NotAFile(FileSystemException):
     Raised when a file system operation can't be performed because
     an expected file is actually a directory.
     """
+
     pass
 
 
@@ -67,6 +73,7 @@ class DirectoryIsNotEmpty(FileSystemException):
     Raised when a file system operation can't be performed because
     a directory is not empty.
     """
+
     pass
 
 
@@ -133,9 +140,10 @@ def onclose(func):
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         if self._handle:
-            self._onclose_callbacks.append((func, (self,)+args, kwargs))
+            self._onclose_callbacks.append((func, (self,) + args, kwargs))
         else:
             return func(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -154,7 +162,7 @@ class Path(File):
     @property
     def location(self):
         if self.device:
-            return '{}{}{}'.format(self.device, self.devsep, self.path)
+            return "{}{}{}".format(self.device, self.devsep, self.path)
         else:
             return self.path
 
@@ -164,11 +172,11 @@ class Path(File):
 
     @property
     def device(self):
-        return ''
+        return ""
 
     @property
     def devsep(self):
-        return ''
+        return ""
 
     def devsplit(self, path):
         return path.split(self.devsep)
@@ -205,7 +213,7 @@ class Path(File):
             n = len(tmp)
             if n == 1:
                 # /tmp/test.h5
-                devicepath, localpath = tmp[0], ''
+                devicepath, localpath = tmp[0], ""
             elif n == 2:
                 # /tmp/test.h5:/entry/subentry
                 devicepath, localpath = tmp
@@ -220,9 +228,9 @@ class Path(File):
                 else:
                     if path.startswith(strdevice):
                         devicepath = device
-                        localpath = path[len(strdevice):]
+                        localpath = path[len(strdevice) :]
                         if localpath.startswith(self.devsep):
-                            localpath = localpath[len(self.devsep):]
+                            localpath = localpath[len(self.devsep) :]
                     elif not localpath:
                         devicepath = device
                         localpath = path
@@ -250,7 +258,7 @@ class Path(File):
         return self.factorycls(self.location, **kwargs)
 
     def readonly(self, **kwargs):
-        kwargs['mode'] = 'r'
+        kwargs["mode"] = "r"
         self.detach(**kwargs)
 
     def sibling(self, path):
@@ -258,7 +266,7 @@ class Path(File):
             return path
         _device, _path = self._split_path(path, device=self.device)
         if _device is None:
-            _device = ''
+            _device = ""
         else:
             _device = str(_device)
         if str(self.device) == _device and not self.isabs(_path):
@@ -328,7 +336,7 @@ class Path(File):
             path = "{}{}{}".format(self.device, self.devsep, path)
         return self.factory(path)
 
-    #def __call__(self, *value):
+    # def __call__(self, *value):
     #    return self.__getitem__(value)
 
     def __iter__(self):
@@ -344,7 +352,7 @@ class Path(File):
 
     @property
     def parent(self):
-        return self['..']
+        return self[".."]
 
     def common(self, path):
         path = self.factory(path)
@@ -443,7 +451,7 @@ class Path(File):
         else:
             osroot = os.path.abspath(os.sep)
             if path.startswith(osroot):
-                path = os.sep + path[len(osroot):]
+                path = os.sep + path[len(osroot) :]
             return path.replace(os.sep, self.sep)
 
     def join(self, *args):
@@ -509,8 +517,14 @@ class Path(File):
                     if not recursive and _level == depth:
                         lst.append((path, None))
                     else:
-                        lst.append(path.tree(recursive=recursive, depth=depth,
-                                             files=files, _level=_level+1))
+                        lst.append(
+                            path.tree(
+                                recursive=recursive,
+                                depth=depth,
+                                files=files,
+                                _level=_level + 1,
+                            )
+                        )
                 elif files:
                     lst.append((path, None))
         else:
@@ -523,15 +537,14 @@ class Path(File):
     def strtree(self, recursive=True, depth=0, files=True, stats=False):
         tree = self.tree(recursive=recursive, depth=depth, files=files)
         lines = self._str_tree(tree, stats=stats)
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     def ls(self, recursive=False, depth=0, files=True, stats=False):
-        tree = self.strtree(recursive=recursive, depth=depth,
-                            files=files, stats=stats)
+        tree = self.strtree(recursive=recursive, depth=depth, files=files, stats=stats)
         print(tree)
 
     @classmethod
-    def _str_tree(cls, node, stats=False, _padding=' '):
+    def _str_tree(cls, node, stats=False, _padding=" "):
         path, lst = node
         out = []
         if path:
@@ -541,23 +554,23 @@ class Path(File):
                 node = path.name
             else:
                 node = path.location
-            nodename = '{}+-{}'.format(indent, node)
+            nodename = "{}+-{}".format(indent, node)
 
             # Add link info
             lnkdest = path.linkdest(follow=False)
             if lnkdest:
                 if lnkdest.lexists:
-                    sep = '-'
+                    sep = "-"
                 else:
-                    sep = '/'
-                nodename = '{} -{}-> '.format(nodename, sep)
+                    sep = "/"
+                nodename = "{} -{}-> ".format(nodename, sep)
 
                 if path.device == lnkdest.device:
                     lnkdeststr = path.parent.relpath(lnkdest.path)
                     lst = None
                 else:
                     lnkdeststr = lnkdest.location
-                    _padding += ' '*(len(nodename)-4)
+                    _padding += " " * (len(nodename) - 4)
 
                 nodename += lnkdeststr
                 if stats:
@@ -567,7 +580,7 @@ class Path(File):
                     if stats:
                         nodename += path._contentinfo()
                 else:
-                    nodename = nodename + ' (does not exist)'
+                    nodename = nodename + " (does not exist)"
             out.append(nodename)
 
             # Add stats
@@ -578,29 +591,26 @@ class Path(File):
                     pass  # broken link
                 else:
                     if lst:
-                        sep = '|'
+                        sep = "|"
                     else:
-                        sep = ' '
+                        sep = " "
                     for k, v in sts.items():
-                        out.append('{} {} @{} = {}'.format(
-                            _padding, sep, k, v))
+                        out.append("{} {} @{} = {}".format(_padding, sep, k, v))
 
             # Add subnodes
             if lst:
                 last = len(lst)
-                _padding = _padding + ' '
+                _padding = _padding + " "
                 for i, node in enumerate(lst, 1):
-                    out.append(_padding+'|')
+                    out.append(_padding + "|")
                     if i == last:
-                        out += cls._str_tree(node, stats=stats,
-                                             _padding=_padding+' ')
+                        out += cls._str_tree(node, stats=stats, _padding=_padding + " ")
                     else:
-                        out += cls._str_tree(node, stats=stats,
-                                             _padding=_padding+'|')
+                        out += cls._str_tree(node, stats=stats, _padding=_padding + "|")
         return out
 
     def _contentinfo(self):
-        return ''
+        return ""
 
     def node(self, follow=True):
         if follow:
@@ -701,21 +711,18 @@ class Path(File):
         return lnkdest
 
     @contextlib.contextmanager
-    def temp(self, name=None, force=False, **kwargs):
+    def temp(self, name=None, force=False, remove=True, **kwargs):
         """Context manager which creates a non-existing temporary path
         that will be removed or renamed on exit.
         """
         path = self.randomnode(**kwargs)
         try:
             yield path
-        except:
-            path.remove(recursive=True)
-            raise
         finally:
             if name:
                 if path.exists:
                     path.renameremove(name, force=force)
-            else:
+            elif remove:
                 path.remove(recursive=True)
 
     def renameremove(self, dest, force=False):
@@ -727,12 +734,12 @@ class Path(File):
             self.remove(recursive=True)
             return self
 
-    def randomnode(self, prefix='', suffix='', **kwargs):
+    def randomnode(self, prefix="", suffix="", **kwargs):
         """Non-existing node with random name
         """
-        path = self[prefix+utils.randomstring(**kwargs)+suffix]
+        path = self[prefix + utils.randomstring(**kwargs) + suffix]
         while path.exists:
-            path = self[prefix+utils.randomstring(**kwargs)+suffix]
+            path = self[prefix + utils.randomstring(**kwargs) + suffix]
         return path
 
     def find(self, match, recursive=False, files=True, depth=0, _level=0):
@@ -749,22 +756,21 @@ class Path(File):
             if match(path):
                 yield path
             if recursive and path.isdir and _level > depth:
-                for sub in path.find(match,
-                                     recursive=True,
-                                     depth=depth,
-                                     _level=_level+1):
+                for sub in path.find(
+                    match, recursive=True, depth=depth, _level=_level + 1
+                ):
                     yield sub
 
     def nonexisting_name(self, name):
         if name not in self:
             return name
-        m = re.match(r'^(.+)\((\d+)\)$', name)
+        m = re.match(r"^(.+)\((\d+)\)$", name)
         if m:
             name = m.groups()[0]
-            i = int(m.groups()[1])+1
+            i = int(m.groups()[1]) + 1
         else:
             i = 1
-        fmt = name + '({})'
+        fmt = name + "({})"
         while fmt.format(i) in self:
             i += 1
         return fmt.format(i)

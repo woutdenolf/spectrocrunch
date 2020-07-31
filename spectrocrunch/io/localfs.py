@@ -18,6 +18,7 @@ class FileSystemException(fs.FileSystemException):
     """
     Base class for generic local file system exceptions.
     """
+
     pass
 
 
@@ -25,7 +26,7 @@ class Path(fs.Path):
     """Proxy to local path
     """
 
-    def __init__(self, path, mode='a+', **kwargs):
+    def __init__(self, path, mode="a+", **kwargs):
         """
         Args:
             path(str):
@@ -39,17 +40,17 @@ class Path(fs.Path):
                 a : create (append when existing), write from end
                 a+: create (append when existing), read/write from end
         """
-        if mode not in ('r', 'r+', 'w', 'w+', 'x', 'x+', 'a', 'a+'):
-            raise ValueError('Invalid mode {}'.format(repr(mode)))
+        if mode not in ("r", "r+", "w", "w+", "x", "x+", "a", "a+"):
+            raise ValueError("Invalid mode {}".format(repr(mode)))
         self.openparams = kwargs
-        self.openparams['mode'] = mode
+        self.openparams["mode"] = mode
 
         self.path = path
         super(Path, self).__init__(**kwargs)
 
     @property
     def mode(self):
-        return self.openparams['mode']
+        return self.openparams["mode"]
 
     @property
     def factory_kwargs(self):
@@ -65,30 +66,30 @@ class Path(fs.Path):
 
     def _openparams_defaults(self, openparams):
         super(Path, self)._openparams_defaults(openparams)
-        defaultmode = self.openparams['mode']
-        mode = openparams['mode']
-        if defaultmode == 'r':
+        defaultmode = self.openparams["mode"]
+        mode = openparams["mode"]
+        if defaultmode == "r":
             # read-only
             mode = defaultmode
-        elif defaultmode == 'r+' and mode not in ['r', 'r+']:
+        elif defaultmode == "r+" and mode not in ["r", "r+"]:
             # deny new files
             mode = defaultmode
-        elif defaultmode in ['x', 'x+'] and mode not in ['w', 'w+']:
+        elif defaultmode in ["x", "x+"] and mode not in ["w", "w+"]:
             # allow new files (error when existing)
             mode = defaultmode
-        elif defaultmode in ['w', 'w+'] and mode not in ['r', 'w', 'w+']:
+        elif defaultmode in ["w", "w+"] and mode not in ["r", "w", "w+"]:
             # allow new files (overwrite when existing)
             mode = defaultmode
-        elif defaultmode in ['a', 'a+'] and mode not in ['r', 'r+', 'a', 'a+']:
+        elif defaultmode in ["a", "a+"] and mode not in ["r", "r+", "a", "a+"]:
             # allow new files (append when existing)
             mode = defaultmode
-        openparams['mode'] = mode
+        openparams["mode"] = mode
 
     @contextmanager
     def _fopen(self, **openparams):
-        #msg = '{} ({})'.format(self.path,openparams)
+        # msg = '{} ({})'.format(self.path,openparams)
         try:
-            #logger.debug('Open '+msg)
+            # logger.debug('Open '+msg)
             with open(self.path, **openparams) as f:
                 yield f
         except IOError as err:
@@ -215,18 +216,18 @@ class Path(fs.Path):
             if err.errno == errno.ENOENT:
                 raise fs.Missing(self.location)
 
-        ret = {k[3:]: getattr(ret, k) for k in dir(ret) if k.startswith('st_')}
+        ret = {k[3:]: getattr(ret, k) for k in dir(ret) if k.startswith("st_")}
 
         for k, v in ret.items():
-            if 'time' in k:
+            if "time" in k:
                 ret[k] = datetime.fromtimestamp(v)
 
-        #ret['permissions'] = oct(ret.pop('mode') & 0o777)
+        # ret['permissions'] = oct(ret.pop('mode') & 0o777)
         return ret
 
     def update_stats(self, follow=True, mode=None, uid=-1, gid=-1, **ignore):
         if mode is not None:
-            #mode = int(mode, 8)
+            # mode = int(mode, 8)
             if follow:
                 os.chmod(self.path, mode)
             else:
@@ -257,7 +258,7 @@ class Path(fs.Path):
             return None
 
     def read(self):
-        with self.open(mode='r') as f:
+        with self.open(mode="r") as f:
             return f.read()
 
     def write(self, content, **openparams):
