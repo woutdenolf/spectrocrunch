@@ -7,8 +7,8 @@ from jsonpickle.handlers import BaseHandler, register
 from .pint import ureg
 
 
-jsonpickle.set_preferred_backend('json')
-jsonpickle.set_encoder_options('json', sort_keys=True)
+jsonpickle.set_preferred_backend("json")
+jsonpickle.set_encoder_options("json", sort_keys=True)
 
 
 try:
@@ -18,12 +18,12 @@ except NameError:
 
 
 def dumps(data, **kwargs):
-    jsonpickle.set_encoder_options('json', **kwargs)
+    jsonpickle.set_encoder_options("json", **kwargs)
     return jsonpickle.encode(data, keys=False)
 
 
 def loads(data, **kwargs):
-    jsonpickle.set_decoder_options('json', **kwargs)
+    jsonpickle.set_decoder_options("json", **kwargs)
     return jsonpickle.decode(data, keys=False)
 
 
@@ -50,26 +50,24 @@ def restore(state, **kwargs):
 
 
 class QuantityHandler(BaseHandler):
-
     def flatten(self, obj, state):
         tpl = obj.to_tuple()
         tpl = self.context.flatten(tpl, reset=False)
-        state['tpl'] = tpl
+        state["tpl"] = tpl
         return state
 
     def restore(self, state):
-        tpl = self.context.restore(state['tpl'], reset=False)
+        tpl = self.context.restore(state["tpl"], reset=False)
         return ureg.Quantity.from_tuple(tpl)
 
 
 class UnitHandler(BaseHandler):
-
     def flatten(self, obj, state):
-        state['units'] = str(obj)
+        state["units"] = str(obj)
         return state
 
     def restore(self, state):
-        return ureg.Unit(state['units'])
+        return ureg.Unit(state["units"])
 
 
 jsonpickle_numpy.register_handlers()
