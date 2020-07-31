@@ -37,8 +37,13 @@ Test:
     
     # Test with options:
     python -m unittest -v spectrocrunch.tests.test_all.test_suite
-    pytest --pyargs spectrocrunch
+    pytest spectrocrunch
     nose2 -v spectrocrunch
+
+    # Individual tests
+    python -m unittest spectrocrunch.align.tests.test_align.test_align.test_centroid
+    pytest spectrocrunch/align/tests/test_align.py::test_align::test_centroid
+
 
 Documentation:
 
