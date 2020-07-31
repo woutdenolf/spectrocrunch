@@ -11,7 +11,6 @@ from ...patch import jsonpickle
 
 
 class test_polarization(unittest.TestCase):
-
     def _equal_params(self, params1, params2):
         for k, v in params1.items():
             if instance.isstring(v):
@@ -20,21 +19,31 @@ class test_polarization(unittest.TestCase):
                 np.testing.assert_allclose(v, params2[k])
 
     def _gen_jones(self, n=20):
-        x = np.random.uniform(low=-10, high=10, size=4*n).reshape((n, 4))
+        x = np.random.uniform(low=-10, high=10, size=4 * n).reshape((n, 4))
         for xi in x:
-            yield polarization.Jones(xi[0]+xi[1]*1j, xi[2]+xi[3]*1j)
+            yield polarization.Jones(xi[0] + xi[1] * 1j, xi[2] + xi[3] * 1j)
 
     def _gen_stokes(self, n=20):
-        x = np.random.uniform(low=-10, high=10, size=3*n).reshape((n, 3))
+        x = np.random.uniform(low=-10, high=10, size=3 * n).reshape((n, 3))
         for xi in x:
-            S0 = np.sqrt(sum(xi[1:]**2))*np.random.uniform(low=1, high=1.5)
+            S0 = np.sqrt(sum(xi[1:] ** 2)) * np.random.uniform(low=1, high=1.5)
             yield polarization.Stokes(S0, *xi)
 
     def test_convert_representation(self):
-        def f1(x, attr): return getattr(x, attr)
-        def f2(x, attr): return getattr(x, attr) % 360
-        attrs = {"coherency_matrix": f1, "dop": f1, "dolp": f1,
-                 "docp": f1, "hdolp": f1, "polangle": f2}
+        def f1(x, attr):
+            return getattr(x, attr)
+
+        def f2(x, attr):
+            return getattr(x, attr) % 360
+
+        attrs = {
+            "coherency_matrix": f1,
+            "dop": f1,
+            "dolp": f1,
+            "docp": f1,
+            "hdolp": f1,
+            "polangle": f2,
+        }
 
         for J1 in self._gen_jones():
             S1 = J1.to_stokes()
@@ -56,7 +65,8 @@ class test_polarization(unittest.TestCase):
 
             np.testing.assert_allclose(J1.norm, J2.norm)
             np.testing.assert_allclose(
-                J1.phase_difference % 360, J2.phase_difference % 360)
+                J1.phase_difference % 360, J2.phase_difference % 360
+            )
             np.testing.assert_allclose(J2.to_numpy(), J3.to_numpy())
             np.testing.assert_allclose(S1.to_numpy(), S2.to_numpy())
             np.testing.assert_allclose(S1.to_numpy(), S2.to_numpy())
@@ -66,15 +76,15 @@ class test_polarization(unittest.TestCase):
             tmp = S.decompose()
             Spol, Sunpol = tmp["pol"], tmp["unpol"]
             np.testing.assert_allclose(
-                S.intensity, S.intensity_polarized+S.intensity_unpolarized)
+                S.intensity, S.intensity_polarized + S.intensity_unpolarized
+            )
             np.testing.assert_allclose(S.intensity_polarized, Spol.intensity)
-            np.testing.assert_allclose(
-                S.intensity_unpolarized, Sunpol.intensity)
-            np.testing.assert_allclose(
-                S.dop, S.intensity_polarized/S.intensity)
+            np.testing.assert_allclose(S.intensity_unpolarized, Sunpol.intensity)
+            np.testing.assert_allclose(S.dop, S.intensity_polarized / S.intensity)
 
             np.testing.assert_allclose(
-                S.coherency_matrix, Spol.coherency_matrix+Sunpol.coherency_matrix)
+                S.coherency_matrix, Spol.coherency_matrix + Sunpol.coherency_matrix
+            )
 
             J = S.to_jones(allowloss=True)
             np.testing.assert_allclose(J.intensity, Spol.intensity)
@@ -85,8 +95,9 @@ class test_polarization(unittest.TestCase):
     def test_jones(self):
         for J in self._gen_jones():
             np.testing.assert_allclose(
-                J.to_numpy(), J.to_stokes().to_jones(phase0=J.phase0).to_numpy())
-            np.testing.assert_allclose(J.coherency_matrix.trace(), J.norm**2)
+                J.to_numpy(), J.to_stokes().to_jones(phase0=J.phase0).to_numpy()
+            )
+            np.testing.assert_allclose(J.coherency_matrix.trace(), J.norm ** 2)
 
             J2 = polarization.Jones.from_params(**J.to_params())
             np.testing.assert_allclose(J.to_numpy(), J2.to_numpy())
@@ -117,7 +128,7 @@ class test_polarization(unittest.TestCase):
         for J1 in self._gen_jones():
             S1 = J1.to_stokes()
 
-            azimuth = np.random.uniform(low=0, high=2*np.pi)  # change-of-frame
+            azimuth = np.random.uniform(low=0, high=2 * np.pi)  # change-of-frame
 
             J2 = J1.rotate(azimuth)
             S2 = S1.rotate(azimuth)
@@ -128,15 +139,17 @@ class test_polarization(unittest.TestCase):
             Ri = polarization.JonesMatrixRotation(azimuth)
 
             np.testing.assert_allclose(
-                R.dot(J1.coherency_matrix).dot(Ri), J2.coherency_matrix)
+                R.dot(J1.coherency_matrix).dot(Ri), J2.coherency_matrix
+            )
             np.testing.assert_allclose(
-                R.dot(S1.coherency_matrix).dot(Ri), S2.coherency_matrix)
+                R.dot(S1.coherency_matrix).dot(Ri), S2.coherency_matrix
+            )
 
     def test_thomson(self):
         for J1 in self._gen_jones():
             S1 = J1.to_stokes()
 
-            azimuth = np.random.uniform(low=0, high=2*np.pi)
+            azimuth = np.random.uniform(low=0, high=2 * np.pi)
             polar = np.random.uniform(low=0, high=np.pi)
 
             J2 = J1.thomson_scattering(azimuth, polar)
@@ -144,37 +157,49 @@ class test_polarization(unittest.TestCase):
 
             self._equal_params(S2.to_params(), J2.to_stokes().to_params())
 
-            angle = polarization.ThomsonRotationAngle(
-                azimuth)  # change-of-frame
+            angle = polarization.ThomsonRotationAngle(azimuth)  # change-of-frame
             R = polarization.JonesMatrixRotation(-angle)
             Ri = polarization.JonesMatrixRotation(angle)
             Mth = polarization.JonesMatrixThomson(polar)
             Mthi = Mth
 
-            np.testing.assert_allclose(Mth.dot(R).dot(
-                J1.coherency_matrix).dot(Ri).dot(Mthi), J2.coherency_matrix)
-            np.testing.assert_allclose(Mth.dot(R).dot(
-                S1.coherency_matrix).dot(Ri).dot(Mthi), S2.coherency_matrix)
             np.testing.assert_allclose(
-                S2.intensity, S1.thomson_intensity(azimuth, polar))
+                Mth.dot(R).dot(J1.coherency_matrix).dot(Ri).dot(Mthi),
+                J2.coherency_matrix,
+            )
+            np.testing.assert_allclose(
+                Mth.dot(R).dot(S1.coherency_matrix).dot(Ri).dot(Mthi),
+                S2.coherency_matrix,
+            )
+            np.testing.assert_allclose(
+                S2.intensity, S1.thomson_intensity(azimuth, polar)
+            )
 
-            def integrand(azimuth, polar): return S1.thomson_intensity(
-                np.degrees(azimuth), np.degrees(polar))*np.sin(polar)
-            thomsonsc = integrate.dblquad(
-                integrand, 0, np.pi, lambda x: 0, lambda x: 2*np.pi)[0]/S1.intensity
-            np.testing.assert_allclose(thomsonsc, 8*np.pi/3)
+            def integrand(azimuth, polar):
+                return S1.thomson_intensity(
+                    np.degrees(azimuth), np.degrees(polar)
+                ) * np.sin(polar)
+
+            thomsonsc = (
+                integrate.dblquad(
+                    integrand, 0, np.pi, lambda x: 0, lambda x: 2 * np.pi
+                )[0]
+                / S1.intensity
+            )
+            np.testing.assert_allclose(thomsonsc, 8 * np.pi / 3)
 
     def test_compton(self):
         for S1 in self._gen_stokes():
 
-            azimuth = np.random.uniform(low=0, high=2*np.pi)
+            azimuth = np.random.uniform(low=0, high=2 * np.pi)
             polar = np.random.uniform(low=0, high=np.pi)
-            energy = np.random.uniform(low=5., high=20.)
+            energy = np.random.uniform(low=5.0, high=20.0)
 
             S2 = S1.compton_scattering(azimuth, polar, energy)
 
             np.testing.assert_allclose(
-                S2.intensity, S1.compton_intensity(azimuth, polar, energy))
+                S2.intensity, S1.compton_intensity(azimuth, polar, energy)
+            )
 
     def test_serialize(self):
         g1 = next(iter(self._gen_jones()))
@@ -199,7 +224,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

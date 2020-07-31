@@ -10,15 +10,14 @@ import matplotlib.pyplot as plt
 
 
 class XraySource(with_metaclass(Copyable)):
-
     def __init__(self, stokes=None):
         self.stokes = stokes
 
     def __getstate__(self):
-        return {'stokes': self.stokes}
+        return {"stokes": self.stokes}
 
     def __setstate__(self, state):
-        self.stokes = state['stokes']
+        self.stokes = state["stokes"]
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -30,7 +29,7 @@ class XraySource(with_metaclass(Copyable)):
         return not self.__eq__(other)
 
     def __str__(self):
-        s = str(self.stokes).replace('\n', '\n ')
+        s = str(self.stokes).replace("\n", "\n ")
         return "XraySource:\n {}".format(s)
 
     @property
@@ -48,15 +47,14 @@ class XraySource(with_metaclass(Copyable)):
 
 
 class Synchrotron(XraySource):
-
     def __init__(self, **polparams):
         if "intensity" not in polparams:
             polparams["intensity"] = 1  # W/m^2
         if "dop" not in polparams:
-            polparams["dop"] = 1.  # degree of polarization (in [0,1])
+            polparams["dop"] = 1.0  # degree of polarization (in [0,1])
         if "dolp" not in polparams:
             # degree of linear polarization (in [0,dop])
-            polparams["dolp"] = 1.*polparams["dop"]
+            polparams["dolp"] = 1.0 * polparams["dop"]
         if "polangle" not in polparams:
             # angle of polarization ellipse with respect to the horizontal direction (in [-90,90])
             polparams["polangle"] = 0
@@ -67,13 +65,10 @@ class Synchrotron(XraySource):
 
 
 class Tube(XraySource):
-
     def __init__(self, intensity=1):
-        stokes = polarization.Stokes.from_params(intensity=intensity,
-                                                 dop=0,
-                                                 dolp=0,
-                                                 polangle=0,
-                                                 handedness="left")
+        stokes = polarization.Stokes.from_params(
+            intensity=intensity, dop=0, dolp=0, polangle=0, handedness="left"
+        )
         super(Tube, self).__init__(stokes=stokes)
 
 
