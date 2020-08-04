@@ -14,16 +14,12 @@ function xraylib_build_dependencies()
     local tmp=$(pwd)
     cd ${1}
 
-    mapt-get install gfortran
+    system_install gfortran
     require_build_essentials
     require_pythondev
     require_swig 3
     pip_install numpy
     pip_install cython
-
-    #$(pip_bin) freeze | grep numpy > requirements.txt
-    #pip_install -r requirements.txt
-    #rm requirements.txt
 
     cd ${tmp}
 }
@@ -61,18 +57,18 @@ function xraylib_source_install()
     #    cprint "Skipping xraylib installation"
     #    return
     #fi
-    
+
     source_install xraylib "${1}" \
          --enable-python \
          --enable-python-integration \
          --enable-fortran2003 \
+         --disable-perl \
          --disable-java \
          --disable-lua \
          --disable-ruby \
          --disable-php \
          --disable-pascal \
          --disable-idl \
-         --disable-perl \
          PYTHON="$(python_full_bin)"
 }
 

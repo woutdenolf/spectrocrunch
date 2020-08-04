@@ -187,6 +187,15 @@ function mapt-get()
 }
 
 
+# ============mapt-get============
+# Description: Apt-get without prompt (ignores system wide setting)
+# Usage: mapt-get install ...
+function system_install()
+{
+    mapt-get install "$@"
+}
+
+
 # ============addFile============
 # Description: Add a line to a resource file when it doesn't exist yet
 # Usage: addFile line filename
@@ -376,7 +385,7 @@ function project_folder()
 # Description: Project name
 function project_name()
 {
-    basename $(project_folder)
+    echo $(grep "PROJECT =" $(project_folder)/setup.py | grep -oP '"\K[^"]+')
 }
 
 

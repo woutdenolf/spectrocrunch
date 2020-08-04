@@ -117,15 +117,15 @@ function libxslt_build_dependencies()
 
 function easyrng_build_dependencies()
 {
-    mapt-get install gfortran
+    system_install gfortran
     require_build_essentials
 }
 
 
 function xmimsim_build_dependencies()
 {
-    mapt-get install gfortran
-    mapt-get install libglib2.0-dev
+    system_install gfortran
+    system_install libglib2.0-dev
     require_hdf5
     require_build_essentials
     require_easyrng
@@ -143,7 +143,7 @@ function libxml2_source_install()
 function libxml2_system_install()
 {
     # libxml2-utils provides xmlcatalog
-    mapt-get install libxml2-dev libxml2-utils
+    system_install libxml2-dev libxml2-utils
 }
 
 
@@ -155,7 +155,7 @@ function libxslt_source_install()
 
 function libxslt_system_install()
 {
-    mapt-get install libxslt1-dev
+    system_install libxslt1-dev
 }
 
 
@@ -173,6 +173,14 @@ function xmimsim_source_install()
     fi
     # gfortran does not take CPATH
     local fcpath=$(echo -I$CPATH | sed -e 's/:/ -I/g')
+    source_install xmimsim "${1}" \
+        FCFLAGS="\\\"$fcpath\\\""
+    # Execute twice because of:
+    # ../../xmimsim-8.1/src/xmi_main.F90:22:6:
+    # 
+    #  USE :: xmimsim_varred
+    #       1
+    # Fatal Error: Can't open module file ‘xmimsim_varred.mod’ for reading at (1): No such file or directory
     source_install xmimsim "${1}" \
         FCFLAGS="\\\"$fcpath\\\""
 }
@@ -259,18 +267,21 @@ function xmimsim_version()
 
 function require_libxml2()
 {
+    # XML parser
     require_software libxml2 ${1}
 }
 
 
 function require_libxslt()
 {
+    # XSLT (convert XML to other formats)
     require_software libxslt ${1}
 }
 
 
 function require_easyrng()
 {
+    # Random number generator
     require_software easyrng ${1}
 }
 
