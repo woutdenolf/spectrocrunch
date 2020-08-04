@@ -2,6 +2,7 @@
 
 import unittest
 import numpy as np
+from scipy.stats import ortho_group
 
 from .. import quadrics
 
@@ -51,6 +52,27 @@ class test_quadrics(unittest.TestCase):
 
         self._assert_matrix(eval_matrix, eval_eqn, 2)
 
+    def test_transform_plane(self):
+        def to_cart(x):
+            return x[:-1] / x[-1]
+
+        def to_hom(x):
+            return np.append(x, 1)
+
+        C = np.eye(4)
+        x0, u, C[0:3, 3] = np.random.uniform(-10, 10, (3, 3))
+        C[0:3, 0:3] = ortho_group.rvs(3)
+        L = np.linalg.inv(C)
+
+        x0_2 = to_cart(L.dot(to_hom(x0)))
+        u_2 = L[0:3, 0:3].dot(x0 + u) - L[0:3, 0:3].dot(x0)
+
+        A = quadrics.plane(x0, u)
+        A_2 = quadrics.plane(x0_2, u_2)
+        A_3 = quadrics.transform(A, C)
+
+        np.testing.assert_allclose(A_2, A_3)
+
 
 def test_suite():
     """Test suite including all test suites"""
@@ -58,6 +80,7 @@ def test_suite():
     testSuite.addTest(test_quadrics("test_plane"))
     testSuite.addTest(test_quadrics("test_cylinder"))
     testSuite.addTest(test_quadrics("test_ellipsoid"))
+    testSuite.addTest(test_quadrics("test_transform_plane"))
     return testSuite
 
 

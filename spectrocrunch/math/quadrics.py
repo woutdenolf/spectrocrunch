@@ -3,13 +3,6 @@
     A[0,0].x^2 + A[1,1].y^2 + A[2,2].z^2 + 
     (A[0,1]+A[1,0]).xy + (A[0,2]+A[2,0]).xz + (A[1,2]+A[2,1]).yz +
     (A[0,3]+A[3,0]).x + (A[1,3]+A[3,1]).y + (A[2,3]+A[3,2]).z + A[3,3] = 0
-
-Coordinate transformation with change of basis matrix C:
-
-    x^T.A.x = x'^T.A'.x' = 0
-    x = C.x'
-    A' = C^T.A.C
-
 """
 
 import numpy as np
@@ -90,3 +83,17 @@ def _quadsum1(x0, a, n, ind):
     A[ind, ind] = 1 / a2
     A[-1, -1] = p.dot(x0) - 1
     return A
+
+
+def transform(A, C):
+    """Quadric matrix under change-of-frame:
+
+        x = C.x'
+        x^T.A.x = x'^T.A'.x' = 0
+        A' = C^T.A.C
+
+    Args:
+        A(array): quardic
+        C(array): change-of-frame matrix
+    """
+    return C.T.dot(A.dot(C))
