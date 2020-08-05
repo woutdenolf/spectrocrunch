@@ -69,7 +69,7 @@ class test_quadrics(unittest.TestCase):
 
         A = quadrics.plane(x0, u)
         A_2 = quadrics.plane(x0_2, u_2)
-        A_3 = quadrics.transform(A, C)
+        A_3 = quadrics.change_of_frame(A, C)
 
         np.testing.assert_allclose(A_2, A_3)
 

@@ -4,7 +4,7 @@ import os
 import json
 
 from spectrocrunch.xrfxas.create_hdf5_imagestacks import (
-    create_hdf5_imagestacks as makestack
+    create_hdf5_imagestacks as makestack,
 )
 
 

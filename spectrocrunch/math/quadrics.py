@@ -85,7 +85,7 @@ def _quadsum1(x0, a, n, ind):
     return A
 
 
-def transform(A, C):
+def change_of_frame(A, C):
     """Quadric matrix under change-of-frame:
 
         x = C.x'

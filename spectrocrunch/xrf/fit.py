@@ -9,7 +9,7 @@ from PyMca5.PyMcaIO import ConfigDict
 
 try:
     from PyMca5.PyMcaPhysics.xrf.McaAdvancedFitBatch import (
-        OutputBuffer as OutputBufferBase
+        OutputBuffer as OutputBufferBase,
     )
 except ImportError:
     OutputBuffer = None

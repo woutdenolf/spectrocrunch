@@ -37,14 +37,13 @@ class test_xrmc(unittest.TestCase):
         self.dir = TempDirectory()
 
     def tearDown(self):
-        print(self.dir.path)
-        # self.dir.cleanup()
+        self.dir.cleanup()
 
     @unittest.skipIf(not HAS_XRMC, "xrmc not installed")
-    def test_xrf(self):
-        polar_start, polar_end, polar_nsteps = 0, 180, 30
-        polar = np.linspace(polar_start, polar_end, polar_nsteps + 1)
-        azimuth = 0, 45, 90
+    def test_xrftomo(self):
+        polar_start, polar_end, polar_nsteps = 0, 180, 2
+        az_start, az_end, az_nsteps = 0, 90, 3
+
         fluoline = element.Element("Ca").fluolines("KL3")
 
         world = xrmc.XrmcWorldBuilder(self.dir.path)
@@ -53,26 +52,25 @@ class test_xrmc(unittest.TestCase):
         pymcahandle.sample = xrmc_utils.define_sample(geometry, name="simple")
         xrmc_utils.world_addsource(world, pymcahandle)
         xrmc_utils.world_addsdd(
-            world,
-            pymcahandle,
-            multiplicity=10,
-            polar=polar_start,
-            azimuth=azimuth[0],
-            convoluted=True,
+            world, pymcahandle, polar=polar_start, azimuth=az_start, convoluted=True
         )
         xrmc_utils.world_addsample(world, pymcahandle.sample)
 
+        world.detector.fixed = False
+        world.sample.fixed = True
         polar_step = float(polar_end - polar_start) / polar_nsteps
-        result = {}
-        for az in azimuth:
-            world.main.removeloops()
-            world.detector.azimuth = az
-            world.detector.add_polarrotationloop(polar_step, polar_nsteps)
-            data, info = xrmc_utils.run(
-                world, (1, 10000), simulate=True, ylog=True, plot=False
-            )
+        az_step = float(az_end - az_start) / az_nsteps
+        world.main.removeloops()
+        world.detector.add_polarrotationloop(polar_step, polar_nsteps)
+        world.detector.add_azimuthalrotationloop(az_step, az_nsteps)
 
-            result[az] = data
+        lst = list(world.main.loop_steps())
+
+        data, info = xrmc_utils.run(
+            world, (1, 10000), simulate=True, ylog=True, plot=False
+        )
+        n = (polar_nsteps + 1) * (az_nsteps + 1)
+        assert data.shape == (2, n, 1, 1, len(info["xenergy"]))
 
     def assertAlmostModEqual(self, a, b, modulo=1, **kwargs):
         n = (b - a) / float(modulo)
@@ -134,10 +132,10 @@ class test_xrmc(unittest.TestCase):
 def test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_xrmc("test_xrf"))
-    # testSuite.addTest(test_xrmc("test_sphericalrotation"))
-    # testSuite.addTest(test_xrmc("test_polarrotation"))
-    # testSuite.addTest(test_xrmc("test_azimuthalrotation"))
+    testSuite.addTest(test_xrmc("test_xrftomo"))
+    testSuite.addTest(test_xrmc("test_sphericalrotation"))
+    testSuite.addTest(test_xrmc("test_polarrotation"))
+    testSuite.addTest(test_xrmc("test_azimuthalrotation"))
     return testSuite
 
 

@@ -9,18 +9,18 @@ import numpy as np
 from glob import glob
 from collections import MutableMapping, OrderedDict
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from future.utils import with_metaclass
 from abc import ABCMeta, abstractmethod, abstractproperty
 from scipy.spatial.transform import Rotation
-
 
 from ..io import localfs
 from ..io import mca
 from ..utils import subprocess
 from ..utils import instance
 from ..math import quadrics
-from ..materials.element import Element
 from ..materials.compoundfromname import compoundfromname
+
 
 logger = logging.getLogger(__name__)
 
@@ -174,15 +174,19 @@ def showxrmcresult(
                 plt.legend()
             if img is not None:
                 plt.figure()
-                plt.imshow(chunk.sum(axis=-1), origin="lower", extent=extent)
+                im = plt.imshow(chunk.sum(axis=-1), origin="lower", extent=extent)
                 plt.title(label + " (looking upstream)")
                 plt.xlabel("Synchrotron plane (cm)")
                 plt.ylabel("Vertical direction (cm)")
+                ax = plt.gca()
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                plt.colorbar(im, cax=cax)
 
 
-class xrmc_file(object):
+class XrmcFile(object):
     def __init__(self):
-        super(xrmc_file, self).__init__()
+        super(XrmcFile, self).__init__()
 
     @property
     def filename(self):
@@ -240,20 +244,52 @@ class xrmc_file(object):
         return ";%%%%%%%%%%%%%%%%%%%%% {} %%%%%%%%%%%%%%%%%%%%%".format(text.upper())
 
 
-class xrmc_main(xrmc_file):
+class LoopAxis(object):
+    def __init__(self, parent, devices, suffix, steps=None, nsteps=1):
+        """
+        Args:
+            parent(object):
+            device(list(object)):
+            suffix(str):
+            steps(list(list(2-tuple))): ('Rotate', (...)), ('Translate', (...)), ('TranslateAll', (...)), ...
+            nsteps(num): number of steps
+        """
+        self.transforms = []
+        self.rtransforms = []
+        self.nsteps = nsteps
+        if steps is None:
+            steps = [None] * len(devices)
+        for device, step in zip(devices, steps):
+            name = device.name + suffix
+            transform = Transform(parent, name, device, step)
+            self.transforms.append(transform)
+            rtransform = transform.retour(nsteps)
+            self.rtransforms.append(rtransform)
+
+    def __repr__(self):
+        return ";".join(repr(t) for t in self.transforms)
+
+    def save(self, **kwargs):
+        for transform in self.transforms:
+            transform.save(**kwargs)
+        for rtransform in self.rtransforms:
+            rtransform.save(**kwargs)
+
+
+class XrmcMain(XrmcFile):
     def __init__(self, path, fileprefix=None):
         self.path = path
         self.fileprefix = fileprefix
         self.devices = []
         self.loops = []  # first is the outer loop
-        super(xrmc_main, self).__init__()
+        super(XrmcMain, self).__init__()
 
     def __repr__(self):
         s = ""
         lst = "\n ".join(map(repr, self.devices))
         if lst:
             s += "Devices:\n " + lst
-        lst = "\n ".join([repr(loop[0]) for loop in self.loops])
+        lst = "\n ".join([repr(ax) for ax in self.loops])
         if lst:
             if s:
                 s += "\n"
@@ -290,7 +326,9 @@ class xrmc_main(xrmc_file):
                     if bfirst:
                         bfirst = False
                     else:
-                        lines += ["Load " + step.filename for step in steps]
+                        lines += [
+                            "Load " + dstep.filename for step in steps for dstep in step
+                        ]
                     for detector in detectors:
                         lines += [
                             "Run {}".format(detector.name),
@@ -323,35 +361,34 @@ class xrmc_main(xrmc_file):
         return device
 
     def save(self, **kwargs):
-        super(xrmc_main, self).save(**kwargs)
+        super(XrmcMain, self).save(**kwargs)
         for device in self.devices:
             device.save(**kwargs)
-        for transform, rtransform, _ in self.loops:
-            transform.save(**kwargs)
-            rtransform.save(**kwargs)
+        for ax in self.loops:
+            ax.save(**kwargs)
 
     def source(self, **kwargs):
-        return self.finddevice(cls=Source, **kwargs)
+        return self.find_device(cls=Source, **kwargs)
 
     def spectrum(self, **kwargs):
-        return self.finddevice(cls=Spectrum, **kwargs)
+        return self.find_device(cls=Spectrum, **kwargs)
 
     def sample(self, **kwargs):
-        return self.finddevice(cls=Sample, **kwargs)
+        return self.find_device(cls=Sample, **kwargs)
 
     def quadrics(self, **kwargs):
-        return self.finddevice(cls=Quadrics, **kwargs)
+        return self.find_device(cls=Quadrics, **kwargs)
 
     def compositions(self, **kwargs):
-        return self.finddevice(cls=Compositions, **kwargs)
+        return self.find_device(cls=Compositions, **kwargs)
 
     def objects(self, **kwargs):
-        return self.finddevice(cls=Objects, **kwargs)
+        return self.find_device(cls=Objects, **kwargs)
 
     def detectors(self, first=False, **kwargs):
-        return self.finddevice(cls=Detector, first=first, **kwargs)
+        return self.find_device(cls=Detector, first=first, **kwargs)
 
-    def finddevice(self, cls=None, name=None, first=True):
+    def find_device(self, cls=None, name=None, first=True):
         lst = []
         for device in self.devices:
             badd = True
@@ -369,7 +406,7 @@ class xrmc_main(xrmc_file):
         else:
             return lst
 
-    def removedevice(self, cls=None, name=None):
+    def remove_device(self, cls=None, name=None):
         if cls is None and name is None:
             return
         lst = []
@@ -405,19 +442,17 @@ class xrmc_main(xrmc_file):
         for detector in self.detectors():
             detector.saveemptyoutput(ninteractions)
 
-    def addloop(self, name, device, step=None, nsteps=1):
+    def add_loop(self, devices, suffix, steps=None, nsteps=1):
         """
         First call specifies the outer loop and last call the inner loop
 
         Args:
-            name(str):
-            device(object):
-            step(list(2-tuple)): [('Rotate', (...)), ('Translate', (...)), ('TranslateAll', (...)), ...]
+            device(list(object)):
+            suffix(str):
+            steps(list(list(2-tuple))): ('Rotate', (...)), ('Translate', (...)), ('TranslateAll', (...)), ...
             nsteps(num): number of steps
         """
-        transform = Transform(self, name, device, step)
-        rtransform = transform.retour(nsteps)
-        self.loops.append((transform, rtransform, nsteps))
+        self.loops.append(LoopAxis(self, devices, suffix, steps=steps, nsteps=nsteps))
 
     def removeloops(self):
         self.loops = []
@@ -425,29 +460,29 @@ class xrmc_main(xrmc_file):
     @property
     def loop_suffix_format(self):
         fmt = ""
-        for _, _, nsteps in self.loops:
-            fmt += "_{{:0{}d}}".format(max(len(str(nsteps)), 1))
+        for ax in self.loops:
+            fmt += "_{{:0{}d}}".format(max(len(str(ax.nsteps)), 1))
         return fmt
 
     def loop_steps(self):
         loops = self.loops
-        loopidx = [list(range(nsteps + 1)) for _, _, nsteps in loops]
+        loopidx = [list(range(ax.nsteps + 1)) for ax in loops]
         idx_prev = (-1,) * len(loops)
         for idx in itertools.product(*loopidx):
             idxsteps = []
-            for (step, rstep, _), a, b in zip(loops, idx_prev, idx):
+            for ax, a, b in zip(loops, idx_prev, idx):
                 if b > a:
-                    idxsteps.append(step)
+                    idxsteps.append(ax.transforms)
                 elif b < a:
-                    idxsteps.append(rstep)
+                    idxsteps.append(ax.rtransforms)
             yield idx, idxsteps[::-1]
             idx_prev = idx
 
 
-class xrmc_child(xrmc_file):
+class XrmcChild(XrmcFile):
     def __init__(self, parent):
         self.parent = parent
-        super(xrmc_child, self).__init__()
+        super(XrmcChild, self).__init__()
 
     @property
     def fileprefix(self):
@@ -489,12 +524,12 @@ class xrmc_child(xrmc_file):
         return lines
 
 
-class xrmc_device(xrmc_child):
+class XrmcDevice(XrmcChild):
 
     TYPE = None
 
     def __init__(self, parent, name):
-        super(xrmc_device, self).__init__(parent)
+        super(XrmcDevice, self).__init__(parent)
         self.name = name
 
     def __repr__(self):
@@ -503,8 +538,8 @@ class xrmc_device(xrmc_child):
     @property
     def code(self):
         return [
-            ("Newdevice " + self.TYPE, "Device type", True),
-            (self.name, "Device name", True),
+            ("Newdevice " + self.TYPE, "Object type", True),
+            (self.name, "Object name", True),
         ]
 
     @property
@@ -516,7 +551,7 @@ class xrmc_device(xrmc_child):
         self.name = value.lower()
 
 
-class xrmc_reference_frame(object):
+class XrmcReferenceFrame(object):
     """
     The XRMC sample reference frame:
 
@@ -533,70 +568,66 @@ class xrmc_reference_frame(object):
     These reference frames are related by x', y', z' = -x, z, y.
 
     Additionally, the rotation angle in the User and XRMC reference frame
-    is in the opposite direction for everything except the sample.
+    is in the opposite direction.
     """
 
     def __init__(self):
-        super(xrmc_reference_frame, self).__init__()
+        super(XrmcReferenceFrame, self).__init__()
 
     @staticmethod
     def xyzUserToXrmc(x, y, z):
-        if any((x, y, z)):
-            return -x, z, y
-        else:
-            return tuple()
+        return -x, z, y
 
-    def rotationUserToXrmc(self, x0, y0, z0, ux, uy, uz, angle, negangle=True):
-        if not angle:
-            return tuple()
-        if negangle:
-            angle = -angle
+    def rotationUserToXrmc(self, x0, y0, z0, ux, uy, uz, angle):
         return (
-            self.xyzUserToXrmc(x0, y0, z0) + self.xyzUserToXrmc(ux, uy, uz) + (angle,)
+            self.xyzUserToXrmc(x0, y0, z0) + self.xyzUserToXrmc(ux, uy, uz) + (-angle,)
         )
 
     @staticmethod
-    def xrmcArrayInput(name, comment, a, n):
-        b = bool(a)
-        if not b:
-            a = [0] * n
-        return " ".join([name] + list(map(str, a))), comment, b
+    def xrmcArrayInput(name, comment, a, identity=False):
+        return " ".join([name] + list(map(str, a))), comment, not identity
 
-    def xrmcTranslationInput(self, name, item, *args):
-        arr = self.xyzUserToXrmc(*args)
+    def xrmcTranslationInput(self, name, item, *args, **kw):
+        """Defined in USER frame, return in XRMC frame
+        """
+        arr = self.xyzUserToXrmc(*args, **kw)
         comment = "{} in the sample frame (x, y, z; cm)".format(item)
-        return self.xrmcArrayInput(name, comment, arr, len(args))
+        return self.xrmcArrayInput(
+            name, comment, arr, identity=all(x == 0 for x in arr)
+        )
 
-    def xrmcRotationInput(self, name, *args):
-        arr = self.rotationUserToXrmc(*args)
-        comment = "rotation around axis passing through (x, y, z; cm), with direction (u,v,w; cm) and rotation angle (deg; change-of-frame)"
-        return self.xrmcArrayInput(name, comment, arr, len(args))
+    def xrmcRotationInput(self, name, *args, **kw):
+        """Defined in USER frame, return in XRMC frame
+        """
+        arr = self.rotationUserToXrmc(*args, **kw)
+        comment = "rotation around axis passing through (x, y, z; cm), with direction (u,v,w; cm) and rotation angle (deg)"
+        return self.xrmcArrayInput(name, comment, arr, identity=arr[-1] == 0)
 
-    def xrmcTranslationMatrix(self, *args):
+    def xrmcTranslationMatrix(self, *args, **kw):
+        """Defined in USER frame, return in XRMC frame
+        """
         M = np.eye(4)
-        arr = self.xyzUserToXrmc(*args)
-        if arr:
-            M[:3, 3] = arr
+        M[0:3, 3] = self.xyzUserToXrmc(*args, **kw)
         return M
 
-    def xrmcRotationMatrix(self, *args):
-        arr = self.rotationUserToXrmc(*args)
-        if arr:
-            arr = np.array(arr)
-            pt = arr[:3]
-            vec = arr[3:6]
-            angle = np.radians(arr[-1])
-            rotvec = vec * (angle / sum(vec * vec))
-            M1 = np.eye(4)
-            M1[:3, 3] = -pt
-            M2 = np.eye(4)
-            M2[:3, :3] = Rotation.from_rotvec(rotvec).as_matrix()
-            M3 = np.eye(4)
-            M3[:3, 3] = pt
-            return M3.dot(M2.dot(M1))
-        else:
-            M = np.eye(4)
-        return M
+    def xrmcRotationMatrix(self, *args, **kw):
+        """Defined in USER frame, return in XRMC frame
+        """
+        arr = self.rotationUserToXrmc(*args, **kw)
+        angle = np.radians(arr[-1])
+        if angle == 0:
+            return np.eye(4)
+        arr = np.array(arr)
+        pt = arr[:3]
+        vec = arr[3:6]
+        rotvec = vec * (angle / sum(vec * vec))
+        M1 = np.eye(4)
+        M1[:3, 3] = -pt
+        M2 = np.eye(4)
+        M2[:3, :3] = Rotation.from_rotvec(rotvec).as_matrix()
+        M3 = np.eye(4)
+        M3[:3, 3] = pt
+        return M3.dot(M2.dot(M1))
 
     @property
     def userToXrmc(self):
@@ -604,7 +635,7 @@ class xrmc_reference_frame(object):
 
     @property
     def xrmcToUser(self):
-        return numpy.linalg.inv(self.userToXrmc)
+        return np.array([[-1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
 
     def applyTransform(self, coord):
         """
@@ -619,34 +650,63 @@ class xrmc_reference_frame(object):
         return coord[:, :-1] / coord[:, -1]
 
 
-class xrmc_positional_device(xrmc_device, xrmc_reference_frame):
+class XrmcPositionalDevice(XrmcDevice, XrmcReferenceFrame):
     """
     Device reference point is positioned at spherical coordinates [r, polar, azimuth].
     Device surface goes through the reference point.
-    Device surface-center coincides with reference point (unless offsets are not zero)
+    Device surface-center coincides with reference point (unless offsets are not zero).
     """
 
-    QUADRICIDX = np.tril_indices(4)
-
     def __init__(
-        self, parent, name, radius=0, polar=0, azimuth=0, hoffset=0, voffset=0
+        self,
+        parent,
+        name,
+        radius=0,
+        polar=0,
+        azimuth=0,
+        hoffset=0,
+        voffset=0,
+        fixed=True,
     ):
-        super(xrmc_positional_device, self).__init__(parent, name)
+        super(XrmcPositionalDevice, self).__init__(parent, name)
         self.radius = radius
         self.polar = polar
         self.azimuth = azimuth
         self.hoffset = hoffset
         self.voffset = voffset
+        self.fixed = fixed
 
     @property
     def userToXrmc(self):
+        """The user frame of the device (i.e. before moving the device)
+        """
         M0 = super().userToXrmc
         M1 = self.xrmcTranslationMatrix(self.hoffset, self.voffset, self.radius)
         M2 = self.xrmcRotationMatrix(0, 0, 0, 0, 1, 0, self.polar)
         M3 = self.xrmcRotationMatrix(0, 0, 0, 0, 0, 1, self.azimuth)
         return M3.dot(M2.dot(M1).dot(M0))
 
+    @property
+    def xrmcToUser(self):
+        M0i = super().xrmcToUser
+        M1i = self.xrmcTranslationMatrix(-self.hoffset, -self.voffset, -self.radius)
+        M2i = self.xrmcRotationMatrix(0, 0, 0, 0, 1, 0, -self.polar)
+        M3i = self.xrmcRotationMatrix(0, 0, 0, 0, 0, 1, -self.azimuth)
+        return M0i.dot(M1i.dot(M2i).dot(M3i))
+
+    @property
+    def quadricChangeOfFrame(self):
+        """Quadric already in XRMC frame
+        """
+        M1i = self.xrmcTranslationMatrix(-self.hoffset, -self.voffset, -self.radius)
+        M2i = self.xrmcRotationMatrix(0, 0, 0, 0, 1, 0, self.polar)
+        M3i = self.xrmcRotationMatrix(0, 0, 0, 0, 0, 1, self.azimuth)
+        return M1i.dot(M2i.dot(M3i))
+
     def xmrcTransformedQuadric(self, name, typ, params):
+        """Quadric params already in XRMC frame
+        """
+        idx = ([0, 1, 2, 3, 1, 2, 3, 2, 3, 3], [0, 0, 0, 0, 1, 1, 1, 2, 2, 3])
         if typ == "Plane":
             A = quadrics.plane(params[:3], params[3:])
         elif typ == "Ellipsoid":
@@ -656,10 +716,9 @@ class xrmc_positional_device(xrmc_device, xrmc_reference_frame):
             A = quadrics.cylinder(params[:3], params[3:], axis)
         else:
             A = np.zeros((4, 4))
-            A[self.QUADRICIDX] = params
-        C = np.linalg.inv(self.userToXrmc)
-        A = C.T.dot(A.dot(C))
-        return A[self.QUADRICIDX].tolist()
+            A[idx] = params
+        A = quadrics.change_of_frame(A, self.quadricChangeOfFrame)
+        return A[idx].tolist()
 
     def xrmcTransformInput(self, item, all=True):
         """
@@ -709,11 +768,22 @@ class xrmc_positional_device(xrmc_device, xrmc_reference_frame):
         Rotate around axis going through [x, y, z] with direction [u, v, w]
         """
         params = x, y, z, u, v, w, step
-        if isinstance(self, Quadrics):
-            step = [("RotateAll", params)]
-        else:
-            step = [("Rotate", params)]
-        self.parent.addloop(self.name + suffix, self, step=step, nsteps=nsteps)
+        if self.fixed:
+            raise RuntimeError("{} is fixed".format(repr(self)))
+        devices = []
+        steps = []
+        # Rotate the device quadrics (e.g. sample, detector filters)
+        devices.append(self.quadrics)
+        steps.append([("RotateAll", params)])
+        if not isinstance(self, Sample):
+            # When rotating a device, the sample should be fixed
+            sample = self.parent.sample()
+            if not sample.fixed:
+                raise RuntimeError("{} must be fixed".format(repr(sample)))
+            # Rotate the device itself with the quadrics
+            devices.append(self)
+            steps.append([("Rotate", params)])
+            self.parent.add_loop(devices, suffix, steps=steps, nsteps=nsteps)
 
     def add_Xrotationloop(self, step, nsteps):
         self.add_rotationloop("_Xrot", 0, 0, 0, 1, 0, 0, step, nsteps)
@@ -751,16 +821,28 @@ class xrmc_positional_device(xrmc_device, xrmc_reference_frame):
     ):
         if not material:
             material = "Vacuum"
-        ilayer, names = self.parent.quadrics().add_layer(
-            thickness, dhor, dvert, ohor, overt, pdevice=self, **kwargs
+        ilayer, names = self.quadrics.add_layer(
+            thickness, dhor, dvert, ohor=ohor, overt=overt, pdevice=self, **kwargs
         )
-        matname = self.parent.compositions().addmaterial(material)
+        matname = self.compositions.addmaterial(material)
         objname = "{}_layer{}".format(self.name, ilayer)
-        self.parent.objects().add(objname, material, names)
+        self.objects.add(objname, material, names)
         return objname, matname
 
+    @property
+    def quadrics(self):
+        return self.parent.quadrics()
 
-class Transform(xrmc_child, xrmc_reference_frame):
+    @property
+    def objects(self):
+        return self.parent.objects()
+
+    @property
+    def compositions(self):
+        return self.parent.compositions()
+
+
+class Transform(XrmcChild, XrmcReferenceFrame):
     def __init__(self, parent, name, device, transformations):
         super(Transform, self).__init__(parent)
         self.filesuffix = name
@@ -819,7 +901,7 @@ class Transform(xrmc_child, xrmc_reference_frame):
         )
 
 
-class Source(xrmc_positional_device):
+class Source(XrmcPositionalDevice):
 
     TYPE = "source"
 
@@ -893,7 +975,7 @@ class Source(xrmc_positional_device):
         return lines
 
 
-class Spectrum(xrmc_device):
+class Spectrum(XrmcDevice):
 
     TYPE = "spectrum"
 
@@ -971,7 +1053,7 @@ class Spectrum(xrmc_device):
         return sum(intensity for energy, sigma, intensity in self.lines)
 
 
-class Detector(xrmc_positional_device):
+class Detector(XrmcPositionalDevice):
 
     TYPE = "detectorarray"
 
@@ -1371,12 +1453,12 @@ class SDD(SingleElementDetector):
             self.pulseproctime = pulseproctime
 
 
-class Sample(xrmc_positional_device):
+class Sample(XrmcPositionalDevice):
 
     TYPE = "sample"
 
-    def __init__(self, parent, name, multiplicity=(1, 1), **kwargs):
-        super(Sample, self).__init__(parent, name, **kwargs)
+    def __init__(self, parent, name, multiplicity=(1, 1), fixed=False, **kwargs):
+        super(Sample, self).__init__(parent, name, fixed=fixed, **kwargs)
         self.multiplicity = multiplicity
 
     @property
@@ -1433,7 +1515,7 @@ class Sample(xrmc_positional_device):
         return lines
 
 
-class Objects(xrmc_device):
+class Objects(XrmcDevice):
 
     TYPE = "geom3d"
 
@@ -1520,7 +1602,7 @@ class QuadricsGroup(MutableMapping):
         return iter(self._qdict)
 
 
-class Quadrics(xrmc_positional_device):
+class Quadrics(XrmcDevice):
 
     TYPE = "quadricarray"
 
@@ -1536,14 +1618,23 @@ class Quadrics(xrmc_positional_device):
     def clear(self):
         self._qdict = OrderedDict()
 
-    def group(self, pdevice=None):
-        if pdevice is None:
-            pdevice = self
+    def group(self, pdevice):
+        """Add group of quadrics associated to a positional device (e.g. sample, detector)
+
+        Args:
+            pdevice(XmrcPositionalDevice)
+        """
         name = pdevice.name
         grp = self._qdict.get(name)
         if grp is None:
-            grp = self._qdict[name] = QuadricsGroup(pdevice)
+            self._qdict[name] = grp = QuadricsGroup(pdevice)
         return grp
+
+    @property
+    def nonfixed_group(self):
+        for o in self._qdict.values():
+            if not o.pdevice.fixed:
+                return o
 
     @property
     def header(self):
@@ -1560,17 +1651,18 @@ class Quadrics(xrmc_positional_device):
         if not self._qdict:
             return []
         lines = super(Quadrics, self).code
-
+        if sum(not o.pdevice.fixed for o in self._qdict.values()) > 2:
+            raise RuntimeError("Only one non-fixed device with quadrics allowed")
         for grp in self._qdict.values():
             pdevice = grp.pdevice
-            # TODO
-            transform_quadrics = not isinstance(pdevice, Sample)
-            transform_quadrics = True
             for name, typ, params in grp.values():
-                comment = ""
-                if transform_quadrics:
+                if pdevice.fixed:
                     params = pdevice.xmrcTransformedQuadric(name, typ, params)
                     name += " BlockTransformAll"
+                    comment = (
+                        typ
+                        + " A0*x^2 + 2*A1*x*y + 2*A2*x*z + 2*A3*x + A4*y^2 + 2*A5*y*z + 2*A6*y + A7*z^2 + 2*A8*z + A9 = 0"
+                    )
                     typ = "Quadric"
                 else:
                     if typ == "Plane":
@@ -1585,15 +1677,21 @@ class Quadrics(xrmc_positional_device):
                         comment = "Cylinder with main axis along {} and with coordinates (xa, xb) in the perpendicular plane. (Ra, Rb) are the elliptical semi-axes.".format(
                             axis
                         )
+                    elif typ.startswith("Quadric"):
+                        comment = "Equation A0*x^2 + 2*A1*x*y + 2*A2*x*z + 2*A3*x + A4*y^2 + 2*A5*y*z + 2*A6*y + A7*z^2 + 2*A8*z + A9 = 0"
                 lines.append(("", "", True))
                 lines.append(("{} {}".format(typ, name), "", True))
                 lines.append((" ".join(list(map(str, params))), comment, True))
         lines.append(("", "", True))
-        lines += self.xrmcTransformInput("quadrics")
+        grp = self.nonfixed_group
+        if grp is not None:
+            lines += grp.pdevice.xrmcTransformInput(repr(grp.pdevice.name))
         return lines
 
     def add_plane(self, objname, x0, y0, z0, nx, ny, nz, pdevice=None):
-        grp = self.group(pdevice=pdevice)
+        """Already in XMRC reference frame
+        """
+        grp = self.group(pdevice)
         if objname in grp:
             raise ValueError("Quadric {} already exists".format(repr(objname)))
         params = [x0, y0, z0, nx, ny, nz]
@@ -1602,7 +1700,9 @@ class Quadrics(xrmc_positional_device):
         return name
 
     def add_cylinder(self, objname, axis, xa, xb, Ra, Rb, pdevice=None):
-        grp = self.group(pdevice=pdevice)
+        """Already in XMRC reference frame
+        """
+        grp = self.group(pdevice)
         if objname in grp:
             raise ValueError("Quadric {} already exists".format(repr(objname)))
         axis = axis.upper()
@@ -1614,7 +1714,9 @@ class Quadrics(xrmc_positional_device):
         return name
 
     def add_ellipsoid(self, objname, xa, xb, xc, Ra, Rb, Rc, pdevice=None):
-        grp = self.group(pdevice=pdevice)
+        """Already in XMRC reference frame
+        """
+        grp = self.group(pdevice)
         if objname in grp:
             raise ValueError("Quadric {} already exists".format(repr(objname)))
         params = [xa, xb, xc, Ra, Rb, Rc]
@@ -1625,7 +1727,9 @@ class Quadrics(xrmc_positional_device):
     def add_quadric(
         self, objname, A11, A12, A13, A14, A22, A23, A24, A33, A34, A44, pdevice=None
     ):
-        grp = self.group(pdevice=pdevice)
+        """Already in XMRC reference frame
+        """
+        grp = self.group(pdevice)
         if objname in grp:
             raise ValueError("Quadric {} already exists".format(repr(objname)))
         params = [A11, A12, A13, A14, A22, A23, A24, A33, A34, A44]
@@ -1634,7 +1738,7 @@ class Quadrics(xrmc_positional_device):
         return name
 
     def add_layer(
-        self, thickness, dhor, dvert, ohor, overt, dthickness=1e-10, pdevice=None
+        self, thickness, dhor, dvert, ohor=0, overt=0, dthickness=1e-10, pdevice=None
     ):
         """
         Layer perpendicular to the beam direction (before transformation).
@@ -1742,7 +1846,7 @@ def materialname(material):
     return name
 
 
-class Compositions(xrmc_device):
+class Compositions(XrmcDevice):
 
     TYPE = "composition"
 
@@ -1816,7 +1920,7 @@ class Compositions(xrmc_device):
 
 class XrmcWorldBuilder(object):
     def __init__(self, path, atmosphere=None):
-        self.main = main = xrmc_main(path)
+        self.main = main = XrmcMain(path)
         self.compoundlib = main.add_device(
             Compositions, "compoundlib", atmosphere=atmosphere
         )
@@ -1830,7 +1934,7 @@ class XrmcWorldBuilder(object):
     def define_source(
         self, flux=None, energy=None, distance=None, beamsize=None, multiplicity=1
     ):
-        self.main.removedevice(cls=Source)
+        self.main.remove_device(cls=Source)
         self.source = self.main.add_device(
             Source, "synchrotron", beamsize=beamsize, distance=distance
         )
@@ -1853,7 +1957,7 @@ class XrmcWorldBuilder(object):
         multiplicity=1,
         time=1,
     ):
-        self.main.removedevice(cls=Detector)
+        self.main.remove_device(cls=Detector)
         self.detector = self.main.add_device(
             SingleElementDetector,
             "detector",
@@ -1887,8 +1991,8 @@ class XrmcWorldBuilder(object):
         as_lines=None,
     ):
         if as_lines is None:
-            as_lines = bool(response)
-        self.main.removedevice(cls=Detector)
+            as_lines = not bool(response)
+        self.main.remove_device(cls=Detector)
         if response:
             cls = SDD
         else:
@@ -1930,7 +2034,7 @@ class XrmcWorldBuilder(object):
         pixelsize=None,
         dims=None,
     ):
-        self.main.removedevice(cls=Detector)
+        self.main.remove_device(cls=Detector)
         self.detector = self.main.add_device(
             AreaDetector,
             "detector",
