@@ -783,7 +783,7 @@ class XrmcPositionalDevice(XrmcDevice, XrmcReferenceFrame):
             # Rotate the device itself with the quadrics
             devices.append(self)
             steps.append([("Rotate", params)])
-            self.parent.add_loop(devices, suffix, steps=steps, nsteps=nsteps)
+        self.parent.add_loop(devices, suffix, steps=steps, nsteps=nsteps)
 
     def add_Xrotationloop(self, step, nsteps):
         self.add_rotationloop("_Xrot", 0, 0, 0, 1, 0, 0, step, nsteps)
@@ -824,7 +824,7 @@ class XrmcPositionalDevice(XrmcDevice, XrmcReferenceFrame):
         ilayer, names = self.quadrics.add_layer(
             thickness, dhor, dvert, ohor=ohor, overt=overt, pdevice=self, **kwargs
         )
-        matname = self.compositions.addmaterial(material)
+        matname = self.compositions.add_material(material)
         objname = "{}_layer{}".format(self.name, ilayer)
         self.objects.add(objname, material, names)
         return objname, matname
@@ -1317,6 +1317,12 @@ class Detector(XrmcPositionalDevice):
         for suffix in suffixes:
             saveemptyresult(self.absoutput(suffix=suffix), header)
 
+    def add_layer(self, thickness=None, **kwargs):
+        """Add layer in front of the detector
+        """
+        thickness = -abs(thickness)
+        super(Detector, self).add_layer(thickness=thickness, **kwargs)
+
 
 class AreaDetector(Detector):
 
@@ -1355,6 +1361,10 @@ class AreaDetector(Detector):
     @vpoffset.setter
     def vpoffset(self, value):
         self.voffset = value * self.pixelsize[1]
+
+    @property
+    def size(self):
+        return self.dims[0] * self.pixelsize[0], self.dims[1] * self.pixelsize[1]
 
 
 class SingleElementDetector(Detector):
@@ -1399,8 +1409,8 @@ class SDD(SingleElementDetector):
         self.fano = fano
         self.set_pulseproctime(dtfrac, countrate, pulseproctime=pulseproctime)
         super(SDD, self).__init__(parent, name, as_lines=as_lines, **kwargs)
-        material = self.parent.compositions().addmaterial(material)
-        windowmaterial = self.parent.compositions().addmaterial(windowmaterial)
+        material = self.parent.compositions().add_material(material)
+        windowmaterial = self.parent.compositions().add_material(windowmaterial)
         self.material = material
         self.thickness = thickness
         self.windowmaterial = windowmaterial
@@ -1651,7 +1661,7 @@ class Quadrics(XrmcDevice):
         if not self._qdict:
             return []
         lines = super(Quadrics, self).code
-        if sum(not o.pdevice.fixed for o in self._qdict.values()) > 2:
+        if sum(not o.pdevice.fixed for o in self._qdict.values()) > 1:
             raise RuntimeError("Only one non-fixed device with quadrics allowed")
         for grp in self._qdict.values():
             pdevice = grp.pdevice
@@ -1738,13 +1748,21 @@ class Quadrics(XrmcDevice):
         return name
 
     def add_layer(
-        self, thickness, dhor, dvert, ohor=0, overt=0, dthickness=1e-10, pdevice=None
+        self,
+        thickness,
+        dhor,
+        dvert,
+        ohor=0,
+        overt=0,
+        surface=0,
+        spacing=1e-10,
+        pdevice=None,
     ):
         """
         Layer perpendicular to the beam direction (before transformation).
         Beam runs through the geometric center when `ohor == overt == 0`.
-        Layer starts at the previous `layer + dthickness` and ends at
-        `layer + dthickness + thickness`.
+        Layer starts at the previous `layer + spacing` and ends at
+        `layer + spacing + thickness`.
 
         Args:
             thickness: can be negative
@@ -1752,12 +1770,12 @@ class Quadrics(XrmcDevice):
             dvert: length along the vertical axis
             ohor: shift along horizontal axis
             overt: shift along vertical axis
-            dthickness: layers cannot be touching
+            surface: position of the surface on the perpendicular axis
+            spacing: layers cannot be touching
         """
-        surface = 0
         ilayer = -1
-        if thickness * dthickness < 0:
-            dthickness = -dthickness
+        if thickness * spacing < 0:
+            spacing = -spacing
         for name, clsname, params in self.group(pdevice).values():
             if clsname != "Plane":
                 continue
@@ -1768,8 +1786,10 @@ class Quadrics(XrmcDevice):
                     ilayer = i
                     surface = params[1]  # end of previous layer
         ilayer += 1
-        ta = surface + dthickness
+        ta = surface + spacing
         tb = ta + thickness
+        if thickness < 0:
+            ta, tb = tb, ta
         names = []
         names.append(
             self.add_plane(
@@ -1887,7 +1907,7 @@ class Compositions(XrmcDevice):
     def clear(self):
         self._dict = {}
 
-    def addmaterial(self, material, name=None):
+    def add_material(self, material, name=None):
         """
         Args:
             material(str or Element/Compound/Mixture)
@@ -1903,6 +1923,9 @@ class Compositions(XrmcDevice):
             if "vacuum" in material.lower():
                 return "Vacuum"  # No need to add this
             material = compoundfromname(material)
+        else:
+            if "vacuum" in material.name.lower():
+                return "Vacuum"  # No need to add this
         wfrac = material.elemental_massfractions()
         self.add(name, list(wfrac.keys()), list(wfrac.values()), material.density)
         return name
@@ -1913,7 +1936,7 @@ class Compositions(XrmcDevice):
 
     @atmosphere.setter
     def atmosphere(self, material):
-        self._atmosphere = self.addmaterial(material)
+        self._atmosphere = self.add_material(material)
         for objects in self.parent.objects(first=False):
             objects.change_atmosphere(material)
 
@@ -2052,8 +2075,8 @@ class XrmcWorldBuilder(object):
             time=time,
         )
 
-    def addmaterial(self, material, name=None):
-        return self.main.compositions().addmaterial(material, name=name)
+    def add_material(self, material, name=None):
+        return self.main.compositions().add_material(material, name=name)
 
     def finalize(self, interactions=None):
         sample = self.sample
@@ -2074,3 +2097,4 @@ class XrmcWorldBuilder(object):
     adddiode = add_diode
     addxrfdetector = add_xrfdetector
     addareadetector = add_areadetector
+    addmaterial = add_material
