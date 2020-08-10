@@ -30,6 +30,7 @@ def installed():
 
 
 def execute(*args, **kwargs):
+    logger.info("EXECUTE: cd{}; xrmc {}".format(kwargs.get("cwd", "."), " ".join(args)))
     out, err, returncode = subprocess.execute("xrmc", *args, **kwargs)
     if isinstance(out, bytes):
         out = out.decode()
@@ -75,7 +76,10 @@ def _loadxrmcresult(filename):
         x1 *= header["scol"]
         energy = np.linspace(header["emin"], header["emax"], header["nbin"])
         zero = header["emin"]
-        gain = (header["emax"] - header["emin"]) / (header["nbin"] - 1.0)
+        if header["nbin"] == 1:
+            gain = np.nan
+        else:
+            gain = (header["emax"] - header["emin"]) / (header["nbin"] - 1.0)
         info = {
             "time": header["time"],
             "x0": x0,
@@ -89,9 +93,14 @@ def _loadxrmcresult(filename):
 
 def loadxrmcresult(path, basename, ext=".dat"):
     """
+        Ninteractions: number of interactions
+        Nstack: number of runs
+        Nrows, Ncolumns: detector shape
+        Nchannels: mca channels
     returns: Ninteractions, Nstack, Nrows, Ncolumns, Nchannels
     """
-    filenames = glob(os.path.join(path, basename + "*" + ext))
+    pattern = os.path.join(path, basename + "*" + ext)
+    filenames = glob(pattern)
     data = []
     info = {}
     for filename in sorted(filenames):
@@ -99,8 +108,21 @@ def loadxrmcresult(path, basename, ext=".dat"):
         data.append(datai)
         if not info:
             info = infoi
+    if not data:
+        raise RuntimeError("No files found {}".format(repr(pattern)))
     data = np.stack(data, axis=1)
     return data, info
+
+
+def loadxrmcresult_xmimsim(xmimsimpath, outradix="out", convoluted=False):
+    """XRMC result based on input files converted from XMIMSIM
+    """
+    xrmcoutpath = os.path.join(xmimsimpath, "xrmc", "output")
+    if convoluted:
+        suffix = "_convoluted"
+    else:
+        suffix = "_lines"
+    return loadxrmcresult(xrmcoutpath, outradix + suffix, ext=".dat")
 
 
 def xrmcresult_to_mca(xrmcfile, mcafile, mode="w"):
@@ -110,6 +132,19 @@ def xrmcresult_to_mca(xrmcfile, mcafile, mode="w"):
     data, info = _loadxrmcresult(xrmcfile)
     mcadata = data.sum(axis=tuple(range(data.ndim - 1)))
     mca.save(mcadata, mcafile, mode=mode, zero=info["zero"], gain=info["gain"])
+
+
+def xrmcresult_to_mca_xmimsim(xmimsimpath, outradix="out", convoluted=False):
+    """XRMC result based on input files converted from XMIMSIM
+    """
+    xrmcoutpath = os.path.join(xmimsimpath, "xrmc", "output")
+    if convoluted:
+        suffix = "_convoluted"
+    else:
+        suffix = "_lines"
+    xrmcfile = os.path.join(xrmcoutpath, outradix + suffix + ".dat")
+    mcafile = os.path.join(xrmcoutpath, outradix + suffix + ".mca")
+    xrmcresult_to_mca(xrmcfile, mcafile)
 
 
 def showxrmcresult(
@@ -330,22 +365,10 @@ class XrmcMain(XrmcFile):
                             "Load " + dstep.filename for step in steps for dstep in step
                         ]
                     for detector in detectors:
-                        lines += [
-                            "Run {}".format(detector.name),
-                            "Save {} {} {}".format(
-                                detector.name,
-                                detector.img_type,
-                                detector.reloutput(suffix=fmt.format(*idx)),
-                            ),
-                        ]
+                        lines += detector.run_code(suffix=fmt.format(*idx))
             else:
                 for detector in detectors:
-                    lines += [
-                        "Run {}".format(detector.name),
-                        "Save {} {} {}".format(
-                            detector.name, detector.img_type, detector.reloutput()
-                        ),
-                    ]
+                    lines += detector.run_code()
         return lines
 
     def output_suffixes(self):
@@ -907,21 +930,17 @@ class Source(XrmcPositionalDevice):
 
     def __init__(self, parent, name, distance=None, beamsize=None):
         super(Source, self).__init__(
-            parent, name, radius=distance, polar=180, azimuth=0, hoffset=0, voffset=0
+            parent, name, radius=-distance, polar=180, azimuth=0, hoffset=0, voffset=0
         )
         self.beamsize = beamsize
 
     @property
     def distance(self):
-        return self.radius
+        return abs(self.radius)
 
     @distance.setter
     def distance(self, value):
-        self.radius = value
-
-    @property
-    def position(self):
-        return -self.distance
+        self.radius = -value
 
     @property
     def header(self):
@@ -947,7 +966,7 @@ class Source(XrmcPositionalDevice):
     def code(self):
         lines = super(Source, self).code
         div = self.divergence
-        position = self.xrmcTranslationInput("X", "source origin", 0, 0, -self.distance)
+        position = self.xrmcPositionInput("source origin")
 
         # Source reference frame:
         #   XY-plane: Electric field vector [Ex, Ey]
@@ -1070,7 +1089,6 @@ class Detector(XrmcPositionalDevice):
         emax=None,
         time=1,
         pixelshape="elliptical",
-        as_lines=True,
         **kwargs
     ):
         super(Detector, self).__init__(parent, name, radius=distance, **kwargs)
@@ -1082,19 +1100,14 @@ class Detector(XrmcPositionalDevice):
         self.multiplicity = multiplicity
         self.time = time
         self.pixelshape = pixelshape.lower()
-        self.as_lines = as_lines
 
     @property
     def distance(self):
-        return self.radius
+        return abs(self.radius)
 
     @distance.setter
     def distance(self, value):
         self.radius = value
-
-    @property
-    def position(self):
-        return self.distance
 
     @property
     def header(self):
@@ -1200,19 +1213,47 @@ class Detector(XrmcPositionalDevice):
         lines += rotations
         return lines
 
-    def reloutput(self, suffix=None):
-        if not suffix:
-            suffix = ""
-        return "output/{}{}.dat".format(self.name, suffix)
+    def run_code(self, suffix=None):
+        lines = ["Run {}".format(self.name)]
+        for img_type, filename in self.files_to_save(suffix=suffix):
+            lines.append("Save {} {} {}".format(self.name, img_type, filename,))
+        return lines
 
-    def absoutput(self, suffix=None):
+    def outname(self, suffix=None, convoluted=False):
         if not suffix:
             suffix = ""
-        return os.path.join(self.outpath, "{}{}.dat".format(self.name, suffix))
+        if convoluted:
+            typ = "_convoluted"
+        else:
+            typ = "_lines"
+        return "{}{}{}.dat".format(self.name, typ, suffix)
+
+    def files_to_save(self, suffix=None):
+        yield "Image", self.reloutput(suffix=suffix, convoluted=False)
+
+    def reloutput(self, **kw):
+        return os.path.join(self.outsubdir, self.outname(**kw))
+
+    def absoutput(self, **kw):
+        return os.path.join(self.path, self.reloutput(**kw))
+
+    @property
+    def outsubdir(self):
+        return "output"
 
     @property
     def outpath(self):
-        return os.path.join(self.path, "output")
+        return os.path.join(self.path, self.outsubdir)
+
+    @property
+    def out_filenames(self):
+        if self.parent.loops:
+            suffix = "_*"
+        else:
+            suffix = None
+        for _, reloutput in self.files_to_save(suffix=suffix):
+            for filename in sorted(glob(os.path.join(self.path, reloutput))):
+                yield filename
 
     @property
     def energydispersive(self):
@@ -1221,13 +1262,6 @@ class Detector(XrmcPositionalDevice):
     @property
     def elliptical(self):
         return self.pixelshape == "elliptical"
-
-    @property
-    def img_type(self):
-        if self.as_lines:
-            return "Image"
-        else:
-            return "ConvolutedImage"
 
     @property
     def emax(self):
@@ -1273,22 +1307,22 @@ class Detector(XrmcPositionalDevice):
 
     @property
     def mcazero(self):
-        return 0
+        return self.emin
 
-    def result(self):
+    def result(self, convoluted=False):
         if self.parent.loops:
             suffix = "_*"
         else:
             suffix = None
-        filename = self.absoutput(suffix=suffix)
+        filename = self.absoutput(suffix=suffix, convoluted=convoluted)
         dirname = os.path.dirname(filename)
         basename, ext = os.path.splitext(os.path.basename(filename))
         return loadxrmcresult(dirname, basename, ext)
 
     def removeoutput(self):
-        filename = self.absoutput()
-        if os.path.isfile(filename):
-            os.remove(filename)
+        for filename in self.out_filenames:
+            if os.path.isfile(filename):
+                os.remove(filename)
 
     def saveemptyoutput(self, ninteractions):
         energydispersive = self.energydispersive
@@ -1395,22 +1429,23 @@ class SDD(SingleElementDetector):
         name,
         material=None,
         thickness=None,
-        windowmaterial=None,
+        windowmaterial="Vacuum",
         windowthickness=0,
         dtfrac=None,
         countrate=None,
         pulseproctime=0,
         noise=None,
         fano=None,
-        as_lines=False,
         **kwargs
     ):
         self.noise = noise
         self.fano = fano
-        self.set_pulseproctime(dtfrac, countrate, pulseproctime=pulseproctime)
-        super(SDD, self).__init__(parent, name, as_lines=as_lines, **kwargs)
-        material = self.parent.compositions().add_material(material)
-        windowmaterial = self.parent.compositions().add_material(windowmaterial)
+        if dtfrac and countrate:
+            self.pulseproctime_from_dt(dtfrac, countrate)
+        else:
+            self.pulseproctime = pulseproctime
+        super(SDD, self).__init__(parent, name, **kwargs)
+        material = self.compositions.add_material(material)
         self.material = material
         self.thickness = thickness
         self.windowmaterial = windowmaterial
@@ -1435,10 +1470,15 @@ class SDD(SingleElementDetector):
                 "Detector crystal thickness",
                 True,
             ),
-            ("WindowPhase {}".format(self.windowmaterial), "Window material", True),
+            # Detector windows are now treated like the sample
+            (
+                "WindowPhase {}".format(self.windowmaterial),
+                "Detector window material",
+                True,
+            ),
             (
                 "WindowThickness {}".format(self.windowthickness),
-                "Window thickness",
+                "Detector window thickness",
                 True,
             ),
             ("Noise {}".format(self.noise), "Detector energy noise (keV)", True),
@@ -1455,12 +1495,24 @@ class SDD(SingleElementDetector):
         ]
         return lines
 
-    def set_pulseproctime(self, dtfrac, countrate, pulseproctime=0):
-        # Assume extendable deadtime
-        if dtfrac and countrate:
+    def pulseproctime_from_dt(self, dtfrac, countrate, extendable=True):
+        """
+        Args:
+            dtfrac(num): fraction of time or counts lost
+            countrate(num): incomming flux
+            extendable(bool): extendable or non-extendable deadtime
+        """
+        # 1-dtfrac = countrate_out/countrate
+        # http://nucleus.usask.ca/ftp/pub/daron/thesis/deadtime.pdf
+        if extendable:
             self.pulseproctime = -np.log(1 - dtfrac) / countrate
         else:
-            self.pulseproctime = pulseproctime
+            self.pulseproctime = dtfrac / ((1 - dtfrac) * countrate)
+
+    def files_to_save(self, suffix=None):
+        for tpl in super(SDD, self).files_to_save(suffix=suffix):
+            yield tpl
+        yield "ConvolutedImage", self.reloutput(suffix=suffix, convoluted=True)
 
 
 class Sample(XrmcPositionalDevice):
@@ -2011,10 +2063,7 @@ class XrmcWorldBuilder(object):
         response=None,
         emin=None,
         emax=None,
-        as_lines=None,
     ):
-        if as_lines is None:
-            as_lines = not bool(response)
         self.main.remove_device(cls=Detector)
         if response:
             cls = SDD
@@ -2037,7 +2086,6 @@ class XrmcWorldBuilder(object):
             emin=emin,
             emax=emax,
             time=time,
-            as_lines=as_lines,
             **response
         )
 

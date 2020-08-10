@@ -2,11 +2,14 @@
 
 import os
 import numpy as np
+import logging
 from PyMca5.PyMcaIO import ConfigDict
 from ..io import localfs
 from ..io import spe
 from ..utils import subprocess
-from .xrmc import xrmcresult_to_mca
+
+
+logger = logging.getLogger(__name__)
 
 
 def proc_result(args, out, err, returncode):
@@ -24,6 +27,7 @@ def installed():
 
 
 def execute(args, cwd):
+    logger.info("EXECUTE: cd {}; {}".format(cwd, " ".join(args)))
     out, err, returncode = subprocess.execute(*args, cwd=cwd, stderr=True)
     if isinstance(out, bytes):
         out = out.decode()
@@ -42,6 +46,7 @@ def pymcacfg_add_mcinfo(
     has_atmosphere=False,
     beamsize=1e-4,
 ):
+    # PyMca5.PyMcaGui.physics.xrf.XRFMCPyMca.XRFMCParameters
     configdict["xrfmc"] = {}
     mcsetup = configdict["xrfmc"]["setup"] = {}
     mcsetup["p_polarisation"] = p_polarisation
@@ -76,6 +81,13 @@ def pymcacfg_add_mcinfo(
         if name not in attenuators:
             attenuators[name] = [0, "-", 0.0, 0.0, 1.0]
 
+    # TODO: xmimsim-pymca expects a fixed number of layers
+    multilayer = configdict.get("multilayer")
+    if multilayer:
+        nlayers = len(multilayer)
+        for i in range(nlayers, 10):
+            multilayer["Layer{}".format(i)] = [0, "None", 0, 0]
+
 
 def pymcacfg_to_xmimsimcfg(pymcacfg, xmimsimcfg, **kwargs):
     configdict = ConfigDict.ConfigDict(filelist=pymcacfg)
@@ -84,28 +96,25 @@ def pymcacfg_to_xmimsimcfg(pymcacfg, xmimsimcfg, **kwargs):
     configdict.write(xmimsimcfg)
 
 
-def run_xmimsim_pymca(xmimsimcfg, xmso, pileup=True, escape=True, convolute=True):
+def run_xmimsim_pymca(xmimsimcfg, xmso, pileup=True, escape=True):
     xmsopath = os.path.dirname(xmso)
     xmsofile = os.path.basename(xmso)
     basename = os.path.splitext(xmsofile)[0]
     args = [
         "xmimsim-pymca",
         "--spe-file-unconvoluted={}_lines".format(basename),
+        "--spe-file={}_convoluted".format(basename),
         "--verbose",
         "--enable-single-run",
     ]
     if pileup:
-        pileup = "--enable-pile-up"
+        args.append("--enable-pile-up")
     else:
-        pileup = "--disable-pile-up"
-    args.append(pileup)
+        args.append("--disable-pile-up")
     if escape:
-        escape = "--enable-escape-peaks"
+        args.append("--enable-escape-peaks")
     else:
-        escape = "--disable-escape-peaks"
-    args.append(escape)
-    if convolute:
-        args.append("--spe-file={}_convoluted".format(basename))
+        args.append("--disable-escape-peaks")
     args += [xmimsimcfg, xmsofile]
     return execute(args, xmsopath)
 
@@ -143,14 +152,29 @@ def patch_xmsi(xmso, xmsi):
         f.write("\n".join(content))
 
 
-def xmsi_to_xrmc(xmsi, xrmcpath, pileup=True):
+def xmsi_to_xrmc(xmsi, xrmcpath, outpath, basename, pileup=True):
     args = ["xmsi2xrmc", xmsi]
     if pileup:
-        pileup = "--enable-pile-up"
+        args.append("--enable-pile-up")
     else:
-        pileup = "--disable-pile-up"
-    args.append(pileup)
-    return execute(args, xrmcpath)
+        args.append("--disable-pile-up")
+    root = str(outpath[basename])
+    args.append("--convoluted-file={}_convoluted.dat".format(root))
+    args.append("--unconvoluted-file={}_lines.dat".format(root))
+    if not execute(args, str(xrmcpath)):
+        return False
+    # TODO: xrmc issue #49
+    lines = []
+    with open(str(xrmcpath["detector.dat"]), mode="r") as f:
+        lines = f.readlines()
+    with open(str(xrmcpath["detector.dat"]), mode="w") as f:
+        for line in lines:
+            if line.startswith("FanoFactor"):
+                line = "FanoFactor 1e-10\n"
+            elif line.startswith("Noise"):
+                line = "Noise 1e-10\n"
+            f.write(line)
+    return True
 
 
 def run(
@@ -159,7 +183,6 @@ def run(
     pymcacfg=None,
     pileup=True,
     escape=True,
-    convolute=True,
     outradix="out",
     runxrmc=False,
     **kwargs
@@ -173,7 +196,6 @@ def run(
         escape(bool)
         outradix(str)
         runxrmc(bool): for comparison
-        convolute(bool)
         **kwargs: see `pymcacfg_add_mcinfo`
 
     Returns:
@@ -191,22 +213,18 @@ def run(
     xmimsimcfg = str(outpath["{}_xmimsim.cfg".format(outradix)])
     pymcacfg_to_xmimsimcfg(pymcacfg, xmimsimcfg, **kwargs)
     xmso = str(outpath["{}.xmso".format(outradix)])
-    if not run_xmimsim_pymca(
-        xmimsimcfg, xmso, escape=escape, pileup=pileup, convolute=convolute
-    ):
+    if not run_xmimsim_pymca(xmimsimcfg, xmso, escape=escape, pileup=pileup):
         return False
     xmsi = str(outpath["{}.xmsi".format(outradix)])
     if not xmso_to_xmsi(xmso, xmsi):
         return False
     if runxrmc:
         xrmcpath = outpath["xrmc"].mkdir()
-        if not xmsi_to_xrmc(xmsi, str(xrmcpath), pileup=pileup):
+        xrmcoutpath = xrmcpath["output"].mkdir()
+        if not xmsi_to_xrmc(xmsi, xrmcpath, xrmcoutpath, outradix, pileup=pileup,):
             return False
         if not execute(["xrmc", "input.dat"], str(xrmcpath)):
             return False
-        xrmcfile = str(xrmcpath["convoluted_spectra.dat"])
-        mcafile = str(xrmcpath["{}.mca".format(outradix)])
-        xrmcresult_to_mca(xrmcfile, mcafile, mode="w")
     return True
 
 
@@ -217,11 +235,11 @@ def loadxmimsimresult(outpath, outradix="out", convoluted=False):
     else:
         suffix = "lines"
     fmt = "{}_{}_{{}}.spe".format(outradix, suffix)
-    i = 1
-    while outpath[fmt.format(i)].exists:
+    i = 0
+    while outpath[fmt.format(i + 1)].exists:
         i += 1
-    i -= 1
-    mca, channels, energy, coeff = spe.read(str(outpath[fmt.format(i)]))
+    filename = str(outpath[fmt.format(i)])
+    mca, channels, energy, coeff = spe.read(filename)
     zero, gain = coeff
     info = {"xenergy": energy, "zero": zero, "gain": gain}
     return mca, info

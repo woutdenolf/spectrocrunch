@@ -6,13 +6,18 @@ from . import types
 from ..utils import instance
 
 import warnings
+
 try:
     import xraylib
+
     def getnames():
         return list(xraylib.GetCompoundDataNISTList())
+
+
 except ImportError:
     xraylib = None
     warnings.warn("xraylib is not installed", ImportWarning)
+
     def getnames():
         return []
 
@@ -31,8 +36,13 @@ class CompoundFromNist(compound.Compound):
         data = xraylib.GetCompoundDataNISTByName(nistname)
         if name is None:
             name = data["name"]
-        super(CompoundFromNist, self).__init__(data["Elements"], data["massFractions"],
-                                               types.fraction.mass, data["density"], name=name)
+        super(CompoundFromNist, self).__init__(
+            data["Elements"],
+            data["massFractions"],
+            types.fraction.mass,
+            data["density"],
+            name=name,
+        )
 
 
 def factory(name):

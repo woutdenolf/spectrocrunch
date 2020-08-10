@@ -47,7 +47,7 @@ def frac_mole_to_weight(nfrac, MM):
         nfrac(np.array): mole fraction of each compound
         MM(np.array): molar mass of each compound
     """
-    return(nfrac*MM/(nfrac*MM).sum())
+    return nfrac * MM / (nfrac * MM).sum()
 
 
 def frac_weight_to_mole(wfrac, MM):
@@ -56,7 +56,7 @@ def frac_weight_to_mole(wfrac, MM):
         wfrac(np.array): weight fraction of each compound
         MM(np.array): molar mass of each compound
     """
-    return(wfrac/(MM * (wfrac/MM).sum()))
+    return wfrac / (MM * (wfrac / MM).sum())
 
 
 def molarmass_from_wfrac(wfrac, MM):
@@ -65,7 +65,7 @@ def molarmass_from_wfrac(wfrac, MM):
         wfrac(np.array): weight fraction of each compound
         MM(np.array): molar mass of each compound
     """
-    return(1/((wfrac/MM).sum()))
+    return 1 / ((wfrac / MM).sum())
 
 
 def frac_weight_to_volume(wfrac, rho):
@@ -74,7 +74,7 @@ def frac_weight_to_volume(wfrac, rho):
         wfrac(np.array): weight fraction of each compound
         rho(np.array): density of each compound
     """
-    return(wfrac/(rho * (wfrac/rho).sum()))
+    return wfrac / (rho * (wfrac / rho).sum())
 
 
 def frac_volume_to_weight(vfrac, rho):
@@ -83,7 +83,7 @@ def frac_volume_to_weight(vfrac, rho):
         vfrac(np.array): volume fraction of each compound
         rho(np.array): density of each compound
     """
-    return(vfrac*rho / (vfrac*rho).sum())
+    return vfrac * rho / (vfrac * rho).sum()
 
 
 def frac_volume_to_mole(vfrac, rho, MM):
@@ -93,7 +93,7 @@ def frac_volume_to_mole(vfrac, rho, MM):
         rho(np.array): density of each compound
         MM(np.array): molar mass of each compound
     """
-    return(vfrac*rho/(MM * (vfrac*rho/MM).sum()))
+    return vfrac * rho / (MM * (vfrac * rho / MM).sum())
 
 
 def frac_mole_to_volume(nfrac, rho, MM):
@@ -103,7 +103,7 @@ def frac_mole_to_volume(nfrac, rho, MM):
         rho(np.array): density of each compound
         MM(np.array): molar mass of each compound
     """
-    return(nfrac*MM/(rho * (nfrac*MM/rho).sum()))
+    return nfrac * MM / (rho * (nfrac * MM / rho).sum())
 
 
 def density_from_volumefrac(vfrac, rho):
@@ -112,7 +112,7 @@ def density_from_volumefrac(vfrac, rho):
         vfrac(np.array): volume fraction of each compound
         rho(np.array): density of each compound
     """
-    return((vfrac*rho).sum())
+    return (vfrac * rho).sum()
 
 
 def density_from_massfrac(wfrac, rho):
@@ -121,7 +121,7 @@ def density_from_massfrac(wfrac, rho):
         wfrac(np.array): weight fraction of each compound
         rho(np.array): density of each compound
     """
-    return(1/(wfrac/rho).sum())
+    return 1 / (wfrac / rho).sum()
 
 
 def density_from_molefrac(nfrac, rho, MM):
@@ -131,7 +131,7 @@ def density_from_molefrac(nfrac, rho, MM):
         rho(np.array): density of each compound
         MM(np.array): molar mass of each compound
     """
-    return((nfrac*MM).sum()/(nfrac*MM/rho).sum())
+    return (nfrac * MM).sum() / (nfrac * MM / rho).sum()
 
 
 def add_frac(x, newfracs):
@@ -144,6 +144,6 @@ def add_frac(x, newfracs):
     """
     nsum = sum(newfracs)
     if nsum > 1:
-        raise ValueError('Sum of new fractions must be less than 1')
+        raise ValueError("Sum of new fractions must be less than 1")
     xsum = sum(x)
-    return np.append(x*max(1-nsum, 0), newfracs*xsum)
+    return np.append(x * max(1 - nsum, 0), newfracs * xsum)

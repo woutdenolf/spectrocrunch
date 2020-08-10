@@ -9,7 +9,6 @@ import numpy as np
 
 
 class Interaction(CompHashable):
-
     def __init__(self, name, energy, prob):
         self._name = name
         self._energy = energy
@@ -30,7 +29,6 @@ class Interaction(CompHashable):
 
 
 class InteractionSource(Interaction):
-
     def __init__(self, energy, index):
         name = "Source-{}".format(index)
         prob = 1
@@ -38,7 +36,6 @@ class InteractionSource(Interaction):
 
 
 class InteractionFluo(Interaction):
-
     def __init__(self, el, shell, line):
         """
         Args:
@@ -50,12 +47,11 @@ class InteractionFluo(Interaction):
             el = element.Element(el)
         name = "{}-{}".format(el, line)
         energy = line.energy(el.Z)
-        prob = shell.fluoyield(el.Z)*line.radrate(el.Z)
+        prob = shell.fluoyield(el.Z) * line.radrate(el.Z)
         super(InteractionFluo, self).__init__(name, energy, prob)
 
 
 class InteractionElScat(Interaction):
-
     def __init__(self, source):
         name = "RScat({})".format(source)
         prob = 1
@@ -63,7 +59,6 @@ class InteractionElScat(Interaction):
 
 
 class InteractionInelScat(Interaction):
-
     def __init__(self, source, theta):
         name = "CScat({})".format(source)
         prob = 1
@@ -75,6 +70,9 @@ class InteractionInelScat(Interaction):
     def energy(self):
         if self.theta == 0:
             return self.energy
-        delta = ureg.Quantity(1-np.cos(np.radians(self.theta)),
-                              "1/(m_e*c^2)").to("1/keV", "spectroscopy").magnitude
-        return self._energy/(1+self._energy*delta)
+        delta = (
+            ureg.Quantity(1 - np.cos(np.radians(self.theta)), "1/(m_e*c^2)")
+            .to("1/keV", "spectroscopy")
+            .magnitude
+        )
+        return self._energy / (1 + self._energy * delta)

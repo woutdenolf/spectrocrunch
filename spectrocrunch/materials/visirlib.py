@@ -3,6 +3,7 @@
 import os
 import warnings
 from glob import glob
+
 try:
     import PyTMM
     import PyTMM.refractiveIndex
@@ -14,7 +15,7 @@ else:
     from ..patch.pint import ureg
 
     root = os.path.dirname(os.path.realpath(PyTMM.__file__))
-    files = glob(os.path.join(root, '*', 'library.yml'))
+    files = glob(os.path.join(root, "*", "library.yml"))
     if files:
         path = os.path.dirname(files[0])
         db = PyTMM.refractiveIndex.RefractiveIndex(path)
@@ -22,7 +23,6 @@ else:
         db = PyTMM.refractiveIndex.RefractiveIndex()
 
     class Material(PyTMM.refractiveIndex.Material):
-
         def __init__(self, shelf, book, page):
             shelf = shelf.lower()
             self._material_id = shelf, book, page
@@ -30,10 +30,10 @@ else:
             PyTMM.refractiveIndex.Material.__init__(self, filename)
 
         def __getstate__(self):
-            return {'_material_id': self._material_id}
+            return {"_material_id": self._material_id}
 
         def __setstate__(self, state):
-            material_id = state['_material_id']
+            material_id = state["_material_id"]
             o = self.__class__(*material_id)
             self._material_id = material_id
             self.refractiveIndex = o.refractiveIndex

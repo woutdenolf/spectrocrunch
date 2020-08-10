@@ -29,6 +29,7 @@ import fisx
 from PyMca5.PyMcaPhysics.xrf import ClassMcaTheory
 from PyMca5.PyMcaPhysics.xrf import ConcentrationsTool
 from PyMca5.PyMcaIO import ConfigDict
+
 try:
     from silx.gui import qt
     from PyMca5.PyMcaGui.physics.xrf import McaAdvancedFit
@@ -38,7 +39,6 @@ except ImportError:
 
 
 class PymcaBaseHandle(Copyable):
-
     def __init__(self):
         self.mcafit = ClassMcaTheory.McaTheory()
         self.ctool = ConcentrationsTool.ConcentrationsTool()
@@ -56,27 +56,29 @@ class PymcaBaseHandle(Copyable):
         self.mcafit.config.write(filename)
 
     def configfromfitresult(self, digestedresult):
-        config = copy.deepcopy(digestedresult['config'])
+        config = copy.deepcopy(digestedresult["config"])
         # Global parameters
-        parammap = {"Zero": ("detector", "zero"),
-                    "Gain": ("detector", "gain"),
-                    "Noise": ("detector", "noise"),
-                    "Fano": ("detector", "fano"),
-                    "Sum": ("detector", "sum"),
-                    "ST AreaR": ("peakshape", "st_arearatio"),
-                    "ST SlopeR": ("peakshape", "st_sloperatio"),
-                    "LT AreaR": ("peakshape", "lt_arearatio"),
-                    "LT SlopeR": ("peakshape", "lt_sloperatio"),
-                    "STEP HeightR": ("peakshape", "step_heightratio"),
-                    "Eta Factor": ("peakshape", "eta_factor")}
-        nparams = len(digestedresult['parameters'])
-        ngroups = len(digestedresult['groups'])
+        parammap = {
+            "Zero": ("detector", "zero"),
+            "Gain": ("detector", "gain"),
+            "Noise": ("detector", "noise"),
+            "Fano": ("detector", "fano"),
+            "Sum": ("detector", "sum"),
+            "ST AreaR": ("peakshape", "st_arearatio"),
+            "ST SlopeR": ("peakshape", "st_sloperatio"),
+            "LT AreaR": ("peakshape", "lt_arearatio"),
+            "LT SlopeR": ("peakshape", "lt_sloperatio"),
+            "STEP HeightR": ("peakshape", "step_heightratio"),
+            "Eta Factor": ("peakshape", "eta_factor"),
+        }
+        nparams = len(digestedresult["parameters"])
+        ngroups = len(digestedresult["groups"])
         nglobal = nparams - ngroups
         for i in range(nglobal):
-            param = digestedresult['parameters'][i]
+            param = digestedresult["parameters"][i]
             if param in parammap:
                 key = parammap[param]
-                config[key[0]][key[1]] = digestedresult['fittedpar'][i]
+                config[key[0]][key[1]] = digestedresult["fittedpar"][i]
         return config
 
     @staticmethod
@@ -91,19 +93,19 @@ class PymcaBaseHandle(Copyable):
             if element not in wfrac2:
                 wfrac2[element] = {}
             wfrac2[element][group] = w
-        # Select mass fraction from most relieable group
+        # Select mass fraction from most reliable group
         wfrac3 = {}
         for element, groupdict in wfrac2.items():
             w = sorted(groupdict.items(), key=operator.itemgetter(0))[0][1]
             wfrac3[element] = w
         # Modify original mass fractions
         wfracr = dict(wfrac0)
-        snew = 1-sum(w for element, w in wfrac0.items() if element not in wfrac3)
+        snew = 1 - sum(w for element, w in wfrac0.items() if element not in wfrac3)
         sold = sum(wfrac3.values())
-        norm = snew/sold
+        norm = snew / sold
         for k, v in wfrac3.items():
             if v:
-                wfracr[k] = v*norm
+                wfracr[k] = v * norm
         return wfracr
 
     def _pymcaconfig_massfractions(self, config):
@@ -112,7 +114,7 @@ class PymcaBaseHandle(Copyable):
         """
         materials = collections.OrderedDict()
         enabled, name, density = config["attenuators"]["Matrix"][:3]
-        if name == 'MULTILAYER':
+        if name == "MULTILAYER":
             for i in range(len(config["multilayer"])):
                 enabled, name, density = config["multilayer"]["Layer{}".format(i)][:3]
                 if enabled:
@@ -133,30 +135,36 @@ class PymcaBaseHandle(Copyable):
         if not materials:
             return
         if len(materials) != len(lmassfractions):
-            raise RuntimeError('Number of layers in config and fitresult do not match')
+            raise RuntimeError("Number of layers in config and fitresult do not match")
         for (name, wfrac0), wfrac1 in zip(materials.items(), lmassfractions):
             wfrac2 = self._parse_fitresult_massfractions(wfrac1, wfrac0, exclude)
-            CompoundList = [str(k)+'1' for k in wfrac2.keys()]
+            CompoundList = [str(k) + "1" for k in wfrac2.keys()]
             CompoundFraction = list(wfrac2.values())
-            config["materials"][name]['CompoundList'] = CompoundList
-            config["materials"][name]['CompoundFraction'] = CompoundFraction
+            config["materials"][name]["CompoundList"] = CompoundList
+            config["materials"][name]["CompoundFraction"] = CompoundFraction
 
     def setdata(self, y):
         x = np.arange(len(y), dtype=np.float32)
         self.mcafit.setData(x, y)
 
-    def fit(self, loadfromfit=False, concentrations=True, spectra=True, environ_elements=None):
+    def fit(
+        self,
+        loadfromfit=False,
+        concentrations=True,
+        spectra=True,
+        environ_elements=None,
+    ):
         # Fit
         self.mcafit.estimate()
         fitresult, digestedresult = self.mcafit.startfit(digest=1)
         # Background
-        yback = digestedresult.pop('continuum')  # polynomial + snip
+        yback = digestedresult.pop("continuum")  # polynomial + snip
         if self.mcafit.STRIP:
             ysnip = np.ravel(self.mcafit.zz)
         else:
             ysnip = 0
-        digestedresult['yback'] = yback
-        digestedresult['ysnip'] = ysnip
+        digestedresult["yback"] = yback
+        digestedresult["ysnip"] = ysnip
         # Parse result
         result = self.miscfromfitresult(digestedresult)
         if concentrations:
@@ -167,14 +175,21 @@ class PymcaBaseHandle(Copyable):
         if loadfromfit:
             config = self.configfromfitresult(digestedresult)
             if concentrations:
-                self.configadjustconcentrations(config,
-                                                result['lmassfractions'],
-                                                exclude=environ_elements)
+                self.configadjustconcentrations(
+                    config, result["lmassfractions"], exclude=environ_elements
+                )
             self.loadfrompymca(config=config)
         return result
 
-    def fitgui(self, ylog=False, legend="data", loadfromfit=False,
-               concentrations=True, spectra=True, environ_elements=None):
+    def fitgui(
+        self,
+        ylog=False,
+        legend="data",
+        loadfromfit=False,
+        concentrations=True,
+        spectra=True,
+        environ_elements=None,
+    ):
         if self.app is None:
             self.app = qt.QApplication([])
         w = McaAdvancedFit.McaAdvancedFit()
@@ -182,7 +197,7 @@ class PymcaBaseHandle(Copyable):
         # Copy mcafit
         x = self.mcafit.xdata0
         y = self.mcafit.ydata0
-        w.setData(x, y, legend=legend, xmin=0, xmax=len(y)-1)
+        w.setData(x, y, legend=legend, xmin=0, xmax=len(y) - 1)
         w.mcafit.configure(self.mcafit.getConfiguration())
 
         # GUI for fitting
@@ -211,26 +226,30 @@ class PymcaBaseHandle(Copyable):
             if loadfromfit:
                 config = w.mcafit.getConfiguration()
                 if concentrations:
-                    self.configadjustconcentrations(config,
-                                                    result['lmassfractions'],
-                                                    exclude=environ_elements)
+                    self.configadjustconcentrations(
+                        config, result["lmassfractions"], exclude=environ_elements
+                    )
                 self.loadfrompymca(config=config)
         else:
             if concentrations or spectra:
-                result = self.fit(loadfromfit=loadfromfit,
-                                  concentrations=concentrations, spectra=spectra)
+                result = self.fit(
+                    loadfromfit=loadfromfit,
+                    concentrations=concentrations,
+                    spectra=spectra,
+                )
 
         return result
 
     def processfitresult(self, digestedresult, originalconcentrations=False):
         ctoolcfg = self.ctool.configure()
-        ctoolcfg.update(digestedresult['config']['concentrations'])
-        return self.ctool.processFitResult(config=ctoolcfg,
-                                           fitresult={
-                                               "result": digestedresult},
-                                           elementsfrommatrix=originalconcentrations,
-                                           fluorates=self.mcafit._fluoRates,
-                                           addinfo=True)
+        ctoolcfg.update(digestedresult["config"]["concentrations"])
+        return self.ctool.processFitResult(
+            config=ctoolcfg,
+            fitresult={"result": digestedresult},
+            elementsfrommatrix=originalconcentrations,
+            fluorates=self.mcafit._fluoRates,
+            addinfo=True,
+        )
 
     def concentrationsfromfitresult(self, digestedresult, out=None):
         # Mass fractions:
@@ -250,17 +269,24 @@ class PymcaBaseHandle(Copyable):
         if out is None:
             out = {}
         conresult, addinfo = self.processfitresult(
-            digestedresult, originalconcentrations=False)
+            digestedresult, originalconcentrations=False
+        )
 
-        out["massfractions"] = {element.Element.fluozgroup(
-            k): v for k, v in conresult["mass fraction"].items()}
+        out["massfractions"] = {
+            element.Element.fluozgroup(k): v
+            for k, v in conresult["mass fraction"].items()
+        }
 
         if "layerlist" in conresult:
             nlayers = len(conresult["layerlist"])
             if nlayers > 0:
-                out["lmassfractions"] = [{element.Element.fluozgroup(k): v 
-                    for k, v in conresult[k]["mass fraction"].items()}
-                    for k in conresult["layerlist"]]
+                out["lmassfractions"] = [
+                    {
+                        element.Element.fluozgroup(k): v
+                        for k, v in conresult[k]["mass fraction"].items()
+                    }
+                    for k in conresult["layerlist"]
+                ]
             else:
                 nlayers = 1
                 out["lmassfractions"] = []
@@ -280,61 +306,64 @@ class PymcaBaseHandle(Copyable):
         for zgroup in out["massfractions"]:
             ele = str(zgroup.element)
             group = str(zgroup.group)
-            grouprate = 0.
-            for layer in range(1, nlayers+1):
+            grouprate = 0.0
+            for layer in range(1, nlayers + 1):
                 if ele in self.mcafit._fluoRates[layer]:
                     massfrac_l = self.mcafit._fluoRates[layer][ele]["mass fraction"]
-                    grouprate_l = self.mcafit._fluoRates[layer][ele]["rates"]["{} xrays".format(
-                        group)]
-                    grouprate += massfrac_l*grouprate_l
+                    grouprate_l = self.mcafit._fluoRates[layer][ele]["rates"][
+                        "{} xrays".format(group)
+                    ]
+                    grouprate += massfrac_l * grouprate_l
             grouprate *= safrac
             out["rates"][zgroup] = grouprate
 
         # Fitted areas (elements)
-        out["fitareas"] = {element.Element.fluozgroup(
-            k): v for k, v in conresult["fitarea"].items()}
+        out["fitareas"] = {
+            element.Element.fluozgroup(k): v for k, v in conresult["fitarea"].items()
+        }
 
         # Fitted areas (scatter)
-        scatterpeaks = {'Compton': {'energy': [], 'fitarea': []},
-                        'Rayleigh': {'energy': [], 'fitarea': []}}
-        nen = len(instance.asarray(digestedresult['energy']))
+        scatterpeaks = {
+            "Compton": {"energy": [], "fitarea": []},
+            "Rayleigh": {"energy": [], "fitarea": []},
+        }
+        nen = len(instance.asarray(digestedresult["energy"]))
         for k, v in digestedresult.items():
-            if k.startswith('Scatter'):
-                if 'Compton' in k:
-                    peak = 'Compton'
+            if k.startswith("Scatter"):
+                if "Compton" in k:
+                    peak = "Compton"
                 else:
-                    peak = 'Rayleigh'
+                    peak = "Rayleigh"
                 energy, fitarea = zip(
-                    *[(v[k2]['energy'], v[k2]['fitarea']) for k2 in v['peaks']])
-                scatterpeaks[peak]['energy'] += energy
-                scatterpeaks[peak]['fitarea'] += fitarea
+                    *[(v[k2]["energy"], v[k2]["fitarea"]) for k2 in v["peaks"]]
+                )
+                scatterpeaks[peak]["energy"] += energy
+                scatterpeaks[peak]["fitarea"] += fitarea
         for peak in scatterpeaks:
-            energy = np.array(scatterpeaks[peak]['energy'])
-            fitarea = np.array(scatterpeaks[peak]['fitarea'])
-            if peak == 'Compton':
+            energy = np.array(scatterpeaks[peak]["energy"])
+            fitarea = np.array(scatterpeaks[peak]["fitarea"])
+            if peak == "Compton":
                 k = xrayspectrum.ComptonLine(energy)
             else:
                 k = xrayspectrum.RayleighLine(energy)
             out["fitareas"][k] = fitarea
 
         # Fitted rates
-        out["fitrates"] = {k: v/addinfo["I0"]
-                           for k, v in out["fitareas"].items()}
+        out["fitrates"] = {k: v / addinfo["I0"] for k, v in out["fitareas"].items()}
 
         # self._print_pymcainternals_rates()
         return out
 
     def _pymcainternals_solidanglefrac(self):
-        radius2 = self.mcafit.config["concentrations"]['area']/np.pi
-        distance = self.mcafit.config["concentrations"]['distance']
-        return 0.5 * (1.0 - (distance/np.sqrt(distance**2 + radius2)))
+        radius2 = self.mcafit.config["concentrations"]["area"] / np.pi
+        distance = self.mcafit.config["concentrations"]["distance"]
+        return 0.5 * (1.0 - (distance / np.sqrt(distance ** 2 + radius2)))
 
     def _print_pymcainternals_rates(self):
         safrac = self._pymcainternals_solidanglefrac()
 
         rowfmt = "{:>6}{:>8}{:>20}{:>10}{:>10}{:>20}"
-        print(rowfmt.format("Layer", "Element",
-                            "MassFrac", "Line", "Energy", "Rate"))
+        print(rowfmt.format("Layer", "Element", "MassFrac", "Line", "Energy", "Rate"))
         for i, layer in enumerate(self.mcafit._fluoRates):
             if i == 0:
                 continue
@@ -345,10 +374,10 @@ class PymcaBaseHandle(Copyable):
                         lines.extend(v)
                 for line in lines:
                     w = layer[ele]["mass fraction"]
-                    rate = layer[ele][line]["rate"]*w*safrac
+                    rate = layer[ele][line]["rate"] * w * safrac
                     energy = layer[ele][line]["energy"]
                     if rate > 0:
-                        print(rowfmt.format(i-1, ele, w, line, energy, rate))
+                        print(rowfmt.format(i - 1, ele, w, line, energy, rate))
 
     def miscfromfitresult(self, digestedresult, out=None):
         if out is None:
@@ -358,43 +387,49 @@ class PymcaBaseHandle(Copyable):
 
     def spectrafromfitresult(self, digestedresult, out=None):
         conresult, addinfo = self.processfitresult(
-            digestedresult, originalconcentrations=True)
+            digestedresult, originalconcentrations=True
+        )
 
         # Group rates:
         if False:
             # TODO: set rates of elements not in matrix to zero
             out["rates"] = {}
             for group in out["area"]:
-                out["rates"][element.fluozgroup(
-                    group)] = conresult['area'][group]/addinfo["I0"]
+                out["rates"][element.fluozgroup(group)] = (
+                    conresult["area"][group] / addinfo["I0"]
+                )
 
         # Matrix spectrum
-        nparams = len(digestedresult['parameters'])
-        ngroups = len(digestedresult['groups'])
+        nparams = len(digestedresult["parameters"])
+        ngroups = len(digestedresult["groups"])
         nglobal = nparams - ngroups
-        parameters = list(digestedresult['fittedpar'])
-        for i, group in enumerate(digestedresult['groups']):
-            if group in conresult['area']:
+        parameters = list(digestedresult["fittedpar"])
+        for i, group in enumerate(digestedresult["groups"]):
+            if group in conresult["area"]:
                 # Replace fitted with theoretical peak area
-                parameters[nglobal+i] = conresult['area'][group]
+                parameters[nglobal + i] = conresult["area"][group]
             else:
                 # Scattering peaks don't have a theoretical peak area
-                parameters[nglobal+i] = 0.
-        ymatrix = self.mcafit.mcatheory(parameters, digestedresult['xdata'])
+                parameters[nglobal + i] = 0.0
+        ymatrix = self.mcafit.mcatheory(parameters, digestedresult["xdata"])
 
         yback = digestedresult["yback"]  # polynomial + snip
         ysnip = digestedresult["ysnip"]
 
-        def interpol(x, spectrum): 
-            return scipy.interpolate.interp1d(x, spectrum,
-                                              kind="nearest",
-                                              bounds_error=False,
-                                              fill_value=(spectrum[0], spectrum[-1]))
+        def interpol(x, spectrum):
+            return scipy.interpolate.interp1d(
+                x,
+                spectrum,
+                kind="nearest",
+                bounds_error=False,
+                fill_value=(spectrum[0], spectrum[-1]),
+            )
 
-        def interpol_energy(prof): return interpol(
-            digestedresult["energy"], prof)
-        def interpol_channel(prof): return interpol(
-            digestedresult["xdata"], prof)
+        def interpol_energy(prof):
+            return interpol(digestedresult["energy"], prof)
+
+        def interpol_channel(prof):
+            return interpol(digestedresult["xdata"], prof)
 
         if out is None:
             out = {}
@@ -407,18 +442,19 @@ class PymcaBaseHandle(Copyable):
         out["interpol_channel"] = interpol_channel
         out["ypileup"] = digestedresult["pileup"]
         # polynomial is already in ymatrix, snip not
-        out["ymatrix"] = ymatrix+ysnip
+        out["ymatrix"] = ymatrix + ysnip
 
-        def _plot(ylog=False, label='data'):
-            plt.plot(out["energy"], out["y"], '+', label=label)
-            plt.plot(out["energy"], out["yfit"], label=label+' fit')
-            plt.plot(out["energy"], out["ymatrix"], label=label+' matrix')
-            plt.plot(out["energy"], out["yback"], label=label+' background')
+        def _plot(ylog=False, label="data"):
+            plt.plot(out["energy"], out["y"], "+", label=label)
+            plt.plot(out["energy"], out["yfit"], label=label + " fit")
+            plt.plot(out["energy"], out["ymatrix"], label=label + " matrix")
+            plt.plot(out["energy"], out["yback"], label=label + " background")
             if ylog:
-                plt.gca().set_yscale('log', basey=10)
+                plt.gca().set_yscale("log", basey=10)
             plt.legend()
-            plt.xlabel('MCA (keV)')
-            plt.ylabel('Counts')
+            plt.xlabel("MCA (keV)")
+            plt.ylabel("Counts")
+
         out["plot"] = _plot
 
         return out
@@ -430,12 +466,25 @@ class PymcaHandle(PymcaBaseHandle):
        API for single spectra.
     """
 
-    def __init__(self, sample=None, emin=None, emax=None,
-                 energy=None, weights=None, scatter=None,
-                 flux=1e9, time=0.1, escape=True, pileup=False,
-                 ninteractions=1, linear=False, snip=True,
-                 continuum=0, SingleLayerStrategy=None,
-                 noisepropagation=True):
+    def __init__(
+        self,
+        sample=None,
+        emin=None,
+        emax=None,
+        energy=None,
+        weights=None,
+        scatter=None,
+        flux=1e9,
+        time=0.1,
+        escape=True,
+        pileup=False,
+        ninteractions=1,
+        linear=False,
+        snip=True,
+        continuum=0,
+        SingleLayerStrategy=None,
+        noisepropagation=True,
+    ):
         self.sample = sample
         self.set_source(energy=energy, weights=weights, scatter=scatter)
         self.emin = emin
@@ -453,17 +502,22 @@ class PymcaHandle(PymcaBaseHandle):
         super(PymcaHandle, self).__init__()
 
     def __str__(self):
-        s = zip(instance.asarray(self.energy), instance.asarray(
-            self.weights), instance.asarray(self.scatter))
-        s = '\n '.join("{} keV: {} % (Scatter: {})".format(k, v*100, sc)
-                       for k, v, sc in s)
+        s = zip(
+            instance.asarray(self.energy),
+            instance.asarray(self.weights),
+            instance.asarray(self.scatter),
+        )
+        s = "\n ".join(
+            "{} keV: {} % (Scatter: {})".format(k, v * 100, sc) for k, v, sc in s
+        )
         if self.sample:
             sample = str(self.sample)
             geometry = str(self.sample.geometry)
         else:
             sample = geometry = None
-        return "Flux = {:~e}\nTime = {:~}\nSource lines:\n {}\n{}\n{}"\
-            .format(self.flux, self.time, s, sample, geometry)
+        return "Flux = {:~e}\nTime = {:~}\nSource lines:\n {}\n{}\n{}".format(
+            self.flux, self.time, s, sample, geometry
+        )
 
     def set_source(self, energy=None, weights=None, scatter=None):
         if energy is None:
@@ -489,7 +543,7 @@ class PymcaHandle(PymcaBaseHandle):
 
     @flux.setter
     def flux(self, value):
-        self._flux = units.Quantity(value, 'Hz').to('Hz')
+        self._flux = units.Quantity(value, "Hz").to("Hz")
 
     @property
     def time(self):
@@ -497,11 +551,11 @@ class PymcaHandle(PymcaBaseHandle):
 
     @time.setter
     def time(self, value):
-        self._time = units.Quantity(value, 's').to('s')
+        self._time = units.Quantity(value, "s").to("s")
 
     @property
     def I0(self):
-        return (self.flux*self.time).to('dimensionless').magnitude
+        return (self.flux * self.time).to("dimensionless").magnitude
 
     @property
     def emax_strict(self):
@@ -516,7 +570,7 @@ class PymcaHandle(PymcaBaseHandle):
                 s = np.sqrt(self.sample.geometry.detector.gaussianVAR(p))
             else:
                 s = 0.1
-            return p+3*s
+            return p + 3 * s
         else:
             return self._emax
 
@@ -533,7 +587,7 @@ class PymcaHandle(PymcaBaseHandle):
                 s = np.sqrt(self.sample.geometry.detector.gaussianVAR(p))
             else:
                 s = 0.1
-            return p-3*s
+            return p - 3 * s
         else:
             return self._emin
 
@@ -548,15 +602,17 @@ class PymcaHandle(PymcaBaseHandle):
         # TODO: move to source?
         cfg["fit"]["energy"] = instance.asarray(self.energy).tolist()
         cfg["fit"]["energyweight"] = instance.asarray(self.weights).tolist()
-        cfg["fit"]["energyscatter"] = instance.asarray(
-            self.scatter).astype(int).tolist()
+        cfg["fit"]["energyscatter"] = (
+            instance.asarray(self.scatter).astype(int).tolist()
+        )
         cfg["fit"]["energyflag"] = np.ones_like(
-            cfg["fit"]["energy"], dtype=int).tolist()
+            cfg["fit"]["energy"], dtype=int
+        ).tolist()
         cfg["fit"]["scatterflag"] = int(any(cfg["fit"]["energyscatter"]))
 
         # Not just the source:
-        cfg["concentrations"]["flux"] = self.flux.to('Hz').magnitude
-        cfg["concentrations"]["time"] = self.time.to('s').magnitude
+        cfg["concentrations"]["flux"] = self.flux.to("Hz").magnitude
+        cfg["concentrations"]["time"] = self.time.to("s").magnitude
 
     def loadfrompymca_beam(self, cfg):
         ind = np.asarray(cfg["fit"]["energyflag"], dtype=bool).tolist()
@@ -587,7 +643,7 @@ class PymcaHandle(PymcaBaseHandle):
         cfg["fit"]["escapeflag"] = int(self.escape)
         cfg["fit"]["sumflag"] = int(self.pileup)
         cfg["fit"]["linearfitflag"] = int(self.linear)
-        cfg["concentrations"]["usemultilayersecondary"] = self.ninteractions-1
+        cfg["concentrations"]["usemultilayersecondary"] = self.ninteractions - 1
         cfg["fit"]["fitweight"] = int(self.noisepropagation)
 
     def addtopymca_custom(self, cfg):
@@ -608,8 +664,9 @@ class PymcaHandle(PymcaBaseHandle):
                 cfg[strategy]["layer"] = "Auto"
                 cfg[strategy]["iterations"] = 3
 
-            def func(mat): return mat if instance.isstring(
-                mat) else mat.pymcaname
+            def func(mat):
+                return mat if instance.isstring(mat) else mat.pymcaname
+
             cfg[strategy]["completer"] = func(dic.pop("completer", "-"))
             dic2 = {}
             for el, mat in dic.items():
@@ -618,7 +675,7 @@ class PymcaHandle(PymcaBaseHandle):
                     dic2[k] = func(mat)
             cfg[strategy]["peaks"] = dic2.keys()
             cfg[strategy]["materials"] = dic2.values()
-            cfg[strategy]["flags"] = [1]*len(dic2)
+            cfg[strategy]["flags"] = [1] * len(dic2)
         else:
             cfg["fit"]["strategyflag"] = 0
 
@@ -626,7 +683,7 @@ class PymcaHandle(PymcaBaseHandle):
         self.escape = bool(cfg["fit"]["escapeflag"])
         self.pileup = bool(cfg["fit"]["sumflag"])
         self.linear = bool(cfg["fit"]["linearfitflag"])
-        self.ninteractions = cfg["concentrations"]["usemultilayersecondary"]+1
+        self.ninteractions = cfg["concentrations"]["usemultilayersecondary"] + 1
         self.noisepropagation = bool(cfg["fit"]["fitweight"])
 
     def addtopymca_material(self, cfg, material, defaultthickness=1e-4):
@@ -652,25 +709,27 @@ class PymcaHandle(PymcaBaseHandle):
             dic["CompoundList"] = [dic["CompoundList"]]
         if not instance.isarray(dic["CompoundFraction"]):
             dic["CompoundFraction"] = [dic["CompoundFraction"]]
-        massfractions = np.array(
-            dic["CompoundFraction"])/sum(dic["CompoundFraction"])
+        massfractions = np.array(dic["CompoundFraction"]) / sum(dic["CompoundFraction"])
         density = dic["Density"]
 
         # List of materials:
-        lst = [self.loadfrompymca_material(
-            cfg, mat, density) for mat in dic["CompoundList"]]
+        lst = [
+            self.loadfrompymca_material(cfg, mat, density)
+            for mat in dic["CompoundList"]
+        ]
 
         # All elements:
         if all([isinstance(e, element.Element) for e in lst]):
-            return compoundfromlist.CompoundFromList(lst, massfractions, types.fraction.mass, density, name=name)
+            return compoundfromlist.CompoundFromList(
+                lst, massfractions, types.fraction.mass, density, name=name
+            )
         else:
             return mixture.Mixture(lst, massfractions, types.fraction.mass, name=name)
 
     def loadfrompymca(self, filename=None, config=None):
         """Update pymca parameters and convert to spectrocrunch
         """
-        super(PymcaHandle, self).loadfrompymca(
-            filename=filename, config=config)
+        super(PymcaHandle, self).loadfrompymca(filename=filename, config=config)
         config = self.mcafit.getConfiguration()
         self.loadfrompymca_beam(config)
         self.loadfrompymca_background(config)
@@ -721,16 +780,17 @@ class PymcaHandle(PymcaBaseHandle):
         config = self.mcafit.getConfiguration()
         keep = self.emin, self.emax, self.energy
 
-        # Change config
+        # Change config (extend emin and emax)
         emin = np.min(self.energy)
         line = xrayspectrum.ComptonLine(emin)
         emin = line.energy(polar=np.pi)
         s = np.sqrt(self.sample.geometry.detector.gaussianVAR(emin))
-        emin = max(keep[0], emin - 5*s)
+        emin = min(keep[0], emin - 5 * s)
+        emin = max(emin, 0)
 
         emax = np.max(self.energy)
         s = np.sqrt(self.sample.geometry.detector.gaussianVAR(emax))
-        emax = max(keep[1], emax + 3*s)
+        emax = max(keep[1], emax + 3 * s)
 
         self.emin, self.emax = emin, emax
         self.configurepymca()
@@ -747,8 +807,8 @@ class PymcaHandle(PymcaBaseHandle):
             # Fit reduced range
             result = self.fit()
             if plot:
-                plt.plot(result["energy"], result["y"], label='data')
-                plt.plot(result["energy"], result["yfit"], label='pymca fit')
+                plt.plot(result["energy"], result["y"], label="data")
+                plt.plot(result["energy"], result["yfit"], label="pymca fit")
                 plt.legend()
                 plt.show()
 
@@ -764,7 +824,7 @@ class PymcaHandle(PymcaBaseHandle):
                 self.mcafit.configure(config)
 
                 fitresult, digestedresult = self.mcafit.startfit(digest=1)
-                return digestedresult["yfit"]-digestedresult["ydata"]
+                return digestedresult["yfit"] - digestedresult["ydata"]
 
             guess = instance.asarray(self.energy).tolist()
             guess.append(self.sample.geometry.angleout)
@@ -779,12 +839,14 @@ class PymcaHandle(PymcaBaseHandle):
             self.configurepymca()
 
     def xrayspectrum(self, **kwargs):
-        return self.sample.xrayspectrum(self.energy,
-                                        emin=self.emin,
-                                        emax=self.emax,
-                                        weights=self.weights,
-                                        ninteractions=self.ninteractions,
-                                        **kwargs)
+        return self.sample.xrayspectrum(
+            self.energy,
+            emin=self.emin,
+            emax=self.emax,
+            weights=self.weights,
+            ninteractions=self.ninteractions,
+            **kwargs
+        )
 
     def xraygrouprates(self, **kwargs):
         spectrum = self.xrayspectrum(**kwargs)
@@ -807,24 +869,25 @@ class PymcaHandle(PymcaBaseHandle):
         return groups2
 
     def xraygroupareas(self, **kwargs):
-        return {k: v*self.I0 for k, v in self.xraygrouprates(**kwargs).items()}
+        return {k: v * self.I0 for k, v in self.xraygrouprates(**kwargs).items()}
 
     def mca(self, histogram=True, decomposed=0, energy=False, full=False, **kwargs):
         spectrum = self.xrayspectrum(**kwargs)
         if decomposed == 0:
-            x, y, ylabel = spectrum.sumspectrum(
-                fluxtime=self.I0, histogram=histogram)
+            x, y, ylabel = spectrum.sumspectrum(fluxtime=self.I0, histogram=histogram)
         elif decomposed == 1:
             x, y, ylabel = spectrum.peakspectrum(
-                fluxtime=self.I0, histogram=histogram, group=True)
+                fluxtime=self.I0, histogram=histogram, group=True
+            )
         else:
             x, y, ylabel = spectrum.peakspectrum(
-                fluxtime=self.I0, histogram=histogram, group=False)
+                fluxtime=self.I0, histogram=histogram, group=False
+            )
         if not energy:
             a, b = spectrum.channellimits
-            nchan = int(2**np.ceil(np.log2(b+1)))
+            nchan = int(2 ** np.ceil(np.log2(b + 1)))
             mca = np.zeros(nchan, dtype=y.dtype)
-            mca[a:b+1] = y
+            mca[a : b + 1] = y
             y = mca
             x = np.arange(nchan)
         if full:
@@ -832,15 +895,20 @@ class PymcaHandle(PymcaBaseHandle):
         else:
             return y
 
-    def savemca(self, filename, mode="w", func=None):
-        y = self.mca()
+    def savemca(self, filename, mode="w", func=None, **kwargs):
+        y = self.mca(**kwargs)
         if instance.iscallable(func):
             y = func(y)
-        savemca(y, filename, mode=mode, zero=self.sample.geometry.detector.mcazero,
-                gain=self.sample.geometry.detector.mcagain)
+        savemca(
+            y,
+            filename,
+            mode=mode,
+            zero=self.sample.geometry.detector.mcazero,
+            gain=self.sample.geometry.detector.mcagain,
+        )
 
 
-class FisxConfig():
+class FisxConfig:
 
     FISXMATERIALS = None
 
@@ -860,4 +928,6 @@ class FisxConfig():
 
     def addtofisx_material(self, material, defaultthickness=1e-4):
         with self.init_ctx():
-            return material.tofisx(self.FISXMATERIALS, defaultthickness=defaultthickness)
+            return material.tofisx(
+                self.FISXMATERIALS, defaultthickness=defaultthickness
+            )

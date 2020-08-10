@@ -2,15 +2,15 @@
 
 import unittest
 
-from ..import scintillators
+from .. import scintillators
 from ...utils import units
 from ...patch import jsonpickle
 
 
 class test_scintillators(unittest.TestCase):
-
-    @unittest.skipIf(scintillators.compound.element.xraylib.XRayInit is None,
-                     "xraylib not installed")
+    @unittest.skipIf(
+        scintillators.compound.element.xraylib.XRayInit is None, "xraylib not installed"
+    )
     def test_serialize(self):
         exclude = ()
         for name, cls in scintillators.Scintillator.clsregistry.items():
@@ -27,7 +27,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

@@ -16,7 +16,9 @@ class Scintillator(with_metaclass()):
     Class representing a scintillator
     """
 
-    def __init__(self, thickness=None, material=None, nvisperkeV=None, visspectrum=None):
+    def __init__(
+        self, thickness=None, material=None, nvisperkeV=None, visspectrum=None
+    ):
         """
         Args:
             thickness(num): thickness in micron
@@ -30,23 +32,27 @@ class Scintillator(with_metaclass()):
         self.visspectrum = visspectrum
 
     def __getstate__(self):
-        return {'thickness': self.thickness,
-                'nvisperkeV': self.nvisperkeV,
-                'material': self.material,
-                'visspectrum': self.visspectrum}
+        return {
+            "thickness": self.thickness,
+            "nvisperkeV": self.nvisperkeV,
+            "material": self.material,
+            "visspectrum": self.visspectrum,
+        }
 
     def __setstate__(self, state):
-        self.thickness = state['thickness']
-        self.nvisperkeV = state['nvisperkeV']
-        self.material = state['material']
-        self.visspectrum = state['visspectrum']
+        self.thickness = state["thickness"]
+        self.nvisperkeV = state["nvisperkeV"]
+        self.material = state["material"]
+        self.visspectrum = state["visspectrum"]
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return self.thickness == other.thickness and \
-                self.nvisperkeV == other.nvisperkeV and \
-                self.material == other.material and \
-                self.visspectrum == other.visspectrum
+            return (
+                self.thickness == other.thickness
+                and self.nvisperkeV == other.nvisperkeV
+                and self.material == other.material
+                and self.visspectrum == other.visspectrum
+            )
         else:
             return False
 
@@ -55,18 +61,26 @@ class Scintillator(with_metaclass()):
 
     @staticmethod
     def doping(material, dopants, ftype):
-        material.addelements(list(dopants.keys()),
-                             list(dopants.values()),
-                             ftype)
+        material.addelements(list(dopants.keys()), list(dopants.values()), ftype)
 
     def absorption(self, energy):
-        return 1-np.exp(-self.material.density*self.thickness*1e-4*self.material.mass_abs_coeff(energy))
+        return 1 - np.exp(
+            -self.material.density
+            * self.thickness
+            * 1e-4
+            * self.material.mass_abs_coeff(energy)
+        )
 
     def attenuation(self, energy):
-        return 1-self.transmission(energy)
+        return 1 - self.transmission(energy)
 
     def transmission(self, energy):
-        return np.exp(-self.material.density*self.thickness*1e-4*self.material.mass_att_coeff(energy))
+        return np.exp(
+            -self.material.density
+            * self.thickness
+            * 1e-4
+            * self.material.mass_att_coeff(energy)
+        )
 
     def propagate(self, N, energy, forward=True):
         """Error propagation of a number of photons.
@@ -86,7 +100,7 @@ class Scintillator(with_metaclass()):
         # https://doi.org/10.1088/0031-9155/57/15/4885
         # http://arizona.openrepository.com/arizona/handle/10150/577317
         # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4669903/
-        gain = energy*self.nvisperkeV
+        gain = energy * self.nvisperkeV
 
         N, probsuccess, gain = self.propagate_broadcast(N, probsuccess, gain)
 
@@ -102,9 +116,9 @@ class Scintillator(with_metaclass()):
             Nout = noisepropagation.compound(Nout, proc2, forward=forward)
         else:
             if forward:
-                Nout = N*(probsuccess*gain)
+                Nout = N * (probsuccess * gain)
             else:
-                Nout = N/(probsuccess*gain)
+                Nout = N / (probsuccess * gain)
 
         return Nout
 
@@ -116,6 +130,7 @@ class GGG_ID21(Scintillator):
     """
     Eu doped GGG
     """
+
     aliases = ["GGG ID21"]
 
     def __init__(self, thickness=None):
@@ -123,20 +138,32 @@ class GGG_ID21(Scintillator):
         Args:
             thickness(num): thickness in micron
         """
-        material = compound.Compound(["Gd", "Ga", "O"], [
-                                     3, 5, 12], types.fraction.mole, 7.08, nrefrac=1.8, name="GGG")
+        material = compound.Compound(
+            ["Gd", "Ga", "O"],
+            [3, 5, 12],
+            types.fraction.mole,
+            7.08,
+            nrefrac=1.8,
+            name="GGG",
+        )
         Scintillator.doping(material, {"Eu": 0.03}, types.fraction.mass)
         visspectrum = emspectrum.Discrete(
-            ureg.Quantity([595, 610, 715], "nm"), [1, 1, 1])
+            ureg.Quantity([595, 610, 715], "nm"), [1, 1, 1]
+        )
         # http://www.esrf.eu/files/live/sites/www/files/Industry/documentation/F2_Scintillators.pdf
-        super(GGG_ID21, self).__init__(thickness=thickness,
-                                       material=material, nvisperkeV=32, visspectrum=visspectrum)
+        super(GGG_ID21, self).__init__(
+            thickness=thickness,
+            material=material,
+            nvisperkeV=32,
+            visspectrum=visspectrum,
+        )
 
 
 class LSO_ID21(Scintillator):
     """
     Tb doped LSO
     """
+
     aliases = ["LSO ID21"]
 
     def __init__(self, thickness=None):
@@ -144,13 +171,23 @@ class LSO_ID21(Scintillator):
         Args:
             thickness(num): thickness in micron
         """
-        material = compound.Compound(["Lu", "Si", "O"], [
-                                     2, 1, 5], types.fraction.mole, 7.4, nrefrac=1.82, name="LSO")
+        material = compound.Compound(
+            ["Lu", "Si", "O"],
+            [2, 1, 5],
+            types.fraction.mole,
+            7.4,
+            nrefrac=1.82,
+            name="LSO",
+        )
         Scintillator.doping(material, {"Tb": 0.03}, types.fraction.mass)
         visspectrum = emspectrum.Discrete(ureg.Quantity(550, "nm"), 1)
         # http://www.esrf.eu/files/live/sites/www/files/Industry/documentation/F2_Scintillators.pdf
-        super(LSO_ID21, self).__init__(thickness=thickness,
-                                       material=material, nvisperkeV=40, visspectrum=visspectrum)
+        super(LSO_ID21, self).__init__(
+            thickness=thickness,
+            material=material,
+            nvisperkeV=40,
+            visspectrum=visspectrum,
+        )
 
 
 factory = Scintillator.factory

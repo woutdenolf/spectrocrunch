@@ -87,8 +87,6 @@ def world_addsdd(
         response = {
             "material": geometry.detector.material,
             "thickness": geometry.detector.thickness,
-            "windowmaterial": None,
-            "windowthickness": 0,
             "noise": geometry.detector.mcanoise,
             "fano": geometry.detector.mcafano,
             "pulseproctime": pulseproctime,
@@ -264,7 +262,11 @@ def run(world, interactions, simulate=True, plot=True, ylog=False):
         world.finalize(interactions=interactions)
     # if plot:
     #    path.ls(recursive=True)
-    data, info = xrmc.loadxrmcresult(world.detector.outpath, world.detector.name)
+    if world.detector.TYPE == "detectorconvolute":
+        basename = world.detector.name + "_convoluted"
+    else:
+        basename = world.detector.name + "_lines"
+    data, info = xrmc.loadxrmcresult(world.detector.outpath, basename)
     if plot:
         # info.pop('xenergy') # in case you want channels
         xrmc.showxrmcresult(data, ylog=ylog, **info)

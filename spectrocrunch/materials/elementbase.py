@@ -10,54 +10,56 @@ import numpy as np
 
 
 def refractive_index_factor(energy, density):
-    return ureg.Quantity(energy, 'keV').to("cm", "spectroscopy")**2 *\
-          (ureg.classical_electron_radius*ureg.avogadro_number *
-           ureg.Quantity(density, 'g/cm^3')/(2*np.pi))
+    """Factor in g/mol
+    """
+    return ureg.Quantity(energy, "keV").to("cm", "spectroscopy") ** 2 * (
+        ureg.classical_electron_radius
+        * ureg.particles_per_mol
+        * ureg.Quantity(density, "g/cm^3")
+        / (2 * np.pi)
+    )
 
 
 def refractive_index_delta_calc(energy, e_wfrac, density, **kwargs):
-    delta = sum(e_wfrac[e]/e.MM*e.scatfact_real(energy, **kwargs)
-                for e in e_wfrac)
-    delta = ureg.Quantity(delta, 'mol/g') *\
-        refractive_index_factor(energy, density)
+    delta = sum(e_wfrac[e] / e.MM * e.scatfact_real(energy, **kwargs) for e in e_wfrac)
+    delta = ureg.Quantity(delta, "mol/g") * refractive_index_factor(energy, density)
     return delta.to("dimensionless").magnitude
 
 
 def refractive_index_beta_calc(energy, e_wfrac, density, **kwargs):
     # TODO: modify sign in scatfact_imag?
-    beta = -sum(e_wfrac[e]/e.MM*e.scatfact_imag(energy, **kwargs)
-                for e in e_wfrac)
-    beta = ureg.Quantity(beta, 'mol/g') *\
-        refractive_index_factor(energy, density)
+    beta = -sum(e_wfrac[e] / e.MM * e.scatfact_imag(energy, **kwargs) for e in e_wfrac)
+    beta = ureg.Quantity(beta, "mol/g") * refractive_index_factor(energy, density)
     return beta.to("dimensionless").magnitude
 
 
 class ElementBase(Copyable, CompHashable):
-
     def refractive_index_delta(self, E, fine=False, decomposed=False, **kwargs):
         """n = 1-delta-i*beta
         """
-        if hasattr(self, 'structure') and fine:
+        if hasattr(self, "structure") and fine:
             environ = self
         else:
             environ = None
-        return refractive_index_delta_calc(E, self.elemental_massfractions(),
-                                           self.density, environ=environ, **kwargs)
+        return refractive_index_delta_calc(
+            E, self.elemental_massfractions(), self.density, environ=environ, **kwargs
+        )
 
     def refractive_index_beta(self, E, fine=False, decomposed=False, **kwargs):
         """n = 1-delta-i*beta
         """
-        if hasattr(self, 'structure') and fine:
+        if hasattr(self, "structure") and fine:
             environ = self
         else:
             environ = None
-        return refractive_index_beta_calc(E, self.elemental_massfractions(),
-                                          self.density, environ=environ, **kwargs)
+        return refractive_index_beta_calc(
+            E, self.elemental_massfractions(), self.density, environ=environ, **kwargs
+        )
 
     def refractive_index_real(self, E, **kwargs):
         """Real part of the refractive index
         """
-        return 1-self.refractive_index_delta(E)
+        return 1 - self.refractive_index_delta(E)
 
     def refractive_index_imag(self, E, **kwargs):
         """Imaginary part of the refractive index
@@ -73,28 +75,34 @@ class ElementBase(Copyable, CompHashable):
         spectrum = xrayspectrum.Spectrum()
 
         if source is None:
-            spectrum.update(self.fluorescence_cross_section_lines(
-                E, decomposed=False, **kwargs))
+            spectrum.update(
+                self.fluorescence_cross_section_lines(E, decomposed=False, **kwargs)
+            )
             spectrum[xrayspectrum.RayleighLine(E)] = self.rayleigh_cross_section(
-                E, decomposed=False, **kwargs)
+                E, decomposed=False, **kwargs
+            )
             spectrum[xrayspectrum.ComptonLine(E)] = self.compton_cross_section(
-                E, decomposed=False, **kwargs)
+                E, decomposed=False, **kwargs
+            )
             spectrum.type = spectrum.TYPES.crosssection
         else:
             spectrum.density = self.density
-            spectrum.update(self.diff_fluorescence_cross_section(
-                E, decomposed=False, **kwargs))
+            spectrum.update(
+                self.diff_fluorescence_cross_section(E, decomposed=False, **kwargs)
+            )
             spectrum[xrayspectrum.RayleighLine(E)] = self.diff_rayleigh_cross_section(
-                E, source=source, decomposed=False, **kwargs)
+                E, source=source, decomposed=False, **kwargs
+            )
             spectrum[xrayspectrum.ComptonLine(E)] = self.diff_compton_cross_section(
-                E, source=source, decomposed=False, **kwargs)
+                E, source=source, decomposed=False, **kwargs
+            )
             spectrum.type = spectrum.TYPES.diffcrosssection
 
-        spectrum.apply_weights(weights)
         spectrum.density = self.density
         spectrum.xlim = [emin, emax]
         spectrum.title = str(self)
         spectrum.geomkwargs = kwargs
+        spectrum.apply_weights(weights)
 
         return spectrum
 
@@ -117,11 +125,13 @@ class ElementBase(Copyable, CompHashable):
     def namefrompymca(cls, string):
         for prefix in [cls.pymcamaterial_prefix, cls.pymcacomment_prefix]:
             if string.startswith(prefix):
-                return string[len(prefix):]
+                return string[len(prefix) :]
         return string
 
     def absorbance(self, energy, thickness, weights=None, decomposed=False, **kwargs):
-        muL = self.mass_att_coeff(energy, decomposed=decomposed, **kwargs)*(thickness*self.density)
+        muL = self.mass_att_coeff(energy, decomposed=decomposed, **kwargs) * (
+            thickness * self.density
+        )
         # TODO: decomposed -> apply recursively
         if weights is None:
             return muL

@@ -2,15 +2,13 @@
 
 import unittest
 
-from ..import lenses
+from .. import lenses
 from ...utils import units
 from ...patch import jsonpickle
 
 
 class test_lenses(unittest.TestCase):
-
-    @unittest.skipIf(lenses.visirlib.PyTMM is None,
-                     "PyTMM not installed")
+    @unittest.skipIf(lenses.visirlib.PyTMM is None, "PyTMM not installed")
     def test_serialize(self):
         exclude = ()
         for name, cls in lenses.Lens.clsregistry.items():
@@ -27,7 +25,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

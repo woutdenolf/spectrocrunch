@@ -35,23 +35,29 @@ class CompoundFromCif(compound.Compound):
         self.ciffile = f
 
         # cctbx.xray.structure.structure
-        self.structure = iotbxcif.reader(
-            file_path=f).build_crystal_structures().values()[0]
+        self.structure = (
+            iotbxcif.reader(file_path=f).build_crystal_structures().values()[0]
+        )
 
         # Extract necessary information
         scatterers = {}
         for s in self.structure.scatterers():
             e = s.scattering_type
             if e in scatterers:
-                scatterers[e] += s.occupancy*s.multiplicity()
+                scatterers[e] += s.occupancy * s.multiplicity()
             else:
-                scatterers[e] = s.occupancy*s.multiplicity()
+                scatterers[e] = s.occupancy * s.multiplicity()
 
         if density == 0:
             density = self.structure.crystal_density()
 
-        super(CompoundFromCif, self).__init__(scatterers.keys(),
-                                              scatterers.values(), types.fraction.mole, density, name=name)
+        super(CompoundFromCif, self).__init__(
+            scatterers.keys(),
+            scatterers.values(),
+            types.fraction.mole,
+            density,
+            name=name,
+        )
 
     def _get_cif_name(self, filename):
         """Get file from the database if it doesn't exist
@@ -60,8 +66,11 @@ class CompoundFromCif(compound.Compound):
         if os.path.isfile(name):
             return name
         else:
-            f = os.path.join(os.path.dirname(os.path.abspath(
-                __file__)), "cif", os.path.splitext(os.path.basename(name))[0]+".cif")
+            f = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "cif",
+                os.path.splitext(os.path.basename(name))[0] + ".cif",
+            )
             if os.path.isfile(f):
                 return f
             else:

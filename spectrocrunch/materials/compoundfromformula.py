@@ -7,22 +7,23 @@ import pyparsing as pp
 
 
 class FormulaParser(object):
-
     def __init__(self):
         lpar = pp.Literal("(").suppress()
         rpar = pp.Literal(")").suppress()
 
-        element = pp.Combine(pp.Word(
-            pp.srange("[A-Z]"), exact=1)+pp.Optional(pp.Word(pp.srange("[a-z]"), max=1)))
+        element = pp.Combine(
+            pp.Word(pp.srange("[A-Z]"), exact=1)
+            + pp.Optional(pp.Word(pp.srange("[a-z]"), max=1))
+        )
         integer = pp.Word(pp.nums)
         point = pp.Literal(".")
         fnumber = pp.Combine(
-            integer+pp.Optional(point+pp.Optional(integer))) | pp.Combine(point+integer)
+            integer + pp.Optional(point + pp.Optional(integer))
+        ) | pp.Combine(point + integer)
 
         self.formula = pp.Forward()
-        atom = element | pp.Group(lpar+self.formula+rpar)
-        self.formula << pp.OneOrMore(
-            pp.Group(atom+pp.Optional(fnumber, default="1")))
+        atom = element | pp.Group(lpar + self.formula + rpar)
+        self.formula << pp.OneOrMore(pp.Group(atom + pp.Optional(fnumber, default="1")))
         self.elements = {}
 
     def parseresult(self, result, mult):
@@ -49,7 +50,7 @@ class FormulaParser(object):
     def eval(self, formula):
         self.elements = {}
         result = self.formula.parseString(formula)
-        self.parseresult(result, 1.)
+        self.parseresult(result, 1.0)
         return self.elements.keys(), self.elements.values()
 
 
@@ -67,12 +68,12 @@ class CompoundFromFormula(compound.Compound):
         p = FormulaParser()
         elements, mults = p.eval(formula)
         if not elements:
-            raise ValueError(
-                "Chemical formula {} is not valid".format(formula))
+            raise ValueError("Chemical formula {} is not valid".format(formula))
         if name is None:
             name = formula
         super(CompoundFromFormula, self).__init__(
-            elements, mults, types.fraction.mole, density, name=name)
+            elements, mults, types.fraction.mole, density, name=name
+        )
 
 
 def factory(name):

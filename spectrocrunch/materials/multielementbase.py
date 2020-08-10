@@ -36,7 +36,7 @@ class MultiElementBase(elementbase.ElementBase):
         # update others
         if w2:
             v2 = np.asarray(w2.values())
-            v2 *= (1-values.sum())/v2.sum()
+            v2 *= (1 - values.sum()) / v2.sum()
             w.update((k, v) for k, v in zip(w2.keys(), v2))
 
         # update fractions
@@ -54,71 +54,116 @@ class MultiElementBase(elementbase.ElementBase):
 
     @classmethod
     def _cs_scattering(cls, method):
-        return method == "scattering_cross_section" or method == "compton_cross_section" or method == "rayleigh_cross_section" or\
-            method == "diff_compton_cross_section" or method == "diff_rayleigh_cross_section"
+        return (
+            method == "scattering_cross_section"
+            or method == "compton_cross_section"
+            or method == "rayleigh_cross_section"
+            or method == "diff_compton_cross_section"
+            or method == "diff_rayleigh_cross_section"
+        )
 
     @classmethod
     def _cs_dict(cls, method):
-        return method == "fluorescence_cross_section_lines" or method == "diff_fluorescence_cross_section"
+        return (
+            method == "fluorescence_cross_section_lines"
+            or method == "diff_fluorescence_cross_section"
+        )
 
     @classmethod
     def _cs_lazy(cls, method):
-        return method == "diff_compton_cross_section" or method == "diff_rayleigh_cross_section"
+        return (
+            method == "diff_compton_cross_section"
+            or method == "diff_rayleigh_cross_section"
+        )
 
     def mass_att_coeff(self, E, fine=False, decomposed=False, **kwargs):
         """Mass attenuation coefficient (cm^2/g, E in keV). Use for transmission XAS.
         """
-        return self._crosssection("mass_att_coeff", E, fine=fine, decomposed=decomposed, **kwargs)
+        return self._crosssection(
+            "mass_att_coeff", E, fine=fine, decomposed=decomposed, **kwargs
+        )
 
     def mass_abs_coeff(self, E, fine=False, decomposed=False, **kwargs):
         """Mass absorption coefficient (cm^2/g, E in keV).
         """
-        return self._crosssection("mass_abs_coeff", E, fine=fine, decomposed=decomposed, **kwargs)
+        return self._crosssection(
+            "mass_abs_coeff", E, fine=fine, decomposed=decomposed, **kwargs
+        )
 
     def partial_mass_abs_coeff(self, E, fine=False, decomposed=False, **kwargs):
         """Mass absorption coefficient for the selected shells and lines (cm^2/g, E in keV).
         """
-        return self._crosssection("partial_mass_abs_coeff", E, fine=fine, decomposed=decomposed, **kwargs)
+        return self._crosssection(
+            "partial_mass_abs_coeff", E, fine=fine, decomposed=decomposed, **kwargs
+        )
 
     def scattering_cross_section(self, E, fine=False, decomposed=False, **kwargs):
         """Scattering cross section (cm^2/g, E in keV).
         """
-        return self._crosssection("scattering_cross_section", E, fine=fine, decomposed=decomposed, **kwargs)
+        return self._crosssection(
+            "scattering_cross_section", E, fine=fine, decomposed=decomposed, **kwargs
+        )
 
     def compton_cross_section(self, E, fine=False, decomposed=False, **kwargs):
         """Compton cross section (cm^2/g, E in keV).
         """
-        return self._crosssection("compton_cross_section", E, fine=fine, decomposed=decomposed, **kwargs)
+        return self._crosssection(
+            "compton_cross_section", E, fine=fine, decomposed=decomposed, **kwargs
+        )
 
     def rayleigh_cross_section(self, E, fine=False, decomposed=False, **kwargs):
         """Rayleigh cross section (cm^2/g, E in keV).
         """
-        return self._crosssection("rayleigh_cross_section", E, fine=fine, decomposed=decomposed, **kwargs)
+        return self._crosssection(
+            "rayleigh_cross_section", E, fine=fine, decomposed=decomposed, **kwargs
+        )
 
     def fluorescence_cross_section(self, E, fine=False, decomposed=False, **kwargs):
         """XRF cross section (cm^2/g, E in keV). Use for fluorescence XAS.
         """
-        return self._crosssection("fluorescence_cross_section", E, fine=fine, decomposed=decomposed, **kwargs)
+        return self._crosssection(
+            "fluorescence_cross_section", E, fine=fine, decomposed=decomposed, **kwargs
+        )
 
-    def fluorescence_cross_section_lines(self, E, fine=False, decomposed=False, **kwargs):
+    def fluorescence_cross_section_lines(
+        self, E, fine=False, decomposed=False, **kwargs
+    ):
         """XRF cross section (cm^2/g, E in keV). Use for XRF.
         """
-        return self._crosssection("fluorescence_cross_section_lines", E, fine=fine, decomposed=decomposed, **kwargs)
+        return self._crosssection(
+            "fluorescence_cross_section_lines",
+            E,
+            fine=fine,
+            decomposed=decomposed,
+            **kwargs
+        )
 
-    def diff_fluorescence_cross_section(self, E, fine=False, decomposed=False, **kwargs):
+    def diff_fluorescence_cross_section(
+        self, E, fine=False, decomposed=False, **kwargs
+    ):
         """Differential XRF cross section (cm^2/g/srad, E in keV). Use for XRF.
         """
-        return self._crosssection("diff_fluorescence_cross_section", E, fine=fine, decomposed=decomposed, **kwargs)
+        return self._crosssection(
+            "diff_fluorescence_cross_section",
+            E,
+            fine=fine,
+            decomposed=decomposed,
+            **kwargs
+        )
 
     def diff_rayleigh_cross_section(self, E, fine=False, decomposed=False, **kwargs):
         """Differential Rayleigh cross section (cm^2/g/srad, E in keV). Use for XRF.
         """
-        return self._crosssection("diff_rayleigh_cross_section", E, fine=fine, decomposed=decomposed, **kwargs)
+        return self._crosssection(
+            "diff_rayleigh_cross_section", E, fine=fine, decomposed=decomposed, **kwargs
+        )
 
     def diff_compton_cross_section(self, E, fine=False, decomposed=False, **kwargs):
         """Differential Compton cross section (cm^2/g/srad, E in keV). Use for XRF.
         """
-        return self._crosssection("diff_compton_cross_section", E, fine=fine, decomposed=decomposed, **kwargs)
+        return self._crosssection(
+            "diff_compton_cross_section", E, fine=fine, decomposed=decomposed, **kwargs
+        )
 
     @classmethod
     def cs_type(cls, cs):
@@ -126,8 +171,8 @@ class MultiElementBase(elementbase.ElementBase):
         # 1. cs = {'w':0.1,'cs':[...]} -> element w+cs
         # 2. cs = {'A':{},'B':{}}      -> compound or mixture
         if isinstance(cs, dict):
-            if 'cs' in cs:
-                if isinstance(cs['cs'], dict):
+            if "cs" in cs:
+                if isinstance(cs["cs"], dict):
                     return 2
                 else:
                     return 1
@@ -142,7 +187,7 @@ class MultiElementBase(elementbase.ElementBase):
         if t == 0:
             return cs
         elif t == 1:
-            return cs['w']*cs['cs']
+            return cs["w"] * cs["cs"]
         else:
             return sum(cls.cs_collapse(c) for c in cs.values())
 
@@ -152,10 +197,10 @@ class MultiElementBase(elementbase.ElementBase):
         if t == 0:
             return np.array([1]), [cs]
         elif t == 1:
-            return np.array([cs['w']]), [cs['cs']]
+            return np.array([cs["w"]]), [cs["cs"]]
         else:
-            w = np.array([c['w'] for c in cs.values()])
-            cs = [cls.cs_collapse(c['cs']) for c in cs.values()]
+            w = np.array([c["w"] for c in cs.values()])
+            cs = [cls.cs_collapse(c["cs"]) for c in cs.values()]
             return w, cs
 
     @classmethod
@@ -164,11 +209,10 @@ class MultiElementBase(elementbase.ElementBase):
             csout = {}
         t = cls.cs_type(csin)
         if t == 0:
-            csout[k] = csout.get(k, 0)+w*cs
+            csout[k] = csout.get(k, 0) + w * cs
         elif t == 1:
-            csout[k] = csout.get(k, 0)+w*cs['w']*cs['cs']
+            csout[k] = csout.get(k, 0) + w * cs["w"] * cs["cs"]
         else:
             for k, c in csin.items():
-                cls.csdict_parse_elements(
-                    c['cs'], csout=csout, w=w*c['w'], k=k)
+                cls.csdict_parse_elements(c["cs"], csout=csout, w=w * c["w"], k=k)
         return csout

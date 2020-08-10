@@ -18,4 +18,5 @@ class CompoundFromList(compound.Compound):
         """
 
         super(CompoundFromList, self).__init__(
-            elements, frac, fractype, density=density, name=name)
+            elements, frac, fractype, density=density, name=name
+        )

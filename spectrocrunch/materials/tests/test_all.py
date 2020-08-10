@@ -31,7 +31,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

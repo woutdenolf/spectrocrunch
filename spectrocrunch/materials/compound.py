@@ -16,7 +16,9 @@ class Compound(multielementbase.MultiElementBase):
     """Interface to a compound
     """
 
-    def __init__(self, elements, frac, fractype=None, density=None, nrefrac=1, name=None):
+    def __init__(
+        self, elements, frac, fractype=None, density=None, nrefrac=1, name=None
+    ):
         """
         Args:
             elements(list): list of elements (["Fe","O"] or [element("Fe"),element("O")])
@@ -40,13 +42,13 @@ class Compound(multielementbase.MultiElementBase):
         elif fractype == types.fraction.volume:
             # would be possible if you give the element densities in the compound
             # (which is not the same as the pure element density) but that's an unlikely given
-            raise ValueError(
-                "Cannot create a compound from elemental volume fractions")
+            raise ValueError("Cannot create a compound from elemental volume fractions")
         else:
             elements = [element.Element(e) for e in elements]
             MM = np.asarray([e.MM for e in elements])
             nfrac = stoichiometry.frac_weight_to_mole(
-                np.asarray(frac), MM)  # normalized
+                np.asarray(frac), MM
+            )  # normalized
 
         # Elements (no duplicates)
         self._compose_elements(elements, nfrac)
@@ -56,12 +58,12 @@ class Compound(multielementbase.MultiElementBase):
             if len(self._elements) == 1:
                 self.density = next(iter(self._elements.keys())).density
             else:
-                #rho = [e.density for e in self._elements]
+                # rho = [e.density for e in self._elements]
                 # self.density = np.mean(rho) # not based on anything, just a value
                 if len(self._elements) == 0:
-                    self.density = 0.
+                    self.density = 0.0
                 else:
-                    self.density = 1.  # approx. density of water
+                    self.density = 1.0  # approx. density of water
         else:
             self.density = float(density)
 
@@ -78,20 +80,21 @@ class Compound(multielementbase.MultiElementBase):
                 self._elements[e] = float(n)
 
     def __getstate__(self):
-        return {'name': self.name,
-                'nrefrac': self.nrefrac,
-                'density': self.density,
-                'elements_keys': list(self._elements.keys()),
-                'elements_values': list(self._elements.values()),
-                'isscatterer': self.isscatterer}
+        return {
+            "name": self.name,
+            "nrefrac": self.nrefrac,
+            "density": self.density,
+            "elements_keys": list(self._elements.keys()),
+            "elements_values": list(self._elements.values()),
+            "isscatterer": self.isscatterer,
+        }
 
     def __setstate__(self, state):
-        self.name = state['name']
-        self.nrefrac = state['nrefrac']
-        self.density = state['density']
-        self._elements = dict(zip(state['elements_keys'],
-                                  state['elements_values']))
-        self.isscatterer = state['isscatterer']
+        self.name = state["name"]
+        self.nrefrac = state["nrefrac"]
+        self.density = state["density"]
+        self._elements = dict(zip(state["elements_keys"], state["elements_values"]))
+        self.isscatterer = state["isscatterer"]
 
     def addelements(self, elements, fractions, fractype, density=None):
         """Add an element to the compound
@@ -103,8 +106,7 @@ class Compound(multielementbase.MultiElementBase):
             density(Optional(num)): new compound density in g/cm^3
         """
         if fractype == types.fraction.volume:
-            raise ValueError(
-                "Cannot create a compound from elemental volume fractions")
+            raise ValueError("Cannot create a compound from elemental volume fractions")
         if not instance.isarray(elements):
             elements = [elements]
         if not instance.isarray(fractions):
@@ -112,14 +114,12 @@ class Compound(multielementbase.MultiElementBase):
         fractions = np.asarray(fractions)
         if fractype == types.fraction.mole:
             nfrac = self.equivalents()
-            elements = list(nfrac.keys()) + \
-                [element.Element(el) for el in elements]
+            elements = list(nfrac.keys()) + [element.Element(el) for el in elements]
             nfrac = np.asarray(list(nfrac.values()))
             nfrac = stoichiometry.add_frac(nfrac, fractions)
         else:
             wfrac = self.massfractions()
-            elements = list(wfrac.keys()) + \
-                [element.Element(el) for el in elements]
+            elements = list(wfrac.keys()) + [element.Element(el) for el in elements]
             wfrac = np.asarray(list(wfrac.values()))
             wfrac = stoichiometry.add_frac(wfrac, fractions)
             MM = np.asarray([e.MM for e in elements])
@@ -143,12 +143,10 @@ class Compound(multielementbase.MultiElementBase):
         elif fractype == types.fraction.volume:
             # would be possible if you give the element densities in the compound
             # (which is not the same as the pure element density) but that's an unlikely given
-            raise ValueError(
-                "Cannot create a compound from elemental volume fractions")
+            raise ValueError("Cannot create a compound from elemental volume fractions")
         else:
             MM = np.asarray([e.MM for e in elements])
-            nfrac = stoichiometry.frac_weight_to_mole(
-                fractions, MM)  # normalized
+            nfrac = stoichiometry.frac_weight_to_mole(fractions, MM)  # normalized
         # Elements
         self._compose_elements(elements, nfrac)
 
@@ -167,20 +165,20 @@ class Compound(multielementbase.MultiElementBase):
         nfrac = self.equivalents()
         MM = np.asarray([e.MM for e in nfrac])
         nfrac = np.asarray(list(nfrac.values()))
-        return (MM*nfrac).sum()
+        return (MM * nfrac).sum()
 
     def molarmasseff(self):
         nfrac = self.molefractions()
         MM = np.asarray([e.MM for e in nfrac])
         nfrac = np.asarray(list(nfrac.values()))
-        return (MM*nfrac).sum()
+        return (MM * nfrac).sum()
 
     @property
     def Zeff(self):
         nfrac = self.molefractions()
         Z = np.asarray([e.Z for e in nfrac])
         nfrac = np.asarray(list(nfrac.values()))
-        return (Z*nfrac).sum()
+        return (Z * nfrac).sum()
 
     def molefractions(self):
         nfrac = np.asarray(list(self._elements.values()))
@@ -193,8 +191,7 @@ class Compound(multielementbase.MultiElementBase):
     def massfractions(self):
         nfrac = self.equivalents()
         MM = np.asarray([e.MM for e in nfrac])
-        wfrac = stoichiometry.frac_mole_to_weight(
-            np.asarray(list(nfrac.values())), MM)
+        wfrac = stoichiometry.frac_mole_to_weight(np.asarray(list(nfrac.values())), MM)
         return dict(zip(nfrac.keys(), wfrac))
 
     def elemental_molefractions(self):
@@ -228,8 +225,12 @@ class Compound(multielementbase.MultiElementBase):
                 energybounds2 = None
             else:
                 energybounds2 = energybounds
-            e.markabsorber(symb=symb, shells=shells,
-                           fluolines=fluolines, energybounds=energybounds2)
+            e.markabsorber(
+                symb=symb,
+                shells=shells,
+                fluolines=fluolines,
+                energybounds=energybounds2,
+            )
 
     def unmarkabsorber(self):
         for e in self._elements:
@@ -267,11 +268,11 @@ class Compound(multielementbase.MultiElementBase):
             else:
                 return np.zeros_like(E, dtype=float)
         e_wfrac = self.massfractions()
-        if hasattr(self, 'structure') and fine:
+        if hasattr(self, "structure") and fine:
             environ = self
         else:
             environ = None
-        kwargs['environ'] = environ
+        kwargs["environ"] = environ
         if decomposed:
             ret = {}
             for e, w in e_wfrac.items():
@@ -285,10 +286,11 @@ class Compound(multielementbase.MultiElementBase):
                     if not cs:
                         continue
                     for k, v in cs.items():
-                        ret[k] = ret.get(k, 0) + w*v
+                        ret[k] = ret.get(k, 0) + w * v
             else:
-                ret = sum(w*getattr(e, method)(E, **kwargs)
-                          for e, w in e_wfrac.items())
+                ret = sum(
+                    w * getattr(e, method)(E, **kwargs) for e, w in e_wfrac.items()
+                )
         return ret
 
     def get_energy(self, energyrange, defaultinc=1):
@@ -306,22 +308,23 @@ class Compound(multielementbase.MultiElementBase):
     def topymca(self, cfg, defaultthickness=1e-4):
         r = self.massfractions()
         massfractions = list(r.values())
-        names = ['{}1'.format(e) for e in r]
+        names = ["{}1".format(e) for e in r]
         matname = self.pymcaname
-        cfg["materials"][matname] = {'Comment': self.pymcacomment,
-                                     'CompoundFraction': massfractions,
-                                     'Thickness': defaultthickness,
-                                     'Density': self.density,
-                                     'CompoundList': names}
+        cfg["materials"][matname] = {
+            "Comment": self.pymcacomment,
+            "CompoundFraction": massfractions,
+            "Thickness": defaultthickness,
+            "Density": self.density,
+            "CompoundList": names,
+        }
         return matname
 
     def tofisx(self, cfg, defaultthickness=1e-4):
         r = self.massfractions()
         massfractions = list(r.values())
-        names = ['{}1'.format(e) for e in r]
+        names = ["{}1".format(e) for e in r]
         matname = self.pymcaname
-        o = fisx.Material(matname, self.density,
-                          defaultthickness, self.pymcacomment)
+        o = fisx.Material(matname, self.density, defaultthickness, self.pymcacomment)
         o.setCompositionFromLists(names, massfractions)
         cfg.addMaterial(o, errorOnReplace=False)
         return matname

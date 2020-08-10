@@ -2,13 +2,12 @@
 
 import unittest
 
-from ..import stoichiometry
+from .. import stoichiometry
 
 import numpy as np
 
 
 class test_stoichiometry(unittest.TestCase):
-
     def test_fraction(self):
         n = np.asarray([0.1, 0.6, 0.3])
         MM = np.asarray([5.6, 3.5, 7.9])
@@ -34,7 +33,7 @@ def test_suite():
     return testSuite
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

@@ -30,7 +30,6 @@ from ..math import fit1d
 
 
 class FluoLine(CompHashable, Copyable):
-
     @staticmethod
     def getlinename(line):
         # Return IUPAC instead of SIEGBAHN when possible
@@ -47,7 +46,7 @@ class FluoLine(CompHashable, Copyable):
                 n1 = len(names[1])
                 if n0 == n1:
                     candidate = names[0]
-                    if names[0][1] == 'A' or names[0][1] == 'B':
+                    if names[0][1] == "A" or names[0][1] == "B":
                         return names[1]
                     else:
                         return names[0]
@@ -88,7 +87,13 @@ class FluoLine(CompHashable, Copyable):
 
     @classmethod
     def all_lines(cls):
-        return list(set(cls(code) for line in range(xraylib.line_max, xraylib.line_min-1, -1) for code in cls.decompose(line)))
+        return list(
+            set(
+                cls(code)
+                for line in range(xraylib.line_max, xraylib.line_min - 1, -1)
+                for code in cls.decompose(line)
+            )
+        )
 
     @classmethod
     def factory(cls, shells=None, fluolines=None, energybounds=None):
@@ -122,8 +127,15 @@ class FluoLine(CompHashable, Copyable):
             else:
                 shellnames = [Shell.getshellname(shells)]
 
-            def valid(linecode): return any(any(cls.getlinename(code).startswith(
-                shellname) for shellname in shellnames) for code in cls.decompose(linecode))
+            def valid(linecode):
+                return any(
+                    any(
+                        cls.getlinename(code).startswith(shellname)
+                        for shellname in shellnames
+                    )
+                    for code in cls.decompose(linecode)
+                )
+
             lines = [line for line in lines if valid(line.code)]
 
         # Energy selection
@@ -132,8 +144,13 @@ class FluoLine(CompHashable, Copyable):
             if not instance.isinteger(Z):
                 Z = xraylib.SymbolToAtomicNumber(Z)
 
-            def valid(
-                energy): return energy >= energybounds[1] and energy <= energybounds[2] and energy != 0
+            def valid(energy):
+                return (
+                    energy >= energybounds[1]
+                    and energy <= energybounds[2]
+                    and energy != 0
+                )
+
             lines = [line for line in lines if valid(line.energy(Z))]
 
         # Return
@@ -152,11 +169,11 @@ class FluoLine(CompHashable, Copyable):
             self.name = self.getlinename(line)
 
     def __getstate__(self):
-        return {'code': self.code, 'name': self.name}
+        return {"code": self.code, "name": self.name}
 
     def __setstate__(self, state):
-        self.code = state['code']
-        self.name = state['name']
+        self.code = state["code"]
+        self.name = state["name"]
 
     def _sortkey(self, other):
         return self.code
@@ -194,7 +211,7 @@ class FluoLine(CompHashable, Copyable):
                     if rate != 0:
                         # In abscence of a better assumption, assume all lines
                         # in the composite are equally probable
-                        return rate/len(xraylib.composites[comp])
+                        return rate / len(xraylib.composites[comp])
 
         return rate
 
@@ -226,8 +243,7 @@ class FluoLine(CompHashable, Copyable):
         for shellname in xraylib.shell_to_code:
             if self.name.startswith(shellname):
                 return Shell(shellname)
-        raise RuntimeError(
-            "Cannot find the shell of fluorescence line {}".format(self))
+        raise RuntimeError("Cannot find the shell of fluorescence line {}".format(self))
 
     @property
     def groupname(self):
@@ -249,7 +265,8 @@ class FluoLine(CompHashable, Copyable):
             if self.name.endswith(shellname):
                 return Shell(shellname)
         raise RuntimeError(
-            "Cannot find the source shell of fluorescence line {}".format(self))
+            "Cannot find the source shell of fluorescence line {}".format(self)
+        )
 
     def fluorescence_production_cs(self, Z, E):
         # Kissel without cascade and Coster–Kronig transitions:
@@ -261,7 +278,6 @@ class FluoLine(CompHashable, Copyable):
 
 
 class Shell(CompHashable, Copyable):
-
     @staticmethod
     def getshellname(shell):
         if isinstance(shell, Shell):
@@ -286,7 +302,7 @@ class Shell(CompHashable, Copyable):
 
     @classmethod
     def all_shells(cls, fluolines=None):
-        shells = range(xraylib.shell_min, xraylib.shell_max+1)
+        shells = range(xraylib.shell_min, xraylib.shell_max + 1)
         return [cls(shell, fluolines=fluolines) for shell in shells]
 
     @classmethod
@@ -298,13 +314,13 @@ class Shell(CompHashable, Copyable):
             if not instance.isinteger(Z):
                 Z = xraylib.SymbolToAtomicNumber(Z)
 
-            def valid(
-                energy): return energy >= energybounds[1] and energy <= energybounds[2]
+            def valid(energy):
+                return energy >= energybounds[1] and energy <= energybounds[2]
+
             shells = cls.all_shells()
             shells = [s for s in shells if valid(s.edgeenergy(Z))]
             for s in shells:
-                s._fluolines = FluoLine.factory(
-                    shells=[s], energybounds=energybounds)
+                s._fluolines = FluoLine.factory(shells=[s], energybounds=energybounds)
             shells = [s for s in shells if s._fluolines]
             return shells
 
@@ -321,11 +337,11 @@ class Shell(CompHashable, Copyable):
                 return shell[0]
         else:
             shell = shell[0].upper()
-            n = ord(shell)-ord('K')+1
+            n = ord(shell) - ord("K") + 1
             if n == 1:
                 return shell
             else:
-                return ["{}{}".format(shell, i) for i in range(1, 2*n)]
+                return ["{}{}".format(shell, i) for i in range(1, 2 * n)]
 
     @classmethod
     def expandall(cls, shells):
@@ -385,16 +401,15 @@ class Shell(CompHashable, Copyable):
             if fluolines is None:
                 self._fluolines = None  # all lines
             else:
-                self._fluolines = FluoLine.factory(
-                    shells=[self], fluolines=fluolines)
+                self._fluolines = FluoLine.factory(shells=[self], fluolines=fluolines)
 
     def __getstate__(self):
-        return {'code': self.code, 'name': self.name, 'fluolines': self._fluolines}
+        return {"code": self.code, "name": self.name, "fluolines": self._fluolines}
 
     def __setstate__(self, state):
-        self.code = state['code']
-        self.name = state['name']
-        self._fluolines = state['fluolines']
+        self.code = state["code"]
+        self.name = state["name"]
+        self._fluolines = state["fluolines"]
 
     @property
     def fluolines(self):
@@ -407,7 +422,9 @@ class Shell(CompHashable, Copyable):
         if self._fluolines is None or self._fluolines == []:
             yield "{} fluorescence lines: all".format(self.name)
         else:
-            yield "{} fluorescence lines: {}".format(self.name, ", ".join((str(l) for l in self._fluolines)))
+            yield "{} fluorescence lines: {}".format(
+                self.name, ", ".join((str(l) for l in self._fluolines))
+            )
 
     def _sortkey(self, other):
         return self.code
@@ -427,7 +444,10 @@ class Shell(CompHashable, Copyable):
     def fluoyield(self, Z):
         """Fluorescence yield for this shell: probability for fluorescence / probability of shell ionization
         """
-        return xraylib.FluorYield(Z, self.code)
+        try:
+            return xraylib.FluorYield(Z, self.code)
+        except ValueError:
+            return 0.0
 
     def radrate(self, Z):
         """Radiative rate of a shell: probabilities of selected lines / probabilty of fluorescence 
@@ -438,29 +458,34 @@ class Shell(CompHashable, Copyable):
             return [l.radrate(Z) for l in self._fluolines]
 
     def atomiclevelwidth(self, Z):
-        return xraylib.AtomicLevelWidth(Z, self.code)
+        try:
+            return xraylib.AtomicLevelWidth(Z, self.code)
+        except ValueError:
+            return 0.0
 
     def partial_fluoyield(self, Z, decomposed=False):
         """Probability of selected lines / probability of shell ionization
         """
         if decomposed:
             fluoyield = self.fluoyield(Z)
-            return {l: fluoyield*l.radrate(Z) for l in self.fluolines}
+            return {l: fluoyield * l.radrate(Z) for l in self.fluolines}
         else:
             if self._fluolines is None:
                 return self.fluoyield(Z)
             else:
-                return self.fluoyield(Z)*sum(self.radrate(Z))
+                return self.fluoyield(Z) * sum(self.radrate(Z))
 
     def partial_photo(self, Z, E):
-        return xraylib.CS_Photo_Partial(Z, self.code, np.float64(E))
+        try:
+            return xraylib.CS_Photo_Partial(Z, self.code, np.float64(E))
+        except ValueError:
+            return E * 0.0
 
     def edgeenergy(self, Z):
         return xraylib.EdgeEnergy(Z, self.code)
 
 
 class FluoZGroup(CompHashable, Copyable):
-
     def __init__(self, element, group):
         self.element = element
         self.group = group
@@ -477,7 +502,6 @@ class FluoZGroup(CompHashable, Copyable):
 
 
 class FluoZLine(CompHashable, Copyable):
-
     def __init__(self, element, line):
         self.line = line
         self.element = element
@@ -493,7 +517,9 @@ class FluoZLine(CompHashable, Copyable):
         """Lorentzian FWHM
         """
         # Journal of Physical and Chemical Reference Data 8, 329 (1979); https://doi.org/10.1063/1.555595
-        return self.line.shell.atomiclevelwidth(self.element.Z) + self.line.shellsource.atomiclevelwidth(self.element.Z)
+        return self.line.shell.atomiclevelwidth(
+            self.element.Z
+        ) + self.line.shellsource.atomiclevelwidth(self.element.Z)
 
     def _sortkey(self, other):
         return self.energy()
@@ -524,8 +550,7 @@ class FluoZLine(CompHashable, Copyable):
 
 
 class Line(CompHashable, Copyable):
-
-    def __init__(self, energy, groupname='unknown', linewidth=0):
+    def __init__(self, energy, groupname="unknown", linewidth=0):
         self._energy = energy
         self._groupname = groupname
         self._linewidth = linewidth
@@ -563,7 +588,6 @@ class Line(CompHashable, Copyable):
 
 
 class ScatteringLine(CompHashable, Copyable):
-
     def __init__(self, energysource):
         self.energysource = energysource
 
@@ -603,7 +627,6 @@ class ScatteringLine(CompHashable, Copyable):
 
 
 class RayleighLine(ScatteringLine):
-
     def __init__(self, energysource):
         self.name = "Rayleigh"
         super(RayleighLine, self).__init__(energysource)
@@ -613,7 +636,6 @@ class RayleighLine(ScatteringLine):
 
 
 class ComptonLine(ScatteringLine):
-
     def __init__(self, energysource):
         self.name = "Compton"
         super(ComptonLine, self).__init__(energysource)
@@ -629,9 +651,12 @@ class ComptonLine(ScatteringLine):
         """
         if not polar:
             return self.energysource
-        m = ureg.Quantity(
-            1-np.cos(polar), "1/(m_e*c^2)").to("1/keV", "spectroscopy").magnitude
-        return self.energysource/(1+self.energysource*m)
+        m = (
+            ureg.Quantity(1 - np.cos(polar), "1/(m_e*c^2)")
+            .to("1/keV", "spectroscopy")
+            .magnitude
+        )
+        return self.energysource / (1 + self.energysource * m)
 
     def scatteringangle(self, energy):
         """
@@ -641,27 +666,30 @@ class ComptonLine(ScatteringLine):
         Returns:
             polar(num): radians
         """
-        m = ureg.Quantity(1./energy-1./self.energysource,
-                          "1/keV").to("1/(m_e*c^2)", "spectroscopy").magnitude
-        return np.arccos(np.clip(1-m, -1, 1))
+        m = (
+            ureg.Quantity(1.0 / energy - 1.0 / self.energysource, "1/keV")
+            .to("1/(m_e*c^2)", "spectroscopy")
+            .magnitude
+        )
+        return np.arccos(np.clip(1 - m, -1, 1))
 
 
 class Spectrum(Copyable, collections.MutableMapping):
 
-    TYPES = Enum(['diffcrosssection', 'crosssection', 'rate'])
+    TYPES = Enum(["diffcrosssection", "crosssection", "rate"])
     # diffcrosssection: cm^2/g/srad
     # crosssection: cm^2/g
     # rate: dimensionless
 
     def __init__(self, *args, **kwargs):
         self._lines = {}
-        self.density = kwargs.pop('density', None)
-        self.xlim = kwargs.pop('xlim', None)
-        self.title = kwargs.pop('title', None)
+        self.density = kwargs.pop("density", None)
+        self.xlim = kwargs.pop("xlim", None)
+        self.title = kwargs.pop("title", None)
         self.xlabel = "Energy (keV)"
-        self.type = kwargs.pop('type', None)
-        self.geometry = kwargs.pop('geometry', None)
-        self.geomkwargs = kwargs.pop('geomkwargs', {})
+        self.type = kwargs.pop("type", None)
+        self.geometry = kwargs.pop("geometry", None)
+        self.geomkwargs = kwargs.pop("geomkwargs", {})
         self.update(*args, **kwargs)
 
     def __getitem__(self, item):
@@ -674,7 +702,7 @@ class Spectrum(Copyable, collections.MutableMapping):
 
     def getitem_converted(self, item, convert=False, **kwargs):
         m = self.line_multiplier(convert=convert)
-        return self[item]*m
+        return self[item] * m
 
     def __setitem__(self, item, value):
         self._lines[item] = value
@@ -722,10 +750,10 @@ class Spectrum(Copyable, collections.MutableMapping):
             return
         weights, func = instance.asarrayf(weights)
         n = len(weights)
-        weights = func(weights/weights.sum(dtype=float))
+        weights = func(weights / weights.sum(dtype=float))
         for k in self:
             if listtools.length(self[k]) == n:
-                self[k] = self[k]*weights
+                self[k] = self[k] * weights
 
     def sum_sources(self):
         for k in self:
@@ -774,7 +802,7 @@ class Spectrum(Copyable, collections.MutableMapping):
         if not convert:
             return 1
         if self.type == self.TYPES.crosssection:
-            return self.density/(4*np.pi)  # cm^2/g -> 1/cm/srad
+            return self.density / (4 * np.pi)  # cm^2/g -> 1/cm/srad
         elif self.type == self.TYPES.diffcrosssection:
             return self.density  # cm^2/g/srad -> 1/cm/srad
         elif self.type == self.TYPES.rate:
@@ -785,14 +813,14 @@ class Spectrum(Copyable, collections.MutableMapping):
     def profile_multiplier(self, fluxtime=None, histogram=False):
         ret = 1
         if fluxtime is not None:
-            ret = ret*fluxtime
+            ret = ret * fluxtime
         if histogram:
-            ret = ret*self.mcagain
+            ret = ret * self.mcagain
         return ret
 
     def __iadd__(self, other):
         if self.type != other.type:
-            raise ValueError('Spectra need to be of the same type')
+            raise ValueError("Spectra need to be of the same type")
         for k, v in other.items():
             if k in self:
                 self._lines[k] += v
@@ -807,9 +835,10 @@ class Spectrum(Copyable, collections.MutableMapping):
 
     def items_sorted(self, sort=False):
         if sort:
+
             def sortkey(x):
-                return np.max(
-                    instance.asarray(x[0].energy(**self.geomkwargs)))
+                return np.max(instance.asarray(x[0].energy(**self.geomkwargs)))
+
             return sorted(self.items(), key=sortkey)
         else:
             return self.items()
@@ -817,17 +846,20 @@ class Spectrum(Copyable, collections.MutableMapping):
     def items_converted(self, convert=True, **kwargs):
         m = self.line_multiplier(convert=convert)
         for line, v in self.items_sorted(**kwargs):
-            yield line, v*m
+            yield line, v * m
 
     @property
     def probabilities(self):
         """
         Interaction probability (1/cm/srad)
         """
-        if self.type != self.TYPES.crosssection and\
-           self.type != self.TYPES.diffcrosssection:
+        if (
+            self.type != self.TYPES.crosssection
+            and self.type != self.TYPES.diffcrosssection
+        ):
             raise RuntimeError(
-                "Spectrum does not contain cross-sections (cm^2/g or cm^2/g/srad)")
+                "Spectrum does not contain cross-sections (cm^2/g or cm^2/g/srad)"
+            )
         return self.items_converted(convert=True)
 
     @property
@@ -849,8 +881,7 @@ class Spectrum(Copyable, collections.MutableMapping):
         Line rate (ph/phsource)
         """
         if self.type != self.TYPES.rate:
-            raise RuntimeError(
-                "Spectrum does not contain line rates (ph/phsource)")
+            raise RuntimeError("Spectrum does not contain line rates (ph/phsource)")
         return self.items_converted(convert=True)
 
     @property
@@ -930,14 +961,17 @@ class Spectrum(Copyable, collections.MutableMapping):
                     linename = "{}{}".format(group, i)
                 else:
                     linename = str(line)
-                lineinfo[linename] = {"group": group,
-                                      "label": label,
-                                      "energy": energy,
-                                      "area": peakarea,
-                                      "natwidth": line.linewidth}
+                lineinfo[linename] = {
+                    "group": group,
+                    "label": label,
+                    "energy": energy,
+                    "area": peakarea,
+                    "natwidth": line.linewidth,
+                }
         if sort:
             lineinfo = collections.OrderedDict(
-                sorted(lineinfo.items(), key=lambda x: x[1]["energy"]))
+                sorted(lineinfo.items(), key=lambda x: x[1]["energy"])
+            )
         return lineinfo
 
     @staticmethod
@@ -947,27 +981,26 @@ class Spectrum(Copyable, collections.MutableMapping):
     def peakprofiles(self, x, lineinfo, voigt=False, **kwargs):
         if self.geometry is None:
             return None
-        energies = self._lineinfo_values(lineinfo, 'energy')
+        energies = self._lineinfo_values(lineinfo, "energy")
         if voigt:
-            linewidths = self._lineinfo_values(lineinfo, 'natwidth')
+            linewidths = self._lineinfo_values(lineinfo, "natwidth")
         else:
             linewidths = np.zeros_like(energies)
-        return self.geometry.detector.lineprofile(x, energies,
-                                                  linewidth=linewidths,
-                                                  **kwargs)
+        return self.geometry.detector.lineprofile(
+            x, energies, linewidth=linewidths, **kwargs
+        )
 
     def peakprofiles_selectioninfo(self, lineinfo, lines, voigt=False):
         if self.geometry is None:
-            raise RuntimeError(
-                "Cannot calculate detection limits without a geometry")
+            raise RuntimeError("Cannot calculate detection limits without a geometry")
 
         if not instance.isarray(lines):
             lines = [lines]
 
-        energies = self._lineinfo_values(lineinfo, 'energy')
-        areas = self._lineinfo_values(lineinfo, 'area')
+        energies = self._lineinfo_values(lineinfo, "energy")
+        areas = self._lineinfo_values(lineinfo, "area")
         if voigt:
-            linewidths = self._lineinfo_values(lineinfo, 'natwidth')
+            linewidths = self._lineinfo_values(lineinfo, "natwidth")
         else:
             linewidths = np.zeros_like(energies)
 
@@ -985,50 +1018,61 @@ class Spectrum(Copyable, collections.MutableMapping):
         areasin = np.atleast_1d(areasin)[np.newaxis, :]
         areas = areas[np.newaxis, :]
 
-        info["profilesin"] = lambda x: self.geometry.detector.lineprofile(x, energiesin, linewidth=linewidthsin,
-                                                                          normalized=False, decomposed=True)
-        info["profilesall"] = lambda x: self.geometry.detector.lineprofile(x, energies, linewidth=linewidths,
-                                                                           normalized=False, decomposed=True)
-        info["profiles"] = lambda x: self.geometry.detector.lineprofile(x, energies, linewidth=linewidths,
-                                                                        normalized=False, decomposed=False)*areas
+        info["profilesin"] = lambda x: self.geometry.detector.lineprofile(
+            x, energiesin, linewidth=linewidthsin, normalized=False, decomposed=True
+        )
+        info["profilesall"] = lambda x: self.geometry.detector.lineprofile(
+            x, energies, linewidth=linewidths, normalized=False, decomposed=True
+        )
+        info["profiles"] = (
+            lambda x: self.geometry.detector.lineprofile(
+                x, energies, linewidth=linewidths, normalized=False, decomposed=False
+            )
+            * areas
+        )
 
         # Extract from profiles:
-        info["extractallpeaks"] = lambda profs: (profs[0]*areas).sum(axis=-1)
-        info["extractinpeaks"] = lambda profs: (profs[0]*areasin).sum(axis=-1)
+        info["extractallpeaks"] = lambda profs: (profs[0] * areas).sum(axis=-1)
+        info["extractinpeaks"] = lambda profs: (profs[0] * areasin).sum(axis=-1)
 
-        #info["extractinpeaks_fromall"] = lambda profs: np.atleast_2d((profs[0]*areas)[:,indin]).sum(axis=-1)
+        # info["extractinpeaks_fromall"] = lambda profs: np.atleast_2d((profs[0]*areas)[:,indin]).sum(axis=-1)
         info["extractbkg"] = lambda profs: np.atleast_2d(
-            (profs[0]*areas)[:, indout]).sum(axis=-1)+(sum(profs[1:])*areas).sum(axis=-1)
+            (profs[0] * areas)[:, indout]
+        ).sum(axis=-1) + (sum(profs[1:]) * areas).sum(axis=-1)
 
         # ROI generator
-        std = np.sqrt(self.geometry.detector.voigtVAR(
-            energiesin, linewidthsin))
+        std = np.sqrt(self.geometry.detector.voigtVAR(energiesin, linewidthsin))
         roi = zip(energiesin, std)
 
         def roigen(kstd=3, roi=roi):
             for r in roi:
-                w = kstd*r[1]
-                a, b = r[0]-w, r[0]+w
+                w = kstd * r[1]
+                a, b = r[0] - w, r[0] + w
                 yield a, b
+
         info["roigen"] = roigen
 
         return info
 
-    def scaleprofiles(self, convert=False, fluxtime=None, histogram=False, lineinfo=None):
-        multiplier = self.profile_multiplier(fluxtime=fluxtime,
-                                             histogram=histogram)
-        ylabel = self.ylabel(convert=convert,
-                             phsource=fluxtime is not None,
-                             mcabin=histogram)
+    def scaleprofiles(
+        self, convert=False, fluxtime=None, histogram=False, lineinfo=None
+    ):
+        multiplier = self.profile_multiplier(fluxtime=fluxtime, histogram=histogram)
+        ylabel = self.ylabel(
+            convert=convert, phsource=fluxtime is not None, mcabin=histogram
+        )
         if lineinfo is not None:
             for k in lineinfo:
                 lineinfo[k]["area"] *= multiplier
         return multiplier, ylabel
 
     def __str__(self):
-        lines = "\n ".join(["{} {}".format(line, v)
-                            for line, v in self.lines(sort=True)])
-        return "{}\n Line   {}\n {}".format(self.title, self.ylabel(convert=True), lines)
+        lines = "\n ".join(
+            ["{} {}".format(line, v) for line, v in self.lines(sort=True)]
+        )
+        return "{}\n Line   {}\n {}".format(
+            self.title, self.ylabel(convert=True), lines
+        )
 
     @property
     def energysource(self):
@@ -1040,10 +1084,9 @@ class Spectrum(Copyable, collections.MutableMapping):
 
     def power(self, flux, **kwargs):
         if self.type != self.TYPES.rate:
-            raise RuntimeError(
-                "Spectrum must contain rates, not cross-sections.")
-        P = sum([energy*rate for energy, rate in self.spectrum(**kwargs)])
-        return ureg.Quantity(P*flux, "keV/s")
+            raise RuntimeError("Spectrum must contain rates, not cross-sections.")
+        P = sum([energy * rate for energy, rate in self.spectrum(**kwargs)])
+        return ureg.Quantity(P * flux, "keV/s")
 
     @property
     def channellimits(self):
@@ -1051,40 +1094,54 @@ class Spectrum(Copyable, collections.MutableMapping):
 
     def energytochannel(self, energy):
         energy, func = instance.asarrayf(energy)
-        return func(np.clip(np.round((energy-self.mcazero)/self.mcagain).astype(int), 0, None))
+        return func(
+            np.clip(
+                np.round((energy - self.mcazero) / self.mcagain).astype(int), 0, None
+            )
+        )
 
     @property
     def energylimits(self):
-        return self.mcazero+self.mcagain*self.channellimits
+        return self.mcazero + self.mcagain * self.channellimits
 
     def mcachannels(self):
         a, b = self.channellimits
-        return np.arange(a, b+1)
+        return np.arange(a, b + 1)
 
     def mcaenergies(self):
-        return self.mcazero+self.mcagain*self.mcachannels()
+        return self.mcazero + self.mcagain * self.mcachannels()
 
-    def _linespectra(self, convert=True, fluxtime=None, histogram=False, voigt=False, sort=True):
+    def _linespectra(
+        self, convert=True, fluxtime=None, histogram=False, voigt=False, sort=True
+    ):
         energies = self.mcaenergies()
         lineinfo = self.lineinfo(convert=convert, sort=sort)
 
         # Normalized profiles: nchannels x npeaks
         profiles = self.peakprofiles(energies, lineinfo, voigt=voigt)
         if profiles is None:
-            raise RuntimeError(
-                "Cannot calculate peak profiles without a geometry")
+            raise RuntimeError("Cannot calculate peak profiles without a geometry")
 
         # Real profiles: incoming photons and histogram
         _, ylabel = self.scaleprofiles(
-            convert=convert, fluxtime=fluxtime, histogram=histogram, lineinfo=lineinfo)
-        areas = self._lineinfo_values(lineinfo, 'area')
+            convert=convert, fluxtime=fluxtime, histogram=histogram, lineinfo=lineinfo
+        )
+        areas = self._lineinfo_values(lineinfo, "area")
         profiles *= areas[np.newaxis, :]
 
         return energies, profiles, ylabel, lineinfo
 
-    def snr(self, linevalid, convert=True, fluxtime=None,
-            histogram=False, voigt=False, backfunc=None,
-            plot=False, kstd=3):
+    def snr(
+        self,
+        linevalid,
+        convert=True,
+        fluxtime=None,
+        histogram=False,
+        voigt=False,
+        backfunc=None,
+        plot=False,
+        kstd=3,
+    ):
         energies = self.mcaenergies()
         lineinfo = self.lineinfo(convert=convert)
         lines = [k for k in lineinfo if linevalid(k)]
@@ -1092,34 +1149,36 @@ class Spectrum(Copyable, collections.MutableMapping):
             raise RuntimeError("No lines fit the description")
 
         # Profile functions
-        _, ylabel = self.scaleprofiles(convert=convert,
-                                       fluxtime=fluxtime,
-                                       histogram=histogram,
-                                       lineinfo=lineinfo)
+        _, ylabel = self.scaleprofiles(
+            convert=convert, fluxtime=fluxtime, histogram=histogram, lineinfo=lineinfo
+        )
         info = self.peakprofiles_selectioninfo(lineinfo, lines, voigt=voigt)
         if backfunc is None:
+
             def backfunc(x):
                 return np.zeros_like(x)
+
         def funcint(x):
             return info["extractinpeaks"](info["profilesin"](x))
+
         def functot(x):
-            return np.squeeze(
-                info["profiles"](x).sum(axis=-1)+backfunc(x))
+            return np.squeeze(info["profiles"](x).sum(axis=-1) + backfunc(x))
+
         def funcbkg(x):
-            return np.squeeze(
-                info["extractbkg"](info["profilesall"](x))+backfunc(x))
+            return np.squeeze(info["extractbkg"](info["profilesall"](x)) + backfunc(x))
 
         # Plot spectrum
         if plot:
-            lines = plt.plot(energies, np.random.poisson(
-                np.round(functot(energies)).astype(int)))
+            lines = plt.plot(
+                energies, np.random.poisson(np.round(functot(energies)).astype(int))
+            )
             color2 = lines[0].get_color()
-            color1 = next(plt.gca()._get_lines.prop_cycler)['color']
+            color1 = next(plt.gca()._get_lines.prop_cycler)["color"]
             ax = plt.gca()
 
         # Signal and background
-        total = 0.
-        background = 0.
+        total = 0.0
+        background = 0.0
         arrtotal = []
         arrbackground = []
         for a, b in mergeroi1d(info["roigen"](kstd=kstd)):
@@ -1130,46 +1189,51 @@ class Spectrum(Copyable, collections.MutableMapping):
             if plot:
                 ax.axvline(x=a)
                 ax.axvline(x=b)
-            a = np.argmin(np.abs(energies-a))
-            b = np.argmin(np.abs(energies-b))
+            a = np.argmin(np.abs(energies - a))
+            b = np.argmin(np.abs(energies - b))
             ptotal = functot(energies[a:b])
             pbackground = funcbkg(energies[a:b])
             arrtotal.append(ptotal)
             arrbackground.append(pbackground)
             if plot:
-                plt.fill_between(energies[a:b], pbackground,
-                                 0, alpha=0.5, color=color1)
-                plt.fill_between(energies[a:b], ptotal,
-                                 pbackground, alpha=0.5, color=color2)
-        signal = total-background
-        noise = np.sqrt(total+background)
-        SNR = signal/noise
+                plt.fill_between(energies[a:b], pbackground, 0, alpha=0.5, color=color1)
+                plt.fill_between(
+                    energies[a:b], ptotal, pbackground, alpha=0.5, color=color2
+                )
+        signal = total - background
+        noise = np.sqrt(total + background)
+        SNR = signal / noise
 
         # Errors from linear fit within ROI:
         #   ytotal = a*signal + b*background
         arrtotal = np.concatenate(arrtotal)
         arrbackground = np.concatenate(arrbackground)
-        arrsignal = arrtotal-arrbackground
-        A = np.stack([arrsignal/signal, arrbackground/background], axis=-1)
+        arrsignal = arrtotal - arrbackground
+        A = np.stack([arrsignal / signal, arrbackground / background], axis=-1)
         esignal, _ = fit1d.lstsq_std(A, vare=arrtotal)
-        ESRdep = esignal/signal
+        ESRdep = esignal / signal
         esignal, _ = fit1d.lstsq_std_indep(A, vare=arrtotal)
-        ESRindep = esignal/signal
+        ESRindep = esignal / signal
         cov = fit1d.lstsq_cov(A, vare=arrtotal)
         cor = fit1d.cor_from_cov(cov)
         cor = abs(cor[0, 1])
         if plot:
             plt.ylabel(ylabel)
             plt.xlabel("Energy (keV)")
-            plt.title("SNR = {:.02f}, ESR = {:.02f}% (dep), ESR = {:.02f}% (indep), COR = {:.02f}".format(
-                SNR, ESRdep*100, ESRindep*100, cor))
-        return {"SNR": SNR,
-                "ESR (dependent)": ESRdep,
-                "ESR (independent)": ESRindep,
-                "SB-correlation": cor,
-                'signal': signal,
-                'noise': noise,
-                'background': background}
+            plt.title(
+                "SNR = {:.02f}, ESR = {:.02f}% (dep), ESR = {:.02f}% (indep), COR = {:.02f}".format(
+                    SNR, ESRdep * 100, ESRindep * 100, cor
+                )
+            )
+        return {
+            "SNR": SNR,
+            "ESR (dependent)": ESRdep,
+            "ESR (independent)": ESRindep,
+            "SB-correlation": cor,
+            "signal": signal,
+            "noise": noise,
+            "background": background,
+        }
 
     def linespectra(self, sort=True, **kwargs):
         """X-ray spectrum decomposed in individual lines
@@ -1179,8 +1243,7 @@ class Spectrum(Copyable, collections.MutableMapping):
     def groupspectra(self, sort=True, **kwargs):
         """X-ray spectrum decomposed in element-shell groups
         """
-        energies, profiles, ylabel, lineinfo = self._linespectra(
-            sort=False, **kwargs)
+        energies, profiles, ylabel, lineinfo = self._linespectra(sort=False, **kwargs)
 
         # Sort groups on maximum peak intensity
         groups = {}
@@ -1191,7 +1254,8 @@ class Spectrum(Copyable, collections.MutableMapping):
 
         # Add lines per group
         lineinfo2 = collections.OrderedDict(
-            (g, collections.OrderedDict()) for g in groups)
+            (g, collections.OrderedDict()) for g in groups
+        )
 
         nchan, npeaks = profiles.shape
         ret = np.zeros((nchan, len(groups)), dtype=profiles.dtype)
@@ -1207,16 +1271,28 @@ class Spectrum(Copyable, collections.MutableMapping):
     def sumspectrum(self, backfunc=None, **kwargs):
         """Total X-ray spectrum
         """
-        energies, profiles, ylabel, lineinfo = self._linespectra(
-            sort=False, **kwargs)
+        energies, profiles, ylabel, lineinfo = self._linespectra(sort=False, **kwargs)
         profile = profiles.sum(axis=-1)
         if backfunc:
-            profile = profile+backfunc(energies)
+            profile = profile + backfunc(energies)
         return energies, profile, ylabel
 
-    def plot(self, convert=False, fluxtime=None, mark=True, ylog=False,
-             decompose=True, histogram=False, backfunc=None, voigt=False,
-             forcelines=False, legend=True, sumlabel="sum", title=""):
+    def plot(
+        self,
+        convert=False,
+        fluxtime=None,
+        mark=True,
+        ylog=False,
+        decompose=True,
+        histogram=False,
+        backfunc=None,
+        voigt=False,
+        forcelines=False,
+        legend=True,
+        marker=None,
+        sumlabel="sum",
+        title="",
+    ):
         """X-ray spectrum or cross-section lines
         """
         ax = plt.gca()
@@ -1224,14 +1300,16 @@ class Spectrum(Copyable, collections.MutableMapping):
             energies = self.mcaenergies()
             lines = self.lineinfo(convert=convert, sort=True)
             multiplier, ylabel = self.scaleprofiles(
-                convert=convert, fluxtime=fluxtime, histogram=histogram)
+                convert=convert, fluxtime=fluxtime, histogram=histogram
+            )
             profiles = self.peakprofiles(
-                energies, lines, voigt=voigt, onlyheight=forcelines)
+                energies, lines, voigt=voigt, onlyheight=forcelines
+            )
             colors = {}
             for lineinfo in lines.values():
                 g = lineinfo["group"]
                 if g not in colors:
-                    colors[g] = next(ax._get_lines.prop_cycler)['color']
+                    colors[g] = next(ax._get_lines.prop_cycler)["color"]
             blines = profiles is None or forcelines
             calcbkg = not (blines or backfunc is None)
             if calcbkg:
@@ -1243,22 +1321,25 @@ class Spectrum(Copyable, collections.MutableMapping):
             for ind, (linename, lineinfo) in enumerate(lines.items()):
                 color = colors[lineinfo["group"]]
                 if profiles is None:
-                    prof = lineinfo["area"]*multiplier
+                    prof = lineinfo["area"] * multiplier
                 else:
-                    prof = lineinfo["area"]*multiplier*profiles[:, ind]
+                    prof = lineinfo["area"] * multiplier * profiles[:, ind]
                     if backfunc is not None and forcelines:
                         off = backfunc(lineinfo["energy"])
                 if legend:
                     label = lineinfo["label"]
                 else:
                     label = None
-                h = self._plotline(lineinfo, energies, prof+bkg,
-                                   color=color, off=off, label=label)
+                h = self._plotline(
+                    lineinfo, energies, prof + bkg, color=color, off=off, label=label
+                )
                 if mark and lineinfo["label"] is not None:
-                    plt.annotate(linename,
-                                 xy=(lineinfo["energy"], h+off),
-                                 color=color,
-                                 clip_on=True)
+                    plt.annotate(
+                        linename,
+                        xy=(lineinfo["energy"], h + off),
+                        color=color,
+                        clip_on=True,
+                    )
                 if not blines:
                     if sumprof is None:
                         sumprof = prof
@@ -1266,13 +1347,14 @@ class Spectrum(Copyable, collections.MutableMapping):
                         sumprof += prof
             if calcbkg:
                 if legend:
-                    label = sumlabel+"bkg"
+                    label = sumlabel + "bkg"
                 else:
                     label = None
                 self._plotline(None, energies, bkg, label=label)
         else:
             energies, sumprof, ylabel = self.sumspectrum(
-                convert=convert, fluxtime=fluxtime, histogram=histogram)
+                convert=convert, fluxtime=fluxtime, histogram=histogram
+            )
             if backfunc is None:
                 bkg = 0
             else:
@@ -1282,11 +1364,11 @@ class Spectrum(Copyable, collections.MutableMapping):
                 label = sumlabel
             else:
                 label = None
-            plt.plot(energies, sumprof+bkg, label=label)
+            plt.plot(energies, sumprof + bkg, label=label, marker=marker)
         if self.geometry is not None and ylog:
-            ax.set_yscale('log', basey=10)
+            ax.set_yscale("log", base=10)
         if legend:
-            plt.legend(loc='best')
+            plt.legend(loc="best")
         ax.set_xlabel(self.xlabel)
         ax.set_ylabel(ylabel)
         ax.set_xlim(*self.xlim)
@@ -1303,7 +1385,7 @@ class Spectrum(Copyable, collections.MutableMapping):
             energy = line["energy"]
             h = instance.asscalar(prof)
             off = instance.asscalar(off)
-            plt.plot([energy, energy], [off, h+off], **kwargs)
+            plt.plot([energy, energy], [off, h + off], **kwargs)
         else:
             y = prof
             h = max(y)
