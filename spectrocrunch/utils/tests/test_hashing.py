@@ -11,25 +11,17 @@ from .. import instance
 class test_hashing(unittest.TestCase):
     def test_random(self):
         for _ in range(500):
-            # print('+++++++++++++++')
             o = factory()
             a = o.data
             b = o.data
             try:
                 ha = hashing.calchash(a)
             except UnicodeDecodeError:
-                # print(a)
                 raise
             try:
                 hb = hashing.calchash(b)
             except UnicodeDecodeError:
-                # print(b)
                 raise
-            if ha != hb:
-                # print('---')
-                # print(a)
-                # print(b)
-                assert ()
             self.assertTrue(hashing.hashequal(a, b))
 
     def test_string(self):
