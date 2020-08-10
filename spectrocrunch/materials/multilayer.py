@@ -1319,7 +1319,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
         source_distance=1000,
         beamsize=1e-4,
     ):
-        with localfs.temp(remove=False) as path:
+        with localfs.temp(remove=True) as path:
             path.mkdir()
             # Units: keV, cm, degrees and sec
             world = xrmc.XrmcWorldBuilder(
@@ -1477,11 +1477,6 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
                 # TODO: xrmc issue #49
                 data, info = world.detector.result(convoluted=True)
                 mca = data.sum(axis=tuple(range(data.ndim - 1)))
-                import matplotlib.pyplot as plt
-
-                plt.figure()
-                plt.plot(mca, label="xmrc")
-                plt.legend()
                 # Extract lines
                 mask = mca != 0
                 mca = mca[mask] / flux
@@ -1519,7 +1514,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
             list(dict), bool: line: rate (nSource), convoluted
         """
         rates = []
-        with localfs.temp(remove=False) as path:
+        with localfs.temp(remove=True) as path:
             path.mkdir()
             for energy0i, weightsi in zip(energy0, weights):
                 # Sample flux to source lines
@@ -1552,11 +1547,6 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
                     mca = data.sum(axis=tuple(range(data.ndim - 1)))
                 else:
                     mca, info = xmimsim.loadxmimsimresult(str(path), convoluted=False)
-                import matplotlib.pyplot as plt
-
-                plt.figure()
-                plt.plot(mca, label="xmimsim")
-                plt.legend()
                 # Extract lines
                 mask = mca != 0
                 mca = mca[mask] / flux

@@ -311,6 +311,12 @@ class test_element(unittest.TestCase):
                 )[0]
                 for E in energy
             ]
+
+            # import matplotlib.pyplot as plt
+            # plt.plot(energy, cs)
+            # plt.plot(energy, diffcsint)
+            # plt.show()
+
             np.testing.assert_allclose(cs, diffcsint, rtol=2e-2)
 
     @unittest.skipIf(xraylib.XRayInit is None, "xraylib not installed")

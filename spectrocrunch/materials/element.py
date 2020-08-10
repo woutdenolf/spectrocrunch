@@ -558,7 +558,11 @@ class Element(elementbase.ElementBase):
         K = source.compton_K(E)
 
         def func(azimuth, polar):
-            return c * K(azimuth, polar) * self._xraylib_method_full("SF_Compt", E)
+            return (
+                c
+                * K(azimuth, polar)
+                * self._xraylib_method_full("SF_Compt", np.sin(polar / 2.0) / wl)
+            )
 
         return lazy.Function(func, name="diff_inel(phi,theta)")
 

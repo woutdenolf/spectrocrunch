@@ -60,7 +60,10 @@ def eval(method, Z, E, applypost=True, dataframe=False):
                         pass
     else:
         cmethod = getattr(xraylib, method)
-        result = cmethod(Z, float(E))
+        try:
+            result = cmethod(Z, float(E))
+        except ValueError:
+            result = 0.0
 
         def postfunc(x):
             return x
