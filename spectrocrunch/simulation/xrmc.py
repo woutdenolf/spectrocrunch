@@ -1826,8 +1826,8 @@ class Quadrics(XrmcDevice):
             spacing: layers cannot be touching
         """
         ilayer = -1
-        if thickness * spacing < 0:
-            spacing = -spacing
+        sgn = np.sign(thickness)
+        spacing = sgn * abs(spacing)
         for name, clsname, params in self.group(pdevice).values():
             if clsname != "Plane":
                 continue
@@ -1840,17 +1840,15 @@ class Quadrics(XrmcDevice):
         ilayer += 1
         ta = surface + spacing
         tb = ta + thickness
-        if thickness < 0:
-            ta, tb = tb, ta
         names = []
         names.append(
             self.add_plane(
-                "layer{}a".format(ilayer), 0, ta, 0, 0, -1, 0, pdevice=pdevice
+                "layer{}a".format(ilayer), 0, ta, 0, 0, -sgn, 0, pdevice=pdevice
             )
         )
         names.append(
             self.add_plane(
-                "layer{}b".format(ilayer), 0, tb, 0, 0, 1, 0, pdevice=pdevice
+                "layer{}b".format(ilayer), 0, tb, 0, 0, sgn, 0, pdevice=pdevice
             )
         )
         names.append(
