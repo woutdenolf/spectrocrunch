@@ -69,8 +69,7 @@ class alignElastix(align):
         self.elastix.SetParameterMap(parameterMap)
 
     def execute_transformkernel(self, img):
-        """Transform image according with the transformation kernel
-        """
+        """Transform image according with the transformation kernel"""
         self.changefortransform(img.shape)
         img[np.isnan(img)] = 0
         self.transformix.SetInputImage(sitk.GetImageFromArray(img))
@@ -81,8 +80,7 @@ class alignElastix(align):
         return aligned
 
     def execute_alignkernel(self, img):
-        """Align image on reference
-        """
+        """Align image on reference"""
         img[np.isnan(img)] = 0
         self.moving = sitk.GetImageFromArray(img)
         self.elastix.SetMovingImage(self.moving)
@@ -98,8 +96,7 @@ class alignElastix(align):
         return aligned
 
     def set_reference(self, img, previous=False):
-        """Reference for alignment
-        """
+        """Reference for alignment"""
         if previous:
             self.fixed = self.moving
         else:
@@ -127,8 +124,7 @@ class alignElastix(align):
                 return []
 
     def get_alignkernel(self):
-        """Get transformation from alignment kernel.
-        """
+        """Get transformation from alignment kernel."""
         transform = self.defaulttransform()
 
         transformParameterMap = self.elastix_GetTransformParameterMap()
@@ -168,8 +164,7 @@ class alignElastix(align):
         return transform
 
     def set_transformkernel(self, transform):
-        """Set the transformation kernel according to the alignment kernel and adapted transformation
-        """
+        """Set the transformation kernel according to the alignment kernel and adapted transformation"""
         transformParameterMap = self.elastix_GetTransformParameterMap()
         if transform.transfotype != self.transfotype:
             raise ValueError("Transformations must have the same type")

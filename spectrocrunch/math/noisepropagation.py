@@ -190,10 +190,10 @@ def compound(N, X, forward=True):
 
 def reverse_add(Z, Y):
     """Z = X + Y (assume X and Y independent)
-       VARZ = VARX + VARY
+    VARZ = VARX + VARY
 
-       Y = Z - Y
-       VARX = VARZ - VARY
+    Y = Z - Y
+    VARX = VARZ - VARY
 
     """
     return randomvariable(E(Z) - E(Y), (VAR(Z) - VAR(Y)) ** 0.5)
@@ -201,10 +201,10 @@ def reverse_add(Z, Y):
 
 def reverse_sub(Z, Y):
     """Z = X - Y (assume X and Y independent)
-       VARZ = VARX + VARY
+    VARZ = VARX + VARY
 
-       X = Z + Y
-       VARX = VARZ - VARY
+    X = Z + Y
+    VARX = VARZ - VARY
 
     """
     return randomvariable(E(Z) + E(Y), (VAR(Z) - VAR(Y)) ** 0.5)
@@ -212,10 +212,10 @@ def reverse_sub(Z, Y):
 
 def reverse_mult(Z, Y):
     """Z = X * Y (assume X and Y independent)
-       VARZ = Y^2 * VARX + X^2 * VARY
+    VARZ = Y^2 * VARX + X^2 * VARY
 
-       X = Z/Y
-       VARX = (VARZ - X^2 * VARY)/Y^2
+    X = Z/Y
+    VARX = (VARZ - X^2 * VARY)/Y^2
 
     """
     EY = E(Y)
@@ -225,10 +225,10 @@ def reverse_mult(Z, Y):
 
 def reverse_div(Z, Y):
     """Z = X/Y (assume X and Y independent)
-       VARZ = 1/Y^2 * VARX + X^2/Y^4 * VARY
+    VARZ = 1/Y^2 * VARX + X^2/Y^4 * VARY
 
-       X = Z*Y
-       VARX = VARZ*Y^2 - X^2/Y^2 * VARY
+    X = Z*Y
+    VARX = VARZ*Y^2 - X^2/Y^2 * VARY
     """
     EY = E(Y)
     EX = E(Z) * EY
@@ -237,10 +237,10 @@ def reverse_div(Z, Y):
 
 def reverse_log(Z):
     """Z = ln(X)
-       VARZ = VARX/X^2
+    VARZ = VARX/X^2
 
-       X = exp(Z)
-       VARX = X^2*VARZ
+    X = exp(Z)
+    VARX = X^2*VARZ
     """
     EX = np.exp(E(Z))
     return randomvariable(EX, (VAR(Z) * EX * EX) ** 0.5)

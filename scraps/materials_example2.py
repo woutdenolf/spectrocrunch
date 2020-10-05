@@ -47,11 +47,14 @@ class capillary_transmission:
             return 1.0
         else:
             # return np.exp(-2.*R*self.mu*self.rho) # estimation
-            return integrate.quad(
-                lambda x: np.exp(-2 * self.mu * self.rho * np.sqrt(R * R - x * x)),
-                -R,
-                R,
-            )[0] / (2 * R)
+            return (
+                integrate.quad(
+                    lambda x: np.exp(-2 * self.mu * self.rho * np.sqrt(R * R - x * x)),
+                    -R,
+                    R,
+                )[0]
+                / (2 * R)
+            )
 
 
 class capillary_transmission2:
@@ -61,13 +64,16 @@ class capillary_transmission2:
         self.R = R
 
     def __call__(self, packing):
-        return integrate.quad(
-            lambda x: np.exp(
-                -2 * self.mu * self.rho * packing * np.sqrt(self.R * self.R - x * x)
-            ),
-            -self.R,
-            self.R,
-        )[0] / (2 * self.R)
+        return (
+            integrate.quad(
+                lambda x: np.exp(
+                    -2 * self.mu * self.rho * packing * np.sqrt(self.R * self.R - x * x)
+                ),
+                -self.R,
+                self.R,
+            )[0]
+            / (2 * self.R)
+        )
 
 
 class capillary_refine:

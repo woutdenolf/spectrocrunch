@@ -14,8 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class Task(nxqxrf_dependent.Task):
-    """Converts XIA edf to an NXentry
-    """
+    """Converts XIA edf to an NXentry"""
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()

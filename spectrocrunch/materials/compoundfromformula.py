@@ -55,14 +55,13 @@ class FormulaParser(object):
 
 
 class CompoundFromFormula(compound.Compound):
-    """Interface to a compound defined by a chemical formula
-    """
+    """Interface to a compound defined by a chemical formula"""
 
     def __init__(self, formula, density=None, name=None):
         """
         Args:
             formula(str): chemical formula
-            density(float): compound density (g/cm^3) 
+            density(float): compound density (g/cm^3)
             name(Optional[str]): compound name
         """
         p = FormulaParser()

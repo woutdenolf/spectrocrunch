@@ -183,7 +183,7 @@ def xiasortkey(filename):
         [path]/[radix(1)]_[label(4)]_[num(2)]_0000_[linenumber(3)].edf
 
     Args:
-        filename(str): 
+        filename(str):
     Returns:
         tuple: sort key
     """
@@ -256,7 +256,7 @@ def xiadetectorselect_tostring(detectors):
         "xiast" -> "xiast"
 
     Args:
-        detectors(list): 
+        detectors(list):
     Returns:
         list(str)
     """
@@ -281,7 +281,7 @@ def xiadetectorselect_tocountersufix(detectors):
         "xiast" -> "xiast"
 
     Args:
-        detectors(list): 
+        detectors(list):
     Returns:
         list(str)
     """
@@ -310,7 +310,7 @@ def xiadetectorselect_tonumber(detectors):
         "xiast" -> skip
 
     Args:
-        detectors(list): 
+        detectors(list):
     Returns:
         list(str)
     """
@@ -408,7 +408,7 @@ def xiadetectorselect_numbers(detectors, exclude_detectors, include_detectors):
     """Select xia detectors (used for stats)
 
     Args:
-        detectors(list(int)): 
+        detectors(list(int)):
         skip(list): xia labels to be skipped (numbers or strings)
         keep(list): xia labels to be kept (numbers or strings)
     Returns:
@@ -449,7 +449,7 @@ def xiagroupkey(filename):
         [path]/[radix(1)]_[label]_[num(2)]_0000_[linenumber(3)].edf
 
     Args:
-        filename(str): 
+        filename(str):
     Returns:
         tuple: sort key
     """
@@ -488,7 +488,7 @@ def xiagroupdetectorskey(filename):
         [path]/[radix(1)]_[label]_[num(2)]_0000_[linenumber(3)].edf
 
     Args:
-        filename(str): 
+        filename(str):
     Returns:
         tuple: sort key
     """
@@ -540,7 +540,7 @@ def xiagroupmapskey(filename):
         [path]/[radix]_xia[label]_[num(1)]_0000_[linenumber(2)].edf
 
     Args:
-        filename(str): 
+        filename(str):
     Returns:
         tuple: sort key
     """
@@ -572,7 +572,7 @@ def xiagrouplineskey(filename):
         [path]/[radix]_xia[label]_[num]_0000_[linenumber(1)].edf
 
     Args:
-        filename(str): 
+        filename(str):
     Returns:
         tuple: sort key
     """
@@ -734,8 +734,7 @@ class xiadict(dict):
         self["maxlevel"] = 0
 
     def setleveldatainfo(self):
-        """Set the levels at which to perform certain data processing or data retrieval
-        """
+        """Set the levels at which to perform certain data processing or data retrieval"""
         if self["freezeleveldatainfo"]:
             return
 
@@ -756,8 +755,7 @@ class xiadict(dict):
         self["leveldatainfo"]["ctr"] = 1
 
     def freezeleveldatainfo(self, b):
-        """Stop setleveldatainfo from being executed again
-        """
+        """Stop setleveldatainfo from being executed again"""
         self["freezeleveldatainfo"] = b
 
     def counter_reldir(self, reldir):
@@ -800,8 +798,7 @@ def normalizer(norm):
 
 
 class xiadata(object):
-    """Implements XIA data access
-    """
+    """Implements XIA data access"""
 
     STDET = 0
     STEVT = 1
@@ -1431,8 +1428,7 @@ class xiadata(object):
 
 
 class xiacompound(xiadata):
-    """Implements XIA data compounding (image, image stacks, ...)
-    """
+    """Implements XIA data compounding (image, image stacks, ...)"""
 
     def __init__(self, level, **kwargs):
         super(xiacompound, self).__init__(level, **kwargs)
@@ -2151,8 +2147,7 @@ class xialine(xiadata):
 
 
 class xiaimage(xiacompound):
-    """Compounds XIA lines
-    """
+    """Compounds XIA lines"""
 
     def __init__(self, **kwargs):
         super(xiaimage, self).__init__(1, **kwargs)
@@ -2320,8 +2315,7 @@ class xiaimage(xiacompound):
 
 
 class xiastack(xiacompound):
-    """Compounds XIA images
-    """
+    """Compounds XIA images"""
 
     def __init__(self, **kwargs):
         super(xiastack, self).__init__(2, **kwargs)
@@ -2335,8 +2329,7 @@ class xiastack(xiacompound):
 
 
 class xiamultistack(xiacompound):
-    """Compounds XIA stacks
-    """
+    """Compounds XIA stacks"""
 
     def __init__(self, **kwargs):
         super(xiamultistack, self).__init__(3, **kwargs)
@@ -2350,8 +2343,7 @@ class xiamultistack(xiacompound):
 
 
 class xialine_number(xialine):
-    """XIA line determined by its line number
-    """
+    """XIA line determined by its line number"""
 
     def __init__(self, path, radix, mapnum, linenum, **kwargs):
         """
@@ -2374,8 +2366,7 @@ class xialine_number(xialine):
         return "xialine{}: {}".format(str(self.dshape), self._fileformat)
 
     def search(self):
-        """Find data and statistics files
-        """
+        """Find data and statistics files"""
         files = glob(self._fileformat.format("*"))
         files.sort(key=xiasortkey)
 
@@ -2395,8 +2386,7 @@ class xialine_number(xialine):
 
 
 class xialine_files(xialine):
-    """XIA line determined by a list of files
-    """
+    """XIA line determined by a list of files"""
 
     def __init__(self, files, **kwargs):
         """
@@ -2433,8 +2423,7 @@ class xialine_files(xialine):
 
 
 class xiaimage_linenumbers(xiaimage):
-    """XIA image determined by its map number and line numbers
-    """
+    """XIA image determined by its map number and line numbers"""
 
     def __init__(self, path, radix, mapnum, linenums, **kwargs):
         """
@@ -2468,8 +2457,7 @@ class xiaimage_linenumbers(xiaimage):
 
 
 class xiaimage_files(xiaimage):
-    """XIA image determined by a list of files
-    """
+    """XIA image determined by a list of files"""
 
     def __init__(self, files, **kwargs):
         """
@@ -2504,8 +2492,7 @@ class xiaimage_files(xiaimage):
 
 
 class xiaimage_number(xiaimage):
-    """XIA image determined by its map number
-    """
+    """XIA image determined by its map number"""
 
     def __init__(self, path, radix, mapnum, **kwargs):
         """
@@ -2570,8 +2557,7 @@ class xiaimage_number(xiaimage):
 
 
 class xiastack_files(xiastack):
-    """XIA stack determined by a list of files
-    """
+    """XIA stack determined by a list of files"""
 
     def __init__(self, files, **kwargs):
         """
@@ -2595,8 +2581,7 @@ class xiastack_files(xiastack):
 
 
 class xiastack_radix(xiastack):
-    """XIA stack determined by its radices
-    """
+    """XIA stack determined by its radices"""
 
     def __init__(self, path, radix, **kwargs):
         """
@@ -2657,8 +2642,7 @@ class xiastack_radix(xiastack):
 
 
 class xiastack_mapnumbers(xiastack_radix):
-    """XIA stack determined by its radices and mapnumbers
-    """
+    """XIA stack determined by its radices and mapnumbers"""
 
     def __init__(self, path, radix, mapnumbers, **kwargs):
         """

@@ -23,8 +23,7 @@ class Interaction(CompHashable):
 
     @property
     def _repr(self):
-        """Unique representation of an instance
-        """
+        """Unique representation of an instance"""
         return self._name
 
 

@@ -377,8 +377,10 @@ class test_indexing(unittest.TestCase):
                                         if any(bseladv):
                                             if r in d[0].shape:
                                                 i = d[0].shape.index(r)
-                                                singletonindex = indexing.op_singletonindex(
-                                                    [i], [False]
+                                                singletonindex = (
+                                                    indexing.op_singletonindex(
+                                                        [i], [False]
+                                                    )
                                                 )
                                                 d = [
                                                     singletonindex(x, [[i]])[0]

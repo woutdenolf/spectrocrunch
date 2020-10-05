@@ -78,8 +78,7 @@ class DirectoryIsNotEmpty(FileSystemException):
 
 
 class File(with_metaclass(ABCMeta, object)):
-    """Proxy to file
-    """
+    """Proxy to file"""
 
     def __init__(self, **kwargs):
         self._handle = None
@@ -148,8 +147,7 @@ def onclose(func):
 
 
 class Path(File):
-    """Proxy to file system path
-    """
+    """Proxy to file system path"""
 
     @property
     def path(self):
@@ -184,7 +182,7 @@ class Path(File):
     def _split_path(self, path, device=None):
         """Split device and path.
 
-        .. code-block:: 
+        .. code-block::
 
             path = '/tmp/test.h5:/entry/subentry:name'
             device = None
@@ -369,8 +367,7 @@ class Path(File):
         return ret
 
     def _copy_move_prepare(self, dest, force=False, rename=False):
-        """Called by `move` and `copy`
-        """
+        """Called by `move` and `copy`"""
         dest = self.sibling(dest)
         if dest.isdir and not rename:
             dest = dest[self.name]
@@ -385,8 +382,7 @@ class Path(File):
         return dest
 
     def _move_copyrenamedel(self, dest, rename=False):
-        """Instead of move, do copy(temporary name) + rename + delete
-        """
+        """Instead of move, do copy(temporary name) + rename + delete"""
         tmp = dest.parent.randomnode(prefix=dest.name)
         self.copy(tmp, force=True, follow=True)
         ret = tmp.rename(dest.path)
@@ -460,8 +456,8 @@ class Path(File):
 
     def norm(self, path):
         """remove redundant separators
-           remove references '.' and '..'
-           make path absolute
+        remove references '.' and '..'
+        make path absolute
         """
         path = self._sep_in(path)
         path = os.path.abspath(os.path.normpath(path))
@@ -471,16 +467,14 @@ class Path(File):
         return self.norm(self.join(self.parent.path, path))
 
     def relpath(self, path):
-        """get path relative to self
-        """
+        """get path relative to self"""
         path = self._sep_in(path)
         if os.path.isabs(path):
             path = os.path.relpath(path, self.path)
         return self._sep_out(path)
 
     def isabs(self, path):
-        """absolute or relative path
-        """
+        """absolute or relative path"""
         path = self._sep_in(path)
         return os.path.isabs(path)
 
@@ -726,8 +720,7 @@ class Path(File):
                 path.remove(recursive=True)
 
     def renameremove(self, dest, force=False):
-        """Rename or remove if the destination already exists (unless force=True)
-        """
+        """Rename or remove if the destination already exists (unless force=True)"""
         try:
             return self.rename(dest, force=force)
         except AlreadyExists:
@@ -735,8 +728,7 @@ class Path(File):
             return self
 
     def randomnode(self, prefix="", suffix="", **kwargs):
-        """Non-existing node with random name
-        """
+        """Non-existing node with random name"""
         path = self[prefix + utils.randomstring(**kwargs) + suffix]
         while path.exists:
             path = self[prefix + utils.randomstring(**kwargs) + suffix]

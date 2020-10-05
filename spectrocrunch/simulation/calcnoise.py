@@ -269,12 +269,10 @@ class id21_ffsetup(object):
 
 
 def id21_transmissionnoise(flux, energy, time, iodetgain, idetgain, iodet="1"):
-    """ID21 transmission noise propagation
-    """
+    """ID21 transmission noise propagation"""
     pass
 
 
 def id21_xrfnoise(flux, energy, time):
-    """ID21 XRF noise propagation
-    """
+    """ID21 XRF noise propagation"""
     pass

@@ -207,8 +207,7 @@ def createscene(parameters, dependencies=None, output=None):
 
 
 class Task(nxprocess.Task):
-    """Create scene image
-    """
+    """Create scene image"""
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()

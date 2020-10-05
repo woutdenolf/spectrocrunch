@@ -15,8 +15,7 @@ from spectrocrunch.align.alignSift import alignSift as align
 
 
 def edgeimagepairs(path, radix, threshold=0):
-    """path/radix_[0-9]_edge_[0-9].[0-9].edf
-    """
+    """path/radix_[0-9]_edge_[0-9].[0-9].edf"""
     base = os.path.join(path, radix)
     pattern = re.compile(base + "_([0-9]+)_edge_([0-9]+\.?[0-9]*).edf")
 

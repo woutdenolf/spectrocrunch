@@ -115,28 +115,28 @@ def lsqlin(
     opts=None,
 ):
     """
-        Solve linear constrained l2-regularized least squares. Can
-        handle both dense and sparse matrices. Matlab's lsqlin
-        equivalent. It is actually wrapper around CVXOPT QP solver.
+    Solve linear constrained l2-regularized least squares. Can
+    handle both dense and sparse matrices. Matlab's lsqlin
+    equivalent. It is actually wrapper around CVXOPT QP solver.
 
-            min_x ||C*x  - d||^2_2 + reg * ||x||^2_2
-            s.t.  A * x <= b
-                  Aeq * x = beq
-                  lb <= x <= ub
+        min_x ||C*x  - d||^2_2 + reg * ||x||^2_2
+        s.t.  A * x <= b
+              Aeq * x = beq
+              lb <= x <= ub
 
-        Input arguments:
-            C   is n x m dense or sparse matrix
-            d   is n x 1 dense matrix
-            reg is regularization parameter
-            A   is p x n dense or sparse matrix
-            b   is p x 1 dense matrix
-            Aeq is q x n dense or sparse matrix
-            beq is q x 1 dense matrix
-            lb  is n x 1 matrix or scalar
-            ub  is n x 1 matrix or scalar
+    Input arguments:
+        C   is n x m dense or sparse matrix
+        d   is n x 1 dense matrix
+        reg is regularization parameter
+        A   is p x n dense or sparse matrix
+        b   is p x 1 dense matrix
+        Aeq is q x n dense or sparse matrix
+        beq is q x 1 dense matrix
+        lb  is n x 1 matrix or scalar
+        ub  is n x 1 matrix or scalar
 
-        Output arguments:
-            Return dictionary, the output of CVXOPT QP.
+    Output arguments:
+        Return dictionary, the output of CVXOPT QP.
     """
     C = as_double(C)
     d = as_double(d)

@@ -33,9 +33,9 @@ def show(
         images(np.array): image
         xp(np.array): marker horizontal coord.
         yp(np.array): marker vertical coord.
-        xlabel(str): 
-        ylabel(str): 
-        names(list(str)): 
+        xlabel(str):
+        ylabel(str):
+        names(list(str)):
     """
 
     # Make monotonically increasing (required by interp2d)

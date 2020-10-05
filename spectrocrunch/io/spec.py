@@ -18,54 +18,46 @@ logger = logging.getLogger(__name__)
 
 
 def zapline_values(start, end, npixels):
-    """Values of the pixel centers
-    """
+    """Values of the pixel centers"""
     inc = (end - start) / np.float(npixels)
     return start + inc / 2 + inc * np.arange(npixels)
 
 
 def zapline_range(start, end, npixels):
-    """First and last pixel center
-    """
+    """First and last pixel center"""
     inc = (end - start) / np.float(npixels)
     return [start + inc / 2, end - inc / 2]
 
 
 def zapline_pixelsize(start, end, npixels):
-    """Pixel size
-    """
+    """Pixel size"""
     return (end - start) / np.float(npixels - 1)
 
 
 def zapline_scansize(start, end, npixels):
-    """Distance between last and first pixel center
-    """
+    """Distance between last and first pixel center"""
     inc = (end - start) / np.float(npixels)
     return end - start - inc
 
 
 def ascan_values(start, end, nsteps):
-    """Values of the pixel centers
-    """
+    """Values of the pixel centers"""
     inc = (end - start) / np.float(nsteps)
     return start + inc * np.arange(nsteps + 1)
 
 
 def ascan_range(start, end, nsteps):
-    """First and last pixel center
-    """
+    """First and last pixel center"""
     return [start, end]
 
 
 def ascan_pixelsize(start, end, nsteps):
-    """Pixel size
-    """
+    """Pixel size"""
     return (end - start) / np.float(nsteps)
 
 
 def ascan_scansize(start, end, npixels):
-    """Distance between last and first pixel center
-    """
+    """Distance between last and first pixel center"""
     return end - start
 
 
@@ -76,7 +68,7 @@ def zapimage_submap(header, cmdlabel, scanrange, currentpos, microntounits):
         cmdlabel(str): scan command header key
         scanrange(num): in micron
         currentpos(dict): current motor positions
-        microntounits(dict): factors to convert microns to motor units 
+        microntounits(dict): factors to convert microns to motor units
     """
 
     # Old map motor values
@@ -715,8 +707,7 @@ class edfheader_parser(object):
 
 
 class spec(SpecFileDataSource.SpecFileDataSource):
-    """An interface to a spec file
-    """
+    """An interface to a spec file"""
 
     def __init__(self, filename):
         """
@@ -830,8 +821,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
             return [label in lst for label in labels]
 
     def getmotorvalues(self, scannumber, motors):
-        """Get start positions for the specified motors
-        """
+        """Get start positions for the specified motors"""
         info = self._get_scan_info(scannumber)
         motors = self._parse_labels(motors)
         names = self._parse_labels(info["MotorNames"])
@@ -851,8 +841,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
             return [mot in names for mot in motors]
 
     def getxialocation(self, scannumber):
-        """Get info on saved data
-        """
+        """Get info on saved data"""
         info = self._get_scan_info(scannumber)
         ret = self._getxialoc(info["Header"])
         return ret
@@ -862,8 +851,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         return self.parser.parse(info["Command"])
 
     def getdimensions(self, scannumber, motors):
-        """Get scan dimensions for the specified motors
-        """
+        """Get scan dimensions for the specified motors"""
         info = self._get_scan_info(scannumber)
         motors = self._parse_labels(motors)
         names = self._parse_labels(info["MotorNames"])
@@ -920,8 +908,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
             return ureg.Quantity(value, u)
 
     def getimages(self, motors=None, units={}):
-        """Get list of all images
-        """
+        """Get list of all images"""
         ret = OrderedDict()
         for k in self.getSourceInfo()["KeyList"]:
 
@@ -1006,8 +993,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         return ret
 
     def extractxanesinfo(self, skip=None, nrmin=None, nrmax=None):
-        """Get list of all ID21 XANES
-        """
+        """Get list of all ID21 XANES"""
         ret = []
 
         lst = self.getSourceInfo()["KeyList"]
@@ -1052,8 +1038,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         return ret
 
     def extractxanes(self, scannumbers, labelnames):
-        """Get list of specific ID21 XANES with counters
-        """
+        """Get list of specific ID21 XANES with counters"""
         ret = {}
 
         for scannumber in scannumbers:
@@ -1092,8 +1077,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
         nrmin=None,
         nrmax=None,
     ):
-        """Get list of all ID21 XANES, grouping repeats
-        """
+        """Get list of all ID21 XANES, grouping repeats"""
         data = self.extractxanesinfo(skip=skip, nrmin=nrmin, nrmax=nrmax)
 
         ret = []

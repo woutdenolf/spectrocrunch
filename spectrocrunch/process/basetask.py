@@ -29,8 +29,7 @@ class ParameterError(TaskException):
 
 
 class Task(with_metaclass(ABCMeta, object)):
-    """Task who's output is a single Nexus HDF5 path
-    """
+    """Task who's output is a single Nexus HDF5 path"""
 
     def __init__(self, dependencies=None, outputparent=None, **parameters):
         """
@@ -55,8 +54,7 @@ class Task(with_metaclass(ABCMeta, object)):
         return self.__str__()
 
     def run(self):
-        """Creates the output atomically
-        """
+        """Creates the output atomically"""
         if self.dependencies_done:
             self._ensure_outputdeviceparent()
             if self.exists:

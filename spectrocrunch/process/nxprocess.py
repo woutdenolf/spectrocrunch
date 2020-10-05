@@ -14,8 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class Task(basetask.Task):
-    """Task who's output is a single NXprocess
-    """
+    """Task who's output is a single NXprocess"""
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()

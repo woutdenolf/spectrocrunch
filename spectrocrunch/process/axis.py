@@ -138,8 +138,7 @@ class Axis(object):
 
     @property
     def magnitude(self):
-        """np.ndarray or pandas.Index
-        """
+        """np.ndarray or pandas.Index"""
         if self.type == "quantitative":
             return self.values.magnitude
         else:
@@ -157,8 +156,7 @@ class Axis(object):
 
     @values.setter
     def values(self, params):
-        """pint.Quantity or pandas.Index
-        """
+        """pint.Quantity or pandas.Index"""
         self._params = params
         self._values = params
         if self.type == "quantitative":
@@ -284,8 +282,7 @@ class Axis(object):
             return func(xold, xnew, isindex)
 
     def interpolate(self, values):
-        """Get old and new axes values for interpolation
-        """
+        """Get old and new axes values for interpolation"""
         xold = self.magnitude
         xnew = self._extract_magnitude(values)
         if self.type == "quantitative":
@@ -513,8 +510,7 @@ class _AxisRegular(Axis):
 
 
 class AxisRegular(_AxisRegular):
-    """start, end, nsteps
-    """
+    """start, end, nsteps"""
 
     @_AxisRegular.start.setter
     def start(self, value):
@@ -549,8 +545,7 @@ class AxisRegular(_AxisRegular):
 
 
 class AxisRegularInc(_AxisRegular):
-    """start, stepsize, nsteps
-    """
+    """start, stepsize, nsteps"""
 
     @_AxisRegular.start.setter
     def start(self, value):

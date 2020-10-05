@@ -23,8 +23,7 @@ class FileSystemException(fs.FileSystemException):
 
 
 class Path(fs.Path):
-    """Proxy to local path
-    """
+    """Proxy to local path"""
 
     def __init__(self, path, mode="a+", **kwargs):
         """

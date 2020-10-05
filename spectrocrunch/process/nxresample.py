@@ -192,7 +192,7 @@ class Task(nxregulargrid.Task):
         Returns:
             position(Axis): in motor units
             encoder(Axis): in encoder steps
-            offset(Optional(num)): 
+            offset(Optional(num)):
         """
 
         # Encoder(units) = axis(units)*resolution(steps/units) + offset(units)

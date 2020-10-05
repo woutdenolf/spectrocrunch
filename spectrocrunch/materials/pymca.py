@@ -462,8 +462,8 @@ class PymcaBaseHandle(Copyable):
 
 class PymcaHandle(PymcaBaseHandle):
     """Class that converts spectrocrunch to pymca parameters
-       and vice versa. Also used to call the pymca fitting
-       API for single spectra.
+    and vice versa. Also used to call the pymca fitting
+    API for single spectra.
     """
 
     def __init__(
@@ -727,8 +727,7 @@ class PymcaHandle(PymcaBaseHandle):
             return mixture.Mixture(lst, massfractions, types.fraction.mass, name=name)
 
     def loadfrompymca(self, filename=None, config=None):
-        """Update pymca parameters and convert to spectrocrunch
-        """
+        """Update pymca parameters and convert to spectrocrunch"""
         super(PymcaHandle, self).loadfrompymca(filename=filename, config=config)
         config = self.mcafit.getConfiguration()
         self.loadfrompymca_beam(config)
@@ -737,8 +736,7 @@ class PymcaHandle(PymcaBaseHandle):
         self.sample.loadfrompymca(self, config)
 
     def addtopymca(self, fresh=False, onlygeometry=False):
-        """Convert spectrocrunch to pymca parameters
-        """
+        """Convert spectrocrunch to pymca parameters"""
         if fresh:
             config = self.mcafit.getStartingConfiguration()
             config["attenuators"] = {}
@@ -763,13 +761,11 @@ class PymcaHandle(PymcaBaseHandle):
         self.mcafit.configure(config)
 
     def configurepymca(self, **kwargs):
-        """Convert spectrocrunch to pymca parameters
-        """
+        """Convert spectrocrunch to pymca parameters"""
         self.addtopymca(**kwargs)
 
     def savepymca(self, filename):
-        """Convert spectrocrunch to pymca parameters and then save
-        """
+        """Convert spectrocrunch to pymca parameters and then save"""
         self.configurepymca()
         super(PymcaHandle, self).savepymca(filename)
 

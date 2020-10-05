@@ -38,8 +38,7 @@ class align(object):
         plot=False,
         transfotype=transformationType.translation,
     ):
-        """
-        """
+        """"""
         # Data IO
         self.source = alignSource(source, sourcelist, stackdim=stackdim)
         self.dest = alignDest(
@@ -98,8 +97,7 @@ class align(object):
         self.plotinfo["ON"] = False
 
     def plot(self, img, index, title):
-        """Visualize alignment in progress
-        """
+        """Visualize alignment in progress"""
         if not self.plotinfo["ON"]:
             return
 
@@ -131,8 +129,7 @@ class align(object):
         )
 
     def pad(self, img):
-        """Apply padding
-        """
+        """Apply padding"""
         pad = self.padfromextend()
         if np.count_nonzero(pad) != 0:
             return np.pad(img, pad, "constant", constant_values=(self.cval, self.cval))
@@ -140,8 +137,7 @@ class align(object):
             return img
 
     def crop(self, img):
-        """Apply cropping
-        """
+        """Apply cropping"""
         dim1, dim2 = img.shape
         crop = self.cropfromextend(dim1, dim2)
         if (
@@ -155,8 +151,7 @@ class align(object):
             return img
 
     def roi(self, img, roi):
-        """Extract ROI
-        """
+        """Extract ROI"""
         [[ya, yb], [xa, xb]] = cliproi(img.shape, roi)
         if xb <= xa or yb <= ya:
             raise ValueError(
@@ -165,24 +160,20 @@ class align(object):
         return img[ya:yb, xa:xb]
 
     def writeimg(self, img, datasetindex, imageindex):
-        """Save 1 image in 1 stack.
-        """
+        """Save 1 image in 1 stack."""
         self.dest.writeimg(img, datasetindex, imageindex)
 
     def copyimg(self, datasetindex, imageindex):
-        """Copy 1 image in 1 stack.
-        """
+        """Copy 1 image in 1 stack."""
         img = self.readimgraw(datasetindex, imageindex)
         self.writeimg(img, datasetindex, imageindex)
 
     def readimgraw(self, datasetindex, imageindex):
-        """Read 1 image in 1 stack.
-        """
+        """Read 1 image in 1 stack."""
         return self.source.readimgas(datasetindex, imageindex, self.dtype)
 
     def readimgrawprep(self, datasetindex, imageindex):
-        """Get raw image, preprocessed for alignment
-        """
+        """Get raw image, preprocessed for alignment"""
         img = self.readimgraw(datasetindex, imageindex)
         img = self.dopre_align(img, imageindex)
         if 0 in img.shape or len(img.shape) != 2:
@@ -218,8 +209,7 @@ class align(object):
         )
 
     def dopre_transform(self, img, i):
-        """Manual transformation before the real transformation (not used in alignment)
-        """
+        """Manual transformation before the real transformation (not used in alignment)"""
         transfo = self.pre_transfos[i]
         if not transfo.isidentity():
             img = self.execute_transform(img, i, transfo)
@@ -235,8 +225,7 @@ class align(object):
         return not self.post_transform["crop"]
 
     def dopost_transform(self, img):
-        """Manual transformation after the real transformation (not used in alignment)
-        """
+        """Manual transformation after the real transformation (not used in alignment)"""
         if self.post_transform["crop"]:
             img = self.crop(img)
         return img
@@ -287,7 +276,7 @@ class align(object):
     def calccof_prealign_to_raw(self):
         """
         Calculate transformation (image alignment):
-            fixed image:   raw -> dopre_align (cof=C1) -> img1 
+            fixed image:   raw -> dopre_align (cof=C1) -> img1
             moving image:  raw -> dopre_align (cof=C1) -> img2 -> execute_alignkernel(img1,img2) -> img3, C2
 
             C1: raw to pre-align (in order: pretransform, roi)
@@ -357,15 +346,14 @@ class align(object):
         return img
 
     def transformidentity(self, transfo):
-        """Is the transformation the identity
-        """
+        """Is the transformation the identity"""
         if instance.isnumber(transfo):
             transfo = self.transfos[transfo]
         return transfo.isidentity()
 
     def pureidentity(self, i):
         """Is the transformation the identity, including the changes applied
-           before (padding) and after (cropping)
+        before (padding) and after (cropping)
         """
         return (
             self.nopre_transform(i)
@@ -374,8 +362,7 @@ class align(object):
         )
 
     def transform(self, img, i):
-        """Apply image transformation
-        """
+        """Apply image transformation"""
         # Return when transformation is the identity
         if self.pureidentity(i):
             return img
@@ -396,13 +383,11 @@ class align(object):
         return imgtransformed
 
     def get_alignkernel(self):
-        """Get transformation from align kernel.
-        """
+        """Get transformation from align kernel."""
         raise NotImplementedError()
 
     def set_transformkernel(self, transfo):
-        """Set transformation in transform kernel
-        """
+        """Set transformation in transform kernel"""
         raise NotImplementedError()
 
     def store_transformation(self, i, pairwise):
@@ -420,8 +405,7 @@ class align(object):
             self.transfos[i].fromtransform(transfo)
 
     def settransformidentity(self, i):
-        """Make this transformation the identity
-        """
+        """Make this transformation the identity"""
         self.transfos[i].setidentity()
 
     def genpolygon(self, lst):
@@ -503,7 +487,7 @@ class align(object):
 
     def minimaltransformation(self, p0, ps, centroids=False):
         """If all transformations are known, they can be reduced to minimize
-           the difference with the original image
+        the difference with the original image
         """
         # return
 
@@ -541,8 +525,7 @@ class align(object):
         self.post_transform["crop"] = np.any(np.asarray(self.extend) < 0)
 
     def extendfromtransformation(self, p0, ps):
-        """If all transformations are known, padding/cropping can be calculated
-        """
+        """If all transformations are known, padding/cropping can be calculated"""
         self.extend = ((0, 0), (0, 0))
         # Smallest rectangle that contains the union (pad)
         # or intersection (crop) of all polygons
@@ -576,8 +559,7 @@ class align(object):
             self._extendmask &= mask
 
     def extendfrommask(self):
-        """If all transformations are applied, padding/cropping can be calculated
-        """
+        """If all transformations are applied, padding/cropping can be calculated"""
         indvalidrow = np.argwhere(self._extendmask.sum(axis=1))
         indvalidcol = np.argwhere(self._extendmask.sum(axis=0))
         # When pre_align["roi"]: only valid for translations
@@ -588,8 +570,7 @@ class align(object):
         self.setextend(xmin, ymin, xmax, ymax)
 
     def parsetransformation_beforeapplication(self, pairwise):
-        """Adapt transformations before applying them
-        """
+        """Adapt transformations before applying them"""
         if self.bextendfrommask(pairwise):
             self.extendfrommask()
         else:
@@ -722,8 +703,7 @@ class align(object):
         return imgsize
 
     def preparedestination(self, img=None):
-        """Allocate space for saving results
-        """
+        """Allocate space for saving results"""
         if img is not None:
             self.setup_post_transform(img)
 
@@ -735,8 +715,7 @@ class align(object):
         raise NotImplementedError()
 
     def doalign(self, refdatasetindex, refimageindex=None, aligntype=alignType.full):
-        """Align datasets and save the result.
-        """
+        """Align datasets and save the result."""
         pairwise = refimageindex is None
 
         # Prepare destination (will be done after alignment)
@@ -873,7 +852,7 @@ class align(object):
         rawcalc=None,
         prealigntransfo=None,
     ):
-        """Alignment function that needs to be called 
+        """Alignment function that needs to be called
 
         Args:
             refdatasetindex(int): stack to be used for alignment

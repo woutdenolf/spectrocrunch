@@ -9,8 +9,7 @@ import scipy.ndimage.interpolation
 
 
 def pad(img, extend):
-    """Apply padding
-        """
+    """Apply padding"""
     pad = (
         (max(extend[0][0], 0), max(extend[0][1], 0)),
         (max(extend[1][0], 0), max(extend[1][1], 0)),
@@ -22,8 +21,7 @@ def pad(img, extend):
 
 
 def crop(img, extend):
-    """Apply cropping
-        """
+    """Apply cropping"""
     dim1, dim2 = img.shape
     crop = (
         (max(-extend[0][0], 0), dim1 - max(-extend[0][1], 0)),
@@ -36,8 +34,7 @@ def crop(img, extend):
 
 
 def extendfromtransformation(offsets, shape, pad=True):
-    """If all transformations are known, padding/cropping can be calculated
-        """
+    """If all transformations are known, padding/cropping can be calculated"""
 
     extend = ((0, 0), (0, 0))
     n1, n2 = shape

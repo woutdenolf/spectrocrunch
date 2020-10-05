@@ -77,50 +77,43 @@ class MultiElementBase(elementbase.ElementBase):
         )
 
     def mass_att_coeff(self, E, fine=False, decomposed=False, **kwargs):
-        """Mass attenuation coefficient (cm^2/g, E in keV). Use for transmission XAS.
-        """
+        """Mass attenuation coefficient (cm^2/g, E in keV). Use for transmission XAS."""
         return self._crosssection(
             "mass_att_coeff", E, fine=fine, decomposed=decomposed, **kwargs
         )
 
     def mass_abs_coeff(self, E, fine=False, decomposed=False, **kwargs):
-        """Mass absorption coefficient (cm^2/g, E in keV).
-        """
+        """Mass absorption coefficient (cm^2/g, E in keV)."""
         return self._crosssection(
             "mass_abs_coeff", E, fine=fine, decomposed=decomposed, **kwargs
         )
 
     def partial_mass_abs_coeff(self, E, fine=False, decomposed=False, **kwargs):
-        """Mass absorption coefficient for the selected shells and lines (cm^2/g, E in keV).
-        """
+        """Mass absorption coefficient for the selected shells and lines (cm^2/g, E in keV)."""
         return self._crosssection(
             "partial_mass_abs_coeff", E, fine=fine, decomposed=decomposed, **kwargs
         )
 
     def scattering_cross_section(self, E, fine=False, decomposed=False, **kwargs):
-        """Scattering cross section (cm^2/g, E in keV).
-        """
+        """Scattering cross section (cm^2/g, E in keV)."""
         return self._crosssection(
             "scattering_cross_section", E, fine=fine, decomposed=decomposed, **kwargs
         )
 
     def compton_cross_section(self, E, fine=False, decomposed=False, **kwargs):
-        """Compton cross section (cm^2/g, E in keV).
-        """
+        """Compton cross section (cm^2/g, E in keV)."""
         return self._crosssection(
             "compton_cross_section", E, fine=fine, decomposed=decomposed, **kwargs
         )
 
     def rayleigh_cross_section(self, E, fine=False, decomposed=False, **kwargs):
-        """Rayleigh cross section (cm^2/g, E in keV).
-        """
+        """Rayleigh cross section (cm^2/g, E in keV)."""
         return self._crosssection(
             "rayleigh_cross_section", E, fine=fine, decomposed=decomposed, **kwargs
         )
 
     def fluorescence_cross_section(self, E, fine=False, decomposed=False, **kwargs):
-        """XRF cross section (cm^2/g, E in keV). Use for fluorescence XAS.
-        """
+        """XRF cross section (cm^2/g, E in keV). Use for fluorescence XAS."""
         return self._crosssection(
             "fluorescence_cross_section", E, fine=fine, decomposed=decomposed, **kwargs
         )
@@ -128,8 +121,7 @@ class MultiElementBase(elementbase.ElementBase):
     def fluorescence_cross_section_lines(
         self, E, fine=False, decomposed=False, **kwargs
     ):
-        """XRF cross section (cm^2/g, E in keV). Use for XRF.
-        """
+        """XRF cross section (cm^2/g, E in keV). Use for XRF."""
         return self._crosssection(
             "fluorescence_cross_section_lines",
             E,
@@ -141,8 +133,7 @@ class MultiElementBase(elementbase.ElementBase):
     def diff_fluorescence_cross_section(
         self, E, fine=False, decomposed=False, **kwargs
     ):
-        """Differential XRF cross section (cm^2/g/srad, E in keV). Use for XRF.
-        """
+        """Differential XRF cross section (cm^2/g/srad, E in keV). Use for XRF."""
         return self._crosssection(
             "diff_fluorescence_cross_section",
             E,
@@ -152,15 +143,13 @@ class MultiElementBase(elementbase.ElementBase):
         )
 
     def diff_rayleigh_cross_section(self, E, fine=False, decomposed=False, **kwargs):
-        """Differential Rayleigh cross section (cm^2/g/srad, E in keV). Use for XRF.
-        """
+        """Differential Rayleigh cross section (cm^2/g/srad, E in keV). Use for XRF."""
         return self._crosssection(
             "diff_rayleigh_cross_section", E, fine=fine, decomposed=decomposed, **kwargs
         )
 
     def diff_compton_cross_section(self, E, fine=False, decomposed=False, **kwargs):
-        """Differential Compton cross section (cm^2/g/srad, E in keV). Use for XRF.
-        """
+        """Differential Compton cross section (cm^2/g/srad, E in keV). Use for XRF."""
         return self._crosssection(
             "diff_compton_cross_section", E, fine=fine, decomposed=decomposed, **kwargs
         )

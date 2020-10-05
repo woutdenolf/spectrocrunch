@@ -11,8 +11,7 @@ class SkipTest(Exception):
 
 
 class TestCase(unittest.TestCase):
-    """Adds subTest for python 2
-    """
+    """Adds subTest for python 2"""
 
     hasSubTest = hasattr(unittest.TestCase, "subTest")
 

@@ -23,8 +23,7 @@ except ImportError:
 
 
 class CompoundFromNist(compound.Compound):
-    """Interface to a compound defined by a list of elements
-    """
+    """Interface to a compound defined by a list of elements"""
 
     def __init__(self, nistname, name=None):
         """

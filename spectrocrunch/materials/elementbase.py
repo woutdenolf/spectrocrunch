@@ -10,8 +10,7 @@ import numpy as np
 
 
 def refractive_index_factor(energy, density):
-    """Factor in g/mol
-    """
+    """Factor in g/mol"""
     return ureg.Quantity(energy, "keV").to("cm", "spectroscopy") ** 2 * (
         ureg.classical_electron_radius
         * ureg.particles_per_mol
@@ -35,8 +34,7 @@ def refractive_index_beta_calc(energy, e_wfrac, density, **kwargs):
 
 class ElementBase(Copyable, CompHashable):
     def refractive_index_delta(self, E, fine=False, decomposed=False, **kwargs):
-        """n = 1-delta-i*beta
-        """
+        """n = 1-delta-i*beta"""
         if hasattr(self, "structure") and fine:
             environ = self
         else:
@@ -46,8 +44,7 @@ class ElementBase(Copyable, CompHashable):
         )
 
     def refractive_index_beta(self, E, fine=False, decomposed=False, **kwargs):
-        """n = 1-delta-i*beta
-        """
+        """n = 1-delta-i*beta"""
         if hasattr(self, "structure") and fine:
             environ = self
         else:
@@ -57,13 +54,11 @@ class ElementBase(Copyable, CompHashable):
         )
 
     def refractive_index_real(self, E, **kwargs):
-        """Real part of the refractive index
-        """
+        """Real part of the refractive index"""
         return 1 - self.refractive_index_delta(E)
 
     def refractive_index_imag(self, E, **kwargs):
-        """Imaginary part of the refractive index
-        """
+        """Imaginary part of the refractive index"""
         return -self.refractive_index_beta(E)
 
     def xrayspectrum(self, E, source=None, weights=None, emin=0, emax=None, **kwargs):

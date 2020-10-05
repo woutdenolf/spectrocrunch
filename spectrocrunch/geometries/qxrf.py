@@ -29,8 +29,7 @@ def defaultunit():
 
 
 class QXRFGeometry(with_metaclass(Copyable)):
-    """Quantitative XRF geometry with I0 and It diodes
-    """
+    """Quantitative XRF geometry with I0 and It diodes"""
 
     def __init__(
         self,

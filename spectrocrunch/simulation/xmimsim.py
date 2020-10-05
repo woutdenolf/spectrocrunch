@@ -221,7 +221,13 @@ def run(
     if runxrmc:
         xrmcpath = outpath["xrmc"].mkdir()
         xrmcoutpath = xrmcpath["output"].mkdir()
-        if not xmsi_to_xrmc(xmsi, xrmcpath, xrmcoutpath, outradix, pileup=pileup,):
+        if not xmsi_to_xrmc(
+            xmsi,
+            xrmcpath,
+            xrmcoutpath,
+            outradix,
+            pileup=pileup,
+        ):
             return False
         if not execute(["xrmc", "input.dat"], str(xrmcpath)):
             return False

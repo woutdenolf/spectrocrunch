@@ -207,8 +207,7 @@ def h5py_errno(err):
 
 
 class h5FileIO(object):
-    """Context manager to open HDF5 file with retries
-    """
+    """Context manager to open HDF5 file with retries"""
 
     def __init__(self, path, retries=25, backoff_factor=0.4, **openparams):
         self._handle = None
@@ -262,8 +261,7 @@ class h5FileIO(object):
 
 
 class h5Device(localfs.Path):
-    """Proxy to HDF5 file
-    """
+    """Proxy to HDF5 file"""
 
     def __init__(self, path, mode="a", **kwargs):
         """
@@ -325,8 +323,7 @@ class h5Device(localfs.Path):
 
 
 class Path(fs.Path):
-    """Proxy to HDF5 path
-    """
+    """Proxy to HDF5 path"""
 
     def __init__(self, path, h5file=None, **kwargs):
         h5file, path = self._split_path(str(path), device=h5file)

@@ -84,7 +84,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
             )
 
     def convert(self, shape_conversionenergy=None, inplace=False):
-        """Convert from a normalized peak area (including tails and step) to 
+        """Convert from a normalized peak area (including tails and step) to
         a normalized Gaussian peak area (excluding tails and step). Note that
         this conversion is only valid for one energy.
         """
@@ -489,16 +489,14 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         return np.sqrt(var * (8 * np.log(2)))
 
     def gaussianVAR(self, energy):
-        """Gaussian variance (keV^2)
-        """
+        """Gaussian variance (keV^2)"""
         return (
             self.FWHMtoVAR(self.mcanoise)
             + self.mcafano * self.ehole.to("keV").magnitude * energy
         )
 
     def gaussianFWHM(self, energy):
-        """Gaussian FWHM (keV)
-        """
+        """Gaussian FWHM (keV)"""
         return self.VARtoFWHM(self.gaussianVAR(energy))
 
     def voigtFWHM(self, energy, linewidth=0):

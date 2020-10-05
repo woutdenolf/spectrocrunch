@@ -79,16 +79,14 @@ class HandleTermination(object):
         self.resend = resend
 
     def __enter__(self):
-        """Overwrite signal handlers and call user setup
-        """
+        """Overwrite signal handlers and call user setup"""
         self._needcleanup = True
         self._oldhandlers = replace_handlers(self._newhandler, termination_handlers())
         if self._setup is not None:
             self._setup()
 
     def _cleanup(self, exc_type, exc_value, exc_traceback):
-        """User tear-down and reset signal handlers
-        """
+        """User tear-down and reset signal handlers"""
         ret = 0
         if self._needcleanup:
             if self._teardown is not None:
@@ -99,7 +97,7 @@ class HandleTermination(object):
 
     def _newhandler(self, signum, frame):
         """Converts signal into exception and reset signals.
-           Optionally resends the signal after user tear-down.
+        Optionally resends the signal after user tear-down.
         """
         msg = "Signal {} received.".format(signalname(signum))
         logger.debug(msg + " Cleanup and resend...")
@@ -118,6 +116,5 @@ class HandleTermination(object):
             send_signals([(signum, frame)], self._oldhandlers)
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        """User tear-down and reset signal handlers
-        """
+        """User tear-down and reset signal handlers"""
         return self._cleanup(exc_type, exc_value, exc_traceback)

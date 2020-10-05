@@ -9,7 +9,7 @@ import numpy as np
 
 class test_ft(unittest.TestCase):
     """http://dsp.stackexchange.com/questions/633/what-data-should-i-use-to-test-an-fft-implementation-and-what-accuracy-should-i
-       http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.38.3924
+    http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.38.3924
     """
 
     def test_dirac_delta(self):

@@ -8,8 +8,8 @@ from .spec import spec
 
 
 def array2SpecMca(data):
-    """ Write a python array into a Spec array.
-        Return the string containing the Spec array
+    """Write a python array into a Spec array.
+    Return the string containing the Spec array
     """
     tmpstr = "@A "
     length = len(data)

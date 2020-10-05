@@ -10,10 +10,10 @@ import argparse
 
 def logging_cliconfig(logger):
     """Configure logging from command-line options:
-        --log=...     Log level
-        --logfile=... Log file
-        --stdout=...  Redirect stdout to a file
-        --stderr=...  Redirect stderr to a file
+    --log=...     Log level
+    --logfile=... Log file
+    --stdout=...  Redirect stdout to a file
+    --stderr=...  Redirect stderr to a file
     """
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--log", default="", type=str, help="Log level")
@@ -54,8 +54,7 @@ def logging_addformat(handler):
 
 
 def logging_stdhandler(logger, error=True):
-    """Add stdout handler
-    """
+    """Add stdout handler"""
     import sys
 
     if error:
@@ -68,8 +67,7 @@ def logging_stdhandler(logger, error=True):
 
 
 def logging_filehandler(filename, logger, error=None):
-    """Add file handler
-    """
+    """Add file handler"""
     handler = logging.FileHandler(filename)
     logging_configure(handler, error=error)
     logger.addHandler(handler)

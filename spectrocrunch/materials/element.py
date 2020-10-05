@@ -81,8 +81,7 @@ def elementSymbol(symb):
 
 
 class Element(elementbase.ElementBase):
-    """Interface to chemical elements
-    """
+    """Interface to chemical elements"""
 
     def __init__(self, symb):
         """
@@ -140,7 +139,7 @@ class Element(elementbase.ElementBase):
     def markabsorber(self, symb=None, shells=None, fluolines=None, energybounds=None):
         """
         This is needs for the partial absorption and XRF cross-section (zero otherwise).
-        
+
         Args:
             symb(str): element symbol
             shells(Optional(array(int))): restrict shells
@@ -293,8 +292,7 @@ class Element(elementbase.ElementBase):
     def _replace_partial_mass_abs_coeff(
         self, cs, E, environ=None, decimals=6, refresh=False, **kwargs
     ):
-        """
-        """
+        """"""
         if environ is not None:
             E = np.atleast_1d(E)
             # Subtract partial cross-sections (summed over selected shells)
@@ -408,8 +406,7 @@ class Element(elementbase.ElementBase):
         return cs
 
     def diff_fluorescence_cross_section(self, E, **kwargs):
-        """Differential XRF cross sections per line (cm^2/g/srad, E in keV). Use for XRF.
-        """
+        """Differential XRF cross sections per line (cm^2/g/srad, E in keV). Use for XRF."""
         cs = self.fluorescence_cross_section_lines(E, **kwargs)
         m = 4 * np.pi
         return {k: v / m for k, v in cs.items()}
@@ -705,8 +702,7 @@ class Element(elementbase.ElementBase):
         return cs
 
     def get_energy(self, energyrange, defaultinc=1):
-        """Get absolute energies (keV) from a relative energy range (eV)
-        """
+        """Get absolute energies (keV) from a relative energy range (eV)"""
         nshells = len(self.shells)
         if nshells == 0:
             return None
@@ -722,7 +718,7 @@ class Element(elementbase.ElementBase):
 
     def _get_fdmnes_energies(self, energyrange):
         """Calculate energies based on boundaries and step sizes:
-            energyrange = [E0,step0,E1,step1,E2]
+        energyrange = [E0,step0,E1,step1,E2]
         """
 
         # Number of steps in each region
@@ -753,8 +749,8 @@ class Element(elementbase.ElementBase):
 
     def _get_fdmnes_energyrange(self, Eabs, edgeenergy, decimals=6):
         """Calculate energies based on boundaries and step sizes:
-            energyrange = [E0,step0,E1,step1,E2] (eV, relative to the edge)
-           Eabs in keV
+         energyrange = [E0,step0,E1,step1,E2] (eV, relative to the edge)
+        Eabs in keV
         """
 
         E = (Eabs - edgeenergy) * 1000  # absolute (keV) to relative (eV)
@@ -783,8 +779,7 @@ class Element(elementbase.ElementBase):
         return energyrange
 
     def _get_absolute_energyrange(self, energyrange, defaultinc=1):
-        """Convert relative energy range (eV) to absolute energy range (keV)
-        """
+        """Convert relative energy range (eV) to absolute energy range (keV)"""
 
         # Boundaries
         nblocks = len(energyrange) // 2

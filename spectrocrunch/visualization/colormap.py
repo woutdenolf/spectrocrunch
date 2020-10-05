@@ -32,7 +32,7 @@ class LambdaColormap(pltcolors.Colormap):
     def __call__(self, x, alpha=None, bytes=False):
         """
         Args:
-            x(num|array): data values between 0 and 
+            x(num|array): data values between 0 and
             alpha(Optional(num)): scalar between 0 and 1
             bytes(Optional(bool)): as byte (0-255) or float (0-1)
 

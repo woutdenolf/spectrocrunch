@@ -97,8 +97,7 @@ class LinearMotor(Copyable):
             )
 
     def calibrate_manually(self, distance):
-        """Calibrate geometry based on one (distance,position) pair
-        """
+        """Calibrate geometry based on one (distance,position) pair"""
         distance = units.umagnitude(distance, "cm")
         self.zerodistance = self._distancecalc(
             distance=distance,
@@ -116,8 +115,7 @@ class LinearMotor(Copyable):
         xlabel="Motor position",
         ylabel="Normalized Fluorescence",
     ):
-        """Calibrate geometry based in intensity vs. linear motor position (i.e. derive active area and zerodistance)
-        """
+        """Calibrate geometry based in intensity vs. linear motor position (i.e. derive active area and zerodistance)"""
 
         positionunits = calibrc["positionunits"]
         detectorpositionorg = units.Quantity(
@@ -308,7 +306,7 @@ class XRFGeometry(with_metaclass(base.Centric)):
         """
         Args:
             distancefunc(Optional(callable)): distance = distancefunc(**distancekwargs)
-            distancekwargs(Optional(dict)): 
+            distancekwargs(Optional(dict)):
         """
         self.distancefunc = distancefunc
         self.distancekwargs = distancekwargs
@@ -362,8 +360,7 @@ class XRFGeometry(with_metaclass(base.Centric)):
 
     @property
     def distance_rv(self):
-        """Sample-detector distance in cm
-        """
+        """Sample-detector distance in cm"""
         calc = self.distancefunc
         if calc is None:
             return super(XRFGeometry, self).distance

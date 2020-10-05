@@ -76,10 +76,10 @@ def units(x):
     """Units of a Quantity
 
     Args:
-        x(num|array|Quantity): 
+        x(num|array|Quantity):
 
     Returns:
-        x(None|Unit|array(Unit)): 
+        x(None|Unit|array(Unit)):
     """
     if instance.isquantity(x):
         return x.units

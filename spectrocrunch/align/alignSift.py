@@ -76,8 +76,7 @@ class alignSift(align):
             self._transform.setaffine(M)
 
     def execute_transformkernel(self, img):
-        """Transform image according with the transformation kernel
-        """
+        """Transform image according with the transformation kernel"""
         if self._transform.isidentity():
             return img
 
@@ -93,15 +92,13 @@ class alignSift(align):
         return self._gpu_buffers["output"].get()
 
     def execute_alignkernel(self, img):
-        """Align image on reference
-        """
+        """Align image on reference"""
         result = self.helper.align(img, shift_only=self._shift_only)
         self._buffer_to_transform()
         return result
 
     def execute_transformix(self):
-        """Execute transformation kernel
-        """
+        """Execute transformation kernel"""
         # TODO: should be exposed by the helper
         kernel = self.helper.kernels.get_kernel("transform")
         localshape = self.helper.wg["transform"]
@@ -126,8 +123,7 @@ class alignSift(align):
         )  # bilinear interpolation
 
     def set_reference(self, img, previous=False):
-        """Reference for alignment
-        """
+        """Reference for alignment"""
         if previous:
             img = self._gpu_buffers["input"].data
         self.helper = sift.LinearAlign(img)
@@ -138,8 +134,7 @@ class alignSift(align):
         cpy.wait()
 
     def get_alignkernel(self):
-        """Get transformation from alignment kernel
-        """
+        """Get transformation from alignment kernel"""
         return self._transform
 
     def set_transformkernel(self, transform):

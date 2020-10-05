@@ -13,8 +13,7 @@ import fisx
 
 
 class Compound(multielementbase.MultiElementBase):
-    """Interface to a compound
-    """
+    """Interface to a compound"""
 
     def __init__(
         self, elements, frac, fractype=None, density=None, nrefrac=1, name=None
@@ -260,8 +259,7 @@ class Compound(multielementbase.MultiElementBase):
                 yield " {}".format(s)
 
     def _crosssection(self, method, E, fine=False, decomposed=False, **kwargs):
-        """Calculate compound cross-sections
-        """
+        """Calculate compound cross-sections"""
         if self._cs_scattering(method) and not self.isscatterer:
             if decomposed:
                 return {}

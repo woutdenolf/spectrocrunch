@@ -5,8 +5,7 @@ from ..utils import units
 
 
 class Task(basetask.Task):
-    """Task with an 'xrfgeometry' dependency
-    """
+    """Task with an 'xrfgeometry' dependency"""
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()

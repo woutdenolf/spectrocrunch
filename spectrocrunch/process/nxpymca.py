@@ -515,8 +515,7 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
         self.infoaxes[name] = axis.Axis(values, type=type, name=name)
 
     def _getscanparameters(self, header):
-        """Get scan dimensions from header
-        """
+        """Get scan dimensions from header"""
         parameters = self.parameters
         o = spec.edfheader_parser(units=self.units, **parameters["edfheader"])
         metadata = parameters["metadata"]
@@ -790,8 +789,7 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
                 group[k2] = [group[k2][i] for i in ind]
 
     def _exportgroups(self):
-        """Export groups of EDF stacks, summed or not
-        """
+        """Export groups of EDF stacks, summed or not"""
         outshape = None
         for k1 in self.stacks:  # detector or counter group
             nxdata = self.temp_nxresults.nxdata(str(k1))

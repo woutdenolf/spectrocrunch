@@ -281,8 +281,7 @@ class Path(h5fs.Path):
         }
 
     def nxentry(self, name=None, **openparams):
-        """Get NXentry (first looks in parents) and create if it does not exist
-        """
+        """Get NXentry (first looks in parents) and create if it does not exist"""
         path = self.findfirstup_is_nxclass(u"NXentry")
         if path is not None:
             if path.name == name or name is None:
@@ -432,7 +431,7 @@ class Path(h5fs.Path):
 
         Args:
             name(str):
-            parameters(dict): 
+            parameters(dict):
             dependencies(list): a list of object with the "checksum" attribute
 
         Returns:
@@ -679,8 +678,7 @@ class _NXprocess(_NXPath):
 
     @property
     def sequence_index(self):
-        """Indexing starts from 1
-        """
+        """Indexing starts from 1"""
         path = self["sequence_index"]
         if path.exists:
             return path.read()

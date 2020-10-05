@@ -256,7 +256,7 @@ def AdaptPyMcaConfig(cfg, energy, addhigh=0, mlines=None, quant=None, fast=False
         energy(float): primary beam energy in keV
         addhigh(Optional(num)): add high primary energy with very low weight
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
-        quant(Optional(dict)): 
+        quant(Optional(dict)):
     """
     AdaptPyMcaConfig_energy(cfg, energy, addhigh)
     if mlines:
@@ -507,7 +507,7 @@ def PerformBatchFitNew(
         energy(num): primary beam energy
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
         fast(Optional(bool)): fast fitting (linear)
-        quant(Optional(dict)): 
+        quant(Optional(dict)):
         addhigh(Optional(int))
     Returns:
         files(list(str)): files produced by pymca
@@ -606,7 +606,7 @@ def PerformBatchFitOld(
         energy(num): primary beam energy
         mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
         fast(Optional(bool)): fast fitting (linear)
-        quant(Optional(dict)): 
+        quant(Optional(dict)):
         addhigh(Optional(int))
     Returns:
         files(list(str)): files produced by pymca

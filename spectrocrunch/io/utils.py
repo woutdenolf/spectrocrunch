@@ -49,7 +49,7 @@ class TemporaryCopy(object):
 
 class TemporaryFilename(object):
     def __init__(self, path, suffix=".tmp", prefix=""):
-        self.tmpfilename = os.path.join(path, prefix + randomstring() + suffix)
+        self.tmpfilename = temporary_filename(path, suffix=suffix, prefix=prefix)
 
     def __enter__(self):
         return self.tmpfilename
@@ -57,6 +57,12 @@ class TemporaryFilename(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if os.path.exists(self.tmpfilename):
             os.remove(self.tmpfilename)
+
+
+def temporary_filename(path, suffix=".tmp", prefix=""):
+    if not path:
+        path = tempfile.gettempdir()
+    return os.path.join(path, prefix + randomstring() + suffix)
 
 
 def mkdir(path):

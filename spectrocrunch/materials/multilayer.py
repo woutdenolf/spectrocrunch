@@ -781,8 +781,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
         return dict(zip(interactions1, J2))
 
     def _primary_rates_numerical(self):
-        """Returns the ph generated per source line after 1 interaction (without efficiency term)
-        """
+        """Returns the ph generated per source line after 1 interaction (without efficiency term)"""
         interactionindex = 1
 
         cosafirst = self.geometry.cosnormin
@@ -836,8 +835,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
         return J2
 
     def _secondary_interaction_numerical(self):
-        """Returns the ph generated per source line after 2 interactions (without efficiency term)
-        """
+        """Returns the ph generated per source line after 2 interactions (without efficiency term)"""
         # TODO: not finished
         interactionindex = 2
 

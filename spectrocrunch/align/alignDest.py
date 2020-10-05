@@ -12,22 +12,21 @@ from ..utils.listtools import move
 
 
 class alignDest(object):
-    """Interface for storing Elastix alignment results (list of image stacks).
-    """
+    """Interface for storing Elastix alignment results (list of image stacks)."""
 
     def __init__(self, dest, names, extension, stackdim=None, overwrite=False):
         """HDF5:
-            dest: file name or hdf5 object
-            names: dataset names
-            extension: dataset name extension
-           Files:
-            dest: base directory
-            names: file names
-            extension: file name extension
-           numpy array or external hdf5:
-            dest: list of ndarray or dataset
-            names: None
-            extension: None
+         dest: file name or hdf5 object
+         names: dataset names
+         extension: dataset name extension
+        Files:
+         dest: base directory
+         names: file names
+         extension: file name extension
+        numpy array or external hdf5:
+         dest: list of ndarray or dataset
+         names: None
+         extension: None
         """
 
         if stackdim is None:

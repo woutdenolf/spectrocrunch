@@ -332,7 +332,7 @@ def dataflatlibrary(parameters):
 
 
 def getsingleimage(filename, darklib, parameters):
-    """ Get image and corresponding information (dark, expo time, nframes)
+    """Get image and corresponding information (dark, expo time, nframes)
 
     Returns:
         data(np.ndarray): image
@@ -369,11 +369,11 @@ def getsingleimage(filename, darklib, parameters):
 
 
 def getnormalizedimage(fileslist, darklib, parameters):
-    """ Get dark subtracted images from a list of files with intensity in DU/sec
+    """Get dark subtracted images from a list of files with intensity in DU/sec
 
-        img = (img1 - nf1*dark1) + (img2 - nf2*dark2) + ...
-        time = nf1*tframe1 + nf2*tframe2 + ...
-        img /= time
+    img = (img1 - nf1*dark1) + (img2 - nf2*dark2) + ...
+    time = nf1*tframe1 + nf2*tframe2 + ...
+    img /= time
     """
 
     # Labels

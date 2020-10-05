@@ -143,8 +143,7 @@ def isset(x):
 
 
 def isiterable(x):
-    """Excluding string types
-    """
+    """Excluding string types"""
     if isqscalar(x):
         return False
     if isinstance(x, collections_abc.Iterable):
@@ -183,8 +182,7 @@ def isstringarray(x):
 
 
 def isarray0(x):
-    """numpy array with dim==0
-    """
+    """numpy array with dim==0"""
     if isnparray(x):
         return x.ndim == 0
     if isqarray(x):
@@ -193,8 +191,7 @@ def isarray0(x):
 
 
 def isarraynot0(x):
-    """isarray, excluding numpy array with dim==0
-    """
+    """isarray, excluding numpy array with dim==0"""
     if isarray(x):
         return not isarray0(x)
     return False

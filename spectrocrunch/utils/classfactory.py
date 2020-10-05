@@ -77,26 +77,23 @@ def register(cls, regcls, name):
 
 
 def clsnames(cls):
-    """Registered class names
-    """
+    """Registered class names"""
     return list(cls.clsregistry.keys())
 
 
 def clsaliases(cls):
-    """Registered class aliases
-    """
+    """Registered class aliases"""
     return list(cls.aliasregistry.keys())
 
 
 def clsallnames(cls):
-    """Registered class names+aliases
-    """
+    """Registered class names+aliases"""
     return cls.clsnames() + cls.clsaliases()
 
 
 class FactoryMeta(type):
     """
-    Metaclass used to register all classes inheriting from FactoryMeta 
+    Metaclass used to register all classes inheriting from FactoryMeta
     """
 
     def __new__(self, name, bases, attr):

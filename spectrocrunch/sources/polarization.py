@@ -19,8 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def jonesnormsq_to_intensity(x):
-    """Convert from squared Jones vector norm (V^2/m^2) to intensity (W/m^2)
-    """
+    """Convert from squared Jones vector norm (V^2/m^2) to intensity (W/m^2)"""
     return (
         (
             units.Quantity(x / 2.0, "V^2/m^2")
@@ -32,8 +31,7 @@ def jonesnormsq_to_intensity(x):
 
 
 def intensity_to_jonesnormsq(x):
-    """Convert from intensity (W/m^2) to squared Jones vector norm (V^2/m^2)
-    """
+    """Convert from intensity (W/m^2) to squared Jones vector norm (V^2/m^2)"""
     return (
         (
             units.Quantity(x * 2.0, "W/m^2")
@@ -173,19 +171,21 @@ def MuellerMatrixCompton(azimuth, polar, energy):
     ksc = k / (1 + k * (1 - costh))
     c = (k - ksc) * (1 - costh) / 2.0
 
-    return np.array(
-        [
-            [a + c, b * cosph, -b * sinph, 0],
-            [b, a * cosph, -a * sinph, 0],
-            [0, costh * sinph, costh * cosph, 0],
-            [0, 0, 0, costh * (1 + c)],
-        ]
-    ) * (ksc ** 2 / k ** 2)
+    return (
+        np.array(
+            [
+                [a + c, b * cosph, -b * sinph, 0],
+                [b, a * cosph, -a * sinph, 0],
+                [0, costh * sinph, costh * cosph, 0],
+                [0, 0, 0, costh * (1 + c)],
+            ]
+        )
+        * (ksc ** 2 / k ** 2)
+    )
 
 
 class Jones(object):
-    """Parameterization of second order statistics of a transverse wave when fully polarized
-    """
+    """Parameterization of second order statistics of a transverse wave when fully polarized"""
 
     def __init__(self, V0, V1):
         """Two perpendicular components of a transverse wave:
@@ -245,32 +245,27 @@ class Jones(object):
 
     @classmethod
     def _hermitian_inner_product(cls, U, V):
-        """The standard Hermitian inner product in $\mathbb{C}^n$
-        """
+        """The standard Hermitian inner product in $\mathbb{C}^n$"""
         return U.dot(V.conjugate())
 
     @classmethod
     def _hermitian_outer_product(cls, U, V):
-        """The standard Hermitian outer product in $\mathbb{C}^n$
-        """
+        """The standard Hermitian outer product in $\mathbb{C}^n$"""
         return np.outer(U, V.conjugate())
 
     @classmethod
     def _hermitian_sqnorm(cls, V):
-        """The standard Hermitian squared norm in $\mathbb{C}^n$
-        """
+        """The standard Hermitian squared norm in $\mathbb{C}^n$"""
         return cls._hermitian_inner_product(V, V).real  # imag == 0
 
     @property
     def sqnorm(self):
-        """Squared norm of the electric field vector in $V^2/m^2$
-        """
+        """Squared norm of the electric field vector in $V^2/m^2$"""
         return self._hermitian_sqnorm(self.V)
 
     @property
     def norm(self):
-        """Norm of the electric field vector in $V/m$
-        """
+        """Norm of the electric field vector in $V/m$"""
         return np.sqrt(self.sqnorm)
 
     def efield(self, phase):
@@ -290,8 +285,7 @@ class Jones(object):
 
     @property
     def intensity(self):
-        """Expectation of the Poynting vector norm in $W/m^2$
-        """
+        """Expectation of the Poynting vector norm in $W/m^2$"""
         return jonesnormsq_to_intensity(self.sqnorm)
 
     @intensity.setter
@@ -349,57 +343,48 @@ class Jones(object):
 
     @property
     def dop(self):
-        """Degree of polarization = Ipol / Itot = 1 (use Stokes for partial or unpolarized)
-        """
+        """Degree of polarization = Ipol / Itot = 1 (use Stokes for partial or unpolarized)"""
         # sqrt(S1^2 + S2^2 + S3^2)/S0 = 1
         return 1
 
     @property
     def dolp(self):
-        """Degree of linear polarization
-        """
+        """Degree of linear polarization"""
         return self.to_stokes(silent=True).dolp
 
     @property
     def hdolp(self):
-        """Horizontal degree of linear polarization
-        """
+        """Horizontal degree of linear polarization"""
         return self.to_stokes(silent=True).hdolp
 
     @property
     def docp(self):
-        """Degree of circular polarization
-        """
+        """Degree of circular polarization"""
         return self.to_stokes(silent=True).docp
 
     @property
     def polangle(self):
-        """Polarization angle
-        """
+        """Polarization angle"""
         return self.to_stokes(silent=True).polangle
 
     @property
     def handedness(self):
-        """Handedness
-        """
+        """Handedness"""
         return self.to_stokes(silent=True).handedness
 
     @property
     def phase0(self):
-        """Phase of the first component
-        """
+        """Phase of the first component"""
         return np.degrees(cmath.phase(self[0]))
 
     @property
     def phase1(self):
-        """Phase of the second component
-        """
+        """Phase of the second component"""
         return np.degrees(cmath.phase(self.V[1]))
 
     @property
     def phase_difference(self):
-        """Phase difference phase1-phase0
-        """
+        """Phase difference phase1-phase0"""
         return self.phase1 - self.phase0
 
     def to_params(self):
@@ -419,8 +404,7 @@ class Jones(object):
         return Stokes.from_params(**kwargs).to_jones(phase0=phase0)
 
     def plot_efield(self, animate=False, **kwargs):
-        """Upstream view of the electric field vector in the plane perpendicular to the propagation direction
-        """
+        """Upstream view of the electric field vector in the plane perpendicular to the propagation direction"""
         # Axes with labels
         ax = plt.gca()
         fig = ax.get_figure()
@@ -534,8 +518,7 @@ class Jones(object):
 
 
 class Stokes(object):
-    """Parameterization of second order statistics of a transverse wave when partially polarized
-    """
+    """Parameterization of second order statistics of a transverse wave when partially polarized"""
 
     # Convention: propagation in the direction of e_2 (Z-axis)
     pauli422 = np.array(
@@ -545,8 +528,7 @@ class Stokes(object):
     pauli44 = np.array([[1, 0, 0, 1], [1, 0, 0, -1], [0, 1, 1, 0], [0, 1j, -1j, 0]])
 
     def __init__(self, S0, S1, S2, S3):
-        """S0 in V^2/m^2
-        """
+        """S0 in V^2/m^2"""
         self.S = [S0, S1, S2, S3]
         if self.S.size != 4:
             raise ValueError("Expected a 2D Stokes vector (4 components)")
@@ -592,8 +574,7 @@ class Stokes(object):
 
     @property
     def intensity(self):
-        """Expectation of the Poynting vector norm in $W/m^2$
-        """
+        """Expectation of the Poynting vector norm in $W/m^2$"""
         return jonesnormsq_to_intensity(self.S[0])
 
     @intensity.setter
@@ -611,42 +592,36 @@ class Stokes(object):
 
     @property
     def dop(self):
-        """Degree of polarization = Ipol / Itot
-        """
+        """Degree of polarization = Ipol / Itot"""
         # sqrt(S1^2 + S2^2 + S3^2)/S0
         return np.sqrt((self.S[1:] ** 2).sum()) / self.S[0]
 
     @property
     def dolp(self):
-        """Degree of linear polarization
-        """
+        """Degree of linear polarization"""
         # sqrt(S1^2 + S2^2)/S0
         return np.sqrt((self.S[1:3] ** 2).sum()) / self.S[0]
 
     @property
     def hdolp(self):
-        """Horizontal degree of linear polarization
-        """
+        """Horizontal degree of linear polarization"""
         # S1/S0 = (|V0|^2 - |V1|^2)/(|V0|^2 + |V1|^2)
         return self.S[1] / self.S[0]
 
     @property
     def docp(self):
-        """Degree of circular polarization
-        """
+        """Degree of circular polarization"""
         # S3/S0
         return self.S[3] / self.S[0]
 
     @property
     def polangle(self):
-        """Polarization angle
-        """
+        """Polarization angle"""
         return np.degrees(np.arctan2(self.S[2], self.S[1]) / 2.0)
 
     @property
     def ellipangle(self):
-        """Ellipticity angle
-        """
+        """Ellipticity angle"""
         return np.arctan2(self.S[3], np.sqrt((self.S[1:3] ** 2).sum())) / 2.0
 
     @property
@@ -660,8 +635,7 @@ class Stokes(object):
 
     @property
     def phase_difference(self):
-        """Phase difference between Jones components
-        """
+        """Phase difference between Jones components"""
         # delta = ph1-ph0
         return np.degrees(np.arctan2(self.S[3], self.S[2]))
 
@@ -706,8 +680,7 @@ class Stokes(object):
         return self.S
 
     def decompose(self):
-        """Decompose in polarized and unpolarized fraction
-        """
+        """Decompose in polarized and unpolarized fraction"""
         # unpolarized = [(1-dop)*S0,0,0,0]
         # polarized = [dop*S0,S1,S2,S3]
         tmp = np.sqrt((self.S[1:] ** 2).sum())
@@ -834,8 +807,7 @@ class Stokes(object):
 
     @property
     def thomson_K(self):
-        """Directional dependent part of the Thomson scattering intensity (angles in radians)
-        """
+        """Directional dependent part of the Thomson scattering intensity (angles in radians)"""
         if self.S[1] == 0 and self.S[2] == 0:
 
             def K(azimuth=None, polar=None):
@@ -865,8 +837,7 @@ class Stokes(object):
         return K
 
     def compton_K(self, energy):
-        """Directional dependent part of the Compton scattering intensity (angles in radians)
-        """
+        """Directional dependent part of the Compton scattering intensity (angles in radians)"""
         k = kev_to_mc2(energy)
 
         if self.S[1] == 0 and self.S[2] == 0:

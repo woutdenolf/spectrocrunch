@@ -134,8 +134,7 @@ class GainRounder(object):
 
 
 class Oscillator(object):
-    """This class describes a voltage-to-frequency convertor
-    """
+    """This class describes a voltage-to-frequency convertor"""
 
     def __init__(self, Fmax=None, F0=None, Vmax=None):
         """
@@ -249,7 +248,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             gain(num): V/A (default) or A
             gainrounder(callable): discrete gain settings
             darkcurrent(num): C/s
-            oscillator(Oscillator): 
+            oscillator(Oscillator):
             secondarytarget(multilayer): optional secondary target
             simplecalibration(bool): simplify
             optics:
@@ -380,8 +379,7 @@ class PNdiode(with_metaclass(base.SolidState)):
 
     @property
     def Rout(self):
-        """Output resistance of the ammeter (V/A)
-        """
+        """Output resistance of the ammeter (V/A)"""
         try:
             return self.gain.to("V/A")
         except pinterrors.DimensionalityError:
@@ -412,8 +410,7 @@ class PNdiode(with_metaclass(base.SolidState)):
 
     @property
     def gain(self):
-        """Vmax/Imax or Imax
-        """
+        """Vmax/Imax or Imax"""
         return self._gain
 
     @gain.setter
@@ -506,8 +503,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         return self.attenuation(energy) * self._spectral_responsivity_infthick()
 
     def model_spectral_responsivity(self, energy, thickness, ehole):
-        """Function to fit measured spectral responsivity
-        """
+        """Function to fit measured spectral responsivity"""
         return self._diode_attenuation(energy, thickness) / ehole
 
     def fit_spectral_responsivity(self, energy, response):
@@ -1104,7 +1100,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         return self.op_currenttoflux(energy, weights=weights) * self.op_cpstocurrent()
 
     def op_fluxtocps(self, energy, weights=None):
-        """Operator to convert flux to counts-per-second 
+        """Operator to convert flux to counts-per-second
 
         Args:
             energy(num or array): source energies (keV)

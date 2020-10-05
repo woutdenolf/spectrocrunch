@@ -115,8 +115,7 @@ def loadxrmcresult(path, basename, ext=".dat"):
 
 
 def loadxrmcresult_xmimsim(xmimsimpath, outradix="out", convoluted=False):
-    """XRMC result based on input files converted from XMIMSIM
-    """
+    """XRMC result based on input files converted from XMIMSIM"""
     xrmcoutpath = os.path.join(xmimsimpath, "xrmc", "output")
     if convoluted:
         suffix = "_convoluted"
@@ -135,8 +134,7 @@ def xrmcresult_to_mca(xrmcfile, mcafile, mode="w"):
 
 
 def xrmcresult_to_mca_xmimsim(xmimsimpath, outradix="out", convoluted=False):
-    """XRMC result based on input files converted from XMIMSIM
-    """
+    """XRMC result based on input files converted from XMIMSIM"""
     xrmcoutpath = os.path.join(xmimsimpath, "xrmc", "output")
     if convoluted:
         suffix = "_convoluted"
@@ -611,8 +609,7 @@ class XrmcReferenceFrame(object):
         return " ".join([name] + list(map(str, a))), comment, not identity
 
     def xrmcTranslationInput(self, name, item, *args, **kw):
-        """Defined in USER frame, return in XRMC frame
-        """
+        """Defined in USER frame, return in XRMC frame"""
         arr = self.xyzUserToXrmc(*args, **kw)
         comment = "{} in the sample frame (x, y, z; cm)".format(item)
         return self.xrmcArrayInput(
@@ -620,22 +617,19 @@ class XrmcReferenceFrame(object):
         )
 
     def xrmcRotationInput(self, name, *args, **kw):
-        """Defined in USER frame, return in XRMC frame
-        """
+        """Defined in USER frame, return in XRMC frame"""
         arr = self.rotationUserToXrmc(*args, **kw)
         comment = "rotation around axis passing through (x, y, z; cm), with direction (u,v,w; cm) and rotation angle (deg)"
         return self.xrmcArrayInput(name, comment, arr, identity=arr[-1] == 0)
 
     def xrmcTranslationMatrix(self, *args, **kw):
-        """Defined in USER frame, return in XRMC frame
-        """
+        """Defined in USER frame, return in XRMC frame"""
         M = np.eye(4)
         M[0:3, 3] = self.xyzUserToXrmc(*args, **kw)
         return M
 
     def xrmcRotationMatrix(self, *args, **kw):
-        """Defined in USER frame, return in XRMC frame
-        """
+        """Defined in USER frame, return in XRMC frame"""
         arr = self.rotationUserToXrmc(*args, **kw)
         angle = np.radians(arr[-1])
         if angle == 0:
@@ -701,8 +695,7 @@ class XrmcPositionalDevice(XrmcDevice, XrmcReferenceFrame):
 
     @property
     def userToXrmc(self):
-        """The user frame of the device (i.e. before moving the device)
-        """
+        """The user frame of the device (i.e. before moving the device)"""
         M0 = super().userToXrmc
         M1 = self.xrmcTranslationMatrix(self.hoffset, self.voffset, self.radius)
         M2 = self.xrmcRotationMatrix(0, 0, 0, 0, 1, 0, self.polar)
@@ -719,16 +712,14 @@ class XrmcPositionalDevice(XrmcDevice, XrmcReferenceFrame):
 
     @property
     def quadricChangeOfFrame(self):
-        """Quadric already in XRMC frame
-        """
+        """Quadric already in XRMC frame"""
         M1i = self.xrmcTranslationMatrix(-self.hoffset, -self.voffset, -self.radius)
         M2i = self.xrmcRotationMatrix(0, 0, 0, 0, 1, 0, self.polar)
         M3i = self.xrmcRotationMatrix(0, 0, 0, 0, 0, 1, self.azimuth)
         return M1i.dot(M2i.dot(M3i))
 
     def xmrcTransformedQuadric(self, name, typ, params):
-        """Quadric params already in XRMC frame
-        """
+        """Quadric params already in XRMC frame"""
         idx = ([0, 1, 2, 3, 1, 2, 3, 2, 3, 3], [0, 0, 0, 0, 1, 1, 1, 2, 2, 3])
         if typ == "Plane":
             A = quadrics.plane(params[:3], params[3:])
@@ -1216,7 +1207,13 @@ class Detector(XrmcPositionalDevice):
     def run_code(self, suffix=None):
         lines = ["Run {}".format(self.name)]
         for img_type, filename in self.files_to_save(suffix=suffix):
-            lines.append("Save {} {} {}".format(self.name, img_type, filename,))
+            lines.append(
+                "Save {} {} {}".format(
+                    self.name,
+                    img_type,
+                    filename,
+                )
+            )
         return lines
 
     def outname(self, suffix=None, convoluted=False):
@@ -1352,8 +1349,7 @@ class Detector(XrmcPositionalDevice):
             saveemptyresult(self.absoutput(suffix=suffix), header)
 
     def add_layer(self, thickness=None, **kwargs):
-        """Add layer in front of the detector
-        """
+        """Add layer in front of the detector"""
         thickness = -abs(thickness)
         super(Detector, self).add_layer(thickness=thickness, **kwargs)
 
@@ -1751,8 +1747,7 @@ class Quadrics(XrmcDevice):
         return lines
 
     def add_plane(self, objname, x0, y0, z0, nx, ny, nz, pdevice=None):
-        """Already in XMRC reference frame
-        """
+        """Already in XMRC reference frame"""
         grp = self.group(pdevice)
         if objname in grp:
             raise ValueError("Quadric {} already exists".format(repr(objname)))
@@ -1762,8 +1757,7 @@ class Quadrics(XrmcDevice):
         return name
 
     def add_cylinder(self, objname, axis, xa, xb, Ra, Rb, pdevice=None):
-        """Already in XMRC reference frame
-        """
+        """Already in XMRC reference frame"""
         grp = self.group(pdevice)
         if objname in grp:
             raise ValueError("Quadric {} already exists".format(repr(objname)))
@@ -1776,8 +1770,7 @@ class Quadrics(XrmcDevice):
         return name
 
     def add_ellipsoid(self, objname, xa, xb, xc, Ra, Rb, Rc, pdevice=None):
-        """Already in XMRC reference frame
-        """
+        """Already in XMRC reference frame"""
         grp = self.group(pdevice)
         if objname in grp:
             raise ValueError("Quadric {} already exists".format(repr(objname)))
@@ -1789,8 +1782,7 @@ class Quadrics(XrmcDevice):
     def add_quadric(
         self, objname, A11, A12, A13, A14, A22, A23, A24, A33, A34, A44, pdevice=None
     ):
-        """Already in XMRC reference frame
-        """
+        """Already in XMRC reference frame"""
         grp = self.group(pdevice)
         if objname in grp:
             raise ValueError("Quadric {} already exists".format(repr(objname)))

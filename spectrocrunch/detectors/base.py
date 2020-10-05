@@ -255,8 +255,7 @@ class Material(Copyable):
         return 1 - self.filter_transmission(energy, source=source)
 
     def absorbance(self, energy):
-        """Absorbance by detector material
-        """
+        """Absorbance by detector material"""
         if self.hasmaterial:
             return self.material.mass_att_coeff(energy) * (
                 self.thickness * self.material.density
@@ -265,13 +264,11 @@ class Material(Copyable):
             return np.full_like(3, np.inf, dtype=float)
 
     def transmission(self, energy):
-        """Transmission through detector material
-        """
+        """Transmission through detector material"""
         return np.exp(-self.absorbance(energy))
 
     def attenuation(self, energy):
-        """Attenuation by detector material
-        """
+        """Attenuation by detector material"""
         return 1 - self.transmission(energy)
 
     def efficiency(self, energysource, energydet, withdetectorattenuation=True):

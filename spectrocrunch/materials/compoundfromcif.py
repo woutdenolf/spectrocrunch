@@ -13,8 +13,7 @@ except ImportError:
 
 
 class CompoundFromCif(compound.Compound):
-    """Interface to a compound defined by a cif file
-    """
+    """Interface to a compound defined by a cif file"""
 
     def __init__(self, filename, density=0, name=None):
         """
@@ -24,7 +23,7 @@ class CompoundFromCif(compound.Compound):
             name(Optional[str]): compound name
         Raises:
             IOError: If the file doesn't exist
-            RuntimeError: 
+            RuntimeError:
         """
         if iotbxcif is None:
             raise RuntimeError("cctbx is required to read cif files")
@@ -60,8 +59,7 @@ class CompoundFromCif(compound.Compound):
         )
 
     def _get_cif_name(self, filename):
-        """Get file from the database if it doesn't exist
-        """
+        """Get file from the database if it doesn't exist"""
         name = resource_filename(filename)
         if os.path.isfile(name):
             return name

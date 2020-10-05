@@ -11,12 +11,12 @@ import matplotlib.pyplot as plt
 
 def plothistogram(values, edges=None, markcen=False, **kwargs):
     """Usage:
-        plothistogram(samples,density=1)
-        plothistogram(*np.histogram(samples,density=1))
+     plothistogram(samples,density=1)
+     plothistogram(*np.histogram(samples,density=1))
 
-       Args:
-        values(array): sample or histogram (when edges is set)
-        edges(Optional(array)): histrogram bin edges
+    Args:
+     values(array): sample or histogram (when edges is set)
+     edges(Optional(array)): histrogram bin edges
     """
     if edges is None:
         plt.hist(values, align="mid", alpha=0.7, **kwargs)
@@ -34,7 +34,7 @@ def plothistogram(values, edges=None, markcen=False, **kwargs):
 class limitednorm_gen(rv_continuous):
     """Normal distribution within finite limits [-k,k]
 
-       pdf(x) = ptf_norm(x) + cdf_norm(-k)
+    pdf(x) = ptf_norm(x) + cdf_norm(-k)
     """
 
     def _pdf(self, y):
@@ -71,8 +71,7 @@ class limitednorm_gen(rv_continuous):
 
 
 class truncnorm_gen(rv_continuous):
-    """Normal distribution within finite limits [a,b]
-    """
+    """Normal distribution within finite limits [a,b]"""
 
     def _argcheck(self, a, b):
         self.a = a
@@ -119,8 +118,7 @@ def limitednorm(k, **kwargs):
 
 
 class holenorm_gen(rv_continuous):
-    """Flipped normal distribution within finite limits [a,b]
-    """
+    """Flipped normal distribution within finite limits [a,b]"""
 
     def _argcheck(self, a, b):
         self.a = a

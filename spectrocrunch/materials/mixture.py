@@ -247,8 +247,7 @@ class Mixture(multielementbase.MultiElementBase):
         return ret
 
     def _crosssection(self, method, E, fine=False, decomposed=False, **kwargs):
-        """Calculate mixture cross-sections
-        """
+        """Calculate mixture cross-sections"""
         bscat = self._cs_scattering(method)
         if bscat and not self.hasscatterers:
             if decomposed:
@@ -349,8 +348,7 @@ class Mixture(multielementbase.MultiElementBase):
         return any([c.isscatterer() for c in self._compounds])
 
     def get_energy(self, energyrange, defaultinc=1):
-        """Get absolute energies (keV) from a relative energy range (eV)
-        """
+        """Get absolute energies (keV) from a relative energy range (eV)"""
         for c in self._compounds:
             ret = c.get_energy(energyrange, defaultinc=defaultinc)
             if ret is not None:

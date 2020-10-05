@@ -4,8 +4,7 @@ from . import compound
 
 
 class CompoundFromList(compound.Compound):
-    """Interface to a compound defined by a list of elements
-    """
+    """Interface to a compound defined by a list of elements"""
 
     def __init__(self, elements, frac, fractype, density=None, name=None):
         """

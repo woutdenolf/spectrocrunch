@@ -22,22 +22,22 @@ def errorf_attzscan(p, att, iodet, idet, time):
 
 def attzscan(specfile, scannumber, outpath, withsample=False, iodettype=2):
     """
-        I0: photons per second
-        Photons: # photons detected by idet
-        attfoil = exp(-mu.rho.d)
-        attiodet = exp(-mu.rho.d)
-        attsample = exp(-mu.rho.d)
+    I0: photons per second
+    Photons: # photons detected by idet
+    attfoil = exp(-mu.rho.d)
+    attiodet = exp(-mu.rho.d)
+    attsample = exp(-mu.rho.d)
 
-        Photons = I0*time*attfoil*attiodet*attsample
+    Photons = I0*time*attfoil*attiodet*attsample
 
-        idet  = b  +  g*Photons/time
-              = b  +  g*I0*attfoil*attiodet*attsample
+    idet  = b  +  g*Photons/time
+          = b  +  g*I0*attfoil*attiodet*attsample
 
-        I0 = Photons/(time*attfoil*attiodet*attsample)
+    I0 = Photons/(time*attfoil*attiodet*attsample)
 
-        iodet = b0 + g0*I0*attfoil
-              = b0 + g0*Photons/(time*attiodet*attsample)
-        
+    iodet = b0 + g0*I0*attfoil
+          = b0 + g0*Photons/(time*attiodet*attsample)
+
     """
 
     # Data
@@ -167,11 +167,11 @@ def attzscan(specfile, scannumber, outpath, withsample=False, iodettype=2):
 
 def idet(v):
     """
-        ph_E: energy in keV
-        ph_I: idet * pow(10, -5-ph_gain)
-        ph_coeff: linear att. coeff. air
-        
-        photons/s = ph_I * 1e3 / (ph_E * 1.6E-16 * exp(-ph_coeff * PH_DIST) * ph_factor * ph_PTB  )
+    ph_E: energy in keV
+    ph_I: idet * pow(10, -5-ph_gain)
+    ph_coeff: linear att. coeff. air
+
+    photons/s = ph_I * 1e3 / (ph_E * 1.6E-16 * exp(-ph_coeff * PH_DIST) * ph_factor * ph_PTB  )
     """
     pass
 

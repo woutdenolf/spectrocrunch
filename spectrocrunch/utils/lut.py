@@ -12,8 +12,7 @@ from .copyable import Copyable
 
 
 class LUT(Copyable):
-    """Lookup table with sorted/unique keys and keys/values with units
-    """
+    """Lookup table with sorted/unique keys and keys/values with units"""
 
     def __init__(self, default=np.nan, kind="linear", x=None, y=None):
         self.clear(default=default)

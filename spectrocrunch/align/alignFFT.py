@@ -28,8 +28,7 @@ class alignFFT(align):
         self.maxmethod = "centroid"
 
     def execute_transformkernel(self, img):
-        """Transform image according with the transformation kernel
-        """
+        """Transform image according with the transformation kernel"""
         return self._transform.transformimage(img)
 
     def ifft_interpolate(self, imgft, ROIoffset, ROIsize):
@@ -73,8 +72,7 @@ class alignFFT(align):
             return ft.ifft2(imgft, x0=x0, x1=x1, u=u, y0=y0, y1=y1, v=v)
 
     def logpolar(self, imgft, scale_estimate=None):
-        """Log-polar coordinate transformation of the modulus of the given Fourier transform
-        """
+        """Log-polar coordinate transformation of the modulus of the given Fourier transform"""
 
         # Filtered modulus of the ft
         imgftmod = self.ftmodulus(imgft)
@@ -111,8 +109,7 @@ class alignFFT(align):
         return out, b, dt
 
     def plot2(self, img, index=2, fourierlines=False, title="none"):
-        """For testing purposes
-        """
+        """For testing purposes"""
         import matplotlib.pyplot as plt
 
         fig = plt.figure(index)
@@ -142,8 +139,7 @@ class alignFFT(align):
         raw_input("press enter...")
 
     def movingFTdummy(self):
-        """FT of moving image with a known shift w.r.t. the reference
-        """
+        """FT of moving image with a known shift w.r.t. the reference"""
         d0, d1 = self.fixedft.shape
         v0, v1 = (3.48574, 8.73837)
         f0 = ft.ifftshift(np.arange(-d0 // 2, d0 // 2))
@@ -155,8 +151,7 @@ class alignFFT(align):
         self.movingft = self.fixedft * e
 
     def fft_handle_missing(self, img):
-        """FFT with handling of missing data
-        """
+        """FFT with handling of missing data"""
         if self.cval != 0:
             if self.cval is np.nan:
                 missing = np.isnan(img)
@@ -185,8 +180,7 @@ class alignFFT(align):
         return imgabs
 
     def highpassfilter(self, imgft):
-        """High-pass filter in Fourier domain
-        """
+        """High-pass filter in Fourier domain"""
         nu = imgft.shape[1]
         nv = imgft.shape[0]
         h = np.outer(
@@ -208,8 +202,7 @@ class alignFFT(align):
         return shift
 
     def determine_shift(self, img1ft, img2ft):
-        """Determine shift between images using their Fourier transforms
-        """
+        """Determine shift between images using their Fourier transforms"""
         is1D = img1ft.size in img1ft.shape
 
         # Calculate shift without subpixel precision
@@ -346,19 +339,16 @@ class alignFFT(align):
         return self.execute_transformkernel(img)
 
     def set_reference(self, img, previous=False):
-        """Reference for alignment
-        """
+        """Reference for alignment"""
         if previous:
             self.fixedft = self.movingft
         else:
             self.fixedft = self.fft_handle_missing(img)
 
     def get_alignkernel(self):
-        """Get transformation
-        """
+        """Get transformation"""
         return self._transform
 
     def set_transformkernel(self, transfo):
-        """Set transformation
-        """
+        """Set transformation"""
         self._transform.fromtransform(transfo)

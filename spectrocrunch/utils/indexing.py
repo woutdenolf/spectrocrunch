@@ -129,7 +129,7 @@ def extract_dimchanging(index):
         >>> a[index] == a[index1][index2]
 
     Args:
-        index(index): object used in indexing or slicing (expanded) 
+        index(index): object used in indexing or slicing (expanded)
     Returns:
         index: index1
     """
@@ -158,7 +158,7 @@ def extract_dimnonchanging(index):
         >>> a[index] == a[index1][index2]
 
     Args:
-        index(index): object used in indexing or slicing (expanded) 
+        index(index): object used in indexing or slicing (expanded)
     Returns:
         index,num: index2, final axis of list indexing
     """
@@ -311,8 +311,8 @@ def shape_afterindexing(shape, index, ndim=None):
     """Shape after indexing
 
     Args:
-        shape(tuple): 
-        index(index): 
+        shape(tuple):
+        index(index):
         ndim(Optional(int)): in case shape is None
 
     Returns:
@@ -419,8 +419,7 @@ def extract_axis(index, axis, shapefull):
 
 
 class op_singletonindex(object):
-    """Apply singelton index to certain axes and restore axes when requested
-    """
+    """Apply singelton index to certain axes and restore axes when requested"""
 
     def __init__(self, selaxes, restore):
         self.selaxes = selaxes

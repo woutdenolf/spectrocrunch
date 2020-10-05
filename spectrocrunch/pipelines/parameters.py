@@ -93,8 +93,7 @@ class BaseNode(collections.MutableMapping):
             self.update(dic)
 
     def update_recursive(self, *args, **kwargs):
-        """Update map locally and remove children override of the keys
-        """
+        """Update map locally and remove children override of the keys"""
         d = self.dtype(*args, **kwargs)
         self.update(d)
         for key in d:
@@ -125,8 +124,7 @@ class BaseNode(collections.MutableMapping):
             return _map
 
     def _maps(self, withself=True, annotated=False):
-        """Generator of all node maps in ascending order of inheritance (self first)
-        """
+        """Generator of all node maps in ascending order of inheritance (self first)"""
         if withself:
             yield self._map(annotated=annotated)
         node = self.parent
@@ -135,8 +133,7 @@ class BaseNode(collections.MutableMapping):
             node = node.parent
 
     def iter_up(self, withself=True):
-        """Generator of all nodes in ascending order (self first)
-        """
+        """Generator of all nodes in ascending order (self first)"""
         if withself:
             yield self
         node = self.parent
@@ -238,8 +235,7 @@ class BaseNode(collections.MutableMapping):
         return subnode
 
     def delete_local(self, key):
-        """Delete a key locally
-        """
+        """Delete a key locally"""
         try:
             with self._changekey(key) as cmap:
                 del cmap[key]
@@ -247,16 +243,14 @@ class BaseNode(collections.MutableMapping):
             pass
 
     def delete_recursive(self, key, local=True):
-        """Delete a key in all _children and optionally locally
-        """
+        """Delete a key in all _children and optionally locally"""
         if local:
             self.delete_local(key)
         for child in self.children:
             child.delete_recursive(key)
 
     def __delitem__(self, key):
-        """Delete a key locally and in all _children
-        """
+        """Delete a key locally and in all _children"""
         self.delete_recursive(key)
 
     def __len__(self):
@@ -307,8 +301,7 @@ class BaseNode(collections.MutableMapping):
         return key in self._map()
 
     def tree(self, level=0, onlychanged=False):
-        """Show inheritance tree of this node
-        """
+        """Show inheritance tree of this node"""
         tab = "  " * level
         if tab:
             tab += "> "
@@ -460,13 +453,11 @@ class Node(BaseNode):
             node.children.append(self)
 
     def branch(self, **kwargs):
-        """Add a node inheriting from this one
-        """
+        """Add a node inheriting from this one"""
         return self.__class__(parent=self, **kwargs)
 
     def insert_before(self, node=None, single=False, **kwargs):
-        """Insert a node before this one
-        """
+        """Insert a node before this one"""
         newparent = None
         if node is self.parent or node is self:
             return node, newparent
@@ -480,8 +471,7 @@ class Node(BaseNode):
         return node, newparent
 
     def insert_after(self, node=None, single=False, **kwargs):
-        """Insert a node after this one
-        """
+        """Insert a node after this one"""
         newparent = None
         if self is node.parent or node is self:
             return node, newparent

@@ -9,19 +9,18 @@ from .types import dataType
 
 
 class alignSource(object):
-    """Interface to data stacks with images as a function of energy, rotation angle, ...
-    """
+    """Interface to data stacks with images as a function of energy, rotation angle, ..."""
 
     def __init__(self, source, sublist, stackdim=None):
         """HDF5:
-            source: file name or hdf5 object
-            sublist: dataset names
-           Files:
-            source: base directory
-            sublist: file names
-           numpy array or external hdf5:
-            source: list of ndarray or dataset
-            sublist: None
+         source: file name or hdf5 object
+         sublist: dataset names
+        Files:
+         source: base directory
+         sublist: file names
+        numpy array or external hdf5:
+         source: list of ndarray or dataset
+         sublist: None
         """
 
         if stackdim is None:

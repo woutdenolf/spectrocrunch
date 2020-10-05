@@ -6,8 +6,7 @@ import operator
 class Comparable(object):
     @property
     def _repr(self):
-        """Unique representation of an instance
-        """
+        """Unique representation of an instance"""
         return "{}{}".format(type(self).__name__, id(self))
 
     def _cmpkey(self, other):

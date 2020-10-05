@@ -7,8 +7,7 @@ from .utils import mkdir
 
 
 class asciifile(object):
-    """Interface to an ascii file
-    """
+    """Interface to an ascii file"""
 
     def __init__(self, filename):
         if not os.path.isfile(filename):
@@ -18,9 +17,9 @@ class asciifile(object):
 
     def autoread_alphatable(self, dtype=np.float32):
         """Read an ascii file with following format:
-            1. some header
-            2. line with column headers
-            3. table with numbers
+        1. some header
+        2. line with column headers
+        3. table with numbers
         """
         with open(self.filename, "r") as f:
             data = f.read()

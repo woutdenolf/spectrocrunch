@@ -663,9 +663,9 @@ class LinearMapping(Mapping):
             self.setprojective(np.append(sol, 1).reshape((3, 3)))
 
     def fromkeypoints(self, xsrc, ysrc, xdest, ydest):
-        """ Least-squares transformation parameters to map src to dest
+        """Least-squares transformation parameters to map src to dest
 
-            Remark: the rigid transformation is the most problematic (cfr. test_transform)
+        Remark: the rigid transformation is the most problematic (cfr. test_transform)
         """
 
         if self.transfotype == transformationType.translation:

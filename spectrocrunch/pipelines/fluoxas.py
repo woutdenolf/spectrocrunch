@@ -111,8 +111,7 @@ def xrfparameters(parameters, instrument, include_encoders=True, quant=False):
 
 
 def tasks(**parameters):
-    """Scripted pipeline to process FluoXAS data
-    """
+    """Scripted pipeline to process FluoXAS data"""
     tasks = []
 
     # Common parameters

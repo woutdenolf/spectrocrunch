@@ -42,8 +42,7 @@ class Cache(object):
 
     @contextlib.contextmanager
     def cachectx(self, subject, *args, **kwargs):
-        """Context manager to cache a subject with a particular function
-        """
+        """Context manager to cache a subject with a particular function"""
 
         # Already cashed?
         cache = subject not in self._store
@@ -60,8 +59,7 @@ class Cache(object):
             self._store.pop(subject, None)
 
     def getcache(self, subject):
-        """Get cache belonging to a subject
-        """
+        """Get cache belonging to a subject"""
         if subject in self._store:
             return self._store[subject]
         else:
@@ -84,8 +82,7 @@ class Cache(object):
 
 
 def withcache(subject):
-    """Decorator to cache a subject
-    """
+    """Decorator to cache a subject"""
 
     def cache(func):
         @functools.wraps(func)

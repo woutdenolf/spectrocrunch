@@ -126,6 +126,7 @@ function xmimsim_build_dependencies()
 {
     system_install gfortran
     system_install libglib2.0-dev
+    system_install gobject-introspection
     require_hdf5
     require_build_essentials
     require_easyrng

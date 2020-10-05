@@ -6,8 +6,7 @@ import fabio
 
 
 class edfmemmap:
-    """Access edf data with memmaps (cannot handle certain things like compression)
-    """
+    """Access edf data with memmaps (cannot handle certain things like compression)"""
 
     def __init__(self, filename, mode="r"):
         # f = fabio.edfimage.EdfImage(filename)
@@ -33,8 +32,7 @@ class edfmemmap:
 
 
 class edfimage:
-    """Access edf data with fabio
-    """
+    """Access edf data with fabio"""
 
     def __init__(self, filename, mode="r"):
         # self.f = fabio.edfimage.EdfImage(filename)

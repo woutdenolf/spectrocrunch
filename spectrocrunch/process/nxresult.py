@@ -7,8 +7,7 @@ from . import axis
 
 
 class Group(CompHashable):
-    """NXprocess subgroup name wrapper
-    """
+    """NXprocess subgroup name wrapper"""
 
     def __init__(self, groupname):
         name = "counters"

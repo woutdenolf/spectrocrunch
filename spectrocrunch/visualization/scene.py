@@ -64,20 +64,17 @@ class Geometry2D(object):
 
     @property
     def dataaxisx(self):
-        """Data axis corresponding to the X-axis
-        """
+        """Data axis corresponding to the X-axis"""
         return self.dataaxis("x")
 
     @property
     def dataaxisy(self):
-        """Data axis corresponding to the Y-axis
-        """
+        """Data axis corresponding to the Y-axis"""
         return self.dataaxis("y")
 
 
 class Scene(CompHashable, Geometry2D):
-    """Each scene can have a number of registered items with associalted plot settings.
-    """
+    """Each scene can have a number of registered items with associalted plot settings."""
 
     def __init__(
         self, ax=None, unit0=ureg.dimensionless, unit1=ureg.dimensionless, title=""
@@ -407,7 +404,7 @@ class Scene(CompHashable, Geometry2D):
 
 class Item(CompHashable, Geometry2D):
     """Each item can be registered with multiple scenes. Data is owned by the Item instance,
-       plot settings are owned by the scenes.
+    plot settings are owned by the scenes.
     """
 
     def __init__(self, scene=None, name=None, **kwargs):
@@ -476,13 +473,11 @@ class Item(CompHashable, Geometry2D):
 
     @property
     def sceneitems(self):
-        """My items in the active scene
-        """
+        """My items in the active scene"""
         return self._scenes.get(self.scene, OrderedDict())
 
     def removefromscene(self):
-        """Remove myself from the active scene
-        """
+        """Remove myself from the active scene"""
         items = self.sceneitems
         for item in items:
             if item is not None:
@@ -490,8 +485,7 @@ class Item(CompHashable, Geometry2D):
         self._scenes[self.scene] = OrderedDict()
 
     def refreshscene(self, newitems):
-        """Update the active scene with new items
-        """
+        """Update the active scene with new items"""
         olditems = self.sceneitems
 
         for name in olditems:
@@ -545,8 +539,7 @@ class Image(Item):
 
     @property
     def data(self):
-        """Data for the selected channels
-        """
+        """Data for the selected channels"""
         channels = self.channels
         shape = (self._data.shape[0], self._data.shape[1], len(channels))
         data = np.zeros(shape, self.dtype)
@@ -582,8 +575,7 @@ class Image(Item):
 
     @property
     def labels(self):
-        """Labels for the selected channels
-        """
+        """Labels for the selected channels"""
         labels = [None] * self.nchannels
         for ch, i in enumerate(self.channels):
             if i is not None:
@@ -599,8 +591,7 @@ class Image(Item):
 
     @property
     def channels(self):
-        """Return 1 or 3 channels
-        """
+        """Return 1 or 3 channels"""
         settings = self.scene.getitemsettings(self)
         channels = settings["channels"]
         if channels is None:

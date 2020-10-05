@@ -100,7 +100,7 @@ class FluoLine(CompHashable, Copyable):
         """Generate FluoLine instances, possibly limited by shell or energy range
 
         Args:
-            shells(Optional(array(int or str or Shell))): 
+            shells(Optional(array(int or str or Shell))):
             fluolines(Optional(array(int or str or FluoLine))):  None or [] -> explicite all
             energybounds(Optional(3-tuple)): element or num or str, lower energy bound, higher energy bound
 
@@ -186,8 +186,7 @@ class FluoLine(CompHashable, Copyable):
 
     @property
     def _repr(self):
-        """Unique representation of an instance
-        """
+        """Unique representation of an instance"""
         return self.name
 
     def radrate(self, Z):
@@ -238,8 +237,7 @@ class FluoLine(CompHashable, Copyable):
 
     @property
     def shell(self):
-        """Shell to which this line belongs to
-        """
+        """Shell to which this line belongs to"""
         for shellname in xraylib.shell_to_code:
             if self.name.startswith(shellname):
                 return Shell(shellname)
@@ -247,8 +245,8 @@ class FluoLine(CompHashable, Copyable):
 
     @property
     def groupname(self):
-        """Group to which this line belongs to. Fluorescence lines are grouped by 
-           excitation shell, except the K-shell which is split in KA and KB
+        """Group to which this line belongs to. Fluorescence lines are grouped by
+        excitation shell, except the K-shell which is split in KA and KB
         """
         s = self.shell
         if self.code in xraylib.rcomposites:
@@ -259,8 +257,7 @@ class FluoLine(CompHashable, Copyable):
 
     @property
     def shellsource(self):
-        """Shell which is ionized after the transition
-        """
+        """Shell which is ionized after the transition"""
         for shellname in xraylib.shell_to_code:
             if self.name.endswith(shellname):
                 return Shell(shellname)
@@ -437,21 +434,18 @@ class Shell(CompHashable, Copyable):
 
     @property
     def _repr(self):
-        """Unique representation of an instance
-        """
+        """Unique representation of an instance"""
         return self.name
 
     def fluoyield(self, Z):
-        """Fluorescence yield for this shell: probability for fluorescence / probability of shell ionization
-        """
+        """Fluorescence yield for this shell: probability for fluorescence / probability of shell ionization"""
         try:
             return xraylib.FluorYield(Z, self.code)
         except ValueError:
             return 0.0
 
     def radrate(self, Z):
-        """Radiative rate of a shell: probabilities of selected lines / probabilty of fluorescence 
-        """
+        """Radiative rate of a shell: probabilities of selected lines / probabilty of fluorescence"""
         if self._fluolines is None:
             return [1]  # ALL lines
         else:
@@ -464,8 +458,7 @@ class Shell(CompHashable, Copyable):
             return 0.0
 
     def partial_fluoyield(self, Z, decomposed=False):
-        """Probability of selected lines / probability of shell ionization
-        """
+        """Probability of selected lines / probability of shell ionization"""
         if decomposed:
             fluoyield = self.fluoyield(Z)
             return {l: fluoyield * l.radrate(Z) for l in self.fluolines}
@@ -496,8 +489,7 @@ class FluoZGroup(CompHashable, Copyable):
 
     @property
     def _repr(self):
-        """Unique representation of an instance
-        """
+        """Unique representation of an instance"""
         return "{}-{}".format(self.element, self.group)
 
 
@@ -514,8 +506,7 @@ class FluoZLine(CompHashable, Copyable):
 
     @property
     def linewidth(self):
-        """Lorentzian FWHM
-        """
+        """Lorentzian FWHM"""
         # Journal of Physical and Chemical Reference Data 8, 329 (1979); https://doi.org/10.1063/1.555595
         return self.line.shell.atomiclevelwidth(
             self.element.Z
@@ -526,8 +517,7 @@ class FluoZLine(CompHashable, Copyable):
 
     @property
     def _repr(self):
-        """Unique representation of an instance
-        """
+        """Unique representation of an instance"""
         return "{}-{}".format(self.element, self.line)
 
     @property
@@ -567,8 +557,7 @@ class Line(CompHashable, Copyable):
 
     @property
     def _repr(self):
-        """Unique representation of an instance
-        """
+        """Unique representation of an instance"""
         return str(self._energy)
 
     @property
@@ -603,8 +592,7 @@ class ScatteringLine(CompHashable, Copyable):
 
     @property
     def _repr(self):
-        """Unique representation of an instance
-        """
+        """Unique representation of an instance"""
         return self.name
 
     @property
@@ -1236,13 +1224,11 @@ class Spectrum(Copyable, collections.MutableMapping):
         }
 
     def linespectra(self, sort=True, **kwargs):
-        """X-ray spectrum decomposed in individual lines
-        """
+        """X-ray spectrum decomposed in individual lines"""
         return self._linespectra(sort=sort, **kwargs)
 
     def groupspectra(self, sort=True, **kwargs):
-        """X-ray spectrum decomposed in element-shell groups
-        """
+        """X-ray spectrum decomposed in element-shell groups"""
         energies, profiles, ylabel, lineinfo = self._linespectra(sort=False, **kwargs)
 
         # Sort groups on maximum peak intensity
@@ -1269,8 +1255,7 @@ class Spectrum(Copyable, collections.MutableMapping):
         return energies, ret, ylabel, lineinfo2
 
     def sumspectrum(self, backfunc=None, **kwargs):
-        """Total X-ray spectrum
-        """
+        """Total X-ray spectrum"""
         energies, profiles, ylabel, lineinfo = self._linespectra(sort=False, **kwargs)
         profile = profiles.sum(axis=-1)
         if backfunc:
@@ -1293,8 +1278,7 @@ class Spectrum(Copyable, collections.MutableMapping):
         sumlabel="sum",
         title="",
     ):
-        """X-ray spectrum or cross-section lines
-        """
+        """X-ray spectrum or cross-section lines"""
         ax = plt.gca()
         if decompose:
             energies = self.mcaenergies()
