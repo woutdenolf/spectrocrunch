@@ -11,6 +11,7 @@ from . import test_distributions
 from . import test_interpolate
 from . import test_lsqlin
 from . import test_quadrics
+from . import test_slicing
 
 
 def test_suite():
@@ -26,6 +27,7 @@ def test_suite():
     testSuite.addTest(test_interpolate.test_suite())
     testSuite.addTest(test_lsqlin.test_suite())
     testSuite.addTest(test_quadrics.test_suite())
+    testSuite.addTest(test_slicing.test_suite())
     return testSuite
 
 
