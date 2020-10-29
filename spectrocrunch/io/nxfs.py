@@ -583,7 +583,7 @@ class Path(h5fs.Path):
     def add_dependency(self, dependency):
         self._raise_ifnot_class("NXentry", "NXprocess")
         if instance.isstring(dependency):
-            dependency = nxfs.factory(dependency)
+            dependency = factory(dependency)
         deproot = self.nxcollection("dependencies")
         order = deproot.get_stat("order", None)
         if order is None:

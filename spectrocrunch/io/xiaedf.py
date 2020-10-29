@@ -203,8 +203,10 @@ def xiasearch(
     ctrs=True,
     onlyctrs=False,
 ):
+    strict_radix = True
     if radix is None:
         radix = "*"
+        strict_radix = False
     if mapnum is None:
         mapnum = "[0-9][0-9][0-9][0-9]*"
     if instance.isnumber(mapnum):
@@ -219,9 +221,16 @@ def xiasearch(
         # Cannot be done unless using regex (or xianameparser.parse afterwards like done here)
         mask = os.path.join(path, ctrformat().format(radix, ctrlabel, mapnum))
         ctrfiles = glob(mask)
-        ctrfiles = [
-            f for f in ctrfiles if xianameparser.parse(f, throw=False).linenum == -1
-        ]
+
+        def valid(f):
+            p = xianameparser.parse(f, throw=False)
+            if p.linenum != -1:
+                return False
+            if strict_radix and p.radix != radix:
+                return False
+            return True
+
+        ctrfiles = [f for f in ctrfiles if valid(f)]
 
         if onlyctrs:
             ctrfiles.sort(key=xiasortkey)
@@ -236,6 +245,14 @@ def xiasearch(
 
     mask = os.path.join(path, xiaformat().format(radix, label, mapnum, linenum))
     files = glob(mask)
+
+    def valid(f):
+        if not strict_radix:
+            return True
+        p = xianameparser.parse(f, throw=False)
+        return p.radix == radix
+
+    files = [f for f in files if valid(f)]
 
     if ctrs:
         files += ctrfiles
@@ -2689,5 +2706,5 @@ class xiastack_mapnumbers(xiastack_radix):
             xiaimage_files(fmap, **self.imagekwargs)
             for radix, fradix in files.items()
             for mapnum, fmap in fradix.items()
-            if mapnum in self.mapnumbers[radix] and xiagroupnxiafiles(fmap) == n
+            if mapnum in self.mapnumbers.get(radix, []) and xiagroupnxiafiles(fmap) == n
         ]

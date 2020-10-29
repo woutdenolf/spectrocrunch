@@ -188,7 +188,7 @@ def processdata_exec(
 
 
 def exportedf(nxprocess):
-    outdir = nxprocess.device.parent[nxprocess.device.name + "_edfresults"]
+    outdir = nxprocess.device.parent["edfresults"][nxprocess.path[1:]]
     logger.info("EDF export:\n Input: {}\n Output: {}".format(nxprocess, outdir))
     outdir.remove(recursive=True)
     outdir.mkdir()

@@ -536,6 +536,8 @@ class Path(fs.Path):
     def _copymove_relink(self, source, dest):
         # Softlink in HDF5 are absolute, so relink all links below self
         # that point to a destination below self (including self)
+        if self.is_external_link:
+            return
         for path in self.listdir():
             path._copymove_relink(source, dest)
         if self.islink:
