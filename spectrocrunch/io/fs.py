@@ -8,6 +8,7 @@ import operator
 import logging
 import functools
 import re
+from ..utils import hashing
 
 from . import utils
 from ..utils import instance
@@ -766,3 +767,11 @@ class Path(File):
         while fmt.format(i) in self:
             i += 1
         return fmt.format(i)
+
+    @property
+    def checksum(self):
+        dest = self.linkdest()
+        if dest is None:
+            return hashing.calchash(str(self))
+        else:
+            return hashing.calchash(str(dest))

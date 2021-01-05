@@ -3,8 +3,8 @@
 from ..io import nxfs
 
 
-def set_default(nxprocess, default):
-    it = nxprocess.results.iter_is_nxclass("NXdata")
+def set_default(parent, default):
+    it = parent.iter_is_nxclass("NXdata")
     # Default signal
     nxdataselect = None
     for nxdata in it:
@@ -18,5 +18,5 @@ def set_default(nxprocess, default):
     if nxdataselect:
         nxdataselect.mark_default()
     else:
-        nxprocess.mark_default()
-    nxprocess.updated()
+        parent.mark_default()
+    parent.updated()

@@ -115,6 +115,40 @@ def is_link(fileobj, path):
         return isinstance(lnk, (h5py.SoftLink, h5py.ExternalLink))
 
 
+def is_internal_link(fileobj, path):
+    """Check whether node is h5py.SoftLink or h5py.ExternalLink
+
+    Args:
+        fileobj(File)
+        path(str)
+    Returns:
+        bool
+    """
+    try:
+        lnk = fileobj.get(path, default=None, getlink=True)
+    except (KeyError, RuntimeError):
+        return False
+    else:
+        return isinstance(lnk, h5py.SoftLink)
+
+
+def is_external_link(fileobj, path):
+    """Check whether node is h5py.SoftLink or h5py.ExternalLink
+
+    Args:
+        fileobj(File)
+        path(str)
+    Returns:
+        bool
+    """
+    try:
+        lnk = fileobj.get(path, default=None, getlink=True)
+    except (KeyError, RuntimeError):
+        return False
+    else:
+        return isinstance(lnk, h5py.ExternalLink)
+
+
 def dereference_link(fileobj, path):
     """Dereference h5py.SoftLink or h5py.ExternalLink
     Args:
@@ -236,8 +270,10 @@ class h5FileIO(object):
         #   w : TRUNCERR
         #   x : EEXIST
         #   a : EEXIST(lock=r), OK(lock=r+/w/x/a)
-        if "HDF5_USE_FILE_LOCKING" not in os.environ:
+        if self.openparams["mode"] == "r":
             os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+        else:
+            os.environ["HDF5_USE_FILE_LOCKING"] = "TRUE"
         path = self.path
         for _ in range(self.retries):
             try:
@@ -556,6 +592,7 @@ class Path(fs.Path):
                 dest.link(self.linkdest())
             else:
                 with dest.h5open() as fdest:
+                    # RuntimeError: softlink to external link
                     fsource.copy(
                         self.path,
                         fdest[dest.parent.path],
@@ -563,7 +600,7 @@ class Path(fs.Path):
                         expand_soft=dereference,
                         expand_external=dereference,
                     )
-                dest._copymove_relink(self, dest)
+                    dest._copymove_relink(self, dest)
             return self.factory(dest)
 
     def remove(self, recursive=False):
@@ -662,6 +699,16 @@ class Path(fs.Path):
                 return True
             else:
                 return is_reference(f, self.path)
+
+    @property
+    def is_internal_link(self):
+        with self.h5open(mode="r") as f:
+            return is_internal_link(f, self.path)
+
+    @property
+    def is_external_link(self):
+        with self.h5open(mode="r") as f:
+            return is_external_link(f, self.path)
 
     def linkdest(self, follow=False):
         if not self.root.exists:

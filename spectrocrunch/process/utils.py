@@ -29,6 +29,14 @@ def create_task(**parameters):
         from .scenevis import Task
     elif method == "xrfgeometry":
         from .nxqxrf import Task
+    elif method == "blissmerge":
+        from .nxblissmerge import Task
+    elif method == "blissmcapre":
+        from .nxblissmcapre import Task
+    elif method == "blisspymca":
+        from .nxblisspymca import Task
+    elif method == "stack":
+        from .nxstack import Task
     else:
         Task = parameters.pop("_task", None)
         if Task is None:

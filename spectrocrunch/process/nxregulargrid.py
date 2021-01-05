@@ -27,10 +27,6 @@ class Task(nxprocess.Task):
         parameters["stackdim"] = parameters.get("stackdim", self.DEFAULT_STACKDIM)
 
     def _execute(self):
-        """
-        Returns:
-            nxfs._NXprocess | None
-        """
         if len(self.dependencies) != 1:
             raise RuntimeError(
                 "nxregulargrid.Task can only depend on exactly one previous task"

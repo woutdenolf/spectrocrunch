@@ -44,7 +44,7 @@ def AdaptPyMcaConfigFile(filename, *args, **kwargs):
 
 
 def AdaptPyMcaConfig_energy(cfg, energy, addhigh):
-    if not np.isfinite(energy):
+    if energy is None or not np.isfinite(energy):
         return
 
     # Extract source lines
@@ -261,7 +261,7 @@ def AdaptPyMcaConfig(cfg, energy, addhigh=0, mlines=None, quant=None, fast=False
     AdaptPyMcaConfig_energy(cfg, energy, addhigh)
     if mlines:
         AdaptPyMcaConfig_mlines(cfg)
-    if quant:
+    if quant and isinstance(quant, dict):
         AdaptPyMcaConfig_quant(cfg, quant)
     if fast:
         AdaptPyMcaConfig_fast(cfg)
@@ -478,6 +478,78 @@ def PerformBatchFit(*args, **kwargs):
         return PerformBatchFitNew(*args, **kwargs)
 
 
+def PerformBatchFitHDF5(
+    filelist,
+    cfg,
+    outuri,
+    energy=None,
+    mlines=None,
+    quant=None,
+    fast=False,
+    addhigh=0,
+    **kw
+):
+    """Fit XRF spectra in batch with one primary beam energy.
+
+        Least-square fitting. If you intend a linear fit, modify the configuration:
+          - Get current energy calibration with "Load From Fit"
+          - Enable: Perform a Linear Fit
+          - Disable: Stripping
+          - Strip iterations = 0
+        Fast linear least squares:
+          - Use SNIP instead of STRIP
+
+    Args:
+        filelist(list(str)): spectra to fit
+        cfg(str or ConfigDict): configuration file to use
+        outuri(h5fs.Path): directory for results
+        energy(num): primary beam energy
+        mlines(Optional(dict)): elements (keys) which M line group must be replaced by some M subgroups (values)
+        fast(Optional(bool)): fast fitting (linear)
+        quant(Optional(dict)):
+        addhigh(Optional(int)):
+    """
+    if instance.isstring(cfg):
+        cfg = ConfigDict.ConfigDict(filelist=cfg)
+    AdaptPyMcaConfig(
+        cfg, energy, mlines=mlines, quant=quant, fast=fast, addhigh=addhigh
+    )
+
+    # outputDir/outputRoot.h5::/fileEntry/fileProcess
+    kw["h5"] = True
+    kw["edf"] = False
+    kw["outputDir"] = outuri.device.parent.path
+    kw["outputRoot"] = os.path.splitext(outuri.device.name)[0]
+    kw["fileEntry"] = outuri.parent.path
+    kw["fileProcess"] = outuri.name
+    outbuffer = OutputBuffer(**kw)
+    if fast:
+        batch = FastXRFLinearFit.FastXRFLinearFit()
+        stack = FastXRFLinearFit.prepareDataStack(filelist)
+        kwargs = {
+            "y": stack,
+            "configuration": cfg,
+            "concentrations": bool(quant),
+            "refit": 1,
+            "outbuffer": outbuffer,
+        }
+    else:
+        kwargs = {
+            "filelist": filelist,
+            "concentrations": bool(quant),
+            "fitfiles": 0,
+            "fitconcfile": 0,
+            "outbuffer": outbuffer,
+        }
+        batch = McaAdvancedFitBatch.McaAdvancedFitBatch(cfg, **kwargs)
+
+    with outbuffer.saveContext():
+        if fast:
+            batch.fitMultipleSpectra(**kwargs)
+        else:
+            batch.processList()
+
+
 def PerformBatchFitNew(
     filelist,
     outdir,
@@ -521,7 +593,6 @@ def PerformBatchFitNew(
     )
     buncertainties = False
     bconcentrations = bool(quant)
-    # fast = False
 
     # Save cfg in temporary file
     outdir = localfs.Path(outdir).mkdir()
@@ -538,8 +609,9 @@ def PerformBatchFitNew(
         outbuffer = OutputBuffer(**kwargs)
         if fast:
             batch = FastXRFLinearFit.FastXRFLinearFit()
+            stack = FastXRFLinearFit.prepareDataStack(filelist)
             kwargs = {
-                "y": EDFStack.EDFStack(filelist, dtype=np.float32),
+                "y": stack,
                 "configuration": cfg,
                 "concentrations": bconcentrations,
                 "refit": 1,

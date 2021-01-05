@@ -166,7 +166,7 @@ def tasks(**parameters):
         else:
             expression = "{{}}/{{{}}}".format(counter)
         ensure_parameter(params, "outputparent", default=coutputparent)
-        ensure_parameter(params, "name", "resample")
+        ensure_parameter(params, "name", "prenormalize")
         task = create_task(
             dependencies=task,
             method="expression",

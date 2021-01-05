@@ -48,7 +48,7 @@ class Task(with_metaclass(ABCMeta, object)):
             )
 
     def __str__(self):
-        return "Task '{}'".format(self.output.name)
+        return "Task '{}'".format(self.output)
 
     def __repr__(self):
         return self.__str__()
@@ -101,12 +101,16 @@ class Task(with_metaclass(ABCMeta, object)):
         return True
 
     @property
+    def ready_to_run(self):
+        return self.dependencies_done
+
+    @property
     def exists(self):
         return self.output.exists
 
     @property
     def done(self):
-        return self.dependencies_done and self.exists
+        return self.exists
 
     @property
     def checksum(self):
@@ -124,7 +128,7 @@ class Task(with_metaclass(ABCMeta, object)):
         # Missing required parameters?
         for p in self.required_parameters:
             if p not in self._parameters:
-                raise MissingParameter(p)
+                raise MissingParameter("{} of {}".format(p, type(self)))
         # Remove unknown parameters
         # Dev: subclass could overwrite _parameters_filter
         #      and return None to skip this step

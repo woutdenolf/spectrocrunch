@@ -686,7 +686,10 @@ class _NXprocess(_NXPath):
             ind = 0
             with self._verify():
                 for dependency in self.dependencies:
-                    ind = max(ind, dependency.sequence_index)
+                    try:
+                        ind = max(ind, dependency.sequence_index)
+                    except AttributeError:
+                        pass
             return ind + 1
 
 

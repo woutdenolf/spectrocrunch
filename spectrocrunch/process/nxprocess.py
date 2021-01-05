@@ -26,9 +26,10 @@ class Task(basetask.Task):
         return self.parameters["default"]
 
     def _atomic_context_enter(self):
+        self.temp_nxprocess = None
         while True:
             try:
-                self.temp_nxprocess = self.outputparent.nxprocess(
+                temp_nxprocess = self.outputparent.nxprocess(
                     randomstring(),
                     noincrement=True,
                     parameters=self.parameters,
@@ -37,6 +38,7 @@ class Task(basetask.Task):
             except fs.AlreadyExists:
                 pass  # already exists
             else:
+                self.temp_nxprocess = temp_nxprocess
                 break
 
     @property
@@ -79,14 +81,17 @@ class Task(basetask.Task):
 
     @property
     def localpath(self):
+        # directory on disk
         return self.outputparent.device.parent
 
     @property
     def temp_localpath(self):
+        # directory on disk
         return self.localpath[self.temp_outputname]
 
     @property
     def output_localpath(self):
+        # directory on disk
         name = self.outputparent.name + "_" + self.outputname
         return self.localpath[name]
 
@@ -103,10 +108,14 @@ class Task(basetask.Task):
         return 1  # Exception is handled (do not raise it)
 
     def _remove_temp_output(self):
+        if self.temp_nxprocess is None:
+            return
         self.temp_nxprocess.remove(recursive=True)
         self.temp_localpath.remove(recursive=True)
 
     def _rename_temp_output(self):
+        if self.temp_nxprocess is None:
+            return
         while self.temp_nxprocess.exists:
             try:
                 old, new = self.temp_nxprocess, self.output

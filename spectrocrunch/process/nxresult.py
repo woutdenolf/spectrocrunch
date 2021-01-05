@@ -32,6 +32,11 @@ class Group(CompHashable):
                 number = int(groupname[1:])
                 name = "detectorS{:01d}".format(number)
                 category = 1
+            elif any(s in groupname for s in ["parameters", "concentrations"]):
+                name = groupname
+                category = 0
+            else:
+                name = groupname
         elif isinstance(groupname, self.__class__):
             name, number, category = (
                 groupname.name,
@@ -39,7 +44,7 @@ class Group(CompHashable):
                 groupname.category,
             )
         elif groupname:
-            raise ValueError("Unexpected detector name {}".format(groupname))
+            raise ValueError("Unexpected detector name {}".format(repr(groupname)))
         self.name = name
         self.number = number
         self.category = category
@@ -99,7 +104,7 @@ def regulargriddata(nxgroup):
             )
         it = nxgroup.results.iter_is_nxclass("NXdata")
     else:
-        raise ValueError("{} should be an NXdata or NXprocess group".format(nxgroup))
+        raise ValueError("'{}' should be an NXdata or NXprocess group".format(nxgroup))
 
     for nxdata in it:
         if nxdata.islink:
@@ -108,7 +113,7 @@ def regulargriddata(nxgroup):
             stackdim = nxdata.stackdim()
         group = Group(nxdata.name)
         if group in groups:
-            raise RuntimeError("Group {} appears more than once".format(group))
+            raise RuntimeError("Group '{}' appears more than once".format(group))
         axs = [
             axis.factory(values, name=name, title=attrs["title"], type="quantitative")
             for name, values, attrs in nxdata.axes
