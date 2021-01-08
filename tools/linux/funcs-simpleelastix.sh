@@ -74,7 +74,7 @@ function simpleelastix_source_install()
     fi
 
     local _SYSTEM_LUA="-DSimpleITK_USE_SYSTEM_LUA:BOOL=OFF"
-    if [[ $(require_new_version $(lua_version) 5.1) == false ]]; then
+    if [[ $(require_new_version $(lua_version) 5.3) == false ]]; then
         _SYSTEM_LUA="-DSimpleITK_USE_SYSTEM_LUA:BOOL=ON"
     fi
 
