@@ -8,11 +8,6 @@ source ${SCRIPT_ROOT}/funcs.sh
 source ${SCRIPT_ROOT}/funcs-python.sh
 
 
-function intel_name()
-{
-    echo "opencl_runtime_16.1.2_x64_rh_6.4.0.37"
-}
-
 function amd_name()
 {
     echo "AMD-APP-SDKInstaller-v3.0.130.136-GA-linux64"
@@ -22,18 +17,13 @@ function amd_name()
 function intel_url()
 {
     # https://software.intel.com/en-us/articles/opencl-drivers#latest_CPU_runtime
-    echo "http://registrationcenter-download.intel.com/akdlm/irc_nas/12556/$(intel_name).tgz"
+    echo "https://registrationcenter-download.intel.com/akdlm/irc_nas/vcp/15532/$(intel_name).tgz"
 }
+
 
 function amd_url()
 {
-    echo "http://debian.nullivex.com/amd/$(amd_name).tar.bz2"
-}
-
-
-function intel_build_dependencies()
-{
-    mapt-get install cpio
+    echo "http://cs.wisc.edu/~riccardo/assets/$(amd_name).tar.bz2"
 }
 
 
@@ -45,13 +35,18 @@ function intel_install_opencldrivers()
     mkdir -p opencl
     cd opencl
 
-    local PACKAGE_NAME=$(intel_name)
+    local PACKAGE_NAME="intel-opencl_21.01.18793_amd64"
     if [[ $(dryrun) == false && ! -d ${PACKAGE_NAME} ]]; then
         require_web_access
-        curl -L $(intel_url) --output ${PACKAGE_NAME}.tar.gz
-        mkdir -p ${PACKAGE_NAME}
-        tar -xzf ${PACKAGE_NAME}.tar.gz -C ${PACKAGE_NAME} --strip-components=1
-        rm -f ${PACKAGE_NAME}.tar.gz
+        wget https://github.com/intel/compute-runtime/releases/download/21.01.18793/${PACKAGE_NAME}.deb
+        dpkg-deb -xv ${PACKAGE_NAME}.deb ${PACKAGE_NAME}
+    fi
+
+    local PACKAGE_NAME2="intel-gmmlib_20.3.2_amd64"
+    if [[ $(dryrun) == false && ! -d ${PACKAGE_NAME2} ]]; then
+        require_web_access
+        wget https://github.com/intel/compute-runtime/releases/download/21.01.18793/${PACKAGE_NAME2}.deb
+        dpkg-deb -xv ${PACKAGE_NAME2}.deb ${PACKAGE_NAME2}
     fi
 
     local prefix=$(project_opt)/opencl
@@ -59,24 +54,24 @@ function intel_install_opencldrivers()
 
     cprint "Install Intel OpenCL runtime ..."
     if [[ $(dryrun) == false ]]; then
-        cd ${PACKAGE_NAME}
-        intel_build_dependencies
+        # Register the ICD
+        local OPENCL_VENDOR_PATHSTR
+        export OPENCL_VENDOR_PATH=${prefix}/etc/OpenCL/vendors
+        OPENCL_VENDOR_PATHSTR="${prefixstr}/etc/OpenCL/vendors"
+        mkdir -p ${OPENCL_VENDOR_PATH}
+        echo libigdrcl.so > ${OPENCL_VENDOR_PATH}/intel.icd
 
-        sed 's/decline/accept/g' -i silent.cfg
-        local repl=$(strreplace ${prefix} "/" "\/")
-        sed "s/=\/opt/=${repl}/g" -i silent.cfg
-        sed 's/DEFAULTS/ALL/g' -i silent.cfg
+        # Install the libraries
+        mkdir -p ${prefix}/lib/x86_64
+        cp -a ${PACKAGE_NAME}/usr/local/lib/intel-opencl/* ${prefix}/lib/x86_64
+        cp -a ${PACKAGE_NAME2}/usr/local/lib/* ${prefix}/lib/x86_64
+        chmod 755 ${prefix}/lib/x86_64/*
 
-        # in subshell to capture the exit statements
-        if [[ $(system_privileges) == true ]]; then
-            (sudo -E ./install.sh -s silent.cfg) 
-        else
-            (./install.sh -s silent.cfg) # this will not work
-        fi
-        
+        # Environment variables
         addProfile $(project_resource) "# Installed Intel OpenCL runtime: ${prefixstr}"
-        addLibPath ${prefix}/lib
-        addLibPathProfile $(project_resource) "${prefixstr}/intel/opencl/lib64"
+        addProfile $(project_resource) "export OPENCL_VENDOR_PATH=${OPENCL_VENDOR_PATHSTR}"
+        addLibPath "${prefix}/lib/x86_64"
+        addLibPathProfile $(project_resource) "${prefixstr}/lib/x86_64"
     fi
 
     cd ${restorewd}
@@ -168,6 +163,17 @@ function pyopencl_install()
             return
         fi
 
+        if [[ -d /etc/OpenCL/vendors/ ]];then
+            # Needs to be done explicitely on slurm, not sure why
+            export OPENCL_VENDOR_PATH=/etc/OpenCL/vendors/
+            if [[ $(pyopencl_test) == true ]]; then
+                addProfile $(project_resource) "# Use system installed OpenCL ICD's"
+                addProfile $(project_resource) "export OPENCL_VENDOR_PATH=${OPENCL_VENDOR_PATH}"
+                return
+            fi
+            unset OPENCL_VENDOR_PATH
+        fi
+
         # ICD = “installable client driver”
         # ocl-icd-libopencl1: ICD loader
         # ocl-icd-opencl-dev: ICD loader dev
@@ -186,6 +192,8 @@ function pyopencl_install()
         pip_install pybind11
         pip_install mako
         pip_install pyopencl
+
+        return # AMD no longer supported
 
         if [[ $(pyopencl_test) == false ]]; then
             amd_install_opencldrivers
