@@ -749,7 +749,10 @@ class Path(fs.Path):
 
     def read(self):
         with self.open(mode="r") as node:
-            return node[()]
+            try:
+                return node.asstr()[()]
+            except Exception:
+                return node[()]
 
     def write(self, **kwargs):
         return self.mkfile(**kwargs)
