@@ -100,7 +100,7 @@ function require_xraylib()
     if (python_hasmodule "xraylib") {
         cprint "Python module ""xraylib"" is installed"
     } else {
-        cprint "Python module ""xraylib"" is NOT installed"
+        cerror "Python module ""xraylib"" is NOT installed"
     }
 
     cprintend

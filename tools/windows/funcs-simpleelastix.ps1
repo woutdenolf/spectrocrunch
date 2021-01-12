@@ -125,7 +125,7 @@ function require_simpleelastix()
     if (python_hasmodule "SimpleITK") {
         cprint "Python module ""simpleelastix"" is installed"
     } else {
-        cprint "Python module ""simpleelastix"" is NOT installed"
+        cerror "Python module ""simpleelastix"" is NOT installed"
     }
 
     cprintend

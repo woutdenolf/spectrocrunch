@@ -120,7 +120,7 @@ function require_fdmnes()
     if [[ $(python_hasmodule fdmnes) == true ]]; then
         cprint "Python module \"fdmnes\" is installed"
     else
-        cprint "Python module \"fdmnes\" is NOT installed"
+        cerror "Python module \"fdmnes\" is NOT installed"
     fi
 
     cprintend "Require fdmnes ${1}"

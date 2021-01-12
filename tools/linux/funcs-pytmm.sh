@@ -72,7 +72,7 @@ function require_pytmm()
     if [[ $(python_hasmodule PyTMM) == true ]]; then
         cprint "Python module \"PyTMM\" is installed"
     else
-        cprint "Python module \"PyTMM\" is NOT installed"
+        cerror "Python module \"PyTMM\" is NOT installed"
     fi
 
     cprintend "Require pytmm"

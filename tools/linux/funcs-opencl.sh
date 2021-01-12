@@ -227,7 +227,7 @@ function require_pyopencl()
     if [[ $(pyopencl_test) == true ]]; then
         cprint "Python module \"pyopencl\" is working"
     else
-        cprint "Python module \"pyopencl\" is NOT working"
+        cerror "Python module \"pyopencl\" is NOT working"
     fi
 
     cprintend "Require pyopencl"
