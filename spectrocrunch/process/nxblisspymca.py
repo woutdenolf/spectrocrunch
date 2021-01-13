@@ -54,6 +54,8 @@ class Task(nxprocess.Task):
 
         cfgs = parameters["pymcacfg"]
         detectors = list(self.detectors)
+        if not detectors:
+            raise RuntimeError("No XRF detector found")
         if len(detectors) != len(cfgs):
             if len(cfgs) != 1:
                 raise RuntimeError(
