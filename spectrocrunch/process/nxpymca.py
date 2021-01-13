@@ -482,6 +482,7 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
             files = xiaedf.xiagroupdetectors(files)
 
             n0, n1 = xiaimage.dshape[:2]
+
             def func(*args, **kw):
                 img = nxlazy.readedf_func(*args, **kw)
                 if img.shape != (n0, n1):
