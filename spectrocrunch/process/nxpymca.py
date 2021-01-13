@@ -480,6 +480,20 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
             # Lazy add counters
             files = xiaimage.ctrfilenames_used(counters)
             files = xiaedf.xiagroupdetectors(files)
+
+            n0, n1 = xiaimage.dshape[:2]
+            def func(*args, **kw):
+                img = nxlazy.readedf_func(*args, **kw)
+                if img.shape != (n0, n1):
+                    img2 = np.zeros((n0, n1), dtype=img.dtype)
+                    m0, m1 = img.shape
+                    m0 = min(m0, n0)
+                    m1 = min(m1, n1)
+                    img2[:m0, :m1] = img[:m0, :m1]
+                    return img2
+                else:
+                    return img
+
             for detector, v1 in files.items():
                 name = nxresult.Group(detector)
 
@@ -491,7 +505,7 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
 
                 for ctr, f in v1.items():
                     # Add counter file
-                    o = nxlazy.LazyStackSlice()
+                    o = nxlazy.LazyStackSlice(func=func)
                     o.appendarg_edf(f[0])
                     self.stacks[name][ctr][imageindex] = o
                     self.counters.add(ctr)
