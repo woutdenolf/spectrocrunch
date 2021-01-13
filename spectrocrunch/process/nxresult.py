@@ -35,7 +35,7 @@ class Group(CompHashable):
             elif any(s in groupname for s in ["parameters", "concentrations"]):
                 name = groupname
                 category = 0
-            else:
+            elif groupname:
                 name = groupname
         elif isinstance(groupname, self.__class__):
             name, number, category = (
