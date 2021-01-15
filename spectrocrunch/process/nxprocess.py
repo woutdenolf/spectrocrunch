@@ -103,7 +103,10 @@ class Task(basetask.Task):
             self._remove_temp_output()
         else:
             self._rename_temp_output()
-            nxutils.set_default(self.output, self.default)
+            if "results" in self.output:
+                nxutils.set_default(self.output.results, self.default)
+            else:
+                nxutils.set_default(self.output, self.default)
         self.temp_nxprocess = None
         return 1  # Exception is handled (do not raise it)
 
