@@ -197,5 +197,7 @@ class NXRegularGrid(RegularGrid):
         ret = np.empty(self.shape, dtype=self.dtype)
         for i, signal in enumerate(self.signals):
             with signal.open(mode="r") as dset:
-                dset.read_direct(ret, dest_sel=(i, Ellipsis))
+                ret[i] = dset[()]
+                # No longer works in h5py 3.1:
+                # dset.read_direct(ret, dest_sel=(i, Ellipsis))
         return ret
