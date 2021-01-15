@@ -262,6 +262,7 @@ install_requires = [
     "scikit-image",
     "xlsxwriter",
     "xlrd",
+    "openpyxl",
     "python-dateutil",
     "jsonpickle",
     "testfixtures",

@@ -8,6 +8,7 @@ dependencies:
   - pandas>=0.23
   - xlsxwriter
   - xlrd
+  - openpyxl
   - scikit-image>=0.13
   - h5py
   - silx
