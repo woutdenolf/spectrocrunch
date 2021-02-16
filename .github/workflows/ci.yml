@@ -50,12 +50,12 @@ jobs:
       - name: Install dependencies
         run: |
           if [ ${{ runner.os }} == 'Windows' ]; then
-            powershell tools\\windows-install-deps.ps1 -y -u -s
+            powershell tools\\windows-install-deps.ps1 -y -t -s
           else
-            source tools/linux-install-deps.sh -u -x -t
+            source tools/linux-install-deps.sh -y -t -s
           fi
 
-      - name: Print python info used for build
+      - name: Print python info
         run: |
           python ci/info_platform.py
           python -m pip list
@@ -65,16 +65,8 @@ jobs:
           python setup.py ${{ matrix.BUILD_COMMAND }}
           ls dist
 
-      - name: Pre-install dependencies
-        run: python -m pip install --pre -r requirements.txt
-
       - name: Install package
         run: python -m pip install --pre --find-links dist/ spectrocrunch
-
-      - name: Print python info used for tests
-        run: |
-          python ci/info_platform.py
-          python -m pip list
 
       - name: Install X server
         if: runner.os == 'Linux'
