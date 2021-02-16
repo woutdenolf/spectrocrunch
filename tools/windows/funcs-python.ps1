@@ -95,7 +95,6 @@ function python_get([string]$prog)
 }
 
 
-
 function python_exists()
 {
     return cmdexists $(python_bin).split()[0]

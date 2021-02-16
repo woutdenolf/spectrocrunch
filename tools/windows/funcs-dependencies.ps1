@@ -22,6 +22,7 @@ function install_system_dependencies()
         # packages from Christoph Gohlke
         #python_init_compiler
         pip_install pipwin
+        python_exec -m pipwin refresh
         python_exec -m pipwin install pyopencl # silx
         python_exec -m pipwin install shapely # spectrocrunch
     }
