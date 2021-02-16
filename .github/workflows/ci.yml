@@ -69,18 +69,5 @@ jobs:
       - name: Install package
         run: python -m pip install --pre --find-links dist/ spectrocrunch
 
-      - name: Install X server
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install xserver-xorg-video-dummy libxkbcommon-x11-0 libxkbcommon0 libxkbcommon-dev libxcb-icccm4 libxcb-image0 libxcb-shm0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-render0 libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1 libxcb1
-
-      - name: Run X server
-        if: runner.os == 'Linux'
-        run: |
-          export DISPLAY=:99.0
-          Xorg -noreset +extension GLX +extension RANDR +extension RENDER -logfile ./99.log -config ./ci/travis-xorg.conf :99 &
-          sleep 3
-
       - name: Run the tests
         run: python -m unittest -v spectrocrunch.tests.test_all.test_suite
