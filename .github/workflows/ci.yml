@@ -58,8 +58,9 @@ jobs:
 
       - name: Print python info
         run: |
-          python ci/info_platform.py
+          type python
           python -m pip list
+          python ci/info_platform.py
 
       - name: Generate source package or wheel
         run: |
