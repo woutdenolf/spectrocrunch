@@ -21,18 +21,18 @@ jobs:
     strategy:
       matrix:
         include:
-          - name-suffix: "Linux"
-            os: ubuntu-20.04
-            python-version: 3.6
-            BUILD_COMMAND: sdist
+          #- name-suffix: "Linux"
+          #  os: ubuntu-20.04
+          #  python-version: 3.6
+          #  BUILD_COMMAND: sdist
           - name-suffix: "Mac"
             os: macos-latest
             python-version: 3.8
             BUILD_COMMAND: bdist_wheel
-          - name-suffix: "Windows"
-            os: windows-latest
-            python-version: 3.9
-            BUILD_COMMAND: bdist_wheel
+          #- name-suffix: "Windows"
+          #  os: windows-latest
+          #  python-version: 3.9
+          #  BUILD_COMMAND: bdist_wheel
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
