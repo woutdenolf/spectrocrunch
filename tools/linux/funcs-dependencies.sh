@@ -21,6 +21,10 @@ function install_system_dependencies()
     if [[ $(dryrun) == false ]]; then
         require_web_access
         pip_install numpy # silx
+        type python
+        python -c "import numpy"
+        echo $(python_bin)
+        python_get "import numpy"
         pip_install cython # xraylib
         mapt-get install libhdf5-serial-dev libhdf5-dev # h5py
         mapt-get install $(python_apt)-tk # matplotlib
