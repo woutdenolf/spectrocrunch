@@ -49,7 +49,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ ${{ runner.os }} == 'Linux' ]; then
+          if [ ${{ runner.os }} == 'Windows' ]; then
             powershell tools\\windows-install-deps.ps1 -y -u -s
           else
             source tools/linux-install-deps.sh -u -x -t
