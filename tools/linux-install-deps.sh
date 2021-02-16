@@ -95,7 +95,7 @@ function main()
         require_pip
     fi
 
-    python_info 
+    python_info
     pip_info
     install_info
 

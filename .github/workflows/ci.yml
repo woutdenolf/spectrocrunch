@@ -21,18 +21,18 @@ jobs:
     strategy:
       matrix:
         include:
-          #- name-suffix: "Linux"
-          #  os: ubuntu-20.04
-          #  python-version: 3.6
+          - name-suffix: "Linux"
+            os: ubuntu-20.04
+            python-version: 3.6
+            BUILD_COMMAND: sdist
+          #- name-suffix: "Mac"
+          #  os: macos-latest
+          #  python-version: 3.8
           #  BUILD_COMMAND: sdist
-          - name-suffix: "Mac"
-            os: macos-latest
-            python-version: 3.8
-            BUILD_COMMAND: bdist_wheel
           #- name-suffix: "Windows"
           #  os: windows-latest
           #  python-version: 3.9
-          #  BUILD_COMMAND: bdist_wheel
+          #  BUILD_COMMAND: sdist
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -50,9 +50,10 @@ jobs:
       - name: Install dependencies
         run: |
           if [ ${{ runner.os }} == 'Windows' ]; then
-            call tools\\windows-install-deps.bat -y -t -s
+            call tools\\windows-install-deps.bat -y -t -s -u
           else
-            source tools/linux-install-deps.sh -y -t -s
+            set +e
+            source tools/linux-install-deps.sh -y -t -s -u
           fi
 
       - name: Print python info
@@ -82,4 +83,4 @@ jobs:
           sleep 3
 
       - name: Run the tests
-        run: python setup.py test
+        run: python -m unittest -v spectrocrunch.tests.test_all.test_suite
