@@ -4,12 +4,22 @@
 # 
 
 SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source ${SCRIPT_ROOT}/funcs.sh
+source ${SCRIPT_ROOT}/funcs-make.sh
+
+if [[ -z ${PYTHONVREQUEST} ]];then
+    PYTHONVREQUEST=""
+fi
+
+
+function python_exists()
+{
+    cmdexists $(python_bin)
+}
 
 
 function python_get()
 {
-    if [[ $(cmdexists $(python_bin)) == true ]]; then
+    if [[ $(python_exists) == true ]]; then
         $(python_bin) -c "$@"
     else
         echo ""
@@ -17,7 +27,7 @@ function python_get()
 }
 
 
-function python_version()
+function python_minor_version()
 {
     local tmp="import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)"
     tmp=$(python_get "${tmp}") 
@@ -28,7 +38,17 @@ function python_version()
 }
 
 
-function python_full_version()
+function python_major_version()
+{
+    local tmp="import sys;print(sys.version_info[0])"
+    tmp=$(python_get "${tmp}") 
+    if [[ -z ${tmp} ]];then
+        tmp=-1
+    fi
+    echo $tmp
+}
+
+function python_version()
 {
     local tmp="import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)"
     tmp=$(python_get "${tmp}") 
@@ -41,7 +61,7 @@ function python_full_version()
 
 function python_depdir()
 {
-    echo dep_$(python_full_version)
+    echo dep_python$(python_version)
 }
 
 
@@ -53,14 +73,58 @@ function python_include()
 
 function python_lib()
 {
-    python_get "import distutils.sysconfig,os; print(os.path.join(distutils.sysconfig.get_config_var('LIBDIR'),distutils.sysconfig.get_config_var('LDLIBRARY')));"
-
+    local _filename=$(python_get "import distutils.sysconfig;import os.path as op;print(op.join(distutils.sysconfig.get_config_var('LIBDIR'),distutils.sysconfig.get_config_var('LDLIBRARY')));")
+    if [[ ! -f ${_filename} ]];then
+        _filename=$(python_get "from distutils import sysconfig;import os.path as op;v = sysconfig.get_config_vars();fpaths = [op.join(v[pv], v['LDLIBRARY']) for pv in ('LIBDIR', 'LIBPL')]; print(list(filter(op.exists, fpaths))[0])")
+    fi
+    echo ${_filename}
 }
 
+function python_pkg_all()
+{
+    local tmp=$'\n'
+    if [[ $(python_get "import site; print(hasattr(site,'getsitepackages'))") == "False" ]];then
+        python_get "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib());"
+    else
+        python_get "import site${tmp}for p in site.getsitepackages():${tmp} print(p)"
+    fi
+}
 
 function python_pkg()
 {
-    python_get "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib());"
+    for x in $(python_pkg_all);do
+        if [[ -d ${x} ]];then
+            if [[ ! -z "$(ls -A ${x})" ]]; then
+               echo ${x}
+            fi
+        fi
+    done
+}
+
+
+function _python_system_pkg()
+{
+    if [[ $(python_virtualenv_active) == true ]];then
+        (deactivate;python_pkg)
+    else
+        python_pkg
+    fi
+}
+
+
+function python_system_pkg()
+{
+    local _dir=$(_python_system_pkg)
+
+    if [[ ! -d ${_dir} ]];then
+        _dir=$(strreplace ${_dir} site-packages dist-packages)
+    fi
+
+    if [[ ! -d ${_dir} ]];then
+        _dir=$(strreplace ${_dir} dist-packages site-packages)
+    fi
+
+    echo ${_dir}
 }
 
 
@@ -68,11 +132,12 @@ function python_bin()
 {
     if [[ -z ${PYTHONVREQUEST} ]]; then
         if [[ $(cmdexists python) == true ]]; then
-            # Don't try python3 here because of virtual envs
+            local tmp="import sys;t='{v[0]}.{v[1]}.{v[2]}'.format(v=list(sys.version_info[:3]));print(t)"
+            PYTHONVREQUEST=$(python -c "$tmp")
             echo "python"
             return
         else
-            PYTHONVREQUEST=3
+            PYTHONVREQUEST="3"
         fi
     fi
 
@@ -86,6 +151,7 @@ function python_bin()
 
 function python_apt()
 {
+    # e.g. python-tk and python3.tk
     strreplace $(python_bin) "python2" "python"
 }
 
@@ -114,9 +180,10 @@ function python_hasmodule()
 
 function python_info()
 {
-    cprint "Python version: $(python_full_version)"
+    cprint "Python version: $(python_version)"
+    cprint "Python virtual environment: $(python_virtualenv_active)"
     cprint "Python location: $(python_full_bin)"
-    cprint "Python package directory: $(python_pkg)"
+    cprint "Python package directories: $(python_pkg)"
     cprint "Python include: $(python_include)"
     cprint "Python library: $(python_lib)"
 }
@@ -136,7 +203,13 @@ function pip_source()
 
 function pip_info()
 {
-    cprint "Pip:$(pip_source)"
+    cprint "Pip: $(pip_source)"
+}
+
+
+function pip_exists()
+{
+    cmdexists $(pip_bin)
 }
 
 
@@ -166,11 +239,15 @@ function pip_bin()
 
 function python_virtualenv_active()
 {
-    if [[ "$VIRTUAL_ENV" != "" ]]; then
+    if [[ $(python_get "import sys;print(sys.prefix!=getattr(sys,'base_prefix',sys.prefix))") == 'True' ]];then
         echo true
-    else
-        echo false
+        return 
     fi
+    if [[ $(python_get "import sys;print(sys.prefix!=getattr(sys,'real_prefix',sys.prefix))") == 'True' ]];then
+        echo true
+        return 
+    fi
+    echo false
 }
 
 
@@ -182,13 +259,38 @@ function python_virtualenv_deactivate()
 }
 
 
+function python_virtualenv_system_link()
+{
+    if [[ $(python_virtualenv_active) == true ]]; then
+        local _restore=$(pwd)
+        local _target=""
+        for _pkgdir in $(python_pkg); do
+            cd ${_pkgdir}
+            for _syspkgdir in $(python_system_pkg); do
+                echo "Look in ${_syspkgdir} ..."
+                for var in "$@";do
+                    echo "Look for ${_syspkgdir}/${var} ..."
+                    for _target in ${_syspkgdir}/${var}; do
+                        if [[ -e ${_target} || -d ${_target} ]];then
+                            echo "$(pwd): create soft link ${_target}"
+                            ln -s ${_target}
+                        fi
+                    done
+                done
+            done
+        done
+        cd ${_restore}
+    fi
+}
+
+
 function addProfilePythonUserBase()
 {
     # Root under which packages/scripts are installed when no
     # permissions to the default package/script directory.
     # When virtualenv is active: ignores PYTHONUSERBASE
-    local prefix=$(project_userbase)/python/$(python_full_version)
-    local prefixstr=$(project_userbasestr)/python/$(python_full_version)
+    local prefix=$(project_userbase)/python/$(python_version)
+    local prefixstr=$(project_userbasestr)/python/$(python_version)
     addProfile $(project_resource) "# Python user base: ${prefixstr}"
     addVar "PYTHONUSERBASE" ${prefix}
     addVarProfile $(project_resource) "PYTHONUSERBASE" ${prefixstr}
@@ -227,16 +329,16 @@ function pip_ensure()
     if [[ $(python_hasmodule pip) == false ]]; then
         if [[ $(python_hasmodule ensurepip) == true ]]; then
             if [[ $(python_virtualenv_active) == true ]]; then
-                if [[ $(install_systemwide) == true ]]; then
-                    $(python_bin) -m ensurepip
-                else
-                    $(python_bin) -m ensurepip --user
-                fi
+                $(python_bin) -m ensurepip
             else
                 if [[ $(install_systemwide) == true ]]; then
                     $(python_bin) -m ensurepip
                 else
                     $(python_bin) -m ensurepip --user
+                fi
+                # ensurepip is disabled in Debian/Ubuntu for the system python
+                if [[ $(python_hasmodule pip) == false ]]; then
+                    mapt-get install $(python_apt)-pip
                 fi
             fi
         else
@@ -244,7 +346,6 @@ function pip_ensure()
         fi
     fi
 }
-
 
 
 function pip_uninstall()
@@ -256,7 +357,15 @@ function pip_uninstall()
 function python_build_dependencies()
 {
     require_build_essentials
-    mapt-get install libsqlite3-dev libreadline-dev libncurses5-dev libssl-dev libgdbm-dev tk-dev libffi-dev
+    require_openssl
+    mapt-get install libbz2-dev
+    mapt-get install zlib1g-dev
+    mapt-get install libsqlite3-dev
+    mapt-get install libreadline-dev
+    mapt-get install libncurses5-dev
+    mapt-get install libssl-dev
+    mapt-get install libgdbm-dev
+    mapt-get install tk-dev libffi-dev
 }
 
 
@@ -266,91 +375,48 @@ function python_url()
 }
 
 
-function _python_latest()
+function python_all_versions()
 {
-    curl -sL $(python_url) | grep -E "href=\"${PYTHONVREQUEST}" | while read f
-    do
-        version=$(echo ${f} | grep -o -E "[0-9\.]+[0-9]" | head -1)
-        
-        tmp=$(curl -sL $(python_url)/${version} | grep -o -E "Python-${version}.tgz" | wc -l)
-        if [[ $tmp -ne 0 ]]; then
-            echo ${version}
-        fi
-    done
+    versions_from_site $(python_url) "href=\"[0-9\.]+"
 }
+
 
 function python_latest()
 {
-    _python_latest | tail -1
+    latest_version python_all_versions ${1}
 }
 
 
 function python_download()
 {
-    curl -L $(python_url)/${1}/Python-${1}.tgz --output Python-${1}.tgz
+    if [[ ! -f ${1}.tar.gz ]]; then
+        local _version=$(echo ${1} | grep -E -o "[\.0-9]+")
+        curl -L $(python_url)/${_version}/Python-${_version}.tgz --output python-${_version}.tar.gz
+    fi
 }
 
 
-function python_install_fromsource()
+function python_system_install()
 {
-    local restorewd=$(pwd)
+    mapt-get install $(python_apt)
+}
 
-    cprint "Download python ..."
-    mkdir -p python
-    cd python
 
-    local version=$(get_local_version_strict ${1})
-    if [[ -z ${version} ]]; then
-        require_web_essentials
-        version=$(python_latest)
-    fi
-
-    local sourcedir=Python-${version}
-    if [[ $(dryrun) == false && ! -d ${sourcedir} ]]; then
-        python_download ${version}
-        tar -xzf ${sourcedir}.tgz
-        rm -f ${sourcedir}.tgz
-    fi
-    cd ${sourcedir}
-
-    local prefix=$(project_opt)/python/${version}
-    local prefixstr=$(project_optstr)/python/${version}
-    if [[ ! -d ./build ]]; then
-
-        cprint "Configure python for ${prefix} ..."
-        if [[ $(dryrun) == false ]]; then
-            python_build_dependencies
-
-            mexec mkdir -p ${prefix}
-            ./configure --prefix=${prefix} \
-                        --with-ensurepip=install \
-                        --enable-shared \
-                        LDFLAGS=-Wl,-rpath=${prefix}/lib
-            # --enable-shared (produce shared libraries and headers): needed by xraylib
-            # LDFLAGS=-Wl,-rpath=${prefix}/lib (linker argument "-rpath ${prefix}/lib"): put shared libraries in a customn location (avoid conflict with system python)
-            # --enable-optimizations (profile guided optimizations): gives "profiling ... .gcda:Cannot open" warning on "import distutils"
-        fi
-
-        cprint "Build python ..."
-        if [[ $(dryrun) == false ]]; then
-            make -s -j2
-        fi
-    fi
-
-    cprint "Install python in ${prefix} ..."
-    if [[ $(dryrun) == false ]]; then
-        if [[ ! -f ${prefix}/bin/python ]]; then
-            mmakeinstall python-${version}
-        fi
-
-        addProfile $(project_resource) "# Installed python: ${prefixstr}"
-        addBinPath ${prefix}/bin
-        addBinPathProfile $(project_resource) "${prefixstr}/bin"
-        addLibPath ${prefix}/lib
-        addLibPathProfile $(project_resource) "${prefixstr}/lib"
-    fi
-
-    cd ${restorewd}
+function python_source_install()
+{
+    source_install python "${1}" \
+        --with-ensurepip=install \
+        --enable-shared \
+        --enable-unicode=ucs4 \
+        LDFLAGS=-Wl,-rpath='"${prefix}/lib"'
+    # --enable-shared (produce shared libraries and headers):
+    #   needed by some libraries like xraylib
+    # LDFLAGS=-Wl,-rpath=${prefix}/lib (linker argument "-rpath ${prefix}/lib"):
+    #   put shared libraries in a custom location (avoid conflict with system python)
+    # --enable-optimizations (profile guided optimizations):
+    #   gives "profiling ... .gcda:Cannot open" warning on "import distutils"
+    # --enable-unicode=ucs4
+    #   support p27mu wheels instead of p27m
 }
 
 
@@ -359,37 +425,7 @@ function require_python()
     if [[ ! -z ${1} ]]; then
         PYTHONVREQUEST=${1}
     fi
-    if [[ -z ${PYTHONVREQUEST} ]]; then
-        cprint "Verify python (no specific version requested) ..."
-    else
-        cprint "Verify python ${PYTHONVREQUEST} ..."
-    fi
-
-    # Try system installation
-    if [[ $(cmdexists $(python_bin)) == false ]]; then
-        mapt-get install $(python_apt)
-    fi
-
-    # Check version
-    if [[ $(require_new_version_strict $(python_full_version) ${PYTHONVREQUEST}) == false ]]; then
-        cprint "Python version $(python_full_version) is used"
-        return
-    fi
-
-    # Install from source
-    python_install_fromsource ${PYTHONVREQUEST}
-
-    # Check version
-    if [[ $(require_new_version_strict $(python_full_version) ${PYTHONVREQUEST}) == false ]]; then
-        cprint "Python version $(python_full_version) is used"
-    else
-        if [[ $(cmdexists python) == false ]]; then
-            cerror "Python is not installed"
-        else
-            cerror "Python version $(python_full_version) is used but ${PYTHONVREQUEST} is required"
-        fi
-        return 1
-    fi
+    require_software python ${1}
 }
 
 
@@ -410,23 +446,92 @@ function require_pythondev()
 
 function require_pyqt4()
 {
-    mapt-get install $(python_apt)-pyqt4
-    pip_install pyqt4
+    cprintstart "Require PyQt4"
+    if [[ $(python_hasmodule "PyQt4") == false ]]; then
+        mapt-get install $(python_apt)-qt4
+    fi
+    if [[ $(python_hasmodule "PyQt4") == false ]]; then
+        python_virtualenv_system_link PyQt4 sip*.so sipconfig*.py
+    fi
+    if [[ $(python_hasmodule "PyQt4") == true ]]; then
+        cprint "Python module \"PyQt4\" is working"
+        cprintend "Require PyQt4"
+        return
+    else
+        cprint "Python module \"PyQt4\" is NOT working. Try PySide ..."
+    fi
+    pip_install PySide
+    if [[ $(python_hasmodule "PySide") == true ]]; then
+        cprint "Python module \"PySide\" is working"
+    else
+        cprint "Python module \"PySide\" is NOT working"
+    fi
+    cprintend "Require PyQt4"
 }
 
 
 function require_pyqt5()
 {
-    mapt-get install $(python_apt)-pyqt5
-    pip_install pyqt5
+    cprintstart "Require PyQt5"
+    if [[ $(python_hasmodule "PyQt5") == false ]]; then
+        pip_install pyqt5
+    fi
+    if [[ $(python_hasmodule "PyQt5") == false ]]; then
+        python_virtualenv_system_link PyQt5 sip*.so sipconfig*.py
+    fi
+    if [[ $(python_hasmodule "PyQt5") == true ]]; then
+        cprint "Python module \"PyQt5\" is working"
+        cprintend "Require PyQt5"
+        return
+    else
+        cprint "Python module \"PyQt5\" is NOT working. Try PySide2 ..."
+    fi
+    pip_install PySide2
+    if [[ $(python_hasmodule "PySide2") == true ]]; then
+        cprint "Python module \"PySide2\" is working"
+    else
+        cprint "Python module \"PySide2\" is NOT working"
+    fi
+    cprintend "Require PyQt5"
 }
 
 
 function require_pyqt()
 {
-    require_pyqt4
-    require_pyqt5
+    if [[ $(python_major_version) == 2 ]];then
+        require_pyqt4
+    else
+        require_pyqt5
+    fi
 }
 
 
+function require_venv()
+{
+    if [[ $(python_major_version) == 3 ]];then
+        if [[ $(python_hasmodule venv) == false ]];then
+            mapt-get install $(python_apt)-venv
+        fi
+        if [[ $(python_hasmodule venv) == false ]];then
+            pip_install virtualenv
+        fi
+    else
+        if [[ $(python_hasmodule virtualenv) == false ]];then
+            mapt-get install $(python_apt)-virtualenv
+        fi
+        if [[ $(python_hasmodule virtualenv) == false ]];then
+            pip_install virtualenv
+        fi
+    fi
+}
 
+
+function create_venv()
+{
+    python_virtualenv_deactivate
+    if [[ $(python_major_version) == 3 ]];then
+        $(python_bin) -m venv ${1}
+    else
+        $(python_bin) -m virtualenv ${1}
+    fi
+}

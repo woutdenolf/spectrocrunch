@@ -1,8 +1,7 @@
-#!/usr/bin/env python
-
-# Original script from https://github.com/silx-kit/pyFAI
+# -*- coding: utf-8 -*-
 
 import sys, numpy
+
 print("Python %s bits" % (tuple.__itemsize__ * 8))
 print("       maxsize: %s\t maxunicode: %s" % (sys.maxsize, sys.maxunicode))
 print(sys.version)

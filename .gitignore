@@ -4,7 +4,7 @@
 build
 dist
 *.egg*
-doc/source/_autosummary
+doc/source/apidocs
 
 # Temporary files
 *~
@@ -17,6 +17,7 @@ log.*
 *.*.txt
 *.cprof
 .[^.]*
+test.*
 
 # Generated data
 testresults

@@ -10,7 +10,13 @@ source ${SCRIPT_ROOT}/funcs-python.sh
 
 function pyopengl_install()
 {
-    mapt-get install libgl1-mesa-dev libglu1-mesa-dev mesa-common-dev # pymca
+    # Mesa: free OpenGl implementation
+    mapt-get install libgl1-mesa-dev
+    mapt-get install mesa-common-dev
+    # GLU, GLX, GLE: higher level features on top of OpenGl
+    mapt-get install libglu1-mesa-dev
+    mapt-get install libegl1-mesa
+    mapt-get install libgl1-mesa-glx
     pip_install pyopengl
 }
 
@@ -23,8 +29,7 @@ function pyopengl_test()
 
 function require_pyopengl()
 {
-    cprintstart
-    cprint "Verify pyopengl ..."
+    cprintstart "Require pyopengl"
 
     # Requirements (for running)
     require_python
@@ -32,7 +37,7 @@ function require_pyopengl()
     # Check
     if [[ $(pyopengl_test) == true ]]; then
         cprint "Python module \"pyopengl\" is working"
-        cprintend
+        cprintend "Require pyopengl"
         return
     fi
 
@@ -46,5 +51,5 @@ function require_pyopengl()
         cprint "Python module \"pyopengl\" is NOT working"
     fi
 
-    cprintend
+    cprintend "Require pyopengl"
 }

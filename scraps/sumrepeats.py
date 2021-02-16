@@ -1,5 +1,8 @@
+# -*- coding: utf-8 -*-
+
 import sys
-#sys.path.insert(1,'/data/id21/inhouse/wout/dev/Spectrocrunch')
+
+# sys.path.insert(1,'/data/id21/inhouse/wout/dev/Spectrocrunch')
 
 from spectrocrunch.io.xiaedf import xiastack_radix as xiareader
 from spectrocrunch.io.xiaedf import xiaimage_number as xiawriter
@@ -14,13 +17,13 @@ from spectrocrunch.math.common import round_sig as roundflux
 try:
     from spectrocrunch.align.alignElastix import alignElastix as alignclass
 except:
-    #from spectrocrunch.align.alignFFT import alignFFT as alignclass
+    # from spectrocrunch.align.alignFFT import alignFFT as alignclass
     pass
 
-#from silx.gui import qt
-#from silx.gui.plot.StackView import StackViewMainWindow
-#from silx.gui.plot import Plot1D
-#from silx.gui.plot import Plot2D
+# from silx.gui import qt
+# from silx.gui.plot.StackView import StackViewMainWindow
+# from silx.gui.plot import Plot1D
+# from silx.gui.plot import Plot2D
 
 import numpy as np
 
@@ -34,11 +37,11 @@ from datetime import datetime
 
 import fabio
 
-#qapp = qt.QApplication([])
+# qapp = qt.QApplication([])
+
 
 class readme(object):
-
-    def __init__(self,filename):
+    def __init__(self, filename):
         path = os.path.dirname(filename)
         if not os.path.exists(path):
             os.makedirs(path)
@@ -46,23 +49,24 @@ class readme(object):
         if os.path.isfile(filename):
             os.remove(filename)
         self(datetime.now().isoformat(" "))
-    
-    def __call__(self,line):
+
+    def __call__(self, line):
         with open(self.filename, "a") as f:
-        
-            if isinstance(line,list):
+
+            if isinstance(line, list):
                 for l in line:
                     print l
-                    f.write(l+"\n")
+                    f.write(l + "\n")
             else:
                 print line
-                f.write(line+"\n")
+                f.write(line + "\n")
 
-def normfunc(datadirs,normctr,pymcaflux,logger):
+
+def normfunc(datadirs, normctr, pymcaflux, logger):
     # From counts to current (VTOF):
     #   It(A) = m(A/cts) . It(cts) + b(A)
     #
-    #   -> calculate from h5 and corresponding pixels in ...zap_It....edf   
+    #   -> calculate from h5 and corresponding pixels in ...zap_It....edf
     #
     #       It(cts)/T(s) = m'(cts/C) . It(A) + offsetVTOF(Hz)
     #       I(A) = [It(cts)/T(s) - offsetVTOF(Hz)]/m'(cts/C)
@@ -83,179 +87,187 @@ def normfunc(datadirs,normctr,pymcaflux,logger):
     #
     # Normalization:
     #   norm = It(ph/s) / Ipymca(ph/s)
-    
-    # Calculate g from diode thickness:
-    #from spectrocrunch.materials.compoundfromformula import compoundfromformula as compound
-    #material = compound("Si",0,name="Si")
-    #linatt = material.mass_att_coeff(np.asarray([17.05]))[0]*material.density # cm^-1
-    #linatt = 16.4569106695 # cm^-1
-    #thickness = 0.05 # cm
-    #print "thickness = {} cm".format( np.log(2500e+12*(17050.*1.60217662e-19)/3.6)/linatt )
-    #g = 3.6/(17050.*1.60217662e-19)*np.exp(linatt*thickness)
-    #g = "{:e}".format(3.6/(17050.*1.60217662e-19)*np.exp(linatt*0.0389067609507))
-    #So lower thickness or it has some window
 
-    g = 2500e+12 # ph/C
-    dark = 0 # ph/s
-    #b = 1.2e-5 # A
+    # Calculate g from diode thickness:
+    # from spectrocrunch.materials.compoundfromformula import compoundfromformula as compound
+    # material = compound("Si",0,name="Si")
+    # linatt = material.mass_att_coeff(np.asarray([17.05]))[0]*material.density # cm^-1
+    # linatt = 16.4569106695 # cm^-1
+    # thickness = 0.05 # cm
+    # print "thickness = {} cm".format( np.log(2500e+12*(17050.*1.60217662e-19)/3.6)/linatt )
+    # g = 3.6/(17050.*1.60217662e-19)*np.exp(linatt*thickness)
+    # g = "{:e}".format(3.6/(17050.*1.60217662e-19)*np.exp(linatt*0.0389067609507))
+    # So lower thickness or it has some window
+
+    g = 2500e12  # ph/C
+    dark = 0  # ph/s
+    # b = 1.2e-5 # A
     b = None
-    
+
     counts = []
     current = []
     maxcounts = 0
     mincounts = np.inf
     for path in datadirs:
-        fcounts = glob(os.path.join(path,"*{}*.edf".format(normctr)))
-        fcurrent = glob(os.path.join(path,"*.h5"))
-        if len(fcounts)==1 and len(fcurrent)==1:
+        fcounts = glob(os.path.join(path, "*{}*.edf".format(normctr)))
+        fcurrent = glob(os.path.join(path, "*.h5"))
+        if len(fcounts) == 1 and len(fcurrent) == 1:
             hcounts = edfimage(fcounts[0])
             hcurrent = h5py.File(fcurrent[0])
-            
+
             d = hcounts.data.flatten()
             d = d[d.nonzero()[0]]
-            counts += [d[0],d[-1]]
-            maxcounts = max(maxcounts,d.max())
-            mincounts = min(mincounts,d.min())
-            current += [hcurrent.values()[0]["measurement"]["initial"]["it"].value,\
-                        hcurrent.values()[0]["measurement"]["final"]["it"].value]
-             
+            counts += [d[0], d[-1]]
+            maxcounts = max(maxcounts, d.max())
+            mincounts = min(mincounts, d.min())
+            current += [
+                hcurrent.values()[0]["measurement"]["initial"]["it"].value,
+                hcurrent.values()[0]["measurement"]["final"]["it"].value,
+            ]
+
             hcurrent.close()
-    counts = np.asarray(counts,dtype=float)
-    current = np.asarray(current,dtype=float)       
+    counts = np.asarray(counts, dtype=float)
+    current = np.asarray(current, dtype=float)
 
     # From counts to current:
     if b is None:
-        m,b = linfit(counts,current)
+        m, b = linfit(counts, current)
     else:
-        m = linfit_zerointercept(counts,current-b)
-    
+        m = linfit_zerointercept(counts, current - b)
+
     info = []
     logger("\nIt(A) = m.It(cts) + b")
     logger(" m = {} A/cts".format(m))
     logger(" b = {} A".format(b))
-        
+
     # From counts to flux:
     m *= g
     b *= g
     b -= dark
-    
+
     logger("\nIt(ph/s) = m.It(cts) + b")
     logger(" m = {:e} ph/s/cts".format(m))
     logger(" b = {:e} ph/s".format(b))
-    
+
     # Normalize the flux itself:
-    minflux = m*mincounts+b
-    maxflux = m*maxcounts+b
+    minflux = m * mincounts + b
+    maxflux = m * maxcounts + b
     if pymcaflux is None:
-        pymcaflux = roundflux(m*maxcounts+b,2)
+        pymcaflux = roundflux(m * maxcounts + b, 2)
     m /= pymcaflux
     b /= pymcaflux
-    
-    logger("\nFlux min = {:e} ph/s".format(minflux))  
+
+    logger("\nFlux min = {:e} ph/s".format(minflux))
     logger("Flux max = {:e} ph/s".format(maxflux))
     logger("Flux after normalization = {:e} ph/s".format(pymcaflux))
-    
+
     logger("\nnorm(cts) = m.It(cts) + b")
     logger(" m = {:e}".format(m))
     logger(" b = {}".format(b))
-    logger("norm min = {} ph/s".format(m*mincounts+b))
-    logger("norm max = {} ph/s".format(m*maxcounts+b)) 
+    logger("norm min = {} ph/s".format(m * mincounts + b))
+    logger("norm max = {} ph/s".format(m * maxcounts + b))
 
-    return lambda counts: m*counts+b,pymcaflux
+    return lambda counts: m * counts + b, pymcaflux
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
 
     #############################################################
     # User specified
     #############################################################
 
     # Input
-    arr = [2,3,4,5,7]
-    datadirs = ["/data/id21/inhouse/wout/laurence/Bloc3L_SynL_cell5_fine{}".format(i) for i in arr]
+    arr = [2, 3, 4, 5, 7]
+    datadirs = [
+        "/data/id21/inhouse/wout/laurence/Bloc3L_SynL_cell5_fine{}".format(i)
+        for i in arr
+    ]
     scannames = ["Bloc3L_SynL_cell5_fine{}".format(i) for i in arr]
-    
+
     # Output
     outdir = "/data/id21/inhouse/wout/laurence/summed/"
     outname = "cell5"
     outnumber = 1
-    
+
     # Deadtime correction
     deadtime = True
-    
+
     # Detector adding
     add = True
-    exclude_detectors=[]
-    
+    exclude_detectors = []
+
     # Align
     align = True
-    
+
     # Flux normalization
     norm = True
     normctr = "zap_it"
-    pymcaflux = None # a sensible choice will be made when set to None
-    
+    pymcaflux = None  # a sensible choice will be made when set to None
+
     #############################################################
     # Data processing
     #############################################################
-    
+
     # Start logging
-    logger = readme(os.path.join(outdir,"README_{}_{}.txt".format(outname,outnumber)))
-    
+    logger = readme(os.path.join(outdir, "README_{}_{}.txt".format(outname, outnumber)))
+
     logger("\n####INPUT####\n")
     logger("scans: {}".format(scannames))
     logger("deadtime correction: {}".format(deadtime))
     logger("add detectors: {}".format(add))
     logger("align repeats: {}".format(align))
     logger("exclude detectors: {}".format(exclude_detectors))
-    logger("flux normalization: {} (\"{}\")".format(norm,normctr))
+    logger('flux normalization: {} ("{}")'.format(norm, normctr))
     logger("\n####PROCESSING####")
-    
+
     # Prepare data reading
-    stackin = xiareader(datadirs,scannames)
-    
-    stackin.skipdetectors(["xiaS0"]+["xia{:02d}".format(i) for i in exclude_detectors])
+    stackin = xiareader(datadirs, scannames)
+
+    stackin.exclude_detectors(
+        ["xiaS0"] + ["xia{:02d}".format(i) for i in exclude_detectors]
+    )
     stackin.dtcor(deadtime)
     if norm:
-        normfunc,pymcaflux = normfunc(datadirs,normctr,pymcaflux,logger)
-        stackin.norm(normctr,func=normfunc)
+        normfunc, pymcaflux = normfunc(datadirs, normctr, pymcaflux, logger)
+        stackin.norm(normctr, func=normfunc)
     else:
         pymcaflux = 0
         stackin.norm(None)
     stackin.detectorsum(add)
     stackin.onlyicrocr(True)
-    
+
     # Read data: nrep x nrow x ncol x nchan x ndet
     print "\nReading data..."
     data = stackin.data
-    
+
     bqt = False
-    
+
     # Show total MCA maps
     if False:
         mcasum = data.sum(axis=3)
         if add:
-            mcasum = mcasum[...,0]
+            mcasum = mcasum[..., 0]
         else:
             mcasum = data.sum(axis=-1)
         sv = StackViewMainWindow()
         sv.setColormap("jet", autoscale=True)
         sv.setStack(mcasum)
-        sv.setLabels(["repeat","imagerow","imagecolumn"])
+        sv.setLabels(["repeat", "imagerow", "imagecolumn"])
         sv.show()
         bqt = True
-        
+
     # Show DT maps
     if False:
         # nrep x nrow x ncol x 2 x ndet
         stats = stackin.stats
-        stats = (1-stats[...,1,:]/stats[...,0,:].astype(float))*100
-        stats = stats.transpose([1,2,0,3])
+        stats = (1 - stats[..., 1, :] / stats[..., 0, :].astype(float)) * 100
+        stats = stats.transpose([1, 2, 0, 3])
         s = stats.shape
-        stats = stats.reshape((s[0],s[1],s[2]*s[3]))
+        stats = stats.reshape((s[0], s[1], s[2] * s[3]))
         sv = StackViewMainWindow()
         sv.setColormap("jet", autoscale=True)
         sv.setStack(stats)
-        sv.setLabels(["imagerow","imagecolumn","nrep*ndet"])
+        sv.setLabels(["imagerow", "imagecolumn", "nrep*ndet"])
         sv.show()
         bqt = True
 
@@ -265,66 +277,83 @@ if __name__ == '__main__':
         print "\nAligning repeats..."
         # Sum detectors if not already done
         if add:
-            alignsource = data[...,0]
+            alignsource = data[..., 0]
         else:
             alignsource = data.sum(axis=-1)
-            
+
         # Sum MCA channels
         alignsource = [alignsource.sum(axis=-1)]
-        
+
         # Align repeats based on total MCA
-        outputstack = [np.zeros(1,dtype=alignsource[0].dtype)]
-        o = alignclass(alignsource,None,outputstack,None,None,plot=True,stackdim=0,overwrite=True)
+        outputstack = [np.zeros(1, dtype=alignsource[0].dtype)]
+        o = alignclass(
+            alignsource,
+            None,
+            outputstack,
+            None,
+            None,
+            plot=True,
+            stackdim=0,
+            overwrite=True,
+        )
         refdatasetindex = 0
         refimageindex = 0
-        o.align(refdatasetindex,refimageindex = refimageindex,pad=False)
+        o.align(refdatasetindex, refimageindex=refimageindex, pad=False)
         logger("\nImage shifts:\n{}".format(o.absolute_cofs()))
-        
+
         # Saved aligned total MCAs
         for r in range(nrep):
-            fabio.edfimage.EdfImage(data=alignsource[0][r,...]).write(os.path.join(outdir,"{}_{}{}_{:04d}.edf".format(outname,"mcasum",r,outnumber)))
-            fabio.edfimage.EdfImage(data=outputstack[0][r,...]).write(os.path.join(outdir,"{}_{}{}_{:04d}.edf".format(outname,"alignedmcasum",r,outnumber)))
-        
+            fabio.edfimage.EdfImage(data=alignsource[0][r, ...]).write(
+                os.path.join(
+                    outdir, "{}_{}{}_{:04d}.edf".format(outname, "mcasum", r, outnumber)
+                )
+            )
+            fabio.edfimage.EdfImage(data=outputstack[0][r, ...]).write(
+                os.path.join(
+                    outdir,
+                    "{}_{}{}_{:04d}.edf".format(outname, "alignedmcasum", r, outnumber),
+                )
+            )
+
         # Apply alignment on all MCA channels and sum repeats
         print "\nAlign and sum repeats..."
         nrow2 = outputstack[0].shape[1]
         ncol2 = outputstack[0].shape[2]
-        data2 = np.zeros((nrow2,ncol2,nchan,ndet),dtype=outputstack[0].dtype)
+        data2 = np.zeros((nrow2, ncol2, nchan, ndet), dtype=outputstack[0].dtype)
         for i in range(nchan):
             for j in range(ndet):
-                alignsource[0][:] = data[...,i,j]
-                o.align(refdatasetindex,redo=True)
-                data2[...,i,j] = outputstack[0].sum(axis=0)
+                alignsource[0][:] = data[..., i, j]
+                o.align(refdatasetindex, redo=True)
+                data2[..., i, j] = outputstack[0].sum(axis=0)
 
         # Crop NaN's at the borders
         mask = data2.sum(axis=-1).sum(axis=-1)
-        o.setextendmask(mask,reset=True)
+        o.setextendmask(mask, reset=True)
         o.extendfrommask()
-        crop = o.cropfromextend(nrow2,ncol2)
+        crop = o.cropfromextend(nrow2, ncol2)
         logger("\nCropping:\n{}".format(o.extend))
-        data2 = data2[crop[0][0]:crop[0][1],crop[1][0]:crop[1][1],...]
-        
+        data2 = data2[crop[0][0] : crop[0][1], crop[1][0] : crop[1][1], ...]
+
         data = data2
     else:
         print "\nSum repeats..."
         # Sum repeats
         data = data.sum(axis=0)
-    
-    logger("\nFlux to be used in pymca = {:e} ph/s".format(pymcaflux*nrep))
-    
+
+    logger("\nFlux to be used in pymca = {:e} ph/s".format(pymcaflux * nrep))
+
     # Prepare writing data
-    mapout = xiawriter(outdir,outname,outnumber)
+    mapout = xiawriter(outdir, outname, outnumber)
     mapout.overwrite(True)
     if add:
         xialabels = ["xiaS1"]
     else:
         xialabels = ["xia{:02d}".format(i) for i in range(data.shape[-1])]
-        
+
     # Write data: nrow x ncol x nchan x ndet
     print "\nWriting data..."
-    mapout.save(data,xialabels)
-    
+    mapout.save(data, xialabels)
+
     # Show graphics if needed
     if bqt:
         qapp.exec_()
-        

@@ -1,13 +1,15 @@
 #!/bin/bash
 #
+# Essentials for installation and downloading
+#
 
 function require_build_essentials()
 {
-    mapt-get install make build-essential
-    mapt-get install make checkinstall
-    mapt-get install make autoconf libtool
-    mapt-get install make libbz2-dev zlib1g-dev
-    mapt-get install make openssl openssl-devel
+    mapt-get install build-essential
+    mapt-get install checkinstall
+    mapt-get install autoconf
+    mapt-get install libtool
+    mapt-get install pkgconf
 }
 
 
@@ -15,6 +17,15 @@ function require_web_essentials()
 {
     mapt-get install wget curl
     require_web_access
+}
+
+
+function require_openssl()
+{
+    mapt-get install openssl
+    mapt-get install openssl-dev
+    mapt-get install openssl-devel
+    mapt-get install libssl-dev
 }
 
 
@@ -30,3 +41,11 @@ function require_web_access()
         export use_proxy=yes
     fi
 }
+
+
+function require_hdf5()
+{
+    mapt-get install libhdf5
+    mapt-get install libhdf5-dev
+}
+

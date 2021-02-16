@@ -17,22 +17,26 @@ function fdmnes_build_dependencies()
 
 function fdmnes_install_fromsource()
 {
+    if [[ ! -d fdmnes && ${ARG_SKIPLONG} == true ]]; then
+        cprint "Skipping fdmnes installation"
+        return
+    fi
+
     local restorewd=$(pwd)
 
     mkdir -p fdmnes
     cd fdmnes
 
     if [ ! -d /sware/exp/fdmnes ]; then
+        cprint "Download fdmnes ..."
+
         require_web_essentials
         local fdmneslink=$(wget -O - -q http://neel.cnrs.fr/spip.php?article3137 | grep  -o 'http://neel.cnrs.fr/IMG/zip/[^"]*')
         local fdmneszipname=$(basename ${fdmneslink})
 
-        if [ ! -f ${fdmneszipname} ]; then
-            cprint "Download fdmnes ..."
-
-            if [[ $(dryrun) == false ]]; then
-                curl -O ${fdmneslink}
-            fi
+        if [[ ! -f ${fdmneszipname} && $(dryrun) == false ]]; then
+            rm -f *.zip
+            curl -O ${fdmneslink}
         fi
     fi
 
@@ -97,8 +101,7 @@ function fdmnes_install_fromsource()
 
 function require_fdmnes()
 {
-    cprintstart
-    cprint "Verify fdmnes ..."
+    cprintstart "Require fdmnes ${1}"
 
     # Requirements (for running)
     require_python
@@ -106,7 +109,7 @@ function require_fdmnes()
     # Check
     if [[ $(python_hasmodule fdmnes) == true ]]; then
         cprint "Python module \"fdmnes\" is installed"
-        cprintend
+        cprintend "Require fdmnes ${1}"
         return
     fi
 
@@ -117,10 +120,10 @@ function require_fdmnes()
     if [[ $(python_hasmodule fdmnes) == true ]]; then
         cprint "Python module \"fdmnes\" is installed"
     else
-        cprint "Python module \"fdmnes\" is NOT installed"
+        cerror "Python module \"fdmnes\" is NOT installed"
     fi
 
-    cprintend
+    cprintend "Require fdmnes ${1}"
 }
 
 

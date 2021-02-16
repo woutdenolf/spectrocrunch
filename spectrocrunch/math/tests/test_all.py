@@ -1,26 +1,4 @@
 # -*- coding: utf-8 -*-
-#
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
-#
-#   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
 
 import unittest
 from . import test_fit2d
@@ -30,6 +8,11 @@ from . import test_ops
 from . import test_lazy
 from . import test_noisepropagation
 from . import test_distributions
+from . import test_interpolate
+from . import test_lsqlin
+from . import test_quadrics
+from . import test_slicing
+
 
 def test_suite():
     """Test suite including all test suites"""
@@ -41,9 +24,14 @@ def test_suite():
     testSuite.addTest(test_lazy.test_suite())
     testSuite.addTest(test_noisepropagation.test_suite())
     testSuite.addTest(test_distributions.test_suite())
+    testSuite.addTest(test_interpolate.test_suite())
+    testSuite.addTest(test_lsqlin.test_suite())
+    testSuite.addTest(test_quadrics.test_suite())
+    testSuite.addTest(test_slicing.test_suite())
     return testSuite
-    
-if __name__ == '__main__':
+
+
+if __name__ == "__main__":
     import sys
 
     mysuite = test_suite()

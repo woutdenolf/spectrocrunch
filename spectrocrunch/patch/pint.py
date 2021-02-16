@@ -1,31 +1,39 @@
 # -*- coding: utf-8 -*-
-#
-#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
-#
-#   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
 
 from __future__ import absolute_import
+from pint import UnitRegistry, errors
+from pint.quantity import _Quantity
+from pint.unit import _Unit
+from pint.measurement import _Measurement
 
-import pint
+ureg = UnitRegistry()
 
-ureg = pint.UnitRegistry()
-ureg.define('classical_electron_radius = e^2/(4*pi*m_e*epsilon_0*c^2) = r_e')
 
+# Because of unpickling:
+
+
+class Quantity(_Quantity):
+    _REGISTRY = ureg
+    force_ndarray = False
+
+
+class Unit(_Unit):
+    _REGISTRY = ureg
+
+
+class Measurement(_Measurement, Quantity):
+    _REGISTRY = ureg
+    force_ndarray = False
+
+
+ureg.Quantity = Quantity
+ureg.Unit = Unit
+ureg.Measurement = Measurement
+
+
+ureg.define("classical_electron_radius = e^2/(4*pi*m_e*epsilon_0*c^2) = r_e")
+ureg.define("percent = 1e-2*count = %")
+ureg.define(u"permille = 1e-3*count = \u2030")
+ureg.define("ppm = 1e-6*count")
+ureg.define("ppb = 1e-9*count")
+ureg.define("particles_per_mol = avogadro_number/mol")

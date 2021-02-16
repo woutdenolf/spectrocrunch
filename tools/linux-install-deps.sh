@@ -7,7 +7,7 @@
 show_help()
 {
   echo "
-        Usage: linux-install-deps  [-v version] [-y] [-d] [-x]
+        Usage: linux-install-deps  [-v version] [-y] [-d] [-x] [-s]
 
         -v version      Python version to be used (2, 3, 2.7, 3.5, ...).
         -y              Answer yes to everything.
@@ -15,6 +15,7 @@ show_help()
         -u              Install for user only.
         -x              Dev install.
         -t              Do not modify bashrc.
+        -s              Skip libraries that take long to compile.
 
         For Example: ./linux-install-deps.sh -v 3 -d
 
@@ -36,7 +37,8 @@ ARG_FORCECHOICE=false
 ARG_PYTHONV=""
 ARG_DEV=false
 ARG_RET=-1
-while getopts "v:uyhdxt" opt; do
+ARG_SKIPLONG=false
+while getopts "v:uyhdxts" opt; do
   case $opt in
     h)
       show_help
@@ -56,6 +58,9 @@ while getopts "v:uyhdxt" opt; do
       ;;
     x)
       ARG_DEV=true
+      ;;
+    s)
+      ARG_SKIPLONG=true
       ;;
     v)
       ARG_PYTHONV=${OPTARG}

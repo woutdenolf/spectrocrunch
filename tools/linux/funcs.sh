@@ -7,6 +7,7 @@ SCRIPT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source ${SCRIPT_ROOT}/funcs-string.sh
 source ${SCRIPT_ROOT}/funcs-essentials.sh
 
+
 # ============fullpath============
 # Description: expand path
 function fullpath()
@@ -22,7 +23,7 @@ function cprint()
 {
     local hcol='\033[0;36m'
     local ncol='\033[0m'
-    echo -e "${hcol}${1} ${ncol}"
+    echo -e "${hcol}$@ ${ncol}"
 }
 
 
@@ -33,26 +34,29 @@ function cerror()
 {
     local hcol='\033[0;31m'
     local ncol='\033[0m'
-    echo -e "${hcol}${1} ${ncol}"
+    echo -e "${hcol}$@ ${ncol}"
 }
 
 
 # ============cprintstart============
-# Description: output to stdout in color
-# Usage: cprintstart
+# Description: 
+# Usage: cprintstart "do something"
 function cprintstart()
 {
     echo ""
     echo ""
     echo ""
     cprint "======================"
+    cprint "START: ${1}"
 }
 
+
 # ============cprintend============
-# Description: output to stdout in color
-# Usage: cprintend
+# Description:
+# Usage: cprintend "do something"
 function cprintend()
 {
+    cprint "END: ${1}"
     cprint "======================"
     echo ""
     echo ""
@@ -85,15 +89,16 @@ function install_systemwide()
         else
             INSTALL_SYSTEMWIDE=${2}
         fi
-        return 
+        if [[ "$1" == "reset" ]];then
+            return
+        fi
     fi
 
     if [[ $(system_privileges) == false ]]; then
         echo false
-        return
+    else
+        echo ${INSTALL_SYSTEMWIDE}
     fi
-
-    echo ${INSTALL_SYSTEMWIDE}
 }
 
 
@@ -109,7 +114,9 @@ function dryrun()
         else
             DRYRUN=${2}
         fi
-        return
+        if [[ "$1" == "reset" ]];then
+            return
+        fi
     fi
 
     echo ${DRYRUN}
@@ -153,23 +160,6 @@ function mexec()
 }
 
 
-# ============mmakeinstall============
-# Description: Execute make install
-# Usage: mmakeinstall pkgname-version
-function mmakeinstall()
-{
-    if [[ $(install_systemwide) == true ]]; then
-        local name=${1}
-        if [[ -z ${name} ]];then
-            name=$(randomstring 6)
-        fi
-        sudo -E checkinstall -y --pkgname "${name}-checkinstall"
-    else
-        make install -s
-    fi
-}
-
-
 # ============mapt-get============
 # Description: Apt-get without prompt (ignores system wide setting)
 # Usage: mapt-get install ...
@@ -197,107 +187,12 @@ function mapt-get()
 }
 
 
-# ============require_new_version============
-# Description: we require a new version when current < required
-# Usage: [[ $(require_new_version currentversion requiredversion) ]]
-function require_new_version()
+# ============mapt-get============
+# Description: Apt-get without prompt (ignores system wide setting)
+# Usage: mapt-get install ...
+function system_install()
 {
-    local currentv=${1}
-    local requiredv=${2}
-
-    if [[ ${currentv} == 0 ]]; then
-        echo true # does not exist
-        return
-    fi
-
-    if [[ -z ${requiredv} ]]; then
-        echo false # no specific version required
-        return
-    fi
-
-    dpkg --compare-versions ${currentv} "lt" ${requiredv}
-    if [[ $? == 0 ]]; then
-        echo true # current < required
-    else
-        echo false # current >= required
-    fi
-}
-
-
-# ============require_new_version_strict============
-# Description: 
-# Usage: [[ $(require_new_version_strict currentversion requiredversion) ]]
-function require_new_version_strict()
-{
-    local currentv=${1}
-    local requiredv=${2}
-
-    if [[ ${currentv} == 0 ]]; then
-        echo true # does not exist
-        return
-    fi
-
-    if [[ -z ${requiredv} ]]; then
-        echo false # no specific version required
-        return
-    fi
-
-    # Same version depth
-    local n=$(nchar_occurence ${currentv} .)
-    local nreq=$(nchar_occurence ${requiredv} .)
-    if [[ ${nreq} -lt ${n} ]];then
-        n=${nreq}
-    fi
-    n=$((n+1))
-    currentv=$(echo ${currentv} | grep -o -E "[0-9]+" | head -${n})
-    requiredv=$(echo ${requiredv} | grep -o -E "[0-9]+" | head -${n})
-    
-    currentv=$(echo ${currentv})
-    requiredv=$(echo ${requiredv})
-    currentv=${currentv// /.}
-    requiredv=${requiredv// /.}
-
-    # Compare
-    dpkg --compare-versions "${currentv}" "eq" "${requiredv}"
-    if [[ $? == 0 ]]; then
-        echo false # current == required
-    else
-        echo true # current != required
-    fi
-}
-
-
-# ============get_local_version============
-# Description: 
-# Usage: version=$(get_local_version requiredversion)
-function get_local_version()
-{
-    local requiredv=${1}
-
-    for dirname in $(ls -d */ | sort -V); do
-        local version=$(echo ${dirname} | grep -E -o "[0-9\.]+[0-9]")
-        if [[ $(require_new_version ${version} ${requiredv}) == false ]]; then
-            echo ${version}
-            return
-        fi
-    done
-}
-
-
-# ============get_local_version_strict============
-# Description: 
-# Usage: version=$(get_local_version_strict requiredversion)
-function get_local_version_strict()
-{
-    local requiredv=${1}
-
-    for dirname in $(ls -d */ | sort -V); do
-        local version=$(echo ${dirname} | grep -E -o "[0-9\.]+[0-9]")
-        if [[ $(require_new_version_strict ${version} ${requiredv}) == false ]]; then
-            echo ${version}
-            return
-        fi
-    done
+    mapt-get install "$@"
 }
 
 
@@ -312,9 +207,12 @@ function addFile()
 	grep "${LINE}" "${FILE}" > /dev/null 2>&1
 	local Retval=$?
 	if [[ $Retval != 0 ]]; then
+	    cprint "Adding \"${LINE}\" to file ${FILE}"
         echo ${LINE} | mexec tee --append ${FILE}
         grep "${LINE}" "${FILE}" > /dev/null 2>&1
 	    Retval=$?
+	else
+	    cprint "Line \"${LINE}\" already in ${FILE}"
 	fi
 
 	return $Retval
@@ -349,13 +247,45 @@ function addVar()
 }
 
 
+# ============pathExists============
+# Description: checks whether path exists
+function pathExists()
+{
+    # Expand variables, commonly ${HOME}
+    local _path=$(eval echo ${1})
+    if [[ -e ${_path} ]];then
+        echo true
+    else
+        echo false
+    fi
+}
+
+# ============addEnvPath============
+# Description: 
+function addEnvPath()
+{
+    local _path=${1}
+    local _add=${2}
+    if [[ $(pathExists ${_add}) == false ]];then
+        echo ${_path}
+        return
+    fi
+    if [[ ":${_path}:" != *":${_add}:"* ]]; then
+        if [[ -z ${_path} ]]; then
+            echo ${_add}
+        else
+            echo ${_add}:${_path}
+        fi
+        return
+    fi
+    echo ${_path}
+}
+
 # ============addBinPath============
 # Description: Add path to ${PATH}
 function addBinPath()
 {
-	if [[ ":${PATH}:" != *":${1}:"* ]]; then
-        export PATH=${1}:${PATH}
-    fi
+    export PATH=$(addEnvPath ${PATH} "${1}")
 }
 
 
@@ -363,9 +293,7 @@ function addBinPath()
 # Description: Add path to ${CPATH}
 function addInclPath()
 {
-	if [[ ":${CPATH}:" != *":${1}:"* ]]; then
-        export CPATH=${1}:${CPATH}
-    fi
+    export CPATH=$(addEnvPath ${CPATH} ${1})
 }
 
 
@@ -373,13 +301,20 @@ function addInclPath()
 # Description: Add path to ${LD_LIBRARY_PATH}
 function addLibPath()
 {
-	if [[ ":${LD_LIBRARY_PATH},:" != *":${1}:"* ]]; then
-        export LD_LIBRARY_PATH=${1}:${LD_LIBRARY_PATH}
-    fi
-	if [[ ":${LIBRARY_PATH},:" != *":${1}:"* ]]; then
-        export LIBRARY_PATH=${1}:${LIBRARY_PATH}
-    fi
+    # For dynamic linking:
+    export LD_LIBRARY_PATH=$(addEnvPath ${LD_LIBRARY_PATH} "${1}")
+    # For static linking:
+    export LIBRARY_PATH=$(addEnvPath ${LIBRARY_PATH} "${1}")
 }
+
+
+# ============addPkgConfigPath============
+# Description: Add path to ${PKG_CONFIG_PATH}
+function addPkgConfigPath()
+{
+    export PKG_CONFIG_PATH=$(addEnvPath ${PKG_CONFIG_PATH} "${1}")
+}
+
 
 # ============addVarProfile============
 # Description: Add variable premanently
@@ -393,6 +328,10 @@ function addVarProfile()
 # Description: Add path to ${PATH} premanently
 function addBinPathProfile()
 {
+    if [[ $(pathExists ${2}) == false ]];then
+        cprint "Does not exist: ${2}"
+        return
+    fi
     addProfile ${1} "export PATH=${2}:\${PATH}"
 }
 
@@ -401,6 +340,10 @@ function addBinPathProfile()
 # Description: Add path to ${CPATH} premanently
 function addInclPathProfile()
 {
+    if [[ $(pathExists ${2}) == false ]];then
+        cprint "Does not exist: ${2}"
+        return
+    fi
     addProfile ${1} "export CPATH=${2}:\${CPATH}"
 }
 
@@ -409,8 +352,24 @@ function addInclPathProfile()
 # Description: Add path to ${LD_LIBRARY_PATH} premanently
 function addLibPathProfile()
 {
+    if [[ $(pathExists ${2}) == false ]];then
+        cprint "Does not exist: ${2}"
+        return
+    fi
     addProfile ${1} "export LD_LIBRARY_PATH=${2}:\${LD_LIBRARY_PATH}"
     addProfile ${1} "export LIBRARY_PATH=${2}:\${LIBRARY_PATH}"
+}
+
+
+# ============addPkgConfigPathProfile============
+# Description: Add path to ${PKG_CONFIG_PATH} premanently
+function addPkgConfigPathProfile()
+{
+    if [[ $(pathExists ${2}) == false ]];then
+        cprint "Does not exist: ${2}"
+        return
+    fi
+    addProfile ${1} "export PKG_CONFIG_PATH=${2}:\${PKG_CONFIG_PATH}"
 }
 
 
@@ -426,7 +385,7 @@ function project_folder()
 # Description: Project name
 function project_name()
 {
-    basename $(project_folder)
+    echo $(grep "PROJECT =" $(project_folder)/setup.py | grep -oP '"\K[^"]+')
 }
 
 
@@ -471,7 +430,7 @@ function project_echoprefix()
 
 
 # ============project_userbasestr============
-# Description:
+# Description: ${HOME}/.local
 function project_userbasestr()
 {
     project_echoprefix '${HOME}/.local'
@@ -479,7 +438,7 @@ function project_userbasestr()
 
 
 # ============project_prefixstr============
-# Description: 
+# Description: /usr/local (system) or ${HOME}/.local (user)
 function project_prefixstr()
 {
     if [[ $(install_systemwide) == true ]]; then
@@ -491,7 +450,7 @@ function project_prefixstr()
 
 
 # ============project_optstr============
-# Description: 
+# Description: /opt (system) or ${HOME}/.local (user)
 function project_optstr()
 {
     if [[ $(install_systemwide) == true ]]; then
@@ -541,7 +500,7 @@ function project_userbase()
 
 
 # ============timer============
-# Description: 
+# Description: start and stop timer
 function timer()
 {
     if [[ -z ${START_TIME} || "$1" == "reset" ]]; then
@@ -565,6 +524,94 @@ function cmdexists()
     else
         echo true
     fi
+}
+
+
+# ============libexists============
+# Description: 
+function libexists()
+{
+    for _path in ${LD_LIBRARY_PATH//:/ }; do
+        if [[ -e ${_path}/${1}.so ]]; then
+            echo true
+            return
+        fi
+    done
+    if [[ ! -z $(/sbin/ldconfig -p | grep -o -E "${1}\.so") ]]; then
+        echo true
+        return
+    fi
+    echo false
+}
+
+
+# ============libpath============
+# Description: 
+function libpath()
+{
+    local _path
+    for _libname in $@; do
+        if [[ $(cmdexists pkgconf) == true ]];then
+            pkgconf --exists ${_libname}
+            if [[ $? == 0 ]];then
+                pkgconf --libs ${_libname} 2>/dev/null 
+                _path=$(pkgconf --libs ${_libname} 2>/dev/null | head -1 | grep -o -E "\-L.+\ -")
+                if [[ ! -z ${_path} ]]; then
+                    echo ${_path:2:-2}
+                    return
+                fi
+            fi
+        fi
+        for _path in ${LD_LIBRARY_PATH//:/ }; do
+            if [[ -e ${_path}/${_libname}.so ]]; then
+                echo ${_path}/${_libname}.so
+                return
+            fi
+        done
+        for _path in $(/sbin/ldconfig -p | grep -o -E "=> .+${_libname}\.so" | cut -c4- ); do
+            if [[ -e ${_path} ]]; then
+                echo ${_path}
+                return
+            fi
+        done
+    done
+}
+
+
+# ============libversion============
+# Description: 
+function libversion()
+{
+    local _version=0
+    if [[ $(cmdexists pkgconf) == true ]];then
+        for _libname in $@; do
+            pkgconf --exists ${_libname}
+            if [[ $? == 0 ]];then
+                _version=$(pkgconf --modversion ${_libname} 2>/dev/null | head -1 | grep -o -E "[\.0-9]+[0-9]")
+                if [[ ! -z ${_version} ]]; then
+                    if [[ ${_version} == 0 ]];then
+                        _version=0.x
+                    fi
+                    echo ${_version}
+                    return
+                fi
+            fi
+        done
+    fi
+    for _libname in $@; do
+        local _path=$(libpath ${_libname})
+        if [[ -e ${_path} ]]; then
+            _version=$(readelf -d ${_path} | grep SONAME | grep -o -E "${_libname}\.so[\.0-9]+[0-9]" | grep -o -E "[0-9][\.0-9]*[0-9]?$")
+            if [[ ! -z ${_version} ]]; then
+                if [[ ${_version} == 0 ]];then
+                    _version=0.x
+                fi
+                echo ${_version}
+                return
+            fi
+        fi
+    done
+    echo 0
 }
 
 

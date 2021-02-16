@@ -1,370 +1,237 @@
 # -*- coding: utf-8 -*-
-#
-#   Copyright (C) 2018 European Synchrotron Radiation Facility, Grenoble, France
-#
-#   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
 
 from ..io import spec
 from ..io import nexus
 from ..io import edf
+from ..io import fs
 from ..patch.pint import ureg
-from ..common import instance
-from ..common import units
-from ..common import listtools
+from ..utils import instance
+from ..utils import units
+from ..utils import listtools
+from ..math import linop
 from ..instruments import configuration
-from ..h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks
+from ..process.edfregulargrid import EDFRegularGrid
+from ..process.h5regulargrid import NXRegularGrid
 
 import numpy as np
 import warnings
 import os
-import scipy.interpolate
 import collections
 
-class Coordinates(object):
 
-    def __init__(self,instrument=None,axis0name=None,axis1name=None,transfo0=None,transfo1=None):
-        self.instrument = configuration.factory(instrument)
-        
+class Base(object):
+    def __init__(
+        self, axis0name=None, axis1name=None, linop0=None, linop1=None, **kwargs
+    ):
+        self.instrument = configuration.getinstrument(**kwargs)
         if axis0name is None:
             axis0name = self.instrument.imageaxes[0].upper()
         if axis1name is None:
             axis1name = self.instrument.imageaxes[1].upper()
         self.axis0name = axis0name
         self.axis1name = axis1name
-        if transfo0 is None:
-            transfo0 = lambda x:x
-        if transfo1 is None:
-            transfo1 = lambda x:x
-        self.transfo0 = transfo0
-        self.transfo1 = transfo1
+        if not linop0:
+            linop0 = 1, 0
+        elif instance.isscalar(linop0):
+            linop0 = 1, linop0
+        self.linop0 = linop.LinearOperator(*linop0)
+        if not linop1:
+            linop1 = 1, 0
+        elif instance.isscalar(linop1):
+            linop1 = 1, linop1
+        linop1 = linop.LinearOperator(*linop1)
+        self.linop1 = linop1
 
-    def motorpositions(self,values,motorname):
-        return units.Quantity(values,self.instrument.units[motorname])
+    def motorquantity(self, values, motorname):
+        return units.Quantity(values, self.instrument.units[motorname])
 
 
-class PointCoordinates(Coordinates):
-
+class PointBase(Base):
     def setcoordinates(self):
         coord0 = []
         coord1 = []
         lbls = []
-        for positions,labels in self:
-            p0 = sum(self.motorpositions(x,motname) for motname,x in zip(self.instrument.imagemotors,positions) if self.instrument.imageaxes[0] in motname)
-            p1 = sum(self.motorpositions(x,motname) for motname,x in zip(self.instrument.imagemotors,positions) if self.instrument.imageaxes[1] in motname)
+        for positions, labels in self:
+            p0 = sum(
+                self.motorquantity(x, motname)
+                for motname, x in zip(self.instrument.imagemotors, positions)
+                if self.instrument.imageaxes[0] in motname
+            )
+            p1 = sum(
+                self.motorquantity(x, motname)
+                for motname, x in zip(self.instrument.imagemotors, positions)
+                if self.instrument.imageaxes[1] in motname
+            )
 
             # Append positions and labels
-            coord0.extend(instance.asarray(p0).tolist())
-            coord1.extend(instance.asarray(p1).tolist())
-            lbls.extend(labels)
-
+            coord0 += instance.asarray(p0).tolist()
+            coord1 += instance.asarray(p1).tolist()
+            lbls += labels
         if not coord0:
-            raise RuntimeError("No coordinates found")
-
+            raise RuntimeError("No Base found")
         self._coordinates0 = units.asqarray(coord0)
         self._coordinates1 = units.asqarray(coord1)
-        
         self.labels = lbls
 
     @property
     def coordinates0(self):
-        return self.transfo0(self._coordinates0)
+        return self.linop0(self._coordinates0)
 
     @property
     def coordinates1(self):
-        return self.transfo1(self._coordinates1)
-        
-        
-class ImageCoordinates(Coordinates):
+        return self.linop1(self._coordinates1)
 
-    def __init__(self,labels=None,**kwargs):
-        super(ImageCoordinates,self).__init__(**kwargs)
-        if labels is None:
-            labels = []
-        self.labels = labels
-    
-    def iter_interpolate(self):
-        return iter(self)
-    
-    def setcoordinates(self,axis0values,axis1values,motdim0,motdim1,offsets):
-        # Scan positions
-        axis0values = self.motorpositions(axis0values,motdim0)
-        axis1values = self.motorpositions(axis1values,motdim1)
-        
-        # Scan offsets
-        for mot in self.instrument.compensationmotors[motdim0]:
-            off,func = instance.asarrayf(offsets[mot])
-            off = off.flatten().astype(float)
-            off = func(off)
-            axis0values = axis0values+self.motorpositions(off,mot)
-             
-        for mot in self.instrument.compensationmotors[motdim1]:
-            off,func = instance.asarrayf(offsets[mot])
-            off = off.flatten().astype(float)
-            off = func(off)
-            axis1values = axis1values+self.motorpositions(off,mot)
-        
-        # Make sure that the vertical axis is dim0
-        transpose = self.instrument.imageaxes[0] in motdim1
-        if transpose:
-            axis0values,axis1values = axis1values,axis0values
 
-        self._axis0values = axis0values
-        self._axis1values = axis1values
-        self.transpose = transpose
-        
-        self.axis0f = None
-        self.axis1f = None
-    
+class ImageBase(Base):
+    def __init__(self, grid, items=None, **kwargs):
+        self.instrument = configuration.getinstrument(**kwargs)
+        self.grid = grid
+        self.set_items(items)
+        axis0name, axis1name = [ax.title_nounits for ax in self._grid_image_axes]
+        kwargs["axis0name"] = kwargs.get("kwargs", axis0name)
+        kwargs["axis1name"] = kwargs.get("kwargs", axis1name)
+        kwargs["instrument"] = self.instrument
+        super(ImageBase, self).__init__(**kwargs)
+
+    def set_items(self, items):
+        idxgrid = [slice(None)] * self.grid.ndim
+        stackdim = self.grid.stackdim
+        stackaxis = self.grid.axes[stackdim]
+        suffix = stackaxis.unit_suffix
+        stack_dims = self.grid.stack_dims
+        item_indices = []
+        item_labels = []
+        if items is None:
+            for i, label in enumerate(stackaxis):
+                idxgrid[stackdim] = i
+                item_indices.append(tuple(idxgrid))
+                item_labels.append(str(label) + suffix)
+        else:
+            for item in items:
+                if not instance.isarray(item):
+                    item = (item,)
+                item = item + (-1,) * max(len(stack_dims) - len(item), 0)
+                for i, v in zip(stack_dims, item):
+                    j = self.grid.axes[i].locate(v, detectindex=True)
+                    idxgrid[i] = j
+                    if i == stackdim:
+                        label = self.grid.axes[i][j]
+                        if isinstance(label, fs.Path):
+                            label = label.name
+                item_indices.append(tuple(idxgrid))
+                item_labels.append(str(label) + suffix)
+        self.item_indices = item_indices
+        self.item_labels = item_labels
+
+    @property
+    def _grid_image_axes(self):
+        axes = [self.grid.axes[i] for i in self.grid.other_dims]
+        if self.transpose:
+            return axes[::-1]
+        else:
+            return axes
+
+    @property
+    def transpose(self):
+        ax0name = self.grid.axes[self.grid.other_dims[0]].name
+        if ax0name in self.instrument.imageaxes:
+            return ax0name != self.instrument.imageaxes[0]
+        else:
+            return False
+
     @property
     def axis0values(self):
-        return self.transfo0(self._axis0values)
+        return self.linop0(self._grid_image_axes[0].values)
 
     @property
     def axis1values(self):
-        return self.transfo1(self._axis1values)
+        return self.linop1(self._grid_image_axes[1].values)
 
-    def displaydata(self,index=None):
+    def displaydata(self, index=None):
         """
         Args:
             index(Optional(list)): e.g. [5,None,1]
-            
+
         Returns:
             data(array): e.g. nrow x ncol x 2
             channels: e.g. [0,None,1]
             labels: e.g. ["group5","group1"]
         """
         if index is None:
-            index = range(len(self))
+            it = zip(self.item_labels, self.item_indices)
+            nimages = nout = len(self.item_indices)
         else:
-            index = instance.asarray(index).tolist()
-        nimages = len(index)-index.count(None)
+            it = (
+                (None, None)
+                if i is None
+                else (self.item_labels[i], self.item_indices[i])
+                for i in instance.asarray(index)
+            )
+            nout = len(index)
+            nimages = nout - index.count(None)
 
-        data = None
-        labels = [""]*nimages
-        channels = list(index)
-        
-        iout = -1
-        for j,i in enumerate(index):
-            if i is None:
+        shape = self.grid.shape
+        shape = [shape[i] for i in self.grid.other_dims] + [nimages]
+        data = np.zeros(shape, dtype=self.grid.dtype)
+        labels = [""] * nimages
+        channels = [None] * nout
+        iout = 0
+        for itemidx, (label, idxgrid) in enumerate(it):
+            if label is None:
                 continue
-            else:
-                iout += 1
-            channels[j] = iout
-            
-            image,label = self[iout]
-            
-            try:
-                labels[iout] = self.labels[i]
-            except IndexError:
-                labels[iout] = label
+            labels[iout] = label
+            data[..., iout] = self.grid[idxgrid]
+            channels[itemidx] = iout
+            iout += 1
 
-            if data is None:
-                if nimages==1:
-                    data = image
-                    break
-                else:
-                    data = np.zeros(image.shape+(nimages,),dtype=image.dtype)
-            data[...,iout] = image
-     
         if self.transpose:
-            data = np.swapaxes(data,0,1)
-        
-        return data,channels,labels
+            data = np.swapaxes(data, 0, 1)
+        return data, channels, labels
 
-    def interpolate(self,p0,p1):
-        unit0 = self.axis0values.units
-        unit1 = self.axis1values.units
-
-        if self.axis0f is None:
-            self.axis0f = scipy.interpolate.interp1d(self.axis0values.magnitude,np.arange(len(self.axis0values)),\
-                                                    kind='linear',bounds_error=False,fill_value=np.nan)
-                                                    
-        if self.axis1f is None:
-            self.axis1f = scipy.interpolate.interp1d(self.axis1values.magnitude,np.arange(len(self.axis1values)),\
-                                                    kind='linear',bounds_error=False,fill_value=np.nan)
-                                                    
-        p0 = instance.asarray(units.magnitude(p0,unit0))
-        p1 = instance.asarray(units.magnitude(p1,unit1))
+    def interpolate(self, p0, p1):
+        ind = list(range(len(p0)))
+        data = self.grid.interpolate(None, p0, p1, asgrid=True, degree=1)
+        data = data[:, ind, ind]
         result = collections.OrderedDict()
-
-        x0 = self.axis0f(p0)
-        x1 = self.axis1f(p1)
-        indvalid = np.isfinite(x0) & np.isfinite(x1)
-        x0v = np.round(x0[indvalid]).astype(np.int)
-        x1v = np.round(x1[indvalid]).astype(np.int)
-
-        values = None
-        for data,label in self.iter_interpolate():
-            values = np.full(x0.size,np.nan)
-            values[indvalid] = data[x0v,x1v]
+        for label, values in zip(self.grid.axes[0].values, data):
             result[label] = values
-        
         return result
-        
 
-class ZapRoiMap(ImageCoordinates):
 
-    def __init__(self,filenames,**kwargs):
+class EDFStack(ImageBase):
+    def __init__(self, filenames, items, **kwargs):
         """
         Args:
             filename(str|list(str)): list of edf file names
+            items(list(str))
         """
-        super(ZapRoiMap,self).__init__(**kwargs)
-        
         if instance.isstring(filenames):
             filenames = [filenames]
-        self.filenames = filenames
-        self.setmotorinfo()
-
-    def __len__(self):
-        return len(self.filenames)
-    
-    def __getitem__(self,index):
-        filename = self.filenames[index]
-        label = os.path.splitext(os.path.basename(filename))[0]
-        f = edf.edfimage(filename)
-        return f.data,label
-            
-    def setmotorinfo(self):
-        # Parse edf header
-        o = spec.cmd_parser()
-        f = edf.edfimage(self.filenames[0])
-        header = f.header
-        cmd = header[self.instrument.edfheaderkeys["speclabel"]]
-        result = o.parsezapimage(cmd)
-
-        # Extract axes
-        if result["name"]!='zapimage':
-            raise RuntimeError("Cannot extract zapimage information from \"{}\"".format(cmd))
-        axis0values = spec.zapline_values(result["startfast"],result["endfast"],result["npixelsfast"])
-        axis1values = spec.ascan_values(result["startslow"],result["endslow"],result["nstepsslow"])
-
-        # Store coordinates
-        self.setcoordinates(axis0values,axis1values,result["motfast"],result["motslow"],header)
-        
-        # Image saved: slow x fast
-        self.transpose = not self.transpose
+        grid = EDFRegularGrid(filenames, instrument=kwargs.get("instrument", None))
+        super(EDFStack, self).__init__(grid, items=items, **kwargs)
 
 
-class Nexus(ImageCoordinates):
-
-    def __init__(self,filename,groups,defaultstackindex=None,**kwargs):
+class NexusStack(ImageBase):
+    def __init__(self, nxgroup, items, **kwargs):
         """
         Args:
-            filename(str): h5 file name
-            groups(list(dict)): {"path":str,"ind":int}
-            defaultstackindex(Optional(int)): 
+            nxgroup(nxfs.Path): NXdata or NXprocess
+            items(list(str))
         """
-        super(Nexus,self).__init__(**kwargs)
-        self.filename = filename
-        if not instance.isarray(groups):
-            groups = [groups]
-        self.groups = groups
-        if defaultstackindex is None:
-            defaultstackindex = -1
-        self.defaultstackindex = defaultstackindex
-        self.setmotorinfo()
-    
-    def __len__(self):
-        return len(self.groups)
+        grid = NXRegularGrid(nxgroup)
+        super(NexusStack, self).__init__(grid, items=items, **kwargs)
 
-    def __getitem__(self,index):
-        with nexus.File(self.filename,mode="r") as oh5:
-            group = self.groups[index]
-            label = group["path"].split("/")[-1]
-            if group.get("ind",None) is None:
-                group["ind"] = self.defaultstackindex
-            try:
-                data,axes,axesnames = nexus.parse_NXdata(oh5[group["path"]])
-            except KeyError:
-                raise KeyError("{} not in {}".format(group["path"],self.filename))
-            stackindex = self.stackindex(axesnames)
-            if stackindex==0:
-                data = data[group["ind"],...]
-            elif stackindex==1:
-                data = data[:,group["ind"],:]
-            else:
-                data = data[...,group["ind"]]
-    
-        return data,label
-        
-    def iter_interpolate(self):
-        stacks,axes,procinfo = get_hdf5_imagestacks(self.filename,self.instrument.h5stackgroups)
-        stackindex = self.stackindex([k["name"] for k in axes])
-        
-        with nexus.File(self.filename,mode="r") as oh5:
-            for k1 in stacks:
-                for k2 in stacks[k1]:
-                    data,axes,axesnames = nexus.parse_NXdata(oh5[stacks[k1][k2]])
-                    n = data.shape[stackindex]
-                    for i in range(n):
-                        if n>1:
-                            label = "{} ({})".format(k2,axes[stackindex][i])
-                        else:
-                            label = k2
-                        if stackindex==0:
-                            yield data[i,...],label
-                        elif stackindex==1:
-                            yield data[:,i,:],label
-                        else:
-                            yield data[...,i],label
-                
-    def stackindex(self,axesnames):
-        stackindex = [name for name in axesnames if name not in self.instrument.units]
-        if len(stackindex)!=1:
-            raise RuntimeError("Could not determine the stack index: {}".format(axesnames))
-        return axesnames.index(stackindex[0])
 
-    def setmotorinfo(self):
-        with nexus.File(self.filename,mode="r") as oh5:
-            # Get motor info from hdf5
-            try:
-                ocoord = oh5["stackinfo"]
-            except KeyError:
-                warnings.warn("\"coordinates\" is deprecated and should be replaced by \"stackinfo\"", DeprecationWarning) 
-                ocoord = oh5["coordinates"]
-            _,axes,axesnames = nexus.parse_NXdata(oh5[self.groups[0]["path"]])
-            
-            # Get scanning axes
-            b = [name in self.instrument.units for name in axesnames]
-            if sum(b)!=2:
-                raise RuntimeError("Expected exactly two scanning dimensions: {}".format(axesnames))
-            axes = listtools.listadvanced_bool(axes,b)
-            axesnames = listtools.listadvanced_bool(axesnames,b)
-
-            # Store coordinates
-            self.setcoordinates(axes[0][:],axes[1][:],axesnames[0],axesnames[1],ocoord)
-        
-        
-class XanesSpec(PointCoordinates):
-
-    def __init__(self,filenames,specnumbers,labels=None,**kwargs):
+class XanesSpec(PointBase):
+    def __init__(self, filenames, specnumbers, labels=None, **kwargs):
         """
         Args:
             filenames(str|list(str)): list of spec file names
             specnumbers(list|list(list)): empty list of numbers => all xanes spectra
             labels(Optional(list|list(list))): uses the spec numbers by default
         """
-        super(XanesSpec,self).__init__(**kwargs)
-        
+        super(XanesSpec, self).__init__(**kwargs)
+
         if instance.isstring(filenames):
             filenames = [filenames]
         self.filenames = filenames
@@ -386,20 +253,22 @@ class XanesSpec(PointCoordinates):
         return lst
 
     def __iter__(self):
-        for filename,numbers,labels in zip(self.filenames,self.specnumbers,self.speclabels):
+        for filename, numbers, labels in zip(
+            self.filenames, self.specnumbers, self.speclabels
+        ):
             # Get motor positions for each number
             f = spec.spec(filename)
             if not numbers:
-                numbers = f.extractxanesginfo(keepsum=True,sumingroups=False,keepindividual=False)
-                numbers = [k[0] for k in numbers if len(k)==1]
+                numbers = f.extractxanesginfo(
+                    keepsum=True, sumingroups=False, keepindividual=False
+                )
+                numbers = [k[0] for k in numbers if len(k) == 1]
                 lbls = []
             if not numbers:
                 continue
-
-            positions = zip(*[f.getmotorvalues(nr,self.instrument.imagemotors) for nr in numbers])
-
+            positions = zip(
+                *[f.getmotorvalues(nr, self.instrument.imagemotors) for nr in numbers]
+            )
             if not labels:
                 labels = numbers
-
-            yield positions,labels
-        
+            yield positions, labels

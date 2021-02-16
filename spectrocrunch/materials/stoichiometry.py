@@ -1,33 +1,6 @@
 # -*- coding: utf-8 -*-
-#
-#   Copyright (C) 2015 European Synchrotron Radiation Facility, Grenoble, France
-#
-#   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-
-import xraylib
-import fdmnes
 
 import numpy as np
-import os
-import tempfile
 
 # compounds in mixture:
 #
@@ -62,101 +35,115 @@ import tempfile
 #  linear attenuation coefficient of a mixture
 #  muL = rho(V) * mu = total(wi*mui) / total(wj/rhoj(Vj))
 #                    = total(rhoi(V)*mui)
-#  
+#
 #  Molar mass of a compound
 #  MM = M/n = total(mi)/total(mi/MMi) = total(wi)/total(wi/MMi) = 1/total(wi/MMi)
 #
 
-def frac_mole_to_weight(nfrac,MM):
+
+def frac_mole_to_weight(nfrac, MM):
     """
     Args:
         nfrac(np.array): mole fraction of each compound
         MM(np.array): molar mass of each compound
     """
-    return(nfrac*MM/(nfrac*MM).sum())
+    return nfrac * MM / (nfrac * MM).sum()
 
-def frac_weight_to_mole(wfrac,MM):
+
+def frac_weight_to_mole(wfrac, MM):
     """
     Args:
         wfrac(np.array): weight fraction of each compound
         MM(np.array): molar mass of each compound
     """
-    return(wfrac/(MM * (wfrac/MM).sum()))
+    return wfrac / (MM * (wfrac / MM).sum())
 
-def molarmass_from_wfrac(wfrac,MM):
+
+def molarmass_from_wfrac(wfrac, MM):
     """
     Args:
         wfrac(np.array): weight fraction of each compound
         MM(np.array): molar mass of each compound
     """
-    return(1/((wfrac/MM).sum()))
+    return 1 / ((wfrac / MM).sum())
 
-def frac_weight_to_volume(wfrac,rho):
+
+def frac_weight_to_volume(wfrac, rho):
     """
     Args:
         wfrac(np.array): weight fraction of each compound
         rho(np.array): density of each compound
     """
-    return(wfrac/(rho * (wfrac/rho).sum()))
+    return wfrac / (rho * (wfrac / rho).sum())
 
-def frac_volume_to_weight(vfrac,rho):
+
+def frac_volume_to_weight(vfrac, rho):
     """
     Args:
         vfrac(np.array): volume fraction of each compound
         rho(np.array): density of each compound
     """
-    return(vfrac*rho / (vfrac*rho).sum())
+    return vfrac * rho / (vfrac * rho).sum()
 
-def frac_volume_to_mole(vfrac,rho,MM):
+
+def frac_volume_to_mole(vfrac, rho, MM):
     """
     Args:
         vfrac(np.array): volume fraction of each compound
         rho(np.array): density of each compound
         MM(np.array): molar mass of each compound
     """
-    return(vfrac*rho/(MM * (vfrac*rho/MM).sum()))
+    return vfrac * rho / (MM * (vfrac * rho / MM).sum())
 
-def frac_mole_to_volume(nfrac,rho,MM):
-    """
-    Args:
-        nfrac(np.array): mole fraction of each compound
-        rho(np.array): density of each compound
-        MM(np.array): molar mass of each compound
-    """
-    return(nfrac*MM/(rho * (nfrac*MM/rho).sum()))
 
-def density_from_volumefrac(vfrac,rho):
-    """
-    Args:
-        vfrac(np.array): volume fraction of each compound
-        rho(np.array): density of each compound
-    """
-    return((vfrac*rho).sum())
-
-def density_from_massfrac(wfrac,rho):
-    """
-    Args:
-        wfrac(np.array): weight fraction of each compound
-        rho(np.array): density of each compound
-    """
-    return(1/(wfrac/rho).sum())
-
-def density_from_molefrac(nfrac,rho,MM):
+def frac_mole_to_volume(nfrac, rho, MM):
     """
     Args:
         nfrac(np.array): mole fraction of each compound
         rho(np.array): density of each compound
         MM(np.array): molar mass of each compound
     """
-    return((nfrac*MM).sum()/(nfrac*MM/rho).sum())
+    return nfrac * MM / (rho * (nfrac * MM / rho).sum())
 
-def add_frac(xfrac,afrac):
+
+def density_from_volumefrac(vfrac, rho):
     """
     Args:
-        xfrac(np.array): fraction of each compound
-        afrac(np.array): fraction of the new compound
+        vfrac(np.array): volume fraction of each compound
+        rho(np.array): density of each compound
     """
-    s = sum(afrac)
-    return np.append(xfrac*(1-s),afrac)
+    return (vfrac * rho).sum()
 
 
+def density_from_massfrac(wfrac, rho):
+    """
+    Args:
+        wfrac(np.array): weight fraction of each compound
+        rho(np.array): density of each compound
+    """
+    return 1 / (wfrac / rho).sum()
+
+
+def density_from_molefrac(nfrac, rho, MM):
+    """
+    Args:
+        nfrac(np.array): mole fraction of each compound
+        rho(np.array): density of each compound
+        MM(np.array): molar mass of each compound
+    """
+    return (nfrac * MM).sum() / (nfrac * MM / rho).sum()
+
+
+def add_frac(x, newfracs):
+    """
+    Preserves the sum of `x`
+
+    Args:
+        x(np.array): amount of each compound
+        newfracs(np.array): fractions of the new compounds
+    """
+    nsum = sum(newfracs)
+    if nsum > 1:
+        raise ValueError("Sum of new fractions must be less than 1")
+    xsum = sum(x)
+    return np.append(x * max(1 - nsum, 0), newfracs * xsum)

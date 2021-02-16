@@ -1,27 +1,4 @@
 # -*- coding: utf-8 -*-
-#
-#   Copyright (C) 2016 European Synchrotron Radiation Facility, Grenoble, France
-#
-#   Principal author:   Wout De Nolf (wout.de_nolf@esrf.eu)
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-
 
 execfile("initcctbx.py")
 
@@ -29,12 +6,11 @@ execfile("initcctbx.py")
 
 import iotbx.cif
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
-    ciffile = '/data/id21/inhouse/wout/dev/SpectroCrunch/spectrocrunch/resources/cif/calcite.cif'
+    ciffile = "/data/id21/inhouse/wout/dev/SpectroCrunch/spectrocrunch/resources/cif/calcite.cif"
     struct = iotbx.cif.reader(file_path=ciffile).build_crystal_structures().values()[0]
     scat = struct.scatterers()
     for s in scat:
-        print(s.occupancy*s.multiplicity())
+        print(s.occupancy * s.multiplicity())
         print(s.scattering_type)
-
