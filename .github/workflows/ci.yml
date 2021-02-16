@@ -54,12 +54,12 @@ jobs:
           sudo apt-get install libegl1-mesa ocl-icd-opencl-dev libgl1-mesa-glx xserver-xorg-video-dummy libxkbcommon-x11-0 libxkbcommon0 libxkbcommon-dev libxcb-icccm4 libxcb-image0 libxcb-shm0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-render0 libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1 libxcb1
 
       - name: Install dependencies
-        if: runner.os != 'Windows'
-        run: source tools/linux-install-deps.sh -u -x -t    
-
-      - name: Install dependencies
-        if: runner.os == 'Windows'
-        run: powershell tools\windows-install-deps.ps1 -y -u -s
+        run: |
+          if [ ${{ runner.os }} == 'Linux' ]; then
+            powershell tools\\windows-install-deps.ps1 -y -u -s
+          else
+            source tools/linux-install-deps.sh -u -x -t
+          fi
 
       - name: Print python info used for build
         run: |
@@ -72,10 +72,10 @@ jobs:
           ls dist
 
       - name: Pre-install dependencies
-        run: pip install --pre -r requirements.txt
+        run: python -m pip install --pre -r requirements.txt
 
       - name: Install package
-        run: pip install --pre --find-links dist/ spectrocrunch
+        run: python -m pip install --pre --find-links dist/ spectrocrunch
 
       - name: Print python info used for tests
         run: |

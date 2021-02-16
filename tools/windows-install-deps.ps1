@@ -48,6 +48,7 @@ function show_help()
         -u              Install for user only.
         -x              Dev install.
         -t              Do not modify bashrc.
+        -s              Skip libraries that take long to compile.
 
         For Example: ./windows-install-deps.sh -v 3 -d
 
