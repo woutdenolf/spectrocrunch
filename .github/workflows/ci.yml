@@ -50,7 +50,7 @@ jobs:
       - name: Install dependencies
         run: |
           if [ ${{ runner.os }} == 'Windows' ]; then
-            powershell tools\\windows-install-deps.ps1 -y -t -s
+            call tools\\windows-install-deps.bat -y -t -s
           else
             source tools/linux-install-deps.sh -y -t -s
           fi
