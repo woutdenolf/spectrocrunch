@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  # Triggers the workflow on push only for the master branch or pull request events
+  push:
+    branches: [ master ]
+  pull_request:
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    name: "Python ${{ matrix.python-version }} on ${{ matrix.os }} ${{ matrix.name-suffix }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - name-suffix: "Linux"
+            os: ubuntu-20.04
+            python-version: 3.6
+            BUILD_COMMAND: sdist
+          - name-suffix: "Mac"
+            os: macos-latest
+            python-version: 3.8
+            BUILD_COMMAND: bdist_wheel
+          - name-suffix: "Windows"
+            os: windows-latest
+            python-version: 3.9
+            BUILD_COMMAND: bdist_wheel
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      # Runs a single command using the runners shell
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install X server
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install libegl1-mesa ocl-icd-opencl-dev libgl1-mesa-glx xserver-xorg-video-dummy libxkbcommon-x11-0 libxkbcommon0 libxkbcommon-dev libxcb-icccm4 libxcb-image0 libxcb-shm0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-render0 libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1 libxcb1
+
+      - name: Install dependencies
+        if: runner.os != 'Windows'
+        run: source tools/linux-install-deps.sh -u -x -t    
+
+      - name: Install dependencies
+        if: runner.os == 'Windows'
+        run: & "tools\windows-install-deps.ps1" -y -u -s
+
+      - name: Print python info used for build
+        run: |
+          python ci/info_platform.py
+          python -m pip list
+
+      - name: Generate source package or wheel
+        run: |
+          python setup.py ${{ matrix.BUILD_COMMAND }}
+          ls dist
+
+      - name: Pre-install dependencies
+        run: pip install --pre -r requirements.txt
+
+      - name: Install package
+        run: pip install --pre --find-links dist/ spectrocrunch
+
+      - name: Print python info used for tests
+        run: |
+          python ci/info_platform.py
+          python -m pip list
+
+      - name: Run X server
+        if: runner.os == 'Linux'
+        run: |
+          export DISPLAY=:99.0
+          Xorg -noreset +extension GLX +extension RANDR +extension RENDER -logfile ./99.log -config ./ci/travis-xorg.conf :99 &
+          sleep 3
+
+      - name: Run the tests
+        run: python setup.py test
