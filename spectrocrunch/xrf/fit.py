@@ -131,9 +131,11 @@ def AdaptPyMcaConfig_energy(cfg, energy, addhigh):
         cfg["attenuators"]["Matrix"][3] = 0.0  # thickness in cm
 
 
-def AdaptPyMcaConfig_mlines(cfg):
+def AdaptPyMcaConfig_mlines(cfg, mlines):
+
     # Split M-lines
     # /usr/local/lib/python2.7/dist-packages/PyMca5/PyMcaPhysics/xrf/Elements.py
+    # /users/opid21/.local/lib/python2.7/site-packages/PyMca5/PyMcaPhysics/xrf/Elements.py
     #
     # You need an adapted pymca version: Elements
     # ElementShellTransitions = [KShell.ElementKShellTransitions,
@@ -260,7 +262,7 @@ def AdaptPyMcaConfig(cfg, energy, addhigh=0, mlines=None, quant=None, fast=False
     """
     AdaptPyMcaConfig_energy(cfg, energy, addhigh)
     if mlines:
-        AdaptPyMcaConfig_mlines(cfg)
+        AdaptPyMcaConfig_mlines(cfg, mlines)
     if quant and isinstance(quant, dict):
         AdaptPyMcaConfig_quant(cfg, quant)
     if fast:

@@ -630,14 +630,25 @@ class Image(Item):
 
     @property
     def vminmax(self):
+        ptrim = max(min(self.get_setting("ptrim"), 1), 0) * 100
         img = self.data
         if self.data.ndim == 3:
             nchannels = self.data.shape[-1]
-            vmin = np.asarray([np.nanmin(img[..., i]) for i in range(nchannels)])
-            vmax = np.asarray([np.nanmax(img[..., i]) for i in range(nchannels)])
+            vmin = np.asarray(
+                [
+                    np.nanpercentile(img[..., i], ptrim, interpolation="nearest")
+                    for i in range(nchannels)
+                ]
+            )
+            vmax = np.asarray(
+                [
+                    np.nanpercentile(img[..., i], 100 - ptrim, interpolation="nearest")
+                    for i in range(nchannels)
+                ]
+            )
         else:
-            vmin = np.nanmin(img)
-            vmax = np.nanmax(img)
+            vmin = np.nanpercentile(img, ptrim, interpolation="nearest")
+            vmax = np.nanpercentile(img, 100 - ptrim, interpolation="nearest")
         return vmin, vmax
 
     def scale(self, vmin=None, vmax=None):
@@ -659,7 +670,8 @@ class Image(Item):
                 p = p[0]
         return p, v
 
-    def selfscale(self, pmin=0, pmax=1):
+    def selfscale(self, pmin=0, pmax=1, ptrim=0):
+        self.set_setting("ptrim", ptrim)
         vmin, vmax = self.vminmax
         d = vmax - vmin
         pmin, vmin = self._pminmaxparse(pmin, vmin)
@@ -680,21 +692,21 @@ class Image(Item):
             "alpha": 1,
             "vmin": None,
             "vmax": None,
+            "ptrim": 0.0,
             "cnorm": None,
             "cnormargs": (),
+            "datafunc": None,
             "legend": False,
             "legend_position": "RT",
             "legend_spacing": 2.0,
-            "legend_labels": True,
             "scalebar": False,
             "scalebar_position": "lower right",
             "scalebar_ratio": 1 / 5.0,
-            "scalebar_fraction": 0.1,  # fraction of display
-            "scalebar_pad": 0.1,  # fraction of font size
-            "scalebar_labelsep": 2,  # points
+            "scalebar_fraction": 0.1,
+            "scalebar_pad": 0.1,
+            "scalebar_labelpad": 2,
             "scalebar_color": "#ffffff",
             "scalebar_size": 0.0,
-            "scalebar_unit": None,
             "fontsize": matplotlib.rcParams["font.size"],
             "fontweight": 500,
             "channels": None,
@@ -914,8 +926,7 @@ class Image(Item):
             pad=settings["scalebar_pad"],
             color=settings["scalebar_color"],
             size=settings["scalebar_size"],
-            unit=settings["scalebar_unit"],
-            sep=settings["scalebar_labelsep"],
+            sep=settings["scalebar_labelpad"],
         )
 
         self.refreshscene(newitems)
@@ -936,10 +947,6 @@ class Image(Item):
         visible = settings["legend"]
 
         legend = []
-        if settings["title"]:
-            legend.append(settings["title"])
-        if settings["legend_labels"]:
-            legend += self.labels
 
         if settings["colorbar"]:
             # TODO: update existing color bar?
@@ -951,7 +958,7 @@ class Image(Item):
                 # else:
                 #    newitems.update(colorbar_rgb.bars(vmin=vmin,vmax=vmax,names=legend,norms=normcb,ax=scene.ax))
                 #    legend = []
-
+                legend = self.labels
                 for i, (name, mi, ma) in enumerate(zip(legend, vmin, vmax)):
                     if name is not None:
                         if ma > 0.01:
@@ -990,6 +997,7 @@ class Image(Item):
 
         if settings["title"]:
             colors = [settings["color"]] + colors
+            legend = [settings["title"]] + legend
 
         return legend, colors, visible
 
@@ -1005,8 +1013,9 @@ class Image(Item):
         astext=False,
         withpatch=False,
     ):
-        if not labels or not visible:
+        if not labels:
             return
+        astext = len(labels) == 1
 
         if astext:
             (
@@ -1067,7 +1076,7 @@ class Image(Item):
             if withpatch:
                 legend = plt.legend(
                     handles=patches,
-                    loc=2,
+                    loc="upper left",
                     frameon=False,
                     borderaxespad=0,
                     bbox_to_anchor=bbox_to_anchor,
@@ -1076,7 +1085,7 @@ class Image(Item):
                 legend = plt.legend(
                     handles=patches,
                     labels=labels2,
-                    loc=2,
+                    loc="upper left",
                     frameon=False,
                     borderaxespad=0,
                     bbox_to_anchor=bbox_to_anchor,
@@ -1102,7 +1111,6 @@ class Image(Item):
         sep=2,
         color="#ffffff",
         size=0,
-        unit=None,
     ):
         if not visible:
             return
@@ -1124,28 +1132,27 @@ class Image(Item):
         xsize = xsize.to(unit)
         mxsize = xsize.magnitude
         if mxsize == int(mxsize):
-            xsize = units.Quantity(int(mxsize), unit)
-        label = "{:~}".format(xsize)
+            mxsize = int(mxsize)
+            xsize = units.Quantity(mxsize, xsize.units)
 
-        # Scalebar vertical size
-        sy = scene.ymagnitude(self.displaylimy)
-        sy = units.Quantity(abs(sy[1] - sy[0]), scene.yunit)
+        # Scalebar vertical size in axis units
+        ys = scene.ymagnitude(self.displaylimy)
+        ys = abs(ys[1] - ys[0])
         yfrac = ratio * xfrac
-        ysize = sy * yfrac
+        mysize = ys * yfrac
 
         # TODO: handle zoom
-        mxsize = xsize.to(scene.xunit).magnitude
-        mysize = ysize.to(scene.yunit).magnitude
+
         scalebar = AnchoredSizeBar(
             scene.ax.transData,
             mxsize,
-            label,
+            "{:~}".format(xsize),
             position,
             pad=pad,
             color=color,
+            sep=sep,
             fill_bar=True,
             frameon=False,
-            sep=sep,
             size_vertical=mysize,
         )
 
@@ -1194,11 +1201,14 @@ class Scatter(Item):
             "alpha": None,
             "closed": False,
             "labels": True,
+            "skiplabels": [],
             "horizontalalignment": "left",
             "verticalalignment": "bottom",
             "fontsize": matplotlib.rcParams["font.size"],
             "labeloffset": 0.1,
             "fontweight": 500,
+            "mew": 0.5,
+            "ms": 6,
         }
 
     def updateview(self):
@@ -1234,7 +1244,15 @@ class Scatter(Item):
         if settings["linestyle"] or settings["marker"]:
             kwargs = {
                 k: settings[k]
-                for k in ["marker", "linestyle", "alpha", "color", "linewidth"]
+                for k in [
+                    "marker",
+                    "linestyle",
+                    "alpha",
+                    "color",
+                    "linewidth",
+                    "mew",
+                    "ms",
+                ]
             }
 
             if settings["closed"] and settings["linestyle"]:
@@ -1272,6 +1290,8 @@ class Scatter(Item):
             }
 
             for i, (xi, yi, label) in enumerate(zip(x, y, self.labels)):
+                if label in settings["skiplabels"]:
+                    label = ""
                 name = "label{}".format(i)
                 if name in items:
                     newitems[name] = items[name]

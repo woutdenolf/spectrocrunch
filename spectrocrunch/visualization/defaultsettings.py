@@ -44,7 +44,7 @@ def figsize(publish="screen", aspect=0.75, nsidebyside=1, space=0.0, widescreen=
     return width, width * aspect
 
 
-def adapttofigsize(size, fontsize=None, **kwargs):
+def adapttofigsize(size, fontsize=None, fontsizepts=10, **kwargs):
     """
     Args:
         size(2-tuple): inch
@@ -54,8 +54,9 @@ def adapttofigsize(size, fontsize=None, **kwargs):
         # 1 inch = 72 points
         fontsize = fontsize * 72
     else:
-        fontsize = min(size) * 10 / 4.8
+        fontsize = min(size) * fontsizepts / 4.8
     linewidth = fontsize * 0.08
+
     wtick = linewidth
     cwtick = 0.75
     stick = linewidth * 4.375

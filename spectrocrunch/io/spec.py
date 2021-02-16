@@ -1109,7 +1109,8 @@ class spec(SpecFileDataSource.SpecFileDataSource):
                 else:
                     bproc[i1] = False
 
-                ret += [add]
+                if add:
+                    ret += [add]
 
         # Add each scan as an individual group
         for i in range(len(data)):
