@@ -59,7 +59,7 @@ jobs:
 
       - name: Install dependencies
         if: runner.os == 'Windows'
-        run: & "tools\windows-install-deps.ps1" -y -u -s
+        run: powershell tools\windows-install-deps.ps1 -y -u -s
 
       - name: Print python info used for build
         run: |
