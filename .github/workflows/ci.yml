@@ -52,13 +52,22 @@ jobs:
           if [ ${{ runner.os }} == 'Windows' ]; then
             call tools\\windows-install-deps.bat -y -t -s -u
           else
-            set +e
+            set +e  # subprocesses that return >0 should not stop the script
             source tools/linux-install-deps.sh -y -t -s -u
+              cprint "AAAAAAAAAAAAAAAA"
+              pip_bin
+              pip_bin list
+              python -m pip list
+              cprint "AAAAAAAAAAAAAAAA"
           fi
 
       - name: Print python info
         run: |
-          type python
+          cprint "AAAAAAAAAAAAAAAA"
+          pip_bin
+          pip_bin list
+          python -m pip list
+          cprint "AAAAAAAAAAAAAAAA"
           python -m pip list
           python ci/info_platform.py
 

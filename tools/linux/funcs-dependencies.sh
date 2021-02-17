@@ -20,12 +20,8 @@ function install_system_dependencies()
     cprintstart "Installing system requirements"
     if [[ $(dryrun) == false ]]; then
         require_web_access
-        pip_install numpy # silx
-        type python
-        python -c "import numpy"
-        echo $(python_bin)
-        python_get "import numpy"
         pip_install cython # xraylib
+        pip_install numpy # silx
         mapt-get install libhdf5-serial-dev libhdf5-dev # h5py
         mapt-get install $(python_apt)-tk # matplotlib
         require_pyopencl # silx
