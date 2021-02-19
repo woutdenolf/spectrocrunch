@@ -92,8 +92,8 @@ class XrfMapGenerator(object):
         self._quantparams = quantparams = {}
         quantparams["referenceflux"] = geometry.reference
         quantparams["referencetime"] = geometry.defaultexpotime
-        quantparams["diodeI0gain"] = geometry.diodeI0.gain
-        quantparams["diodeItgain"] = geometry.diodeI0.gain
+        quantparams["gaindiodeI0"] = geometry.diodeI0.gain
+        quantparams["gaindiodeIt"] = geometry.diodeI0.gain
         return geometry
 
     def _generate_spectra(self, path, radix):

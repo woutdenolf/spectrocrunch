@@ -10,8 +10,8 @@ class Task(basetask.Task):
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
         self.optional_parameters |= {
-            "diodeI0gain",
-            "diodeItgain",
+            "gaindiodeI0",
+            "gaindiodeIt",
             "xrf_positions",
             "referenceflux",
             "referencetime",
@@ -28,8 +28,10 @@ class Task(basetask.Task):
             nxprocess = self.find_dependency(method="xrfgeometry")
             if nxprocess:
                 geometry = nxprocess.results["geometry"].read(parse=True)
-                geometry.diodeI0.gain = self._qxrf_parameter("diodeI0gain")
-                geometry.diodeIt.gain = self._qxrf_parameter("diodeItgain")
+                # Change the geometry to match particular source,
+                # detector and sample conditions
+                geometry.diodeI0.gain = self._qxrf_parameter("gaindiodeI0")
+                geometry.diodeIt.gain = self._qxrf_parameter("gaindiodeIt")
                 geometry.xrf_positions = self._qxrf_parameter("xrf_positions")
                 value = self._qxrf_parameter("referenceflux", optional=True)
                 if value is not None:

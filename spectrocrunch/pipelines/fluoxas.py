@@ -104,9 +104,9 @@ def xrfparameters(parameters, instrument, include_encoders=True, quant=False):
     ensure_list(parameters, "include_detectors")
     ensure_list(parameters, "samplecovers")
     ensure_list(parameters, "transmissionfilters")
-    if quant:
-        require_parameter(parameters, "diodeI0gain")
-        require_parameter(parameters, "diodeItgain")
+    if quant and False:
+        require_parameter(parameters, "gaindiodeI0")
+        require_parameter(parameters, "gaindiodeIt")
         require_list(parameters, "xrf_positions")
 
 
