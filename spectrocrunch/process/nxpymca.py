@@ -53,11 +53,16 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
             "fastfitting",
             "exclude_detectors",
             "include_detectors",
+        }
+
+        self.optional_parameters |= {
+            "quantification",
             "stackdim",
         }
 
         parameters = self.parameters
         parameters["stackdim"] = parameters.get("stackdim", self.DEFAULT_STACKDIM)
+        parameters["quantification"] = parameters.get("quantification", None)
 
         edfheader = parameters["edfheader"]
         edffields = (
@@ -649,7 +654,7 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
                     for i in range(self.ndetfit)
                 ]
             else:
-                quantlist = [{}] * self.ndetfit
+                quantlist = [self.parameters["quantification"]] * self.ndetfit
 
             filestofit = xiaimage.datafilenames_used()
             filestofit = xiaedf.xiagroupdetectors(filestofit)
