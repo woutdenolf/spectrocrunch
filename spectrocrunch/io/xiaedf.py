@@ -1947,7 +1947,16 @@ class xialine(xiadata):
         if n == 0:
             return ()
         else:
-            s = self._getedfimage(files[0], cache=True).shape
+            exception = None
+            for filename in files:
+                try:
+                    s = self._getedfimage(filename, cache=True).shape
+                    break
+                except Exception as e:
+                    exception = e
+            else:
+                if exception:
+                    raise exception
             return s + (n,)
 
     @property

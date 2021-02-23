@@ -35,8 +35,10 @@ class edfimage:
     """Access edf data with fabio"""
 
     def __init__(self, filename, mode="r"):
-        # self.f = fabio.edfimage.EdfImage(filename)
-        self.f = fabio.open(filename)
+        try:
+            self.f = fabio.open(filename)
+        except Exception as e:
+            raise OSError("Fabio cannot open file " + repr(filename)) from e
         self.ndim = 2
 
     @property
