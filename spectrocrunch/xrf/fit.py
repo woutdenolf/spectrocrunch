@@ -205,7 +205,7 @@ def AdaptPyMcaConfig_fast(cfg):
     elif cfg["fit"]["strategyflag"]:
         cfg["fit"]["strategyflag"] = 0
 
-    cfg["fit"]["fitweight"] = 0  # Bug in pymca?
+    cfg["fit"]["fitweight"] = 0
 
 
 def AdaptPyMcaConfig_forcebatch(cfg):
@@ -617,6 +617,7 @@ def PerformBatchFitNew(
                 "configuration": cfg,
                 "concentrations": bconcentrations,
                 "refit": 1,
+                "weight": None, # None -> from cfg file
                 "outbuffer": outbuffer,
             }
         else:

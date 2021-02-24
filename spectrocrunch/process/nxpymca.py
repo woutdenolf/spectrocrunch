@@ -58,11 +58,13 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
         self.optional_parameters |= {
             "quantification",
             "stackdim",
+            "ignore_energy"  # Do not use the energy for fitting (use the one from pymca)
         }
 
         parameters = self.parameters
         parameters["stackdim"] = parameters.get("stackdim", self.DEFAULT_STACKDIM)
         parameters["quantification"] = parameters.get("quantification", None)
+        parameters["ignore_energy"] = parameters.get("ignore_energy", False)
 
         edfheader = parameters["edfheader"]
         edffields = (
@@ -348,6 +350,21 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
         self.xiastackraw.include_detectors = list(
             listtools.flatten(self.parameters["include_detectors"])
         )
+        msg = "Corrections before XRF fitting:"
+        if self.fluxnormbefore:
+            msg += " flux normalization"
+        if self.dtcorbefore:
+            if not msg.endswith(":"):
+                msg += ","
+            msg += " deadtime correction"
+        if self.addspectra:
+            if not msg.endswith(":"):
+                msg += ","
+            msg += " add detectors"
+        if msg.endswith(":"):
+            msg += " none (fit raw XRF spectra)"
+        logger.info(msg)
+
         if self.dtcorbefore or self.addspectra or self.fluxnormbefore:
             label = ""
             if self.dtcorbefore:
@@ -398,9 +415,6 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
             else:
                 logger.info("Corrected XRF spectra already exist")
         else:
-            logger.info(
-                "Corrections (if any) are applied afterwards: process raw XRF spectra"
-            )
             self.xiastackproc = self.xiastackraw
 
     def _stack_add_counters(self):
@@ -660,7 +674,7 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
             filestofit = xiaedf.xiagroupdetectors(filestofit)
             filestofit = {nxresult.Group(k): v for k, v in filestofit.items()}
             for detector, cfg, quant in zip(self._detectors_to_fit, cfglist, quantlist):
-                logger.info("Pymca fit 'detector{}' ...".format(detector))
+                logger.info("Pymca fit of {} ...".format(detector))
 
                 # Fit
                 outname = "{}_{}_{:04d}_0000".format(
@@ -668,7 +682,9 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
                 )
                 energy = self.axes[self.axes_names[self.outstackdim]][
                     imageindex
-                ].magnitude
+                ].to("keV").magnitude
+                if self.parameters["ignore_energy"]:
+                    energy = None
 
                 files, labels = PerformBatchFit(
                     filestofit[detector]["xia"],
@@ -702,10 +718,10 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
             self._add_detectors()
 
             # if self.dtcorafter:
-            #    self._apply_postcorrect_xrf(False,self.dtcorafter)
+            #    self._apply_postcorrect_xrf(False, self.dtcorafter)
             # self._add_detectors()
             # if self.fluxnormafter:
-            #    self._apply_postcorrect_xrf(self.fluxnormafter,False)
+            #    self._apply_postcorrect_xrf(self.fluxnormafter, False)
         else:
             self._apply_postcorrect_xrf(self.fluxnormafter, self.dtcorafter)
 
@@ -758,9 +774,16 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
         detectors = [detector for detector in self.stacks if detector.isdetector]
         normname = nxresult.Group(None)
 
-        logger.debug(
-            "Correction after XRF fitting (flux:{},dt:{})".format(fluxnorm, dtcor)
-        )
+        msg = "Corrections after XRF fitting:"
+        if fluxnorm:
+            msg += " flux normalization"
+        if dtcor:
+            if not msg.endswith(":"):
+                msg += ","
+            msg += " deadtime correction"
+        if msg.endswith(":"):
+            msg += " none"
+        logger.info(msg)
 
         for k1 in detectors:
             for k2 in self.stacks[k1]:
