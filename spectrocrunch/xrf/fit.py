@@ -617,7 +617,7 @@ def PerformBatchFitNew(
                 "configuration": cfg,
                 "concentrations": bconcentrations,
                 "refit": 1,
-                "weight": None, # None -> from cfg file
+                "weight": None,  # None -> from cfg file
                 "outbuffer": outbuffer,
             }
         else:

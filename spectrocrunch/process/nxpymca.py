@@ -58,7 +58,7 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
         self.optional_parameters |= {
             "quantification",
             "stackdim",
-            "ignore_energy"  # Do not use the energy for fitting (use the one from pymca)
+            "ignore_energy",  # Do not use the energy for fitting (use the one from pymca)
         }
 
         parameters = self.parameters
@@ -680,9 +680,11 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
                 outname = "{}_{}_{:04d}_0000".format(
                     xiaimage.radix, detector.xialabel, xiaimage.mapnum
                 )
-                energy = self.axes[self.axes_names[self.outstackdim]][
-                    imageindex
-                ].to("keV").magnitude
+                energy = (
+                    self.axes[self.axes_names[self.outstackdim]][imageindex]
+                    .to("keV")
+                    .magnitude
+                )
                 if self.parameters["ignore_energy"]:
                     energy = None
 
