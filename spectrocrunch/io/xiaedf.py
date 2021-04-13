@@ -318,32 +318,27 @@ def xiadetectorselect_tocountersufix(detectors):
     return lst
 
 
-def xiadetectorselect_tonumber(detectors):
+def xiadetector_tonumber(detector):
     """Convert detector identifier to number (used for stats):
         0 -> 0
         "xia00" -> 0
-        "S0" -> skip
-        "st" -> skip
-        "xiast" -> skip
+        "S0" -> None
+        "st" -> None
+        "xiast" -> None
 
     Args:
         detectors(list):
     Returns:
         list(str)
     """
-
-    lst = []
-
-    for s in detectors:
-        if instance.isstring(s):
-            if s.startswith("xia"):
-                s = s[3:]
-            if s.isdigit():
-                lst.append(int(s))
-        elif instance.isnumber(s):
-            lst.append(s)
-
-    return lst
+    if instance.isstring(detector):
+        if detector.startswith("xia"):
+            detector = s[3:]
+        if detector.isdigit():
+            return int(detector)
+    elif instance.isnumber(detector):
+        return detector
+    return None
 
 
 def xiadetectorselect_files(filenames, exclude_detectors, include_detectors):
@@ -419,45 +414,6 @@ def xiadetectorselect_counterfiles(filenames, exclude_detectors, include_detecto
     filenames = [f for f in filenames if ctrvalid(xianameparser.parse(f).detector)]
 
     return filenames
-
-
-def xiadetectorselect_numbers(detectors, exclude_detectors, include_detectors):
-    """Select xia detectors (used for stats)
-
-    Args:
-        detectors(list(int)):
-        skip(list): xia labels to be skipped (numbers or strings)
-        keep(list): xia labels to be kept (numbers or strings)
-    Returns:
-        list(str)
-    """
-    if len(detectors) == 0:
-        return detectors
-
-    skip = xiadetectorselect_tonumber(exclude_detectors)
-    keep = xiadetectorselect_tonumber(include_detectors)
-
-    if not skip and not keep:
-        return detectors
-
-    if not skip:
-
-        def valid(x):
-            return x in keep
-
-    elif not keep:
-
-        def valid(x):
-            return x not in skip
-
-    else:
-
-        def valid(x):
-            return x not in skip and x in keep
-
-    detectors = [i for i in detectors if valid(i)]
-
-    return detectors
 
 
 def xiagroupkey(filename):
@@ -1412,12 +1368,14 @@ class xiadata(object):
             self._xiaconfig["detectors"]["include"],
         )
 
-    def xiadetectorselect_numbers(self, lst):
-        return xiadetectorselect_numbers(
-            lst,
-            self._xiaconfig["detectors"]["exclude"],
-            self._xiaconfig["detectors"]["include"],
-        )
+    def statindices_used(self):
+        stats_detectors = self.stats_detectors
+        used_detectors = self.detectors_used
+        used_stat_detectors = [xiadetector_tonumber(det) for det in used_detectors]
+        return [
+            None if det is None else stats_detectors.index(det)
+            for det in used_stat_detectors
+        ]
 
     def datafilenames(self):
         raise NotImplementedError(
@@ -1558,6 +1516,14 @@ class xiacompound(xiadata):
         items = self.getitems()
         if items:
             return items[0].detectors_used
+        else:
+            return []
+
+    @property
+    def stats_detectors(self):
+        items = self.getitems()
+        if items:
+            return items[0].stats_detectors
         else:
             return []
 
@@ -1995,9 +1961,22 @@ class xialine(xiadata):
             return ()
         else:
             s = self._getedfimage(f, cache=True).shape
-            ndet = s[1] // self.NSTATS
-            ndet = len(self.xiadetectorselect_numbers(range(ndet)))
+            ndet = len(self.detectors_used)
             return (s[0], self.nstats, ndet)
+
+    @property
+    def stats_detectors(self):
+        f = self.statfilename()
+        if f is None:
+            return []
+        else:
+            img = self._getedfimage(f, cache=True)
+            xdet = img.header.get("xdet")
+            if xdet:
+                return [int(s) for s in xdet.split(" ")]
+            else:
+                ndet = img.shape[1] // self.NSTATS
+                return list(range(ndet))
 
     @property
     def has_stats(self):
@@ -2045,10 +2024,16 @@ class xialine(xiadata):
             stats = np.swapaxes(stats, 1, 2)
 
             # Select stats of some or all detectors
-            ind = self.xiadetectorselect_numbers(range(ndet))
+            ind = self.statindices_used()
             if len(ind) == 0:
                 stats = np.empty((0, 0, 0), dtype=self.stype)
-            elif len(ind) < ndet:
+            elif None in ind:
+                dummy = np.zeros(stats.shape[:-1] + (1,), dtype=self.stype)
+                stats = np.concatenate((stats, dummy), axis=-1)
+                imax = stats.shape[-1] + 1
+                ind = [imax if i is None else i for i in ind]
+                stats = stats[..., ind]
+            else:
                 stats = stats[..., ind]
 
             # Only ICR and OCR
