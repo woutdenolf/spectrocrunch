@@ -1410,6 +1410,26 @@ class xiacompound(xiadata):
 
         self._items = []
 
+    @property
+    def _items(self):
+        return self.__items
+
+    @_items.setter
+    def _items(self, items):
+        self.__items = list(self._filter_items(items))
+
+    @staticmethod
+    def _filter_items(items):
+        key = None
+        for item in items:
+            ikey = item.dshape, item.sshape
+            if key is None:
+                key = ikey
+            else:
+                if key != ikey:
+                    return
+            yield item
+
     def __iter__(self):
         return iter(self.getitems())
 
