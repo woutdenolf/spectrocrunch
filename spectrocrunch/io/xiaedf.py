@@ -2030,7 +2030,7 @@ class xialine(xiadata):
             elif None in ind:
                 dummy = np.zeros(stats.shape[:-1] + (1,), dtype=self.stype)
                 stats = np.concatenate((stats, dummy), axis=-1)
-                imax = stats.shape[-1] + 1
+                imax = stats.shape[-1] - 1
                 ind = [imax if i is None else i for i in ind]
                 stats = stats[..., ind]
             else:
