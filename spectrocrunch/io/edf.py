@@ -13,7 +13,7 @@ class edfmemmap:
         f = fabio.open(filename)
 
         self.dtype = f.bytecode
-        self.shape = (f.dim2, f.dim1)
+        self.shape = f.shape
         self.ndim = len(self.shape)
         offset = f._frames[f.currentframe].start
         self.mdata = np.memmap(
@@ -47,7 +47,7 @@ class edfimage:
 
     @property
     def shape(self):
-        return (self.f.dim2, self.f.dim1)
+        return self.f.shape
 
     @property
     def data(self):
