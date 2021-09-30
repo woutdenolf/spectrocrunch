@@ -79,7 +79,14 @@ class Task(nxprocess.Task):
                 shape = dset.shape
                 dtype = dset.dtype
                 datasets.append(dset)
-            with det["output_live_time"].open() as dset:
+
+            detlt = None
+            for name in ["live_time", "output_live_time"]:
+                detlt = det[name]
+                if detlt.exists:
+                    break
+
+            with detlt.open() as dset:
                 livetimes.append(dset)
                 dtype = (numpy.array(0, dset.dtype) * preset_time).dtype
 
@@ -107,7 +114,14 @@ class Task(nxprocess.Task):
         for source_name in detectors:
             det = nxinstrument[source_name]
             with det["data"].open() as dset:
-                with det["output_live_time"].open() as lt:
+
+                detlt = None
+                for name in ["live_time", "output_live_time"]:
+                    detlt = det[name]
+                    if detlt.exists:
+                        break
+
+                with detlt.open() as lt:
                     shape = dset.shape
                     dtype = (numpy.array(0, dset.dtype) * preset_time).dtype
                     it = slice_generator(shape[::-1], dtype)
