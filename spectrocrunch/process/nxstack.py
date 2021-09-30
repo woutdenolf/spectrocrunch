@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import collections
-from contextlib import contextmanager, ExitStack
+from contextlib import ExitStack
 import numpy
 from . import nxprocess
 from . import basetask
@@ -21,21 +21,23 @@ class Task(nxprocess.Task):
 
     def _execute(self):
         parameters = self.parameters
-        stack_axis_name = parameters["stack_positioner"]
-        stack_axis = self._get_stack_axis(stack_axis_name)
         groups = self._stack_sources()
-
-        idx = numpy.argsort(stack_axis)
-        groups = {k: [lst[i] for i in idx] for k, lst in groups.items()}
-        stack_axis = numpy.array(stack_axis)[idx]
 
         scan_shape = self._scan_shape()
         assert scan_shape, "Cannot extract scan shape from title"
         shape_map = {}
         axes = collections.OrderedDict()
-        axes[stack_axis_name] = stack_axis
+
+        stack_axis_name = parameters["stack_positioner"]
+        if stack_axis_name:
+            stack_axis = self._get_stack_axis(stack_axis_name)
+            idx = numpy.argsort(stack_axis)
+            groups = {k: [lst[i] for i in idx] for k, lst in groups.items()}
+            stack_axis = numpy.array(stack_axis)[idx]
+            axes[stack_axis_name] = stack_axis
 
         for name, sources in groups.items():
+            no_stack_dimension = len(sources) == 1 and not stack_axis_name
             for source in sources:
                 shape_map[source.shape] = scan_shape
             for i, n in enumerate(scan_shape[::-1], 1):
@@ -48,7 +50,14 @@ class Task(nxprocess.Task):
                     ctx = source.open()
                     nxdata = stack.enter_context(ctx)
                     nxdatas.append(nxdata)
-                merge_h5groups(dest_parent, name, nxdatas, shape_map, nscandim=2)
+                merge_h5groups(
+                    dest_parent,
+                    name,
+                    nxdatas,
+                    shape_map,
+                    nscandim=2,
+                    no_stack_dimension=no_stack_dimension,
+                )
             dest_parent = self.temp_nxresults[name]
             for k, v in axes.items():
                 dest_parent[k].write(data=v)

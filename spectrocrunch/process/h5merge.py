@@ -29,7 +29,9 @@ def open_uris(uris):
                 logger.error("Closing '{}' : {}".format(f.filename, e))
 
 
-def merge_h5datasets(dest, name, sources, shape_map, nscandim=1):
+def merge_h5datasets(
+    dest, name, sources, shape_map, nscandim=1, no_stack_dimension=False
+):
     """Merge datasets in a virtual dataset.
 
     :param h5py.Group dest:
@@ -52,16 +54,28 @@ def merge_h5datasets(dest, name, sources, shape_map, nscandim=1):
         scan_shape = shape_map.get(dset_shape[:nscandim], dset_shape[:nscandim])
         # VDS does a C-order reshape while we need F-order
         scan_shape = scan_shape[::-1]
-        shape = (len(sources),) + scan_shape + data_shape
-        layout = h5py.VirtualLayout(shape=shape, dtype=dtype)
-        for i, dset in enumerate(sources):
+        if no_stack_dimension and len(sources) == 1:
+            shape = scan_shape + data_shape
+            layout = h5py.VirtualLayout(shape=shape, dtype=dtype)
+            dset = sources[0]
             vsource = h5py.VirtualSource(
                 dset.file.filename,
                 dset.name,
                 shape=dset.shape,
                 dtype=dset.dtype,
             )
-            layout[i] = vsource
+            layout[()] = vsource
+        else:
+            shape = (len(sources),) + scan_shape + data_shape
+            layout = h5py.VirtualLayout(shape=shape, dtype=dtype)
+            for i, dset in enumerate(sources):
+                vsource = h5py.VirtualSource(
+                    dset.file.filename,
+                    dset.name,
+                    shape=dset.shape,
+                    dtype=dset.dtype,
+                )
+                layout[i] = vsource
         dest.create_virtual_dataset(name, layout, fillvalue=fillvalue)
     else:
         # Cannot make VDS of scalar datasets
@@ -74,7 +88,9 @@ def merge_h5datasets(dest, name, sources, shape_map, nscandim=1):
         dest[name] = prepare_h5data(arr)
 
 
-def merge_h5groups(dest_parent, dest_name, sources, shape_map, nscandim=1):
+def merge_h5groups(
+    dest_parent, dest_name, sources, shape_map, nscandim=1, no_stack_dimension=False
+):
     """
     :param h5py.Group dest_parent:
     :param str dest_name:
@@ -105,12 +121,22 @@ def merge_h5groups(dest_parent, dest_name, sources, shape_map, nscandim=1):
             if isinstance(source[k], h5py.Group):
                 # Group
                 merge_h5groups(
-                    dest, k, [s[k] for s in sources], shape_map, nscandim=nscandim
+                    dest,
+                    k,
+                    [s[k] for s in sources],
+                    shape_map,
+                    nscandim=nscandim,
+                    no_stack_dimension=no_stack_dimension,
                 )
             else:
                 # Dataset
                 merge_h5datasets(
-                    dest, k, [s[k] for s in sources], shape_map, nscandim=nscandim
+                    dest,
+                    k,
+                    [s[k] for s in sources],
+                    shape_map,
+                    nscandim=nscandim,
+                    no_stack_dimension=no_stack_dimension,
                 )
         except Exception as e:
             logger.error(
