@@ -71,3 +71,10 @@ def weightedsum(values, weights=None):
         return np.mean(values)
     else:
         return sum(values * weights) / sum(weights)
+
+
+def lcm(integers):
+    lcm = 1
+    for i in integers:
+        lcm = lcm * i // math.gcd(lcm, i)
+    return lcm

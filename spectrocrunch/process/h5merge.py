@@ -2,9 +2,11 @@
 
 import logging
 from contextlib import contextmanager
+import numpy
 import h5py
 from ..io.utils import temporary_filename
 from ..io.h5fs import prepare_h5data
+from ..math.utils import lcm
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +31,34 @@ def open_uris(uris):
                 logger.error("Closing '{}' : {}".format(f.filename, e))
 
 
+def match_shapes(shapes):
+    """Reduce shapes at the last dimension (C-order) so they have an equal total size"""
+    sizes = numpy.array([numpy.product(shape, dtype=int) for shape in shapes])
+    if (sizes == sizes[0]).all():
+        return [tuple()] * len(shapes)
+    max_size = sizes.min()
+    chunk_sizes = numpy.array(
+        [numpy.product(shape[:-1], dtype=int) for shape in shapes]
+    )
+    chunk_size = lcm(chunk_sizes)
+    n_chunks = max_size // chunk_size
+    if n_chunks == 0:
+        raise ValueError("Cannot match shapes {}".format(shapes))
+    n_last_new = n_chunks * chunk_size // chunk_sizes
+    new_shapes = [shape[:-1] + (nlast,) for (shape, nlast) in zip(shapes, n_last_new)]
+    return [
+        tuple() if shape == new_shape else new_shape
+        for shape, new_shape in zip(shapes, new_shapes)
+    ]
+
+
+def layout_slicing(source_shape, layout_shape):
+    return [
+        tuple(slice(0, n) for n in shape)
+        for shape in match_shapes([source_shape, layout_shape])
+    ]
+
+
 def merge_h5datasets(
     dest, name, sources, shape_map, nscandim=1, no_stack_dimension=False
 ):
@@ -40,20 +70,20 @@ def merge_h5datasets(
     :param dict shape_map:
     :param int nscandim: start index of the data dimensions
     """
-    dset_shape = sources[0].shape
+    dset_shapes = numpy.array([list(dset.shape) for dset in sources])
+    dset_shape = tuple(dset_shapes.max(axis=0).tolist())
     dtype = sources[0].dtype
     fillvalue = sources[0].fillvalue
-
-    lst = [dset.name for dset in sources if dset_shape != dset.shape]
-    if lst:
-        raise RuntimeError(f"Datasets do not have shape {dset_shape}: {lst}")
 
     if dset_shape:
         # VDS with reshaped scan dimensions
         data_shape = dset_shape[nscandim:]
-        scan_shape = shape_map.get(dset_shape[:nscandim], dset_shape[:nscandim])
-        # VDS does a C-order reshape while we need F-order
-        scan_shape = scan_shape[::-1]
+        scan_shape = shape_map.get(
+            dset_shape[:nscandim], dset_shape[:nscandim]
+        )  # C-order
+        # VDS does a C-order reshape (fast axis last) while the
+        # source data is flattened in F-order (fast axis first)
+        scan_shape = scan_shape[::-1]  # F-order
         if no_stack_dimension and len(sources) == 1:
             shape = scan_shape + data_shape
             layout = h5py.VirtualLayout(shape=shape, dtype=dtype)
@@ -64,7 +94,11 @@ def merge_h5datasets(
                 shape=dset.shape,
                 dtype=dset.dtype,
             )
-            layout[()] = vsource
+            vsource_idx, layout_idx = layout_slicing(dset.shape, shape[::-1])
+            layout_idx = layout_idx[::-1]
+            if vsource_idx:
+                vsource = vsource[vsource_idx]
+            layout[layout_idx] = vsource
         else:
             shape = (len(sources),) + scan_shape + data_shape
             layout = h5py.VirtualLayout(shape=shape, dtype=dtype)
@@ -75,7 +109,15 @@ def merge_h5datasets(
                     shape=dset.shape,
                     dtype=dset.dtype,
                 )
-                layout[i] = vsource
+                vsource_idx, layout_idx = layout_slicing(dset.shape, shape[-1:0:-1])
+                layout_idx = layout_idx[::-1]
+                if vsource_idx:
+                    vsource = vsource[vsource_idx]
+                if layout_idx:
+                    layout_idx = (i,) + layout_idx
+                else:
+                    layout_idx = i
+                layout[layout_idx] = vsource
         dest.create_virtual_dataset(name, layout, fillvalue=fillvalue)
     else:
         # Cannot make VDS of scalar datasets
