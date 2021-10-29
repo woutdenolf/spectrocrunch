@@ -22,6 +22,7 @@ class Task(nxprocess.Task):
             "mlines",
             "addhigh",
             "diagnostics",
+            "quant",
         }
 
         parameters = self.parameters
@@ -42,6 +43,7 @@ class Task(nxprocess.Task):
         parameters["mlines"] = parameters.get("mlines", {})
         parameters["addhigh"] = parameters.get("addhigh", 0)
         parameters["diagnostics"] = parameters.get("diagnostics", False)
+        parameters["quant"] = parameters.get("quant", False)
 
     def _execute(self):
         self._outuris = []
@@ -75,7 +77,7 @@ class Task(nxprocess.Task):
                 outuri,
                 energy=None,
                 mlines=parameters["mlines"],
-                quant=None,
+                quant=parameters["quant"],
                 fast=parameters["fastfitting"],
                 addhigh=parameters["addhigh"],
                 diagnostics=parameters["diagnostics"],
@@ -92,7 +94,7 @@ class Task(nxprocess.Task):
                     dest.add_signal(name=counter.name, path=counter["data"])
 
         # Add pymca results
-        nxdata_names = ["parameters", "concentrations"]
+        nxdata_names = ["parameters", "massfractions"]
         if counters:
             nxdata_names.append("counters")
         with nxentry.open():
