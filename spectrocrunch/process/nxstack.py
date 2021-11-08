@@ -24,7 +24,9 @@ class Task(nxprocess.Task):
         groups = self._stack_sources()
 
         scan_shape = self._scan_shape()
-        assert scan_shape, "Cannot extract scan shape from title"
+        if not scan_shape:
+            scan_shape = groups["parameters"][0].shape
+
         shape_map = {}
         axes = collections.OrderedDict()
 
@@ -92,7 +94,10 @@ class Task(nxprocess.Task):
             if parts[0] == "l2scan":
                 shape = int(parts[4]), int(parts[8]) + 1
             else:
-                shape = int(parts[4]) + 1, int(parts[8]) + 1
+                try:
+                    shape = int(parts[4]) + 1, int(parts[8]) + 1
+                except Exception:
+                    shape = None
             return shape
 
     def _iter_nxentry_dependencies(self, dep=None):
