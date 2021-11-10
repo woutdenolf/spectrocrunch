@@ -400,27 +400,20 @@ class Path(h5fs.Path):
         # New process path
         path = entry[name]
         if path.exists:
-            if path.is_nxclass(u"NXprocess") and not noincrement:
-                name = target.Name(name)
-                while entry[str(name)].exists:
-                    name += 1
-                name = str(name)
-            else:
+            if noincrement or not path.is_nxclass(u"NXprocess"):
                 raise fs.AlreadyExists(path)
+            name = target.Name(name)
+            path = entry[str(name)]
+            while path.exists:
+                name += 1
+                path = entry[str(name)]
 
         # Atomically create NXprocess with its parameters
         process = self._init_nxclass(
-            entry.randomnode(),
-            u"NXprocess",
-            nxfiles=self._nxfiles_nxprocess,
-            **openparams
+            path, u"NXprocess", nxfiles=self._nxfiles_nxprocess, **openparams
         )
         process.set_config(parameters, dependencies=dependencies)
-        try:
-            return process.rename(name)
-        except fs.AlreadyExists as e:
-            process.remove(recursive=True)
-            raise e
+        return process
 
     def find_nxprocess(
         self, name=None, parameters=None, dependencies=None, searchallentries=False
