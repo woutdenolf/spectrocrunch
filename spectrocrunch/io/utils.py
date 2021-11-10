@@ -48,7 +48,9 @@ class TemporaryCopy(object):
 
 
 class TemporaryFilename(object):
-    def __init__(self, path, suffix=".tmp", prefix=""):
+    def __init__(self, path="", suffix=".tmp", prefix=""):
+        if not path:
+            path = tempfile.gettempdir()
         self.tmpfilename = temporary_filename(path, suffix=suffix, prefix=prefix)
 
     def __enter__(self):

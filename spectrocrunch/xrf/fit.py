@@ -25,7 +25,7 @@ import numpy as np
 import re
 import os
 import glob
-import collections
+from contextlib import contextmanager
 import matplotlib.pyplot as plt
 import logging
 
@@ -38,9 +38,17 @@ logger = logging.getLogger(__name__)
 
 
 def AdaptPyMcaConfigFile(filename, *args, **kwargs):
-    cfg = ConfigDict.ConfigDict(filelist=cfg)
+    cfg = ConfigDict.ConfigDict(filelist=filename)
     AdaptPyMcaConfig(cfg, *args, **kwargs)
     cfg.write(filename)
+
+
+@contextmanager
+def tempPyMcaConfigFile(cfg):
+    ioutils.temporary_filename
+    with ioutils.TemporaryFilename(suffix=".cfg") as filename:
+        cfg.write(filename)
+        yield filename
 
 
 def AdaptPyMcaConfig_energy(cfg, energy, addhigh):
@@ -213,7 +221,7 @@ def AdaptPyMcaConfig_forcebatch(cfg):
     cfg["fit"]["fitweight"] = 0
 
 
-def AdaptPyMcaConfig_modinfo(cfg, quant):
+def AdaptPyMcaConfig_modinfo(cfg, quant, fast):
     ind = instance.asarray(cfg["fit"]["energyflag"]).astype(bool)
     _energy = instance.asarray(cfg["fit"]["energy"])[ind]
     _weights = instance.asarray(cfg["fit"]["energyweight"])[ind]
@@ -241,6 +249,7 @@ def AdaptPyMcaConfig_modinfo(cfg, quant):
     else:
         info += "\n Matrix = {}".format(cfg["attenuators"]["Matrix"][1])
     info += "\n Linear = {}".format("YES" if cfg["fit"]["linearfitflag"] else "NO")
+    info += "\n Fast fitting = {}".format("YES" if fast else "NO")
     info += "\n Error propagation = {}".format(
         "Poisson" if cfg["fit"]["fitweight"] else "OFF"
     )
@@ -268,7 +277,7 @@ def AdaptPyMcaConfig(cfg, energy, addhigh=0, mlines=None, quant=None, fast=False
     if fast:
         AdaptPyMcaConfig_fast(cfg)
     AdaptPyMcaConfig_forcebatch(cfg)
-    AdaptPyMcaConfig_modinfo(cfg, quant)
+    AdaptPyMcaConfig_modinfo(cfg, quant, fast)
 
 
 def PerformRoi(filelist, rois, norm=None):
@@ -535,21 +544,30 @@ def PerformBatchFitHDF5(
             "refit": 1,
             "outbuffer": outbuffer,
         }
+        with outbuffer.saveContext():
+            batch.fitMultipleSpectra(**kwargs)
     else:
+        split_results = list(zip(*(filename.split("::") for filename in filelist)))
+        if len(split_results) == 1:
+            selection = None
+        else:
+            filelist, path_in_file = split_results
+            if len(set(path_in_file)) != 1:
+                raise ValueError(path_in_file, "HDF5 group must be the same for all")
+            filelist = list(filelist)
+            selection = {"y": path_in_file[0]}
         kwargs = {
             "filelist": filelist,
+            "selection": selection,
             "concentrations": bool(quant),
             "fitfiles": 0,
             "fitconcfile": 0,
             "outbuffer": outbuffer,
         }
-        batch = McaAdvancedFitBatch.McaAdvancedFitBatch(cfg, **kwargs)
-
-    with outbuffer.saveContext():
-        if fast:
-            batch.fitMultipleSpectra(**kwargs)
-        else:
-            batch.processList()
+        with tempPyMcaConfigFile(cfg) as cfgfilename:
+            batch = McaAdvancedFitBatch.McaAdvancedFitBatch(cfgfilename, **kwargs)
+            with outbuffer.saveContext():
+                batch.processList()
 
 
 def PerformBatchFitNew(
