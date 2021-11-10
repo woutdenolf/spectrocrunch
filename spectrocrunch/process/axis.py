@@ -209,12 +209,25 @@ class Axis(object):
     def __eq__(self, other):
         if self.size != other.size:
             return False
-        if self.type == "quantitative":
-            diff = max(abs(self.magnitude - other.umagnitude(self.units)))
-            threshold = max(self.precision, other.precision.to(self.units)).magnitude
-            return diff <= self.precision.magnitude
-        else:
-            return self.values == other.values
+        if self.type != "quantitative":
+            return all(self.values == other.values)
+        # threshold = max(self.precision, other.precision.to(self.units)).magnitude
+        threshold = self.precision.magnitude
+        values = self.magnitude
+        uvalues = other.umagnitude(self.units)
+
+        mask_nan = np.isnan(values)
+        umask_nan = np.isnan(uvalues)
+        if not (mask_nan == umask_nan).all():
+            return False
+        if mask_nan.all():
+            return True
+
+        mask_not_nan = ~mask_nan
+        values = values[mask_not_nan]
+        uvalues = uvalues[mask_not_nan]
+        diff = max(abs(values - uvalues))
+        return diff <= threshold
 
     def __ne__(self, other):
         return not self.__eq__(other)
