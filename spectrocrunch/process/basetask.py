@@ -37,6 +37,8 @@ class Task(with_metaclass(ABCMeta, object)):
             dependencies(Optional(Task or h5fs.Path or str))
             outputparent(Optional(h5fs.Path or str))
         """
+        self.__checksum = None
+        self.__exists = False
         self.outputparent = outputparent
         self.dependencies = dependencies
         self.required_parameters = set()
@@ -106,7 +108,10 @@ class Task(with_metaclass(ABCMeta, object)):
 
     @property
     def exists(self):
-        return self.output.exists
+        if self.__exists:
+            return True
+        self.__exists = self.output.exists
+        return self.__exists
 
     @property
     def done(self):
@@ -114,7 +119,9 @@ class Task(with_metaclass(ABCMeta, object)):
 
     @property
     def checksum(self):
-        return target.calc_checksum(self.dependencies, self.parameters)
+        if self.__checksum is None:
+            self.__checksum = target.calc_checksum(self.dependencies, self.parameters)
+        return self.__checksum
 
     @property
     def parameters(self):
