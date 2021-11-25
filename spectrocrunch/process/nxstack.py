@@ -14,16 +14,17 @@ class Task(nxprocess.Task):
 
     def _parameters_defaults(self):
         super(Task, self)._parameters_defaults()
-        self.optional_parameters |= {"stack_positioner", "shape"}
+        self.optional_parameters |= {"stack_positioner", "shape", "shape_parser"}
         parameters = self.parameters
         parameters["stack_positioner"] = parameters.get("stack_positioner", None)
         parameters["shape"] = parameters.get("shape", None)
+        parameters["shape_parser"] = parameters.get("shape_parser", self._shape_parser)
 
     def _execute(self):
         parameters = self.parameters
         groups = self._stack_sources()
 
-        scan_shape = self._scan_shape()
+        scan_shape = self._scan_shape(parameters["shape_parser"])
         if not scan_shape:
             scan_shape = groups["parameters"][0].shape
 
@@ -86,19 +87,21 @@ class Task(nxprocess.Task):
                 lst.append(nxdata)
         return groups
 
-    def _scan_shape(self):
+    def _scan_shape(self, shape_parser):
         for nxentry in self._iter_nxentry_dependencies():
-            cmd = nxentry["title"].read()
-            # l2scan
-            parts = cmd.split(" ")
-            if parts[0] == "l2scan":
-                shape = int(parts[4]), int(parts[8]) + 1
-            else:
-                try:
-                    shape = int(parts[4]) + 1, int(parts[8]) + 1
-                except Exception:
-                    shape = None
-            return shape
+            return shape_parser(nxentry["title"].read())
+
+    @staticmethod
+    def _shape_parser(cmd):
+        parts = cmd.split(" ")
+        if parts[0] == "l2scan":
+            shape = int(parts[4]), int(parts[8]) + 1
+        else:
+            try:
+                shape = int(parts[4]) + 1, int(parts[8]) + 1
+            except Exception:
+                shape = None
+        return shape
 
     def _iter_nxentry_dependencies(self, dep=None):
         if dep is None:
