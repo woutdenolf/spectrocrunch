@@ -37,6 +37,8 @@ def create_task(**parameters):
         from .nxblisspymca import Task
     elif method == "stack":
         from .nxstack import Task
+    elif method == "tile":
+        from .nxtile import Task
     else:
         Task = parameters.pop("_task", None)
         if Task is None:

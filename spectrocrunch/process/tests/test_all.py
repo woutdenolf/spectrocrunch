@@ -3,6 +3,7 @@
 import unittest
 from . import test_axis
 from . import test_regulargrid
+from . import test_h5merge
 from . import test_task_generic
 from . import test_task_xrf
 
@@ -12,6 +13,7 @@ def test_suite():
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_axis.test_suite())
     testSuite.addTest(test_regulargrid.test_suite())
+    testSuite.addTest(test_h5merge.test_suite())
     testSuite.addTest(test_task_generic.test_suite())
     testSuite.addTest(test_task_xrf.test_suite())
     return testSuite

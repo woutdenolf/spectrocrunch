@@ -31,11 +31,14 @@ def open_uris(uris):
                 logger.error("Closing '{}' : {}".format(f.filename, e))
 
 
-def match_shapes(shapes):
+def match_shapes(shapes, keep_shapes_when_equal=True):
     """Reduce shapes at the last dimension (C-order) so they have an equal total size"""
     sizes = numpy.array([numpy.product(shape, dtype=int) for shape in shapes])
     if (sizes == sizes[0]).all():
-        return [tuple()] * len(shapes)
+        if keep_shapes_when_equal:
+            return list(shapes)
+        else:
+            return [tuple()] * len(shapes)
     max_size = sizes.min()
     chunk_sizes = numpy.array(
         [numpy.product(shape[:-1], dtype=int) for shape in shapes]
@@ -55,11 +58,41 @@ def match_shapes(shapes):
 def layout_slicing(source_shape, layout_shape):
     return [
         tuple(slice(0, n) for n in shape)
-        for shape in match_shapes([source_shape, layout_shape])
+        for shape in match_shapes(
+            [source_shape, layout_shape], keep_shapes_when_equal=False
+        )
     ]
 
 
-def merge_h5datasets(
+def max_shape(shapes):
+    return tuple(numpy.array([list(shape) for shape in shapes]).max(axis=0))
+
+
+def tile_indices(tile_shape, shapes, order="C"):
+    """
+    :param tuple tile_shape:
+    :param list(tuple) sources:
+    :param str order: "C" or "F:
+    :return tuple, list(slice):
+    """
+    dset_max_shape = numpy.array(list(max_shape(shapes)))
+    layout_shape = dset_max_shape * numpy.array(tile_shape)
+    layout_shape = tuple(layout_shape.tolist())
+
+    indices = list(range(len(shapes)))
+    indices = numpy.unravel_index(indices, tile_shape, order=order)
+    indices = [
+        tuple(
+            slice(i * ndest, i * ndest + nsource)
+            for i, ndest, nsource in zip(tile_index, dset_max_shape, shape)
+        )
+        for tile_index, shape in zip(zip(*indices), shapes)
+    ]
+
+    return layout_shape, indices
+
+
+def stack_h5datasets(
     dest, name, sources, shape_map, nscandim=1, no_stack_dimension=False
 ):
     """Merge datasets in a virtual dataset.
@@ -82,7 +115,7 @@ def merge_h5datasets(
             dset_shape[:nscandim], dset_shape[:nscandim]
         )  # C-order
         # VDS does a C-order reshape (fast axis last) while the
-        # source data is flattened in F-order (fast axis first)
+        # source data is in F-order (fast axis first)
         scan_shape = scan_shape[::-1]  # F-order
         if no_stack_dimension and len(sources) == 1:
             shape = scan_shape + data_shape
@@ -130,8 +163,71 @@ def merge_h5datasets(
         dest[name] = prepare_h5data(arr)
 
 
+def tile_h5datasets(dest, name, sources, shape_map, tile_shape, nscandim=1):
+    """Merge datasets in a virtual dataset.
+
+    :param h5py.Group dest:
+    :param str name:
+    :param list(h5py.Dataset) sources:
+    :param dict shape_map:
+    :param int nscandim: start index of the data dimensions
+    """
+    dset_shapes = [dset.shape for dset in sources]
+    scan_shapes = [dset_shape[:nscandim] for dset_shape in dset_shapes]
+    det_shapes = [dset_shape[nscandim:] for dset_shape in dset_shapes]
+
+    reshaped_scan_shapes = [
+        shape_map.get(scan_shape, scan_shape) for scan_shape in scan_shapes
+    ]
+
+    reduced_scan_shapes, reshaped_scan_shapes = zip(
+        *(
+            match_shapes([shape1, shape2[::-1]])
+            for shape1, shape2 in zip(scan_shapes, reshaped_scan_shapes)
+        )
+    )
+    reshaped_scan_shapes = [s[::-1] for s in reshaped_scan_shapes]
+
+    layout_scan_shape, indices = tile_indices(
+        tile_shape, reshaped_scan_shapes, order="C"
+    )
+
+    layout_shape = layout_scan_shape + max_shape(det_shapes)
+
+    dtype = sources[0].dtype
+    fillvalue = sources[0].fillvalue
+    layout = h5py.VirtualLayout(shape=layout_shape, dtype=dtype)
+    for layout_idx, dset, reduced_scan_shape, det_shape in zip(
+        indices, sources, reduced_scan_shapes, det_shapes
+    ):
+        vsource = h5py.VirtualSource(
+            dset.file.filename,
+            dset.name,
+            shape=dset.shape,
+            dtype=dset.dtype,
+        )
+        reduced_source_shape = reduced_scan_shape + det_shape
+        det_idx = tuple(slice(0, n) for n in det_shape)
+        if reduced_source_shape != vsource.shape:
+            vsource_idx = tuple(slice(0, n) for n in reduced_source_shape)
+            vsource_idx += det_idx
+            vsource = vsource[vsource_idx]
+        print()
+        print(tuple(s.start for s in layout_idx))
+        print(tuple(s.stop - s.start for s in layout_idx), vsource.shape)
+        layout_idx += det_idx
+        layout[layout_idx] = vsource
+    dest.create_virtual_dataset(name, layout, fillvalue=fillvalue)
+
+
 def merge_h5groups(
-    dest_parent, dest_name, sources, shape_map, nscandim=1, no_stack_dimension=False
+    dest_parent,
+    dest_name,
+    sources,
+    shape_map,
+    nscandim=1,
+    no_stack_dimension=False,
+    tile_shape=None,
 ):
     """
     :param h5py.Group dest_parent:
@@ -169,17 +265,28 @@ def merge_h5groups(
                     shape_map,
                     nscandim=nscandim,
                     no_stack_dimension=no_stack_dimension,
+                    tile_shape=tile_shape,
                 )
             else:
                 # Dataset
-                merge_h5datasets(
-                    dest,
-                    k,
-                    [s[k] for s in sources],
-                    shape_map,
-                    nscandim=nscandim,
-                    no_stack_dimension=no_stack_dimension,
-                )
+                if tile_shape:
+                    tile_h5datasets(
+                        dest,
+                        k,
+                        [s[k] for s in sources],
+                        shape_map,
+                        tile_shape,
+                        nscandim=nscandim,
+                    )
+                else:
+                    stack_h5datasets(
+                        dest,
+                        k,
+                        [s[k] for s in sources],
+                        shape_map,
+                        nscandim=nscandim,
+                        no_stack_dimension=no_stack_dimension,
+                    )
         except Exception as e:
             logger.error(
                 "Group '{}::{}' item '{}': {}".format(
@@ -240,3 +347,7 @@ class MergedBlissMesh(MergedBlissScan):
         parts = cmd.split(" ")
         shape = int(parts[4]), int(parts[8]) + 1
         return {shape[0] * shape[1]: shape}
+
+
+if __name__ == "__main__":
+    pass
