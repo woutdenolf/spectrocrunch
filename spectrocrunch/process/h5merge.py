@@ -212,9 +212,6 @@ def tile_h5datasets(dest, name, sources, shape_map, tile_shape, nscandim=1):
             vsource_idx = tuple(slice(0, n) for n in reduced_source_shape)
             vsource_idx += det_idx
             vsource = vsource[vsource_idx]
-        print()
-        print(tuple(s.start for s in layout_idx))
-        print(tuple(s.stop - s.start for s in layout_idx), vsource.shape)
         layout_idx += det_idx
         layout[layout_idx] = vsource
     dest.create_virtual_dataset(name, layout, fillvalue=fillvalue)
