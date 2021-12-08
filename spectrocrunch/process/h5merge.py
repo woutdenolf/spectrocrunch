@@ -173,12 +173,13 @@ def tile_h5datasets(dest, name, sources, shape_map, tile_shape, nscandim=1):
     :param int nscandim: start index of the data dimensions
     """
     dset_shapes = [dset.shape for dset in sources]
-    scan_shapes = [dset_shape[:nscandim] for dset_shape in dset_shapes]
+    scan_shapes = [dset_shape[:nscandim] for dset_shape in dset_shapes]  # F-order
     det_shapes = [dset_shape[nscandim:] for dset_shape in dset_shapes]
 
     reshaped_scan_shapes = [
         shape_map.get(scan_shape, scan_shape) for scan_shape in scan_shapes
-    ]
+    ]  # F-order
+    reshaped_scan_shapes = [s[::-1] for s in reshaped_scan_shapes]  # C-order
 
     reduced_scan_shapes, reshaped_scan_shapes = zip(
         *(
@@ -186,7 +187,8 @@ def tile_h5datasets(dest, name, sources, shape_map, tile_shape, nscandim=1):
             for shape1, shape2 in zip(scan_shapes, reshaped_scan_shapes)
         )
     )
-    reshaped_scan_shapes = [s[::-1] for s in reshaped_scan_shapes]
+    reshaped_scan_shapes = [s[::-1] for s in reshaped_scan_shapes]  # C-order
+    tile_shape = tile_shape[::-1]  # C-order
 
     layout_scan_shape, indices = tile_indices(
         tile_shape, reshaped_scan_shapes, order="C"

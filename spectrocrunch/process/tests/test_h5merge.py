@@ -9,12 +9,14 @@ import numpy.testing
 
 class test_h5merge(unittest.TestCase):
     def test_tile(self):
-        scan_shape = (7, 9)
-        tile_shape = (2, 2)
-        shapes = [(63,), (62,), (61,)]
+        scan_shape = (9, 7)  # F-order
+        tile_shape = (2, 3)  # F-order
+
+        # only 5 of 6 maps, 2 incomplete
+        shapes = [(63,), (62,), (61,), (63,), (63,)]
         shape_map = {s: scan_shape for s in shapes}
 
-        expected = numpy.zeros((14, 18), dtype=int)
+        expected = numpy.zeros((21, 18), dtype=int)
 
         off = 1
         expected[0:7, 0:9] = numpy.arange(63).reshape((7, 9)) + off
@@ -22,6 +24,10 @@ class test_h5merge(unittest.TestCase):
         expected[0:6, 9:18] = numpy.arange(54).reshape((6, 9)) + off
         off += 62
         expected[7:13, 0:9] = numpy.arange(54).reshape((6, 9)) + off
+        off += 61
+        expected[7:14, 9:18] = numpy.arange(63).reshape((7, 9)) + off
+        off += 63
+        expected[14:21, 0:9] = numpy.arange(63).reshape((7, 9)) + off
 
         with h5py.File("test.h5", "w") as f:
             sources = list()
@@ -45,6 +51,9 @@ class test_h5merge(unittest.TestCase):
                 tile_shape=tile_shape,
             )
             vds = merged["group0-2"]["data"][()]
+            print(expected)
+            print()
+            print(vds)
             numpy.testing.assert_array_almost_equal(expected, vds)
 
 
