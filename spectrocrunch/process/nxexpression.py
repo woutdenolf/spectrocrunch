@@ -37,7 +37,7 @@ class Task(nxregulargrid.Task):
         if self.variables:
             variables = {"a": data}
             for name, path in self.variables.items():
-                with path.open() as dset:
+                with path.open(mode="r") as dset:
                     variables[name] = dset[tuple(self.indexin)]
             data = self.mathparser.eval(self.expression, variables=variables)
         return data
