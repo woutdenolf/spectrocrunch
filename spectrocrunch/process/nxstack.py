@@ -33,9 +33,10 @@ class Task(nxmerge.Task):
         stack_axis_name = parameters["stack_positioner"]
         if stack_axis_name:
             stack_axis = self._get_stack_axis(stack_axis_name)
-            idx = numpy.argsort(stack_axis)
-            groups = {k: [lst[i] for i in idx] for k, lst in groups.items()}
-            stack_axis = numpy.array(stack_axis)[idx]
+            if not numpy.isnan(stack_axis).any():
+                idx = numpy.argsort(stack_axis)
+                groups = {k: [lst[i] for i in idx] for k, lst in groups.items()}
+                stack_axis = numpy.array(stack_axis)[idx]
             axes[stack_axis_name] = stack_axis
 
         for name, sources in groups.items():
