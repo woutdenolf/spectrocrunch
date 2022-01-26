@@ -29,7 +29,7 @@ class Task(nxprocess.Task):
         if len(self.dependencies) != 1:
             raise RuntimeError("Expected 1 dependency")
         source_nxentry = self.dependencies[0]
-        if source_nxentry.is_not_nxclass(u"NXentry"):
+        if source_nxentry.is_not_nxclass("NXentry"):
             raise RuntimeError("Dependency needs to be an NXentry")
         dest_nxentry = self.outputparent
 
@@ -57,6 +57,8 @@ class Task(nxprocess.Task):
                     self._mca_add(source_nxentry["instrument"], detectors, "data")
                 elif parameters["dtcor"]:
                     self._mca_dtcor(source_nxentry["instrument"], detectors)
+                else:
+                    self._mca_link(source_nxentry["instrument"], detectors)
                 self._add_counters(source_nxentry["instrument"])
 
     def _matching_names(self, path, patterns):
@@ -136,6 +138,14 @@ class Task(nxprocess.Task):
                                 dset[idx] * preset_time / lt[idxlt][..., numpy.newaxis]
                             )
                     mca["preset_time"].write(data=preset_time)
+
+    def _mca_link(self, nxinstrument, detectors):
+        preset_time = self.parameters["preset_time"]
+        for source_name in detectors:
+            det = nxinstrument[source_name]
+            mca = self._mca_nxdetector("mca" + self.parameters["detector_suffix"])
+            mca["data"].link(det["data"])
+            mca["preset_time"].write(data=preset_time)
 
     def _mca_nxdetector(self, name):
         mca = self.temp_nxresults.nxdetector(name)
