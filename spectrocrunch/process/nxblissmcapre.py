@@ -154,11 +154,32 @@ class Task(nxprocess.Task):
         return mca
 
     def _add_counters(self, nxinstrument):
-        dest = self.temp_nxresults.nxinstrument()
+        # Note: softlink to external link cause problems later on
+
+        use_link = False
+        dest_nxinstrument = self.temp_nxresults.nxinstrument()
         for name in self.parameters["counters"]:
-            dest[name].link(nxinstrument[name])
-            # Softlinks cause problems later on (softlink to external links)
-            nxinstrument[name].copy(
-                self.temp_nxresults[name], follow=True, dereference=True
-            )
-            # self.temp_nxresults[name].link(dest[name])
+            source = nxinstrument[name]
+            parts = name.split("/")
+            if len(parts) == 1:
+                dest_nxinstrument[name].link(source)
+                if use_link:
+                    self.temp_nxresults[name].link(source)
+                else:
+                    source.copy(
+                        self.temp_nxresults[name], follow=True, dereference=True
+                    )
+            elif len(parts) == 2:
+                name = parts[1]
+                counter = dest_nxinstrument.nxdetector(name)
+                if use_link:
+                    counter["data"].link(source)
+                else:
+                    source.copy(counter["data"], follow=True, dereference=True)
+                counter = self.temp_nxresults[name].mkdir()
+                if use_link:
+                    counter["data"].link(source)
+                else:
+                    source.copy(counter["data"], follow=True, dereference=True)
+            else:
+                raise ValueError(f"{name} contains more than one '/' character")
