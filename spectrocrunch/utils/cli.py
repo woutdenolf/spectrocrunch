@@ -32,7 +32,7 @@ def logging_cliconfig(logger):
     )
     args, _ = parser.parse_known_args()
 
-    hashandlers = bool(logger.handlers)
+    hashandlers = logger_has_handlers(logger)
 
     if args.log and not hashandlers:
         logger.setLevel(args.log.upper())
@@ -46,6 +46,14 @@ def logging_cliconfig(logger):
         logging_filehandler(args.stderr, logger, error=True)
     elif not hashandlers:
         logging_stdhandler(logger, error=True)
+
+
+def logger_has_handlers(logger):
+    while logger is not None:
+        if bool(logger.handlers):
+            return True
+        logger = logger.parent
+    return False
 
 
 def logging_addformat(handler):
