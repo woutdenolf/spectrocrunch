@@ -58,11 +58,18 @@ class Task(nxprocess.Task):
         detectors = list(self.detectors)
         if not detectors:
             raise RuntimeError("No XRF detector found")
-        if len(detectors) != len(cfgs):
+        if not cfgs:
+            cfgs = [None]*len(detectors)
+        elif len(detectors) != len(cfgs):
             if len(cfgs) != 1:
-                raise RuntimeError(
-                    "Provide 1 or {} pymca config files".format(len(detectors))
-                )
+                if len(detectors) == 1:
+                    raise RuntimeError(
+                        "Provide 1 pymca config file"
+                    )
+                else:
+                    raise RuntimeError(
+                        "Provide 1 or {} pymca config files".format(len(detectors))
+                    )
             cfgs = cfgs * len(detectors)
 
         # Pymca fitting
@@ -71,18 +78,20 @@ class Task(nxprocess.Task):
             outuri = nxentry[self.temp_outputname + ":" + detector.name]
             self._outuris.append(outuri)
             self._detnames.append(detector.name)
-            PerformBatchFitHDF5(
-                [str(detector["data"])],
-                cfg,
-                outuri,
-                energy=None,
-                mlines=parameters["mlines"],
-                quant=parameters["quant"],
-                fast=parameters["fastfitting"],
-                addhigh=parameters["addhigh"],
-                diagnostics=parameters["diagnostics"],
-            )
-
+            if cfg:
+                PerformBatchFitHDF5(
+                    [str(detector["data"])],
+                    cfg,
+                    outuri,
+                    energy=None,
+                    mlines=parameters["mlines"],
+                    quant=parameters["quant"],
+                    fast=parameters["fastfitting"],
+                    addhigh=parameters["addhigh"],
+                    diagnostics=parameters["diagnostics"],
+                )
+            else:
+                outuri.parent.nxprocess(outuri.name)
         nxentry["plotselect"].remove()
 
         # Add counters to pymca results
