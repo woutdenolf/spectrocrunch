@@ -28,9 +28,10 @@ class Task(nxregulargrid.Task):
             self.roi = self.calccroproi(self.reference_signal)
         elif "roi" in self.parameters:
             self.roi = self.convertuserroi(self.reference_signal)
-        self.cropped_shape = tuple([b - a for a, b in self.roi])
-        self.indexin = [slice(a, b) for a, b in self.roi]
-        self.indexout = [slice(None)] * len(self.roi)
+        if self.roi is not None:
+            self.cropped_shape = tuple([b - a for a, b in self.roi])
+            self.indexin = [slice(a, b) for a, b in self.roi]
+            self.indexout = [slice(None)] * len(self.roi)
 
     @property
     def signalout_shape(self):
@@ -38,6 +39,8 @@ class Task(nxregulargrid.Task):
 
     def _process_axes(self):
         axes = []
+        if self.roi is None:
+            return self.signal_axes
         for ax, (a, b) in zip(self.signal_axes, self.roi):
             if ax.size != b - a:
                 ax = self._new_axis(ax[a:b], ax)
