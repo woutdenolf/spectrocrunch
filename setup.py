@@ -257,7 +257,7 @@ install_requires = [
     "shapely",
     "matplotlib",
     "uncertainties",
-    "pint",
+    "pint<0.20",
     "pandas",
     "scikit-image",
     "xlsxwriter",
@@ -268,6 +268,7 @@ install_requires = [
     "testfixtures",
     "future",
     "cvxopt",
+    "pymca5"
 ]
 extras_require = {
     "physics": ["xraylib", "cctbx", "fdmnes", "PyTMM"],
