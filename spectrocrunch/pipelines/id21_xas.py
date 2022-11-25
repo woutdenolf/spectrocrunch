@@ -45,6 +45,9 @@ def processNotSynchronized(
     normmedian=False,
     rois=None,
     counters=None,
+    energylabel="arr_energyM",
+    iodetlabel="arr_iodet",
+    timelabel="arr_mtime",
 ):
     """
     XRF fitting of XANES spectra (fit repeats separately and add interpolated results because no energy synchronization)
@@ -67,10 +70,6 @@ def processNotSynchronized(
         rois(Optional(list(dict(2-tuple)))): ROIs instead of fitting
         counters(Optional(dict)): list of counters to be treated as the XRF counts
     """
-
-    energylabel = "arr_energyM"
-    iodetlabel = "arr_iodet"
-    timelabel = "arr_mtime"
     addbeforefit = (
         True  # refers to multiple detectors, repeats are always added afterwards
     )
@@ -111,10 +110,15 @@ def processNotSynchronized(
         nrepeats = len(specnumbers[i])
         for j in range(nrepeats):
             # Get energy and iodet
+            has_timelabel = bool(timelabel)
+            if not has_timelabel:
+                timelabel = iodetlabel
             data, info = sf.getdata(
                 specnumbers[i][j], [energylabel, iodetlabel, timelabel] + counterinnames
             )
             realtime = sf.scancommand(specnumbers[i][j])["time"]
+            if not has_timelabel:
+                data[:, 2] = realtime
 
             data[:, 0] += energyshift
             energyj = data[:, 0][:, np.newaxis]
@@ -257,7 +261,9 @@ def processNotSynchronized(
 
         xasspectrum["energyM"] = energy
         labels = [k.replace(" ", "-") for k in xasspectrum]
-        ArraySave.save2DArrayListAsASCII(xasspectrum.values(), fileName, labels=labels)
+        ArraySave.save2DArrayListAsASCII(
+            list(xasspectrum.values()), fileName, labels=labels
+        )
         logger.info("Saved XAS spectrum {}.".format(fileName))
 
 
@@ -278,6 +284,9 @@ def processEnergySynchronized(
     normmedian=False,
     rois=None,
     counters=None,
+    energylabel="arr_energyM",
+    iodetlabel="arr_iodet",
+    timelabel="arr_mtime",
 ):
     """
     XRF fitting of XANES spectra (add spectra from repeats because of energy synchronization)
@@ -310,10 +319,6 @@ def processEnergySynchronized(
     #
     # -> xanes = sum(XRF[a:b])/(mtime*arr_iodet)*time
 
-    energylabel = "arr_energyM"
-    iodetlabel = "arr_iodet"
-    timelabel = "arr_mtime"
-
     # Open spec file
     sf = spec(specfile)
 
@@ -344,10 +349,15 @@ def processEnergySynchronized(
         # Get spec info
         for j in range(nrepeats):
             # Get energy and iodet
+            has_timelabel = bool(timelabel)
+            if not has_timelabel:
+                timelabel = iodetlabel
             data, info = sf.getdata(
                 specnumbers[i][j], [energylabel, iodetlabel, timelabel] + counterinnames
             )
             realtime = sf.scancommand(specnumbers[i][j])["time"]
+            if not has_timelabel:
+                data[:, 2] = realtime
 
             data[:, 0] += energyshift
 
@@ -525,7 +535,9 @@ def processEnergySynchronized(
         # Save XAS spectrum (for each element)
         fileName = os.path.join(destpath, outname + ".dat")
         labels = [k.replace(" ", "-") for k in xasresults]
-        ArraySave.save2DArrayListAsASCII(xasresults.values(), fileName, labels=labels)
+        ArraySave.save2DArrayListAsASCII(
+            list(xasresults.values()), fileName, labels=labels
+        )
         logger.info("Saved XAS spectrum {}.".format(fileName))
 
         # Show progress

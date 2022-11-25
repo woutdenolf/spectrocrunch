@@ -409,7 +409,7 @@ def PerformFit(
         mcafit.enableOptimizedLinearFit()
     else:
         mcafit.disableOptimizedLinearFit()
-    cfg = mcafit.configure(ReadPyMcaConfigFile(cfgfile))
+    cfg = mcafit.configure(ConfigDict.ConfigDict(filelist=cfgfile))
 
     # Fit at each energy
     if prog is not None:
