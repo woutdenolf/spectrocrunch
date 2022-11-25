@@ -391,7 +391,7 @@ class CentricCone(SolidState):
         #  solidangle = 2.pi.(1-cos(theta)) where theta the opening angle
         #  cos(theta) = d/sqrt(r^2+d^2) where d the source-detector and r the radius of the active area (assume disk)
         if solidangle is None:
-            d2 = distance ** 2.0
+            d2 = distance**2.0
             r2 = activearea / np.pi
             costheta = distance / (r2 + d2) ** 0.5
             return 2.0 * np.pi * (1.0 - costheta.to(units.dimensionless).magnitude)
@@ -401,7 +401,7 @@ class CentricCone(SolidState):
             return (r2 * c2 / (1 - c2)) ** 0.5
         elif activearea is None:
             c2 = (1 - solidangle / (2.0 * np.pi)) ** 2
-            return (1 - c2) * distance ** 2 * np.pi / c2
+            return (1 - c2) * distance**2 * np.pi / c2
         else:
             raise RuntimeError(
                 "Either distance, active area or solid angle must be None"

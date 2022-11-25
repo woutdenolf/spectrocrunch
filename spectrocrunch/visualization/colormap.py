@@ -16,7 +16,7 @@ def NormalizedToRGB(x):
         b(array):
     """
     x, f = instance.asarrayf(x)
-    x = np.round(x * (2 ** 24 - 1)).astype(int)
+    x = np.round(x * (2**24 - 1)).astype(int)
 
     red = f(x & 255)
     green = f((x >> 8) & 255)
@@ -51,7 +51,7 @@ class LambdaColormap(pltcolors.Colormap):
 
 
 def RGBcolormap():
-    return LambdaColormap("RGB", NormalizedToRGB, N=2 ** 24 - 1)
+    return LambdaColormap("RGB", NormalizedToRGB, N=2**24 - 1)
 
 
 def Linearcolormap(name, a, b, alpha=None):

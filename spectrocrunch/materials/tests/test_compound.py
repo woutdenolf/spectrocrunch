@@ -149,7 +149,7 @@ class test_compound(unittest.TestCase):
             * 4.15179082788e-4
             * (Z + np.asarray([xraylib.Fi(Z, e) for e in energy]))
             / xraylib.AtomicWeight(Z)
-            / energy ** 2
+            / energy**2
         )
         beta = (
             np.asarray([xraylib.CS_Total(Z, e) for e in energy])
@@ -189,7 +189,7 @@ class test_compound(unittest.TestCase):
             * 4.15179082788e-4
             * (np.asarray([xraylib.Fii(Z, e) for e in energy]))
             / xraylib.AtomicWeight(Z)
-            / energy ** 2
+            / energy**2
         )
 
         # Spectrocrunch
@@ -221,7 +221,7 @@ class test_compound(unittest.TestCase):
                 * np.pi
                 / (
                     ureg.classical_electron_radius
-                    * wavelength ** 2
+                    * wavelength**2
                     * ureg.particles_per_mol
                     / ureg.Quantity(c.molarmasseff(), "g/mol")
                     * c.Zeff

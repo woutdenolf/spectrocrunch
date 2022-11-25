@@ -228,12 +228,12 @@ class test_h5fs(TestCase):
     ):
         # Test following string literals
         sAsciiBytes = b"abc"
-        sAsciiUnicode = u"abc"
+        sAsciiUnicode = "abc"
         sLatinBytes = b"\xe423"
-        sLatinUnicode = u"\xe423"  # not used
-        sUTF8Unicode = u"\u0101bc"
+        sLatinUnicode = "\xe423"  # not used
+        sUTF8Unicode = "\u0101bc"
         sUTF8Bytes = b"\xc4\x81bc"
-        sUTF8AsciiUnicode = u"abc"
+        sUTF8AsciiUnicode = "abc"
         sUTF8AsciiBytes = b"abc"
         # Expected conversion after HDF5 write/read
         strmap = {}

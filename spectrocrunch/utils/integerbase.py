@@ -47,5 +47,5 @@ class integerbase:
         y = x[::-1]
         val = 0
         for i in range(len(y)):
-            val += self.digs.index(y[i]) * self.base ** i
+            val += self.digs.index(y[i]) * self.base**i
         return val

@@ -40,12 +40,12 @@ exclude_patterns = ["_build", "_templates", "apidocs", ".ipynb_checkpoints"]
 master_doc = "index"
 
 # General information about the project.
-project = u"spectrocrunch"
-author = u"Wout De Nolf"
+project = "spectrocrunch"
+author = "Wout De Nolf"
 import datetime
 
 now = datetime.datetime.now()
-copyright = u"2015-%s, European Synchrotron Radiation Facility, Grenoble" % now.year
+copyright = "2015-%s, European Synchrotron Radiation Facility, Grenoble" % now.year
 
 
 # The version info for the project you're documenting, acts as replacement for
@@ -141,8 +141,8 @@ latex_documents = [
     (
         master_doc,
         "spectrocrunch.tex",
-        u"spectrocrunch Documentation",
-        u"Author",
+        "spectrocrunch Documentation",
+        "Author",
         "manual",
     )
 ]
@@ -152,7 +152,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "spectrocrunch", u"spectrocrunch Documentation", [author], 1)]
+man_pages = [(master_doc, "spectrocrunch", "spectrocrunch Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output -------------------------------------------
@@ -164,7 +164,7 @@ texinfo_documents = [
     (
         master_doc,
         "spectrocrunch",
-        u"spectrocrunch Documentation",
+        "spectrocrunch Documentation",
         author,
         "spectrocrunch",
         "One line description of project.",

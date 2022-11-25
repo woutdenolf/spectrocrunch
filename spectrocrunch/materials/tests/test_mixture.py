@@ -184,7 +184,7 @@ class test_mixture(unittest.TestCase):
                 * np.pi
                 / (
                     ureg.classical_electron_radius
-                    * wavelength ** 2
+                    * wavelength**2
                     * ureg.particles_per_mol
                     / ureg.Quantity(c.molarmasseff(), "g/mol")
                     * c.Zeff

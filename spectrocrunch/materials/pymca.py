@@ -357,7 +357,7 @@ class PymcaBaseHandle(Copyable):
     def _pymcainternals_solidanglefrac(self):
         radius2 = self.mcafit.config["concentrations"]["area"] / np.pi
         distance = self.mcafit.config["concentrations"]["distance"]
-        return 0.5 * (1.0 - (distance / np.sqrt(distance ** 2 + radius2)))
+        return 0.5 * (1.0 - (distance / np.sqrt(distance**2 + radius2)))
 
     def _print_pymcainternals_rates(self):
         safrac = self._pymcainternals_solidanglefrac()

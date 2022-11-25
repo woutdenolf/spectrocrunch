@@ -122,7 +122,7 @@ class AreaDetector(with_metaclass()):
                 Nout = noisepropagation.compound(N, process, forward=forward)
                 if poissonapprox:
                     ENout = noisepropagation.E(Nout)
-                    Nout = noisepropagation.randomvariable(ENout, ENout ** 0.5)
+                    Nout = noisepropagation.randomvariable(ENout, ENout**0.5)
                 Nout = (
                     Nout + darkcurrent * tframe + readoutnoise
                 ) * self.etoDU + self.DUoffset
@@ -135,7 +135,7 @@ class AreaDetector(with_metaclass()):
                 Nout = noisepropagation.reverse_add(Nout, readoutnoise)
                 if poissonapprox:
                     ENout = noisepropagation.E(Nout)
-                    Nout = noisepropagation.randomvariable(ENout, ENout ** 0.5)
+                    Nout = noisepropagation.randomvariable(ENout, ENout**0.5)
                 Nout = noisepropagation.compound(Nout, process, forward=forward)
         else:
             if forward:

@@ -127,7 +127,7 @@ class GainRounder(object):
             gain = math.log(gain, self.base)
         gain = int(round(gain))
         if self.base is not None:
-            gain = self.base ** gain
+            gain = self.base**gain
         if self.m is not None:
             gain = self.m * gain
         return units.Quantity(gain, u)

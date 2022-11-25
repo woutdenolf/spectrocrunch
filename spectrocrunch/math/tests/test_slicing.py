@@ -10,7 +10,7 @@ class test_slicing(unittest.TestCase):
     def test_slice_generator(self):
         itemsize = 4  # bytes
         mb_threshold = 100  # MB
-        n_threshold = mb_threshold * 1024 ** 2 // itemsize
+        n_threshold = mb_threshold * 1024**2 // itemsize
 
         shape = (n_threshold + 1000, 2, 2, 4)
         nslices = len(
@@ -20,7 +20,7 @@ class test_slicing(unittest.TestCase):
         )
         self.assertEqual(nslices, 2 * 2 * 4)
 
-        p = n_threshold ** 0.5
+        p = n_threshold**0.5
         shape = (p, p - 1000, 2, 4)
         nslices = len(
             list(

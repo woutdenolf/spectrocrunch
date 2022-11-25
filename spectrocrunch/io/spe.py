@@ -22,5 +22,5 @@ def read(filename):
     else:
         coeff = np.array(list(map(float, h[i + 2].split(" "))))
     channels = np.arange(len(mca))
-    energy = sum(c * channels ** i for i, c in enumerate(coeff))
+    energy = sum(c * channels**i for i, c in enumerate(coeff))
     return mca, channels, energy, coeff

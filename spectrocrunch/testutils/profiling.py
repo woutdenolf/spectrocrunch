@@ -28,7 +28,7 @@ def print_malloc_snapshot(snapshot, key_type="lineno", limit=10, units="KB"):
     :param str units: B, KB, MB, GB
     """
     n = ["b", "kb", "mb", "gb"].index(units.lower())
-    sunits, units = units, 1024 ** n
+    sunits, units = units, 1024**n
 
     snapshot = snapshot.filter_traces(
         (

@@ -45,7 +45,7 @@ class test_noisepropagation(unittest.TestCase):
         np.testing.assert_array_equal([0, 1], noisepropagation.S(x))
 
     def test_repeat(self):
-        X = noisepropagation.randomvariable([100, 200], [100 ** 0.5, 200 ** 0.5])
+        X = noisepropagation.randomvariable([100, 200], [100**0.5, 200**0.5])
 
         N = 10
         Y1 = noisepropagation.repeat(N, X)
@@ -56,7 +56,7 @@ class test_noisepropagation(unittest.TestCase):
         np.testing.assert_allclose(noisepropagation.S(Y1), noisepropagation.S(Y2))
         np.testing.assert_allclose(noisepropagation.SNR(X), noisepropagation.SNR(N * X))
         np.testing.assert_allclose(
-            noisepropagation.SNR(Y1), noisepropagation.SNR(X) * N ** 0.5
+            noisepropagation.SNR(Y1), noisepropagation.SNR(X) * N**0.5
         )
 
     def _RVequal(self, N1, N2):
@@ -72,7 +72,7 @@ class test_noisepropagation(unittest.TestCase):
         self.assertNotEqual(noisepropagation.S(N1), noisepropagation.S(N2))
 
     def test_compound(self):
-        N0 = noisepropagation.randomvariable([100.0, 200], [100 ** 0.5, 200 ** 0.5])
+        N0 = noisepropagation.randomvariable([100.0, 200], [100**0.5, 200**0.5])
         EN0 = noisepropagation.E(N0)
 
         g1 = noisepropagation.randomvariable(10.0, 1.3)
@@ -100,7 +100,7 @@ class test_noisepropagation(unittest.TestCase):
         )
         np.testing.assert_allclose(noisepropagation.E(N4), a * EN0)
         np.testing.assert_allclose(
-            noisepropagation.VAR(N4), b * EN0 + a ** 2 * noisepropagation.VAR(N0)
+            noisepropagation.VAR(N4), b * EN0 + a**2 * noisepropagation.VAR(N0)
         )
 
         np.testing.assert_allclose(
@@ -200,7 +200,7 @@ class test_noisepropagation(unittest.TestCase):
         stdx = np.random.rand(npa)
         x = noisepropagation.randomvariable(x, stdx)
         varb = noisepropagation.VAR(np.dot(A, x))
-        varb2 = np.dot(A * A, stdx ** 2)
+        varb2 = np.dot(A * A, stdx**2)
         np.testing.assert_allclose(varb, varb2)
 
         stdx2 = np.sqrt(fit1d.lstsq(A * A, varb))

@@ -508,7 +508,7 @@ class Element(elementbase.ElementBase):
 
         c = (
             (
-                ureg.classical_electron_radius ** 2
+                ureg.classical_electron_radius**2
                 * ureg.particles_per_mol
                 / ureg.Quantity(self.MM, "g/mol")
             )
@@ -544,7 +544,7 @@ class Element(elementbase.ElementBase):
         # mudiffC(cm²/g/srad) = r_e²(cm²/e).NA(atom/mol)/MM(g/mol).K_compton(azimuth,polar)(1/srad).S(e/atom)
         c = (
             (
-                ureg.classical_electron_radius ** 2
+                ureg.classical_electron_radius**2
                 * ureg.particles_per_mol
                 / ureg.Quantity(self.MM, "g/mol")
             )

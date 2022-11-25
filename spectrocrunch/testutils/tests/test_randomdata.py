@@ -26,7 +26,7 @@ class test_randomdata(unittest.TestCase):
                 us = str(data)
             except UnicodeDecodeError as e:
                 us = data.decode("latin1")
-            self.assertFalse(u"random" in us.lower())
+            self.assertFalse("random" in us.lower())
             # Check equality (shuffles unsorted types)
             self.assertEqual(o, o)
 

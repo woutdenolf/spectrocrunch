@@ -39,7 +39,7 @@ class test_quadrics(unittest.TestCase):
             xT = xT[:, [0, 2]]
             x0 = x0[:, [0, 2]]
             u = u[:, [0, 2]]
-            return ((xT - x0) ** 2 / u ** 2).sum(axis=1) - 1
+            return ((xT - x0) ** 2 / u**2).sum(axis=1) - 1
 
         self._assert_matrix(eval_matrix, eval_eqn, 2)
 
@@ -48,7 +48,7 @@ class test_quadrics(unittest.TestCase):
             return quadrics.ellipsoid(x0, u)
 
         def eval_eqn(xT, x0, u):
-            return ((xT - x0) ** 2 / u ** 2).sum(axis=1) - 1
+            return ((xT - x0) ** 2 / u**2).sum(axis=1) - 1
 
         self._assert_matrix(eval_matrix, eval_eqn, 2)
 

@@ -251,7 +251,7 @@ class Task(with_metaclass(ABCMeta, object)):
             nxfs._NXprocess or None
         """
         for nxprocess in self.previous_outputs_iter():
-            if nxprocess.is_nxclass(u"NXprocess"):
+            if nxprocess.is_nxclass("NXprocess"):
                 config = nxprocess.config.read()
                 if all(config.get(k, None) == v for k, v in parameters.items()):
                     return nxprocess

@@ -9,7 +9,7 @@ def calc_nbytes(dtype):
 
 
 def find_slice_axis(shape, dtype, mb_threshold=100):
-    mb = numpy.cumprod(shape) * calc_nbytes(dtype) / 1024 ** 2
+    mb = numpy.cumprod(shape) * calc_nbytes(dtype) / 1024**2
     axis = numpy.where(mb <= mb_threshold)[0]
     if axis.size:
         return axis[-1]
