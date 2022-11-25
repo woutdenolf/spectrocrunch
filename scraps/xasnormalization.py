@@ -110,15 +110,15 @@ def xasnorm(data, flux, xrf=False, normtype=1):
         xasnoise = (datawnoise / fluxwnoise).sum(axis=0)
         uxas = sum([v1 / v2 for v1, v2 in zip(udata, uflux)])
 
-        Isq = data ** 2
-        I0sq = flux ** 2
+        Isq = data**2
+        I0sq = flux**2
         var = ((varI + varI0 * Isq / I0sq) / I0sq).sum(axis=0)
 
         if xrf:
             xas /= nrepeats
             xasnoise /= nrepeats
             uxas /= nrepeats
-            var /= nrepeats ** 2
+            var /= nrepeats**2
         else:
             xas = -np.log(xas) + np.log(nrepeats)
             xasnoise = -np.log(xasnoise) + np.log(nrepeats)
@@ -134,8 +134,8 @@ def xasnorm(data, flux, xrf=False, normtype=1):
         xasnoise = datawnoise / fluxwnoise
         uxas = [v1 / v2 for v1, v2 in zip(udata, uflux)]
 
-        Isq = data ** 2
-        I0sq = flux ** 2
+        Isq = data**2
+        I0sq = flux**2
         var = varI / Isq + varI0 / I0sq
 
         if xrf:
@@ -152,7 +152,7 @@ def xasnorm(data, flux, xrf=False, normtype=1):
         uxas = sum(uxas)
         uxas /= nrepeats
         var = var.sum(axis=0)
-        var /= nrepeats ** 2
+        var /= nrepeats**2
     else:
         raise ValueError("Unknown normalization type.")
 

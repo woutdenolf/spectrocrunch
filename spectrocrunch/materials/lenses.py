@@ -80,15 +80,15 @@ class Lens(with_metaclass()):
         if source == "point":
             k = np.tan(np.arcsin(self.NA / nmedium))  # == 1/(2.F#)
             yld = (
-                k ** 2 * self.magnification ** 2 / (2 * (self.magnification + 1.0)) ** 2
+                k**2 * self.magnification**2 / (2 * (self.magnification + 1.0)) ** 2
             )
         elif source == "lambertian":
             k = np.tan(np.arcsin(self.NA / nmedium))  # == 1/(2.F#)
-            yld = self.magnification ** 2 / (
-                ((self.magnification + 1.0) / k) ** 2 + self.magnification ** 2
+            yld = self.magnification**2 / (
+                ((self.magnification + 1.0) / k) ** 2 + self.magnification**2
             )
         else:
-            yld = self.NA ** 2 / 4.0  # approximation to point source
+            yld = self.NA**2 / 4.0  # approximation to point source
 
         return yld * self.lightyieldcor
 

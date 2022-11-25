@@ -10,11 +10,11 @@ from ..types import transformationType
 
 def makeGaussian(x, y, x0, y0, sx, sy, rho, A):
     num = (
-        (x - x0) ** 2 / sx ** 2
+        (x - x0) ** 2 / sx**2
         - 2 * rho / (sx * sy) * (x - x0) * (y - y0)
-        + (y - y0) ** 2 / sy ** 2
+        + (y - y0) ** 2 / sy**2
     )
-    denom = 2 * (1 - rho ** 2)
+    denom = 2 * (1 - rho**2)
     return A * np.exp(-num / denom)  # /(2*np.pi*sx*sy*np.sqrt(1-rho**2))
 
 
@@ -22,11 +22,11 @@ def makeGaussianAngle(x, y, x0, y0, sx, sy, angle, A):
     cosa = np.cos(angle)
     sina = np.sin(angle)
     sin2a = np.sin(2 * angle)
-    varx = sx ** 2
-    vary = sy ** 2
-    a = cosa ** 2 / (2 * varx) + sina ** 2 / (2 * vary)
+    varx = sx**2
+    vary = sy**2
+    a = cosa**2 / (2 * varx) + sina**2 / (2 * vary)
     b = -sin2a / (4 * varx) + sin2a / (4 * vary)
-    c = sina ** 2 / (2 * varx) + cosa ** 2 / (2 * vary)
+    c = sina**2 / (2 * varx) + cosa**2 / (2 * vary)
     num = a * (x - x0) ** 2 - 2 * b * (x - x0) * (y - y0) + c * (y - y0) ** 2
     return A * np.exp(-num)
 
@@ -55,7 +55,7 @@ def gettransformedimage(x, y, data, angle=False):
 
 
 def makeGaussian1D(x, x0, sx, A):
-    return A * np.exp(-((x - x0) ** 2) / (2.0 * sx ** 2))  # /(np.sqrt(2*np.pi)*sx)
+    return A * np.exp(-((x - x0) ** 2) / (2.0 * sx**2))  # /(np.sqrt(2*np.pi)*sx)
 
 
 def gettransformedvector(x, data, angle=False):
@@ -169,9 +169,9 @@ def transformation(t, n, subpixel=True):
 class rvgen(rv_continuous):
     def _pdf(self, x):
         H = 1 / np.sqrt(2.0 * np.pi)
-        return H * np.exp(-(x ** 2) / 2.0)
+        return H * np.exp(-(x**2) / 2.0)
 
-        return H * (1 - np.exp(-(x ** 2) / 2.0))
+        return H * (1 - np.exp(-(x**2) / 2.0))
 
 
 def random(a, b, n):

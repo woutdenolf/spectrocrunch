@@ -28,17 +28,17 @@ class test_hashing(unittest.TestCase):
         # Empty string
         hash = b"7d52e4059c583de024b90a033ef4577e"
         self._assert_hash(b"", hash)
-        self._assert_hash(u"", hash)
+        self._assert_hash("", hash)
         # Ascii
         hash = b"4a77c5fa0df8eeb6f66ea3e95148e57e"
         self._assert_hash(b"abc", hash)
-        self._assert_hash(u"abc", hash)
+        self._assert_hash("abc", hash)
         # Extended ascii
         hash = b"9af537523552e3988d1eadc7dd4eb048"
         self._assert_hash(b"\xe423", hash)
         # UTF8
         hash = b"3a00931200bada8bb1a4c4c36185898f"
-        self._assert_hash(u"\u0101bc", hash)
+        self._assert_hash("\u0101bc", hash)
 
     def test_number(self):
         hash = b"cbeddc349fedb70a755c2b345e0f6a93"

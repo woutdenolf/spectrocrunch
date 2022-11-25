@@ -483,7 +483,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         )
 
     def FWHMtoVAR(self, FWHM):
-        return FWHM ** 2 / (8 * np.log(2))
+        return FWHM**2 / (8 * np.log(2))
 
     def VARtoFWHM(self, var):
         return np.sqrt(var * (8 * np.log(2)))
@@ -502,7 +502,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
     def voigtFWHM(self, energy, linewidth=0):
         fG = self.gaussianFWHM(energy)  # detection FWHM
         fL = linewidth  # transition FWHM
-        return 0.5346 * fL + np.sqrt(0.2166 * fL ** 2 + fG ** 2)
+        return 0.5346 * fL + np.sqrt(0.2166 * fL**2 + fG**2)
 
     def voigtVAR(self, energy, linewidth=0):
         return self.FWHMtoVAR(self.voigtFWHM(energy, linewidth=linewidth))
@@ -517,7 +517,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
             snorm = float(u)
         else:
             zero = (
-                a * np.exp(-(u ** 2) / a) / (2 * np.sqrt(np.pi))
+                a * np.exp(-(u**2) / a) / (2 * np.sqrt(np.pi))
                 - u * scipy.special.erfc(u / b) / 2.0
             )
             snorm = u + zero
@@ -528,7 +528,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         if approx:
             return float(tr)
         else:
-            minusone = np.exp(a / (4.0 * tr ** 2) - u / tr) * scipy.special.erfc(
+            minusone = np.exp(a / (4.0 * tr**2) - u / tr) * scipy.special.erfc(
                 (a / (2.0 * tr) - u) / b
             ) + scipy.special.erf(-u / b)
             return tr * (1 - minusone) / 2.0
@@ -702,7 +702,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
                 if W.any():
                     yg = peak_H * np.real(scipy.special.wofz((diff + 0.5j * W) / b))
                 else:
-                    yg = peak_H * np.exp(-(diff ** 2) / a)
+                    yg = peak_H * np.exp(-(diff**2) / a)
             else:
                 yg = np.zeros_like(diff)
 
@@ -742,7 +742,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
                 if btail:
                     with np.errstate(over="ignore"):
                         mexp = (
-                            tail_H / 2.0 * np.exp(gvar / (2.0 * tailslope_ratio ** 2))
+                            tail_H / 2.0 * np.exp(gvar / (2.0 * tailslope_ratio**2))
                         )
                         ind = np.isinf(mexp)
                         if ind.any():
@@ -759,7 +759,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
                             / 2.0
                             * np.exp(
                                 diff / tailslope_ratio
-                                + gvar / (2.0 * tailslope_ratio ** 2)
+                                + gvar / (2.0 * tailslope_ratio**2)
                             )
                         )
                         ind = np.isinf(mexp)

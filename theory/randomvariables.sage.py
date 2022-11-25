@@ -17,7 +17,7 @@ def inverse(func, x):
 
 
 def norm_pdf(x):
-    return exp(-(x ** _sage_const_2) / _sage_const_2) / sqrt(_sage_const_2 * pi)
+    return exp(-(x**_sage_const_2) / _sage_const_2) / sqrt(_sage_const_2 * pi)
 
 
 def norm_cdf(x):

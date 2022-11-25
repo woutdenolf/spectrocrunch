@@ -76,5 +76,5 @@ def read(filename):
         ch0 = 0
         ch1 = len(mca) - 1
     channels = np.arange(ch0, ch1 + 1)
-    energy = sum(c * channels ** i for i, c in enumerate(coeff))
+    energy = sum(c * channels**i for i, c in enumerate(coeff))
     return mca, channels, energy, coeff

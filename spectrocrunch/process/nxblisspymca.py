@@ -59,13 +59,11 @@ class Task(nxprocess.Task):
         if not detectors:
             raise RuntimeError("No XRF detector found")
         if not cfgs:
-            cfgs = [None]*len(detectors)
+            cfgs = [None] * len(detectors)
         elif len(detectors) != len(cfgs):
             if len(cfgs) != 1:
                 if len(detectors) == 1:
-                    raise RuntimeError(
-                        "Provide 1 pymca config file"
-                    )
+                    raise RuntimeError("Provide 1 pymca config file")
                 else:
                     raise RuntimeError(
                         "Provide 1 or {} pymca config files".format(len(detectors))

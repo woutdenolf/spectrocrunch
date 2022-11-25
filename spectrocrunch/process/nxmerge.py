@@ -16,7 +16,7 @@ class Task(nxprocess.Task):
     def _stack_sources(self):
         groups = {}
         for nxprocess in self.previous_outputs:
-            for nxdata in nxprocess.results.iter_is_nxclass(u"NXdata"):
+            for nxdata in nxprocess.results.iter_is_nxclass("NXdata"):
                 lst = groups.get(nxdata.name, None)
                 if lst is None:
                     lst = groups[nxdata.name] = []
@@ -46,8 +46,8 @@ class Task(nxprocess.Task):
             for dep2 in dep.dependencies:
                 for dep3 in self._iter_nxentry_dependencies(dep2):
                     if not isinstance(dep3, basetask.Task):
-                        if dep3.is_nxclass(u"NXentry"):
+                        if dep3.is_nxclass("NXentry"):
                             yield dep3
         else:
-            if dep.is_nxclass(u"NXentry"):
+            if dep.is_nxclass("NXentry"):
                 yield dep

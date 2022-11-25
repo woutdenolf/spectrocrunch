@@ -6,7 +6,7 @@ import warnings
 
 
 def gaussian(x, x0, sx, A):
-    return A / (np.sqrt(2 * np.pi) * sx) * np.exp(-((x - x0) ** 2) / (2 * sx ** 2))
+    return A / (np.sqrt(2 * np.pi) * sx) * np.exp(-((x - x0) ** 2) / (2 * sx**2))
 
 
 def guess_gaussian(x, data):

@@ -1411,7 +1411,7 @@ class SingleElementDetector(Detector):
         if self.elliptical:
             a = 2 * (self.activearea / np.pi) ** 0.5
         else:
-            a = self.activearea ** 0.5
+            a = self.activearea**0.5
         return a, a
 
 

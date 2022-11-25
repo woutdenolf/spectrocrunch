@@ -36,7 +36,7 @@ sinbeta = sin(beta)
 # cosbeta = sqrt((1+P)/2)
 # sinbeta = sqrt((1-P)/2)
 sin2beta = _sage_const_2 * sinbeta * cosbeta
-cos2beta = cosbeta ** _sage_const_2 - sinbeta ** _sage_const_2
+cos2beta = cosbeta**_sage_const_2 - sinbeta**_sage_const_2
 
 ux0 = phix * cosbeta
 uy0 = phiy * sinbeta
@@ -54,15 +54,15 @@ CC = _sage_const_1 / (A * sin(delta) * sinbeta) ** _sage_const_2
 BB = (
     -_sage_const_2
     * cos(delta)
-    / (A ** _sage_const_2 * sin(delta) ** _sage_const_2 * sinbeta * cosbeta)
+    / (A**_sage_const_2 * sin(delta) ** _sage_const_2 * sinbeta * cosbeta)
 )
 
 assert (
-    AA * uxr ** _sage_const_2 + BB * uxr * uyr + CC * uyr ** _sage_const_2
+    AA * uxr**_sage_const_2 + BB * uxr * uyr + CC * uyr**_sage_const_2
     == _sage_const_1
 )
 
-DD = sqrt((AA - CC) ** _sage_const_2 + BB ** _sage_const_2)
+DD = sqrt((AA - CC) ** _sage_const_2 + BB**_sage_const_2)
 
 semimajor = A * sqrt(
     (_sage_const_1 + sqrt(_sage_const_1 - (sin2beta * sin(delta)) ** _sage_const_2))
@@ -74,6 +74,6 @@ semiminor = A * sqrt(
 )
 
 tanchi = (CC - AA - DD) / BB
-tan2chi = _sage_const_2 * tanchi / (_sage_const_1 - tanchi ** _sage_const_2)
+tan2chi = _sage_const_2 * tanchi / (_sage_const_1 - tanchi**_sage_const_2)
 
 assert tan2chi == sin2beta / cos2beta * cos(delta)

@@ -18,8 +18,8 @@ class test_ops(unittest.TestCase):
 
                     self.assertAlmostEqual(o1(x), o1.m * x + o1.b)
                     self.assertAlmostEqual(o1i(x), (x - o1.b) / float(o1.m))
-                    self.assertEqual(o1 * o1, o1 ** 2)
-                    self.assertEqual(o1 * o1 * o1, o1 ** 3)
+                    self.assertEqual(o1 * o1, o1**2)
+                    self.assertEqual(o1 * o1 * o1, o1**3)
                     self.assertAlmostEqual((o1i * o1i)(x), (o1 * o1).inverse(x))
                     self.assertAlmostEqual(
                         (o1i * o1i * o1i)(x), (o1 * o1 * o1).inverse(x)

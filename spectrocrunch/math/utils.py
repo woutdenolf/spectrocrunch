@@ -23,12 +23,12 @@ round_ndigits = np.round
 
 
 def ceil_ndigits(x, n):
-    m = 10 ** n
+    m = 10**n
     return math.ceil(x * m) / m
 
 
 def floor_ndigits(x, n):
-    m = 10 ** n
+    m = 10**n
     return math.floor(x * m) / m
 
 

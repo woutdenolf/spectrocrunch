@@ -241,7 +241,7 @@ class RandomUnicode(StringBase):
 
     @classmethod
     def _join(cls, iterable):
-        return cls.CLASS(u"".join(iterable))
+        return cls.CLASS("".join(iterable))
 
 
 # ====== Native sequences ======

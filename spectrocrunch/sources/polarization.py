@@ -124,7 +124,7 @@ def MuellerMatrixThomson(azimuth, polar):
     """
 
     costh = np.cos(np.radians(polar))
-    cossq_polar = costh ** 2
+    cossq_polar = costh**2
     a = (1 + cossq_polar) / 2.0
     b = 1 - a  # = sinsq_polar/2
 
@@ -159,7 +159,7 @@ def MuellerMatrixCompton(azimuth, polar, energy):
     """
     # Same incident and scattered reference frame as MuellerMatrixThomson
     costh = np.cos(np.radians(polar))
-    cossq_polar = costh ** 2
+    cossq_polar = costh**2
     a = (1 + cossq_polar) / 2.0
     b = 1 - a  # = sinsq_polar/2
 
@@ -171,17 +171,14 @@ def MuellerMatrixCompton(azimuth, polar, energy):
     ksc = k / (1 + k * (1 - costh))
     c = (k - ksc) * (1 - costh) / 2.0
 
-    return (
-        np.array(
-            [
-                [a + c, b * cosph, -b * sinph, 0],
-                [b, a * cosph, -a * sinph, 0],
-                [0, costh * sinph, costh * cosph, 0],
-                [0, 0, 0, costh * (1 + c)],
-            ]
-        )
-        * (ksc ** 2 / k ** 2)
-    )
+    return np.array(
+        [
+            [a + c, b * cosph, -b * sinph, 0],
+            [b, a * cosph, -a * sinph, 0],
+            [0, costh * sinph, costh * cosph, 0],
+            [0, 0, 0, costh * (1 + c)],
+        ]
+    ) * (ksc**2 / k**2)
 
 
 class Jones(object):
@@ -720,7 +717,7 @@ class Stokes(object):
             S3 = -S3
 
         # S12 = S1^2 + S2^2 = S1^2 *(1+S2S1^2)
-        S1sq = S12 / (1.0 + S2S1 ** 2)
+        S1sq = S12 / (1.0 + S2S1**2)
         S1 = np.sqrt(S1sq) * np.sign(np.cos(polangle2))
         S2 = np.sqrt(S12 - S1sq) * np.sign(np.sin(polangle2))
 
@@ -844,13 +841,13 @@ class Stokes(object):
 
             def K(azimuth=None, polar=None):
                 costh = np.cos(polar)
-                a = (1 + costh ** 2) / 2.0
+                a = (1 + costh**2) / 2.0
                 ph = 2 * azimuth
                 cosph = np.cos(ph)
                 sinph = np.sin(ph)
                 ksc = k / (1 + k * (1 - costh))
                 c = (k - ksc) * (1 - costh) / 2.0
-                return ksc ** 2 / k ** 2 * (a + c)
+                return ksc**2 / k**2 * (a + c)
 
         else:
             S10 = self.S[1] / self.S[0]
@@ -858,7 +855,7 @@ class Stokes(object):
 
             def K(azimuth=None, polar=None):
                 costh = np.cos(polar)
-                a = (1 + costh ** 2) / 2.0
+                a = (1 + costh**2) / 2.0
                 ph = 2 * azimuth
                 cosph = np.cos(ph)
                 sinph = np.sin(ph)
@@ -866,7 +863,7 @@ class Stokes(object):
                 c = (k - ksc) * (1 - costh) / 2.0
 
                 return (
-                    ksc ** 2 / k ** 2 * (a + c - (1 - a) * (S10 * cosph + S20 * sinph))
+                    ksc**2 / k**2 * (a + c - (1 - a) * (S10 * cosph + S20 * sinph))
                 )
 
         return K

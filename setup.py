@@ -152,7 +152,6 @@ if sphinx is not None:
 
             sys.path.pop(0)
 
-
 else:
 
     class BuildDocCommand(DisabledCommand):
@@ -268,7 +267,7 @@ install_requires = [
     "testfixtures",
     "future",
     "cvxopt",
-    "pymca5"
+    "pymca5",
 ]
 extras_require = {
     "physics": ["xraylib", "cctbx", "fdmnes", "PyTMM"],

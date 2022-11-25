@@ -97,7 +97,7 @@ class test_polarization(unittest.TestCase):
             np.testing.assert_allclose(
                 J.to_numpy(), J.to_stokes().to_jones(phase0=J.phase0).to_numpy()
             )
-            np.testing.assert_allclose(J.coherency_matrix.trace(), J.norm ** 2)
+            np.testing.assert_allclose(J.coherency_matrix.trace(), J.norm**2)
 
             J2 = polarization.Jones.from_params(**J.to_params())
             np.testing.assert_allclose(J.to_numpy(), J2.to_numpy())

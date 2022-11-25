@@ -57,7 +57,7 @@ def ChromaticityTriangle(fig, rect, ternaryinfo, debug=False, additive=True):
         z,
         shading="gouraud",
         cmap=colormap.RGBcolormap(),
-        norm=pltcolors.Normalize(vmin=0.0, vmax=2.0 ** 24 - 1),
+        norm=pltcolors.Normalize(vmin=0.0, vmax=2.0**24 - 1),
     )
 
     return ax

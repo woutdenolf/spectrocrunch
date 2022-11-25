@@ -42,13 +42,13 @@ class limitednorm_gen(rv_continuous):
 
         invalid = (y < -self.k) | (y > self.k)
         if isinstance(y, np.ndarray):
-            ret = np.exp(-(y ** 2) / 2.0) / np.sqrt(2.0 * np.pi) + self.offset
+            ret = np.exp(-(y**2) / 2.0) / np.sqrt(2.0 * np.pi) + self.offset
             ret[invalid] = 0
             return ret
         elif invalid:
             return 0 * y
         else:
-            return np.exp(-(y ** 2) / 2.0) / np.sqrt(2.0 * np.pi) + self.offset
+            return np.exp(-(y**2) / 2.0) / np.sqrt(2.0 * np.pi) + self.offset
 
     def _cdf(self, y):
         # y = (x-loc)/scale

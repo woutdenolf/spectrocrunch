@@ -13,7 +13,6 @@ try:
     def getnames():
         return list(xraylib.GetCompoundDataNISTList())
 
-
 except ImportError:
     xraylib = None
     warnings.warn("xraylib is not installed", ImportWarning)
