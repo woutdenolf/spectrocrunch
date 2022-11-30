@@ -197,7 +197,7 @@ def codtunnel():
         server.start()
         yield
     except:
-        print traceback.format_exc()
+        print(traceback.format_exc())
 
     server.stop()
 
@@ -208,9 +208,9 @@ if __name__ == "__main__":
 
         query = Data.namequery("copper acetate")
         # for entry in query:
-        #    print entry
+        #    print(entry)
         for entry in query:
             if entry.satp():
-                print entry
+                print(entry)
                 entry.download()
                 break

@@ -41,7 +41,7 @@ def test2():
         fixedImage = hdf5FileObject["counters"]["arr_fdet"]["data"][..., 0]
 
         for k in range(80, 85):
-            print k
+            print(k)
             movingImage = hdf5FileObject["counters"]["arr_fdet"]["data"][..., k]
             trn, alignedImage = align(fixedImage, movingImage)
 
@@ -74,7 +74,7 @@ def test3():
     plt.figure(3)
     plt.imshow(alignedImage)
 
-    print trn
+    print(trn)
 
     plt.show()
 
@@ -90,7 +90,7 @@ def test4():
     o.LogToConsoleOff()
 
     for i in range(bstart, 4):
-        print i
+        print(i)
         imgref = np.load(
             "/data/visitor/hc3130/id21/spectrocrunch/img{}.npy".format(i - 1)
         )
@@ -99,8 +99,8 @@ def test4():
         o.SetMovingImage(sitk.GetImageFromArray(img))
         try:
             o.Execute()
-        except:
-            print "error"
+        except Exception:
+            print("error")
             if breinit:
                 o = sitk.ElastixImageFilter()
                 o.SetParameterMap(sitk.GetDefaultParameterMap("translation"))

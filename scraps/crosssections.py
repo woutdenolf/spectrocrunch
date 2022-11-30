@@ -62,8 +62,8 @@ def plot(c, path=None):
             scatyield *= t * 1e-4
         else:
             a = mu * c.density * (1 - 1 / np.cos(ttheta * np.pi / 180))
-            print (1 - np.exp(-a * t * 1e-4)) / a
-            print t * 1e-4
+            print((1 - np.exp(-a * t * 1e-4)) / a)
+            print(t * 1e-4)
             scatyield *= (1 - np.exp(-a * t * 1e-4)) / a
 
         plt.plot(

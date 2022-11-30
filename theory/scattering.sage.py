@@ -90,34 +90,36 @@ def thomson():
 
     M1 = MuellerMatrixRotation(beta)
     M2 = jones_to_mueller(JonesMatrixThomson(theta))
-    # print mueller_to_jones(M2)
+    # print(mueller_to_jones(M2))
 
     M2 = M2.substitute(theta=acos(sqrt(_sage_const_2 * a - _sage_const_1))).simplify()
     M = (M2 * M1).simplify()
-    print "\nMueller matrix:"
-    print M
+    print("\nMueller matrix:")
+    print(M)
     S_scat = (M * S).simplify()
 
     I_scat = S_scat[_sage_const_0].substitute(beta=pi / _sage_const_2 - phi).simplify()
-    print "\nScattered intensity:"
-    print I_scat
+    print("\nScattered intensity:")
+    print(I_scat)
 
     It_scat = I_scat.substitute(
         a=(_sage_const_1 + cos(theta) ** _sage_const_2) / _sage_const_2
     )
 
-    print "\nScattered intensity (unpol):"
-    print It_scat.substitute(S1=_sage_const_0).substitute(
-        S2=_sage_const_0
-    ).simplify_full()
+    print("\nScattered intensity (unpol):")
+    print(
+        It_scat.substitute(S1=_sage_const_0)
+        .substitute(S2=_sage_const_0)
+        .simplify_full()
+    )
 
-    print "\nScattered intensity (horizontal linear pol.):"
-    print It_scat.substitute(S1=S0).substitute(S2=_sage_const_0).simplify_full()
+    print("\nScattered intensity (horizontal linear pol.):")
+    print(It_scat.substitute(S1=S0).substitute(S2=_sage_const_0).simplify_full())
 
     It_scat = definite_integral(It_scat * sin(theta), theta, _sage_const_0, pi)
     It_scat = definite_integral(It_scat, phi, _sage_const_0, _sage_const_2 * pi)
-    print "\nThomson cross-section (units of r_e^2):"
-    print It_scat / S0
+    print("\nThomson cross-section (units of r_e^2):")
+    print(It_scat / S0)
 
 
 def compton():
@@ -154,37 +156,39 @@ def compton():
         )
         * s
     )
-    # print mueller_to_jones(M2)
+    # print(mueller_to_jones(M2)
     M2 = M2.substitute(theta=acos(sqrt(_sage_const_2 * a - _sage_const_1))).simplify()
 
     M = (M2 * M1).simplify()
-    print "\nMueller matrix:"
-    print M
+    print("\nMueller matrix:")
+    print(M)
     S_scat = (M * S).simplify()
 
     I_scat = S_scat[_sage_const_0].substitute(beta=pi / _sage_const_2 - phi).simplify()
-    print "\nScattered intensity:"
-    print I_scat
+    print("\nScattered intensity:")
+    print(I_scat)
 
     # Energy in units of m_e*c^2
     It_scat = I_scat.substitute(
         a=(_sage_const_1 + cos(theta) ** _sage_const_2) / _sage_const_2
     )
-    It_scat = It_scat.substitute(s=Esc ** _sage_const_2 / E ** _sage_const_2)
+    It_scat = It_scat.substitute(s=Esc**_sage_const_2 / E**_sage_const_2)
     It_scat = It_scat.substitute(
         c=(E - Esc) / _sage_const_2 * (_sage_const_1 - cos(theta))
     )
     It_scat = It_scat.simplify_full()
 
-    print "\nScattered intensity (unpol):"
-    print It_scat.substitute(S1=_sage_const_0).substitute(
-        S2=_sage_const_0
-    ).simplify_full()
+    print("\nScattered intensity (unpol):")
+    print(
+        It_scat.substitute(S1=_sage_const_0)
+        .substitute(S2=_sage_const_0)
+        .simplify_full()
+    )
 
     It_scatu1 = It_scat.substitute(S1=_sage_const_0).substitute(S2=_sage_const_0)
     It_scatu2 = (
-        Esc ** _sage_const_2
-        / E ** _sage_const_2
+        Esc**_sage_const_2
+        / E**_sage_const_2
         * S0
         * (E / Esc + Esc / E - sin(theta) ** _sage_const_2)
         / _sage_const_2
@@ -199,12 +203,12 @@ def compton():
         .simplify_full()
         .simplify_trig()
     )
-    print bool(It_scatu1 == It_scatu2)
+    print(bool(It_scatu1 == It_scatu2))
 
     It_scatu1 = It_scat.substitute(S1=S0).substitute(S2=_sage_const_0)
     It_scatu2 = (
-        Esc ** _sage_const_2
-        / E ** _sage_const_2
+        Esc**_sage_const_2
+        / E**_sage_const_2
         * S0
         * (
             E / Esc
@@ -223,10 +227,10 @@ def compton():
         .simplify_full()
         .simplify_trig()
     )
-    print bool(It_scatu1 == It_scatu2)
+    print(bool(It_scatu1 == It_scatu2))
 
-    print "\nScattered intensity (horizontal linear pol.):"
-    print It_scat.substitute(S1=S0).substitute(S2=_sage_const_0).simplify_full()
+    print("\nScattered intensity (horizontal linear pol.):")
+    print(It_scat.substitute(S1=S0).substitute(S2=_sage_const_0).simplify_full())
 
     It_scat = It_scat.substitute(
         Esc=E / (_sage_const_1 + E * (_sage_const_1 - cos(theta)))
@@ -234,8 +238,8 @@ def compton():
     It_scat = It_scat.simplify_full()
     It_scat = definite_integral(It_scat * sin(theta), theta, _sage_const_0, pi)
     It_scat = definite_integral(It_scat, phi, _sage_const_0, _sage_const_2 * pi)
-    print "\nKlein-Nishina cross-section (units of r_e^2):"
-    print (It_scat / S0).simplify_full()
+    print("\nKlein-Nishina cross-section (units of r_e^2):")
+    print((It_scat / S0).simplify_full())
 
 
 thomson()

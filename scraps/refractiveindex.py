@@ -33,22 +33,24 @@ N = wfrac * NA / MM * density  # atoms/cm^3
 Fii = fFii(Z)  # Im(f) in e/atom
 
 fFii = lambda mu: mu / (-2 * re * wavelength * NA / MM)
-print "\nIm(f) = mu/(-2.re.wavelength.NA/MM)"
+print("\nIm(f) = mu/(-2.re.wavelength.NA/MM)")
 
-print " Z = {}".format(Z)
-print " Im(f)(xraylib) = {}".format(",".join("{:f}".format(x) for x in Fii))
+print(" Z = {}".format(Z))
+print(" Im(f)(xraylib) = {}".format(",".join("{:f}".format(x) for x in Fii)))
 
 Fiicalc = fFii(fmuPE(Z))
-print " Im(f)(CS_Photo_Total) = {}".format(",".join("{:f}".format(x) for x in Fiicalc))
+print(" Im(f)(CS_Photo_Total) = {}".format(",".join("{:f}".format(x) for x in Fiicalc)))
 
 Fiicalc = fFii(fmuTot1(Z))
-print " Im(f)(CS_Total_Kissel) = {}".format(",".join("{:f}".format(x) for x in Fiicalc))
+print(
+    " Im(f)(CS_Total_Kissel) = {}".format(",".join("{:f}".format(x) for x in Fiicalc))
+)
 
 Fiicalc = fFii(fmuTot2(Z))
-print " Im(f)(CS_Total) = {}".format(",".join("{:f}".format(x) for x in Fiicalc))
+print(" Im(f)(CS_Total) = {}".format(",".join("{:f}".format(x) for x in Fiicalc)))
 
 # https://physics.nist.gov/PhysRefData/FFast/Text1995/chap01.html
-fbeta = lambda Imf: -re / (2 * np.pi) * wavelength ** 2 * sum(N * Imf)
+fbeta = lambda Imf: -re / (2 * np.pi) * wavelength**2 * sum(N * Imf)
 
 # http://henke.lbl.gov/optical_constants/getdb2.html
 url = "http://henke.lbl.gov/cgi-bin/getdb.pl"
@@ -72,9 +74,9 @@ r = r.content.split("\n")[2].split(" ")
 r = [x for x in r if x]
 delta, beta = r[1], r[2]
 
-print "\nn = 1-delta-i.beta"
-print "beta = wavelength/(4.pi).density.sum(w.mu)"
-print " beta(Henke) = {}".format(beta)
-print " beta(mu=CS_Photo_Total) = {}".format(fbeta(fFii(fmuPE(Z))))
-print " beta(mu=CS_Total_Kissel) = {}".format(fbeta(fFii(fmuTot1(Z))))
-print " beta(mu=CS_Total) = {}".format(fbeta(fFii(fmuTot2(Z))))
+print("\nn = 1-delta-i.beta")
+print("beta = wavelength/(4.pi).density.sum(w.mu)")
+print(" beta(Henke) = {}".format(beta))
+print(" beta(mu=CS_Photo_Total) = {}".format(fbeta(fFii(fmuPE(Z)))))
+print(" beta(mu=CS_Total_Kissel) = {}".format(fbeta(fFii(fmuTot1(Z)))))
+print(" beta(mu=CS_Total) = {}".format(fbeta(fFii(fmuTot2(Z)))))

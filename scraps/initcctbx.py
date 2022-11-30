@@ -27,7 +27,7 @@ try:
     os.execl(sys.executable, "python", __file__, *sys.argv[1:])
     sys.exit()
 except Exception, exc:
-    print "Failed re-exec:", exc
+    print("Failed re-exec:", exc)
     sys.exit(1)
 
 sys.path.append(os.path.abspath(os.path.join(CCTBCBUILD, "lib")))

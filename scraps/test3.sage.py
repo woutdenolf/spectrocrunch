@@ -44,7 +44,7 @@ P2 = symbolic_expression((P1a(s) * P1b(t - s)).integral(s, _sage_const_0, t)).fu
 )
 __tmp__ = var("t")
 P3 = symbolic_expression((P2(s) * P1c(t - s)).integral(s, _sage_const_0, t)).function(t)
-print P3
+print(P3)
 
 # g(y) = l^y/factorial(y)*exp(-l)
-# print g.integral(y,0,oo)
+# print(g.integral(y,0,oo))
