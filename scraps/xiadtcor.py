@@ -72,7 +72,7 @@ if __name__ == "__main__":
             deadtime=deadtime,
             add=add,
         )
-        print time() - t0
+        print(time() - t0)
 
         outname = "{}_{}".format(scanname, outname)
 
@@ -96,7 +96,7 @@ if __name__ == "__main__":
         else:
             xialabels = ["xia{:02d}".format(i) for i in range(data.shape[-1])]
         mapout.save(data, xialabels)
-        print time() - t0
+        print(time() - t0)
 
     map1 = xiaedf.xiaimage_number(outdir1, outname, scannumber)
     map2 = xiaedf.xiaimage_number(outdir2, outname, scannumber)

@@ -150,7 +150,7 @@ class sample_hg115(sample):
         guess = self.get_paintthickness()
 
         result = scipy.optimize.least_squares(costfunc, guess, gtol=1e-015, ftol=1e-015)
-        print result.message
+        print(result.message)
 
         return result.x[0], result.success
 
@@ -165,7 +165,7 @@ class sample_hg115(sample):
         result = scipy.optimize.least_squares(
             costfunc, guess, bounds=([0, 100]), gtol=1e-015, ftol=1e-015
         )
-        print result.message
+        print(result.message)
 
         return result.x[0], result.success
 
@@ -210,7 +210,7 @@ class sample_hg115(sample):
         result = scipy.optimize.least_squares(
             costfunc, guess, bounds=([0, 0], [100, 1e6]), gtol=1e-015
         )
-        print result.message
+        print(result.message)
 
         return result.x, result.success
 
@@ -248,10 +248,10 @@ def hg115_ff():
         sample.set_wpigment(wt[0])
         sample.set_paintthickness(wt[1])
 
-    print "Thickness = {} μm".format(sample.get_paintthickness())
-    print "Verdigris = {} wt%".format(sample.get_wpigment())
-    print "Jump to noise = {}".format(1 / sample.costfunc(I0, energyopt, **kwargs))
-    print ""
+    print("Thickness = {} μm".format(sample.get_paintthickness()))
+    print("Verdigris = {} wt%".format(sample.get_wpigment()))
+    print("Jump to noise = {}".format(1 / sample.costfunc(I0, energyopt, **kwargs)))
+    print("")
 
     plt.figure()
     for thickness in [10, 15, 20]:
@@ -292,7 +292,7 @@ def hg115_xrd():
             )
         )
 
-    print n[-1] / n[0]
+    print(n[-1] / n[0])
     plt.plot(r, n)
     plt.show()
 

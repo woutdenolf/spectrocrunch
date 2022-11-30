@@ -26,7 +26,7 @@ var("delta")
 Kunpol = (_sage_const_1 + (cos(theta)) ** _sage_const_2) / _sage_const_2
 Kpol = Kunpol - (sin(theta)) ** _sage_const_2 / _sage_const_2 * (
     P * cos(_sage_const_2 * phi)
-    + sqrt(_sage_const_1 - P ** _sage_const_2) * cos(delta) * sin(_sage_const_2 * phi)
+    + sqrt(_sage_const_1 - P**_sage_const_2) * cos(delta) * sin(_sage_const_2 * phi)
 )
 __tmp__ = var("theta,phi")
 ElasticDiffPol2 = symbolic_expression(Kpol).function(theta, phi)
@@ -55,7 +55,7 @@ assert (
 __tmp__ = var("theta,phi")
 InelasticDiffPol2 = symbolic_expression(
     (_sage_const_1 / R + R + _sage_const_4 * Kpol - _sage_const_2)
-    / (_sage_const_4 * R ** _sage_const_2)
+    / (_sage_const_4 * R**_sage_const_2)
 ).function(theta, phi)
 __tmp__ = var("theta")
 InelasticDiffPol1 = symbolic_expression(
@@ -66,7 +66,7 @@ InelasticDiffPol1 = symbolic_expression(
 __tmp__ = var("theta,phi")
 InelasticDiffUnPol2 = symbolic_expression(
     (_sage_const_1 / R + R + _sage_const_4 * Kunpol - _sage_const_2)
-    / (_sage_const_4 * R ** _sage_const_2)
+    / (_sage_const_4 * R**_sage_const_2)
 ).function(theta, phi)
 __tmp__ = var("theta")
 InelasticDiffUnPol1 = symbolic_expression(
@@ -77,18 +77,21 @@ InelasticDiffUnPol1 = symbolic_expression(
 
 assert InelasticDiffPol1(theta) == InelasticDiffUnPol1(theta)
 
-print "\n" * _sage_const_5
-print "Azimuthally integrate differential Rayleigh cs:"
-print " Polarized source:", ElasticDiffPol1(theta)
-print " Unpolarized source:", ElasticDiffUnPol1(theta)
-print "Differential Rayleigh cs with P=1 (synchrotron):"
-print ElasticDiffPol2(theta, phi).substitute(
-    P=_sage_const_1
-).simplify_full().simplify_trig()
+print("\n" * _sage_const_5)
+print("Azimuthally integrate differential Rayleigh cs:")
+print(" Polarized source:", ElasticDiffPol1(theta))
+print(" Unpolarized source:", ElasticDiffUnPol1(theta))
+print("Differential Rayleigh cs with P=1 (synchrotron):")
+print(
+    ElasticDiffPol2(theta, phi)
+    .substitute(P=_sage_const_1)
+    .simplify_full()
+    .simplify_trig()
+)
 
-print ""
-print "Azimuthally integrate differential Compton cs:"
-print " Polarized source:", InelasticDiffPol1(theta)
-print " Unpolarized source:", InelasticDiffUnPol1(theta)
-print "Differential Rayleigh cs with P=1 (synchrotron):"
-print InelasticDiffPol2(theta, phi).substitute(P=_sage_const_1).simplify_trig()
+print("")
+print("Azimuthally integrate differential Compton cs:")
+print(" Polarized source:", InelasticDiffPol1(theta))
+print(" Unpolarized source:", InelasticDiffUnPol1(theta))
+print("Differential Rayleigh cs with P=1 (synchrotron):")
+print(InelasticDiffPol2(theta, phi).substitute(P=_sage_const_1).simplify_trig())

@@ -204,7 +204,8 @@ def processNotSynchronized(
 
                     if len(xasspectrumj) == 0:
                         xasspectrumj = xasresults
-                    elif energy_ref is None:
+                    # elif energy_ref is None:
+                    else:
                         for group in xasresults:
                             xasspectrumj[group] += xasresults[group]
 
@@ -259,7 +260,7 @@ def processNotSynchronized(
         if not os.path.exists(destpath):
             os.makedirs(destpath)
 
-        xasspectrum["energyM"] = energy
+        xasspectrum["energy"] = energy
         labels = [k.replace(" ", "-") for k in xasspectrum]
         ArraySave.save2DArrayListAsASCII(
             list(xasspectrum.values()), fileName, labels=labels
@@ -514,7 +515,7 @@ def processEnergySynchronized(
         #    exit()
 
         # Add energy to result
-        xasresults["energyM"] = energy[:, np.newaxis]
+        xasresults["energy"] = energy[:, np.newaxis]
 
         # Add normalized sum of counters
         for c in counters:

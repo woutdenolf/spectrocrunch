@@ -164,7 +164,7 @@ def hg64():
     # For layer thicknesses on subset
     sample.refinethickness(energysel, xanessel, layerfixed=[0])
     for layer in range(sample.nlayers):
-        print "{}: {} um".format(sample.material[layer], sample.thickness[layer])
+        print("{}: {} um".format(sample.material[layer], sample.thickness[layer]))
 
     plt.plot(energysel, xanessel, "o")
     energy = np.linspace(3.48, 3.8, 100)
@@ -176,7 +176,7 @@ def hg64():
     tframe = 0.7
     nframe = 100
 
-    print tframe_data, nframes_data, tframe_flat, nframes_flat, nframes_dark
+    print(tframe_data, nframes_data, tframe_flat, nframes_flat, nframes_dark)
     N, N0, D, D0 = calcnoise.id21_ffnoise(
         I0,
         energy,

@@ -29,12 +29,12 @@ def test1():
         [compound1, compound2, compound3, compound4], [1, 1, 1, 1], fraction.mass
     )
 
-    print (compound4.massfractions())
-    print ("")
+    print(compound4.massfractions())
+    print("")
     elements = m.elemental_massfractions()
-    print ("")
+    print("")
     for e in elements:
-        print (e, e.MM, elements[e])
+        print(e, e.MM, elements[e])
 
 
 class capillary_transmission:
@@ -47,14 +47,11 @@ class capillary_transmission:
             return 1.0
         else:
             # return np.exp(-2.*R*self.mu*self.rho) # estimation
-            return (
-                integrate.quad(
-                    lambda x: np.exp(-2 * self.mu * self.rho * np.sqrt(R * R - x * x)),
-                    -R,
-                    R,
-                )[0]
-                / (2 * R)
-            )
+            return integrate.quad(
+                lambda x: np.exp(-2 * self.mu * self.rho * np.sqrt(R * R - x * x)),
+                -R,
+                R,
+            )[0] / (2 * R)
 
 
 class capillary_transmission2:
@@ -64,16 +61,13 @@ class capillary_transmission2:
         self.R = R
 
     def __call__(self, packing):
-        return (
-            integrate.quad(
-                lambda x: np.exp(
-                    -2 * self.mu * self.rho * packing * np.sqrt(self.R * self.R - x * x)
-                ),
-                -self.R,
-                self.R,
-            )[0]
-            / (2 * self.R)
-        )
+        return integrate.quad(
+            lambda x: np.exp(
+                -2 * self.mu * self.rho * packing * np.sqrt(self.R * self.R - x * x)
+            ),
+            -self.R,
+            self.R,
+        )[0] / (2 * self.R)
 
 
 class capillary_refine:
@@ -116,21 +110,25 @@ def test2():
     mass = 1 * 1e-6  # g
     volume = mass / m.density  # cm^3
 
-    print "Mixture:"
-    print "density = {} g/cm^3".format(m.density)
-    print "mass.att. = {} cm^2/g".format(mu)
+    print("Mixture:")
+    print("density = {} g/cm^3".format(m.density))
+    print("mass.att. = {} cm^2/g".format(mu))
 
-    print "\nCapillary:"
-    print "R = {} um".format(R * 1e4)
-    print "packing = {} %".format(packing * 100)
-    print "h = {} mm (@ total mass = {} ug)".format(
-        volume / (np.pi * R * R) * 10, mass * 1e6
+    print("\nCapillary:")
+    print("R = {} um".format(R * 1e4))
+    print("packing = {} %".format(packing * 100))
+    print(
+        "h = {} mm (@ total mass = {} ug)".format(
+            volume / (np.pi * R * R) * 10, mass * 1e6
+        )
     )
 
-    print "\nFlat sample:"
-    print "thickness = {} um".format(thickness * 1e4)
-    print "footprint = {} mm^2 (@ total mass = {} ug)".format(
-        volume / thickness * 1e4, mass * 1e6
+    print("\nFlat sample:")
+    print("thickness = {} um".format(thickness * 1e4))
+    print(
+        "footprint = {} mm^2 (@ total mass = {} ug)".format(
+            volume / thickness * 1e4, mass * 1e6
+        )
     )
 
 

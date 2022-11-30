@@ -55,10 +55,10 @@ class readme(object):
 
             if isinstance(line, list):
                 for l in line:
-                    print l
+                    print(l)
                     f.write(l + "\n")
             else:
-                print line
+                print(line)
                 f.write(line + "\n")
 
 
@@ -94,7 +94,7 @@ def normfunc(datadirs, normctr, pymcaflux, logger):
     # linatt = material.mass_att_coeff(np.asarray([17.05]))[0]*material.density # cm^-1
     # linatt = 16.4569106695 # cm^-1
     # thickness = 0.05 # cm
-    # print "thickness = {} cm".format( np.log(2500e+12*(17050.*1.60217662e-19)/3.6)/linatt )
+    # print("thickness = {} cm".format( np.log(2500e+12*(17050.*1.60217662e-19)/3.6)/linatt ))
     # g = 3.6/(17050.*1.60217662e-19)*np.exp(linatt*thickness)
     # g = "{:e}".format(3.6/(17050.*1.60217662e-19)*np.exp(linatt*0.0389067609507))
     # So lower thickness or it has some window
@@ -237,7 +237,7 @@ if __name__ == "__main__":
     stackin.onlyicrocr(True)
 
     # Read data: nrep x nrow x ncol x nchan x ndet
-    print "\nReading data..."
+    print("\nReading data...")
     data = stackin.data
 
     bqt = False
@@ -274,7 +274,7 @@ if __name__ == "__main__":
     # Align and sum repeats
     nrep, nrow, ncol, nchan, ndet = data.shape
     if align:
-        print "\nAligning repeats..."
+        print("\nAligning repeats...")
         # Sum detectors if not already done
         if add:
             alignsource = data[..., 0]
@@ -316,7 +316,7 @@ if __name__ == "__main__":
             )
 
         # Apply alignment on all MCA channels and sum repeats
-        print "\nAlign and sum repeats..."
+        print("\nAlign and sum repeats...")
         nrow2 = outputstack[0].shape[1]
         ncol2 = outputstack[0].shape[2]
         data2 = np.zeros((nrow2, ncol2, nchan, ndet), dtype=outputstack[0].dtype)
@@ -336,7 +336,7 @@ if __name__ == "__main__":
 
         data = data2
     else:
-        print "\nSum repeats..."
+        print("\nSum repeats...")
         # Sum repeats
         data = data.sum(axis=0)
 
@@ -351,7 +351,7 @@ if __name__ == "__main__":
         xialabels = ["xia{:02d}".format(i) for i in range(data.shape[-1])]
 
     # Write data: nrow x ncol x nchan x ndet
-    print "\nWriting data..."
+    print("\nWriting data...")
     mapout.save(data, xialabels)
 
     # Show graphics if needed

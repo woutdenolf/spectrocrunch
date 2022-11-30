@@ -34,8 +34,8 @@ def approach1():
     phasor, meanabsphasor = samplephasor(A, len(t))
 
     # plt.hist(np.abs(phasor), 50)
-    # print "Mean amplitude:",meanabsphasor, np.mean(np.abs(phasor))
-    # print "Mean phase:",0,np.mean(np.arctan2(np.imag(phasor),np.real(phasor)))
+    # print("Mean amplitude:",meanabsphasor, np.mean(np.abs(phasor)))
+    # print("Mean phase:",0,np.mean(np.arctan2(np.imag(phasor),np.real(phasor))))
     # plt.show()
     # exit()
 
@@ -111,7 +111,7 @@ def approach2():
     BB = (
         -2
         * np.cos(delta)
-        / (meanabsphasor ** 2 * (np.sin(delta)) ** 2 * sinbeta * cosbeta)
+        / (meanabsphasor**2 * (np.sin(delta)) ** 2 * sinbeta * cosbeta)
     )
 
     if BB == 0:
@@ -120,9 +120,9 @@ def approach2():
         else:
             chi1 = np.pi / 2
     else:
-        chi1 = np.arctan((CC - AA - np.sqrt((CC - AA) ** 2 + BB ** 2)) / BB)
+        chi1 = np.arctan((CC - AA - np.sqrt((CC - AA) ** 2 + BB**2)) / BB)
     chi2 = np.arctan(tan2beta * np.cos(delta)) / 2.0
-    print "Ellipse orientation: ", np.degrees(chi1), np.degrees(chi2)
+    print("Ellipse orientation: ", np.degrees(chi1), np.degrees(chi2))
     chi = chi2
 
     ux = meanabsphasor * cosbeta * np.exp(1j * alpha)
@@ -139,12 +139,12 @@ def approach2():
     )
 
     if delta != 0:
-        np.testing.assert_allclose(AA * urx ** 2 + BB * urx * ury + CC * ury ** 2, 1)
+        np.testing.assert_allclose(AA * urx**2 + BB * urx * ury + CC * ury**2, 1)
         np.testing.assert_allclose(
-            semimajor, np.sqrt(2.0 / (AA + CC - np.sqrt((AA - CC) ** 2 + BB ** 2)))
+            semimajor, np.sqrt(2.0 / (AA + CC - np.sqrt((AA - CC) ** 2 + BB**2)))
         )
         np.testing.assert_allclose(
-            semiminor, np.sqrt(2.0 / (AA + CC + np.sqrt((AA - CC) ** 2 + BB ** 2)))
+            semiminor, np.sqrt(2.0 / (AA + CC + np.sqrt((AA - CC) ** 2 + BB**2)))
         )
 
     p = np.linspace(0, 2 * np.pi, len(t))
