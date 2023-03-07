@@ -55,11 +55,10 @@ function intel_install_opencldrivers()
     cprint "Install Intel OpenCL runtime ..."
     if [[ $(dryrun) == false ]]; then
         # Register the ICD
-        local OPENCL_VENDOR_PATHSTR
-        export OPENCL_VENDOR_PATH=${prefix}/etc/OpenCL/vendors
-        OPENCL_VENDOR_PATHSTR="${prefixstr}/etc/OpenCL/vendors"
-        mkdir -p ${OPENCL_VENDOR_PATH}
-        echo libigdrcl.so > ${OPENCL_VENDOR_PATH}/intel.icd
+        export OCL_ICD_VENDORS=${prefix}/etc/OpenCL/vendors
+        local OCL_ICD_VENDORS_STR="${prefixstr}/etc/OpenCL/vendors"
+        mkdir -p ${OCL_ICD_VENDORS}
+        echo libigdrcl.so > ${OCL_ICD_VENDORS}/intel.icd
 
         # Install the libraries
         mkdir -p ${prefix}/lib/x86_64
@@ -69,7 +68,7 @@ function intel_install_opencldrivers()
 
         # Environment variables
         addProfile $(project_resource) "# Installed Intel OpenCL runtime: ${prefixstr}"
-        addProfile $(project_resource) "export OPENCL_VENDOR_PATH=${OPENCL_VENDOR_PATHSTR}"
+        addProfile $(project_resource) "export OCL_ICD_VENDORS=${OCL_ICD_VENDORS_STR}"
         addLibPath "${prefix}/lib/x86_64"
         addLibPathProfile $(project_resource) "${prefixstr}/lib/x86_64"
     fi
@@ -107,23 +106,22 @@ function amd_install_opencldrivers()
         sh AMD-APP-SDK*.sh --tar -xf -C ${prefix}
 
         # Register the ICD
-        local OPENCL_VENDOR_PATHSTR
-        export OPENCL_VENDOR_PATH=${prefix}/etc/OpenCL/vendors
-        OPENCL_VENDOR_PATHSTR="${prefixstr}/etc/OpenCL/vendors"
-        mkdir -p ${OPENCL_VENDOR_PATH}
+        export OCL_ICD_VENDORS=${prefix}/etc/OpenCL/vendors
+        local OCL_ICD_VENDORS_STR="${prefixstr}/etc/OpenCL/vendors"
+        mkdir -p ${OCL_ICD_VENDORS}
         if [[ $(os_arch) == 64 ]]; then
-            if [ ! -f ${OPENCL_VENDOR_PATH}/amdocl64.icd ]; then
-                echo libamdocl64.so > ${OPENCL_VENDOR_PATH}/amdocl64.icd
+            if [ ! -f ${OCL_ICD_VENDORS}/amdocl64.icd ]; then
+                echo libamdocl64.so > ${OCL_ICD_VENDORS}/amdocl64.icd
             fi
         else
-            if [ ! -f ${OPENCL_VENDOR_PATH}/amdocl32.icd ]; then
-                echo libamdocl32.so > ${OPENCL_VENDOR_PATH}/amdocl32.icd
+            if [ ! -f ${OCL_ICD_VENDORS}/amdocl32.icd ]; then
+                echo libamdocl32.so > ${OCL_ICD_VENDORS}/amdocl32.icd
             fi
         fi
 
         # Environment variables
         addProfile $(project_resource) "# Installed AMD SDK: ${prefixstr}"
-        addProfile $(project_resource) "export OPENCL_VENDOR_PATH=${OPENCL_VENDOR_PATHSTR}"
+        addProfile $(project_resource) "export OCL_ICD_VENDORS=${OCL_ICD_VENDORS_STR}"
         if [[ $(os_arch) == 64 ]]; then
             addLibPath ${prefix}/lib/x86_64
             addLibPathProfile $(project_resource) "${prefixstr}/lib/x86_64"
@@ -165,13 +163,13 @@ function pyopencl_install()
 
         if [[ -d /etc/OpenCL/vendors/ ]];then
             # Needs to be done explicitely on slurm, not sure why
-            export OPENCL_VENDOR_PATH=/etc/OpenCL/vendors/
+            export OCL_ICD_VENDORS=/etc/OpenCL/vendors/
             if [[ $(pyopencl_test) == true ]]; then
                 addProfile $(project_resource) "# Use system installed OpenCL ICD's"
-                addProfile $(project_resource) "export OPENCL_VENDOR_PATH=${OPENCL_VENDOR_PATH}"
+                addProfile $(project_resource) "export OCL_ICD_VENDORS=${OCL_ICD_VENDORS}"
                 return
             fi
-            unset OPENCL_VENDOR_PATH
+            unset OCL_ICD_VENDORS
         fi
 
         # ICD = “installable client driver”

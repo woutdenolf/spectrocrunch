@@ -385,13 +385,13 @@ function project_folder()
 # Description: Project name
 function project_name()
 {
-    echo $(grep "PROJECT =" $(project_folder)/setup.py | grep -oP '"\K[^"]+')
+    echo $(grep "PROJECT =" $(project_folder)/setup.py | sed 's/[^"]*"\([^"]*\)".*/\1/')
 }
 
 
-# ============project_echoresourcedir============
+# ============project_resourcedir============
 # Description:
-function project_echoresourcedir()
+function project_resourcedir()
 {
     if [[ -z ${PROJECT_RESOURCE_DIR} ]]; then
         if [[ $(install_systemwide) == true ]]; then
@@ -410,9 +410,9 @@ function project_echoresourcedir()
 function project_resource()
 {
     if [[ $(install_systemwide) == true ]]; then
-        echo "$(project_echoresourcedir)/$(project_name).bashrc"
+        echo "$(project_resourcedir)/$(project_name).bashrc"
     else
-        echo "$(project_echoresourcedir)/.$(project_name)rc"
+        echo "$(project_resourcedir)/.$(project_name)rc"
     fi
 }
 
