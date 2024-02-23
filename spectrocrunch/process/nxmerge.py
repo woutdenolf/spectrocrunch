@@ -30,7 +30,10 @@ class Task(nxprocess.Task):
     @staticmethod
     def _shape_parser(cmd):
         parts = cmd.split(" ")
-        if parts[0] == "l2scan":
+        if parts[0] == "fscan2d":
+            # fscan2d slowmot slowstart slowstep slownpts fastmot faststart faststep fastnpts expo1 expo2
+            shape = int(parts[8]), int(parts[4])
+        elif parts[0] == "l2scan":
             shape = int(parts[4]), int(parts[8]) + 1
         else:
             try:

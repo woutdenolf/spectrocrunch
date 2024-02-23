@@ -37,6 +37,7 @@ class XiaNameParser:
                 ("xmap", {"detector": m1}),
                 ("arr", {"detector": None}),
                 ("zap", {"detector": None}),
+                ("mosca", {"detector": None}),
             )
         )
 
