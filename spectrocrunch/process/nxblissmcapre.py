@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import re
+from contextlib import contextmanager
 from . import nxprocess
 from ..io import nxfs
 from ..math.slicing import slice_generator
@@ -82,15 +83,9 @@ class Task(nxprocess.Task):
                 dtype = dset.dtype
                 datasets.append(dset)
 
-            detlt = None
-            for name in ["live_time", "output_live_time"]:
-                detlt = det[name]
-                if detlt.exists:
-                    break
-
-            with detlt.open() as dset:
-                livetimes.append(dset)
-                dtype = (numpy.array(0, dset.dtype) * preset_time).dtype
+            with self._open_livetime(det) as lt:
+                livetimes.append(lt)
+                dtype = (numpy.array(0, lt.dtype) * preset_time).dtype
 
         mca = self._mca_nxdetector("mca" + self.parameters["detector_suffix"])
         it = slice_generator(shape[::-1], dtype)
@@ -116,14 +111,7 @@ class Task(nxprocess.Task):
         for source_name in detectors:
             det = nxinstrument[source_name]
             with det["data"].open() as dset:
-
-                detlt = None
-                for name in ["live_time", "output_live_time"]:
-                    detlt = det[name]
-                    if detlt.exists:
-                        break
-
-                with detlt.open() as lt:
+                with self._open_livetime(det) as lt:
                     shape = dset.shape
                     dtype = (numpy.array(0, dset.dtype) * preset_time).dtype
                     it = slice_generator(shape[::-1], dtype)
@@ -138,6 +126,26 @@ class Task(nxprocess.Task):
                                 dset[idx] * preset_time / lt[idxlt][..., numpy.newaxis]
                             )
                     mca["preset_time"].write(data=preset_time)
+
+    @contextmanager
+    def _open_livetime(self, det):
+        detlt = None
+        for name in ["live_time", "output_live_time"]:
+            detlt = det[name]
+            if detlt.exists:
+                with detlt.open() as lt:
+                    yield lt
+                return
+
+        events = det["events"]
+        trigger_count_rate = det["events"]
+        if events.exists and trigger_count_rate.exists:
+            with events.open() as ev:
+                with trigger_count_rate.open() as icr:
+                    yield ev[()] / icr[()]
+            return
+
+        raise RuntimeError("'live_time' counter is not present")
 
     def _mca_link(self, nxinstrument, detectors):
         preset_time = self.parameters["preset_time"]
