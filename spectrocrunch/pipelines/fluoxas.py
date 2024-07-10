@@ -147,24 +147,16 @@ def tasks(**parameters):
     # Normalization
     params = task_parameters(parameters, "prealignnormalize")
     counter = params.pop("counter", None)
-    dtcor = False  # No longer needed
-    if dtcor or counter:
+    if counter:
         copy = [
             {"method": "regex", "pattern": prefix}
             for prefix in instrument.counterdict["counters"]
         ]
         # Create normalization expression
-        if dtcor:
-            icr = instrument.counterdict["xrficr"]
-            ocr = instrument.counterdict["xrfocr"]
-            if counter:
-                expression = "{{}}*nanone({{{}}}/({{{}}}*{{{}}}))".format(
-                    icr, ocr, counter
-                )
-            else:
-                expression = "{{}}*nanone({{{}}}/{{{}}})".format(icr, ocr)
-        else:
-            expression = "{{}}/{{{}}}".format(counter)
+        target = params.pop("target", None)
+        if not target:
+            target = f"mean({{{counter}}})"
+        expression = f"{{}}*{target}/{{{counter}}}"
         ensure_parameter(params, "outputparent", default=coutputparent)
         ensure_parameter(params, "name", "prenormalize")
         task = create_task(
@@ -213,7 +205,10 @@ def tasks(**parameters):
             {"method": "regexparent", "pattern": prefix}
             for prefix in instrument.counterdict["counters"]
         ]
-        expression = "{{}}/{{{}}}".format(counter)
+        target = params.pop("target", None)
+        if not target:
+            target = f"mean({{{counter}}})"
+        expression = f"{{}}*{target}/{{{counter}}}"
         params.update(commonparams)
         ensure_parameter(params, "outputparent", default=coutputparent)
         ensure_parameter(params, "name", "postnormalize")
