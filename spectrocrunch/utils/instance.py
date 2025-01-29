@@ -252,11 +252,11 @@ def isnumber(x):
 
 
 def isnpnumber(x):
-    return np.issubclass_(x.__class__, np.number)
+    return issubclass(x.__class__, np.number)
 
 
 def isnpinteger(x):
-    return np.issubclass_(x.__class__, np.integer)
+    return issubclass(x.__class__, np.integer)
 
 
 def isnumeric(x):
