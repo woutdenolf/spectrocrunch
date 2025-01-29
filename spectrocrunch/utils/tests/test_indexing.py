@@ -452,7 +452,7 @@ class test_indexing(unittest.TestCase):
 
         ndim = 4
         for index, axis in special:
-            data = np.stack(map(self._slicegen, args), axis=axis)
+            data = np.stack(list(map(self._slicegen, args)), axis=axis)
             shapefull = data.shape
             if axis < 0:
                 j = axis + ndim
@@ -514,7 +514,7 @@ class test_indexing(unittest.TestCase):
                             )
                             for index in itertools.permutations(p):
                                 for axis in range(-ndim, ndim):
-                                    data = np.stack(map(generator, args), axis=axis)
+                                    data = np.stack(list(map(generator, args)), axis=axis)
                                     shapefull = data.shape
                                     if axis < 0:
                                         j = axis + ndim
