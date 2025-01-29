@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import collections
+import collections.abc
 import itertools
 import contextlib
 from abc import ABCMeta, abstractmethod
@@ -38,7 +39,7 @@ class AnnotatedKey(object):
             return str(self.original)
 
 
-class BaseNode(collections.MutableMapping):
+class BaseNode(collections.abc.MutableMapping):
     # Original idea:
     # http://code.activestate.com/recipes/577434-nested-contexts-a-chain-of-mapping-objects/
 
@@ -199,7 +200,7 @@ class BaseNode(collections.MutableMapping):
         except KeyError:
             pass
 
-        if isinstance(value, collections.MutableMapping) and not isinstance(
+        if isinstance(value, collections.abc.MutableMapping) and not isinstance(
             value, Node
         ):
             self._setitem_subnode(key, value)

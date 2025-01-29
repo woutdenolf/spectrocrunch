@@ -536,7 +536,7 @@ class RandomNumpyUInt(NumpyScalarBase):
 
 class RandomNumpyFloat(NumpyScalarBase):
 
-    NPTYPES = (np.single, np.double, np.float, np.float16, np.float32, np.float64)
+    NPTYPES = (np.single, np.double, float, np.float16, np.float32, np.float64)
 
     @classmethod
     def datagen(cls):

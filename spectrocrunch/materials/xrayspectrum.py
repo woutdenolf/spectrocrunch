@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numbers
 import collections
+import collections.abc
 import warnings
 import scipy.integrate
 import copy
@@ -662,7 +663,7 @@ class ComptonLine(ScatteringLine):
         return np.arccos(np.clip(1 - m, -1, 1))
 
 
-class Spectrum(Copyable, collections.MutableMapping):
+class Spectrum(Copyable, collections.abc.MutableMapping):
 
     TYPES = Enum(["diffcrosssection", "crosssection", "rate"])
     # diffcrosssection: cm^2/g/srad

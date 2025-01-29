@@ -67,7 +67,7 @@ if __name__ == "__main__":
     ma = 2
     bpad = False
 
-    offsets = np.zeros((2, 2), dtype=np.float)
+    offsets = np.zeros((2, 2), dtype=float)
     offsets[0, 0] = mi
     offsets[0, 1] = mi
     offsets[1, 0] = ma

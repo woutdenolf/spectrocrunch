@@ -40,18 +40,18 @@ def getcoord(header, scanlabel="", fastlabel="", slowlabel=""):
             label = fastlabel
             if label + "_mot" in header:
                 scaninfo["motfast"] = str(header[label + "_mot"])
-                scaninfo["startfast"] = np.float(header[label + "_start"])
-                scaninfo["endfast"] = np.float(header[label + "_end"])
-                scaninfo["npixelsfast"] = np.float(header[label + "_nbp"])
+                scaninfo["startfast"] = float(header[label + "_start"])
+                scaninfo["endfast"] = float(header[label + "_end"])
+                scaninfo["npixelsfast"] = float(header[label + "_nbp"])
             else:
                 return ret
 
             label = slowlabel
             if label + "_mot" in header:
                 scaninfo["motslow"] = str(header[label + "_mot"])
-                scaninfo["startslow"] = np.float(header[label + "_start"])
-                scaninfo["endslow"] = np.float(header[label + "_end"])
-                scaninfo["nstepsslow"] = np.float(header[label + "_nbp"])
+                scaninfo["startslow"] = float(header[label + "_start"])
+                scaninfo["endslow"] = float(header[label + "_end"])
+                scaninfo["nstepsslow"] = float(header[label + "_nbp"])
             else:
                 return ret
 

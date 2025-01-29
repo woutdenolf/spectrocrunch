@@ -37,7 +37,7 @@ class LinearMapping(Mapping):
         Xnew' = C2^(-1).L1.C2.Xold'
     """
 
-    def __init__(self, transfotype, dtype=np.float, cval=np.nan, **interpolationargs):
+    def __init__(self, transfotype, dtype=float, cval=np.nan, **interpolationargs):
         self.transfotype = transfotype
         self.dtype = dtype
         self.cval = cval

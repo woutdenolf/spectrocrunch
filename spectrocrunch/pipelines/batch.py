@@ -3,6 +3,7 @@
 import argparse
 from contextlib import contextmanager
 import collections
+import collections.abc
 import logging
 
 from ..utils import instance
@@ -52,7 +53,7 @@ class Job(object):
         return self.__str__()
 
 
-class Jobs(collections.MutableSequence):
+class Jobs(collections.abc.MutableSequence):
     def __init__(self, *args):
         self.list = list()
         self.extend(list(args))

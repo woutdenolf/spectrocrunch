@@ -52,7 +52,7 @@ class test_hashing(unittest.TestCase):
         self._assert_hash(np.int16(1), hash)
         self._assert_hash(np.int32(1), hash)
         self._assert_hash(1.0, hash)
-        self._assert_hash(np.float(1), hash)
+        self._assert_hash(float(1), hash)
         self._assert_hash(np.float32(1), hash)
         self._assert_hash(np.float64(1), hash)
 

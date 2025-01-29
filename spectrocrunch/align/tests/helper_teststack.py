@@ -92,7 +92,7 @@ def similarity(a, b, tx, ty):
     Mcof = np.identity(3)
     Mcoord[0, 0:3] = [a, -b, tx]
     Mcoord[1, 0:3] = [b, a, ty]
-    s = np.float(a * a + b * b)
+    s = float(a * a + b * b)
     Mcof[0, 0:3] = [a / s, b / s, -(a * tx + b * ty) / s]
     Mcof[1, 0:3] = [-b / s, a / s, (b * tx - a * ty) / s]
     return Mcoord, Mcof
@@ -103,7 +103,7 @@ def affine(a, b, c, d, tx, ty):
     Mcof = np.identity(3)
     Mcoord[0, 0:3] = [a, b, tx]
     Mcoord[1, 0:3] = [c, d, ty]
-    det = np.float(a * d - b * c)
+    det = float(a * d - b * c)
     Mcof[0, 0:3] = [d / det, -b / det, (b * ty - d * tx) / det]
     Mcof[1, 0:3] = [-c / det, a / det, (c * tx - a * ty) / det]
     return Mcoord, Mcof
@@ -115,9 +115,7 @@ def projective(a, b, c, d, tx, ty, px, py):
     Mcoord[0, 0:3] = [a, b, tx]
     Mcoord[1, 0:3] = [c, d, ty]
     Mcoord[2, 0:3] = [px, py, 1]
-    det = np.float(
-        a * d - a * py * ty - b * c + b * px * ty + c * py * tx - d * px * tx
-    )
+    det = float(a * d - a * py * ty - b * c + b * px * ty + c * py * tx - d * px * tx)
     Mcof[0, 0:3] = [d - py * ty, py * tx - b, b * ty - d * tx]
     Mcof[1, 0:3] = [px * ty - c, a - px * tx, c * tx - a * ty]
     Mcof[2, 0:3] = [c * py - d * px, b * px - a * py, a * d - b * c]
