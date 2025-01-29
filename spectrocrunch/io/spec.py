@@ -287,12 +287,12 @@ class cmd_parser(object):
             result["motfast"] = str(result["motfast"])
             result["startfast"] = float(result["startfast"])
             result["endfast"] = float(result["endfast"])
-            result["npixelsfast"] = np.int(result["npixelsfast"])
+            result["npixelsfast"] = int(result["npixelsfast"])
 
             result["motslow"] = str(result["motslow"])
             result["startslow"] = float(result["startslow"])
             result["endslow"] = float(result["endslow"])
-            result["nstepsslow"] = np.int(result["nstepsslow"])
+            result["nstepsslow"] = int(result["nstepsslow"])
 
             result["time"] = ureg.Quantity(float(result["time"]), "ms")
         else:
@@ -396,12 +396,12 @@ class cmd_parser(object):
             result["motfast"] = str(result["motfast"])
             result["startfast"] = float(result["startfast"])
             result["endfast"] = float(result["endfast"])
-            result["nstepsfast"] = np.int(result["nstepsfast"])
+            result["nstepsfast"] = int(result["nstepsfast"])
 
             result["motslow"] = str(result["motslow"])
             result["startslow"] = float(result["startslow"])
             result["endslow"] = float(result["endslow"])
-            result["nstepsslow"] = np.int(result["nstepsslow"])
+            result["nstepsslow"] = int(result["nstepsslow"])
 
             result["time"] = ureg.Quantity(float(result["time"]), "s")
         else:
@@ -446,7 +446,7 @@ class cmd_parser(object):
             result = m.groupdict()
             result["name"] = str(result["name"])
 
-            result["repeats"] = np.int(result["repeats"])
+            result["repeats"] = int(result["repeats"])
             result["time"] = ureg.Quantity(float(result["time"]), "ms")
         else:
             result = {"name": "unknown"}
@@ -487,7 +487,7 @@ class cmd_parser(object):
             result["motfast"] = str(result["motfast"])
             result["startfast"] = float(result["startfast"])
             result["endfast"] = float(result["endfast"])
-            result["npixelsfast"] = np.int(result["npixelsfast"])
+            result["npixelsfast"] = int(result["npixelsfast"])
 
             result["time"] = ureg.Quantity(float(result["time"]), "ms")
         else:
@@ -529,7 +529,7 @@ class cmd_parser(object):
             result["motfast"] = str(result["motfast"])
             result["startfast"] = float(result["startfast"])
             result["endfast"] = float(result["endfast"])
-            result["nstepsfast"] = np.int(result["nstepsfast"])
+            result["nstepsfast"] = int(result["nstepsfast"])
 
             result["time"] = ureg.Quantity(float(result["time"]), "s")
         else:
@@ -620,7 +620,7 @@ class edfheader_parser(object):
                 out["motfast"] = str(header[self.fastlabel + "_mot"])
                 out["startfast"] = float(header[self.fastlabel + "_start"])
                 out["endfast"] = float(header[self.fastlabel + "_end"])
-                out["npixelsfast"] = np.int(header[self.fastlabel + "_nbp"])
+                out["npixelsfast"] = int(header[self.fastlabel + "_nbp"])
             except KeyError:
                 pass
 
@@ -629,7 +629,7 @@ class edfheader_parser(object):
                 out["motslow"] = str(header[self.slowlabel + "_mot"])
                 out["startslow"] = float(header[self.slowlabel + "_start"])
                 out["endslow"] = float(header[self.slowlabel + "_end"])
-                out["nstepsslow"] = np.int(header[self.slowlabel + "_nbp"])
+                out["nstepsslow"] = int(header[self.slowlabel + "_nbp"])
             except KeyError:
                 pass
 

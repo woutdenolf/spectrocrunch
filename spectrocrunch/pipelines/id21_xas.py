@@ -148,7 +148,7 @@ def processNotSynchronized(
                 parsename = "copy"
             parsename = (
                 "%%0%dd_%s"
-                % (np.int(np.floor(np.log10(nxasspectraT))) + 1, parsename)
+                % (int(np.floor(np.log10(nxasspectraT))) + 1, parsename)
                 % (off)
             )
             if j == 0:

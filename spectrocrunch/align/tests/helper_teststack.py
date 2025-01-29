@@ -44,12 +44,12 @@ def gettransformedimage(x, y, data, angle=False):
 
 
 # def getlargeimage(npeaks,nsigma,shape,subshape):
-#    n = np.round(npeaks*min(shape)/min(subshape)).astype(np.int)
+#    n = np.round(npeaks*min(shape)/min(subshape)).astype(int)
 #    image = np.zeros(shape,dtype=np.float32)
 #    np.random.seed(1)
 #    x = shape[0]*np.random.random(n**2)
 #    y = shape[1]*np.random.random(n**2)
-#    image[x.astype(np.int), y.astype(np.int)] = 1
+#    image[x.astype(int), y.astype(int)] = 1
 #    image = scipy.ndimage.gaussian_filter(image, sigma=min(subshape)/(npeaks*nsigma))
 #    image /= np.max(image)
 
@@ -248,7 +248,7 @@ def data(
         xmax = int(max(subxmax, subxmax + d))
 
         # Gaussians in large image
-        npix = np.product(subshape)
+        npix = np.prod(subshape)
         npixperpeak = 2.0
         npeaks = int(npix / npixperpeak)
         sx = npixperpeak * 1.5
@@ -329,7 +329,7 @@ def data(
         ymax = int(myminmax[4])
 
         # Gaussians in large image
-        npix = np.product(subshape)
+        npix = np.prod(subshape)
         npixperpeak = 10.0
         npeaks = int(npix / npixperpeak)
         sxy = np.sqrt(npixperpeak)

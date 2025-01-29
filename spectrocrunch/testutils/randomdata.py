@@ -503,7 +503,7 @@ class RandomNumpyInt(NumpyScalarBase):
     NPTYPES = (
         np.byte,
         np.short,
-        np.int,
+        int,
         np.longlong,
         np.int8,
         np.int16,
@@ -545,7 +545,7 @@ class RandomNumpyFloat(NumpyScalarBase):
 
 class RandomNumpyComplex(NumpyScalarBase):
 
-    NPTYPES = (np.complex,)
+    NPTYPES = (complex,)
 
     @classmethod
     def datagen(cls):

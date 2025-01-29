@@ -48,7 +48,7 @@ class test_hashing(unittest.TestCase):
         hash = b"5d8a0231bb723e05696d6ef58a6da892"
         self._assert_hash(True, hash)
         self._assert_hash(1, hash)
-        self._assert_hash(np.int(1), hash)
+        self._assert_hash(int(1), hash)
         self._assert_hash(np.int16(1), hash)
         self._assert_hash(np.int32(1), hash)
         self._assert_hash(1.0, hash)

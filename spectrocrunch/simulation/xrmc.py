@@ -7,7 +7,8 @@ import logging
 import functools
 import numpy as np
 from glob import glob
-from collections import MutableMapping, OrderedDict
+from collections import OrderedDict
+from collections.abc import MutableMapping
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from future.utils import with_metaclass
@@ -59,7 +60,7 @@ def saveemptyresult(filename, header):
     with open(filename, "w") as f:
         header.tofile(f)
         shape = header["ninter"], header["nbin"], header["ncol"], header["nrow"]
-        np.zeros(np.product(shape), dtype=np.float64).tofile(f)
+        np.zeros(np.prod(shape), dtype=np.float64).tofile(f)
 
 
 def _loadxrmcresult(filename):

@@ -449,7 +449,10 @@ class LinearMapping(Mapping):
         self.cof[:] = transformobj.cof[:]
 
     def _solvelinearsystem(self, A, b):
-        return lstsq(A, b)
+        sol = lstsq(A, b)
+        if sol is not None:
+            sol = sol.flatten()
+        return sol
 
         ##### Using pseudo-inverse #####
         # A-1* = (A^T.A)^(-1).A^T

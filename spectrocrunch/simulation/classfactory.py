@@ -23,7 +23,7 @@ class SimulClass(object):
             if len(nN) == 2:
                 nN = nN[1]
             else:
-                nN = int(np.product(nN))
+                nN = int(np.prod(nN))
             nenergy = np.asarray(args[0]).size
             N = np.broadcast_to(N, [nenergy, nN])
             args = tuple(np.broadcast_to(arg, [nN, nenergy]).T for arg in args)
