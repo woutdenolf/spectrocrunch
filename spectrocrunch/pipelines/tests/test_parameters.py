@@ -77,7 +77,7 @@ class test_parameters(unittest.TestCase):
         return dict(zip(letters, np.arange(n)))
 
     def _parameters_sample(self, superdict, n, overwrite=True):
-        params = dict(random.sample(superdict.items(), n))
+        params = dict(random.sample(list(superdict.items()), n))
         if overwrite:
             for k, b in zip(params.keys(), np.random.choice([False, True], n)):
                 if b:

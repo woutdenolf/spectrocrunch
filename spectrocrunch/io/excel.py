@@ -30,7 +30,7 @@ class Writer(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.open_file:
-            self.open_file.save()
+            self.open_file.close()
         self.open_file = None
 
     @property
