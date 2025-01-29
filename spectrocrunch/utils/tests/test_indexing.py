@@ -514,7 +514,9 @@ class test_indexing(unittest.TestCase):
                             )
                             for index in itertools.permutations(p):
                                 for axis in range(-ndim, ndim):
-                                    data = np.stack(list(map(generator, args)), axis=axis)
+                                    data = np.stack(
+                                        list(map(generator, args)), axis=axis
+                                    )
                                     shapefull = data.shape
                                     if axis < 0:
                                         j = axis + ndim

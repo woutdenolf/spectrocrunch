@@ -24,7 +24,15 @@ class test_instance(unittest.TestCase):
             "npbytes_array",
         )
         self._check_instance(instance.isstringarray, select)
-        select = ("tuple", "list", "xrange", "str_list", "unicode_list", "bytes_list")
+        select = (
+            "tuple",
+            "list",
+            "xrange",
+            "str_list",
+            "unicode_list",
+            "bytes_list",
+            "array",
+        )
         self._check_instance(instance.issequence, select)
         select = "set", "frozenset"
         self._check_instance(instance.isset, select)
