@@ -334,7 +334,7 @@ class test_h5fs(TestCase):
                 if "list" in name or "1d-array" in name:
                     self.assertTrue(isinstance(value, np.ndarray))
                     if expectOpaque:
-                        self.assertTrue(np.issubsctype(value.dtype, np.void))
+                        self.assertTrue(np.issubdtype(value.dtype, np.void))
                     value = value.tolist()  # also converts void to bytes
                     self.assertEqual(
                         list(map(type, value)), list(map(type, expectedValue)), msg=name
