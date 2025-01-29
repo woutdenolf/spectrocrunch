@@ -373,18 +373,18 @@ class test_xiaedf(unittest.TestCase):
                                         if iscompound:
                                             kwargs["ctrs"] = copyctrs
                                             if copyctrs:
-                                                kwargs[
-                                                    "ctrnames"
-                                                ] = xiaobject.counterbasenames()
+                                                kwargs["ctrnames"] = (
+                                                    xiaobject.counterbasenames()
+                                                )
                                         xiaobject2.save(xiaobject, **kwargs)
                                     else:
                                         if copystats:
                                             kwargs["stats"] = xiaobject.allstats
                                         if copyctrs and iscompound:
                                             kwargs["ctrs"] = xiaobject.counters[..., 0]
-                                            kwargs[
-                                                "ctrnames"
-                                            ] = xiaobject.counterbasenames()
+                                            kwargs["ctrnames"] = (
+                                                xiaobject.counterbasenames()
+                                            )
                                         xiaobject2.save(xiaobject.data, **kwargs)
 
                                     np.testing.assert_array_equal(

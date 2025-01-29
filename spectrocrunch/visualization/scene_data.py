@@ -162,9 +162,11 @@ class ImageBase(Base):
             nimages = nout = len(self.item_indices)
         else:
             it = (
-                (None, None)
-                if i is None
-                else (self.item_labels[i], self.item_indices[i])
+                (
+                    (None, None)
+                    if i is None
+                    else (self.item_labels[i], self.item_indices[i])
+                )
                 for i in instance.asarray(index)
             )
             nout = len(index)

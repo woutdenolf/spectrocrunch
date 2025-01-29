@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""Resource files
-"""
+"""Resource files"""
 
 import os
 

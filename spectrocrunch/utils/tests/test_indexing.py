@@ -355,9 +355,13 @@ class test_indexing(unittest.TestCase):
                                         if any(bseladv):
                                             selind = [
                                                 [
-                                                    i
-                                                    if instance.islistgen(ind3[axis])
-                                                    else 0
+                                                    (
+                                                        i
+                                                        if instance.islistgen(
+                                                            ind3[axis]
+                                                        )
+                                                        else 0
+                                                    )
                                                     for axis in fullaxes
                                                 ]
                                                 for i in range(r)

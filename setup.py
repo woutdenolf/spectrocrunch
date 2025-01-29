@@ -256,7 +256,7 @@ install_requires = [
     "shapely",
     "matplotlib",
     "uncertainties",
-    "pint<0.20",
+    "pint",
     "pandas",
     "scikit-image",
     "xlsxwriter",

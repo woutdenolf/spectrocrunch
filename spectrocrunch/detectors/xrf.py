@@ -741,9 +741,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
             if onlyheight:
                 if btail:
                     with np.errstate(over="ignore"):
-                        mexp = (
-                            tail_H / 2.0 * np.exp(gvar / (2.0 * tailslope_ratio**2))
-                        )
+                        mexp = tail_H / 2.0 * np.exp(gvar / (2.0 * tailslope_ratio**2))
                         ind = np.isinf(mexp)
                         if ind.any():
                             mexp[ind] = 0  # lim_x->inf exp(x)*erfc(x) = 0

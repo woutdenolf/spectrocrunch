@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """Initialize cctbx library. To use it, add to following line to the top of your script:
-    execfile("initcctbx.py")
+execfile("initcctbx.py")
 """
 
 CCTBCBUILD = "/usr/local/cctbx/build"
@@ -26,7 +26,7 @@ os.environ["LD_LIBRARY_PATH"] = ":".join(
 try:
     os.execl(sys.executable, "python", __file__, *sys.argv[1:])
     sys.exit()
-except Exception, exc:
+except Exception as exc:
     print("Failed re-exec:", exc)
     sys.exit(1)
 

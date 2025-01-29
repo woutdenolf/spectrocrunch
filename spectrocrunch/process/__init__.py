@@ -1,4 +1,3 @@
 # -*- coding: utf-8 -*-
 
-"""Common data API.
-"""
+"""Common data API."""

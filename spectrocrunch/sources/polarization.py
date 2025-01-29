@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""Polarization state of transverse waves
-"""
+"""Polarization state of transverse waves"""
 
 import cmath
 import logging
@@ -862,9 +861,7 @@ class Stokes(object):
                 ksc = k / (1 + k * (1 - costh))
                 c = (k - ksc) * (1 - costh) / 2.0
 
-                return (
-                    ksc**2 / k**2 * (a + c - (1 - a) * (S10 * cosph + S20 * sinph))
-                )
+                return ksc**2 / k**2 * (a + c - (1 - a) * (S10 * cosph + S20 * sinph))
 
         return K
 
