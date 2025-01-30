@@ -6,7 +6,7 @@ from ..math.fit1d import lstsq
 import numpy as np
 from scipy import stats
 from scipy.ndimage import shift
-from scipy.ndimage.interpolation import affine_transform
+from scipy.ndimage import affine_transform
 import skimage.transform as sktransform
 
 
