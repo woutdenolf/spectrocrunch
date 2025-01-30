@@ -1,6 +1,11 @@
 SpectroCrunch: spectroscopic imaging library (XRF/XAS)
 ======================================================
 
+.. warning::
+    This library is deprecated and no longer maintained.
+    It is replaced by `ewoksfluo <https://ewoksfluo.readthedocs.io>`_
+    and `ewoksndreg <https://ewoksndreg.readthedocs.io>`_.
+
 Getting started
 ---------------
 
