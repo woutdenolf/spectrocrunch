@@ -184,7 +184,7 @@ class Jones(object):
     """Parameterization of second order statistics of a transverse wave when fully polarized"""
 
     def __init__(self, V0, V1):
-        """Two perpendicular components of a transverse wave:
+        r"""Two perpendicular components of a transverse wave:
 
         .. math::
             \vec{E}(t,\vec{x}) = (V_0.\hat{e}_0 + V_1.\hat{e}_1).e^{i(\vec{k}\cdot\vec{x} - \omega t)}
@@ -241,22 +241,22 @@ class Jones(object):
 
     @classmethod
     def _hermitian_inner_product(cls, U, V):
-        """The standard Hermitian inner product in $\mathbb{C}^n$"""
+        r"""The standard Hermitian inner product in $\mathbb{C}^n$"""
         return U.dot(V.conjugate())
 
     @classmethod
     def _hermitian_outer_product(cls, U, V):
-        """The standard Hermitian outer product in $\mathbb{C}^n$"""
+        r"""The standard Hermitian outer product in $\mathbb{C}^n$"""
         return np.outer(U, V.conjugate())
 
     @classmethod
     def _hermitian_sqnorm(cls, V):
-        """The standard Hermitian squared norm in $\mathbb{C}^n$"""
+        r"""The standard Hermitian squared norm in $\mathbb{C}^n$"""
         return cls._hermitian_inner_product(V, V).real  # imag == 0
 
     @property
     def sqnorm(self):
-        """Squared norm of the electric field vector in $V^2/m^2$"""
+        r"""Squared norm of the electric field vector in $V^2/m^2$"""
         return self._hermitian_sqnorm(self.V)
 
     @property
@@ -265,7 +265,7 @@ class Jones(object):
         return np.sqrt(self.sqnorm)
 
     def efield(self, phase):
-        """Electric field vector (norm in $V/m$)
+        r"""Electric field vector (norm in $V/m$)
 
         ..math::
 

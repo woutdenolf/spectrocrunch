@@ -22,34 +22,34 @@ from ..visualization.tests import test_all as test_visualization
 from ..xrf.tests import test_all as test_xrf
 
 
-def test_suite():
+def main_test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_testutils.test_suite())
-    testSuite.addTest(test_patch.test_suite())
-    testSuite.addTest(test_utils.test_suite())
-    testSuite.addTest(test_math.test_suite())
-    testSuite.addTest(test_io.test_suite())
-    testSuite.addTest(test_instruments.test_suite())
-    testSuite.addTest(test_sources.test_suite())
-    testSuite.addTest(test_geometries.test_suite())
-    testSuite.addTest(test_detectors.test_suite())
-    testSuite.addTest(test_process.test_suite())
-    testSuite.addTest(test_optics.test_suite())
-    testSuite.addTest(test_materials.test_suite())
-    testSuite.addTest(test_simulation.test_suite())
-    testSuite.addTest(test_align.test_suite())
-    testSuite.addTest(test_fullfield.test_suite())
-    testSuite.addTest(test_xrf.test_suite())
-    testSuite.addTest(test_pipeline.test_suite())
-    testSuite.addTest(test_visualization.test_suite())
+    testSuite.addTest(test_testutils.main_test_suite())
+    testSuite.addTest(test_patch.main_test_suite())
+    testSuite.addTest(test_utils.main_test_suite())
+    testSuite.addTest(test_math.main_test_suite())
+    testSuite.addTest(test_io.main_test_suite())
+    testSuite.addTest(test_instruments.main_test_suite())
+    testSuite.addTest(test_sources.main_test_suite())
+    testSuite.addTest(test_geometries.main_test_suite())
+    testSuite.addTest(test_detectors.main_test_suite())
+    testSuite.addTest(test_process.main_test_suite())
+    testSuite.addTest(test_optics.main_test_suite())
+    testSuite.addTest(test_materials.main_test_suite())
+    testSuite.addTest(test_simulation.main_test_suite())
+    testSuite.addTest(test_align.main_test_suite())
+    testSuite.addTest(test_fullfield.main_test_suite())
+    testSuite.addTest(test_xrf.main_test_suite())
+    testSuite.addTest(test_pipeline.main_test_suite())
+    testSuite.addTest(test_visualization.main_test_suite())
     return testSuite
 
 
 if __name__ == "__main__":
     import sys
 
-    mysuite = test_suite()
+    mysuite = main_test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

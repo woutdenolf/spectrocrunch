@@ -36,7 +36,7 @@ Test:
     python -m spectrocrunch.tests.test_all
     
     # Test with options:
-    python -m unittest -v spectrocrunch.tests.test_all.test_suite
+    python -m unittest -v spectrocrunch.tests.test_all.main_test_suite
     pytest spectrocrunch
     nose2 -v spectrocrunch
 

@@ -43,14 +43,14 @@ class alignDest(object):
                 self.desttype = dataType.h5
                 self.handle = h5py.File(dest, "a")
                 self.dir = "/"
-                self.names = [s.strip("\/") for s in names]
+                self.names = [s.strip(r"\/") for s in names]
                 self.ext = extension
                 # Datasets: self.dir+self.names[i]+self.ext
                 self.datasets = []
             elif ext == "":
                 self.desttype = dataType.singlefile
                 self.dir = dest
-                self.names = [s.strip("\/") for s in names]
+                self.names = [s.strip(r"\/") for s in names]
                 self.ext = extension
                 self.destdir = ""
                 self.format = ""
@@ -60,7 +60,7 @@ class alignDest(object):
             self.desttype = dataType.h5
             self.handle = dest
             self.dir = "/"
-            self.names = [s.strip("\/") for s in names]
+            self.names = [s.strip(r"\/") for s in names]
             self.ext = extension
             # Datasets: self.dir+self.names[i]+self.ext
             self.datasets = []

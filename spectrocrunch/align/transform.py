@@ -5,7 +5,8 @@ from ..math.fit1d import lstsq
 
 import numpy as np
 from scipy import stats
-import scipy.ndimage.interpolation as ndtransform
+from scipy.ndimage import shift
+from scipy.ndimage.interpolation import affine_transform
 import skimage.transform as sktransform
 
 
@@ -67,13 +68,13 @@ class LinearMapping(Mapping):
             return img
         if self.transfotype == transformationType.translation:
             # shift: takes transformation vector for coordinates (y,x)
-            return ndtransform.shift(
+            return shift(
                 img, -self.cof[1::-1], cval=self.cval, **self.interpolationargs
             )
         else:
             if self.islinearidentity():
                 # shift: takes transformation vector for coordinates (y,x)
-                return ndtransform.shift(
+                return shift(
                     img, -self.cof[1::-1, 2], cval=self.cval, **self.interpolationargs
                 )
             elif self.isprojidentity():

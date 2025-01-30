@@ -502,7 +502,7 @@ class test_fluoxas(TestCase):
             np.testing.assert_allclose(data[mask], v2, rtol=1e-4, err_msg=grpname)
 
 
-def test_suite():
+def main_test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_fluoxas("test_process"))
@@ -512,7 +512,7 @@ def test_suite():
 if __name__ == "__main__":
     import sys
 
-    mysuite = test_suite()
+    mysuite = main_test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

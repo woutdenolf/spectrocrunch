@@ -74,7 +74,7 @@ class test_quadrics(unittest.TestCase):
         np.testing.assert_allclose(A_2, A_3)
 
 
-def test_suite():
+def main_test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_quadrics("test_plane"))
@@ -87,7 +87,7 @@ def test_suite():
 if __name__ == "__main__":
     import sys
 
-    mysuite = test_suite()
+    mysuite = main_test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

@@ -200,7 +200,7 @@ def lstsq_nonnegative(A, b, errors=False, vare=None):
 
 
 def lstsq_bound(A, b, lb, ub, errors=False, vare=None):
-    """Solve the following linear system
+    r"""Solve the following linear system
 
     .. math::
 

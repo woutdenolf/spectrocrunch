@@ -1,4 +1,4 @@
-name: Unit tests
+name: Unit Tests, Linting, and Formatting Checks
 
 on:
   push:
@@ -35,7 +35,13 @@ jobs:
           # fi
           python -m pip install --upgrade pip
           pip install --pre .
-          pip install pytest
+          pip install pytest black[jupyter] flake8
+
+      #- name: Run linting with Flake8
+      #  run: flake8 .
+
+      - name: Check code formatting with Black
+        run: black --check .
 
       - name: Run tests
         run: |

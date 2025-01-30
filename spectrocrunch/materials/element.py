@@ -344,7 +344,7 @@ class Element(elementbase.ElementBase):
         return func(cs)
 
     def fluorescence_cross_section(self, E, environ=None, decomposed=False, **kwargs):
-        """
+        r"""
         XRF cross section for the selected shells and lines (cm^2/g, E in keV). Use for fluorescence XAS.
 
         Args:

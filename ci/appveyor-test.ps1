@@ -40,7 +40,7 @@ function appveyor_unittest()
     $PROJECTNAME = python setup.py name | Select-Object -Last 1
 
     cd $env:HOME
-    psexec {python -m unittest -v "$PROJECTNAME.tests.test_all.test_suite"}
+    psexec {python -m unittest -v "$PROJECTNAME.tests.test_all.main_test_suite"}
 }
 
 function appveyor_styletest()
