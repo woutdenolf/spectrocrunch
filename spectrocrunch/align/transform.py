@@ -5,7 +5,8 @@ from ..math.fit1d import lstsq
 
 import numpy as np
 from scipy import stats
-import scipy.ndimage.interpolation as ndtransform
+from scipy.ndimage import shift
+from scipy.ndimage import affine_transform
 import skimage.transform as sktransform
 
 
@@ -37,7 +38,7 @@ class LinearMapping(Mapping):
         Xnew' = C2^(-1).L1.C2.Xold'
     """
 
-    def __init__(self, transfotype, dtype=np.float, cval=np.nan, **interpolationargs):
+    def __init__(self, transfotype, dtype=float, cval=np.nan, **interpolationargs):
         self.transfotype = transfotype
         self.dtype = dtype
         self.cval = cval
@@ -67,13 +68,13 @@ class LinearMapping(Mapping):
             return img
         if self.transfotype == transformationType.translation:
             # shift: takes transformation vector for coordinates (y,x)
-            return ndtransform.shift(
+            return shift(
                 img, -self.cof[1::-1], cval=self.cval, **self.interpolationargs
             )
         else:
             if self.islinearidentity():
                 # shift: takes transformation vector for coordinates (y,x)
-                return ndtransform.shift(
+                return shift(
                     img, -self.cof[1::-1, 2], cval=self.cval, **self.interpolationargs
                 )
             elif self.isprojidentity():
@@ -449,7 +450,10 @@ class LinearMapping(Mapping):
         self.cof[:] = transformobj.cof[:]
 
     def _solvelinearsystem(self, A, b):
-        return lstsq(A, b)
+        sol = lstsq(A, b)
+        if sol is not None:
+            sol = sol.flatten()
+        return sol
 
         ##### Using pseudo-inverse #####
         # A-1* = (A^T.A)^(-1).A^T

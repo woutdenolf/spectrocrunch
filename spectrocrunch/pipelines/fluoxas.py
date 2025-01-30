@@ -165,7 +165,7 @@ def tasks(**parameters):
             name="normalize",
             expression=expression,
             copy=copy,
-            **commonparams
+            **commonparams,
         )
         tasks.append(task)
 
@@ -217,7 +217,7 @@ def tasks(**parameters):
             method="expression",
             expression=expression,
             copy=copy,
-            **params
+            **params,
         )
         tasks.append(task)
 

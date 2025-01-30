@@ -64,7 +64,7 @@ class Task(nxregulargrid.Task):
         # Mask (True = valid pixel)
         if self.sliced:
             shape, indexgen = refgrid.sliceinfo(self.signal_stackdim)
-            mask = np.ones(shape, dtype=np.bool)
+            mask = np.ones(shape, dtype=bool)
             for i in range(refgrid.shape[self.signal_stackdim]):
                 img = refgrid[indexgen(i)]
                 if nanval is np.nan:

@@ -338,12 +338,12 @@ class Task(nxqxrf_dependent.Task, nxprocess.Task):
                 pos = self.infoaxes["xrfdetectorposition"][imageindex, :]
                 if np.isfinite(pos).all():
                     qxrfgeometry.xrf_positions = pos
-                self.infoaxes["xrfdetectorposition"][
-                    imageindex, :
-                ] = qxrfgeometry.xrf_positions.to("cm").magnitude
-                self.infoaxes["sampledetdistance"][
-                    imageindex, :
-                ] = qxrfgeometry.xrf_distances.to("cm").magnitude
+                self.infoaxes["xrfdetectorposition"][imageindex, :] = (
+                    qxrfgeometry.xrf_positions.to("cm").magnitude
+                )
+                self.infoaxes["sampledetdistance"][imageindex, :] = (
+                    qxrfgeometry.xrf_distances.to("cm").magnitude
+                )
 
     def _process_xiastackraw(self):
         self.xiastackraw.exclude_detectors = self.parameters["exclude_detectors"]

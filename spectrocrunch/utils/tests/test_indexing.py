@@ -355,9 +355,13 @@ class test_indexing(unittest.TestCase):
                                         if any(bseladv):
                                             selind = [
                                                 [
-                                                    i
-                                                    if instance.islistgen(ind3[axis])
-                                                    else 0
+                                                    (
+                                                        i
+                                                        if instance.islistgen(
+                                                            ind3[axis]
+                                                        )
+                                                        else 0
+                                                    )
                                                     for axis in fullaxes
                                                 ]
                                                 for i in range(r)
@@ -448,7 +452,7 @@ class test_indexing(unittest.TestCase):
 
         ndim = 4
         for index, axis in special:
-            data = np.stack(map(self._slicegen, args), axis=axis)
+            data = np.stack(list(map(self._slicegen, args)), axis=axis)
             shapefull = data.shape
             if axis < 0:
                 j = axis + ndim
@@ -510,7 +514,9 @@ class test_indexing(unittest.TestCase):
                             )
                             for index in itertools.permutations(p):
                                 for axis in range(-ndim, ndim):
-                                    data = np.stack(map(generator, args), axis=axis)
+                                    data = np.stack(
+                                        list(map(generator, args)), axis=axis
+                                    )
                                     shapefull = data.shape
                                     if axis < 0:
                                         j = axis + ndim
@@ -541,7 +547,7 @@ class test_indexing(unittest.TestCase):
                                     np.testing.assert_array_equal(data[index], new)
 
 
-def test_suite():
+def main_test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_indexing("test_list"))
@@ -562,7 +568,7 @@ def test_suite():
 if __name__ == "__main__":
     import sys
 
-    mysuite = test_suite()
+    mysuite = main_test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

@@ -491,7 +491,7 @@ class NumpyScalarBase(NumberBase):
 
 class RandomNumpyBool(NumpyScalarBase):
 
-    NPTYPES = (np.bool,)
+    NPTYPES = (bool,)
 
     @classmethod
     def datagen(cls):
@@ -503,7 +503,7 @@ class RandomNumpyInt(NumpyScalarBase):
     NPTYPES = (
         np.byte,
         np.short,
-        np.int,
+        int,
         np.longlong,
         np.int8,
         np.int16,
@@ -536,7 +536,7 @@ class RandomNumpyUInt(NumpyScalarBase):
 
 class RandomNumpyFloat(NumpyScalarBase):
 
-    NPTYPES = (np.single, np.double, np.float, np.float16, np.float32, np.float64)
+    NPTYPES = (np.single, np.double, float, np.float16, np.float32, np.float64)
 
     @classmethod
     def datagen(cls):
@@ -545,7 +545,7 @@ class RandomNumpyFloat(NumpyScalarBase):
 
 class RandomNumpyComplex(NumpyScalarBase):
 
-    NPTYPES = (np.complex,)
+    NPTYPES = (complex,)
 
     @classmethod
     def datagen(cls):

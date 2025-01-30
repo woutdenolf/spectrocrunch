@@ -2,7 +2,7 @@
 
 import numpy as np
 import scipy.interpolate
-from scipy import array
+from numpy import array
 import logging
 
 logger = logging.getLogger(__name__)

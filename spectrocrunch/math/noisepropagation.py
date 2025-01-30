@@ -168,7 +168,7 @@ def compound(N, X, forward=True):
     #    if len(nN)==2:
     #        nN = nN[1]
     #    else:
-    #        nN = int(np.product(nN))
+    #        nN = int(np.prod(nN))
     #    nX = np.asarray(X).size
 
     #    EN = np.broadcast_to(EN,[nX,nN])

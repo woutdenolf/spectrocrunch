@@ -127,7 +127,7 @@ class test_serialize(unittest.TestCase):
             self.assertEqual(id(b.links[0]), id(a))
 
 
-def test_suite():
+def main_test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_serialize("test_cyclic"))
@@ -139,7 +139,7 @@ def test_suite():
 if __name__ == "__main__":
     import sys
 
-    mysuite = test_suite()
+    mysuite = main_test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

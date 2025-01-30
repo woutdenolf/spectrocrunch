@@ -30,7 +30,7 @@ class Writer(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.open_file:
-            self.open_file.save()
+            self.open_file.close()
         self.open_file = None
 
     @property
@@ -122,14 +122,14 @@ class DataFrame(object):
             for column, value in data.items():
                 self.df.at[row, column] = value
         else:
-            self.df.at[row, :] = data
+            self.df.loc[row, :] = data
 
     def _addcolumn(self, column, data):
         if isinstance(data, dict):
-            for rowindew, value in data.items():
-                self.df.at[rowindew, column] = value
+            for rowindex, value in data.items():
+                self.df.at[rowindex, column] = value
         else:
-            self.df.at[:, column] = data
+            self.df.loc[:, column] = data
 
     def _reapply_formulae(self, row=None, column=None):
         self.apply_formulae()

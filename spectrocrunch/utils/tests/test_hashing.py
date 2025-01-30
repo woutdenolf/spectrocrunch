@@ -48,11 +48,11 @@ class test_hashing(unittest.TestCase):
         hash = b"5d8a0231bb723e05696d6ef58a6da892"
         self._assert_hash(True, hash)
         self._assert_hash(1, hash)
-        self._assert_hash(np.int(1), hash)
+        self._assert_hash(int(1), hash)
         self._assert_hash(np.int16(1), hash)
         self._assert_hash(np.int32(1), hash)
         self._assert_hash(1.0, hash)
-        self._assert_hash(np.float(1), hash)
+        self._assert_hash(float(1), hash)
         self._assert_hash(np.float32(1), hash)
         self._assert_hash(np.float64(1), hash)
 
@@ -134,7 +134,7 @@ class test_hashing(unittest.TestCase):
         self.assertFalse(hashing.calchash(x) in expected)
 
 
-def test_suite():
+def main_test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_hashing("test_string"))
@@ -151,7 +151,7 @@ def test_suite():
 if __name__ == "__main__":
     import sys
 
-    mysuite = test_suite()
+    mysuite = main_test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

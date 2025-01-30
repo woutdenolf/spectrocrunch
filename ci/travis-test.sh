@@ -11,7 +11,7 @@ function travis_unittest()
     cd ${HOME}
     PYOPENCL_COMPILER_OUTPUT=1
     #python -m ${PROJECTNAME}.tests.test_all --log=error
-    python -m unittest -v ${PROJECTNAME}.tests.test_all.test_suite
+    python -m unittest -v ${PROJECTNAME}.tests.test_all.main_test_suite
 }
 
 function travis_styletest()

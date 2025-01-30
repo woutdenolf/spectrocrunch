@@ -1,4 +1,3 @@
 # -*- coding: utf-8 -*-
 
-"""Measurement geometries
-"""
+"""Measurement geometries"""

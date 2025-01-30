@@ -12,24 +12,24 @@ from . import test_excel
 from . import test_h5py
 
 
-def test_suite():
+def main_test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_localfs.test_suite())
-    testSuite.addTest(test_h5fs.test_suite())
-    testSuite.addTest(test_fs.test_suite())
-    testSuite.addTest(test_nxfs.test_suite())
-    testSuite.addTest(test_xiaedf.test_suite())
-    testSuite.addTest(test_spec.test_suite())
-    testSuite.addTest(test_excel.test_suite())
-    testSuite.addTest(test_h5py.test_suite())
+    testSuite.addTest(test_localfs.main_test_suite())
+    testSuite.addTest(test_h5fs.main_test_suite())
+    testSuite.addTest(test_fs.main_test_suite())
+    testSuite.addTest(test_nxfs.main_test_suite())
+    testSuite.addTest(test_xiaedf.main_test_suite())
+    testSuite.addTest(test_spec.main_test_suite())
+    testSuite.addTest(test_excel.main_test_suite())
+    testSuite.addTest(test_h5py.main_test_suite())
     return testSuite
 
 
 if __name__ == "__main__":
     import sys
 
-    mysuite = test_suite()
+    mysuite = main_test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

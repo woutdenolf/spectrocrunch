@@ -1,4 +1,3 @@
 # -*- coding: utf-8 -*-
 
-"""Fullfield XAS data processing.
-"""
+"""Fullfield XAS data processing."""

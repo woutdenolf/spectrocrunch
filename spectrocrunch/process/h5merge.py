@@ -33,16 +33,14 @@ def open_uris(uris):
 
 def match_shapes(shapes, keep_shapes_when_equal=True):
     """Reduce shapes at the last dimension (C-order) so they have an equal total size"""
-    sizes = numpy.array([numpy.product(shape, dtype=int) for shape in shapes])
+    sizes = numpy.array([numpy.prod(shape, dtype=int) for shape in shapes])
     if (sizes == sizes[0]).all():
         if keep_shapes_when_equal:
             return list(shapes)
         else:
             return [tuple()] * len(shapes)
     max_size = sizes.min()
-    chunk_sizes = numpy.array(
-        [numpy.product(shape[:-1], dtype=int) for shape in shapes]
-    )
+    chunk_sizes = numpy.array([numpy.prod(shape[:-1], dtype=int) for shape in shapes])
     chunk_size = lcm(chunk_sizes)
     n_chunks = max_size // chunk_size
     if n_chunks == 0:

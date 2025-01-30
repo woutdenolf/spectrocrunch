@@ -24,7 +24,15 @@ class test_instance(unittest.TestCase):
             "npbytes_array",
         )
         self._check_instance(instance.isstringarray, select)
-        select = ("tuple", "list", "xrange", "str_list", "unicode_list", "bytes_list")
+        select = (
+            "tuple",
+            "list",
+            "xrange",
+            "str_list",
+            "unicode_list",
+            "bytes_list",
+            "array",
+        )
         self._check_instance(instance.issequence, select)
         select = "set", "frozenset"
         self._check_instance(instance.isset, select)
@@ -221,7 +229,7 @@ class test_instance(unittest.TestCase):
             self._test_asarray(x)
 
 
-def test_suite():
+def main_test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_instance("test_instance"))
@@ -232,7 +240,7 @@ def test_suite():
 if __name__ == "__main__":
     import sys
 
-    mysuite = test_suite()
+    mysuite = main_test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

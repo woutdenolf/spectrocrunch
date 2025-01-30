@@ -1,4 +1,3 @@
 # -*- coding: utf-8 -*-
 
-"""X-ray fluorescence data processing.
-"""
+"""X-ray fluorescence data processing."""

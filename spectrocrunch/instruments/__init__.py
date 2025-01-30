@@ -1,4 +1,3 @@
 # -*- coding: utf-8 -*-
 
-"""Static parameters of specific instruments.
-"""
+"""Static parameters of specific instruments."""

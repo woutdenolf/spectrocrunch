@@ -39,10 +39,10 @@ def extendfromtransformation(offsets, shape, pad=True):
     extend = ((0, 0), (0, 0))
     n1, n2 = shape
 
-    o1min = np.floor(np.min(offsets[:, 0])).astype(np.int)
-    o2min = np.floor(np.min(offsets[:, 1])).astype(np.int)
-    o1max = np.ceil(np.max(offsets[:, 0])).astype(np.int)
-    o2max = np.ceil(np.max(offsets[:, 1])).astype(np.int)
+    o1min = np.floor(np.min(offsets[:, 0])).astype(int)
+    o2min = np.floor(np.min(offsets[:, 1])).astype(int)
+    o1max = np.ceil(np.max(offsets[:, 0])).astype(int)
+    o2max = np.ceil(np.max(offsets[:, 1])).astype(int)
 
     if pad:
         extend = ((o1max, -o1min), (o2max, -o2min))
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     ma = 2
     bpad = False
 
-    offsets = np.zeros((2, 2), dtype=np.float)
+    offsets = np.zeros((2, 2), dtype=float)
     offsets[0, 0] = mi
     offsets[0, 1] = mi
     offsets[1, 0] = ma

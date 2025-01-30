@@ -202,7 +202,7 @@ def isnparray(x):
 
 
 def isnpscalar(x):
-    return np.issubclass_(x.__class__, np.generic)
+    return issubclass(x.__class__, np.generic)
 
 
 def isnumpy(x):
@@ -210,7 +210,7 @@ def isnumpy(x):
 
 
 def isnpstring(x):
-    return np.issubclass_(x.__class__, np.character)
+    return issubclass(x.__class__, np.character)
 
 
 def isqarray(x):
@@ -252,11 +252,11 @@ def isnumber(x):
 
 
 def isnpnumber(x):
-    return np.issubclass_(x.__class__, np.number)
+    return issubclass(x.__class__, np.number)
 
 
 def isnpinteger(x):
-    return np.issubclass_(x.__class__, np.integer)
+    return issubclass(x.__class__, np.integer)
 
 
 def isnumeric(x):

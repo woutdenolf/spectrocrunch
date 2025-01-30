@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from pint import errors as pinterrors
 from ..patch.pint import ureg
-from ..patch.pint import errors as pinterrors
 from . import instance
 from . import listtools
 

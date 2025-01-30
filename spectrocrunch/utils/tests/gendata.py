@@ -21,7 +21,7 @@ def gendata():
     data["str"] = "abc"
     data["unicode"] = "\u0101bc"
     data["bytes"] = b"\xe4bc"
-    data["npunicode"] = np.unicode_("\u0101bc")
+    data["npunicode"] = np.str_("\u0101bc")
     data["npbytes"] = np.bytes_(b"\xe4bc")
     data["npstr"] = np.str_("abc")
     data["unicode_list"] = ["\u0101bc", "\u0101bc"]

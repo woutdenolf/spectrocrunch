@@ -1,8 +1,8 @@
 # See http://maggotroot.blogspot.ch/2013/11/constrained-linear-least-squares-in.html for more info
 """
-    A simple library to solve constrained linear least squares problems
-    with sparse and dense matrices. Uses cvxopt library for
-    optimization
+A simple library to solve constrained linear least squares problems
+with sparse and dense matrices. Uses cvxopt library for
+optimization
 """
 
 __author__ = "Valeriy Vishnevskiy"

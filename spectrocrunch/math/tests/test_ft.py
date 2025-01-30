@@ -20,14 +20,14 @@ class test_ft(unittest.TestCase):
                         sig = np.zeros(nx)
                         sig[0] = 1
                         ftsig1 = ft.fft(sig, dx=dx, normconvention=convention)
-                        ftsig2 = np.ones(nx, dtype=np.complex)
+                        ftsig2 = np.ones(nx, dtype=complex)
                         if convention == ft.fftConvention.idl:
                             ftsig2 /= nx
                         np.testing.assert_allclose(ftsig1, ftsig2)
 
                         ftsig = np.ones(nx)
                         sig1 = ft.ifft(ftsig, dx=dx, normconvention=convention)
-                        sig2 = np.zeros(nx, dtype=np.complex)
+                        sig2 = np.zeros(nx, dtype=complex)
                         sig2[0] = 1
                         if convention == ft.fftConvention.idl:
                             sig2[0] = nx
@@ -39,7 +39,7 @@ class test_ft(unittest.TestCase):
                             ftsig1 = ft.fft2(
                                 sig, dx=dx, dy=dy, normconvention=convention
                             )
-                            ftsig2 = np.ones((ny, nx), dtype=np.complex)
+                            ftsig2 = np.ones((ny, nx), dtype=complex)
                             if convention == ft.fftConvention.idl:
                                 ftsig2 /= nx * ny
                             np.testing.assert_allclose(ftsig1, ftsig2)
@@ -48,7 +48,7 @@ class test_ft(unittest.TestCase):
                             sig1 = ft.ifft2(
                                 ftsig, dx=dx, dy=dy, normconvention=convention
                             )
-                            sig2 = np.zeros((ny, nx), dtype=np.complex)
+                            sig2 = np.zeros((ny, nx), dtype=complex)
                             sig2[0, 0] = 1
                             if convention == ft.fftConvention.idl:
                                 sig2[0, 0] = nx * ny
@@ -344,7 +344,7 @@ class test_ft(unittest.TestCase):
                             )
 
 
-def test_suite():
+def main_test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_ft("test_comp_np"))
@@ -361,7 +361,7 @@ def test_suite():
 if __name__ == "__main__":
     import sys
 
-    mysuite = test_suite()
+    mysuite = main_test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

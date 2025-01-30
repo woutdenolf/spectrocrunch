@@ -86,7 +86,7 @@ class test_fit1d(unittest.TestCase):
         np.testing.assert_almost_equal(em1, em2, decimal=3)  # em2 maybe not correct???
 
 
-def test_suite():
+def main_test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
     testSuite.addTest(test_fit1d("test_leastsq"))
@@ -97,7 +97,7 @@ def test_suite():
 if __name__ == "__main__":
     import sys
 
-    mysuite = test_suite()
+    mysuite = main_test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)

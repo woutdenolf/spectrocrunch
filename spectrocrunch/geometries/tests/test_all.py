@@ -8,21 +8,21 @@ from . import test_flatarea
 from . import test_qxrf
 
 
-def test_suite():
+def main_test_suite():
     """Test suite including all test suites"""
     testSuite = unittest.TestSuite()
-    testSuite.addTest(test_base.test_suite())
-    testSuite.addTest(test_diode.test_suite())
-    testSuite.addTest(test_xrf.test_suite())
-    testSuite.addTest(test_flatarea.test_suite())
-    testSuite.addTest(test_qxrf.test_suite())
+    testSuite.addTest(test_base.main_test_suite())
+    testSuite.addTest(test_diode.main_test_suite())
+    testSuite.addTest(test_xrf.main_test_suite())
+    testSuite.addTest(test_flatarea.main_test_suite())
+    testSuite.addTest(test_qxrf.main_test_suite())
     return testSuite
 
 
 if __name__ == "__main__":
     import sys
 
-    mysuite = test_suite()
+    mysuite = main_test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():
         sys.exit(1)
