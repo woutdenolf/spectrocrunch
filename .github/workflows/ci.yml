@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  # Triggers the workflow on push only for the master branch or pull request events
+  push:
+    branches: [ master ]
+  pull_request:
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    name: "Python ${{ matrix.python-version }} on ${{ matrix.os }} ${{ matrix.name-suffix }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - name-suffix: "Linux"
+            os: ubuntu-20.04
+            python-version: 3.6
+            BUILD_COMMAND: sdist
+          #- name-suffix: "Mac"
+          #  os: macos-latest
+          #  python-version: 3.8
+          #  BUILD_COMMAND: sdist
+          #- name-suffix: "Windows"
+          #  os: windows-latest
+          #  python-version: 3.9
+          #  BUILD_COMMAND: sdist
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      # Runs a single command using the runners shell
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          if [ ${{ runner.os }} == 'Windows' ]; then
+            call tools\\windows-install-deps.bat -y -t -s -u
+          else
+            set +e  # subprocesses that return >0 should not stop the script
+            source tools/linux-install-deps.sh -y -t -s -u
+              cprint "AAAAAAAAAAAAAAAA"
+              pip_bin
+              pip_bin list
+              python -m pip list
+              cprint "AAAAAAAAAAAAAAAA"
+          fi
+
+      - name: Print python info
+        run: |
+          cprint "AAAAAAAAAAAAAAAA"
+          pip_bin
+          pip_bin list
+          python -m pip list
+          cprint "AAAAAAAAAAAAAAAA"
+          python -m pip list
+          python ci/info_platform.py
+
+      - name: Generate source package or wheel
+        run: |
+          python setup.py ${{ matrix.BUILD_COMMAND }}
+          ls dist
+
+      - name: Install package
+        run: python -m pip install --pre --find-links dist/ spectrocrunch
+
+      - name: Run the tests
+        run: python -m unittest -v spectrocrunch.tests.test_all.test_suite

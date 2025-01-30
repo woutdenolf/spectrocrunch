@@ -44,7 +44,7 @@ function pip_bin()
 
 function python_virtualenv_active()
 {
-    return ((python_get "import sys;print(hasattr(sys, 'real_prefix'))") -eq "True")
+    return ((python_get "import sys;print(sys.prefix!=getattr(sys,'base_prefix',sys.prefix))") -eq "True")
 }
 
 
@@ -93,7 +93,6 @@ function python_get([string]$prog)
 {
     python_exec -c """$prog"""
 }
-
 
 
 function python_exists()

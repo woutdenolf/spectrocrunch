@@ -243,10 +243,6 @@ function python_virtualenv_active()
         echo true
         return 
     fi
-    if [[ $(python_get "import sys;print(sys.prefix!=getattr(sys,'real_prefix',sys.prefix))") == 'True' ]];then
-        echo true
-        return 
-    fi
     echo false
 }
 
