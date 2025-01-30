@@ -491,7 +491,7 @@ class NumpyScalarBase(NumberBase):
 
 class RandomNumpyBool(NumpyScalarBase):
 
-    NPTYPES = (np.bool,)
+    NPTYPES = (bool,)
 
     @classmethod
     def datagen(cls):
