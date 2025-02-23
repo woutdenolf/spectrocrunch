@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
 
     steps:
       - name: Checkout repository
@@ -28,21 +28,23 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # if [ ${{ runner.os }} == 'Windows' ]; then
-          #   call tools\\windows-install-deps.bat -y -t -s -u
-          # else
-          #   source tools/linux-install-deps.sh -y -t -s -u
-          # fi
           python -m pip install --upgrade pip
-          pip install --pre .
-          pip install pytest black[jupyter] flake8
+          pip install --pre .[dev]
+          pip install build
 
-      #- name: Run linting with Flake8
-      #  run: flake8 .
+      - name: Run linting with Flake8
+        if: ${{ matrix.python-version == '3.12' }}
+        run: flake8 .
 
       - name: Check code formatting with Black
+        if: ${{ matrix.python-version == '3.12' }}
         run: black --check .
+
+      - name: Build and Install sdist
+        run: |
+          python -m build
+          pip install dist/*.tar.gz
 
       - name: Run tests
         run: |
-          pytest .
+          pytest --pyargs spectrocrunch

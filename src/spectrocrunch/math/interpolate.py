@@ -74,7 +74,9 @@ def interpolate_regular(data, axold, axnew, cval=np.nan, degree=1, asgrid=True):
     if len(axold) != ndim or len(axnew) != ndim:
         raise ValueError("Data and axes dimensions must be the same")
 
-    post = None
+    breshape = False
+    shape = tuple()
+
     args = axnew
     kwargs = {}
     if ndim == 1:
@@ -106,18 +108,16 @@ def interpolate_regular(data, axold, axnew, cval=np.nan, degree=1, asgrid=True):
             axold, data, method=method, fill_value=cval, bounds_error=False
         )
         if asgrid:
+            breshape = True
             shape = tuple([len(ax) for ax in axnew])
-
-            def post(x):
-                return x.reshape(shape)
-
             axnew = np.meshgrid(*axnew, indexing="ij")
             axnew = tuple([ax.flat for ax in axnew])
         args = (np.array(list(zip(*axnew))),)
 
     ret = interp(*args, **kwargs)
-    if post:
-        ret = post(ret)
+    if breshape:
+
+        return ret.reshape(shape)
     return ret
 
 

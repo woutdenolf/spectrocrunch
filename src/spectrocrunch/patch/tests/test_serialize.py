@@ -7,7 +7,7 @@ from .. import jsonpickle
 
 
 def equal(a, b):
-    if type(a) == np.ndarray:
+    if isinstance(a, np.ndarray):
         return np.array_equal(a, b)
     else:
         return a == b

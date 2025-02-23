@@ -2,6 +2,7 @@
 .*
 !.gitignore
 !.flake8
+!.flake8_nb
 
 # Byte / compiled / optimized
 *.py[cod]
@@ -14,18 +15,3 @@ __pycache__/
 *.egg-info/
 .eggs/
 /doc/_generated
-
-# Temporary files
-*~
-*.h5
-*.nx5
-*.hdf5
-log.*
-*.png
-*.log
-*.*.txt
-*.cprof
-.[^.]*
-test.*
-testresults
-testdata

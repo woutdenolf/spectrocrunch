@@ -1,11 +1,21 @@
+import os
 import unittest
-from spectrocrunch.process import h5merge
+
 import h5py
 import numpy
 import numpy.testing
+from testfixtures import TempDirectory
+
+from spectrocrunch.process import h5merge
 
 
 class test_h5merge(unittest.TestCase):
+    def setUp(self):
+        self.dir = TempDirectory()
+
+    def tearDown(self):
+        self.dir.cleanup()
+
     def test_tile(self):
         scan_shape = (9, 7)  # F-order
         tile_shape = (2, 3)  # F-order
@@ -27,7 +37,7 @@ class test_h5merge(unittest.TestCase):
         off += 63
         expected[14:21, 0:9] = numpy.arange(63).reshape((7, 9)) + off
 
-        with h5py.File("test.h5", "w") as f:
+        with h5py.File(os.path.join(self.dir.path, "test.h5"), "w") as f:
             sources = list()
             off = 1
             for i, shape in enumerate(shapes):
