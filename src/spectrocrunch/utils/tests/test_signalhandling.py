@@ -52,13 +52,16 @@ class test_signalhandling(unittest.TestCase):
                 self.state += 1
         self.assertTrue(self.state == 2)
 
+    @unittest.skipIf(sys.platform == "win32", "Skipping on Windows")
     def test_sigterm(self):
         self._check_signal(lambda: os.kill(os.getpid(), signal.SIGTERM))
 
+    @unittest.skipIf(sys.platform == "win32", "Skipping on Windows")
     def test_sigint(self):
         with self.assertRaises(KeyboardInterrupt):
             self._check_signal(lambda: os.kill(os.getpid(), signal.SIGINT))
 
+    @unittest.skipIf(sys.platform == "win32", "Skipping on Windows")
     def test_sigexit(self):
         self._check_signal(lambda: sys.exit(0))
         self._check_signal(lambda: exit(0))

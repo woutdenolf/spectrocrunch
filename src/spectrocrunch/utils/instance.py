@@ -10,6 +10,7 @@ except ImportError:
         collections_abc = collections
 import numbers
 import numpy as np
+import pint
 import uncertainties.core
 from ..patch.pint import ureg
 
@@ -130,7 +131,7 @@ def issequence(x):
     """
     Sequence (mutable, immutable, generator) except for strings and bytearray's
     """
-    return isinstance(x, collections_abc.Sequence) and not isinstance(
+    return isinstance(x, (collections_abc.Sequence, array)) and not isinstance(
         x, (str, bytes, unicode, bytearray)
     )
 
@@ -295,6 +296,10 @@ class _toarray(object):
     }
 
     def __call__(self, x):
+
+        if isinstance(x, (list, tuple)) and isquantity(x[0]):
+            x = pint.Quantity.from_list(x)
+
         if isquantity(x):
             # Quantity(array/scalar) -> ndarray[Quantity(scalar),...]
             u = x.units

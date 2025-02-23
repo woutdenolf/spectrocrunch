@@ -86,14 +86,14 @@ class test_excel(unittest.TestCase):
             for i in [2, 3]:
                 j, k = i - 2, i - 1
                 df1.addrow_formula(rows[i], "({}+{})/2.", [rows[j], rows[k]])
-                df2.loc[rows[i]] = (df2.loc[rows[j]] + df2.loc[rows[k]]) / 2.0
+                df2.loc[rows[i]] = (df2.loc[rows[j]] + df2.loc[rows[k]]) / 2
 
             for i in [2, 3]:
                 j, k = i - 2, i - 1
                 df1.addcolumn_formula(
                     columns[i], "({}+{})/3.", [columns[j], columns[k]]
                 )
-                df2[columns[i]] = (df2[columns[j]] + df2[columns[k]]) / 3.0
+                df2[columns[i]] = (df2[columns[j]] + df2[columns[k]]) / 3
 
             i = 2
             df1.addcell_formula(
