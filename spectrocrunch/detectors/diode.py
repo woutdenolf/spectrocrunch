@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import math
 
 # import warnings
@@ -10,7 +8,6 @@ from ..patch.pint import ureg
 from ..math import linop
 from ..math import fit1d
 from ..utils import units
-from ..materials import compoundfromformula
 from ..materials import compoundfromname
 from ..materials import multilayer
 from ..materials import element
@@ -21,7 +18,6 @@ from ..geometries import diode as diodegeometries
 from ..optics import xray as xrayoptics
 from ..sources import xray as xraysources
 from ..simulation.classfactory import with_metaclass
-from ..math import noisepropagation
 from ..utils import instance
 from . import base
 from ..utils import lut
@@ -241,7 +237,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         optics=None,
         Vmax=None,
         beforesample=None,
-        **kwargs
+        **kwargs,
     ):
         """
         Args:
@@ -532,7 +528,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             p, cov_matrix = fit.leastsq(
                 self.model_spectral_responsivity, energy, response, [thickness, ehole]
             )
-        except:
+        except Exception:
             logger.debug(
                 "Could not fit spectral response of {}".format(self.__class__.__name__)
             )
@@ -1397,7 +1393,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             except pinterrors.DimensionalityError:
                 try:
                     response.to("A")
-                except:
+                except Exception:
                     response.to("V")
                     return self.op_voltagetoflux(energy, weights=weights)
                 else:
@@ -1440,7 +1436,7 @@ class PNdiode(with_metaclass(base.SolidState)):
             except pinterrors.DimensionalityError:
                 try:
                     return self.currenttoflux(energy, response.to("A"), weights=weights)
-                except:
+                except Exception:
                     return self.voltagetoflux(energy, response.to("V"), weights=weights)
 
     def gainfromresponse(
@@ -1468,7 +1464,7 @@ class PNdiode(with_metaclass(base.SolidState)):
         try:
             V_meas = self.cpstovoltage(response_after.to("Hz"))
         except pinterrors.DimensionalityError:
-            tmp = response.to("dimensionless")
+            tmp = response_after.to("dimensionless")
             if time is None:
                 raise RuntimeError("Need exposure time to convert counts to flux.")
             V_meas = self.countstovoltage(time, tmp, weights=weights)
@@ -1888,7 +1884,7 @@ class SXM_PTB(CalibratedPNdiode):
             response=response,
             fitresponse=True,
             beforesample=False,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -1942,7 +1938,7 @@ class SXM_IDET(CalibratedPNdiode):
             fitresponse=False,
             beforesample=False,
             oscillator=vtof,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -1975,7 +1971,7 @@ class SXM_FDET(NonCalibratedPNdiode):
             darkcurrent=ureg.Quantity(0, "ampere"),
             oscillator=vtof,
             beforesample=False,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -2025,7 +2021,7 @@ class SXM_IODET1(NonCalibratedPNdiode):
             oscillator=vtof,
             secondarytarget=secondarytarget,
             beforesample=True,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -2074,7 +2070,7 @@ class SXM_IODET2(NonCalibratedPNdiode):
             oscillator=vtof,
             secondarytarget=secondarytarget,
             beforesample=True,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -2093,7 +2089,7 @@ class XRD_IDET(NonCalibratedPNdiode):
             gainrounder=GainRounder(base=10, m=2.1),
             darkcurrent=ureg.Quantity(0, "ampere"),
             beforesample=False,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -2131,7 +2127,7 @@ class ID16B_IT(NonCalibratedPNdiode):
             oscillator=vtof,
             Vmax=ureg.Quantity(2.1, "volt"),
             beforesample=False,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -2166,7 +2162,7 @@ class ID16B_I0(NonCalibratedPNdiode):
             oscillator=vtof,
             Vmax=ureg.Quantity(2.1, "volt"),
             beforesample=True,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -2218,7 +2214,7 @@ class ID16B_IC(NonCalibratedPNdiode):
             Vmax=ureg.Quantity(2.1, "volt"),
             secondarytarget=secondarytarget,
             beforesample=True,
-            **kwargs
+            **kwargs,
         )
 
 

@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-
 import os
-import numpy as np
 import logging
 from PyMca5.PyMcaIO import ConfigDict
 from ..io import localfs
@@ -185,7 +182,7 @@ def run(
     escape=True,
     outradix="out",
     runxrmc=False,
-    **kwargs
+    **kwargs,
 ):
     """
     Args:

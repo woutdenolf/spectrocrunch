@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import numpy as np
 
@@ -223,7 +221,7 @@ class test_instance(unittest.TestCase):
             x = noisepropagation.randomvariable(num, num)
             self._test_asarray(x)
 
-        objs = ["abc", np.array("abc"), np.array(["abc"]), ["abc"], ("abc", 1, 2)]
+        # objs = ["abc", np.array("abc"), np.array(["abc"]), ["abc"], ("abc", 1, 2)]
         checktypes = [True, True, True, False, False]
         for o, check in zip(nums, checktypes):
             self._test_asarray(x)

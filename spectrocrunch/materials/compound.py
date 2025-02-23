@@ -1,11 +1,7 @@
-# -*- coding: utf-8 -*-
-
 from . import multielementbase
 from . import element
-from . import interaction
 from . import types
 from . import stoichiometry
-from ..utils import listtools
 from ..utils import instance
 
 import numpy as np

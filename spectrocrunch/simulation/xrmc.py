@@ -1,18 +1,14 @@
-# -*- coding: utf-8 -*-
-
 import os
 import re
 import itertools
 import logging
-import functools
 import numpy as np
 from glob import glob
 from collections import OrderedDict
 from collections.abc import MutableMapping
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from future.utils import with_metaclass
-from abc import ABCMeta, abstractmethod, abstractproperty
+from abc import abstractmethod
 from scipy.spatial.transform import Rotation
 
 from ..io import localfs
@@ -235,11 +231,13 @@ class XrmcFile(object):
     def filepath(self):
         return os.path.join(self.path, self.filename)
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def body(self):
         pass
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def header(self):
         pass
 
@@ -832,7 +830,7 @@ class XrmcPositionalDevice(XrmcDevice, XrmcReferenceFrame):
         dvert=None,
         ohor=0,
         overt=0,
-        **kwargs
+        **kwargs,
     ):
         if not material:
             material = "Vacuum"
@@ -1081,7 +1079,7 @@ class Detector(XrmcPositionalDevice):
         emax=None,
         time=1,
         pixelshape="elliptical",
-        **kwargs
+        **kwargs,
     ):
         super(Detector, self).__init__(parent, name, radius=distance, **kwargs)
         self.emin = emin
@@ -1367,7 +1365,7 @@ class AreaDetector(Detector):
         dims=None,
         hpoffset=None,
         vpoffset=None,
-        **kwargs
+        **kwargs,
     ):
         self.dims = dims
         self.pixelsize = pixelsize
@@ -1433,7 +1431,7 @@ class SDD(SingleElementDetector):
         pulseproctime=0,
         noise=None,
         fano=None,
-        **kwargs
+        **kwargs,
     ):
         self.noise = noise
         self.fano = fano
@@ -2077,7 +2075,7 @@ class XrmcWorldBuilder(object):
             emin=emin,
             emax=emax,
             time=time,
-            **response
+            **response,
         )
 
     def add_areadetector(

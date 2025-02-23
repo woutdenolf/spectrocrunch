@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import numpy as np
 from scipy.stats import ortho_group

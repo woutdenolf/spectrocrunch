@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 import sympy
-from sympy.utilities.lambdify import lambdify, implemented_function
 
 from ..utils import instance
 

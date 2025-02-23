@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# flake8: noqa
 
 from sage.all_cmdline import *  # import sage library
 

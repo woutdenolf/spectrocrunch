@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from . import base
 from ..utils.classfactory import with_metaclass
 from ..resources import resource_filename
@@ -11,7 +9,6 @@ from ..materials import compoundfromname
 import numpy as np
 import silx.math.fit as silxfit
 import matplotlib.pyplot as plt
-import os
 import json
 
 
@@ -432,7 +429,7 @@ class LinearXRFGeometry(XRFGeometry):
         zerodistance=None,
         positionunits=None,
         positionsign=1,
-        **kwargs
+        **kwargs,
     ):
         if zerodistance is not None:
             zerodistance = units.Quantity(zerodistance, positionunits)

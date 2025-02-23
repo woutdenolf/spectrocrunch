@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-
-from copy import copy, deepcopy
+from copy import deepcopy
 
 
 class Copyable(object):

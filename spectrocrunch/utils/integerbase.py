@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-
-
 class integerbase:
     def __init__(
         self,

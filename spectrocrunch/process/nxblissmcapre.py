@@ -1,9 +1,6 @@
-# -*- coding: utf-8 -*-
-
 import re
 from contextlib import contextmanager
 from . import nxprocess
-from ..io import nxfs
 from ..math.slicing import slice_generator
 import numpy
 

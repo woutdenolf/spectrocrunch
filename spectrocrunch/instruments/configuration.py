@@ -1,9 +1,6 @@
-# -*- coding: utf-8 -*-
-
 import os
 from ..patch.pint import ureg
 from ..utils.classfactory import with_metaclass
-from ..utils import instance
 from ..utils import listtools
 
 

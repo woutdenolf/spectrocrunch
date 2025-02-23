@@ -1,14 +1,9 @@
-# -*- coding: utf-8 -*-
-
 import os
 import unittest
 from testfixtures import TempDirectory
 
 from .. import fs
-from .. import localfs
-from .. import h5fs
 from .. import nxfs
-from ..utils import TemporaryFilename
 
 
 class test_nxfs(unittest.TestCase):
@@ -39,7 +34,7 @@ class test_nxfs(unittest.TestCase):
         self.assertEqual(entry2, root["entry0002"])
 
         self.assertRaises(ValueError, data1.nxinstrument, mode="r")
-        instrument = data1.nxinstrument()
+        _ = data1.nxinstrument()
 
         self._check_nxdata(data1)
         self._check_process(entry2)

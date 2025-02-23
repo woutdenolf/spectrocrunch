@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 import unittest
 import itertools
@@ -108,12 +106,14 @@ class test_h5fs(TestCase):
             with h5fs.h5Device(filename, mode="r").open() as f:
                 b = self._read(f) == word
         else:
-            b = None == word
+            b = word is None
         self.assertTrue(b)
 
     def test_path_splitting(self):
         cwd = self.dir.path
-        func = lambda *args: os.path.join(cwd, *args)
+
+        def func(*args):
+            return os.path.join(cwd, *args)
 
         path = h5fs.Path(func("test.h5"))
         devsep = path.devsep
@@ -190,7 +190,9 @@ class test_h5fs(TestCase):
 
     def test_link_mixing(self):
         cwd = self.dir.path
-        func = lambda *args: os.path.join(cwd, *args)
+
+        def func(*args):
+            return os.path.join(cwd, *args)
 
         roota = h5fs.Path(func("a.h5"))
         rootb = h5fs.Path(func("b.h5"))
@@ -212,7 +214,10 @@ class test_h5fs(TestCase):
 
     def test_string(self):
         cwd = self.dir.path
-        func = lambda *args: os.path.join(cwd, *args)
+
+        def func(*args):
+            return os.path.join(cwd, *args)
+
         for i, params in enumerate(itertools.product(*[(True, False)] * 3)):
             root = h5fs.Path(func("test_string{}.h5".format(i)))
             attribute, raiseExtended, useOpaqueDataType = params
@@ -233,7 +238,7 @@ class test_h5fs(TestCase):
         sAsciiBytes = b"abc"
         sAsciiUnicode = "abc"
         sLatinBytes = b"\xe423"
-        sLatinUnicode = "\xe423"  # not used
+        # sLatinUnicode = "\xe423"  # not used
         sUTF8Unicode = "\u0101bc"
         sUTF8Bytes = b"\xc4\x81bc"
         sUTF8AsciiUnicode = "abc"

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from ..utils.Enum import Enum
 from ..utils import instance
 
@@ -8,7 +6,6 @@ import errno
 import numpy as np
 import pandas as pd
 import scipy.stats
-import xlsxwriter
 import xlsxwriter.utility as xlsxutils
 from collections import OrderedDict
 import logging
@@ -57,7 +54,7 @@ class DataFrame(object):
         rowlevels=None,
         columnlevels=None,
         columnwidth=15,
-        **kwargs
+        **kwargs,
     ):
         self.writer = writer
         self.sheet_name = sheet_name
@@ -177,7 +174,7 @@ class DataFrame(object):
         if row in rows or column in columns:
             rhside = formula.format(*[rc for rc in zip(rows, columns)])
             raise RuntimeError(
-                "Self referencing formula: {} = {}".format(row, column, rhside)
+                "Self referencing formula: {}, {} = {}".format(row, column, rhside)
             )
         self.formulae_cell[(row, column)] = formula, rows, columns
         self._apply_cell_formula(row, column, formula, rows, columns)
@@ -595,7 +592,7 @@ class DataFrame(object):
                 y = x - self._xls_rowoff
             else:
                 y = x - self._xls_coloff
-            y = self._convert_singleindex(y, indextypes.index, totype, row=row)
+            y = self._convert_singleindex(y, self.indextypes.index, totype, row=row)
 
         return y
 

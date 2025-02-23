@@ -1,10 +1,6 @@
-# -*- coding: utf-8 -*-
-
-from ..utils import instance
 from ..utils import units
 from ..utils import lut
 
-import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)

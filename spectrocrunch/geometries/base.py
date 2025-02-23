@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 from ..utils import units
-from ..utils import instance
 from ..utils.copyable import Copyable
 from ..math import noisepropagation
 
@@ -83,7 +80,7 @@ class FlatSample(Base):
         angleout=None,
         sample_azimuth=180.0,
         detector_azimuth=0.0,
-        **kwargs
+        **kwargs,
     ):
         """
         Args:

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from ..io.spec import spec
 import h5py
 import numpy as np
@@ -112,7 +110,7 @@ def show(
     # Plot
     plt.figure(1)
     plt.clf()
-    im = plt.imshow(
+    _ = plt.imshow(
         rgb, extent=extent, origin=origin, interpolation="nearest", aspect=1
     )  # ,cmap=plt.get_cmap("gray")
     axes = plt.gca()
@@ -132,7 +130,7 @@ def show(
         #        color = '#000000'
         #    else:
         #        color = '#ffffff'
-        # except:
+        # except Exception:
         #    color = '#ffffff'
 
         # color = '#%02x%02x%02x' % tuple(255-rgbi)
@@ -282,11 +280,11 @@ def plot(
     else:
         names = [None] * n
     if defaultorigin:
-        dim2label = "x ($\mu$m)"
-        dim1label = "y ($\mu$m)"
+        dim2label = r"x ($\mu$m)"
+        dim1label = r"y ($\mu$m)"
     else:
-        dim2label = "y ($\mu$m)"
-        dim1label = "z ($\mu$m)"
+        dim2label = r"y ($\mu$m)"
+        dim1label = r"z ($\mu$m)"
 
     show(
         dim2,

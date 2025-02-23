@@ -1,10 +1,6 @@
-# -*- coding: utf-8 -*-
-
-import os
 import numpy as np
 from ..utils import instance
 from ..process.utils import create_task
-from ..io import nxfs
 from ..instruments.configuration import getinstrument
 
 

@@ -1,12 +1,11 @@
-# -*- coding: utf-8 -*-
-
 """Initialize cctbx library. To use it, add to following line to the top of your script:
 execfile("initcctbx.py")
 """
 
-CCTBCBUILD = "/usr/local/cctbx/build"
+import os
+import sys
 
-import os, sys
+CCTBCBUILD = "/usr/local/cctbx/build"
 
 os.environ["LIBTBX_BUILD"] = CCTBCBUILD
 

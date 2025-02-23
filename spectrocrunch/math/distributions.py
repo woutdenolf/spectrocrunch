@@ -1,9 +1,5 @@
-# -*- coding: utf-8 -*-
-
 from scipy.stats import rv_continuous
-from scipy.stats import rv_discrete
 from scipy.stats import _continuous_distns as crv_helper
-from scipy.stats import _discrete_distns as drv_helper
 import scipy.special as special
 import numpy as np
 import matplotlib.pyplot as plt

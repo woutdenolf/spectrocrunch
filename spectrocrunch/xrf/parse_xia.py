@@ -1,10 +1,6 @@
-# -*- coding: utf-8 -*-
-
 from PyMca5.PyMcaCore import XiaCorrect
-from PyMca5.PyMcaCore import XiaEdf
 from glob import glob
 import os
-import numpy as np
 
 
 def log_dummy(message, verbose_level=None, verbose_ask=None):
@@ -83,7 +79,7 @@ def parse_xia_esrf(
     # Only count detectors and not save sum/dtcorrection?
     if ndet < 2:
         add = False
-        if deadtimeifsingle == False:
+        if not deadtimeifsingle:
             deadtime = False
 
     if ndet == 0:
@@ -91,7 +87,7 @@ def parse_xia_esrf(
         deadtime = False
         willbefitted = False
 
-    if willbefitted == False and deadtime == False and add == False:
+    if not willbefitted and not deadtime and not add:
         return [[]], detnums
 
     # DT correction and optional summation

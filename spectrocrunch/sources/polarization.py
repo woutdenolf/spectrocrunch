@@ -1,13 +1,9 @@
-# -*- coding: utf-8 -*-
-
 """Polarization state of transverse waves"""
 
 import cmath
 import logging
-import collections
 
 from ..utils import units
-from ..utils import instance
 from ..patch.pint import ureg
 
 import numpy as np
@@ -408,7 +404,7 @@ class Jones(object):
         ax.set_ylabel("$E_1$ (V/m)")
         p = self.to_params()
         ax.set_title(
-            "dolp={:.02f}, polangle={:.02f}$^\circ$, docp={:.02f} ({}), $\phi_0$={:.02f}$^\circ$".format(
+            r"dolp={:.02f}, polangle={:.02f}$^\circ$, docp={:.02f} ({}), $\phi_0$={:.02f}$^\circ$".format(
                 p["dolp"], p["polangle"], self.docp, p["handedness"], p["phase0"]
             )
         )
@@ -841,9 +837,6 @@ class Stokes(object):
             def K(azimuth=None, polar=None):
                 costh = np.cos(polar)
                 a = (1 + costh**2) / 2.0
-                ph = 2 * azimuth
-                cosph = np.cos(ph)
-                sinph = np.sin(ph)
                 ksc = k / (1 + k * (1 - costh))
                 c = (k - ksc) * (1 - costh) / 2.0
                 return ksc**2 / k**2 * (a + c)

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import logging
 import warnings
 import numpy as np
@@ -26,7 +24,7 @@ class alignElastix(align):
         # Prepare alignment kernel
         try:
             self.elastix = sitk.ElastixImageFilter()
-        except:
+        except Exception:
             self.elastix = sitk.SimpleElastix()
 
         # self.elastix.LogToFolder("")
@@ -39,7 +37,7 @@ class alignElastix(align):
         # Prepare transformation kernel
         try:
             self.transformix = sitk.TransformixImageFilter()
-        except:
+        except Exception:
             self.transformix = sitk.SimpleTransformix()
 
     def replacecval(self, img):
@@ -90,7 +88,7 @@ class alignElastix(align):
                 self.elastix.Execute()
             aligned = sitk.GetArrayFromImage(self.elastix.GetResultImage())
             self.replacecval(aligned)
-        except:
+        except Exception:
             aligned = img.copy()
 
         return aligned
@@ -116,7 +114,7 @@ class alignElastix(align):
         else:
             try:
                 return self.elastix.GetTransformParameterMap()
-            except:
+            except Exception:
                 logger = logging.getLogger(__name__)
                 # import traceback
                 # logger.debug(traceback.format_exc())

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 from . import test_id21_ffxas
 from . import test_fluoxas

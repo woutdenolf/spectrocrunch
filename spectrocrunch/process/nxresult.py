@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from ..utils.hashable import CompHashable
 from ..utils import instance
 from ..io import nxfs

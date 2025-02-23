@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-
 import hashlib
-import itertools
 from ..patch import jsonpickle
 from ..utils import instance
 from ..utils import listtools
@@ -55,7 +52,7 @@ def calchash(x, _depth=0):
             intx = int(x)
             if intx == x:
                 x = intx
-        except:
+        except Exception:
             pass
         x = [classname_repr_to_hash("number"), string_repr_to_hash(str(x))]
     elif instance.isarray(x):

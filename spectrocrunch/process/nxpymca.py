@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from . import nxqxrf_dependent
 from . import nxprocess
 from . import nxresult

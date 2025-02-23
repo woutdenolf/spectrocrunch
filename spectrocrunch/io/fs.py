@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 import contextlib
 from abc import ABCMeta, abstractproperty, abstractmethod
@@ -663,7 +661,7 @@ class Path(File):
     def get_stat(self, key, default=None, follow=True):
         try:
             return self.stats(follow=follow).get(key, default=default)
-        except fs.Missing:
+        except Missing:
             return default
 
     @abstractmethod

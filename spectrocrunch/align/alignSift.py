@@ -1,9 +1,5 @@
-# -*- coding: utf-8 -*-
-
 import warnings
-import os
 import numpy as np
-import logging
 
 try:
     import pyopencl

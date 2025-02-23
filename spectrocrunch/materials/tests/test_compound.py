@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 
 from .. import compound as compoundraw
@@ -125,7 +123,7 @@ class test_compound(unittest.TestCase):
 
         c = compoundfromname.compoundfromname("linseed oil")
 
-        with self.assertRaises(KeyError) as context:
+        with self.assertRaises(KeyError):
             c = compoundfromname.compoundfromname("linseed oill")
 
     @unittest.skipIf(xraylib is None, "xraylib not installed")
@@ -202,7 +200,7 @@ class test_compound(unittest.TestCase):
     @unittest.skipIf(xraylib is None, "xraylib not installed")
     def test_refractiveindex2(self):
         density = 5.3
-        c = compoundfromformula.CompoundFromFormula("Fe2O3", 5.3, name="test")
+        c = compoundfromformula.CompoundFromFormula("Fe2O3", density, name="test")
         energy = 30
 
         wavelength = ureg.Quantity(energy, "keV").to("cm", "spectroscopy")

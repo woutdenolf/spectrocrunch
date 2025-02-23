@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import numpy as np
 import os
@@ -9,10 +7,8 @@ from testfixtures import TempDirectory
 
 from .. import fluoxas
 from ..run import run_sequential
-from ...io import nxfs
 from ...io import xiaedf
 from ...process import nxresult
-from ...align import types
 from ...utils import instance
 from ...utils import listtools
 from ...utils import cli
@@ -47,7 +43,7 @@ class test_fluoxas(TestCase):
             "stackdim": (0,),
             "correctspectra": (True, False),
         }
-        parameters2 = {
+        _ = {
             "alignmethod": (None,),
             "cfgfileuse": (True,),
             "include_detectors": [(1, (0, 2))],
@@ -145,7 +141,7 @@ class test_fluoxas(TestCase):
             "calc_fluxt",
         }
         for label in fitlabels:
-            if not "Scatter" in label:
+            if "Scatter" not in label:
                 alignreference = label
                 break
         refimageindex = 0
@@ -294,9 +290,7 @@ class test_fluoxas(TestCase):
                         ]
                         expected.extend(
                             [
-                                "{}_xia{}_{:04d}_0000.cfg".format(
-                                    radixout, det, mapnum, label
-                                )
+                                "{}_xia{}_{:04d}_0000.cfg".format(radixout, det, mapnum)
                                 for det in expectedgroups_data
                                 for mapnum in range(nmaps)
                             ]
@@ -312,9 +306,7 @@ class test_fluoxas(TestCase):
                         ]
                         expected.extend(
                             [
-                                "{}_xia{}_{:04d}_0000.cfg".format(
-                                    radixout, det, mapnum, label
-                                )
+                                "{}_xia{}_{:04d}_0000.cfg".format(radixout, det, mapnum)
                                 for det in expectedgroups_data
                                 for mapnum in range(nmaps)
                             ]

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import itertools
 import numpy as np
@@ -65,8 +63,6 @@ class test_units(unittest.TestCase):
                 self.assertEqual(a, b)
 
     def test_asqarray(self):
-        from array import array
-
         for k, v in gendata().items():
             if instance.isarray(v) or instance.isscalar(v):
                 varr = units.asqarray(v)

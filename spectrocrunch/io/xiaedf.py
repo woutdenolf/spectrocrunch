@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 from glob import glob
 import fabio
@@ -7,7 +5,6 @@ import numpy as np
 import itertools
 import collections
 import operator
-import numbers
 import re
 import contextlib
 
@@ -334,7 +331,7 @@ def xiadetector_tonumber(detector):
     """
     if instance.isstring(detector):
         if detector.startswith("xia"):
-            detector = s[3:]
+            detector = detector[3:]
         if detector.isdigit():
             return int(detector)
     elif instance.isnumber(detector):
@@ -813,7 +810,7 @@ class xiadata(object):
         # With memmap
         try:
             return edf.edfmemmap(filename)
-        except:
+        except Exception:
             return edf.edfimage(filename)
 
         # With caching
@@ -822,7 +819,7 @@ class xiadata(object):
         else:
             try:
                 img = edf.edfmemmap(filename)
-            except:
+            except Exception:
                 img = edf.edfimage(filename)
             if cache:
                 self._cache["imagehandles"][filename] = img
@@ -1227,7 +1224,7 @@ class xiadata(object):
             # Get statistics from lower levels
             if needstats:
                 with self.env_indexing_onlystats():
-                    levelcache = self._levelcache()
+                    _ = self._levelcache()
                     indexstats = self._index_stats(index)
                     stats = self._getstats(indexstats)
 
@@ -1243,7 +1240,7 @@ class xiadata(object):
             # Get counters from lower levels
             if needcounters:
                 with self.env_indexing_onlycounters():
-                    levelcache = self._levelcache()
+                    _ = self._levelcache()
                     indexcounters = self._index_counters(index)
                     counters = self._getcounters(indexcounters)
 
@@ -1800,7 +1797,7 @@ class xiacompound(xiadata):
                 if not ctrnames:
                     ctrnames = counters
                 data = data.counters[..., 0]
-                nctrs = data.shape[-1]
+                # nctrs = data.shape[-1]
                 for k in ctrnames:
                     try:
                         i = counters.index(k)
@@ -1822,8 +1819,8 @@ class xiacompound(xiadata):
         """
         items = self.getitems()
         files = []
-        for l in items:
-            files += l.datafilenames()
+        for item in items:
+            files += item.datafilenames()
         return files
 
     def ctrfilenames(self, ctrs=None):
@@ -1835,8 +1832,8 @@ class xiacompound(xiadata):
         """
         items = self.getitems()
         files = []
-        for l in items:
-            files += l.ctrfilenames(ctrs=ctrs)
+        for item in items:
+            files += item.ctrfilenames(ctrs=ctrs)
         return files
 
     def ctrfilenames_used(self, ctrs=None):
@@ -1860,8 +1857,8 @@ class xiacompound(xiadata):
         """
         items = self.getitems()
         files = []
-        for l in items:
-            files += l.statfilenames()
+        for item in items:
+            files += item.statfilenames()
         return files
 
     def headers(self, source=None, keys=None):
@@ -1871,8 +1868,8 @@ class xiacompound(xiadata):
         """
         items = self.getitems()
         headers = []
-        for l in items:
-            headers += l.headers(source=source, keys=keys)
+        for item in items:
+            headers += item.headers(source=source, keys=keys)
         return headers
 
     def counterbasenames(self):

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from contextlib import contextmanager
 import numpy as np
 
@@ -12,7 +10,6 @@ from .regulargrid import RegularGrid
 from . import axis
 from . import nxresult
 from ..utils import indexing
-from ..io import nxfs
 
 
 class NXSignalRegularGrid(RegularGrid):

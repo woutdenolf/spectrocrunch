@@ -1,11 +1,8 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 import matplotlib.tri as plttri
 import mpl_toolkits.axisartist as pltaa
 import matplotlib.colors as pltcolors
 
-from . import ternary_diagram
 from . import colormap
 
 

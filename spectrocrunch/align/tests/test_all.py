@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 from . import test_teststack
 from . import test_alignSourceDest

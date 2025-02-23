@@ -1,8 +1,4 @@
-# -*- coding: utf-8 -*-
-
 import unittest
-import collections
-import numpy as np
 
 from .. import randomdata
 
@@ -24,7 +20,7 @@ class test_randomdata(unittest.TestCase):
                 us = unicode(data)
             except NameError:
                 us = str(data)
-            except UnicodeDecodeError as e:
+            except UnicodeDecodeError:
                 us = data.decode("latin1")
             self.assertFalse("random" in us.lower())
             # Check equality (shuffles unsorted types)

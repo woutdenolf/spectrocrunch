@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 from glob import glob
 import numpy as np
@@ -79,7 +77,7 @@ def processNotSynchronized(
 
     # Prepare
     nxasspectra = len(specnumbers)
-    nrepeats = [len(l) for l in specnumbers]
+    nrepeats = [len(nrs) for nrs in specnumbers]
     nxasspectraT = sum(nrepeats)
     if dtcor:
         parsename = "dtcor"
@@ -172,7 +170,7 @@ def processNotSynchronized(
             # Fit, normalize and add spectra from all detector
             xasspectrumj = {}
             for k in range(ndets):
-                idet = detnums[k]
+                _ = detnums[k]
 
                 if len(filestofit[k]) != 0:
 
@@ -325,8 +323,7 @@ def processEnergySynchronized(
 
     # Prepare
     nxasspectra = len(specnumbers)
-    nrepeats = [len(l) for l in specnumbers]
-    nxasspectraT = sum(nrepeats)
+    nrepeats = [len(nrs) for nrs in specnumbers]
     logger = logging.getLogger(__name__)
     prog = ProgressLogger(logger)
     if not os.path.exists(destpath):
@@ -334,7 +331,6 @@ def processEnergySynchronized(
     if counters is None:
         counters = {}
     ncounters = len(counters)
-    counteroutnames = counters.keys()
     counterinnames = [counters[c]["name"] for c in counters]
     counterbkg = [counters[c]["bkg"] for c in counters]
 
@@ -439,7 +435,7 @@ def processEnergySynchronized(
                     xasspectrum["data"] = norm * 0
             else:
                 xia = XiaEdf.XiaEdfScanFile(stfile[0], detfiles)
-                err = xia.sum(deadtime=dtcor)
+                # err = xia.sum(deadtime=dtcor)
                 if "data" in xasspectrum:
                     xasspectrum["data"] += xia.data / norm
                 else:

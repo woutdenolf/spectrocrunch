@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from pint import errors as pinterrors
 from ..patch.pint import ureg
 from . import instance

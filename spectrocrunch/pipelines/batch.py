@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import argparse
 from contextlib import contextmanager
 import collections

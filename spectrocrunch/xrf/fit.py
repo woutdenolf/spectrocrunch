@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-
-import PyMca5
 from PyMca5.PyMcaPhysics.xrf import McaAdvancedFitBatch
 from PyMca5.PyMcaPhysics.xrf import FastXRFLinearFit
 from PyMca5.PyMcaPhysics.xrf import ClassMcaTheory
@@ -403,7 +400,7 @@ def PerformFit(
     mcafit = ClassMcaTheory.McaTheory()
     try:
         mcafit.useFisxEscape(True)
-    except:
+    except Exception:
         pass
     if fast:
         mcafit.enableOptimizedLinearFit()
@@ -431,7 +428,7 @@ def PerformFit(
             mcafit.estimate()
 
             # Fit
-            fitresult = mcafit.startfit(digest=0)
+            _ = mcafit.startfit(digest=0)
 
             # Extract result
             if plot:
@@ -498,7 +495,7 @@ def PerformBatchFitHDF5(
     quant=None,
     fast=False,
     addhigh=0,
-    **kw
+    **kw,
 ):
     """Fit XRF spectra in batch with one primary beam energy.
 

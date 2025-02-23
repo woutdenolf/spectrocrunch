@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 
 from ...patch.pint import ureg
@@ -95,7 +93,7 @@ class test_mixture(unittest.TestCase):
     def _spectrum(self, lstlines, thickness):
         src = xraysources.factory("synchrotron")
         detector = xrfdetectors.factory("leia")
-        geometry = xrfgeometries.factory(
+        _ = xrfgeometries.factory(
             "sxm120", detectorposition=-15.0, detector=detector, source=src
         )
 

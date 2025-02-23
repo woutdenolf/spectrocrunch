@@ -1,11 +1,8 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 import logging
 
 from . import nxregulargrid
 from . import basetask
-from . import axis
 
 logger = logging.getLogger(__name__)
 

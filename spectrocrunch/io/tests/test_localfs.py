@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 import io
 import unittest
@@ -153,7 +151,7 @@ class test_localfs(unittest.TestCase):
             with localfs.Path(filename, mode="r").open() as f:
                 b = f.read() == word
         else:
-            b = None == word
+            b = word is None
         self.assertTrue(b)
 
 

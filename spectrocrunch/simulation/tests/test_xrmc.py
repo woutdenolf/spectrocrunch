@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -44,7 +42,7 @@ class test_xrmc(unittest.TestCase):
         polar_start, polar_end, polar_nsteps = 0, 180, 2
         az_start, az_end, az_nsteps = 0, 90, 3
 
-        fluoline = element.Element("Ca").fluolines("KL3")
+        _ = element.Element("Ca").fluolines("KL3")
 
         world = xrmc.XrmcWorldBuilder(self.dir.path)
         source, pymcahandle = xrmc_utils.define_source()
@@ -64,7 +62,7 @@ class test_xrmc(unittest.TestCase):
         world.detector.add_polarrotationloop(polar_step, polar_nsteps)
         world.detector.add_azimuthalrotationloop(az_step, az_nsteps)
 
-        lst = list(world.main.loop_steps())
+        _ = list(world.main.loop_steps())
 
         data, info = xrmc_utils.run(
             world, (1, 10000), simulate=True, ylog=True, plot=False

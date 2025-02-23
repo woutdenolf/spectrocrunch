@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from . import scene
 from . import scene_data
 from ..io import nxfs
@@ -49,7 +47,7 @@ class ZapRoiMap(Image):
             data,
             lim0=self.datahandle.axis0values[[0, -1]],
             lim1=self.datahandle.axis1values[[0, -1]],
-            **plotparams
+            **plotparams,
         )
 
 
@@ -75,7 +73,7 @@ class Nexus(Image):
             data,
             lim0=self.datahandle.axis0values[[0, -1]],
             lim1=self.datahandle.axis1values[[0, -1]],
-            **plotparams
+            **plotparams,
         )
 
 

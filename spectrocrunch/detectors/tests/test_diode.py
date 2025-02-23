@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import numpy as np
 from scipy import interpolate
 from scipy import constants
-import random
 import itertools
 
 from .. import diode
@@ -54,15 +51,15 @@ class test_diode(unittest.TestCase):
 
             # Compare to LUT SXM calculation
             energy = np.arange(3, 7)[:, np.newaxis]  # several single-energy sources
-            I = np.arange(5, 10)[np.newaxis, :] * ureg.Quantity(
+            mI = np.arange(5, 10)[np.newaxis, :] * ureg.Quantity(
                 1e5, "Hz"
             )  # several flux's for each source
             np.testing.assert_array_almost_equal(
-                o.fluxtocps(energy, o.cpstoflux(energy, I)).to("Hz").magnitude,
-                np.repeat(I.to("Hz").magnitude, energy.size, axis=0),
+                o.fluxtocps(energy, o.cpstoflux(energy, mI)).to("Hz").magnitude,
+                np.repeat(mI.to("Hz").magnitude, energy.size, axis=0),
             )
-            flux1 = self._spec_idet_cpstoflux(energy, I.magnitude, 8)
-            flux2 = o.cpstoflux(energy, I)
+            flux1 = self._spec_idet_cpstoflux(energy, mI.magnitude, 8)
+            flux2 = o.cpstoflux(energy, mI)
             if model:
                 for f1, f2 in zip(flux1.flatten(), flux2.flatten()):
                     np.testing.assert_approx_equal(f1, f2.magnitude, significant=1)

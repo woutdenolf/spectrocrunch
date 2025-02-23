@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 
 from ...math import noisepropagation
@@ -64,6 +62,7 @@ class test_calcnoise(unittest.TestCase):
         )
         o = calcnoise.id21_ffsetup(sample=sample)
         ph1 = np.broadcast_to(flux * tframe, (energy.size, flux.size))
+        Ndet2 = None
         for withnoise in [False, True]:
             if withnoise:
                 N = noisepropagation.poisson(flux * tframe)
@@ -72,7 +71,7 @@ class test_calcnoise(unittest.TestCase):
             Ndet = o.propagate(
                 N, energy, tframe=tframe, nframe=nframe, forward=True, samplein=True
             )
-            if withnoise:
+            if withnoise and Ndet2 is not None:
                 np.testing.assert_allclose(Ndet2, noisepropagation.E(Ndet))
             self.assertEqual(Ndet.shape, (energy.size, flux.size))
             ph2 = o.propagate(

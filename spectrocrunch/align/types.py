@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from ..utils.Enum import Enum
 
 dataType = Enum(["h5", "h5ext", "singlefile", "nparray"])

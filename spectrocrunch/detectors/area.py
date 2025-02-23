@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-
 import json
-import numpy as np
 
 from ..simulation.classfactory import with_metaclass
 from ..math import noisepropagation
@@ -20,7 +17,7 @@ class AreaDetector(with_metaclass()):
         darkcurrent=None,
         readoutnoise=None,
         geometry=None,
-        **kwargs
+        **kwargs,
     ):
         """
         Args:
@@ -84,7 +81,8 @@ class AreaDetector(with_metaclass()):
 
     def __str__(self):
         return "qe = {} e-/DU\n conv = {} e-/DU\n off = {} DU\n dark = {} e-/sec\n noise = {} e-\n{}".format(
-            self.qeself.etoDU,
+            self.qe,
+            self.etoDU,
             self.DUoffset,
             self.darkcurrent,
             self.readoutnoise,

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import logging
 import numpy as np
@@ -19,10 +17,8 @@ from ...geometries import xrf as xrfgeometries
 from ...detectors import xrf as xrfdetectors
 from ...sources import xray as xraysources
 from ...utils import timing
-from ...utils import listtools
 from ...utils import cli
 from ...patch import jsonpickle
-from ...simulation import xrmc
 
 
 logger = cli.getLogger(__name__, __file__)
@@ -52,10 +48,10 @@ class test_multilayer(unittest.TestCase):
         c1 = compoundfromformula.CompoundFromFormula("CaCO3", 2.71, name="calcite")
         c2 = compoundfromformula.CompoundFromFormula("Fe2O3", 5.3, name="hematite")
         c3 = compoundfromformula.CompoundFromFormula("PbCO3", 6.53, name="cerussite")
-        l = [c1, mixture.Mixture([c2, c3], [1, 1], types.fraction.mole)]
+        material = [c1, mixture.Mixture([c2, c3], [1, 1], types.fraction.mole)]
         thickness = [10e-4, 20e-4]
         sample = multilayer.Multilayer(
-            material=l, thickness=thickness, geometry=geometry
+            material=material, thickness=thickness, geometry=geometry
         )
         return sample
 

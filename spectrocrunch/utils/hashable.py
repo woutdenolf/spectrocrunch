@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from .comparable import Comparable
 
 

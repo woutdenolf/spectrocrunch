@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 import logging
 from contextlib import contextmanager
@@ -205,7 +203,6 @@ class Task(nxregulargrid.Task):
         crop = self.parameters["crop"]
 
         with signal.open() as dset:
-            shape = dset.shape
             ndim = dset.ndim
             ind = [slice(None)] * ndim
 

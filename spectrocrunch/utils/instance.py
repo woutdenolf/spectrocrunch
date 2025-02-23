@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import ast
 import collections
 
@@ -11,7 +9,6 @@ except ImportError:
     except ImportError:
         collections_abc = collections
 import numbers
-import math
 import numpy as np
 import uncertainties.core
 from ..patch.pint import ureg
@@ -278,14 +275,14 @@ def islistgen(x):
 def isboolsequence(lst):
     try:
         return all(isinstance(i, bool) for i in lst) and len(lst) > 0
-    except:
+    except Exception:
         return False
 
 
 def asscalar(x):
     try:
         x = x.item()
-    except:
+    except Exception:
         pass
     return x
 
@@ -345,14 +342,14 @@ def asnumber(x):
         return x
     try:
         x = ast.literal_eval(x)
-    except:
+    except Exception:
         pass
     if isnumber(x):
         return x
     else:
         try:
             return float(x)
-        except:
+        except Exception:
             return np.nan
 
 

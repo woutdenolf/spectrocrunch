@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from .basetask import TaskException
 from ..utils import instance
 from ..io import nxfs

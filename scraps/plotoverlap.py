@@ -1,11 +1,4 @@
-# -*- coding: utf-8 -*-
-
-import os, sys
-
-sys.path.insert(1, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from spectrocrunch.visualization.id21_scanoverlap import plot
-import numpy as np
 
 if __name__ == "__main__":
 

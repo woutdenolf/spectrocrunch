@@ -1,11 +1,8 @@
-# -*- coding: utf-8 -*-
-
 import collections
 import collections.abc
 import itertools
 import contextlib
-from abc import ABCMeta, abstractmethod
-from future.utils import with_metaclass
+from abc import abstractmethod
 
 try:
     import itertools.imap as map

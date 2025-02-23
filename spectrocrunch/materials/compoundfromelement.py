@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import re
 from . import compoundfromformula
 from . import element
@@ -128,7 +126,9 @@ class CompoundFromElement(compoundfromformula.CompoundFromFormula):
 
         self.oxidationstate = oxidationstate
 
-        parse = re.compile("^(?P<Z>[A-Z][a-z]?)(?P<a>\d?)(?P<X>[A-Z][a-z]?)(?P<b>\d?)$")
+        parse = re.compile(
+            r"^(?P<Z>[A-Z][a-z]?)(?P<a>\d?)(?P<X>[A-Z][a-z]?)(?P<b>\d?)$"
+        )
         self.formula = parse.match(formula).groupdict()
 
         self.formula["Z"] = element.Element(self.formula["Z"])

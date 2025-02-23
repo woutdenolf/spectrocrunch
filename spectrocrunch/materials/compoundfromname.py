@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import warnings
 import re
 from copy import copy
@@ -10,7 +8,6 @@ from . import compoundsearch
 from . import mixture
 from . import element
 from . import types
-from ..utils import instance
 
 compounddb = {}
 

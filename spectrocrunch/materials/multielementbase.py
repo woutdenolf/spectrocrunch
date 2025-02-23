@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from . import types
 from . import elementbase
 from ..utils import instance
@@ -127,7 +125,7 @@ class MultiElementBase(elementbase.ElementBase):
             E,
             fine=fine,
             decomposed=decomposed,
-            **kwargs
+            **kwargs,
         )
 
     def diff_fluorescence_cross_section(
@@ -139,7 +137,7 @@ class MultiElementBase(elementbase.ElementBase):
             E,
             fine=fine,
             decomposed=decomposed,
-            **kwargs
+            **kwargs,
         )
 
     def diff_rayleigh_cross_section(self, E, fine=False, decomposed=False, **kwargs):
@@ -198,9 +196,9 @@ class MultiElementBase(elementbase.ElementBase):
             csout = {}
         t = cls.cs_type(csin)
         if t == 0:
-            csout[k] = csout.get(k, 0) + w * cs
+            csout[k] = csout.get(k, 0) + w * csin
         elif t == 1:
-            csout[k] = csout.get(k, 0) + w * cs["w"] * cs["cs"]
+            csout[k] = csout.get(k, 0) + w * csin["w"] * csin["cs"]
         else:
             for k, c in csin.items():
                 cls.csdict_parse_elements(c["cs"], csout=csout, w=w * c["w"], k=k)

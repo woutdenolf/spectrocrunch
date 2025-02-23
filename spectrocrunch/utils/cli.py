@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Capture CLI options for logging
 """

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 from ..io import ascii
 from ..utils import timing
@@ -64,7 +62,7 @@ class FFsetup(calcnoise.id21_ffsetup):
     def get_layerthickness(self):
         return self.sample[self.layerindex].thickness * 1e4
 
-    def optimize_thickness(self, I0, **kwargs):
+    def optimize_thickness(self, I0, energy, **kwargs):
         def costfunc(layerthickness):
             self.set_layerthickness(layerthickness[0])
             c = self.costfunc(I0, energy, **kwargs)
@@ -98,7 +96,7 @@ class FFsetup(calcnoise.id21_ffsetup):
         self.set_layerthickness(thickness)
 
         plt.plot(t, 1 / r, label="{} wt%".format(self.get_wcompound()))
-        plt.xlabel("thickness ($\mu$m)")
+        plt.xlabel(r"thickness ($\mu$m)")
         plt.ylabel("Jump-to-noise")
 
     def optimize_wcompound_plot(self, I0, energy, **kwargs):
@@ -112,7 +110,7 @@ class FFsetup(calcnoise.id21_ffsetup):
 
         self.set_wcompound(w)
 
-        plt.plot(t, 1 / r, label="{} $\mu$m".format(self.get_layerthickness()))
+        plt.plot(t, 1 / r, label=r"{} $\mu$m".format(self.get_layerthickness()))
         plt.xlabel("{} (wt%)".format(self.compoundname))
         plt.ylabel("Jump-to-noise")
 
@@ -129,8 +127,8 @@ class FFsetup(calcnoise.id21_ffsetup):
 
         self.set_tcompound(thickness)
 
-        plt.plot(t, 1 / r, label="{} $\mu$m".format(self.get_layerthickness()))
-        plt.xlabel("{} thickness ($\mu$m)".format(self.compoundname))
+        plt.plot(t, 1 / r, label=r"{} $\mu$m".format(self.get_layerthickness()))
+        plt.xlabel(r"{} thickness ($\mu$m)".format(self.compoundname))
         plt.ylabel("Jump-to-noise")
 
     def optimize(self, I0, energy, **kwargs):

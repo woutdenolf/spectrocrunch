@@ -1,5 +1,4 @@
 import os
-import h5py
 from spectrocrunch.io import xiaedf
 from spectrocrunch.io import edf
 import matplotlib.pyplot as plt
@@ -95,7 +94,7 @@ def checkresult():
     xiamaporg.include_detectors = [4]
     xiamaporg.onlyicrocr(True)
     stats = xiamaporg.stats
-    dtcor = xiaedf.deadtimecorrector(stats[..., 0, 0], stats[..., 1, 0])
+    _ = xiaedf.deadtimecorrector(stats[..., 0, 0], stats[..., 1, 0])
 
     plt.figure()
     im = plt.imshow(img1 - img2)

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 from testfixtures import TempDirectory
 from .. import utils

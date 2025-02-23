@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-
 import unittest
-import cmath
 import numpy as np
 from scipy import integrate
 

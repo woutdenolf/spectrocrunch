@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import os
 from contextlib import contextmanager
@@ -12,7 +10,6 @@ from .. import h5regulargrid
 from ...io import nxfs
 from ...utils.tests import genindexing
 from .. import utils
-from .. import nxwrap
 from .. import axis
 from ...utils import units
 from ...io import target
@@ -91,7 +88,7 @@ class test_task_generic(test_task):
 
         for group, signals in groups.items():
             group = nxprocess.results.nxdata(group).mkdir()
-            positioners = nxprocess.results.positioners()
+            _ = nxprocess.results.positioners()
             for name in signals:
                 if name == "arr_samy":
                     data = yenc
@@ -264,7 +261,6 @@ class test_task_generic(test_task):
 
             index = grid1.locate(info["select"], None, None, None)
             norm = grid1[index]
-            inorm = index[grid1.stackdim]
             for i in range(grid1.shape[grid1.stackdim]):
                 index = list(index)
                 index[grid1.stackdim] = i

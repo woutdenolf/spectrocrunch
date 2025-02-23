@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from ..utils.hashable import CompHashable
 from ..utils.copyable import Copyable
 from ..math.utils import weightedsum

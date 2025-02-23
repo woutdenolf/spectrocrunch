@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from __future__ import division
 import pyparsing
 import numpy as np
@@ -219,7 +217,7 @@ class MathParser(object):
             "trunc": lambda a: int(a),
             "round": round,
             # TODO: or 0?
-            "sgn": lambda a: abs(a) > epsilon and cmp(a, 0) or 0,
+            "sgn": lambda a: (abs(a) > epsilon and (1 if a > 0 else -1)) or 0,
             "max": np.nanmax,
             "min": np.nanmin,
             "nanone": lambda a: self._fn_nan(a, 1),
@@ -273,5 +271,5 @@ class MathParser(object):
     def eval(self, expression, parseAll=True, variables={}):
         self.exprStack = []
         self.variables = variables
-        results = self.bnf.parseString(expression, parseAll)
+        _ = self.bnf.parseString(expression, parseAll)
         return self.evaluateStack(list(self.exprStack))

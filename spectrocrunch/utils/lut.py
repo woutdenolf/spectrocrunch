@@ -1,11 +1,8 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 from scipy import interpolate
 import matplotlib.pyplot as plt
 from copy import copy
 
-from . import instance
 from . import units
 from . import listtools
 from .copyable import Copyable

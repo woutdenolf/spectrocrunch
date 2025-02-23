@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -11,7 +9,6 @@ from ..visualization import scene
 from ..visualization import scene_view
 from ..visualization import defaultsettings
 from ..utils import instance
-from ..utils import units
 from ..io import xiaedf
 
 logger = logging.getLogger(__name__)

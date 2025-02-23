@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 
 from .. import fit2d
@@ -33,7 +31,7 @@ class test_fit2d(unittest.TestCase):
         pylab.subplot(111)
         pylab.imshow(img, origin="lower", interpolation="nearest")
         pylab.pause(0.1)
-        raw_input("Press enter to continue...")
+        input("Press enter to continue...")
 
 
 def main_test_suite():

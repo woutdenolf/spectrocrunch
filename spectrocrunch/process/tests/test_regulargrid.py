@@ -1,11 +1,8 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import numpy as np
 
 from .. import regulargrid
 from .. import axis
-from ...utils import units
 from ...utils.tests import genindexing
 
 

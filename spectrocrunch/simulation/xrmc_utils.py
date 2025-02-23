@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 from . import xrmc
 from ..sources import xray as xraysources
@@ -10,11 +8,9 @@ from ..geometries import xrf as xrfgeometries
 from ..materials import compoundfromformula
 from ..materials import compoundfromdb
 from ..materials import compoundfromlist
-from ..materials import element
 from ..materials import mixture
 from ..materials import types
 from ..materials import xrfstandards
-from ..materials import xrayspectrum
 from ..io import localfs
 
 
@@ -29,7 +25,7 @@ def define_source(source=None, energy=7.5, flux=1e10, time=0.1, **kwargs):
         escape=True,
         snip=True,
         scatter=True,
-        **kwargs
+        **kwargs,
     )
     return source, pymcahandle
 

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import SimpleITK as sitk
 import numpy as np
 import h5py

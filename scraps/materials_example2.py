@@ -1,12 +1,5 @@
-# -*- coding: utf-8 -*-
-
-execfile("initcctbx.py")
-
-
-# Don't use the installed version
-import os, sys
-
-sys.path.insert(1, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+with open("initcctbx.py") as f:
+    exec(f.read())
 
 from spectrocrunch.materials.compoundfromformula import compoundfromformula
 

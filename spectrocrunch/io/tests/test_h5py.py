@@ -1,12 +1,9 @@
-# -*- coding: utf-8 -*-
-
 import os
 import sys
 import errno
 import h5py
 import logging
 import re
-import json
 import unittest
 import multiprocessing
 import threading
@@ -38,7 +35,7 @@ def createHolder(Base):
         def run(self):
             try:
                 self._run()
-            except:
+            except Exception:
                 self._sendevent()
                 raise
 

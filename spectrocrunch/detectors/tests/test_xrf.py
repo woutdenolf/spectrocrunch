@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import numpy as np
 import silx.math.fit
@@ -83,9 +81,9 @@ class test_xrf(unittest.TestCase):
             np.testing.assert_allclose(a.ltailbroadening, b.ltailbroadening)
             np.testing.assert_allclose(a.ltailslope_ratio, b.ltailslope_ratio)
 
-        tmp = str(detector1)
-        tmp = str(detector2)
-        tmp = str(detector2)
+        _ = str(detector1)
+        _ = str(detector2)
+        _ = str(detector2)
 
         parameters = [
             [False, True],

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from ..patch import xraylib
 from ..utils import instance
 import numpy as np

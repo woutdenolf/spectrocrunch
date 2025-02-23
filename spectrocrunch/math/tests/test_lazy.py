@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-
 import unittest
-import itertools
 import numpy as np
 import operator
 import random
@@ -78,7 +75,7 @@ class test_lazy(unittest.TestCase):
                             x = op(x, aeval)
                         else:
                             x = op(aeval, x)
-                    except:
+                    except Exception:
                         continue
 
                     # Evaluate Later

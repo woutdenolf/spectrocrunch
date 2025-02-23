@@ -1,9 +1,5 @@
-# -*- coding: utf-8 -*-
-
 import h5py
 from datetime import datetime
-import numpy as np
-import os
 import pkg_resources
 
 from silx.io.dictdump import dicttoh5, h5todict
@@ -17,13 +13,13 @@ def hdf5pathparse(path):
     Returns:
         tuple: (path,name)
     """
-    l = [x for x in path.split("/") if x]
-    if len(l) == 0:
+    item = [x for x in path.split("/") if x]
+    if len(item) == 0:
         return "/", ""
-    elif len(l) == 1:
-        return "/", l[0]
+    elif len(item) == 1:
+        return "/", item[0]
     else:
-        return "/" + "/".join(l[:-1]), l[-1]
+        return "/" + "/".join(item[:-1]), item[-1]
 
 
 def timestamp():
@@ -153,7 +149,6 @@ def getinfogroups(fout):
     for step in steps:
         tmp = step.split(".")
         ind = int(tmp[0]) - 1
-        name = ".".join(tmp[1:])
         ret[ind] = h5todict(fout, ginfo[step].name)
 
     return ret

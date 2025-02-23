@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 from testfixtures import TempDirectory
 import contextlib
@@ -152,7 +150,6 @@ class test_ffxas(unittest.TestCase):
 
     def _checkresult(self, parameters, tasks):
         params = self._datainfo
-        imgshape = (params["n1"], params["n2"])
         shape = [params["n1"], params["n2"]]
         shape.insert(parameters["stackdim"], params["n"])
         shape = tuple(shape)
@@ -236,8 +233,6 @@ def main_test_suite():
 
 
 if __name__ == "__main__":
-    import sys
-
     mysuite = main_test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():

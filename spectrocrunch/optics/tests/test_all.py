@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 from . import test_base
 from . import test_xray

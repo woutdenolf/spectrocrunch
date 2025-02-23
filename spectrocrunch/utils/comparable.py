@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import operator
 
 
@@ -28,7 +26,7 @@ class Comparable(object):
         a = getattr(self, key)(other)
         try:
             b = getattr(other, key)(self)
-        except:
+        except Exception:
             return op(a, other)
         else:
             return op(a, b)

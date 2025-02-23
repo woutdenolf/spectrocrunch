@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from ..utils import instance
 from ..utils import units
 from ..math import noisepropagation

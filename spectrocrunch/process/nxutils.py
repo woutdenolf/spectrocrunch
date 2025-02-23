@@ -1,8 +1,3 @@
-# -*- coding: utf-8 -*-
-
-from ..io import nxfs
-
-
 def set_default(parent, default):
     it = parent.iter_is_nxclass("NXdata")
     # Default signal

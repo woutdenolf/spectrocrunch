@@ -1,15 +1,10 @@
-# -*- coding: utf-8 -*-
-
-import os, sys
-
-sys.path.insert(1, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+import os
+import sys
 import logging
 
-logging.getLogger("spectrocrunch").setLevel(logging.INFO)
-
-from spectrocrunch.process.proc_common import defaultstack
 from spectrocrunch.process.id21_fluoxas import process
+
+logging.getLogger("spectrocrunch").setLevel(logging.INFO)
 
 if __name__ == "__main__":
     # defaultstack('/mntdirect/_data_id21_inhouse/wout/dev/SpectroCrunch/examples/testresults/fXANES5/fXANES5.norm.h5',['/detector0/Ca-K'],'Ca-K')
@@ -106,8 +101,6 @@ if __name__ == "__main__":
         refimageindex = 1  # None or a number
 
     elif example == "example5":
-        from spectrocrunch.process.id16b_fluoxas import process
-
         scanname = ["KMS"]
         scannumbers = [[5, 6, 7, 8]]
         sourcepath = [os.path.join(path, "testdata", "xrfxanes", "id16b", "KMSa")]
@@ -138,8 +131,6 @@ if __name__ == "__main__":
         default = "Fe-K"
 
     elif example == "example6":
-        from spectrocrunch.process.id21_ffxas import process
-
         bff = True
 
         sourcepath = [os.path.join(path, "testdata", "ff", "id21", "7913_50RH_ffCd")]

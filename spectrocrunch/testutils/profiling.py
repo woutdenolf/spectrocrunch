@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 try:
     import tracemalloc
     import linecache
@@ -12,7 +10,7 @@ try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
-import os
+
 import logging
 from contextlib import contextmanager
 

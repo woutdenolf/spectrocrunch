@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 from spectrocrunch.process import h5merge
 import h5py

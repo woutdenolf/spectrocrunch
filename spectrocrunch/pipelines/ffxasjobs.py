@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 from . import batch
 from .run import run_sequential
@@ -20,7 +18,7 @@ def staticscan(samplename, datasetname, radix, **parameters):
     ]
 
     if len(radix) > 1:
-        nxentry = "{}_{}".format(mradix, radix[0], radix[-1])
+        nxentry = "{}_{}_{}".format(mradix, radix[0], radix[-1])
     else:
         nxentry = "{}_{}".format(mradix, radix[0])
     nxentry = (

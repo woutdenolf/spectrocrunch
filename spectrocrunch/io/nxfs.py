@@ -1,11 +1,8 @@
-# -*- coding: utf-8 -*-
-
 import h5py
 import numpy as np
 import contextlib
 from datetime import datetime
 import json
-import re
 import logging
 import dateutil.tz
 import dateutil.parser
@@ -370,7 +367,7 @@ class Path(h5fs.Path):
         dependencies=None,
         searchallentries=True,
         noincrement=False,
-        **openparams
+        **openparams,
     ):
         """Creates NXentry and NXprocess when needed.
 
@@ -457,7 +454,11 @@ class Path(h5fs.Path):
         return None
 
     def _nxfiles_nxprocess(self):
-        return {"program": PROGRAM_NAME, "version": PROGRAM_VERSION, "date": timestamp()}
+        return {
+            "program": PROGRAM_NAME,
+            "version": PROGRAM_VERSION,
+            "date": timestamp(),
+        }
 
     def nxinstrument(self, **openparams):
         path = self.findfirstup_is_nxclass("NXinstrument")
@@ -481,7 +482,7 @@ class Path(h5fs.Path):
             "NXcollection",
             nxattributes=nxattributes,
             nxfiles=nxfiles,
-            **openparams
+            **openparams,
         )
 
     def nxdetector(self, name, nxattributes=None, nxfiles=None, **openparams):
@@ -491,7 +492,7 @@ class Path(h5fs.Path):
             "NXdetector",
             nxattributes=nxattributes,
             nxfiles=nxfiles,
-            **openparams
+            **openparams,
         )
 
     def nxmonochromator(
@@ -503,13 +504,13 @@ class Path(h5fs.Path):
             "NXmonochromator",
             nxattributes=nxattributes,
             nxfiles=nxfiles,
-            **openparams
+            **openparams,
         )
 
     def application(
         self, name, definition=None, nxattributes=None, nxfiles=None, **openparams
     ):
-        entry = self.nxentry(**openparams)
+        _ = self.nxentry(**openparams)
         if definition is None:
             definition = name
         if not nxfiles:
@@ -521,7 +522,7 @@ class Path(h5fs.Path):
             "NXsubentry",
             nxattributes=nxattributes,
             nxfiles=nxfiles,
-            **openparams
+            **openparams,
         )
 
     def positioners(self, **openparams):
@@ -732,7 +733,7 @@ class _NXdata(_NXPath):
     @property
     def signal(self):
         with self._verify():
-            with self.open() as node:
+            with self.open():
                 name = self.get_stat("signal", None)
                 if name:
                     return self[name]
@@ -808,7 +809,7 @@ class _NXdata(_NXPath):
         title=None,
         interpretation=None,
         units=None,
-        **createparams
+        **createparams,
     ):
         """
         args:
@@ -889,7 +890,7 @@ class _NXdata(_NXPath):
 
     def default_signal(self, name):
         with self._verify():
-            with self.open() as node:
+            with self.open():
                 if name == self.get_stat("signal"):
                     return True
                 signals = []
@@ -911,7 +912,7 @@ class _NXdata(_NXPath):
     def remove_signal(self, name):
         with self._verify():
             self[name].remove()
-            with self.open() as node:
+            with self.open():
                 signals = self.pop_stat("auxiliary_signals")
                 if signals is not None:
                     if self.signal.name == name:
@@ -927,7 +928,7 @@ class _NXdata(_NXPath):
 
     def sort_signals(self, other=None):
         with self._verify():
-            with self.open() as node:
+            with self.open():
                 signals = sorted(sig.name for sig in self.signals)
                 if other:
                     other_signals = list(sig.name for sig in other.signals)
@@ -947,7 +948,7 @@ class _NXdata(_NXPath):
             *axes(3-tuple|str): (name(str),value(array|Path|None),attr(dict|None)) or name(str)
         """
         with self._verify():
-            with self.open() as node:
+            with self.open():
                 axes, positioners = self._axes_parse(axes)
 
                 # Check dimensions
@@ -1003,7 +1004,7 @@ class _NXdata(_NXPath):
     @property
     def axes(self):
         with self._verify():
-            with self.open() as node:
+            with self.open():
                 ret = []
                 for name in self.get_stat("axes", []):
                     axispath = self[name]
@@ -1020,7 +1021,7 @@ class _NXdata(_NXPath):
     @property
     def axes_shape(self):
         with self._verify():
-            with self.open() as node:
+            with self.open():
                 ret = []
                 for name in self.get_stat("axes", []):
                     with self[name].open(mode="r") as axis:

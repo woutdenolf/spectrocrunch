@@ -12,11 +12,10 @@ __date__ = "22.11.2013"
 __license__ = "WTFPL"
 
 
-import itertools
 import numbers
 from scipy import sparse
 import numpy as np
-from cvxopt import solvers, matrix, spmatrix, mul
+from cvxopt import solvers, matrix, spmatrix
 
 
 def scipy_sparse_to_spmatrix(A):
@@ -164,10 +163,10 @@ def lsqlin(
 
     if reg > 0:
         if sparse_case:
-            I = scipy_sparse_to_spmatrix(sparse.eye(nvars, nvars, format="coo"))
+            mI = scipy_sparse_to_spmatrix(sparse.eye(nvars, nvars, format="coo"))
         else:
-            I = matrix(np.eye(nvars), (nvars, nvars), "d")
-        Q = Q + reg * I
+            mI = matrix(np.eye(nvars), (nvars, nvars), "d")
+        Q = Q + reg * mI
 
     lb = cvxopt_to_numpy_matrix(lb)
     ub = cvxopt_to_numpy_matrix(ub)

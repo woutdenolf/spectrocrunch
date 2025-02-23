@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
-
 import os
 import tempfile
 import time
 import json
-import numbers
 import re
 
 from . import elementbase
@@ -380,7 +377,7 @@ class Element(elementbase.ElementBase):
         return cs
 
     def fluorescence_cross_section_lines(self, E, **kwargs):
-        """
+        r"""
         XRF cross sections per line (cm^2/g, E in keV). Use for XRF.
 
         Args:
@@ -642,7 +639,7 @@ class Element(elementbase.ElementBase):
 
             # Read previous configuration file
             fcfg = os.path.join(tempfile.gettempdir(), filebase + ".json")
-            if os.path.isfile(fcfg) and refresh == False:
+            if os.path.isfile(fcfg) and not refresh:
                 with open(fcfg, "r") as f:
                     config = json.load(f)
             else:
@@ -666,9 +663,7 @@ class Element(elementbase.ElementBase):
             if brun:
                 sim.Run(wait=False)
                 while True:
-                    NumRunning = sum(
-                        [sim.Status(i) == False for i in range(len(sim.proc))]
-                    )
+                    NumRunning = sum([not sim.Status(i) for i in range(len(sim.proc))])
                     if NumRunning == 0:
                         break
                     time.sleep(5)
@@ -782,7 +777,6 @@ class Element(elementbase.ElementBase):
         """Convert relative energy range (eV) to absolute energy range (keV)"""
 
         # Boundaries
-        nblocks = len(energyrange) // 2
         indE = np.arange(0, len(energyrange), 2)
         nshells = len(self.shells)
         nbounds = len(indE)

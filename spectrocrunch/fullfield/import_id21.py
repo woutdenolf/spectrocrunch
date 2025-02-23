@@ -1,8 +1,4 @@
-# -*- coding: utf-8 -*-
-
-import json
 import numpy as np
-import h5py
 import fabio
 import glob
 import re
@@ -18,8 +14,8 @@ def execrebin(img, rebin):
     Returns:
         np.array: rebinned image
     """
-    shaperebin = (data.shape[0] // rebin[0], data.shape[1] // rebin[1])
-    view = data[: shaperebin[0] * rebin[0], : shaperebin[1] * rebin[1]]
+    shaperebin = (img.shape[0] // rebin[0], img.shape[1] // rebin[1])
+    view = img[: shaperebin[0] * rebin[0], : shaperebin[1] * rebin[1]]
     view = view.reshape(shaperebin[0], rebin[0], shaperebin[1], rebin[1])
     return view.sum(axis=3).sum(axis=1)
 
@@ -114,7 +110,7 @@ def getroi(roilabel, h, fh):
     # ROI from label
     roi = []
     if roilabel in h:
-        roi = [int(s) for s in re.split("[<>,\-x ]+", h[roilabel]) if len(s) != 0]
+        roi = [int(s) for s in re.split(r"[<>,\-x ]+", h[roilabel]) if len(s) != 0]
         # camera takes x as the first dimension, python takes y
         roi = [roi[1], roi[0], roi[3], roi[2]]
 

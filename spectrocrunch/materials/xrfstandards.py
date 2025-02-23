@@ -1,12 +1,9 @@
-# -*- coding: utf-8 -*-
-
 from . import compoundfromname
 from . import compoundfromlist
 from . import mixture
 from . import element
 from . import multilayer
 from . import types
-from . import pymca
 from ..utils.classfactory import with_metaclass
 from ..utils import instance
 
@@ -37,7 +34,7 @@ class ThinFilmStandard(Standard):
         substratethickness,
         name=None,
         filmthickness=None,
-        **kwargs
+        **kwargs,
     ):
         arealdensity_film = dict(
             zip(map(element.Element, arealdensity.keys()), arealdensity.values())
@@ -136,7 +133,7 @@ class AXOID21_1(ThinFilmStandard):
             substratethickness,
             name=name,
             filmthickness=filmthickness,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -174,7 +171,7 @@ class AXOID21_2(ThinFilmStandard):
             substratethickness,
             name=name,
             filmthickness=filmthickness,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -204,7 +201,7 @@ class AXOID16b_1(ThinFilmStandard):
             substratethickness,
             name=name,
             filmthickness=filmthickness,
-            **kwargs
+            **kwargs,
         )
 
 

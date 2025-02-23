@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
-
 from . import base
 from ..utils.classfactory import with_metaclass
 from ..materials import multilayer
 from ..geometries.base import FlatSample
-from ..utils import instance
 
 
 class XrayOptics(with_metaclass(base.Optics)):

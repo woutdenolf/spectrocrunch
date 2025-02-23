@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from __future__ import absolute_import
 
 import contextlib
@@ -327,7 +325,7 @@ class PymcaBaseHandle(Copyable):
             "Compton": {"energy": [], "fitarea": []},
             "Rayleigh": {"energy": [], "fitarea": []},
         }
-        nen = len(instance.asarray(digestedresult["energy"]))
+        # nen = len(instance.asarray(digestedresult["energy"]))
         for k, v in digestedresult.items():
             if k.startswith("Scatter"):
                 if "Compton" in k:
@@ -742,7 +740,7 @@ class PymcaHandle(PymcaBaseHandle):
             config["attenuators"] = {}
             try:
                 self.mcafit.useFisxEscape(True)
-            except:
+            except Exception:
                 pass
             self.mcafit.disableOptimizedLinearFit()
         else:
@@ -841,7 +839,7 @@ class PymcaHandle(PymcaBaseHandle):
             emax=self.emax,
             weights=self.weights,
             ninteractions=self.ninteractions,
-            **kwargs
+            **kwargs,
         )
 
     def xraygrouprates(self, **kwargs):

@@ -1,10 +1,6 @@
-# -*- coding: utf-8 -*-
-
 import unittest
-import os
 import numpy as np
 import uncertainties
-from uncertainties import umath
 
 from ...utils import units
 from .. import jsonpickle

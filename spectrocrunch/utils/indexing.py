@@ -1,9 +1,5 @@
-# -*- coding: utf-8 -*-
-
-import random
 import numpy as np
 import numbers
-import itertools
 
 from . import instance
 from . import listtools
@@ -293,7 +289,6 @@ def axesorder_afterindexing(index, ndim):
 
     # Axis origins
     axes = list(shape)
-    marklist = None
     j = -1
     for i, n in enumerate(axes):
         if n == 0:
@@ -613,7 +608,7 @@ def nonchangingdims(index, ndim, axes, shape=None):
             axesorder[i] = axesorder[i][0]
     try:
         b &= listtools.listadvanced(axesorder, axes) == axes
-    except:
+    except Exception:
         b = False
     return b
 

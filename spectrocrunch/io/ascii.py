@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 import re
 import numpy as np
@@ -26,9 +24,9 @@ class asciifile(object):
 
         # Regular expressions
         number = r"(?:[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)"
-        blank = r"[ \t\f]"
+        # blank = r"[ \t\f]"
         endline = r"[\r\n?|\n]"
-        dataline = r"((?:%s*%s)+)%s*(?:%s|\Z)" % (blank, number, blank, endline)
+        # dataline = r"((?:%s*%s)+)%s*(?:%s|\Z)" % (blank, number, blank, endline)
         datalines = r"((?:\s*%s)+)\s*" % number
         header = r"(.*?)%s" % endline
         tabel = r"(?:%s|\A)%s%s" % (endline, header, datalines)

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 
 from .. import distributions
@@ -42,7 +40,6 @@ class test_distributions(unittest.TestCase):
         x = np.linspace(xmin, xmax, xn)
         np.allclose(ppf(cdf(x)), x)
 
-        p = np.linspace(0, 1, xn)
         # TODO: check RuntimeWarning
         np.allclose(cdf(ppf(x)), x)
 
@@ -55,7 +52,7 @@ class test_distributions(unittest.TestCase):
 
         pdf = self.func(rv.pdf, args=args)
         cdf = self.func(rv.cdf, args=args)
-        ppf = self.func(rv.ppf, args=args)
+        # ppf = self.func(rv.ppf, args=args)
 
         x = np.linspace(xmin, xmax, xn)
         plt.plot(x, pdf(x), "o-")

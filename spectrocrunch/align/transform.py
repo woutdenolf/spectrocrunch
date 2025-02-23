@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from .types import transformationType
 from ..math.fit1d import lstsq
 
@@ -7,7 +5,6 @@ import numpy as np
 from scipy import stats
 from scipy.ndimage import shift
 from scipy.ndimage import affine_transform
-import skimage.transform as sktransform
 
 
 class Mapping(object):
@@ -80,12 +77,12 @@ class LinearMapping(Mapping):
             elif self.isprojidentity():
                 # affine_transform: takes change-of-frame matrix
                 #                   for coordinates (y,x)
-                return ndtransform.affine_transform(
+                return affine_transform(
                     img,
                     self.cof[0:2, 0:2].T,
                     offset=self.cof[1::-1, 2],
                     cval=self.cval,
-                    **self.interpolationargs
+                    **self.interpolationargs,
                 )
             else:
                 raise NotImplementedError()
@@ -455,7 +452,7 @@ class LinearMapping(Mapping):
             sol = sol.flatten()
         return sol
 
-        ##### Using pseudo-inverse #####
+        # Using pseudo-inverse
         # A-1* = (A^T.A)^(-1).A^T
         # try:
         #    S = np.dot(A.T, A)
@@ -467,10 +464,10 @@ class LinearMapping(Mapping):
 
         # sol = np.dot(numpy.linalg.pinv(A),b) #slower?
 
-        ##### Using SVD #####
+        # Using SVD
         # sol = np.linalg.lstsq(A,b)[0] # computing the numpy solution
 
-        ##### Using QR #####
+        # Using QR
         # Q,R = np.linalg.qr(A) # qr decomposition of A
         # Qb = np.dot(Q.T,b) # computing Q^T*b (project b onto the range of A)
         # sol = np.linalg.solve(R,Qb) # solving R*x = Q^T*b

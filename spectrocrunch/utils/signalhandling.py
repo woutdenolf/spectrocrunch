@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import signal
 import logging
 import sys

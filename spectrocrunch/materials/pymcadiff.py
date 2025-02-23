@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from __future__ import print_function
 from pprint import pprint
 from deepdiff import DeepDiff
@@ -18,6 +16,6 @@ def diff(cfgfile1, cfgfile2, view="tree", significant_digits=5, **kwargs):
         ignore_order=True,
         view=view,
         significant_digits=significant_digits,
-        **kwargs
+        **kwargs,
     )
     pprint(ddiff)

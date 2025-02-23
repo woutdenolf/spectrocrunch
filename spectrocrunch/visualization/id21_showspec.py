@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import h5py
 import numpy as np
 import fabio
@@ -482,7 +480,7 @@ class shape_hdf5(shape_object):
         subindices,
         coordinatesindex=None,
         ignoremotorpositions=False,
-        **kwargs
+        **kwargs,
     ):
         self.filename = filename
         self.subpaths = subpaths
@@ -652,12 +650,12 @@ class lstPlot(object):
         self, lst, limits=[], figsize=None, nframes=None, legendloc=0, transform=""
     ):
         self.lst = lst
-        tmp = [l.figindex for l in self.lst if l.figindex is not None]
+        tmp = [item.figindex for item in self.lst if item.figindex is not None]
         if len(tmp) == 0:
             self.naxes = 0
         else:
             self.naxes = max(tmp) + 1
-        self.nframes = max([l.nframes for l in self.lst])
+        self.nframes = max([item.nframes for item in self.lst])
         if nframes is not None:
             self.nframes = min(self.nframes, nframes)
         self.legendloc = legendloc
@@ -666,7 +664,7 @@ class lstPlot(object):
         self.prepare_axes(figsize, limits)
 
     def prepare_axes(self, figsize, limits):
-        nROIplts = sum([l.nROI for l in self.lst])
+        nROIplts = sum([item.nROI for item in self.lst])
 
         self.fig = plt.figure(figsize=figsize)
 
@@ -698,18 +696,18 @@ class lstPlot(object):
 
         self.ax = [None] * self.naxes
         cnt = np.zeros(self.naxes)
-        lst = [l for l in self.lst if l.figindex is not None]
-        for l in lst:
-            cnt[l.figindex] += 1
-            if self.ax[l.figindex] is None:
-                row = l.figindex // ncol
-                col = l.figindex % ncol
-                self.ax[l.figindex] = plt.subplot(gs[row, col])
-                self.ax[l.figindex].set_xlabel("X ($\mu$m)")
-                self.ax[l.figindex].set_ylabel("Y ($\mu$m)")
-        for l in lst:
-            if cnt[l.figindex] == 1 and not l.notitle:
-                self.ax[l.figindex].set_title(l.name)
+        lst = [item for item in self.lst if item.figindex is not None]
+        for item in lst:
+            cnt[item.figindex] += 1
+            if self.ax[item.figindex] is None:
+                row = item.figindex // ncol
+                col = item.figindex % ncol
+                self.ax[item.figindex] = plt.subplot(gs[row, col])
+                self.ax[item.figindex].set_xlabel(r"X ($\mu$m)")
+                self.ax[item.figindex].set_ylabel(r"Y ($\mu$m)")
+        for item in lst:
+            if cnt[item.figindex] == 1 and not item.notitle:
+                self.ax[item.figindex].set_title(item.name)
 
         self.set_axes_limits(limits)
 
@@ -745,14 +743,14 @@ class lstPlot(object):
             self.ax[figindex].relim()
 
     def get_axes_limits(self, figindex):
-        lst = [l for l in self.lst if l.figindex == figindex]
+        lst = [item for item in self.lst if item.figindex == figindex]
         if len(lst) == 0:
             return []
 
         dim1 = []
         dim2 = []
-        for l in lst:
-            tmp1, tmp2, _ = l.get2ddims()
+        for item in lst:
+            tmp1, tmp2, _ = item.get2ddims()
             dim1 += tmp1
             dim2 += tmp2
 
@@ -762,14 +760,14 @@ class lstPlot(object):
         if frame < 0:
             frame += self.nframes
 
-        for l in self.lst:
-            if l.figindex is None:
+        for item in self.lst:
+            if item.figindex is None:
                 ax = None
                 origin = [0, 0]
             else:
-                ax = self.ax[l.figindex]
-                origin = self.origin[l.figindex]
-            l.plot(ax, self.ax2, origin, frame, transform="")
+                ax = self.ax[item.figindex]
+                origin = self.origin[item.figindex]
+            item.plot(ax, self.ax2, origin, frame, transform="")
         self.update_axes()
 
     def update_axes(self):
@@ -807,14 +805,14 @@ class lstAnimation(lstPlot, animation.TimedAnimation):
         return iter(range(self.nframes))
 
     def _init_draw(self):
-        for l in self.lst:
-            if l.figindex is None:
+        for item in self.lst:
+            if item.figindex is None:
                 ax = None
                 origin = [0, 0]
             else:
-                ax = self.ax[l.figindex]
-                origin = self.origin[l.figindex]
-            l.plot(ax, self.ax2, origin, 0)
+                ax = self.ax[item.figindex]
+                origin = self.origin[item.figindex]
+            item.plot(ax, self.ax2, origin, 0)
         if self.ax2legend is not None:
             self.ax2legend.remove()
             del self.ax2legend

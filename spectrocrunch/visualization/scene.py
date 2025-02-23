@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from collections import OrderedDict
 import logging
 import numpy as np
@@ -17,7 +15,6 @@ from ..utils.hashable import CompHashable
 from ..math.utils import floatformat
 from ..math.utils import round_sig
 from ..patch.pint import ureg
-from . import colorbar_rgb
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +28,25 @@ def ColorNorm(name, *args):
         return name  # already a normalizer
 
     if name == "log":
-        norm = lambda **kwargs: pltcolors.LogNorm(**kwargs)
+
+        def norm(**kwargs):
+            return pltcolors.LogNorm(**kwargs)
+
     elif name == "power":
-        norm = lambda **kwargs: pltcolors.PowerNorm(*args, **kwargs)
+
+        def norm(**kwargs):
+            return pltcolors.PowerNorm(*args, **kwargs)
+
     elif name == "symlog":
-        norm = lambda **kwargs: pltcolors.SymLogNorm(*args, **kwargs)
+
+        def norm(**kwargs):
+            return pltcolors.SymLogNorm(*args, **kwargs)
+
     else:
-        norm = lambda **kwargs: pltcolors.Normalize(*args, **kwargs)
+
+        def norm(**kwargs):
+            return pltcolors.Normalize(*args, **kwargs)
+
     return norm
 
 
@@ -458,7 +467,7 @@ class Item(CompHashable, Geometry2D):
     def selectscene(self, s):
         try:
             self._sceneindex = list(self._scenes.keys()).index(s)
-        except:
+        except Exception:
             raise RuntimeError("This object is not registered with scene {}".format(s))
 
     @property
@@ -581,7 +590,7 @@ class Image(Item):
             if i is not None:
                 try:
                     labels[ch] = self._labels[i]
-                except:
+                except Exception:
                     labels[ch] = "<empty>"
         return labels
 
@@ -1111,6 +1120,7 @@ class Image(Item):
         sep=2,
         color="#ffffff",
         size=0,
+        unit=None,
     ):
         if not visible:
             return
@@ -1306,7 +1316,7 @@ class Scatter(Item):
                         xytext=(xi + xo, yi + yo),
                         xycoords="data",
                         textcoords="data",
-                        **kwargs
+                        **kwargs,
                     )
 
         self.refreshscene(newitems)

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import re
 import numpy as np
 from collections import OrderedDict
@@ -577,7 +575,7 @@ class edfheader_parser(object):
         units=None,
         compensationmotors=None,
         axesnamemap=None,
-        **otherlabels
+        **otherlabels,
     ):
         """
         Args:
@@ -729,7 +727,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
     def _get_scan(self, scannumber):
         try:
             return self.getDataObject("{:d}.1".format(scannumber))
-        except:
+        except Exception:
             msg = "Failed to retrieve scan number {} from {}".format(
                 scannumber, self.sourceName
             )
@@ -738,7 +736,7 @@ class spec(SpecFileDataSource.SpecFileDataSource):
     def _get_scan_info(self, scannumber):
         try:
             return self.getKeyInfo("{:d}.1".format(scannumber))
-        except:
+        except Exception:
             msg = "Failed to retrieve scan number {} from {}".format(
                 scannumber, self.sourceName
             )
@@ -946,8 +944,8 @@ class spec(SpecFileDataSource.SpecFileDataSource):
                         units,
                     )
 
-                ufast = units.get(result["motfast"], None)
-                uslow = units.get(result["motslow"], None)
+                # ufast = units.get(result["motfast"], None)
+                # uslow = units.get(result["motslow"], None)
 
                 add["scansize_units"] = "{} x {}".format(
                     ffast(zapline_scansize), ffast(ascan_scansize)
@@ -1098,8 +1096,8 @@ class spec(SpecFileDataSource.SpecFileDataSource):
                     i0 -= 1
                 rng = range(max(i0, i - n), i1)
                 add = [data[k]["scannumber"] for k in rng if bproc[k]]
-                for l in rng:
-                    bproc[l] = keepindividual
+                for item in rng:
+                    bproc[item] = keepindividual
 
                 # [rep1,rep2,...,(sum)]
                 if keepsum:

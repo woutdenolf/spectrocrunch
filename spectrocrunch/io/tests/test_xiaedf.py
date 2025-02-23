@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 from testfixtures import TempDirectory
 import numpy as np
 import os
-from glob import glob
 from random import shuffle
 import collections
 from copy import copy
@@ -283,7 +280,7 @@ class test_xiaedf(unittest.TestCase):
                                             indexing.replacefull(index, ndim, [-2, -1])
                                         ]
                                         check = True
-                                    except:
+                                    except Exception:
                                         # This happens when the MCA channel index cannot be applied to the counter index (same dimension)
                                         check = False
 
@@ -346,7 +343,7 @@ class test_xiaedf(unittest.TestCase):
                     xiaobject.dtcor(dtcor)
                     for onlyicrocr in [False, True]:
                         xiaobject.onlyicrocr(onlyicrocr)
-                        for copy in [False, True]:
+                        for bcopy in [False, True]:
                             for copyctrs in [True, False]:
                                 for deflabels in [False, True]:
                                     # no counter when not a xiacompound (counters are saved per image)
@@ -363,12 +360,12 @@ class test_xiaedf(unittest.TestCase):
                                     logger.debug("onlyicrocr = {}".format(onlyicrocr))
                                     logger.debug("copyctrs = {}".format(copyctrs))
                                     logger.debug("deflabels = {}".format(deflabels))
-                                    logger.debug("copy = {}".format(copy))
+                                    logger.debug("copy = {}".format(bcopy))
 
                                     kwargs = {}
                                     if deflabels:
                                         kwargs["xialabels"] = xialabels
-                                    if copy:
+                                    if bcopy:
                                         kwargs["stats"] = copystats
                                         if iscompound:
                                             kwargs["ctrs"] = copyctrs
@@ -449,8 +446,8 @@ class test_xiaedf(unittest.TestCase):
     def _xiaconfigidcheck(self, xiaobject):
         if isinstance(xiaobject, xiaedf.xiacompound):
             ret = []
-            for l in xiaobject._items:
-                add = self._xiaconfigidcheck(l)
+            for item in xiaobject._items:
+                add = self._xiaconfigidcheck(item)
                 if isinstance(add, list):
                     ret += add
                 else:

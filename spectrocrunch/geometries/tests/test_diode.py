@@ -1,9 +1,6 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 
 from .. import diode
-from ...utils import units
 from ...patch import jsonpickle
 
 

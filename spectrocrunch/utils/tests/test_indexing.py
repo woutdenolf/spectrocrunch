@@ -1,12 +1,9 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import itertools
 import numpy as np
 
 from . import genindexing
 from .. import indexing
-from .. import listtools
 from .. import instance
 
 

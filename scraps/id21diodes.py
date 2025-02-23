@@ -1,16 +1,10 @@
-# -*- coding: utf-8 -*-
-
-import os, sys
-
-sys.path.insert(1, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import os
 
 from spectrocrunch.io.spec import spec
 from spectrocrunch.materials.compoundfromformula import compoundfromformula as compound
 
 import matplotlib.pyplot as plt
 import numpy as np
-import xraylib
-import scipy.optimize
 
 
 def errorf_attzscan(p, att, iodet, idet, time):
@@ -62,8 +56,8 @@ def attzscan(specfile, scannumber, outpath, withsample=False, iodettype=2):
     attzi = attzi[attzi < attz[-1]]
     attzi = attzi[attzi < 55]
     n = len(attzi)
-    iodeti = np.interp(attzi, attz, iodet)
-    ideti = np.interp(attzi, attz, idet)
+    # iodeti = np.interp(attzi, attz, iodet)
+    # ideti = np.interp(attzi, attz, idet)
     timei = np.interp(attzi, attz, time)
     photonsi = np.interp(attzi, attz, photons)
     srcuri = np.interp(attzi, attz, srcur)
@@ -118,7 +112,7 @@ def attzscan(specfile, scannumber, outpath, withsample=False, iodettype=2):
     plt.title("{}".format(specfile))
     plt.plot(I0th / srcuri / timei, label="{}".format(scannumber))
     plt.xlabel("attz")
-    plt.ylabel("I0/SR/$\Delta$t (ph/s/mA)")
+    plt.ylabel(r"I0/SR/$\Delta$t (ph/s/mA)")
     plt.legend(loc=3)
     fig.savefig(os.path.join(outpath, "I0.png"), bbox_inches="tight", dpi=300)
 

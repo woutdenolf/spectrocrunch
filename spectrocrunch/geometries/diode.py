@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from ..utils.classfactory import with_metaclass
 from . import base
 import numpy as np

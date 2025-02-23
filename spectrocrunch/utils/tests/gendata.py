@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import collections
 from array import array
 import numpy as np

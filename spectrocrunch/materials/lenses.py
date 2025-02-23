@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from ..simulation.classfactory import with_metaclass
 from ..math import noisepropagation
 from ..utils import instance

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from . import compound
 from . import types
 from ..utils import instance
@@ -85,7 +83,7 @@ def factory(name):
             return ret[0]
         else:
             return ret
-    except:
+    except Exception:
         return None
 
 

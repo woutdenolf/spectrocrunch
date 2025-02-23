@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 import unittest
 from testfixtures import TempDirectory
@@ -8,7 +6,6 @@ from .. import fs
 from .. import localfs
 from .. import h5fs
 from .. import nxfs
-from ..utils import TemporaryFilename
 
 
 class test_fs(unittest.TestCase):
@@ -95,7 +92,7 @@ class test_fs(unittest.TestCase):
             self.assertRaises(
                 fs.AlreadyExists, file_atxt.mkfile, mode="x", **createparams
             )
-        with file_atxt.open(mode="r") as f:
+        with file_atxt.open(mode="r"):
             pass
 
         # Create Link
@@ -123,7 +120,7 @@ class test_fs(unittest.TestCase):
         lnk1["asub"].mkdir()
         with lnk1["asub.txt"].open(mode="w", **createparams):
             pass
-        with directory["x.txt"].open(mode="w", **createparams) as f:
+        with directory["x.txt"].open(mode="w", **createparams):
             pass
         lnk1["x.txt"].link(directory["x.txt"])
 
@@ -140,8 +137,8 @@ class test_fs(unittest.TestCase):
         self.assertFalse(lnk1.exists)
         self.assertFalse(lnk2.linkdest().exists)
 
-        file_btxt = file_atxt.copy(file_atxt.parent["b.txt"])
-        file_ctxt = file_atxt.move(file_atxt.parent["c.txt"])
+        _ = file_atxt.copy(file_atxt.parent["b.txt"])
+        _ = file_atxt.move(file_atxt.parent["c.txt"])
         self.assertFalse(lnk3.linkdest().exists)
 
         dir_b = dir_a.copy(dir_a.parent["b"])

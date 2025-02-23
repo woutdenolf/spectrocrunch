@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import logging
 import numpy as np
+from silx.opencl import ocl
 
 from .. import alignElastix
 from .. import alignSift
@@ -17,8 +16,6 @@ from ...utils.cli import getLogger
 
 logger = getLogger(__name__, __file__)
 logger.setLevel(logging.DEBUG)
-
-from silx.opencl import ocl
 
 if ocl:
     has_ocl_device = ocl.create_context() is not None
@@ -259,7 +256,7 @@ class test_align(unittest.TestCase):
         M = np.dot(T, np.dot(R, Tinv))
 
         o.set_reference(fixed)
-        aligned = o.execute_alignkernel(moving)
+        _ = o.execute_alignkernel(moving)
 
         np.testing.assert_almost_equal(M, o._transform.getnumpyhomography(), decimal=1)
 

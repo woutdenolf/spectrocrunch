@@ -1,14 +1,9 @@
-# -*- coding: utf-8 -*-
-
-import os, sys
-
-sys.path.insert(1, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+import os
 import logging
 
-logging.getLogger("spectrocrunch").setLevel(logging.INFO)
-
 from spectrocrunch.process.id21_ffxas import process
+
+logging.getLogger("spectrocrunch").setLevel(logging.INFO)
 
 if __name__ == "__main__":
 

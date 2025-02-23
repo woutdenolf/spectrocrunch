@@ -1,12 +1,9 @@
-# -*- coding: utf-8 -*-
-
 import logging
 import traceback
 
 from . import nxutils
 from . import basetask
 from ..io import target
-from ..io import nxfs
 from ..io import fs
 from ..io.utils import randomstring
 

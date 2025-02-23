@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
-from . import element
 from ..utils import instance
 
 

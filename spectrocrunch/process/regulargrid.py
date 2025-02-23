@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-
-from abc import ABCMeta, abstractmethod, abstractproperty
-from future.utils import with_metaclass
 from contextlib import contextmanager
 import numpy as np
 
@@ -102,19 +98,19 @@ class RegularGrid(object):
 
     def __iadd__(self, value):
         with self.open() as data:
-            data[index] += value
+            data += value
 
     def __isub__(self, value):
         with self.open() as data:
-            data[index] -= value
+            data -= value
 
     def __imul__(self, value):
         with self.open() as data:
-            data[index] *= value
+            data *= value
 
     def __idiv__(self, value):
         with self.open() as data:
-            data[index] /= value
+            data /= value
 
     @property
     def dtype(self):

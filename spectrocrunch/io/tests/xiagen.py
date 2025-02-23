@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from .. import xiaedf
 
 import numpy as np
@@ -25,7 +23,6 @@ def data(nspec, nchan, ndet, concentration=None, flux=None):
 
     # Detector characteristics
     solidangle = np.linspace(1, 1.5, ndet, dtype=cortype)
-    DT = 2 * np.arange(ndet)
 
     # Peak characteristics
     npeaks = 10

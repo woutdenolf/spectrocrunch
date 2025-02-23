@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 from . import nxprocess
 from ..fullfield import import_id21

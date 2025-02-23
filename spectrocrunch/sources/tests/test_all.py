@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 from . import test_polarization
 from . import test_xray

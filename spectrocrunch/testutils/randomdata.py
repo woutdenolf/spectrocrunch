@@ -1,12 +1,9 @@
-# -*- coding: utf-8 -*-
-
 import random
 import collections
-import warnings
 import numpy as np
 from uncertainties import ufloat
 from future.utils import with_metaclass
-from abc import ABCMeta, abstractmethod, abstractproperty
+from abc import ABCMeta, abstractmethod
 from ..patch.pint import ureg
 
 MAXDEPTH = 4
@@ -98,7 +95,7 @@ def numequal(a, b):
     try:
         if a == b:
             return True
-    except:
+    except Exception:
         pass
     try:
         return np.isclose(a, b, rtol=0, atol=0, equal_nan=True)
@@ -254,7 +251,7 @@ def init_sequence(
     nitems=None,
     maxdepth=MAXDEPTH,
     maxitems=MAXITEMS,
-    **kwargs
+    **kwargs,
 ):
     """
     Generate a sequence with random length, random types

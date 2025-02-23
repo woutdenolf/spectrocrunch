@@ -1,9 +1,6 @@
-# -*- coding: utf-8 -*-
-
 from . import compound
 from . import compoundsearch
 from . import types
-from ..utils import instance
 
 import warnings
 

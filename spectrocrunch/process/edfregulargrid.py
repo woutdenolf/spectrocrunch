@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 from contextlib import contextmanager
 import numpy as np
@@ -19,7 +17,7 @@ class EDFRegularGrid(RegularGrid):
             units=instrument.units,
             compensationmotors=instrument.compensationmotors,
             axesnamemap=instrument.imagemotors,
-            **instrument.edfheaderkeys
+            **instrument.edfheaderkeys,
         )
         header = edfimage(filenames[0]).header
         info = parser(header)
@@ -62,7 +60,7 @@ class XIARegularGrid(RegularGrid):
             units=instrument.units,
             compensationmotors=instrument.compensationmotors,
             axesnamemap=instrument.imagemotors,
-            **instrument.edfheaderkeys
+            **instrument.edfheaderkeys,
         )
 
         axes = None

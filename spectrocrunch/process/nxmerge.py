@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from . import nxprocess
 from . import basetask
 
@@ -15,8 +14,8 @@ class Task(nxprocess.Task):
 
     def _stack_sources(self):
         groups = {}
-        for nxprocess in self.previous_outputs:
-            for nxdata in nxprocess.results.iter_is_nxclass("NXdata"):
+        for nxprocessi in self.previous_outputs:
+            for nxdata in nxprocessi.results.iter_is_nxclass("NXdata"):
                 lst = groups.get(nxdata.name, None)
                 if lst is None:
                     lst = groups[nxdata.name] = []

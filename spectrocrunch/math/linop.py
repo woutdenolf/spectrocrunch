@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from __future__ import division
 import numbers
 import numpy as np
@@ -339,7 +337,7 @@ class LinearOperator(Operator):
         b = (self.m == other.m) & (self.b == other.b)
         try:
             return all(b)
-        except:
+        except Exception:
             return b
 
     def _eval(self, x):

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 import scipy.ndimage.interpolation
 
@@ -87,8 +85,8 @@ class alignFFT(align):
         pmin, pmax = ft.fft_freqind(s)
 
         # Log-polar grid for interpolation
-        if scale_estimate:
-            sclmin = scale_estimate
+        # if scale_estimate:
+        #    sclmin = scale_estimate
 
         rmax = np.maximum(s - 1 - pmax, pmax)
         rmax = np.linalg.norm(rmax)
@@ -136,7 +134,7 @@ class alignFFT(align):
 
         plt.title(title)
         plt.pause(0.1)
-        raw_input("press enter...")
+        input("press enter...")
 
     def movingFTdummy(self):
         """FT of moving image with a known shift w.r.t. the reference"""

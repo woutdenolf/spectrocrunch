@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
-
 from __future__ import division
 import numpy as np
-from psutil import virtual_memory
 from collections import defaultdict
 import logging
 
@@ -189,7 +186,7 @@ class Converter(object):
     def preset_time(self):
         try:
             return self.normalize_quantity(self.header["time"], "s")
-        except:
+        except Exception:
             logger.error("Energy could not be extracted from data")
             return np.nan
 
@@ -197,7 +194,7 @@ class Converter(object):
     def energy(self):
         try:
             return self.normalize_quantity(self.header["energy"], "keV")
-        except:
+        except Exception:
             logger.error("Energy could not be extracted from data")
             return np.nan
 
@@ -205,7 +202,7 @@ class Converter(object):
     def axes(self):
         try:
             return self.header["axes"]
-        except:
+        except Exception:
             logger.error("Scan axes could not be extracted from data")
             return []
 

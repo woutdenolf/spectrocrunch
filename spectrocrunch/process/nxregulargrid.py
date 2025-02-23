@@ -1,14 +1,10 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
-from abc import abstractmethod
 import re
 import logging
 
 from . import nxprocess
 from . import h5regulargrid
 from . import axis
-from ..utils import instance
 from ..utils import units
 
 logger = logging.getLogger(__name__)

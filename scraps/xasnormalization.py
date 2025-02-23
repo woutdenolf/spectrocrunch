@@ -1,10 +1,5 @@
-# -*- coding: utf-8 -*-
-
-execfile("initcctbx.py")
-
-import os, sys
-
-sys.path.insert(1, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+with open("initcctbx.py") as f:
+    exec(f.read())
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,7 +9,6 @@ from spectrocrunch.materials.mixture import mixture as mixturef
 from spectrocrunch.materials.types import fraction
 
 from uncertainties import ufloat
-from uncertainties.umath import exp as uexp
 from uncertainties.umath import exp as ulog
 
 import xraylib

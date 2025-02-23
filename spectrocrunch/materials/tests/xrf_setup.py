@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from ...geometries import xrf as xrfgeometries
 from ...sources import xray as xraysources
 from ...detectors import xrf as xrfdetectors

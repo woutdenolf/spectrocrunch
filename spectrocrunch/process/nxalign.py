@@ -1,9 +1,6 @@
-# -*- coding: utf-8 -*-
-
 from . import nxregulargrid
 from . import basetask
 from ..utils import instance
-from ..io import fs
 
 
 class Task(nxregulargrid.Task):

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 from ..utils import instance
 from ..process.utils import create_task
@@ -101,7 +99,7 @@ def tasks(**parameters):
             name="process:normalize",
             expression=expression,
             skip=skip,
-            **commonparams
+            **commonparams,
         )
         tasks.append(task)
 
@@ -122,7 +120,7 @@ def tasks(**parameters):
             crop=False,
             roi=roi,
             plot=plot,
-            **commonparams
+            **commonparams,
         )
         tasks.append(task)
 
@@ -135,7 +133,7 @@ def tasks(**parameters):
             name="process:roi",
             roi=roiresult,
             reference=alignreference,
-            **commonparams
+            **commonparams,
         )
         tasks.append(tmp)
 

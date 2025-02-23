@@ -1,16 +1,7 @@
-# -*- coding: utf-8 -*-
+import os
 
-import os, sys
-
-sys.path.insert(1, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from spectrocrunch.math import noisepropagation
 from spectrocrunch.simulation import calcnoise
 from spectrocrunch.materials import multilayer
-from spectrocrunch.geometries import flatarea
-from spectrocrunch.sources import xray as xraysources
-from spectrocrunch.detectors import area
-from spectrocrunch.materials.compoundfromformula import CompoundFromFormula
 from spectrocrunch.materials.compoundfromname import compoundfromname
 from spectrocrunch.materials.mixture import Mixture
 
@@ -18,7 +9,6 @@ from spectrocrunch.fullfield import create_hdf5_imagestacks as ff
 
 import numpy as np
 from uncertainties import unumpy
-from uncertainties import ufloat
 import matplotlib.pyplot as plt
 
 
@@ -109,12 +99,12 @@ def hg107():
     prussianblue = compoundfromname("prussianblue")
     hydrocerussite = compoundfromname("hydrocerussite")
 
-    sample = multilayer.Multilayer(
+    _ = multilayer.Multilayer(
         material=[ultralene, prussianblue, hydrocerussite, tape],
         thickness=[4.0, 10.0, 10.0, 5.0],
     )
 
-    getsignal(sourcepath, radix, indices)
+    # getsignal(sourcepath, radix, indices)
 
 
 def hg64():
@@ -173,8 +163,6 @@ def hg64():
 
     # Noise propagation
     I0 = 1e0
-    tframe = 0.7
-    nframe = 100
 
     print(tframe_data, nframes_data, tframe_flat, nframes_flat, nframes_dark)
     N, N0, D, D0 = calcnoise.id21_ffnoise(
@@ -191,7 +179,7 @@ def hg64():
     XAS = -unumpy.log((N - D) / (N0 - D0))
 
     signal = unumpy.nominal_values(XAS)
-    noise = unumpy.std_devs(XAS)
+    # noise = unumpy.std_devs(XAS)
     plt.plot(energy, signal)
 
     plt.show()
@@ -223,7 +211,7 @@ def hg94():
 
     signal, noise = ffsetup.xanes(flux, energy, **params)
     signal = np.random.normal(signal, noise)
-    p = plt.plot(energy, signal)
+    _ = plt.plot(energy, signal)
     plt.xlabel("Energy (keV)")
     plt.ylabel("Absorbance")
     plt.show()

@@ -1,9 +1,6 @@
-# -*- coding: utf-8 -*-
-
 from . import nxprocess
 from ..utils import instance
 from ..io import fs
-from ..io import nxfs
 from ..xrf.fit import PerformBatchFitHDF5
 
 from PyMca5.PyMcaIO import ConfigDict

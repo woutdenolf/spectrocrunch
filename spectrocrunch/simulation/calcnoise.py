@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from __future__ import division
 
 from ..geometries import flatarea
@@ -13,7 +11,6 @@ from ..utils.instance import isarray
 
 import numpy as np
 import uncertainties
-import itertools
 import matplotlib.pyplot as plt
 
 

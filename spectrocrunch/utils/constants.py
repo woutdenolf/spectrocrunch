@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from ..patch.pint import ureg
 from ..utils import units
 

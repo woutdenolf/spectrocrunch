@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 import warnings
 from glob import glob
@@ -12,7 +10,6 @@ except ImportError:
     warnings.warn("PyTMM is not installed", ImportWarning)
 else:
     from ..utils.instance import isarray
-    from ..patch.pint import ureg
 
     root = os.path.dirname(os.path.realpath(PyTMM.__file__))
     files = glob(os.path.join(root, "*", "library.yml"))
@@ -59,7 +56,7 @@ else:
             """
             wl = lines.to("nm", "spectroscopy").magnitude
             if isarray(wl):
-                return [self.getExtinctionCoefficient(l) for l in wl]
+                return [self.getExtinctionCoefficient(item) for item in wl]
             else:
                 return self.getExtinctionCoefficient(wl)
 
@@ -74,6 +71,6 @@ else:
             """
             wl = lines.to("nm", "spectroscopy").magnitude
             if isarray(wl):
-                return [self.getRefractiveIndex(l) for l in wl]
+                return [self.getRefractiveIndex(item) for item in wl]
             else:
                 return self.getRefractiveIndex(wl)

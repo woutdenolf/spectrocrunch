@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 import pandas as pd
 import scipy.integrate
@@ -27,7 +25,6 @@ from ..materials import types
 from ..utils.copyable import Copyable
 from .utils import reshape_spectrum_lines
 from ..io import localfs
-from ..io import spe
 
 logger = logging.getLogger(__name__)
 
@@ -963,13 +960,13 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
 
     def addtopymca_layer(self, setup, cfg, index, layer):
         name = setup.addtopymca_material(cfg, layer, defaultthickness=layer.thickness)
-        l = "Layer{}".format(index)
-        cfg["multilayer"][l] = [1, name, layer.density, layer.thickness]
+        layer = "Layer{}".format(index)
+        cfg["multilayer"][layer] = [1, name, layer.density, layer.thickness]
 
     def loadfrompymca_layer(self, setup, cfg, index):
-        l = "Layer{}".format(index)
-        if l in cfg["multilayer"]:
-            enabled, name, density, thickness = cfg["multilayer"][l]
+        layer = "Layer{}".format(index)
+        if layer in cfg["multilayer"]:
+            enabled, name, density, thickness = cfg["multilayer"][layer]
             if enabled:
                 material = setup.loadfrompymca_material(cfg, name, density)
                 return (material, thickness)
@@ -1050,7 +1047,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
         if not self.geometry.reflection:
             for line in rates:
                 energy = line.energy(**self.geometry.xrayspectrumkwargs())
-                result[line] *= self.transmission(energy, out=True)
+                rates[line] *= self.transmission(energy, out=True)
         return rates
 
     def _rates_to_spectrum(self, rates, emin=0, emax=None, scattering=True):
@@ -1519,7 +1516,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
                 fluxi = self._sourceflux(energy0i, source_distance)
                 flux = fluxi.sum()
                 weightsi = fluxi / flux
-                sample = self._xmimsim_sample()
+                sample = self._xmimsim_sample(source_distance)
                 # Run simulation
                 ph = pymca.PymcaHandle(
                     energy=energy0i,
@@ -1557,11 +1554,11 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
                 rates.append(ratesi)
         return rates
 
-    def _xmimsim_sample(self):
+    def _xmimsim_sample(self, source_distance):
         # Add atmosphere layer which is thick enough to include source and detector
         if self.geometry.atmosphere:
             atm_thickness = max(source_distance, self.geometry.distance) * 2
-            lst = [(atmosphere, atm_thickness)] + [
+            lst = [(self.geometry.atmosphere, atm_thickness)] + [
                 (layer.material, layer.thickness) for layer in self
             ]
             material, thickness = zip(*lst)
@@ -1621,7 +1618,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
         weights=None,
         scattering=True,
         withdetectorresponse=True,
-        **kwargs
+        **kwargs,
     ):
         """
         Spectrum of this sample measured under the associated gemetry
@@ -1660,7 +1657,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
                 emin=emin,
                 emax=emax,
                 withdetectorresponse=withdetectorresponse,
-                **kwargs
+                **kwargs,
             )
         elif method == "xmimsim":
             rates = self._rates_xmimsim(
@@ -1670,7 +1667,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
                 emin=emin,
                 emax=emax,
                 withdetectorresponse=withdetectorresponse,
-                **kwargs
+                **kwargs,
             )
         else:
             rates = self._rates_calc(
@@ -1681,7 +1678,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
                 emin=emin,
                 emax=emax,
                 withdetectorresponse=withdetectorresponse,
-                **kwargs
+                **kwargs,
             )
         # X-ray spectrum for each source
         spectra = [
@@ -1706,7 +1703,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
         pileup=True,
         flux=1e9,
         time=1,
-        **kwargs
+        **kwargs,
     ):
         """
         Spectrum of this sample measured under the associated gemetry
@@ -1742,7 +1739,7 @@ class Multilayer(with_metaclass((Copyable, cache.Cache))):
                 ninteractions=ninteractions,
                 weights=weights,
                 scattering=scattering,
-                **kwargs
+                **kwargs,
             )
             kwargs = {"fluxtime": flux * time, "histogram": True}
             if isinstance(result, list):

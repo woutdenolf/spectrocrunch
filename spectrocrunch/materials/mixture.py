@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
-
 from . import multielementbase
 from . import compoundfromlist
-from . import element
 from . import types
 from . import stoichiometry
 from ..utils import instance

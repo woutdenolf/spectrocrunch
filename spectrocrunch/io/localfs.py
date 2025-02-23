@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 import errno
 import shutil
@@ -9,7 +7,6 @@ import tempfile
 from datetime import datetime
 
 from . import fs
-from . import utils
 
 logger = logging.getLogger(__name__)
 
@@ -268,12 +265,12 @@ class Path(fs.Path):
 
 @contextmanager
 def temp(**kwargs):
-    """
+    r"""
     Context manager which creates a non-existing temporary path that
     will be removed or renamed on exit.
 
     Args:
-        **kwargs: see localfs.Path.temp
+        \**kwargs: see localfs.Path.temp
     """
     with Path(tempfile.gettempdir()).temp(**kwargs) as path:
         yield path

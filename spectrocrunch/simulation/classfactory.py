@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from ..utils.classfactory import FactoryMeta
 from ..utils import instance
 

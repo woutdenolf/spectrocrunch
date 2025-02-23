@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from .align import align
 from .types import transformationType
 import numpy as np

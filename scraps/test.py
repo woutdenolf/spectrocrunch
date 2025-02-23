@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-
-import os, sys
-
-sys.path.insert(1, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 # from spectrocrunch.align.tests.test_teststack import test_suite
 # import unittest
 
@@ -17,9 +11,9 @@ if __name__ == "__main__":
 
     title = "scan 0  zapimage  sampy 23.962 74.962 255 100 sampz 28.252 70.452 211 0  date : Sun Sep 13 02:24:13 2015;"
 
-    fnumber = "(?:[+-]?[0-9]*\.?[0-9]+)"
-    inumber = "\d+"
-    blanks = "\s+"
+    fnumber = r"(?:[+-]?[0-9]*\.?[0-9]+)"
+    inumber = r"\d+"
+    blanks = r"\s+"
     motor = "[a-zA-Z]+"
     expr = (
         "zapimage"

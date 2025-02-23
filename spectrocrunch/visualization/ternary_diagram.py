@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 import collections
-import matplotlib.colors as pltcolors
 import matplotlib.transforms as plttransforms
 import matplotlib.patches as pltpatches
 import mpl_toolkits.axisartist as plta
@@ -213,8 +210,6 @@ def CartesianToTernary(p):
 
 
 def TernaryPoint(ax, ternaryinfo, point):
-    H = np.sqrt(3) / 2
-
     x0, y0 = TernaryToCartesian(point)
 
     x1, y1 = TernaryToCartesian(point._replace(left=point.left + point.top, top=0))

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 
 from ...detectors import area
@@ -105,7 +103,7 @@ class test_objects(unittest.TestCase):
 
         src = xraysources.factory("synchrotron")
         detector = area.factory("PCO Edge 5.5")
-        geometry = flatarea.factory("perpendicular", detector=detector, source=src)
+        _ = flatarea.factory("perpendicular", detector=detector, source=src)
 
         self._checkprop(detector, tframe=2, nframe=10, vis=True)
 

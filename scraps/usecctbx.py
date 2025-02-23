@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
-
-execfile("initcctbx.py")
-
-# Initialize CCTBX environment as . initcctbx
+with open("initcctbx.py") as f:
+    exec(f.read())
 
 import iotbx.cif
 

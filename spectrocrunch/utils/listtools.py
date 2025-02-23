@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import collections
 import operator
 import itertools
@@ -8,29 +6,29 @@ import numpy as np
 from . import instance
 
 
-def flatten(l):
+def flatten(lst):
     """Flatten iterables
 
     Args:
-        l(anything):
+        lst(anything):
     Returns:
         list
     """
-    if instance.isiterable(l) and not instance.isstring(l):
+    if instance.isiterable(lst) and not instance.isstring(lst):
         try:
-            it = iter(l)
+            it = iter(lst)
         except TypeError:
-            yield l
+            yield lst
         else:
             for el in it:
                 for el2 in flatten(el):
                     yield el2
     else:
-        yield l
+        yield lst
 
 
-def numpy_flatten(l):
-    return np.asarray(list(flatten(l)))
+def numpy_flatten(lst):
+    return np.asarray(list(flatten(lst)))
 
 
 def listadvanced_bool(lst, barr, bnot=False):
@@ -83,7 +81,7 @@ def where(lst, func):
     Returns:
         list
     """
-    return [i for i, l in enumerate(lst) if func(l)]
+    return [i for i, item in enumerate(lst) if func(item)]
 
 
 def sort2lists(list1, list2):
@@ -145,8 +143,8 @@ def sumrepeats(labels, counts):
         list,list
     """
     c = collections.Counter()
-    for l, cnt in zip(labels, counts):
-        c.update({l: cnt})
+    for label, cnt in zip(labels, counts):
+        c.update({label: cnt})
     return c.keys(), c.values()
 
 
@@ -179,7 +177,7 @@ def length(x):
 def aslist(x):
     try:
         return list(x)
-    except:
+    except Exception:
         return [x]
 
 

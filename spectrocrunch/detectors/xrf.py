@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from . import base
 from ..materials import compoundfromname
 from ..materials import element
@@ -36,7 +34,7 @@ class XRFDetector(with_metaclass(base.CentricCone)):
         shape_fixedarearatios=None,
         shape_pymca=None,
         shape_conversionenergy=None,
-        **kwargs
+        **kwargs,
     ):
         """
         Args:

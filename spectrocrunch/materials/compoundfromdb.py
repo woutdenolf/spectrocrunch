@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from . import compoundfromname
 from . import compoundfromnist
 from . import compoundfromformula

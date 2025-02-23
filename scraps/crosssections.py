@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-
-import os, sys
-
-sys.path.insert(1, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from spectrocrunch.materials.compoundfromformula import compoundfromformula as compound
 
 import numpy as np
@@ -42,7 +36,7 @@ def plot(c, path=None):
     ax.set_yscale("log")
     ax.set_ylim([1e-3, 1e2])
     ax.set_xlabel("Energy (keV)")
-    ax.set_ylabel("Probability @ 50 $\mu$m (%)")
+    ax.set_ylabel(r"Probability @ 50 $\mu$m (%)")
     # ax.set_ylabel('Probability (%)')
     plt.legend(loc=4)
 
@@ -67,7 +61,7 @@ def plot(c, path=None):
             scatyield *= (1 - np.exp(-a * t * 1e-4)) / a
 
         plt.plot(
-            energy, scatyield * 100, label="{} $\mu$m".format(t), color=next(colors)
+            energy, scatyield * 100, label=r"{} $\mu$m".format(t), color=next(colors)
         )
 
     ax = plt.gca()

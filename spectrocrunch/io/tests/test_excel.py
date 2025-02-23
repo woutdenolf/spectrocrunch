@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import numpy as np
 import pandas as pd
 import random
-from collections import OrderedDict
 from testfixtures import TempDirectory
 import os
 

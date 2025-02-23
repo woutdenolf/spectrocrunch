@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
-
 import logging
 import multiprocessing
-import time
 from ..utils import timing
 
 logger = logging.getLogger(__name__)

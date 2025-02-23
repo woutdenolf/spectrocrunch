@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import matplotlib.pyplot as plt
 import numpy as np
 import numbers
@@ -46,7 +44,6 @@ class FluoLine(CompHashable, Copyable):
                 n0 = len(names[0])
                 n1 = len(names[1])
                 if n0 == n1:
-                    candidate = names[0]
                     if names[0][1] == "A" or names[0][1] == "B":
                         return names[1]
                     else:
@@ -421,7 +418,7 @@ class Shell(CompHashable, Copyable):
             yield "{} fluorescence lines: all".format(self.name)
         else:
             yield "{} fluorescence lines: {}".format(
-                self.name, ", ".join((str(l) for l in self._fluolines))
+                self.name, ", ".join((str(line) for line in self._fluolines))
             )
 
     def _sortkey(self, other):
@@ -450,7 +447,7 @@ class Shell(CompHashable, Copyable):
         if self._fluolines is None:
             return [1]  # ALL lines
         else:
-            return [l.radrate(Z) for l in self._fluolines]
+            return [line.radrate(Z) for line in self._fluolines]
 
     def atomiclevelwidth(self, Z):
         try:
@@ -462,7 +459,7 @@ class Shell(CompHashable, Copyable):
         """Probability of selected lines / probability of shell ionization"""
         if decomposed:
             fluoyield = self.fluoyield(Z)
-            return {l: fluoyield * l.radrate(Z) for l in self.fluolines}
+            return {line: fluoyield * line.radrate(Z) for line in self.fluolines}
         else:
             if self._fluolines is None:
                 return self.fluoyield(Z)
@@ -502,7 +499,7 @@ class FluoZLine(CompHashable, Copyable):
     def __getattr__(self, attr):
         try:
             return getattr(self.line, attr)
-        except:
+        except Exception:
             return getattr(self.element, attr)
 
     @property
@@ -628,10 +625,6 @@ class ComptonLine(ScatteringLine):
     def __init__(self, energysource):
         self.name = "Compton"
         super(ComptonLine, self).__init__(energysource)
-
-    def __init__(self, energysource):
-        self.energysource = energysource
-        self.name = "Compton"
 
     def energy(self, polar=None, **kwargs):
         """

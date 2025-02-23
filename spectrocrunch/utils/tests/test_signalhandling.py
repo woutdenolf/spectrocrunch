@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import os
 import sys
+import signal
 
 from .. import signalhandling
 
@@ -63,10 +62,6 @@ class test_signalhandling(unittest.TestCase):
         self._check_signal(lambda: sys.exit(0))
         self._check_signal(lambda: exit(0))
 
-    def test_sigexit(self):
-        self._check_signal(lambda: sys.exit(0))
-        self._check_signal(lambda: exit(0))
-
 
 def main_test_suite():
     """Test suite including all test suites"""
@@ -80,8 +75,6 @@ def main_test_suite():
 
 
 if __name__ == "__main__":
-    import sys
-
     mysuite = main_test_suite()
     runner = unittest.TextTestRunner()
     if not runner.run(mysuite).wasSuccessful():

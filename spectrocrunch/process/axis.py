@@ -1,9 +1,5 @@
-# -*- coding: utf-8 -*-
-
-import sys
 import difflib
 import numpy as np
-import pandas as pd
 from ..utils import units
 from ..utils import instance
 from ..utils import listtools
@@ -270,15 +266,15 @@ class Axis(object):
             except AttributeError:
                 pass
 
-        def isindex(v):
-            return False
+        if detectindex and self.type == "quantitative" and instance.isinteger(xold[0]):
 
-        if detectindex:
-            if self.type == "quantitative":
-                if instance.isinteger(xold[0]):
+            def isindex(v):
+                return instance.isinteger(v)
 
-                    def isindex(v):
-                        return instance.isinteger(v)
+        else:
+
+            def isindex(v):
+                return False
 
         xnew = self._extract_magnitude(values)
         if instance.isarray(xnew):
@@ -337,9 +333,7 @@ class Axis(object):
         return ret
 
     def simplify(self):
-        ax = self
         if self.type == "quantitative":
-            kwargs = {}
             if self.size == 1:
                 return AxisNumber(self.start, **self.initkwargs)
             elif self.size == 2:

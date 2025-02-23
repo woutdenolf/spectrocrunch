@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-
-from ..patch import xraylib
 from ..patch.pint import ureg
 from ..utils.hashable import CompHashable
 from . import element

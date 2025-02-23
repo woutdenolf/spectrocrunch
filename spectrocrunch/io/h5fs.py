@@ -1,11 +1,8 @@
-# -*- coding: utf-8 -*-
-
 import re
 import h5py
 import contextlib
 import os
 import errno
-import re
 from time import sleep
 import logging
 import numpy as np
@@ -508,7 +505,7 @@ class Path(fs.Path):
 
     def devsplit(self, path):
         n = len(self.devsep)
-        pattern = "\.[^{}]+{}".format(re.escape(self.sep), re.escape(self.devsep))
+        pattern = r"\.[^{}]+{}".format(re.escape(self.sep), re.escape(self.devsep))
         a = 0
         lst = []
         for m in re.finditer(pattern, path):
@@ -622,13 +619,13 @@ class Path(fs.Path):
                     del f[self.path]
 
     def stats(self, follow=True):
-        if follow == False:
+        if not follow:
             raise ValueError("Hdf5 links do not have attributes themselves")
         with self.open(mode="r") as node:
             return dict(node.attrs)
 
     def get_stat(self, key, default=None, follow=True):
-        if follow == False:
+        if not follow:
             raise ValueError("Hdf5 links do not have attributes themselves")
         try:
             with self.open(mode="r") as node:
@@ -637,7 +634,7 @@ class Path(fs.Path):
             return default
 
     def pop_stat(self, key, default=None, follow=True):
-        if follow == False:
+        if not follow:
             raise ValueError("Hdf5 links do not have attributes themselves")
         try:
             with self.open(mode="r") as node:
@@ -657,7 +654,7 @@ class Path(fs.Path):
 
     @contextlib.contextmanager
     def openstats(self, follow=True, **openparams):
-        if follow == False:
+        if not follow:
             raise ValueError("Hdf5 links do not have attributes themselves")
         with self.open(**openparams) as node:
             yield node.attrs

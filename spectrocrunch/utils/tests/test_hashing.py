@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import numpy as np
 from .. import hashing
@@ -14,14 +12,8 @@ class test_hashing(unittest.TestCase):
             o = factory()
             a = o.data
             b = o.data
-            try:
-                ha = hashing.calchash(a)
-            except UnicodeDecodeError:
-                raise
-            try:
-                hb = hashing.calchash(b)
-            except UnicodeDecodeError:
-                raise
+            _ = hashing.calchash(a)
+            _ = hashing.calchash(b)
             self.assertTrue(hashing.hashequal(a, b))
 
     def test_string(self):

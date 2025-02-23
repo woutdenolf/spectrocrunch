@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-
 import os
-import numpy as np
 import logging
 
 from . import batch
@@ -73,7 +70,7 @@ def fluoxas(samplename, datasetname, scannumbers, mapnumbers, cfgfiles, **parame
         mapnumbers,
         cfgfiles,
         fluoxas=True,
-        **parameters
+        **parameters,
     )
 
 
@@ -118,7 +115,7 @@ def manualselection(
     cfgfiles,
     outname=None,
     outsuffix=None,
-    **parameters
+    **parameters,
 ):
     jobname = batch.jobname(
         "manualselection", (sourcepaths, scannames, scannumbers, cfgfiles), parameters
@@ -151,7 +148,7 @@ def processdata_exec(
     multi=False,
     resultsdir=None,
     edfexport=False,
-    **parameters
+    **parameters,
 ):
     # Basic input
     params = mfluoxas.task_parameters(parameters, "pymca")

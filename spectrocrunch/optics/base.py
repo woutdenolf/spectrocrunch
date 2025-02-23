@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from ..utils import lut
 from ..utils import units
 from ..utils.copyable import Copyable

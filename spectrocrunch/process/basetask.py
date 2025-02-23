@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
-
 from copy import deepcopy
 from abc import ABCMeta, abstractmethod
 from future.utils import with_metaclass
 import logging
-from contextlib import contextmanager
 import traceback
 
 from ..io import nxfs

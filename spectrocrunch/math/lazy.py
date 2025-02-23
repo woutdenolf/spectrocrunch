@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import operator
 
 
@@ -26,13 +24,24 @@ class Function(object):
         lazya = isinstance(a, cls)
         lazyb = isinstance(b, cls)
         if lazya and lazyb:
-            f = lambda *args, **kwargs: op(a(*args, **kwargs), b(*args, **kwargs))
+
+            def f(*args, **kwargs):
+                return op(a(*args, **kwargs), b(*args, **kwargs))
+
         elif lazya:
-            f = lambda *args, **kwargs: op(a(*args, **kwargs), b)
+
+            def f(*args, **kwargs):
+                return op(a(*args, **kwargs), b)
+
         elif lazyb:
-            f = lambda *args, **kwargs: op(a, b(*args, **kwargs))
+
+            def f(*args, **kwargs):
+                return op(a, b(*args, **kwargs))
+
         else:
-            f = lambda *args, **kwargs: op(a, b)
+
+            def f(*args, **kwargs):
+                return op(a, b)
 
         if symb2:
             return cls(f, name="{}{},{}{}".format(symb1, a, b, symb2))
@@ -42,9 +51,14 @@ class Function(object):
     @classmethod
     def _unitary_op(cls, a, op, symb1, symb2=None):
         if isinstance(a, cls):
-            f = lambda *args, **kwargs: op(a(*args, **kwargs))
+
+            def f(*args, **kwargs):
+                return op(a(*args, **kwargs))
+
         else:
-            f = lambda *args, **kwargs: op(a)
+
+            def f(*args, **kwargs):
+                return op(a)
 
         if symb2:
             return cls(f, name="{}{}{}".format(symb1, a, symb2))

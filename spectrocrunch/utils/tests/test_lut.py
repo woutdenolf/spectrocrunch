@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 import numpy as np
 
@@ -31,19 +29,19 @@ class test_lut(unittest.TestCase):
         def func(x):
             return l1(units.Quantity(x, "keV")).to("mm").magnitude
 
-        s = str(l1)
+        _ = str(l1)
         self.assertTrue(np.isnan(func(7.2)))
         self.assertTrue(np.isnan(func([7.2])).all())
         self.assertTrue(np.isnan(func([7.1, 7.2, 7.3])).all())
 
         l1.add(units.Quantity(7, "keV"), units.Quantity(10, "mm"))
-        s = str(l1)
+        _ = str(l1)
         self.assertEqual(func(7.2), 10)
         np.testing.assert_allclose(func([7.2]), [10])
         np.testing.assert_allclose(func([7.1, 7.2, 7.3]), [10, 10, 10])
 
         l1.add(units.Quantity(7400, "eV"), units.Quantity(2, "cm"))
-        s = str(l1)
+        _ = str(l1)
         self.assertEqual(func(7.2), 15)
         np.testing.assert_allclose(func([7.2]), [15])
         np.testing.assert_allclose(func([7.1, 7.2, 7.3]), [12.5, 15, 17.5])

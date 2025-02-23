@@ -1,21 +1,13 @@
-# -*- coding: utf-8 -*-
-
 from ..io import spec
-from ..io import nexus
-from ..io import edf
 from ..io import fs
-from ..patch.pint import ureg
 from ..utils import instance
 from ..utils import units
-from ..utils import listtools
 from ..math import linop
 from ..instruments import configuration
 from ..process.edfregulargrid import EDFRegularGrid
 from ..process.h5regulargrid import NXRegularGrid
 
 import numpy as np
-import warnings
-import os
 import collections
 
 
@@ -265,7 +257,6 @@ class XanesSpec(PointBase):
                     keepsum=True, sumingroups=False, keepindividual=False
                 )
                 numbers = [k[0] for k in numbers if len(k) == 1]
-                lbls = []
             if not numbers:
                 continue
             positions = zip(

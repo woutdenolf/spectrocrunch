@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import re
 import logging
 import traceback
@@ -7,7 +5,6 @@ import traceback
 from . import nxqxrf_dependent
 from ..io import xiaedf
 from ..io import xiaedftonexus
-from ..io import fs
 from ..io.utils import randomstring
 
 logger = logging.getLogger(__name__)
@@ -79,7 +76,7 @@ class Task(nxqxrf_dependent.Task):
             fluxid=fluxid,
             transmissionid=transmissionid,
         )
-        nxentry = converter(xiaimage)
+        _ = converter(xiaimage)
 
     @property
     def name(self):

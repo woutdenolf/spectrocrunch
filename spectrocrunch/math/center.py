@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 from .fit2d import fitgaussian as fitgaussian2d
 from .fit1d import fitgaussian as fitgaussian1d
