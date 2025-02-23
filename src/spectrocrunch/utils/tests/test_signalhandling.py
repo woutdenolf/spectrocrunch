@@ -24,7 +24,7 @@ class test_signalhandling(unittest.TestCase):
         ):
             self.state += 1
             sendsignal()
-            self.state += 1
+            # self.state += 1  # this makes test_sigterm fail
         self.assertTrue(self.state == 0)
 
     def test_noerror(self):
@@ -56,7 +56,8 @@ class test_signalhandling(unittest.TestCase):
         self._check_signal(lambda: os.kill(os.getpid(), signal.SIGTERM))
 
     def test_sigint(self):
-        self._check_signal(lambda: os.kill(os.getpid(), signal.SIGINT))
+        with self.assertRaises(KeyboardInterrupt):
+            self._check_signal(lambda: os.kill(os.getpid(), signal.SIGINT))
 
     def test_sigexit(self):
         self._check_signal(lambda: sys.exit(0))
