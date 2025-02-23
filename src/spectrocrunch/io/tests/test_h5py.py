@@ -22,129 +22,135 @@ def setdata(f):
     f["data"] = 10
 
 
-def createHolder(Base):
-    class Holder(Base):
-        def __init__(self, destination, desttype, holdmode, startevent, exitevent):
-            super(Holder, self).__init__()
-            self.destination = destination
-            self.desttype = desttype
-            self.holdmode = holdmode
-            self.startevent = startevent
-            self.exitevent = exitevent
+class HolderMixin:
+    def __init__(self, destination, desttype, holdmode, startevent, exitevent):
+        super(HolderMixin, self).__init__()
+        self.destination = destination
+        self.desttype = desttype
+        self.holdmode = holdmode
+        self.startevent = startevent
+        self.exitevent = exitevent
 
-        def run(self):
-            try:
-                self._run()
-            except Exception:
-                self._sendevent()
+    def run(self):
+        try:
+            self._run()
+        except Exception:
+            self._sendevent()
+            raise
+
+    def _run(self):
+        logger.debug(
+            "\nDestination: type = {}, mode = {}".format(self.desttype, self.holdmode)
+        )
+
+        # Remove destination
+        try:
+            os.remove(self.destination)
+        except OSError as err:
+            if err.errno == errno.ENOENT:
+                pass
+            # elif err.errno==errno.EISDIR: # does not work on windows
+            elif os.path.isdir(self.destination):
+                os.rmdir(self.destination)
+            else:
+                print(os.path.exists(self.destination))
+                print(os.path.isdir(self.destination))
                 raise
 
-        def _run(self):
-            logger.debug(
-                "\nDestination: type = {}, mode = {}".format(
-                    self.desttype, self.holdmode
-                )
-            )
-
-            # Remove destination
-            try:
-                os.remove(self.destination)
-            except OSError as err:
-                if err.errno == errno.ENOENT:
-                    pass
-                # elif err.errno==errno.EISDIR: # does not work on windows
-                elif os.path.isdir(self.destination):
-                    os.rmdir(self.destination)
-                else:
-                    print(os.path.exists(self.destination))
-                    print(os.path.isdir(self.destination))
-                    raise
-
-            # Hold destination
-            if self.desttype == "file":
-                with open(self.destination, mode="w") as f:
-                    f.write("content")
-                if self.holdmode:
-                    with open(self.destination, mode=self.holdmode) as f:
-                        self._sendevent()
-                else:
-                    self._sendevent()
-            elif self.desttype == "dir":
-                os.mkdir(self.destination)
-                self._sendevent()
-            elif self.desttype == "hdf5":
-                if self.holdmode:
-                    if self.holdmode.startswith("r"):
-                        with h5py.File(self.destination, mode="w") as f:
-                            setdata(f)
-                        with h5py.File(self.destination, mode=self.holdmode) as f:
-                            self._sendevent()
-                    else:
-                        with h5py.File(self.destination, mode=self.holdmode) as f:
-                            setdata(f)
-                            self._sendevent()
-                else:
+        # Hold destination
+        if self.desttype == "file":
+            with open(self.destination, mode="w") as f:
+                f.write("content")
+            if self.holdmode:
+                with open(self.destination, mode=self.holdmode) as f:
                     self._sendevent()
             else:
                 self._sendevent()
+        elif self.desttype == "dir":
+            os.mkdir(self.destination)
+            self._sendevent()
+        elif self.desttype == "hdf5":
+            if self.holdmode:
+                if self.holdmode.startswith("r"):
+                    with h5py.File(self.destination, mode="w") as f:
+                        setdata(f)
+                    with h5py.File(self.destination, mode=self.holdmode) as f:
+                        self._sendevent()
+                else:
+                    with h5py.File(self.destination, mode=self.holdmode) as f:
+                        setdata(f)
+                        self._sendevent()
+            else:
+                self._sendevent()
+        else:
+            self._sendevent()
 
-        def _sendevent(self):
-            self.startevent.set()
-            self.exitevent.wait()
-
-    return Holder
+    def _sendevent(self):
+        self.startevent.set()
+        self.exitevent.wait()
 
 
-def createClient(Base):
-    class Client(Base):
-        def __init__(self, destination, mode, output):
-            super(Client, self).__init__()
-            self.destination = destination
-            self.mode = mode
-            self.output = output
+class ClientMixin:
+    def __init__(self, destination, mode, output):
+        super(ClientMixin, self).__init__()
+        self.destination = destination
+        self.mode = mode
+        self.output = output
 
-        def run(self):
-            logger.debug("Hdf5 open mode = {}".format(self.mode))
-            output = self._testopen(self.mode)
-            logger.debug(output)
-            updatedata(self.output, output)
+    def run(self):
+        logger.debug("Hdf5 open mode = {}".format(self.mode))
+        output = self._testopen(self.mode)
+        logger.debug(output)
+        updatedata(self.output, output)
 
-        def _testopen(self, mode):
-            try:
-                with h5py.File(self.destination, mode=mode) as f:
-                    output = "OK"
-                    if mode == "r":
-                        checkdata(f)
-            except IOError as err:
-                output = errno.errorcode.get(err.errno, None)
+    def _testopen(self, mode):
+        try:
+            with h5py.File(self.destination, mode=mode) as f:
+                output = "OK"
+                if mode == "r":
+                    checkdata(f)
+        except IOError as err:
+            output = errno.errorcode.get(err.errno, None)
+            if output is None:
+                errmsg = str(err)
+                m = re.search("errno = ([0-9]+)", errmsg)
+                if m:
+                    output = errno.errorcode.get(int(m.groups()[0]), None)
                 if output is None:
-                    errmsg = str(err)
-                    m = re.search("errno = ([0-9]+)", errmsg)
+                    m = re.search("error message = '(.+)'", errmsg)
                     if m:
-                        output = errno.errorcode.get(int(m.groups()[0]), None)
-                    if output is None:
-                        m = re.search("error message = '(.+)'", errmsg)
-                        if m:
-                            output = m.groups()[0]
-                        elif "file signature not found" in errmsg:
-                            output = "H5_SIGERR"
-                        elif (
-                            "unable to truncate a file which is already open" in errmsg
-                        ):
-                            output = "H5_TRUNCERR"
-                        elif "file exists" in errmsg:
-                            output = "H5_EEXIST"
-                        elif "file is already open" in errmsg:
-                            output = "H5_OPENERR"
-                        elif errmsg:
-                            output = errmsg
-                        else:
-                            output = str(err)
-            except (KeyError, AssertionError):
-                output += "_NODATA"
-            return output
+                        output = m.groups()[0]
+                    elif "file signature not found" in errmsg:
+                        output = "H5_SIGERR"
+                    elif "unable to truncate a file which is already open" in errmsg:
+                        output = "H5_TRUNCERR"
+                    elif "file exists" in errmsg:
+                        output = "H5_EEXIST"
+                    elif "file is already open" in errmsg:
+                        output = "H5_OPENERR"
+                    elif errmsg:
+                        output = errmsg
+                    else:
+                        output = str(err)
+        except (KeyError, AssertionError):
+            output += "_NODATA"
+        return output
 
-    return Client
+
+class ThreadHolder(HolderMixin, threading.Thread):
+    pass
+
+
+class ProcessHolder(HolderMixin, multiprocessing.Process):
+    pass
+
+
+class ThreadClient(ClientMixin, threading.Thread):
+    pass
+
+
+class ProcessClient(ClientMixin, multiprocessing.Process):
+    pass
 
 
 def datainit(filename):
@@ -173,12 +179,9 @@ def updatedata(info, value):
             df.save()
 
 
-def run(Base, Event, destination, filename, sheet_name):
+def run(Holder, Client, Event, destination, filename, sheet_name):
     locking = os.environ.get("HDF5_USE_FILE_LOCKING", None)
     os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
-
-    Holder = createHolder(Base)
-    Client = createClient(Base)
 
     filemode = [None, "r", "r+", "w", "w+", "a", "a+"]
     dirmode = [None]
@@ -262,7 +265,8 @@ class test_h5py(unittest.TestCase):
     def test_thread(self):
         datainit(self.outfilename)
         run(
-            threading.Thread,
+            ThreadHolder,
+            ThreadClient,
             threading.Event,
             self.h5filename,
             self.outfilename,
@@ -273,7 +277,8 @@ class test_h5py(unittest.TestCase):
     def test_process(self):
         datainit(self.outfilename)
         run(
-            multiprocessing.Process,
+            ProcessHolder,
+            ProcessClient,
             multiprocessing.Event,
             self.h5filename,
             self.outfilename,
