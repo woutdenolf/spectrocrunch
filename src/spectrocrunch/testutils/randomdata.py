@@ -568,7 +568,7 @@ class RandomNumpyArray0(RandomNumpyArray):
 
     @property
     def data(self):
-        return self.CLASS(self._values[0].data)
+        return self.CLASS(self._values[0].data).copy()
 
 
 # ====== Uncertainties ======

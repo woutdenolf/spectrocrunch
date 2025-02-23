@@ -82,20 +82,3 @@ class test_fit1d(unittest.TestCase):
         m2, em2 = fit1d.linfit_zerointercept2(x, y, errors=True)
         np.testing.assert_allclose(m1, m2)
         np.testing.assert_almost_equal(em1, em2, decimal=3)  # em2 maybe not correct???
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_fit1d("test_leastsq"))
-    testSuite.addTest(test_fit1d("test_linfit"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

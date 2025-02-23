@@ -125,22 +125,3 @@ class test_xrmc(unittest.TestCase):
             self.assertAlmostEqual(r1, r2)
             self.assertAlmostModEqual(azimuth1, azimuth2, modulo=360, atol=1e-10)
             self.assertAlmostEqual(polar1, polar2)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_xrmc("test_xrftomo"))
-    testSuite.addTest(test_xrmc("test_sphericalrotation"))
-    testSuite.addTest(test_xrmc("test_polarrotation"))
-    testSuite.addTest(test_xrmc("test_azimuthalrotation"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

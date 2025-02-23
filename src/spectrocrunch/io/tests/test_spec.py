@@ -37,19 +37,3 @@ class test_spec(unittest.TestCase):
             r = p.parse(cmd)
             for k, func in checks.items():
                 self.assertTrue(func(r[k]))
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_spec("test_cmd_parser"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

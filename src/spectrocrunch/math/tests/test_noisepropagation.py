@@ -208,25 +208,3 @@ class test_noisepropagation(unittest.TestCase):
         np.testing.assert_allclose(stdx, stdx2)
         # stdx3 = fit1d.lstsq_std(A,vare=varb)
         # covx = fit1d.lstsq_cov(A,vare=varb)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_noisepropagation("test_instance"))
-    testSuite.addTest(test_noisepropagation("test_repeat"))
-    testSuite.addTest(test_noisepropagation("test_compound"))
-    testSuite.addTest(test_noisepropagation("test_bernouilli"))
-    testSuite.addTest(test_noisepropagation("test_poisson"))
-    testSuite.addTest(test_noisepropagation("test_reverse"))
-    testSuite.addTest(test_noisepropagation("test_lstsq_std"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

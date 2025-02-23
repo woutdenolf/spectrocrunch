@@ -225,20 +225,3 @@ class test_instance(unittest.TestCase):
         checktypes = [True, True, True, False, False]
         for o, check in zip(nums, checktypes):
             self._test_asarray(x)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_instance("test_instance"))
-    testSuite.addTest(test_instance("test_asarray"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

@@ -22,19 +22,3 @@ class test_stoichiometry(unittest.TestCase):
         x = stoichiometry.frac_weight_to_volume(n, rho)
         n2 = stoichiometry.frac_volume_to_weight(x, rho)
         np.testing.assert_allclose(n, n2)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_stoichiometry("test_fraction"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

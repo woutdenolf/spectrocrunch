@@ -121,21 +121,3 @@ class test_serialize(unittest.TestCase):
             a = b.links[0]
             self.assertEqual(id(c.links[0]), id(b))
             self.assertEqual(id(b.links[0]), id(a))
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_serialize("test_cyclic"))
-    testSuite.addTest(test_serialize("test_units"))
-    testSuite.addTest(test_serialize("test_uncertainties"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

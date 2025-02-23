@@ -1,4 +1,3 @@
-import unittest
 import numpy as np
 
 from .. import xray
@@ -36,20 +35,3 @@ class test_xray(TestCase):
                             o1 = cls()
                         o2 = jsonpickle.loads(jsonpickle.dumps(o1))
                         self.assertEqual(o1, o2)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_xray("test_interpolate"))
-    testSuite.addTest(test_xray("test_serialize"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

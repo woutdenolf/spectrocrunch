@@ -77,19 +77,3 @@ class test_distributions(unittest.TestCase):
         xmin, xmax, xn = -10, 10, 50
         rv = distributions.limitednorm(k)
         self.checkpdf(rv, qmin, qmax, xmin, xmax, xn)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_distributions("test_pdf"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

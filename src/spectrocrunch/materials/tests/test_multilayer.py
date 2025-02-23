@@ -464,25 +464,3 @@ class test_multilayer(unittest.TestCase):
         abs1 = m.absorbance(energy)
         abs2 = mix.mass_att_coeff(energy) * mix.density * t
         self.assertAlmostEqual(abs1, abs2)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    # testSuite.addTest(test_multilayer("test_expi"))
-    # testSuite.addTest(test_multilayer("test_attenuationinfo"))
-    testSuite.addTest(test_multilayer("test_primary_simple"))
-    # testSuite.addTest(test_multilayer("test_primary_complex"))
-    # testSuite.addTest(test_multilayer("test_serialize"))
-    # testSuite.addTest(test_multilayer("test_secondary"))
-    # testSuite.addTest(test_multilayer("test_mixlayers"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

@@ -67,20 +67,3 @@ class test_lsqlin(unittest.TestCase):
         result = lsqlin.cvxopt_to_numpy_matrix(ret["x"])
         sol = [2.5e-07, 6.93e-01]
         np.testing.assert_allclose(result, sol, rtol=2e-3)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_lsqlin("test_lsqlin"))
-    testSuite.addTest(test_lsqlin("test_lsqnonneg"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

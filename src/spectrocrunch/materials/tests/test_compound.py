@@ -242,28 +242,3 @@ class test_compound(unittest.TestCase):
         self.assertEqual(c1, c2)
         self.assertEqual(set(c1.elements), set(c2.elements))
         self.assertEqual(c1.density, c2.density)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_compound("test_comparable"))
-    testSuite.addTest(test_compound("test_formula"))
-    testSuite.addTest(test_compound("test_list"))
-    testSuite.addTest(test_compound("test_cif"))
-    testSuite.addTest(test_compound("test_addelements"))
-    testSuite.addTest(test_compound("test_vacuum"))
-    testSuite.addTest(test_compound("test_name"))
-    testSuite.addTest(test_compound("test_refractiveindex"))
-    testSuite.addTest(test_compound("test_refractiveindex2"))
-    testSuite.addTest(test_compound("test_serialize"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

@@ -87,22 +87,3 @@ class test_axis(unittest.TestCase):
             a, b = x0 + ai, x1 + bi
             ax2 = axis.factory(units.Quantity(np.arange(a, b + 1), units="um"))
             self.assertEqual(ax1.newlimits(a, b), ax2)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_axis("test_quantitative"))
-    testSuite.addTest(test_axis("test_locate"))
-    testSuite.addTest(test_axis("test_interpolate"))
-    testSuite.addTest(test_axis("test_newlimits"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

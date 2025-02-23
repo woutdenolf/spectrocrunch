@@ -542,30 +542,3 @@ class test_indexing(unittest.TestCase):
                                         axis=axis,
                                     )
                                     np.testing.assert_array_equal(data[index], new)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_indexing("test_list"))
-    testSuite.addTest(test_indexing("test_numpy"))
-    testSuite.addTest(test_indexing("test_replacefull"))
-    testSuite.addTest(test_indexing("test_expand"))
-    testSuite.addTest(test_indexing("test_axisindex"))
-    testSuite.addTest(test_indexing("test_nonchangingdims"))
-    testSuite.addTest(test_indexing("test_extract_dimnonchanging"))
-    testSuite.addTest(test_indexing("test_extract_newaxis"))
-    testSuite.addTest(test_indexing("test_shape_afterindexing"))
-    testSuite.addTest(test_indexing("test_replacefull_transform"))
-    testSuite.addTest(test_indexing("test_getitem"))
-    testSuite.addTest(test_indexing("test_setitem"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

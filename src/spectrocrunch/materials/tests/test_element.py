@@ -355,26 +355,3 @@ class test_element(unittest.TestCase):
         e2 = jsonpickle.loads(jsonpickle.dumps(e1))
         self.assertEqual(e1, e2)
         self.assertEqual(e1.shells, e2.shells)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_element("test_fluoline"))
-    testSuite.addTest(test_element("test_shell"))
-    testSuite.addTest(test_element("test_fluo"))
-    testSuite.addTest(test_element("test_comparable"))
-    testSuite.addTest(test_element("test_diffcs_elastic"))
-    testSuite.addTest(test_element("test_diffcs_inelastic"))
-    testSuite.addTest(test_element("test_formfact"))
-    testSuite.addTest(test_element("test_serialize"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

@@ -81,20 +81,3 @@ class test_units(unittest.TestCase):
                 else:
                     msg = "restore({}) is an array".format(k)
                 self.assertEqual(barr, barr2, msg=msg)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_units("test_quantunits"))
-    testSuite.addTest(test_units("test_asqarray"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

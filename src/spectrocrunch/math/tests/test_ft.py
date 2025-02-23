@@ -340,26 +340,3 @@ class test_ft(unittest.TestCase):
                                 sig,
                                 ft.ifft2(ft.fft2(sig, centered=True), centered=True),
                             )
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_ft("test_comp_np"))
-    testSuite.addTest(test_ft("test_consistent"))
-    testSuite.addTest(test_ft("test_dirac_delta"))
-    testSuite.addTest(test_ft("test_linear"))
-    testSuite.addTest(test_ft("test_shift"))
-    testSuite.addTest(test_ft("test_freq"))
-    testSuite.addTest(test_ft("test_subregion"))
-    testSuite.addTest(test_ft("test_center"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

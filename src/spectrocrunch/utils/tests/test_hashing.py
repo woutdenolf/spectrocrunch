@@ -124,26 +124,3 @@ class test_hashing(unittest.TestCase):
 
     def _assert_hash_not_in(self, x, expected):
         self.assertFalse(hashing.calchash(x) in expected)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_hashing("test_string"))
-    testSuite.addTest(test_hashing("test_number"))
-    testSuite.addTest(test_hashing("test_other"))
-    testSuite.addTest(test_hashing("test_array"))
-    testSuite.addTest(test_hashing("test_quantity"))
-    testSuite.addTest(test_hashing("test_uncertainties"))
-    testSuite.addTest(test_hashing("test_dict"))
-    testSuite.addTest(test_hashing("test_random"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

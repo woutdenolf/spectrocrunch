@@ -492,19 +492,3 @@ class test_fluoxas(TestCase):
             mask = data == np.nanmax(data)
             np.testing.assert_allclose(data[~mask], v1, rtol=1e-4, err_msg=grpname)
             np.testing.assert_allclose(data[mask], v2, rtol=1e-4, err_msg=grpname)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_fluoxas("test_process"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

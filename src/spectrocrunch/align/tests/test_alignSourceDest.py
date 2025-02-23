@@ -292,20 +292,3 @@ class test_alignSource(unittest.TestCase):
         self.assertIsInstance(listofstacks[0], np.ndarray)
         self.assertEqual(len(listofstacks[0].shape), 3)
         self.assertTrue(all(s.shape == listofstacks[0].shape for s in listofstacks))
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_alignSource("test_teststack"))
-    testSuite.addTest(test_alignSource("test_sourcedest"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

@@ -86,20 +86,3 @@ class test_qxrf(unittest.TestCase):
                 g1 = cls()
                 g2 = jsonpickle.loads(jsonpickle.dumps(g1))
                 self.assertEqual(g1, g2)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_qxrf("test_flux"))
-    testSuite.addTest(test_qxrf("test_serialize"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

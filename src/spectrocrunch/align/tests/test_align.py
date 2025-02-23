@@ -303,26 +303,3 @@ class test_align(unittest.TestCase):
 
     def test_gaussmax(self):
         self.assertAlign(alignGaussMax, transformationType.translation, subpixel=False)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_align("test_fft_internals"))
-    testSuite.addTest(test_align("test_min"))
-    testSuite.addTest(test_align("test_max"))
-    testSuite.addTest(test_align("test_centroid"))
-    testSuite.addTest(test_align("test_gaussmax"))
-    testSuite.addTest(test_align("test_fft"))
-    testSuite.addTest(test_align("test_elastix"))
-    testSuite.addTest(test_align("test_sift"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

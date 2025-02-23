@@ -61,21 +61,3 @@ class test_signalhandling(unittest.TestCase):
     def test_sigexit(self):
         self._check_signal(lambda: sys.exit(0))
         self._check_signal(lambda: exit(0))
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_signalhandling("test_noerror"))
-    testSuite.addTest(test_signalhandling("test_error"))
-    testSuite.addTest(test_signalhandling("test_sigterm"))
-    testSuite.addTest(test_signalhandling("test_sigint"))
-    testSuite.addTest(test_signalhandling("test_sigexit"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

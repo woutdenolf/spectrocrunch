@@ -470,28 +470,3 @@ class test_task_generic(test_task):
 
         for a, b in zip(grid, data):
             np.testing.assert_array_equal(a, b)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_task_generic("test_grid"))
-    testSuite.addTest(test_task_generic("test_copy"))
-    testSuite.addTest(test_task_generic("test_concurrency"))
-    testSuite.addTest(test_task_generic("test_crop"))
-    testSuite.addTest(test_task_generic("test_replace"))
-    testSuite.addTest(test_task_generic("test_minlog"))
-    testSuite.addTest(test_task_generic("test_align"))
-    testSuite.addTest(test_task_generic("test_expression"))
-    testSuite.addTest(test_task_generic("test_resample"))
-    testSuite.addTest(test_task_generic("test_scenevis"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

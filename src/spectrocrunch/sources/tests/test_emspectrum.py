@@ -32,21 +32,3 @@ class test_emspectrum(unittest.TestCase):
         s1 = emspectrum.Dark()
         s2 = jsonpickle.loads(jsonpickle.dumps(s1))
         self.assertEqual(s1, s2)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_emspectrum("test_discrete"))
-    testSuite.addTest(test_emspectrum("test_dark"))
-    testSuite.addTest(test_emspectrum("test_serialize"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

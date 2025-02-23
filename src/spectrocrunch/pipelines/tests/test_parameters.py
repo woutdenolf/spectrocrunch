@@ -297,23 +297,3 @@ class test_parameters(unittest.TestCase):
         print(root.tree())
 
         # print node1
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_parameters("test_hash"))
-    testSuite.addTest(test_parameters("test_inheritance"))
-    testSuite.addTest(test_parameters("test_insert_connections"))
-    testSuite.addTest(test_parameters("test_insert_parameters"))
-    # testSuite.addTest(test_parameters("debug2"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

@@ -223,17 +223,3 @@ class test_ffxas(unittest.TestCase):
                 self._process(*combination)
                 sys.stdout.write(".")
                 sys.stdout.flush()
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_ffxas("test_process"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

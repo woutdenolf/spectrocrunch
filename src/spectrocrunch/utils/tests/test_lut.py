@@ -86,24 +86,3 @@ class test_lut(unittest.TestCase):
             return l1(units.Quantity(x, "keV")).to("mA").magnitude.tolist()
 
         self.assertEqual(func([7, 7.05, 7.1, 7.2]), [4, 5, 2, 6])
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_lut("test_sort"))
-    testSuite.addTest(test_lut("test_units"))
-    testSuite.addTest(test_lut("test_add"))
-    testSuite.addTest(test_lut("test_replace"))
-    testSuite.addTest(test_lut("test_interpolate"))
-    testSuite.addTest(test_lut("test_serialize"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

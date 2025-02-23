@@ -52,20 +52,3 @@ class test_csutils(unittest.TestCase):
         Z, E = [[1, 2, 3], [1, 2, 3]], [np.linspace(7, 7.5, 5), np.linspace(7, 7.5, 5)]
         result = csutils.eval(method, Z, E)
         self.assertEqual(result.shape, (2, 3, 2, 5))
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_csutils("test_shape"))
-    testSuite.addTest(test_csutils("test_shape_np"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

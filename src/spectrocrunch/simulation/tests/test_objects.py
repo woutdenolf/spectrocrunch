@@ -154,24 +154,3 @@ class test_objects(unittest.TestCase):
         return  # TODO
         o = diode.factory("idet")
         self._checkprop(o)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_objects("test_materials"))
-    testSuite.addTest(test_objects("test_scintillators"))
-    testSuite.addTest(test_objects("test_detectors"))
-    testSuite.addTest(test_objects("test_lenses"))
-    testSuite.addTest(test_objects("test_diodes"))
-
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)

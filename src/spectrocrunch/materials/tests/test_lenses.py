@@ -13,19 +13,3 @@ class test_lenses(unittest.TestCase):
                 l1 = cls()
                 l2 = jsonpickle.loads(jsonpickle.dumps(l1))
                 self.assertEqual(l1, l2)
-
-
-def main_test_suite():
-    """Test suite including all test suites"""
-    testSuite = unittest.TestSuite()
-    testSuite.addTest(test_lenses("test_serialize"))
-    return testSuite
-
-
-if __name__ == "__main__":
-    import sys
-
-    mysuite = main_test_suite()
-    runner = unittest.TextTestRunner()
-    if not runner.run(mysuite).wasSuccessful():
-        sys.exit(1)
