@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# flake8: noqa
 
 from peewee import *
 import urllib
@@ -196,7 +196,7 @@ def codtunnel():
     try:
         server.start()
         yield
-    except:
+    except Exception:
         print(traceback.format_exc())
 
     server.stop()

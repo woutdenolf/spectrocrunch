@@ -1,4 +1,0 @@
-testfixtures
-sphinx
-nbsphinx
-flake8

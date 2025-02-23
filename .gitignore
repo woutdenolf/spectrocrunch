@@ -1,24 +1,17 @@
+# Hidden files
+.*
+!.gitignore
+!.flake8
+!.flake8_nb
+
+# Byte / compiled / optimized
 *.py[cod]
+__pycache__/
+*.so
 
-# Generated
-build
-dist
-*.egg*
-doc/source/apidocs
-
-# Temporary files
-*~
-*.h5
-*.nx5
-*.hdf5
-log.*
-*.png
-*.log
-*.*.txt
-*.cprof
-.[^.]*
-test.*
-
-# Generated data
-testresults
-testdata
+# Distribution / packaging
+/build/
+/dist/
+*.egg-info/
+.eggs/
+/doc/_generated

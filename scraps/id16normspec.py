@@ -1,16 +1,4 @@
-# -*- coding: utf-8 -*-
-
-filename = "/data/id16b/inhouse1/comm_17jan/restart/sofc/26jan/6100h_fluoXAS_0/results/6100h_fluoXAS_0/test.h5"
-name = "/detectorsum/Ni-K"
-new = "/detectorsum/Ni-K_norm"
-
-specfile = "/data/id16b/inhouse1/comm_17jan/ma3257/align.spec"
-specscannumber = 33
-energyname = "energy"
-fluxname = "flux_It"
-
-
-###### Import libraries ######
+# Import libraries
 from spectrocrunch.io.spec import spec
 from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks
 from spectrocrunch.math.interpolate import extrap1d
@@ -20,7 +8,17 @@ import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 
-###### Get flux from spec file ######
+# Parameters
+filename = "/data/id16b/inhouse1/comm_17jan/restart/sofc/26jan/6100h_fluoXAS_0/results/6100h_fluoXAS_0/test.h5"
+name = "/detectorsum/Ni-K"
+new = "/detectorsum/Ni-K_norm"
+
+specfile = "/data/id16b/inhouse1/comm_17jan/ma3257/align.spec"
+specscannumber = 33
+energyname = "energy"
+fluxname = "flux_It"
+
+# Get flux from spec file
 fspec = spec(specfile)
 data, info = fspec.getdata(specscannumber, [energyname, fluxname])
 energy = data[:, 0]
@@ -28,10 +26,10 @@ Inorm = data[:, 1]
 Inorm[:] = 2.0
 fluxfunc = extrap1d(interp1d(energy, Inorm))
 
-###### Get stack to normalize ######
+# Get stack to normalize
 stacks, axes = get_hdf5_imagestacks(filename, ["detectorsum"])
 
-###### Add normalized dataset ######
+# Add normalized dataset
 fh5 = h5py.File(filename)
 stackdim = 2
 

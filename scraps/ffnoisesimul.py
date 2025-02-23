@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-
-import os, sys
-
-sys.path.insert(1, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from spectrocrunch.materials.compoundfromformula import compoundfromformula
 from spectrocrunch.materials.compoundfromname import compoundfromname
 from spectrocrunch.materials.mixture import mixture
 from spectrocrunch.materials.types import fraction
@@ -29,8 +22,7 @@ class sample(object):
 
         return ndata, nflat
 
-    @staticmethod
-    def getrealtime(totaltime, frametime, fracflat):
+    def getrealtime(self, totaltime, frametime, fracflat):
         ndata, nflat = self.getnframes(totaltime, frametime, fracflat)
         n = ndata + nflat
         overhead = 6.50305 + 0.0131498 * n
@@ -181,7 +173,7 @@ class sample_hg115(sample):
         self.set_paintthickness(thickness)
 
         plt.plot(t, 1 / r, "-o", label="{} %".format(self.get_wpigment()))
-        plt.xlabel("thickness ($\mu$m)")
+        plt.xlabel(r"thickness ($\mu$m)")
         plt.ylabel("Jump-to-noise")
 
     def optimize_wpigment_plot(self, I0, energy, **kwargs):
@@ -195,7 +187,7 @@ class sample_hg115(sample):
 
         self.set_wpigment(w)
 
-        plt.plot(t, 1 / r, "-o", label="{} $\mu$m".format(self.get_paintthickness()))
+        plt.plot(t, 1 / r, "-o", label=r"{} $\mu$m".format(self.get_paintthickness()))
         plt.xlabel("Verdigris (%)")
         plt.ylabel("Jump-to-noise")
 

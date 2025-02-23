@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-
-import os, sys
-
-sys.path.insert(1, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from spectrocrunch.io.spec import spec
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,7 +8,6 @@ from spectrocrunch.materials.compoundfromformula import compoundfromformula as c
 from spectrocrunch.materials.mixture import mixture
 from spectrocrunch.materials.types import fraction
 
-import xraylib
 import silx.math.fit as fit
 
 

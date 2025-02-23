@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# flake8: noqa
 
 from sage.all_cmdline import *  # import sage library
 
@@ -6,7 +6,6 @@ _sage_const_1 = Integer(1)
 _sage_const_0 = Integer(0)  #!/usr/bin/env sage
 
 from sage.all import *
-from sage.symbolic.integration.integral import definite_integral
 
 var("t,s,r,t", domain="real")
 var("y,l", domain="integer")

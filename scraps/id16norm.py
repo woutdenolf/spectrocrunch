@@ -1,17 +1,14 @@
-# -*- coding: utf-8 -*-
+# Import libraries
+import spectrocrunch.io.nexus as nexus
+from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks
+import h5py
 
+# Parameters
 filename = "/data/id16b/inhouse1/comm_17jan/restart/sofc/26jan/6100h_fluoXAS_0/results/6100h_fluoXAS_0/test.h5"
 name = ["/detectorsum/Ni-K_norm", "/counters/arr_srcurr"]
 new = "/detectorsum/Ni-K_norm2"
 
-
-###### Import libraries ######
-import spectrocrunch.io.nexus as nexus
-from spectrocrunch.h5stacks.get_hdf5_imagestacks import get_hdf5_imagestacks
-import h5py
-import numpy as np
-
-###### Normalize one dataset by another ######
+# Normalize one dataset by another
 stacks, axes = get_hdf5_imagestacks(filename, ["detectorsum"])
 
 f = h5py.File(filename)

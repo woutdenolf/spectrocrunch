@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from spectrocrunch.process.id21_fluoxas import process
 
 if __name__ == "__main__":

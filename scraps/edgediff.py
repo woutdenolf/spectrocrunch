@@ -1,13 +1,6 @@
-# -*- coding: utf-8 -*-
-
-import os, sys
-
-sys.path.insert(1, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import glob
 import os
+import glob
 import re
-import pylab
 import numpy as np
 import fabio
 
@@ -17,7 +10,7 @@ from spectrocrunch.align.alignSift import alignSift as align
 def edgeimagepairs(path, radix, threshold=0):
     """path/radix_[0-9]_edge_[0-9].[0-9].edf"""
     base = os.path.join(path, radix)
-    pattern = re.compile(base + "_([0-9]+)_edge_([0-9]+\.?[0-9]*).edf")
+    pattern = re.compile(base + r"_([0-9]+)_edge_([0-9]+\.?[0-9]*).edf")
 
     files = sorted(glob.glob(base + "*.edf"))
     files = [f for f in files if pattern.match(f)]

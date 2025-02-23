@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-
-import sys
-
-# sys.path.insert(1,'/data/id21/inhouse/wout/dev/Spectrocrunch')
-
 from spectrocrunch.io.xiaedf import xiastack_radix as xiareader
 from spectrocrunch.io.xiaedf import xiaimage_number as xiawriter
 
@@ -16,14 +10,9 @@ from spectrocrunch.math.common import round_sig as roundflux
 
 try:
     from spectrocrunch.align.alignElastix import alignElastix as alignclass
-except:
+except Exception:
     # from spectrocrunch.align.alignFFT import alignFFT as alignclass
     pass
-
-# from silx.gui import qt
-# from silx.gui.plot.StackView import StackViewMainWindow
-# from silx.gui.plot import Plot1D
-# from silx.gui.plot import Plot2D
 
 import numpy as np
 
@@ -54,9 +43,9 @@ class readme(object):
         with open(self.filename, "a") as f:
 
             if isinstance(line, list):
-                for l in line:
-                    print(l)
-                    f.write(l + "\n")
+                for item in line:
+                    print(item)
+                    f.write(item + "\n")
             else:
                 print(line)
                 f.write(line + "\n")
@@ -135,7 +124,6 @@ def normfunc(datadirs, normctr, pymcaflux, logger):
     else:
         m = linfit_zerointercept(counts, current - b)
 
-    info = []
     logger("\nIt(A) = m.It(cts) + b")
     logger(" m = {} A/cts".format(m))
     logger(" b = {} A".format(b))
@@ -240,37 +228,6 @@ if __name__ == "__main__":
     print("\nReading data...")
     data = stackin.data
 
-    bqt = False
-
-    # Show total MCA maps
-    if False:
-        mcasum = data.sum(axis=3)
-        if add:
-            mcasum = mcasum[..., 0]
-        else:
-            mcasum = data.sum(axis=-1)
-        sv = StackViewMainWindow()
-        sv.setColormap("jet", autoscale=True)
-        sv.setStack(mcasum)
-        sv.setLabels(["repeat", "imagerow", "imagecolumn"])
-        sv.show()
-        bqt = True
-
-    # Show DT maps
-    if False:
-        # nrep x nrow x ncol x 2 x ndet
-        stats = stackin.stats
-        stats = (1 - stats[..., 1, :] / stats[..., 0, :].astype(float)) * 100
-        stats = stats.transpose([1, 2, 0, 3])
-        s = stats.shape
-        stats = stats.reshape((s[0], s[1], s[2] * s[3]))
-        sv = StackViewMainWindow()
-        sv.setColormap("jet", autoscale=True)
-        sv.setStack(stats)
-        sv.setLabels(["imagerow", "imagecolumn", "nrep*ndet"])
-        sv.show()
-        bqt = True
-
     # Align and sum repeats
     nrep, nrow, ncol, nchan, ndet = data.shape
     if align:
@@ -353,7 +310,3 @@ if __name__ == "__main__":
     # Write data: nrow x ncol x nchan x ndet
     print("\nWriting data...")
     mapout.save(data, xialabels)
-
-    # Show graphics if needed
-    if bqt:
-        qapp.exec_()

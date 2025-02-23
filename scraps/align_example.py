@@ -1,14 +1,5 @@
-# -*- coding: utf-8 -*-
-
-import os, sys
-
-sys.path.insert(1, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from spectrocrunch.align.alignElastix import alignElastix
-from spectrocrunch.align.alignFFT import alignFFT
 from spectrocrunch.align.alignSift import alignSift
-from spectrocrunch.align.alignSimple import alignMax
-from spectrocrunch.align.alignSimple import alignMin
 from spectrocrunch.align.types import transformationType
 
 from spectrocrunch.align.tests.teststack import teststack

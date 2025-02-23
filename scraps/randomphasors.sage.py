@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# flake8: noqa
 
 from sage.all_cmdline import *  # import sage library
 
@@ -58,8 +58,7 @@ BB = (
 )
 
 assert (
-    AA * uxr**_sage_const_2 + BB * uxr * uyr + CC * uyr**_sage_const_2
-    == _sage_const_1
+    AA * uxr**_sage_const_2 + BB * uxr * uyr + CC * uyr**_sage_const_2 == _sage_const_1
 )
 
 DD = sqrt((AA - CC) ** _sage_const_2 + BB**_sage_const_2)

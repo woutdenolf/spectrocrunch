@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import xraylib
 import numpy as np
 import requests
@@ -15,7 +13,15 @@ NA = xraylib.AVOGNUM * 1e24  # atom/mol
 re = xraylib.R_E * 1e2  # cm
 
 Z = [xraylib.SymbolToAtomicNumber(e) for e in elements]
-fgen = lambda f: np.vectorize(lambda z: f(z, energy))
+
+
+def fgen(f, energy):
+    def inner(z):
+        return f(z, energy)
+
+    return np.vectorize(inner)
+
+
 fMM = np.vectorize(xraylib.AtomicWeight)
 fFii = np.vectorize(fgen(xraylib.Fii))
 fmuPE = np.vectorize(fgen(xraylib.CS_Photo_Total))
@@ -32,7 +38,11 @@ N = wfrac * NA / MM * density  # atoms/cm^3
 # https://physics.nist.gov/PhysRefData/FFast/Text1995/chap02.html
 Fii = fFii(Z)  # Im(f) in e/atom
 
-fFii = lambda mu: mu / (-2 * re * wavelength * NA / MM)
+
+def fFii(mu, re, wavelength, NA, MM):
+    return mu / (-2 * re * wavelength * NA / MM)
+
+
 print("\nIm(f) = mu/(-2.re.wavelength.NA/MM)")
 
 print(" Z = {}".format(Z))
@@ -49,8 +59,11 @@ print(
 Fiicalc = fFii(fmuTot2(Z))
 print(" Im(f)(CS_Total) = {}".format(",".join("{:f}".format(x) for x in Fiicalc)))
 
+
 # https://physics.nist.gov/PhysRefData/FFast/Text1995/chap01.html
-fbeta = lambda Imf: -re / (2 * np.pi) * wavelength**2 * sum(N * Imf)
+def fbeta(Imf, re, wavelength, N):
+    return -re / (2 * np.pi) * wavelength**2 * sum(N * Imf)
+
 
 # http://henke.lbl.gov/optical_constants/getdb2.html
 url = "http://henke.lbl.gov/cgi-bin/getdb.pl"
