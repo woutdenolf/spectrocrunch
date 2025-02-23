@@ -10,6 +10,7 @@ import logging
 import dateutil.tz
 import dateutil.parser
 import traceback
+from importlib.metadata import version as get_version
 
 from . import fs
 from . import h5fs
@@ -18,9 +19,9 @@ from ..utils import instance
 from ..utils import hashing
 from ..patch import jsonpickle
 from . import target
-from .. import __version__
 
 PROGRAM_NAME = "spectrocrunch"
+PROGRAM_VERSION = get_version("spectrocrunch")
 DEFAULT_PLOT_NAME = "defaultplot"
 
 logger = logging.getLogger(__name__)
@@ -456,7 +457,7 @@ class Path(h5fs.Path):
         return None
 
     def _nxfiles_nxprocess(self):
-        return {"program": PROGRAM_NAME, "version": __version__, "date": timestamp()}
+        return {"program": PROGRAM_NAME, "version": PROGRAM_VERSION, "date": timestamp()}
 
     def nxinstrument(self, **openparams):
         path = self.findfirstup_is_nxclass("NXinstrument")

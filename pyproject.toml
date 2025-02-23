@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spectrocrunch"
+version = "1.0.0"
+description = "Spectroscopic imaging library (XRF/XAS)"
+authors = [{ name = "ESRF", email = "dau-pydev@esrf.fr" }]
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { file = "LICENSE.md" }
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "setuptools",
+    "numpy",
+    "future",
+    "scipy",
+    "h5py",
+    "fabio",
+    "silx",
+    "pyparsing",
+    "shapely",
+    "matplotlib",
+    "uncertainties",
+    "pint",
+    "pandas",
+    "scikit-image",
+    "xlsxwriter",
+    "xlrd",
+    "openpyxl",
+    "python-dateutil",
+    "jsonpickle",
+    "testfixtures",
+    "future",
+    "cvxopt",
+    "pymca5"
+]
+
+[project.urls]
+Homepage = "https://github.com/woutdenolf/spectrocrunch"
+
+[project.optional-dependencies]
+physics = [
+    "xraylib",
+    "cctbx",
+    "fdmnes",
+    "PyTMM"
+]
+elastix = [
+    "SimpleITK"
+]
+test = [
+    "pytest",
+    "testfixtures"
+]
+dev = [
+    "spectrocrunch[test]",
+    "black[jupyter] >=25",
+    "flake8 >=4",
+    "flake8_nb >= 0.3.1",
+]
+doc = [
+    "spectrocrunch[test]",
+    "sphinx",
+    "nbsphinx",
+    "pydata-sphinx-theme",
+]
+
+[tool.setuptools]
+packages = ["spectrocrunch"]
+
+[tool.setuptools.package-data]
+"spectrocrunch.resources" = ["*/*.*"]
