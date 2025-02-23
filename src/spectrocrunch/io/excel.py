@@ -112,7 +112,7 @@ class DataFrame(object):
         self.df = pd.concat([self.df, df], ignore_index=False, sort=False)
 
     def _addvalue(self, row, column, data):
-        self.df.at[row, column] = data
+        self.df.loc[row, column] = data
 
     def _addrow(self, row, data):
         if isinstance(data, dict):
@@ -425,7 +425,9 @@ class DataFrame(object):
             if c0 == 1:
                 width = max(width, max(len(rowindex) for rowindex in self.df.index))
             else:
-                width = max(width, max(len(rowindex[c]) for rowindex in self.df.index))
+                width = max(
+                    width, max(len(str(rowindex[c])) for rowindex in self.df.index)
+                )
             hname = self.df.index.names[c]
             if hname:
                 width = max(width, len(hname))
