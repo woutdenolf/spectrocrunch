@@ -383,9 +383,11 @@ function project_folder()
 
 # ============project_name============
 # Description: Project name
-function project_name()
-{
-    echo $(grep "PROJECT =" $(project_folder)/setup.py | sed 's/[^"]*"\([^"]*\)".*/\1/')
+function project_name() {
+    echo $(
+        grep -E '^name\s*=' "$(project_folder)/pyproject.toml" \
+        | sed 's/.*=\s*"\([^"]*\)".*/\1/'
+    )
 }
 
 
