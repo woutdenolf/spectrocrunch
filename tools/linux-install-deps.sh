@@ -144,11 +144,8 @@ function main()
         cprint "This was a dryrun, so it didn't install anything."
     fi
 
-    cprint "AAAAAAAAAAAAAAAA"
-    pip_bin
+    cprint "Python Packages Installed:"
     pip_bin list
-    python -m pip list
-    cprint "AAAAAAAAAAAAAAAA"
 
     timer
     cd ${GLOBAL_WD}

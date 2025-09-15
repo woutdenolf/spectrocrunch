@@ -299,10 +299,10 @@ function addProfilePythonUserBase()
 
 function pip_install()
 {
-    addProfilePythonUserBase
     if [[ $(install_systemwide) == true || $(python_virtualenv_active) == true ]]; then
         $(pip_bin) install $@
     else
+        addProfilePythonUserBase
         $(pip_bin) install --user $@ 
     fi
 }
@@ -310,10 +310,10 @@ function pip_install()
 
 function pip_upgrade()
 {
-    addProfilePythonUserBase
     if [[ $(install_systemwide) == true || $(python_virtualenv_active) == true ]]; then
         $(pip_bin) install --upgrade $@
     else
+        addProfilePythonUserBase
         $(pip_bin) install --upgrade --user $@ 
     fi
 }
@@ -321,7 +321,6 @@ function pip_upgrade()
 
 function pip_ensure()
 {
-    addProfilePythonUserBase
     if [[ $(python_hasmodule pip) == false ]]; then
         if [[ $(python_hasmodule ensurepip) == true ]]; then
             if [[ $(python_virtualenv_active) == true ]]; then
@@ -330,6 +329,7 @@ function pip_ensure()
                 if [[ $(install_systemwide) == true ]]; then
                     $(python_bin) -m ensurepip
                 else
+                    addProfilePythonUserBase
                     $(python_bin) -m ensurepip --user
                 fi
                 # ensurepip is disabled in Debian/Ubuntu for the system python
@@ -428,9 +428,11 @@ function require_python()
 function require_pip()
 {
     pip_ensure
-    pip_upgrade pip
-    pip_upgrade setuptools
-    pip_upgrade wheel
+    if [[ $(install_systemwide) == false ]]; then
+        pip_upgrade pip
+        pip_upgrade setuptools
+        pip_upgrade wheel
+    fi
 }
 
 
